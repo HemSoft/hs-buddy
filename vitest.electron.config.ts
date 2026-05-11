@@ -17,10 +17,10 @@ export default defineConfig({
         'electron/__mocks__/**',
       ],
       thresholds: {
-        statements: 84,
-        branches: 68,
+        statements: 95,
+        branches: 89,
         functions: 89,
-        lines: 86,
+        lines: 95.75,
       },
     },
   },

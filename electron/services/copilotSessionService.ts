@@ -45,7 +45,7 @@ export function resolveWorkspaceName(wsDir: string): string {
 
 // ─── Scan: fs metadata + first-line init parse (fast) ─────
 
-function extractScanInfo(filePath: string): {
+export function extractScanInfo(filePath: string): {
   title: string
   firstPrompt: string
   agent: string
@@ -69,7 +69,7 @@ function extractScanInfo(filePath: string): {
   }
 }
 
-function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[] {
+export function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[] {
   const chatDir = path.join(wsRoot, hash, 'chatSessions')
   let files: string[]
   try {
@@ -82,7 +82,7 @@ function collectWorkspaceSessions(wsRoot: string, hash: string): SessionSummary[
   return files.flatMap(file => parseSessionFile(wsRoot, hash, workspaceName, file))
 }
 
-function parseSessionFile(
+export function parseSessionFile(
   wsRoot: string,
   hash: string,
   workspaceName: string,
@@ -166,7 +166,7 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
   })
 }
 
-function buildSessionFromState(
+export function buildSessionFromState(
   state: SessionParseState,
   workspaceHash: string,
   filePath: string
@@ -193,7 +193,7 @@ function buildSessionFromState(
   }
 }
 
-function buildSortedResults(state: SessionParseState): SessionRequestResult[] {
+export function buildSortedResults(state: SessionParseState): SessionRequestResult[] {
   const sortedIndices = [...state.resultsByIndex.keys()].sort((a, b) => a - b)
   return sortedIndices.map(idx => {
     const r = state.resultsByIndex.get(idx)!

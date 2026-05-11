@@ -1,3 +1,4 @@
+import path from 'path'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('electron', () => ({
@@ -223,5 +224,507 @@ describe('terminalHandlers', () => {
   it('terminal:resize ignores non-existent sessions', () => {
     const resizeListener = listeners.get('terminal:resize')!
     expect(() => resizeListener({}, 'nonexistent', 120, 40)).not.toThrow()
+  })
+
+  it('terminal:kill kills and cleans up session', async () => {
+    // Spawn a session first
+    const spawnHandler = handlers.get('terminal:spawn')!
+    const mockSender = {
+      isDestroyed: vi.fn(() => false),
+      send: vi.fn(),
+    }
+    const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+    // Then kill it
+    const killHandler = handlers.get('terminal:kill')!
+    await expect(killHandler({}, spawnResult.sessionId)).resolves.not.toThrow()
+
+    // Writing to killed session should be silently ignored
+    const writeListener = listeners.get('terminal:write')!
+    expect(() => writeListener({}, spawnResult.sessionId, 'hello')).not.toThrow()
+  })
+
+  it('terminal:kill ignores non-existent sessions', async () => {
+    const killHandler = handlers.get('terminal:kill')!
+    await expect(killHandler({}, 'nonexistent-id')).resolves.not.toThrow()
+  })
+
+  it('registers before-quit handler via app.on', async () => {
+    const { app } = await import('electron')
+    expect(app.on).toHaveBeenCalledWith('before-quit', expect.any(Function))
+  })
+
+  function createTrackedPtyHarness() {
+    type MockPty = {
+      onData: ReturnType<typeof vi.fn>
+      onExit: ReturnType<typeof vi.fn>
+      write: ReturnType<typeof vi.fn>
+      resize: ReturnType<typeof vi.fn>
+      kill: ReturnType<typeof vi.fn>
+      emitData: (data: string) => void
+      emitExit: (exitCode: number) => void
+    }
+    const ptyProcesses: MockPty[] = []
+    const spawn = vi.fn(() => {
+      let onData: ((data: string) => void) | undefined
+      let onExit: ((event: { exitCode: number }) => void) | undefined
+
+      const ptyProcess = {
+        onData: vi.fn((callback: (data: string) => void) => {
+          onData = callback
+          return { dispose: vi.fn() }
+        }),
+        onExit: vi.fn((callback: (event: { exitCode: number }) => void) => {
+          onExit = callback
+          return { dispose: vi.fn() }
+        }),
+        write: vi.fn(),
+        resize: vi.fn(),
+        kill: vi.fn(),
+        emitData: (data: string) => onData?.(data),
+        emitExit: (exitCode: number) => onExit?.({ exitCode }),
+      }
+
+      ptyProcesses.push(ptyProcess)
+      return ptyProcess
+    })
+
+    const createRequireImpl = () => {
+      const req = (mod: string) => {
+        if (mod === 'node-pty') {
+          return { spawn }
+        }
+        if (mod.includes('node-pty/lib/utils')) {
+          return { loadNativeModule: vi.fn(() => ({ dir: '', module: {} })) }
+        }
+        throw new Error(`Unknown module: ${mod}`)
+      }
+      req.resolve = vi.fn(() => '/fake/node-pty/package.json')
+      return req
+    }
+
+    return { ptyProcesses, spawn, createRequireImpl }
+  }
+
+  async function registerFreshTerminalHandlers(
+    createRequireImpl?: ReturnType<typeof createTrackedPtyHarness>['createRequireImpl'],
+    processOsc7Impl?: (
+      buffer: string,
+      data: string
+    ) => {
+      cwd: string | null
+      remainingBuffer: string
+    }
+  ) {
+    vi.resetModules()
+
+    const { ipcMain } = await import('electron')
+    const { createRequire } = await import('node:module')
+    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const freshHandlers = new Map<string, (...args: any[]) => any>()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const freshListeners = new Map<string, (...args: any[]) => any>()
+
+    vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
+      freshHandlers.set(channel, handler)
+    })
+    vi.mocked(ipcMain.on).mockImplementation((channel, handler) => {
+      freshListeners.set(channel, handler)
+      return ipcMain
+    })
+
+    const mockCreateRequire = vi.mocked(createRequire)
+    const originalCreateRequireImpl = mockCreateRequire.getMockImplementation()
+    const mockProcessOsc7Buffer = vi.mocked(terminalPathUtils.processOsc7Buffer)
+    const originalProcessOsc7Impl = mockProcessOsc7Buffer.getMockImplementation()
+
+    if (createRequireImpl) {
+      mockCreateRequire.mockImplementation(
+        createRequireImpl as unknown as (path: string | URL) => NodeRequire
+      )
+    }
+    mockProcessOsc7Buffer.mockImplementation(
+      processOsc7Impl ?? (() => ({ cwd: null, remainingBuffer: '' }))
+    )
+
+    const { registerTerminalHandlers: freshRegister } = await import('./terminalHandlers')
+    freshRegister()
+
+    return {
+      freshHandlers,
+      freshListeners,
+      restore: () => {
+        if (originalCreateRequireImpl) {
+          mockCreateRequire.mockImplementation(originalCreateRequireImpl)
+        }
+        mockProcessOsc7Buffer.mockReset()
+        if (originalProcessOsc7Impl) {
+          mockProcessOsc7Buffer.mockImplementation(originalProcessOsc7Impl)
+        } else {
+          mockProcessOsc7Buffer.mockReturnValue({ cwd: null, remainingBuffer: '' })
+        }
+      },
+    }
+  }
+
+  it('terminal:spawn returns error when pty.spawn throws', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    ptyHarness.spawn.mockImplementationOnce(() => {
+      throw new Error('PTY spawn failed')
+    })
+
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cols: 80, rows: 24 }
+      )
+
+      expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal:spawn falls back to powershell.exe when pwsh.exe is unavailable', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    const originalPlatform = process.platform
+    try {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+
+      const { execFileSync } = await import('node:child_process')
+      vi.mocked(execFileSync).mockImplementationOnce(() => {
+        throw new Error('pwsh missing')
+      })
+
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cols: 80, rows: 24 }
+      )
+
+      expect(result.success).toBe(true)
+      expect(ptyHarness.spawn).toHaveBeenCalledWith(
+        'powershell.exe',
+        expect.any(Array),
+        expect.any(Object)
+      )
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      restore()
+    }
+  })
+
+  it('terminal:spawn falls back to the default cwd when cwd validation throws', async () => {
+    const originalPlatform = process.platform
+    Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+
+    const originalUserProfile = process.env.USERPROFILE
+    process.env.USERPROFILE = 'C:\\default-home'
+
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const { statSync } = await import('node:fs')
+      vi.mocked(statSync).mockImplementationOnce(() => {
+        throw new Error('stat failed')
+      })
+
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cwd: 'C:\\broken-path', cols: 80, rows: 24 }
+      )
+
+      expect(result.cwd).toBe('C:\\default-home')
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      restore()
+      if (originalUserProfile === undefined) {
+        delete process.env.USERPROFILE
+      } else {
+        process.env.USERPROFILE = originalUserProfile
+      }
+    }
+  })
+
+  it('terminal:spawn returns an error when node-pty fails to load at module scope', async () => {
+    const createRequireImpl = () => {
+      const req = (mod: string) => {
+        if (mod === 'node-pty') {
+          throw new Error('node-pty unavailable')
+        }
+        if (mod.includes('node-pty/lib/utils')) {
+          return { loadNativeModule: vi.fn(() => ({ dir: '', module: {} })) }
+        }
+        throw new Error(`Unknown module: ${mod}`)
+      }
+      req.resolve = vi.fn(() => '/fake/node-pty/package.json')
+      return req
+    }
+
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(createRequireImpl)
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cols: 80, rows: 24 }
+      )
+
+      expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal:write forwards data to alive sessions', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, freshListeners, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'hello from test')
+
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('hello from test')
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal:attach returns truncated scrollback when the buffer exceeds the limit', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const attachHandler = freshHandlers.get('terminal:attach')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+      const oversizedChunk = 'x'.repeat(100_001)
+
+      ptyHarness.ptyProcesses[0].emitData(oversizedChunk)
+
+      const attachResult = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
+      expect(attachResult.buffer).toHaveLength(100_000)
+      expect(attachResult.buffer).toBe(oversizedChunk.slice(-100_000))
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal:spawn schedules startupCommand writes for alive sessions', async () => {
+    vi.useFakeTimers()
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      await spawnHandler(
+        { sender: mockSender },
+        { cols: 80, rows: 24, startupCommand: 'echo hello' }
+      )
+
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(500)
+
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('echo hello\r')
+    } finally {
+      restore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('terminal PTY callbacks skip IPC sends for destroyed renderers', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const attachHandler = freshHandlers.get('terminal:attach')!
+      const destroyedSender = { isDestroyed: vi.fn(() => true), send: vi.fn() }
+      const spawnResult = await spawnHandler({ sender: destroyedSender }, { cols: 80, rows: 24 })
+
+      ptyHarness.ptyProcesses[0].emitData('hello')
+      ptyHarness.ptyProcesses[0].emitExit(23)
+
+      expect(destroyedSender.send).not.toHaveBeenCalled()
+
+      const attachResult = await attachHandler({ sender: destroyedSender }, spawnResult.sessionId)
+      expect(attachResult.alive).toBe(false)
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal PTY data pushes cwd changes from OSC 7 sequences', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const newCwd = 'C:\\repos\\updated'
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl,
+      () => ({ cwd: newCwd, remainingBuffer: '' })
+    )
+
+    try {
+      const { IPC_PUSH } = await import('../../src/ipc/contracts')
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler(
+        { sender: mockSender },
+        { cwd: 'C:\\repos\\initial', cols: 80, rows: 24 }
+      )
+      const osc7Data = '\u001b]7;file:///C:/repos/updated\u0007'
+
+      ptyHarness.ptyProcesses[0].emitData(osc7Data)
+
+      expect(mockSender.send).toHaveBeenNthCalledWith(
+        1,
+        IPC_PUSH.TERMINAL_DATA,
+        spawnResult.sessionId,
+        osc7Data,
+        1
+      )
+      expect(mockSender.send).toHaveBeenNthCalledWith(
+        2,
+        IPC_PUSH.TERMINAL_CWD_CHANGED,
+        spawnResult.sessionId,
+        path.resolve(newCwd)
+      )
+    } finally {
+      restore()
+    }
+  })
+
+  it('terminal:resize swallows PTY resize errors', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, freshListeners, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+      ptyHarness.ptyProcesses[0].resize.mockImplementationOnce(() => {
+        throw new Error('resize failed')
+      })
+
+      expect(() => {
+        freshListeners.get('terminal:resize')!({}, spawnResult.sessionId, 120, 40)
+      }).not.toThrow()
+      expect(ptyHarness.ptyProcesses[0].resize).toHaveBeenCalledWith(120, 40)
+    } finally {
+      restore()
+    }
+  })
+
+  it('before-quit handler cleans up active sessions', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const { app } = await import('electron')
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const attachHandler = freshHandlers.get('terminal:attach')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const firstSession = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+      const secondSession = await spawnHandler({ sender: mockSender }, { cols: 100, rows: 30 })
+      const beforeQuit = (vi.mocked(app.on).mock.calls as [string, () => void][])
+        .filter(([eventName]) => eventName === 'before-quit')
+        .at(-1)?.[1]
+
+      expect(beforeQuit).toBeDefined()
+
+      beforeQuit!()
+
+      expect(ptyHarness.ptyProcesses[0].kill).toHaveBeenCalled()
+      expect(ptyHarness.ptyProcesses[1].kill).toHaveBeenCalled()
+      await expect(attachHandler({ sender: mockSender }, firstSession.sessionId)).resolves.toEqual({
+        success: false,
+        error: 'Session not found',
+      })
+      await expect(attachHandler({ sender: mockSender }, secondSession.sessionId)).resolves.toEqual(
+        {
+          success: false,
+          error: 'Session not found',
+        }
+      )
+    } finally {
+      restore()
+    }
+  })
+
+  it('patches node-pty loadNativeModule to fall back to process.dlopen', async () => {
+    const originalDlopen = process.dlopen
+    const dlopenSpy = vi.fn(
+      (nativeModule: { exports: Record<string, unknown> }, nativePath: string) => {
+        nativeModule.exports.loadedFrom = nativePath
+      }
+    )
+    const ptyUtils = {
+      loadNativeModule: vi.fn((_name: string): { dir: string; module: Record<string, unknown> } => {
+        throw new Error('require is not defined')
+      }),
+    }
+    const createRequireImpl = () => {
+      const req = (mod: string) => {
+        if (mod === 'node-pty') {
+          return { spawn: vi.fn() }
+        }
+        if (mod.includes('node-pty/lib/utils')) {
+          return ptyUtils
+        }
+        throw new Error(`Unknown module: ${mod}`)
+      }
+      req.resolve = vi.fn(() => 'C:\\fake\\node-pty\\package.json')
+      return req
+    }
+
+    ;(process as { dlopen: typeof process.dlopen }).dlopen = dlopenSpy as typeof process.dlopen
+    const { restore } = await registerFreshTerminalHandlers(
+      createRequireImpl as unknown as Parameters<typeof registerFreshTerminalHandlers>[0]
+    )
+
+    try {
+      const result = ptyUtils.loadNativeModule('conpty')
+
+      expect(dlopenSpy).toHaveBeenCalledTimes(1)
+      expect(dlopenSpy.mock.calls[0]?.[1]).toContain('prebuilds')
+      expect(dlopenSpy.mock.calls[0]?.[1]).toMatch(/conpty\.node$/)
+      expect(result.dir).toContain('prebuilds')
+      expect(result.module).toEqual({ loadedFrom: dlopenSpy.mock.calls[0]?.[1] })
+    } finally {
+      restore()
+      ;(process as { dlopen: typeof process.dlopen }).dlopen = originalDlopen
+    }
   })
 })

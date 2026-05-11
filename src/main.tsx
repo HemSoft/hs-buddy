@@ -1,10 +1,16 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
+import { installBrowserIpcMock } from './browser-ipc-mock'
 import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { dataCache } from './services/dataCache'
 import { IPC_PUSH } from './ipc/contracts'
 import './index.css'
+
+// In non-Electron contexts (Lighthouse CI, browser testing), the preload bridge
+// is absent. Install mock IPC APIs so the app renders its full UI shell.
+// This is a no-op when window.ipcRenderer already exists (normal Electron use).
+installBrowserIpcMock()
 
 // Development-only: react-scan for render performance visibility
 // Activate with: VITE_REACT_SCAN=1 bun run dev

@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // Capture event handlers registered on webContents
 type EventCallback = (...args: unknown[]) => void
 
 let webContentsListeners: Map<string, EventCallback>
 let windowOpenHandler: (({ url }: { url: string }) => { action: string }) | null
+let mockSetTitle: ReturnType<typeof vi.fn>
 let mockLoadURL: ReturnType<typeof vi.fn>
 let mockIsDestroyed: ReturnType<typeof vi.fn>
 
@@ -29,7 +30,11 @@ vi.mock('electron', () => ({
       mockLoadURL = fn
       return fn
     })()
-    setTitle = vi.fn()
+    setTitle = (() => {
+      const fn = vi.fn()
+      mockSetTitle = fn
+      return fn
+    })()
     isDestroyed = (() => {
       const fn = vi.fn(() => false)
       mockIsDestroyed = fn
@@ -83,12 +88,19 @@ vi.mock('../utils', () => ({
 import { ipcMain, shell } from 'electron'
 import { registerShellHandlers } from './shellHandlers'
 
+const originalPlatform = process.platform
+
+function setPlatform(platform: NodeJS.Platform): void {
+  Object.defineProperty(process, 'platform', { value: platform, configurable: true })
+}
+
 describe('shellHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let handlers: Map<string, (...args: any[]) => any>
 
   beforeEach(() => {
     vi.clearAllMocks()
+    setPlatform(originalPlatform)
     handlers = new Map()
     webContentsListeners = new Map()
     windowOpenHandler = null
@@ -97,6 +109,10 @@ describe('shellHandlers', () => {
       handlers.set(channel, handler)
     })
     registerShellHandlers()
+  })
+
+  afterEach(() => {
+    setPlatform(originalPlatform)
   })
 
   it('registers expected channels', () => {
@@ -403,15 +419,55 @@ describe('shellHandlers', () => {
   describe('system:get-fonts', () => {
     const invoke = () => handlers.get('system:get-fonts')!({})
 
-    it('returns fonts from platform command', async () => {
+    it('uses the Windows PowerShell command on win32', async () => {
       const { execAsync } = await import('../utils')
+      setPlatform('win32')
       vi.mocked(execAsync).mockResolvedValueOnce({
         stdout: 'Arial\nHelvetica\nCourier New\n',
         stderr: '',
       } as never)
 
       const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('powershell -NoProfile -Command'),
+        expect.objectContaining({ timeout: 10000 })
+      )
       expect(result).toEqual(['Arial', 'Courier New', 'Helvetica'])
+    })
+
+    it('uses system_profiler on darwin', async () => {
+      const { execAsync } = await import('../utils')
+      setPlatform('darwin')
+      vi.mocked(execAsync).mockResolvedValueOnce({
+        stdout: 'Menlo\nHelvetica\n',
+        stderr: '',
+      } as never)
+
+      const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        expect.stringContaining('system_profiler SPFontsDataType'),
+        expect.objectContaining({ timeout: 15000 })
+      )
+      expect(result).toEqual(['Helvetica', 'Menlo'])
+    })
+
+    it('uses fc-list on linux and filters empty lines', async () => {
+      const { execAsync } = await import('../utils')
+      setPlatform('linux')
+      vi.mocked(execAsync).mockResolvedValueOnce({
+        stdout: 'Zebra Font\n\n  \nAlpha Font\nMiddle Font\n',
+        stderr: '',
+      } as never)
+
+      const result = await invoke()
+
+      expect(execAsync).toHaveBeenCalledWith(
+        'fc-list --format="%{family[0]}\\n" | sort -u',
+        expect.objectContaining({ timeout: 10000 })
+      )
+      expect(result).toEqual(['Alpha Font', 'Middle Font', 'Zebra Font'])
     })
 
     it('returns fallback fonts when platform command fails', async () => {
@@ -423,21 +479,46 @@ describe('shellHandlers', () => {
       expect(result).toContain('Segoe UI')
       expect(result.length).toBeGreaterThan(5)
     })
-
-    it('filters empty lines and sorts results', async () => {
-      const { execAsync } = await import('../utils')
-      vi.mocked(execAsync).mockResolvedValueOnce({
-        stdout: 'Zebra Font\n\n  \nAlpha Font\nMiddle Font\n',
-        stderr: '',
-      } as never)
-
-      const result = await invoke()
-      expect(result).toEqual(['Alpha Font', 'Middle Font', 'Zebra Font'])
-    })
   })
 
   describe('shell:fetch-page-title', () => {
     const invoke = (url: string) => handlers.get('shell:fetch-page-title')!({}, url)
+
+    it('returns the extracted title for an HTML page', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        new Response('<html><head><title>Example Title</title></head><body></body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=utf-8' },
+        }) as never
+      )
+
+      const result = await invoke('https://example.com/page')
+
+      expect(result).toEqual({ success: true, title: 'Example Title' })
+    })
+
+    it('returns an error when no title is present', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+      vi.mocked(net.fetch).mockResolvedValueOnce(
+        new Response('<html><body>Untitled page</body></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html' },
+        }) as never
+      )
+
+      const result = await invoke('https://example.com/untitled')
+
+      expect(result).toEqual({ success: false, error: 'No title found' })
+    })
 
     it('returns error for invalid URL', async () => {
       const { validateUrl } = await import('../../src/utils/networkSecurity')
@@ -446,6 +527,76 @@ describe('shellHandlers', () => {
       })
       const result = await invoke('not-a-url')
       expect(result).toEqual({ success: false, error: 'Invalid URL' })
+    })
+
+    it('returns title when page has one', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      const htmlContent = '<html><head><title>Example Page</title></head><body></body></html>'
+      const encoder = new TextEncoder()
+      const encoded = encoder.encode(htmlContent)
+      let readCalled = false
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        body: {
+          getReader: () => ({
+            read: () => {
+              if (!readCalled) {
+                readCalled = true
+                return Promise.resolve({ done: false, value: encoded })
+              }
+              return Promise.resolve({ done: true, value: undefined })
+            },
+            cancel: () => Promise.resolve(),
+          }),
+        },
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com')
+      expect(result).toEqual({ success: true, title: 'Example Page' })
+    })
+
+    it('returns error when page has no title', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      const htmlContent = '<html><head></head><body>No title here</body></html>'
+      const encoder = new TextEncoder()
+      const encoded = encoder.encode(htmlContent)
+      let readCalled = false
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 200,
+        ok: true,
+        headers: new Headers({ 'content-type': 'text/html; charset=utf-8' }),
+        body: {
+          getReader: () => ({
+            read: () => {
+              if (!readCalled) {
+                readCalled = true
+                return Promise.resolve({ done: false, value: encoded })
+              }
+              return Promise.resolve({ done: true, value: undefined })
+            },
+            cancel: () => Promise.resolve(),
+          }),
+        },
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com')
+      expect(result).toEqual({ success: false, error: 'No title found' })
     })
 
     it('rejects URLs that resolve to private IPs (SSRF protection)', async () => {
@@ -489,6 +640,79 @@ describe('shellHandlers', () => {
 
       // Should be blocked when the redirect target resolves to a private IP
       expect(result).toEqual({ success: false, error: 'Internal URLs not allowed' })
+    })
+
+    it('returns error when too many redirects are followed', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      // Return 302 redirect for every fetch call (more than MAX_REDIRECTS=5)
+      for (let i = 0; i <= 6; i++) {
+        vi.mocked(net.fetch).mockResolvedValueOnce({
+          status: 302,
+          ok: false,
+          headers: new Headers({ location: `https://example.com/redirect-${i}` }),
+        } as unknown as Response)
+      }
+
+      const result = await invoke('https://example.com/start')
+      expect(result).toEqual({ success: false, error: 'Too many redirects' })
+    })
+
+    it('returns error when DNS resolution fails (non-SSRF)', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      // DNS fails with ENOTFOUND — a generic DNS error, not a private-IP error
+      vi.mocked(lookup).mockRejectedValueOnce(new Error('getaddrinfo ENOTFOUND bad.host'))
+
+      const result = await invoke('https://bad.host/page')
+      expect(result).toEqual({
+        success: false,
+        error: expect.stringContaining('DNS resolution failed'),
+      })
+    })
+
+    it('returns error for HTTP non-ok response (e.g. 500)', async () => {
+      const { validateUrl } = await import('../../src/utils/networkSecurity')
+      const { lookup } = await import('node:dns/promises')
+      const { net } = await import('electron')
+
+      vi.mocked(validateUrl).mockImplementation((url: string) => new URL(url))
+      vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34' }] as never)
+
+      vi.mocked(net.fetch).mockResolvedValueOnce({
+        status: 500,
+        ok: false,
+        headers: new Headers(),
+      } as unknown as Response)
+
+      const result = await invoke('https://example.com/broken')
+      expect(result).toEqual({ success: false, error: 'HTTP 500' })
+    })
+  })
+
+  describe('shell:open-in-app-browser — page-title-updated', () => {
+    it('updates window title when page-title-updated fires', async () => {
+      const { lookup } = await import('node:dns/promises')
+      vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+
+      const invoke = (url: string, title?: string) =>
+        handlers.get('shell:open-in-app-browser')!({}, url, title)
+      await invoke('https://example.com', 'Initial Title')
+
+      // The page-title-updated handler should have been registered
+      const titleHandler = webContentsListeners.get('page-title-updated')
+      expect(titleHandler).toBeDefined()
+
+      // Simulate the page title changing
+      titleHandler!({}, 'New Page Title')
+      expect(mockSetTitle).toHaveBeenCalledWith('New Page Title')
     })
   })
 })

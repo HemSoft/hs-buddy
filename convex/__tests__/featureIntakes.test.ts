@@ -152,10 +152,16 @@ describe('featureIntakes', () => {
   test('linkCanonicalIssue throws when intake does not exist', async () => {
     const t = convexTest(schema, modules)
     const result = await t.mutation(api.featureIntakes.normalize, intakeArgs)
-    // We can't easily get a non-existent ID without manual hackery,
-    // so verify the success path returns the correct ID
-    const id = result.intakeId
-    expect(id).toBeTruthy()
+    const id = result.intakeId as Id<'featureIntakes'>
+
+    // Delete the intake directly
+    await t.run(async ctx => {
+      await ctx.db.delete(id)
+    })
+
+    await expect(
+      t.mutation(api.featureIntakes.linkCanonicalIssue, { id, issueNumber: 99 })
+    ).rejects.toThrow('not found')
   })
 
   test('normalize trims whitespace from title and problem', async () => {

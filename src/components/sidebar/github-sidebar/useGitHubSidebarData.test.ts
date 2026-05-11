@@ -124,10 +124,13 @@ import { useGitHubSidebarData } from './useGitHubSidebarData'
 /** Get the main sidebar subscription callback (index 1, after PR tree). */
 function getMainSubscribeCb(): (key: string) => void {
   const calls = mockSubscribe.mock.calls as unknown[][]
-  if (calls.length === 0) throw new Error('No dataCache.subscribe calls found')
-  const idx = calls.length >= 2 ? 1 : 0
-  const cb = calls[idx]?.[0] as (key: string) => void
-  if (!cb) throw new Error('Main subscribe callback not found at index ' + String(idx))
+  if (calls.length < 2) {
+    throw new Error(
+      `Expected 2+ dataCache.subscribe calls for main sidebar, got ${String(calls.length)}`
+    )
+  }
+  const cb = calls[1]?.[0] as (key: string) => void
+  if (!cb) throw new Error('Main subscribe callback not found')
   return cb
 }
 

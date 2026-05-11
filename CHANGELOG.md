@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.756] - 2026-05-11
+
+### Fixed
+
+- Require 2+ subscribe calls in getMainSubscribeCb
+
 ## [0.1.755] - 2026-05-11
 
 ### Fixed

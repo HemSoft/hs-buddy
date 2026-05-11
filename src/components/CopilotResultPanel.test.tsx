@@ -146,6 +146,16 @@ describe('CopilotResultPanel', () => {
     })
   })
 
+  it('handleCopy skips clipboard write when result becomes empty', () => {
+    mockResult.result = '# Summary\nThis is the result.'
+    mockResult.status = 'completed'
+    render(<CopilotResultPanel resultId="r1" />)
+    const copyBtn = screen.getByTitle('Copy markdown')
+    mockResult.result = ''
+    fireEvent.click(copyBtn)
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled()
+  })
+
   it('retry button calls window.copilot.execute', async () => {
     const user = userEvent.setup()
     render(<CopilotResultPanel resultId="r1" />)

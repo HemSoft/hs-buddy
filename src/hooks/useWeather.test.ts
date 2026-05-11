@@ -590,6 +590,102 @@ describe('useWeather', () => {
     const saved = JSON.parse(localStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Paris')
   })
+
+  it('useMyLocation reverse geocoding with no address field falls back to coordinates', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 35.68, longitude: 139.69 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}), // no address field
+      })
+      .mockResolvedValue(makeApiResponse()) // weather refresh
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+
+    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    // Should keep the coordinate-based name since extractCity(undefined) returns ''
+    expect(saved.name).toContain('35.68')
+  })
+
+  it('useMyLocation handles refresh failure gracefully', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71, longitude: -74.01 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ address: { city: 'New York', state: 'New York' } }),
+      })
+      .mockRejectedValue(new Error('Weather API down')) // refresh fails
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    // Location should still be saved even when refresh fails
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+  })
+
+  it('setLocationBySearch handles refresh failure gracefully', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            lat: '34.05',
+            lon: '-118.24',
+            address: { city: 'Los Angeles', state: 'California' },
+            display_name: 'Los Angeles, CA, USA',
+          },
+        ],
+      })
+      .mockRejectedValue(new Error('Weather API down')) // refresh fails
+
+    await act(async () => {
+      await result.current.setLocationBySearch('Los Angeles')
+    })
+
+    // Location should still be saved even when refresh fails
+    const saved = localStorage.getItem('weather:location')
+    expect(saved).not.toBeNull()
+  })
 })
 
 describe('weatherCodeToDescription', () => {

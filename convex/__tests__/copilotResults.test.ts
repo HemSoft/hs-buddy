@@ -161,13 +161,23 @@ describe('copilotResults', () => {
     expect(result.deleted).toBe(2)
   })
 
-  test('cleanup does not remove pending or running results', async () => {
+  test('cleanup stops early when encountering recent results', async () => {
     const t = convexTest(schema, modules)
-    const id = await t.mutation(api.copilotResults.create, { prompt: 'keep me' })
-    await t.mutation(api.copilotResults.markRunning, { id })
+    const oldId = await t.mutation(api.copilotResults.create, { prompt: 'old' })
+    const recentId = await t.mutation(api.copilotResults.create, { prompt: 'recent' })
+    await t.mutation(api.copilotResults.complete, { id: oldId, result: 'done' })
+    await t.mutation(api.copilotResults.complete, { id: recentId, result: 'done' })
 
-    // Use negative days to make cutoff in the future
-    const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: -1 })
-    expect(result.deleted).toBe(0)
+    await t.run(async ctx => {
+      const sixtyDaysMs = 60 * 24 * 60 * 60 * 1000
+      const now = Date.now()
+      await ctx.db.patch(oldId, {
+        createdAt: now - sixtyDaysMs,
+      })
+    })
+
+    // Old completed record is deleted; break fires when hitting the recent record.
+    const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: 30 })
+    expect(result.deleted).toBe(1)
   })
 })

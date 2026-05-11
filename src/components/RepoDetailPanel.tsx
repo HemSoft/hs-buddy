@@ -151,9 +151,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   } = useGitHubData<RepoDetail>({
     cacheKey: `repo-detail:${owner}/${repo}`,
     taskName: `repo-detail-${owner}-${repo}`,
-    /* v8 ignore start */
     fetchFn: client => client.fetchRepoDetail(owner, repo),
-    /* v8 ignore stop */
   })
   const { refreshInterval } = usePRSettings()
 
@@ -161,9 +159,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
-    /* v8 ignore start */
     const timer = setInterval(() => refresh(), intervalMs)
-    /* v8 ignore stop */
     return () => clearInterval(timer)
   }, [refreshInterval, refresh])
 

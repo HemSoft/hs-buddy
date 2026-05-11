@@ -291,16 +291,12 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       const idx = previousState.tabs.findIndex(tab => tab.id === tabId)
       if (idx === -1) return previousState
       const closed = previousState.tabs.slice(idx + 1).map(tab => tab.viewId)
-      /* v8 ignore start */
       if (closed.length === 0) return previousState
-      /* v8 ignore stop */
       const kept = previousState.tabs.slice(0, idx + 1)
       const activeStillOpen = kept.some(tab => tab.id === previousState.activeTabId)
       return {
         tabs: kept,
-        /* v8 ignore start */
         activeTabId: activeStillOpen ? previousState.activeTabId : tabId,
-        /* v8 ignore stop */
         pendingCloses: closed,
       }
     })

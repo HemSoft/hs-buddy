@@ -754,4 +754,41 @@ describe('telemetry', () => {
       delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
     })
   })
+
+  describe('initTelemetry', () => {
+    it('is a no-op when OTEL_EXPORTER_OTLP_ENDPOINT is not set', async () => {
+      const prev = process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      const { initTelemetry } = await import('./telemetry')
+      try {
+        await expect(initTelemetry()).resolves.toBeUndefined()
+      } finally {
+        if (prev !== undefined) {
+          process.env.OTEL_EXPORTER_OTLP_ENDPOINT = prev
+        }
+      }
+    })
+  })
+
+  describe('recordIpcCall no-op metric path', () => {
+    it('does not touch metric instruments before initialization', async () => {
+      const { metrics } = await import('@opentelemetry/api')
+      metrics.getMeter('test')
+
+      recordIpcCall('test:chan', 50, false)
+      recordIpcCall('test:chan', 100, true)
+
+      expect(mockCounter.add).not.toHaveBeenCalled()
+      expect(mockHistogram.record).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('withSpan edge cases', () => {
+    it('handles a fn that returns undefined', async () => {
+      const result = await withSpan('void-op', {}, async () => undefined)
+      expect(result).toBeUndefined()
+      expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 })
+      expect(mockSpan.end).toHaveBeenCalled()
+    })
+  })
 })

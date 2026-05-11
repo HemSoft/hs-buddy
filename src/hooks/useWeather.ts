@@ -112,9 +112,7 @@ interface GeocodingResult {
 }
 
 function extractCity(address?: { city?: string; town?: string; village?: string }): string {
-  /* v8 ignore start -- address always provided by API callers */
   if (!address) return ''
-  /* v8 ignore stop */
   return address.city ?? address.town ?? address.village ?? ''
 }
 
@@ -133,13 +131,9 @@ async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
       const json = (await resp.json()) as {
         address?: { city?: string; town?: string; village?: string; state?: string }
       }
-      /* v8 ignore start */
       const city = extractCity(json.address)
-      /* v8 ignore stop */
       const st = json.address?.state ?? ''
-      /* v8 ignore start */
       if (city) loc.name = buildLocationName(city, st, loc.name)
-      /* v8 ignore stop */
     }
   } catch (_: unknown) {
     // Use coordinate-based name as fallback
@@ -261,9 +255,7 @@ export function useWeather() {
         await reverseGeocodeLocation(loc)
         writeSavedLocation(loc)
         safeRemoveItem(CACHE_KEY)
-        /* v8 ignore start */
         refresh().catch(() => {
-          /* v8 ignore stop */
           /* error already handled in state */
         })
       },
@@ -298,9 +290,7 @@ export function useWeather() {
         const loc = parseGeocodingResult(results[0], query)
         writeSavedLocation(loc)
         safeRemoveItem(CACHE_KEY)
-        /* v8 ignore start */
         refresh().catch(() => {
-          /* v8 ignore stop */
           /* error already handled in state */
         })
       } catch (err: unknown) {

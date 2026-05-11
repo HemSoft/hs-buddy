@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 
-const { mockEnqueue, mockCacheGet, stableAccounts } = vi.hoisted(() => ({
+const { mockEnqueue, mockCacheGet, stableAccounts, mockFetchRepoDetail } = vi.hoisted(() => ({
   mockEnqueue: vi.fn(),
   mockCacheGet: vi.fn(),
   stableAccounts: [{ username: 'alice', org: 'test-org' }],
+  mockFetchRepoDetail: vi.fn(),
 }))
 
 vi.mock('../hooks/useConfig', () => ({
@@ -21,9 +22,11 @@ vi.mock('../services/dataCache', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoDetail: vi.fn(),
-  })),
+  GitHubClient: class {
+    fetchRepoDetail(...args: unknown[]) {
+      return mockFetchRepoDetail(...args)
+    }
+  },
 }))
 
 vi.mock('../utils/errorUtils', () => ({
@@ -483,5 +486,44 @@ describe('RepoDetailPanel', () => {
 
     fireEvent.click(screen.getByText('Homepage'))
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://example.com')
+  })
+
+  it('fetchFn calls client.fetchRepoDetail with correct args', async () => {
+    mockFetchRepoDetail.mockResolvedValue(makeRepoDetail())
+    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
+      fn(new AbortController().signal)
+    )
+
+    render(<RepoDetailPanel owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(mockFetchRepoDetail).toHaveBeenCalledWith('test-org', 'hs-buddy')
+    })
+  })
+
+  it('auto-refresh interval callback invokes refresh', async () => {
+    const setIntervalSpy = vi.spyOn(global, 'setInterval')
+    const prSpy = vi.spyOn(configHooks, 'usePRSettings').mockReturnValue({
+      refreshInterval: 5,
+    } as ReturnType<typeof configHooks.usePRSettings>)
+    mockEnqueue.mockResolvedValue(makeRepoDetail())
+
+    render(<RepoDetailPanel owner="test-org" repo="hs-buddy" />)
+
+    await waitFor(() => {
+      expect(screen.getByText('A productivity companion')).toBeInTheDocument()
+    })
+
+    const intervalCallback = setIntervalSpy.mock.calls[0][0] as () => void
+    const callsBefore = mockEnqueue.mock.calls.length
+
+    await act(async () => {
+      intervalCallback()
+    })
+
+    expect(mockEnqueue.mock.calls.length).toBeGreaterThan(callsBefore)
+
+    setIntervalSpy.mockRestore()
+    prSpy.mockRestore()
   })
 })

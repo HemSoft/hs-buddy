@@ -244,6 +244,74 @@ describe('runs', () => {
     expect(recent).toHaveLength(1)
   })
 
+  test('listBySchedule returns runs for a specific schedule', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const schedId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'my-sched',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    const otherSchedId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'other-sched',
+      cron: '0 * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId: schedId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId: otherSchedId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+
+    const runs = await t.query(api.runs.listBySchedule, { scheduleId: schedId })
+    expect(runs).toHaveLength(1)
+    expect(runs[0].scheduleId).toBe(schedId)
+  })
+
+  test('complete throws when run does not exist', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    // Delete directly to leave orphaned ID
+    await t.run(async ctx => {
+      await ctx.db.delete(id)
+    })
+
+    await expect(t.mutation(api.runs.complete, { id })).rejects.toThrow(/not found/i)
+  })
+
+  test('fail throws when run does not exist', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.run(async ctx => {
+      await ctx.db.delete(id)
+    })
+
+    await expect(t.mutation(api.runs.fail, { id, error: 'err' })).rejects.toThrow(/not found/i)
+  })
+
+  test('cancel throws when run does not exist', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.run(async ctx => {
+      await ctx.db.delete(id)
+    })
+
+    await expect(t.mutation(api.runs.cancel, { id })).rejects.toThrow(/not found/i)
+  })
+
   test('countsByJob aggregates run counts per job', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)

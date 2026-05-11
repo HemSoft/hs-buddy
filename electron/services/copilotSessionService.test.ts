@@ -1,49 +1,73 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
+import { EventEmitter } from 'events'
 
-const mockExistsSync = vi.fn().mockReturnValue(false)
-const mockReadFileSync = vi.fn().mockImplementation(() => {
+const mockExistsSync = vi.fn((_p: string): boolean => false)
+const mockReadFileSync = vi.fn((_p: string): string => {
   throw new Error('ENOENT')
 })
-const mockReaddirSync = vi.fn().mockReturnValue([])
-const mockStatSync = vi.fn().mockReturnValue({ size: 100, mtimeMs: 1000 })
-const mockOpenSync = vi.fn().mockReturnValue(99)
-const mockReadSync = vi.fn().mockReturnValue(0)
-const mockCloseSync = vi.fn()
-const mockCreateReadStream = vi.fn()
+const mockOpenSync = vi.fn((_p: string): number => 3)
+const mockReadSync = vi.fn(
+  (_fd: number, _buf: Buffer, _off: number, _len: number, _pos: number | null): number => 0
+)
+const mockCloseSync = vi.fn((_fd: number): void => {})
+const mockReaddirSync = vi.fn((_dir: string): string[] => [])
+const mockStatSync = vi.fn((_p: string) => ({ size: 100, mtimeMs: Date.now() }))
 
 vi.mock('fs', () => ({
-  existsSync: (...args: unknown[]) => mockExistsSync(...args),
-  readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
-  readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
-  statSync: (...args: unknown[]) => mockStatSync(...args),
-  openSync: (...args: unknown[]) => mockOpenSync(...args),
-  readSync: (...args: unknown[]) => mockReadSync(...args),
-  closeSync: (...args: unknown[]) => mockCloseSync(...args),
-  createReadStream: (...args: unknown[]) => mockCreateReadStream(...args),
+  existsSync: (p: string) => mockExistsSync(p),
+  readFileSync: (p: string) => mockReadFileSync(p),
+  openSync: (p: string) => mockOpenSync(p),
+  readSync: (fd: number, buf: Buffer, off: number, len: number, pos: number | null) =>
+    mockReadSync(fd, buf, off, len, pos),
+  closeSync: (fd: number) => mockCloseSync(fd),
+  readdirSync: (dir: string) => mockReaddirSync(dir),
+  statSync: (p: string) => mockStatSync(p),
+  createReadStream: vi.fn(() => {
+    const emitter = new EventEmitter()
+    setTimeout(() => emitter.emit('end'), 0)
+    return emitter
+  }),
 }))
 
 const mockCreateInterface = vi.fn()
-
 vi.mock('readline', () => ({
   createInterface: (...args: unknown[]) => mockCreateInterface(...args),
 }))
 
-const mockParseScanChunk = vi.fn().mockReturnValue({
-  title: 'Test Session',
-  firstPrompt: 'hello',
-  agent: 'copilot',
-  createdAt: 1000,
-  requestCount: 3,
-})
-const mockResolveFolderOrWorkspaceName = vi.fn().mockReturnValue('test-workspace')
-const mockParseKeyPath = vi.fn().mockReturnValue(null)
-const mockProcessSessionLine = vi.fn()
+const mockParseScanChunk = vi.fn(
+  (
+    _chunk: Buffer,
+    _size: number
+  ): {
+    title: string
+    firstPrompt: string
+    agent: string
+    createdAt: number
+    requestCount: number
+  } => ({
+    title: 'Test Title',
+    firstPrompt: 'What is X?',
+    agent: 'copilot',
+    createdAt: 1000,
+    requestCount: 2,
+  })
+)
+const mockResolveFolderOrWorkspaceName = vi.fn((_p: string): string | null => 'test-workspace')
+const mockParseKeyPath = vi.fn((_p: string): string[] => [])
+const mockProcessSessionLine = vi.fn(
+  (_kind: number, _keyPath: string[], _line: string, _state: Record<string, unknown>): void => {}
+)
 
 vi.mock('../../src/utils/copilotSessionParsing', () => ({
-  parseKeyPath: (...args: unknown[]) => mockParseKeyPath(...args),
-  resolveFolderOrWorkspaceName: (...args: unknown[]) => mockResolveFolderOrWorkspaceName(...args),
-  parseScanChunk: (...args: unknown[]) => mockParseScanChunk(...args),
-  processSessionLine: (...args: unknown[]) => mockProcessSessionLine(...args),
+  parseKeyPath: (p: string) => mockParseKeyPath(p),
+  resolveFolderOrWorkspaceName: (p: string) => mockResolveFolderOrWorkspaceName(p),
+  parseScanChunk: (chunk: Buffer, size: number) => mockParseScanChunk(chunk, size),
+  processSessionLine: (
+    kind: number,
+    keyPath: string[],
+    line: string,
+    state: Record<string, unknown>
+  ) => mockProcessSessionLine(kind, keyPath, line, state),
 }))
 
 vi.mock('../../src/utils/sessionDigest', () => ({
@@ -51,8 +75,8 @@ vi.mock('../../src/utils/sessionDigest', () => ({
     totalPromptTokens: 100,
     totalOutputTokens: 200,
     totalToolCalls: 5,
-    allToolNames: ['edit', 'grep'],
-    totalDurationMs: 5000,
+    allToolNames: ['read_file'],
+    totalDurationMs: 3000,
   })),
   computeSessionDigest: vi.fn(),
 }))
@@ -64,211 +88,435 @@ import {
   getSessionDetail,
 } from './copilotSessionService'
 
+const savedAppData = process.env.APPDATA
+
 describe('copilotSessionService', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    process.env.APPDATA = '/fake/appdata'
     mockExistsSync.mockReturnValue(false)
-    mockReadFileSync.mockImplementation(() => {
-      throw new Error('ENOENT')
+    mockParseScanChunk.mockReturnValue({
+      title: 'Test Title',
+      firstPrompt: 'What is X?',
+      agent: 'copilot',
+      createdAt: 1000,
+      requestCount: 2,
     })
-    mockReaddirSync.mockReturnValue([])
-    mockStatSync.mockReturnValue({ size: 100, mtimeMs: 1000 })
-    mockOpenSync.mockReturnValue(99)
-    mockReadSync.mockReturnValue(0)
-    mockResolveFolderOrWorkspaceName.mockReturnValue('test-workspace')
-    mockParseKeyPath.mockReturnValue(null)
   })
 
-  it('getVSCodeStoragePath returns a string', () => {
-    const result = getVSCodeStoragePath()
-    expect(typeof result).toBe('string')
+  afterAll(() => {
+    if (savedAppData === undefined) delete process.env.APPDATA
+    else process.env.APPDATA = savedAppData
   })
 
-  it('resolveWorkspaceName returns basename when workspace.json read fails', () => {
-    const name = resolveWorkspaceName('/workspaces/abc123')
-    expect(name).toBe('abc123')
+  describe('getVSCodeStoragePath', () => {
+    it('returns empty string when APPDATA is not set', () => {
+      const original = process.env.APPDATA
+      try {
+        delete process.env.APPDATA
+        const result = getVSCodeStoragePath()
+        expect(result).toBe('')
+      } finally {
+        if (original === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = original
+      }
+    })
+
+    it('returns Insiders path when it exists', () => {
+      mockExistsSync.mockImplementation((p: string) => p.includes('Code - Insiders'))
+      const result = getVSCodeStoragePath()
+      expect(result).toContain('Code - Insiders')
+    })
+
+    it('returns stable path when Insiders does not exist', () => {
+      mockExistsSync.mockImplementation(
+        (p: string) => p.includes('Code') && !p.includes('Insiders')
+      )
+      const result = getVSCodeStoragePath()
+      expect(result).toContain('Code')
+      expect(result).not.toContain('Insiders')
+    })
+
+    it('returns empty string when no VS Code path exists', () => {
+      mockExistsSync.mockReturnValue(false)
+      const result = getVSCodeStoragePath()
+      expect(result).toBe('')
+    })
   })
 
-  it('resolveWorkspaceName returns name from workspace.json', () => {
-    mockReadFileSync.mockReturnValue('{"folder":"file:///Users/test/my-project"}')
-    const name = resolveWorkspaceName('/workspaces/abc123')
-    expect(mockResolveFolderOrWorkspaceName).toHaveBeenCalled()
-    expect(typeof name).toBe('string')
-  })
+  describe('resolveWorkspaceName', () => {
+    it('returns basename when workspace.json read fails', () => {
+      mockReadFileSync.mockImplementation(() => {
+        throw new Error('ENOENT')
+      })
+      const name = resolveWorkspaceName('/workspaces/abc123')
+      expect(name).toBe('abc123')
+    })
 
-  it('resolveWorkspaceName uses basename when resolveFolderOrWorkspaceName returns null', () => {
-    mockReadFileSync.mockReturnValue('{"folder":"file:///Users/test/my-project"}')
-    mockResolveFolderOrWorkspaceName.mockReturnValue(null)
-    const name = resolveWorkspaceName('/workspaces/abc123')
-    expect(name).toBe('abc123')
+    it('returns resolved name when workspace.json is valid', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({ folder: 'file:///my-project' }))
+      mockResolveFolderOrWorkspaceName.mockReturnValue('my-project')
+      const name = resolveWorkspaceName('/workspaces/abc123')
+      expect(name).toBe('my-project')
+    })
+
+    it('returns basename when resolveFolderOrWorkspaceName returns null', () => {
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      const name = resolveWorkspaceName('/workspaces/abc123')
+      expect(name).toBe('abc123')
+    })
   })
 
   describe('scanCopilotSessions', () => {
-    it('returns empty when APPDATA is not set', () => {
-      const saved = process.env.APPDATA
+    it('returns empty when storage path is empty', () => {
+      const original = process.env.APPDATA
       try {
         delete process.env.APPDATA
         const result = scanCopilotSessions()
-        expect(result.sessions).toEqual([])
-        expect(result.totalCount).toBe(0)
+        expect(result).toEqual({ sessions: [], totalCount: 0 })
       } finally {
-        if (saved === undefined) delete process.env.APPDATA
-        else process.env.APPDATA = saved
+        if (original === undefined) delete process.env.APPDATA
+        else process.env.APPDATA = original
       }
     })
 
-    it('returns empty when storage paths do not exist', () => {
-      mockExistsSync.mockReturnValue(false)
+    it('returns empty when workspaceStorage dir cannot be read', () => {
+      // Make getVSCodeStoragePath return a path
+      mockExistsSync.mockReturnValue(true)
+      // But readdirSync for workspaceStorage throws
+      mockReaddirSync.mockImplementation(() => {
+        throw new Error('ENOENT')
+      })
       const result = scanCopilotSessions()
-      // Without APPDATA or valid paths, returns empty
-      expect(result.totalCount).toBe(0)
+      expect(result).toEqual({ sessions: [], totalCount: 0 })
     })
 
-    it('scans workspace directories and collects sessions', () => {
-      const saved = process.env.APPDATA
-      try {
-        process.env.APPDATA = '/tmp/appdata'
-        // First call: Insiders doesn't exist, second: stable exists
-        mockExistsSync.mockImplementation((p: unknown) => {
-          const path = p as string
-          if (path.includes('Code - Insiders')) return false
-          if (path.includes('Code')) return true
-          if (path.includes('chatSessions')) return true
-          return true
-        })
-        // readdirSync for workspaceStorage
-        mockReaddirSync.mockImplementation((p: unknown) => {
-          const path = p as string
-          if (path.includes('workspaceStorage') && !path.includes('hash1')) return ['hash1']
-          if (path.includes('chatSessions')) return ['session1.jsonl']
-          return []
-        })
-        mockStatSync.mockReturnValue({ size: 500, mtimeMs: 2000 })
-        mockOpenSync.mockReturnValue(42)
-        mockReadSync.mockImplementation((_fd: unknown, buf: Buffer) => {
-          const chunk = '{"kind":1,"data":"test"}'
-          buf.write(chunk)
-          return chunk.length
-        })
-        mockReadFileSync.mockReturnValue('{"folder":"file:///test/project"}')
-        mockParseScanChunk.mockReturnValue({
-          title: 'Test Session',
-          firstPrompt: 'hello',
-          agent: 'copilot',
-          createdAt: 1000,
-          requestCount: 3,
-        })
+    it('returns sessions from workspace directories', () => {
+      mockExistsSync.mockReturnValue(true)
+      // readdirSync for workspaceStorage returns workspace hashes
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['session1.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({ folder: 'file:///project' }))
+      mockResolveFolderOrWorkspaceName.mockReturnValue('project')
+      // For extractScanInfo
+      mockOpenSync.mockReturnValue(3)
+      mockReadSync.mockReturnValue(10)
+      mockStatSync.mockReturnValue({ size: 500, mtimeMs: 1000 })
 
-        const result = scanCopilotSessions()
-        expect(result.totalCount).toBeGreaterThan(0)
-        expect(result.sessions.length).toBeGreaterThan(0)
-        expect(result.sessions[0]).toMatchObject({
-          sessionId: 'session1',
-          workspaceHash: 'hash1',
-          workspaceName: 'test-workspace',
-        })
-      } finally {
-        if (saved === undefined) delete process.env.APPDATA
-        else process.env.APPDATA = saved
-      }
+      const result = scanCopilotSessions()
+      expect(result.totalCount).toBe(1)
+      expect(result.sessions[0].sessionId).toBe('session1')
+      expect(result.sessions[0].workspaceName).toBe('project')
     })
 
-    it('handles readdirSync failure on workspaceStorage', () => {
-      const saved = process.env.APPDATA
-      try {
-        process.env.APPDATA = '/tmp/appdata'
-        mockExistsSync.mockReturnValue(true)
-        mockReaddirSync.mockImplementation(() => {
-          throw new Error('EACCES')
-        })
+    it('skips workspace when chatSessions dir does not exist', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        throw new Error('ENOENT')
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
 
-        const result = scanCopilotSessions()
-        expect(result.sessions).toEqual([])
-      } finally {
-        if (saved === undefined) delete process.env.APPDATA
-        else process.env.APPDATA = saved
-      }
+      const result = scanCopilotSessions()
+      expect(result.sessions).toEqual([])
+    })
+
+    it('skips empty session files', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['empty.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      mockStatSync.mockReturnValue({ size: 0, mtimeMs: 1000 })
+
+      const result = scanCopilotSessions()
+      expect(result.sessions).toEqual([])
+    })
+
+    it('handles stat error gracefully', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['bad.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      mockStatSync.mockImplementation(() => {
+        throw new Error('EPERM')
+      })
+
+      const result = scanCopilotSessions()
+      expect(result.sessions).toEqual([])
+    })
+
+    it('sorts sessions by modifiedAt descending', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['old.jsonl', 'new.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      mockOpenSync.mockReturnValue(3)
+      mockReadSync.mockReturnValue(10)
+
+      let callCount = 0
+      mockStatSync.mockImplementation(() => {
+        callCount++
+        return { size: 100, mtimeMs: callCount === 1 ? 1000 : 2000 }
+      })
+
+      const result = scanCopilotSessions()
+      expect(result.totalCount).toBe(2)
+      expect(result.sessions[0].modifiedAt).toBeGreaterThan(result.sessions[1].modifiedAt)
+    })
+  })
+
+  describe('extractScanInfo (via scanCopilotSessions)', () => {
+    it('handles file open error gracefully', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['test.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 1000 })
+      mockOpenSync.mockImplementation(() => {
+        throw new Error('EACCES')
+      })
+
+      const result = scanCopilotSessions()
+      // Should still return session with fallback scan info
+      expect(result.totalCount).toBe(1)
+      expect(result.sessions[0].title).toBe('')
+    })
+
+    it('handles zero bytes read', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockImplementation((dir: string) => {
+        if (dir.includes('workspaceStorage') && !dir.includes('chatSessions')) return ['hash1']
+        if (dir.includes('chatSessions')) return ['test.jsonl']
+        return []
+      })
+      mockReadFileSync.mockReturnValue(JSON.stringify({}))
+      mockResolveFolderOrWorkspaceName.mockReturnValue(null)
+      mockStatSync.mockReturnValue({ size: 100, mtimeMs: 1000 })
+      mockOpenSync.mockReturnValue(3)
+      mockReadSync.mockReturnValue(0)
+
+      const result = scanCopilotSessions()
+      expect(result.totalCount).toBe(1)
+      expect(result.sessions[0].title).toBe('')
     })
   })
 
   describe('getSessionDetail', () => {
     it('returns null when file does not exist', async () => {
       mockExistsSync.mockReturnValue(false)
-      const result = await getSessionDetail('/nonexistent/path.jsonl')
-      expect(result).toBeNull()
-    })
-
-    it('parses a session file and returns session detail', async () => {
-      mockExistsSync.mockReturnValue(true)
-
-      // Mock readline interface
-      const lineHandlers: ((line: string) => void)[] = []
-      const closeHandlers: (() => void)[] = []
-      const errorHandlers: (() => void)[] = []
-      const mockStream = {
-        on: vi.fn((event: string, handler: () => void) => {
-          if (event === 'error') errorHandlers.push(handler)
-          return mockStream
-        }),
-      }
-      mockCreateReadStream.mockReturnValue(mockStream)
-
-      const mockRl = {
-        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
-          if (event === 'line') lineHandlers.push(handler as (line: string) => void)
-          if (event === 'close') closeHandlers.push(handler as () => void)
-          if (event === 'error') errorHandlers.push(handler as () => void)
-          return mockRl
-        }),
-        close: vi.fn(),
-      }
-      mockCreateInterface.mockReturnValue(mockRl)
-
-      const resultPromise = getSessionDetail(
-        '/workspaceStorage/hash123/chatSessions/session1.jsonl'
-      )
-
-      // Simulate lines being read
-      for (const handler of lineHandlers) {
-        handler('{"kind":1,"data":"test"}')
-      }
-      // Close the stream
-      for (const handler of closeHandlers) {
-        handler()
-      }
-
-      const result = await resultPromise
-      // With no valid state.init.sessionId, should return null
+      const result = await getSessionDetail('/nonexistent/file.jsonl')
       expect(result).toBeNull()
     })
 
     it('returns null on stream error', async () => {
       mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = Object.assign(new EventEmitter(), { close: vi.fn() })
+      mockCreateInterface.mockReturnValue(rlEmitter)
 
-      const streamErrorHandlers: (() => void)[] = []
-      const mockStream = {
-        on: vi.fn((event: string, handler: () => void) => {
-          if (event === 'error') streamErrorHandlers.push(handler)
-          return mockStream
-        }),
-      }
-      mockCreateReadStream.mockReturnValue(mockStream)
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
 
-      const mockRl = {
-        on: vi.fn(() => mockRl),
-        close: vi.fn(),
-      }
-      mockCreateInterface.mockReturnValue(mockRl)
+      // Emit stream error
+      streamEmitter.emit('error', new Error('read error'))
 
-      const resultPromise = getSessionDetail('/path/to/session.jsonl')
-
-      // Trigger stream error
-      for (const handler of streamErrorHandlers) {
-        handler()
-      }
-
-      const result = await resultPromise
+      const result = await promise
       expect(result).toBeNull()
+    })
+
+    it('returns null on readline error', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+
+      // Emit readline error
+      rlEmitter.emit('error', new Error('parse error'))
+
+      const result = await promise
+      expect(result).toBeNull()
+    })
+
+    it('returns null when state has no init sessionId', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+
+      // Close without any lines — state.init will be null
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).toBeNull()
+    })
+
+    it('parses JSONL lines and builds session', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      // Make processSessionLine populate state
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          if (!state.init) {
+            state.init = {
+              sessionId: 'sess-123',
+              creationDate: 1000,
+              model: 'gpt-4',
+            }
+            state.title = 'Test Session'
+          }
+        }
+      )
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+
+      // Emit lines
+      rlEmitter.emit('line', '{"kind":1,"data":"init"}')
+      rlEmitter.emit('line', 'invalid line without kind')
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).not.toBeNull()
+      expect(result!.sessionId).toBe('sess-123')
+      expect(result!.title).toBe('Test Session')
+      expect(result!.workspaceHash).toBe('hash1')
+      expect(mockParseKeyPath).toHaveBeenCalled()
+      expect(mockProcessSessionLine).toHaveBeenCalled()
+    })
+
+    it('uses fallback title when state.title is empty', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          if (!state.init) {
+            state.init = {
+              sessionId: 'abcd1234-rest',
+              creationDate: 1000,
+              model: 'gpt-4',
+            }
+            state.title = ''
+          }
+        }
+      )
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+      rlEmitter.emit('line', '{"kind":1}')
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).not.toBeNull()
+      expect(result!.title).toBe('Session abcd1234')
+    })
+
+    it('sorts results by index', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          if (!state.init) {
+            state.init = { sessionId: 'sess-1', creationDate: 1000, model: 'gpt-4' }
+            state.title = 'Multi-request'
+            const resultsByIndex = state.resultsByIndex as Map<number, { prompt: string }>
+            resultsByIndex.set(2, { prompt: '' })
+            resultsByIndex.set(0, { prompt: '' })
+            resultsByIndex.set(1, { prompt: '' })
+            const prompts = state.prompts as Map<number, string>
+            prompts.set(0, 'first')
+            prompts.set(1, 'second')
+            prompts.set(2, 'third')
+          }
+        }
+      )
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+      rlEmitter.emit('line', '{"kind":1}')
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).not.toBeNull()
+      expect(result!.requestCount).toBe(3)
+      expect(result!.results[0].prompt).toBe('first')
+      expect(result!.results[1].prompt).toBe('second')
+      expect(result!.results[2].prompt).toBe('third')
+    })
+
+    it('uses empty string when prompt map has no entry for a result index', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const { createReadStream } = await import('fs')
+      const streamEmitter = new EventEmitter()
+      vi.mocked(createReadStream).mockReturnValue(streamEmitter as never)
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          if (!state.init) {
+            state.init = { sessionId: 'sess-2', creationDate: 2000, model: 'gpt-4' }
+            state.title = 'Missing prompt'
+            const resultsByIndex = state.resultsByIndex as Map<number, { prompt: string }>
+            resultsByIndex.set(0, { prompt: '' })
+            resultsByIndex.set(1, { prompt: '' })
+            // Only set prompt for index 0, leave index 1 without a prompt
+            const prompts = state.prompts as Map<number, string>
+            prompts.set(0, 'has prompt')
+            // index 1 has no prompt entry → should fall back to ''
+          }
+        }
+      )
+
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test2.jsonl')
+      rlEmitter.emit('line', '{"kind":1}')
+      rlEmitter.emit('close')
+
+      const result = await promise
+      expect(result).not.toBeNull()
+      expect(result!.results[0].prompt).toBe('has prompt')
+      expect(result!.results[1].prompt).toBe('')
     })
   })
 })

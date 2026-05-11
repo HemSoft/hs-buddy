@@ -25,6 +25,7 @@ export default defineConfig({
       include: ['src/**/*.{ts,tsx}'],
       exclude: [
         'src/main.tsx',
+        'src/browser-ipc-mock.ts',
         'src/vite-env.d.ts',
         'src/test/**',
         'src/**/*.test.{ts,tsx}',

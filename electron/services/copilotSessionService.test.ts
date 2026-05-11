@@ -27,7 +27,7 @@ vi.mock('fs', () => ({
   readFileSync: (...args: unknown[]) => mockReadFileSync(...(args as [string, string])),
   openSync: (...args: unknown[]) => mockOpenSync(...(args as [string, string])),
   readSync: (...args: unknown[]) =>
-    mockReadSync(...(args as [number, Buffer, number, number, number])),
+    mockReadSync(...(args as [number, Buffer, number, number, number | null])),
   closeSync: (...args: unknown[]) => mockCloseSync(...(args as [number])),
   readdirSync: (...args: unknown[]) => mockReaddirSync(...(args as [string])),
   statSync: (...args: unknown[]) => mockStatSync(...(args as [string])),

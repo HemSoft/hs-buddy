@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync MockStore.store after clear() to prevent stale state
 - Resolve TypeScript errors in electron test files
 - Address PR review comments for type safety and assertions
+- Align readSync tuple cast with Node.js API types
 
 ### Changed
 

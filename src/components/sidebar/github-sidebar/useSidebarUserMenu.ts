@@ -22,6 +22,8 @@ export function useSidebarUserMenu() {
     /* v8 ignore stop */
   }, [])
 
+  const persistFavoritesRef = useRef(Promise.resolve())
+
   const [userContextMenu, setUserContextMenu] = useState<{
     x: number
     y: number
@@ -50,8 +52,12 @@ export function useSidebarUserMenu() {
 
   useEffect(() => {
     if (!hasLocalMutationRef.current) return
-    window.ipcRenderer
-      .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(favoriteUsers))
+    const snapshot = Array.from(favoriteUsers)
+    persistFavoritesRef.current = persistFavoritesRef.current
+      /* v8 ignore start */
+      .catch(() => {})
+      /* v8 ignore stop */
+      .then(() => window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, snapshot))
       /* v8 ignore start */
       .catch(() => {})
     /* v8 ignore stop */

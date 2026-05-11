@@ -121,6 +121,41 @@ describe('buddyStats', () => {
     expect(stats.totalUptimeMs).toBeGreaterThanOrEqual(0)
   })
 
+  test('recordSessionStart sets firstLaunchDate when existing doc has no firstLaunchDate', async () => {
+    const t = convexTest(schema, modules)
+    // Manually create a stats doc without firstLaunchDate
+    await t.run(async ctx => {
+      await ctx.db.insert('buddyStats', {
+        key: 'default',
+        appLaunches: 0,
+        tabsOpened: 0,
+        prsViewed: 0,
+        prsReviewed: 0,
+        prsMergedWatched: 0,
+        reposBrowsed: 0,
+        repoDetailViews: 0,
+        jobsCreated: 0,
+        runsTriggered: 0,
+        runsCompleted: 0,
+        runsFailed: 0,
+        schedulesCreated: 0,
+        bookmarksCreated: 0,
+        settingsChanged: 0,
+        searchesPerformed: 0,
+        firstLaunchDate: 0,
+        totalUptimeMs: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      })
+    })
+
+    await t.mutation(api.buddyStats.recordSessionStart)
+
+    const stats = await t.query(api.buddyStats.get)
+    expect(stats.firstLaunchDate).toBeGreaterThan(0)
+    expect(stats.appLaunches).toBe(1)
+  })
+
   test('checkpointUptime is a no-op when no active session', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.buddyStats.checkpointUptime)

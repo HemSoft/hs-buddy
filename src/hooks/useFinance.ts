@@ -33,9 +33,7 @@ function readCache(): { quotes: QuoteData[]; timestamp: number } | null {
   )
   if (parsed) {
     if ((parsed.version ?? 0) < CACHE_VERSION) return null
-    /* v8 ignore start */
     if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
-    /* v8 ignore stop */
   }
   return null
 }
@@ -83,9 +81,7 @@ function sanitizeWatchlist(raw: unknown): string[] | null {
 
 /** Extract the rejection message from a Promise.allSettled rejected entry. */
 function rejectionMessage(reason: unknown): string {
-  /* v8 ignore start */
   return getErrorMessage(reason)
-  /* v8 ignore stop */
 }
 
 async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
@@ -99,18 +95,14 @@ async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
     symbols.map(async symbol => {
       const result = await window.finance.fetchQuote(symbol)
       if (result.success && result.quote) return result.quote
-      /* v8 ignore start */
       errors.push(result.error ?? `No data for ${symbol}`)
-      /* v8 ignore stop */
       return null
     })
   )
 
   const results = settled.reduce<QuoteData[]>((acc, entry) => {
     if (entry.status === 'fulfilled' && entry.value) acc.push(entry.value)
-    /* v8 ignore start */ else if (entry.status === 'rejected')
-      errors.push(rejectionMessage(entry.reason))
-    /* v8 ignore stop */
+    else if (entry.status === 'rejected') errors.push(rejectionMessage(entry.reason))
     return acc
   }, [])
 
@@ -128,9 +120,7 @@ async function fetchQuotes(symbols: string[]): Promise<QuoteData[]> {
  * the caller) ensures the next render still sees the new value.
  */
 function persistWatchlist(symbols: string[]): void {
-  /* v8 ignore start */
   if (!window.ipcRenderer?.invoke) return
-  /* v8 ignore stop */
   window.ipcRenderer
     .invoke(IPC_INVOKE.CONFIG_SET_FINANCE_WATCHLIST, symbols)
     .catch((err: unknown) => {
@@ -170,24 +160,18 @@ export function useFinance() {
 
     return fetchQuotes(list)
       .then(quotes => {
-        /* v8 ignore start */
         if (!abortRef.current) {
-          /* v8 ignore stop */
           const fetchedAt = Date.now()
           writeCache(quotes, fetchedAt)
           setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
         }
       })
       .catch(err => {
-        /* v8 ignore start */
         if (!abortRef.current) {
-          /* v8 ignore stop */
           setState(prev => ({
             quotes: prev.quotes,
             loading: false,
-            /* v8 ignore start */
             error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
-            /* v8 ignore stop */
             lastFetchedAt: prev.lastFetchedAt,
           }))
         }
@@ -210,9 +194,7 @@ export function useFinance() {
       setWatchlistState(next)
 
       safeRemoveItem(CACHE_KEY)
-      /* v8 ignore start */
       refresh(next).catch(() => {
-        /* v8 ignore stop */
         /* error already handled in state */
       })
     },
@@ -238,9 +220,7 @@ export function useFinance() {
   // electron-store is the persistent source of truth across app restarts.
   useEffect(() => {
     let cancelled = false
-    /* v8 ignore start */
     if (!window.ipcRenderer?.invoke) return
-    /* v8 ignore stop */
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST)
       .then((raw: unknown) => {
@@ -257,9 +237,7 @@ export function useFinance() {
         setWatchlistState(sanitized)
         // Re-fetch quotes against the authoritative list
         safeRemoveItem(CACHE_KEY)
-        /* v8 ignore start */
         refresh(sanitized).catch(() => {
-          /* v8 ignore stop */
           /* error already handled in state */
         })
       })

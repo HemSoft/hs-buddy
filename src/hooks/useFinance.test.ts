@@ -434,6 +434,100 @@ describe('useFinance', () => {
     expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
   })
 
+  it('ignores expired cache with current version', () => {
+    localStorage.setItem(
+      'finance:cache',
+      JSON.stringify({ quotes: [QUOTE_AAPL], timestamp: Date.now() - 20 * 60 * 1000, version: 3 })
+    )
+    const { result } = renderHook(() => useFinance())
+    expect(result.current.loading).toBe(true)
+  })
+
+  it('uses fallback when per-symbol error property is undefined', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['TSLA']))
+    mockFetchQuote.mockResolvedValue({ success: false })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.quotes).toEqual([])
+    expect(result.current.error).toBe('No data for TSLA')
+  })
+
+  it('does not update state when unmounted during successful fetch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
+    let resolveQuote: ((v: unknown) => void) | null = null
+    mockFetchQuote.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveQuote = resolve
+        })
+    )
+
+    const { unmount } = renderHook(() => useFinance())
+
+    unmount()
+
+    await act(async () => {
+      resolveQuote!({ success: true, quote: QUOTE_AAPL })
+    })
+
+    expect(localStorage.getItem('finance:cache')).toBeNull()
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('does not update state when unmounted during failed fetch', async () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
+    let rejectQuote: ((err: Error) => void) | null = null
+    mockFetchQuote.mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectQuote = reject
+        })
+    )
+
+    const { unmount } = renderHook(() => useFinance())
+
+    unmount()
+
+    await act(async () => {
+      rejectQuote!(new Error('Network failure'))
+    })
+
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
+
+  it('addSymbol swallows refresh failure without throwing', async () => {
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    mockFetchQuote.mockResolvedValue({ success: false, error: 'API down' })
+
+    act(() => {
+      result.current.addSymbol('TSLA')
+    })
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.watchlist).toContain('TSLA')
+    expect(result.current.error).toBeTruthy()
+  })
+
+  it('swallows refresh failure after IPC watchlist hydration', async () => {
+    mockFetchQuote.mockResolvedValue({ success: false, error: 'API down' })
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.resolve(['NVDA', 'MSFT'])
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
+    await waitFor(() => {
+      expect(result.current.watchlist).toEqual(['NVDA', 'MSFT'])
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.error).toBeTruthy()
+  })
+
   it('logs warning when IPC config load rejects', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockInvoke.mockImplementation((channel: string) => {

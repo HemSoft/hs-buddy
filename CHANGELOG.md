@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.757] - 2026-05-11
+
+### Fixed
+
+- Re-register sdk-logs mock in beforeEach to fix test-electron CI
+
 ## [0.1.756] - 2026-05-11
 
 ### Fixed

@@ -116,22 +116,26 @@ vi.mock('@opentelemetry/sdk-metrics', () => ({
   },
 }))
 
-vi.mock('@opentelemetry/sdk-logs', () => ({
-  BatchLogRecordProcessor: class {
-    constructor(exporter: unknown) {
-      telemetryState.mockBatchLogRecordProcessorConstructor(exporter)
-    }
-  },
-  LoggerProvider: class {
-    constructor(config: unknown) {
-      telemetryState.mockLoggerProviderConstructor(config)
-    }
+function buildSdkLogsModule() {
+  return {
+    BatchLogRecordProcessor: class {
+      constructor(exporter: unknown) {
+        telemetryState.mockBatchLogRecordProcessorConstructor(exporter)
+      }
+    },
+    LoggerProvider: class {
+      constructor(config: unknown) {
+        telemetryState.mockLoggerProviderConstructor(config)
+      }
 
-    shutdown(): Promise<void> {
-      return telemetryState.mockLoggerProviderShutdown()
-    }
-  },
-}))
+      shutdown(): Promise<void> {
+        return telemetryState.mockLoggerProviderShutdown()
+      }
+    },
+  }
+}
+
+vi.mock('@opentelemetry/sdk-logs', buildSdkLogsModule)
 
 vi.mock('@opentelemetry/instrumentation-http', () => ({
   HttpInstrumentation: class {
@@ -159,6 +163,7 @@ describe('telemetry', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.doMock('@opentelemetry/sdk-node', buildSdkNodeModule)
+    vi.doMock('@opentelemetry/sdk-logs', buildSdkLogsModule)
     vi.clearAllMocks()
     vi.unstubAllEnvs()
     telemetryState.sdkNodeImportError = null
@@ -644,126 +649,34 @@ describe('telemetry', () => {
 
   describe('shutdownTelemetry - with active SDK', () => {
     it('calls shutdown on loggerProvider and sdk', async () => {
-      vi.resetModules()
-
-      const mockNodeSDK = { start: vi.fn(), shutdown: vi.fn().mockResolvedValue(undefined) }
-      const mockLoggerProvider = { shutdown: vi.fn().mockResolvedValue(undefined) }
-
-      function MockNodeSDK3() {
-        return mockNodeSDK
-      }
-      function MockLoggerProvider3() {
-        return mockLoggerProvider
-      }
-
-      vi.doMock('@opentelemetry/api', () => ({
-        trace: { getTracer: vi.fn(() => ({ startActiveSpan: vi.fn() })) },
-        metrics: {
-          getMeter: vi.fn(() => ({
-            createCounter: vi.fn(() => ({ add: vi.fn() })),
-            createHistogram: vi.fn(() => ({ record: vi.fn() })),
-          })),
-        },
-        SpanStatusCode: { OK: 1, ERROR: 2 },
-        diag: { setLogger: vi.fn() },
-        DiagConsoleLogger: vi.fn(),
-        DiagLogLevel: { DEBUG: 0 },
-      }))
-      vi.doMock('@opentelemetry/api-logs', () => ({
-        logs: { getLogger: vi.fn(() => ({ emit: vi.fn() })), setGlobalLoggerProvider: vi.fn() },
-        SeverityNumber: { DEBUG: 5, INFO: 9, WARN: 13, ERROR: 17 },
-      }))
-      vi.doMock('@opentelemetry/sdk-node', () => ({ NodeSDK: MockNodeSDK3 }))
-      vi.doMock('@opentelemetry/exporter-trace-otlp-proto', () => ({ OTLPTraceExporter: vi.fn() }))
-      vi.doMock('@opentelemetry/exporter-metrics-otlp-proto', () => ({
-        OTLPMetricExporter: vi.fn(),
-      }))
-      vi.doMock('@opentelemetry/exporter-logs-otlp-proto', () => ({ OTLPLogExporter: vi.fn() }))
-      vi.doMock('@opentelemetry/sdk-metrics', () => ({ PeriodicExportingMetricReader: vi.fn() }))
-      vi.doMock('@opentelemetry/sdk-logs', () => ({
-        BatchLogRecordProcessor: vi.fn(),
-        LoggerProvider: MockLoggerProvider3,
-      }))
-      vi.doMock('@opentelemetry/instrumentation-http', () => ({ HttpInstrumentation: vi.fn() }))
-      vi.doMock('@opentelemetry/instrumentation-dns', () => ({ DnsInstrumentation: vi.fn() }))
-      vi.doMock('@opentelemetry/resources', () => ({ resourceFromAttributes: vi.fn(() => ({})) }))
-
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4318'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4318')
       vi.spyOn(console, 'log').mockImplementation(() => {})
+      const { initTelemetry, shutdownTelemetry } = await importTelemetry()
 
-      const mod = await import('./telemetry')
-      await mod.initTelemetry()
-      await mod.shutdownTelemetry()
+      await initTelemetry()
+      await shutdownTelemetry()
 
-      expect(mockLoggerProvider.shutdown).toHaveBeenCalled()
-      expect(mockNodeSDK.shutdown).toHaveBeenCalled()
-      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+      expect(telemetryState.mockLoggerProviderShutdown).toHaveBeenCalled()
+      expect(telemetryState.mockNodeSdkShutdown).toHaveBeenCalled()
     })
 
     it('catches shutdown errors without throwing', async () => {
-      vi.resetModules()
-
-      const mockNodeSDK = {
-        start: vi.fn(),
-        shutdown: vi.fn().mockRejectedValue(new Error('shutdown fail')),
-      }
-      const mockLoggerProvider = {
-        shutdown: vi.fn().mockRejectedValue(new Error('logger shutdown fail')),
-      }
-
-      function MockNodeSDK4() {
-        return mockNodeSDK
-      }
-      function MockLoggerProvider4() {
-        return mockLoggerProvider
-      }
-
-      vi.doMock('@opentelemetry/api', () => ({
-        trace: { getTracer: vi.fn(() => ({ startActiveSpan: vi.fn() })) },
-        metrics: {
-          getMeter: vi.fn(() => ({
-            createCounter: vi.fn(() => ({ add: vi.fn() })),
-            createHistogram: vi.fn(() => ({ record: vi.fn() })),
-          })),
-        },
-        SpanStatusCode: { OK: 1, ERROR: 2 },
-        diag: { setLogger: vi.fn() },
-        DiagConsoleLogger: vi.fn(),
-        DiagLogLevel: { DEBUG: 0 },
-      }))
-      vi.doMock('@opentelemetry/api-logs', () => ({
-        logs: { getLogger: vi.fn(() => ({ emit: vi.fn() })), setGlobalLoggerProvider: vi.fn() },
-        SeverityNumber: { DEBUG: 5, INFO: 9, WARN: 13, ERROR: 17 },
-      }))
-      vi.doMock('@opentelemetry/sdk-node', () => ({ NodeSDK: MockNodeSDK4 }))
-      vi.doMock('@opentelemetry/exporter-trace-otlp-proto', () => ({ OTLPTraceExporter: vi.fn() }))
-      vi.doMock('@opentelemetry/exporter-metrics-otlp-proto', () => ({
-        OTLPMetricExporter: vi.fn(),
-      }))
-      vi.doMock('@opentelemetry/exporter-logs-otlp-proto', () => ({ OTLPLogExporter: vi.fn() }))
-      vi.doMock('@opentelemetry/sdk-metrics', () => ({ PeriodicExportingMetricReader: vi.fn() }))
-      vi.doMock('@opentelemetry/sdk-logs', () => ({
-        BatchLogRecordProcessor: vi.fn(),
-        LoggerProvider: MockLoggerProvider4,
-      }))
-      vi.doMock('@opentelemetry/instrumentation-http', () => ({ HttpInstrumentation: vi.fn() }))
-      vi.doMock('@opentelemetry/instrumentation-dns', () => ({ DnsInstrumentation: vi.fn() }))
-      vi.doMock('@opentelemetry/resources', () => ({ resourceFromAttributes: vi.fn(() => ({})) }))
-
-      process.env.OTEL_EXPORTER_OTLP_ENDPOINT = 'http://localhost:4318'
+      vi.stubEnv('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://localhost:4318')
       vi.spyOn(console, 'log').mockImplementation(() => {})
       const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { initTelemetry, shutdownTelemetry } = await importTelemetry()
 
-      const mod = await import('./telemetry')
-      await mod.initTelemetry()
-      await mod.shutdownTelemetry()
+      await initTelemetry()
+      telemetryState.mockLoggerProviderShutdown.mockRejectedValueOnce(
+        new Error('logger shutdown fail')
+      )
+
+      await expect(shutdownTelemetry()).resolves.toBeUndefined()
 
       expect(warnSpy).toHaveBeenCalledWith(
         expect.stringContaining('Shutdown error'),
         expect.anything()
       )
-      warnSpy.mockRestore()
-      delete process.env.OTEL_EXPORTER_OTLP_ENDPOINT
     })
   })
 

@@ -164,6 +164,9 @@ describe('telemetry', () => {
     telemetryState.sdkNodeImportError = null
     telemetryState.mockNodeSdkShutdown.mockImplementation(async () => undefined)
     telemetryState.mockLoggerProviderShutdown.mockImplementation(async () => undefined)
+    telemetryState.mockStartActiveSpan.mockImplementation((_name, _opts, fn) =>
+      fn(telemetryState.mockSpan)
+    )
   })
 
   afterEach(() => {
@@ -234,10 +237,11 @@ describe('telemetry', () => {
       )
     })
 
-    it('falls back to INFO severity for unknown severity levels', () => {
+    it('falls back to INFO severity for unknown severity levels', async () => {
+      const { emitLog: emitLogFn } = await importTelemetry()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      emitLog('TRACE' as any, 'trace msg')
-      expect(mockEmit).toHaveBeenCalledWith(
+      emitLogFn('TRACE' as any, 'trace msg')
+      expect(telemetryState.mockEmit).toHaveBeenCalledWith(
         expect.objectContaining({ severityNumber: 9, severityText: 'TRACE' })
       )
     })
@@ -305,6 +309,14 @@ describe('telemetry', () => {
       expect(telemetryState.mockSpan.recordException).toHaveBeenCalledWith(
         new Error('string error')
       )
+    })
+
+    it('handles a fn that returns undefined', async () => {
+      const { withSpan: withSpanFn } = await importTelemetry()
+      const result = await withSpanFn('void-op', {}, async () => undefined)
+      expect(result).toBeUndefined()
+      expect(telemetryState.mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 })
+      expect(telemetryState.mockSpan.end).toHaveBeenCalled()
     })
   })
 
@@ -775,20 +787,12 @@ describe('telemetry', () => {
       const { metrics } = await import('@opentelemetry/api')
       metrics.getMeter('test')
 
-      recordIpcCall('test:chan', 50, false)
-      recordIpcCall('test:chan', 100, true)
+      const { recordIpcCall: recordIpcCallFn } = await importTelemetry()
+      recordIpcCallFn('test:chan', 50, false)
+      recordIpcCallFn('test:chan', 100, true)
 
-      expect(mockCounter.add).not.toHaveBeenCalled()
-      expect(mockHistogram.record).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('withSpan edge cases', () => {
-    it('handles a fn that returns undefined', async () => {
-      const result = await withSpan('void-op', {}, async () => undefined)
-      expect(result).toBeUndefined()
-      expect(mockSpan.setStatus).toHaveBeenCalledWith({ code: 1 })
-      expect(mockSpan.end).toHaveBeenCalled()
+      expect(telemetryState.mockCounter.add).not.toHaveBeenCalled()
+      expect(telemetryState.mockHistogram.record).not.toHaveBeenCalled()
     })
   })
 })

@@ -138,6 +138,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
           if (
             item.id !== target.id ||
             item.repository !== target.repository ||
+            (item.org ?? '') !== (target.org ?? '') ||
             item.source !== target.source ||
             item.iApproved
           )
@@ -157,7 +158,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       if (!resolved) return
       /* v8 ignore stop */
       const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.repository}-${pr.id}`
+      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
       setApprovingPrKey(prKey)
       try {
         await enqueueRef.current(

@@ -1,16 +1,19 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { IPC_INVOKE } from '../../../ipc/contracts'
 import { dataCache } from '../../../services/dataCache'
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose'
 
 export function useSidebarUserMenu() {
   const [favoriteUsers, setFavoriteUsers] = useState<Set<string>>(new Set())
+  const hasLocalMutationRef = useRef(false)
 
   useEffect(() => {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_FAVORITE_USERS)
       .then((users: string[]) => {
-        setFavoriteUsers(new Set(users))
+        if (!hasLocalMutationRef.current) {
+          setFavoriteUsers(new Set(users))
+        }
       })
       /* v8 ignore start */
       .catch(() => {
@@ -36,6 +39,7 @@ export function useSidebarUserMenu() {
 
   const toggleFavoriteUser = useCallback((org: string, login: string) => {
     const key = `${org}/${login}`
+    hasLocalMutationRef.current = true
     setFavoriteUsers(prev => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)

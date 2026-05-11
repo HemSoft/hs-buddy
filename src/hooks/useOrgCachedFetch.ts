@@ -42,7 +42,7 @@ function resolveLoadPhase(hasData: boolean): LoadPhase {
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
 
-export interface UseOrgCachedFetchOptions<T> {
+interface UseOrgCachedFetchOptions<T> {
   accounts: GitHubAccount[]
   org: string
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
@@ -53,7 +53,7 @@ export interface UseOrgCachedFetchOptions<T> {
   fetchFn: (client: GitHubClient, org: string) => Promise<T>
 }
 
-export interface UseOrgCachedFetchResult<T> {
+interface UseOrgCachedFetchResult<T> {
   data: T | null
   phase: LoadPhase
   error: string | null

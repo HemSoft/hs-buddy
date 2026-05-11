@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments for type safety and assertions
 - Align readSync tuple cast with Node.js API types
 - Increase function coverage to 86.7% and address review feedback
+- Resolve CI failures and address PR review feedback
 
 ### Changed
 

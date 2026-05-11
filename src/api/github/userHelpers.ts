@@ -60,7 +60,7 @@ interface SearchItemForUserPR {
 }
 
 /** Minimal shape for the GraphQL user profile response used for contribution data. */
-export interface GraphQLUserProfile {
+interface GraphQLUserProfile {
   user?: {
     name?: string | null
     bio?: string | null
@@ -165,19 +165,19 @@ export function buildContributionCalendar(commitDates: string[]): {
   const dateCounts = collectDailyCounts(commitDates)
 
   const now = new Date()
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const start = new Date(end)
-  start.setFullYear(start.getFullYear() - 1)
+  start.setUTCFullYear(start.getUTCFullYear() - 1)
   // Align start to Sunday
-  start.setDate(start.getDate() - start.getDay())
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay())
 
   // First pass — collect all daily counts
   const allDays: Array<{ date: string; count: number }> = []
   const cursor = new Date(start)
   while (cursor <= end) {
-    const dateStr = cursor.toISOString().split('T')[0]
+    const dateStr = cursor.toISOString().slice(0, 10)
     allDays.push({ date: dateStr, count: dateCounts.get(dateStr) ?? 0 })
-    cursor.setDate(cursor.getDate() + 1)
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
 
   const quartiles = computeQuartiles(allDays.map(d => d.count))

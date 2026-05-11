@@ -1105,7 +1105,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 99999,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1140,7 +1140,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 88888,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1170,7 +1170,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 77777,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1200,7 +1200,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 66666,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1226,7 +1226,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 55555,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1252,7 +1252,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 44444,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1287,7 +1287,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 33333,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',
@@ -1315,7 +1315,7 @@ describe('ralphService', () => {
         kill: vi.fn(),
         pid: 22222,
       }
-      mockSpawn.mockReturnValueOnce(mockProcess)
+      mockSpawn.mockReturnValueOnce(mockProcess as never)
 
       const result = launchLoop({
         repoPath: '/valid/path',

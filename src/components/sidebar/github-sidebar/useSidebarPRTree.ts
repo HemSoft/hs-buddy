@@ -116,11 +116,19 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
   const copyToClipboard = async (text: string) => {
     /* v8 ignore start */
     if (navigator.clipboard?.writeText) {
-      /* v8 ignore stop */
-      await navigator.clipboard.writeText(text)
-      return
+      try {
+        await navigator.clipboard.writeText(text)
+        return
+      } catch (error: unknown) {
+        console.warn(
+          'Clipboard API writeText failed, falling back to deprecated execCommand("copy")',
+          error
+        )
+      }
+    } else {
+      console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
     }
-    console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
+    /* v8 ignore stop */
     const textArea = document.createElement('textarea')
     textArea.value = text
     textArea.style.position = 'fixed'

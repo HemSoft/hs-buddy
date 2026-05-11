@@ -347,16 +347,12 @@ export async function getOctokitForOwner(
 export async function getTokenForOwner(config: PRConfig['github'], owner: string): Promise<string> {
   for (const account of getAccountsByOwnerPriority(config, owner)) {
     const token = await getGitHubCLIToken(account.username)
-    /* v8 ignore start */
     if (token) {
-      /* v8 ignore stop */
       return token
     }
   }
 
-  /* v8 ignore start -- only throws when all accounts lack tokens */
   throw new Error('No authenticated GitHub account available')
-  /* v8 ignore stop */
 }
 
 /**
@@ -364,7 +360,6 @@ export async function getTokenForOwner(config: PRConfig['github'], owner: string
  * Logs warnings on per-account failures; throws if all accounts fail
  * (unless `noAccountFallback` is provided).
  */
-/* v8 ignore start -- account-iteration orchestration; requires real API */
 export async function withFirstAvailableAccount<T>(
   config: PRConfig['github'],
   owner: string,
@@ -393,7 +388,6 @@ export async function withFirstAvailableAccount<T>(
       : `Could not ${label} - no authenticated account available`
   throw new Error(message, { cause: lastError })
 }
-/* v8 ignore stop */
 
 /**
  * Process items in batches of a given size (default 10).

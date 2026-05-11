@@ -178,12 +178,8 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
     error,
     refresh,
     cacheKey,
-  } = usePRPanelData<PRChecksSummary>(
-    pr,
-    'pr-checks',
-    /* v8 ignore start */
-    (client, owner, repo, prNumber) => client.fetchPRChecks(owner, repo, prNumber)
-    /* v8 ignore stop */
+  } = usePRPanelData<PRChecksSummary>(pr, 'pr-checks', (client, owner, repo, prNumber) =>
+    client.fetchPRChecks(owner, repo, prNumber)
   )
 
   if (error) {

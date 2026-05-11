@@ -212,4 +212,79 @@ describe('execWorker', () => {
     const result = await promise
     expect(result.success).toBe(false)
   })
+
+  it('skips SIGKILL when process is already killed after SIGTERM', async () => {
+    const proc = createMockProcess()
+    vi.mocked(spawn).mockReturnValue(proc as never)
+
+    const promise = execWorker.execute({ command: 'killable', timeout: 3000 })
+
+    // Advance past timeout — triggers SIGTERM
+    vi.advanceTimersByTime(3000)
+    expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
+
+    // Process IS already killed
+    proc.killed = true
+
+    // Advance 5 more seconds — SIGKILL should NOT be sent
+    vi.advanceTimersByTime(5000)
+    // kill was called once with SIGTERM, but should NOT have been called with SIGKILL
+    expect(proc.kill).not.toHaveBeenCalledWith('SIGKILL')
+
+    // Process exits
+    proc.emit('close', null)
+
+    vi.useRealTimers()
+    const result = await promise
+    expect(result.success).toBe(false)
+  })
+
+  it('caps stdout at MAX_OUTPUT_SIZE', async () => {
+    vi.useRealTimers()
+    const proc = createMockProcess()
+    vi.mocked(spawn).mockReturnValue(proc as never)
+
+    const promise = execWorker.execute({ command: 'verbose' })
+
+    await new Promise(r => setTimeout(r, 10))
+    // First chunk fills stdout beyond MAX_OUTPUT_SIZE (512_000)
+    const bigChunk = Buffer.alloc(530_000, 'x')
+    proc.stdout.push(bigChunk)
+    // Second chunk should be discarded since stdout.length >= MAX_OUTPUT_SIZE
+    proc.stdout.push(Buffer.alloc(100_000, 'y'))
+    proc.stdout.push(null)
+    proc.emit('close', 0)
+
+    await promise
+    const { buildWorkerResult } = await import('../../src/utils/shellUtils')
+    const lastCall = vi.mocked(buildWorkerResult).mock.calls.at(-1)?.[0] as {
+      stdout?: string
+    }
+    // First chunk (530KB) was accepted, but second chunk (100KB) was rejected
+    expect(lastCall?.stdout?.length).toBe(530_000)
+  })
+
+  it('caps stderr at MAX_OUTPUT_SIZE', async () => {
+    vi.useRealTimers()
+    const proc = createMockProcess()
+    vi.mocked(spawn).mockReturnValue(proc as never)
+
+    const promise = execWorker.execute({ command: 'verbose-err' })
+
+    await new Promise(r => setTimeout(r, 10))
+    // First chunk fills stderr beyond MAX_OUTPUT_SIZE
+    proc.stderr.push(Buffer.alloc(530_000, 'e'))
+    // Second chunk should be discarded
+    proc.stderr.push(Buffer.alloc(100_000, 'f'))
+    proc.stderr.push(null)
+    proc.emit('close', 1)
+
+    await promise
+    const { buildWorkerResult } = await import('../../src/utils/shellUtils')
+    const lastCall = vi.mocked(buildWorkerResult).mock.calls.at(-1)?.[0] as {
+      stderr?: string
+    }
+    // Only first 530KB chunk accepted, second rejected
+    expect(lastCall?.stderr?.length).toBe(530_000)
+  })
 })

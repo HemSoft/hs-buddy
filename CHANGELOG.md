@@ -18,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove 14 v8 ignore pragmas and add 10 genuine tests
+- Improve assertions per review feedback
+
 - Add coverage for 5 untested source files
 - Improve coverage from 67/52/69/69 to 79/63/86/81
 
@@ -36,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
+- Remove unused exports and harden extractRepoFromUrl
+- Resolve Lighthouse CI NO_FCP by using --mode e2e and browser IPC mock
 
 ### Changed
 
@@ -56,6 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
+- Remove v8 ignore pragmas and add 7 tests
+- Remove 10 v8 ignore pragmas by adding genuine test coverage
 
 ## [0.1.751] - 2026-05-07
 

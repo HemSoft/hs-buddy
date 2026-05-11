@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve merge conflicts with main
 - Remove v8 ignore pragmas and add 7 tests
 - Remove 10 v8 ignore pragmas by adding genuine test coverage
+- Extract behavioral seams from high-complexity hotspots (#17)
 
 ## [0.1.751] - 2026-05-07
 

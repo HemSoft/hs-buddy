@@ -6,7 +6,6 @@ import {
   useBuddyStatsMutations,
 } from '../../../hooks/useConvex'
 import { useTaskQueue } from '../../../hooks/useTaskQueue'
-import { useNewPRIndicator } from '../../../hooks/useNewPRIndicator'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import { IPC_INVOKE } from '../../../ipc/contracts'
 import {
@@ -26,31 +25,17 @@ import {
   type RepoPullRequest,
 } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
-import { parseOwnerRepoFromUrl, parseOwnerRepoKey } from '../../../utils/githubUrl'
+import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
-import { dispatchPRReviewOpen } from '../../../utils/prReviewEvents'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { MS_PER_MINUTE } from '../../../constants'
 import { getUniqueOrgs, mapRepoPRToPullRequest } from './githubSidebarUtils'
+import { useSidebarUserMenu } from './useSidebarUserMenu'
+import { useSidebarPRTree } from './useSidebarPRTree'
 
 function getMaxAgeMs(refreshInterval: number): number | null {
   return refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
-}
-
-const PR_TREE_CACHE_KEYS: Record<string, string> = {
-  'pr-my-prs': 'my-prs',
-  'pr-needs-review': 'needs-review',
-  'pr-need-a-nudge': 'need-a-nudge',
-  'pr-recently-merged': 'recently-merged',
-}
-
-function initPrTreeData(): Record<string, PullRequest[]> {
-  const result: Record<string, PullRequest[]> = {}
-  for (const [key, cacheKey] of Object.entries(PR_TREE_CACHE_KEYS)) {
-    result[key] = dataCache.get<PullRequest[]>(cacheKey)?.data || []
-  }
-  return result
 }
 
 function isValidOrgRepoResult(data: unknown): data is OrgRepoResult {
@@ -73,17 +58,6 @@ function getValidCachedOrgRepos(org: string): OrgRepoResult | null {
   }
   return null
 }
-
-/** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
-/* v8 ignore start */
-function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
-  const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
-  if (!owner || !repo) return null
-  return { owner, repo }
-}
-/* v8 ignore stop */
 
 /** Iterate stale cache entries, parse each key, and invoke a callback for those that are stale. */
 function forEachStaleEntry<T>(
@@ -225,20 +199,6 @@ async function fetchCachedData<TRaw>(opts: {
   })
 }
 
-/** Closes a context menu on Escape key press. */
-function useEscapeToClose(isOpen: boolean, close: () => void) {
-  useEffect(() => {
-    if (!isOpen) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      /* v8 ignore start */
-      if (e.key === 'Escape') close()
-      /* v8 ignore stop */
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, close])
-}
-
 export interface SidebarItem {
   id: string
   label: string
@@ -248,7 +208,7 @@ export function useGitHubSidebarData() {
   const sections = useToggleSet(['pull-requests', 'organizations'])
   const orgs = useToggleSet()
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
-  const [favoriteUsers, setFavoriteUsers] = useState<Set<string>>(new Set())
+  const userMenu = useSidebarUserMenu()
 
   useEffect(() => {
     window.ipcRenderer
@@ -259,14 +219,6 @@ export function useGitHubSidebarData() {
       /* v8 ignore start */
       .catch(() => {
         /* v8 ignore stop */
-        /* use default */
-      })
-    window.ipcRenderer
-      .invoke(IPC_INVOKE.CONFIG_GET_FAVORITE_USERS)
-      .then((users: string[]) => {
-        setFavoriteUsers(new Set(users))
-      })
-      .catch(() => {
         /* use default */
       })
   }, [])
@@ -300,6 +252,8 @@ export function useGitHubSidebarData() {
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const { increment: incrementStat } = useBuddyStatsMutations()
 
+  const prTree = useSidebarPRTree({ accounts, enqueueRef })
+
   const applyOrgRepoResult = useCallback((org: string, result: OrgRepoResult) => {
     setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
     setOrgMeta(prev => ({
@@ -319,14 +273,6 @@ export function useGitHubSidebarData() {
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
   const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
   const fetchedCountsRef = useRef<Set<string>>(new Set())
-  const prGroups = useToggleSet()
-  const [prContextMenu, setPrContextMenu] = useState<{
-    x: number
-    y: number
-    pr: PullRequest
-  } | null>(null)
-  const [approvingPrKey, setApprovingPrKey] = useState<string | null>(null)
-  const prNodes = useToggleSet()
   const repoIssueGroups = useToggleSet()
   const repoIssueStateGroups = useToggleSet()
   const repoPRGroups = useToggleSet()
@@ -347,7 +293,6 @@ export function useGitHubSidebarData() {
   const sflGroups = useToggleSet()
   const ralphGroups = useToggleSet()
   const fetchedSFLRef = useRef<Set<string>>(new Set())
-  const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(initPrTreeData)
 
   const uniqueOrgs = getUniqueOrgs(accounts)
 
@@ -441,6 +386,7 @@ export function useGitHubSidebarData() {
       if (!updated?.data) return
       /* v8 ignore stop */
       const [, ownerRepo] = repoKey.split(':', 2)
+      if (!ownerRepo) return
       const parsed = parseOwnerRepoKey(ownerRepo)
       /* v8 ignore start */
       if (!parsed) return
@@ -1008,178 +954,10 @@ export function useGitHubSidebarData() {
     return () => clearInterval(intervalId)
   }, [accounts, refreshInterval])
 
-  const prItems: SidebarItem[] = [
-    { id: 'pr-my-prs', label: 'My PRs' },
-    { id: 'pr-needs-review', label: 'Needs Review' },
-    { id: 'pr-need-a-nudge', label: 'Needs a nudge' },
-    { id: 'pr-recently-merged', label: 'Recently Merged' },
-  ]
-
-  const {
-    newCounts: newPRCounts,
-    newUrls: newPRUrls,
-    markAsSeen: markPRsAsSeen,
-  } = useNewPRIndicator()
-
-  useEffect(() => {
-    const viewIdByCacheKey: Record<string, string> = {
-      'my-prs': 'pr-my-prs',
-      'needs-review': 'pr-needs-review',
-      'need-a-nudge': 'pr-need-a-nudge',
-      'recently-merged': 'pr-recently-merged',
-    }
-    const unsubscribe = dataCache.subscribe(key => {
-      const viewId = viewIdByCacheKey[key]
-      /* v8 ignore start */
-      if (!viewId) return
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      const data = dataCache.get<PullRequest[]>(key)?.data || []
-      /* v8 ignore stop */
-      setPrTreeData(prev => ({ ...prev, [viewId]: data }))
-    })
-    return unsubscribe
-  }, [])
-
-  const openPRReview = (pr: PullRequest) => {
-    dispatchPRReviewOpen({
-      prUrl: pr.url,
-      prTitle: pr.title,
-      prNumber: pr.id,
-      repo: pr.repository,
-      /* v8 ignore start */
-      org: pr.org || '',
-      /* v8 ignore stop */
-      author: pr.author,
-    })
-  }
-
-  const openTreePRContextMenu = (e: React.MouseEvent, pr: PullRequest) => {
-    e.preventDefault()
-    setPrContextMenu({ x: e.clientX, y: e.clientY, pr })
-  }
-
-  const closePrContextMenu = useCallback(() => setPrContextMenu(null), [])
-  useEscapeToClose(!!prContextMenu, closePrContextMenu)
-
-  const copyToClipboard = async (text: string) => {
-    /* v8 ignore start */
-    if (navigator.clipboard?.writeText) {
-      /* v8 ignore stop */
-      await navigator.clipboard.writeText(text)
-      return
-    }
-    const textArea = document.createElement('textarea')
-    textArea.value = text
-    textArea.style.position = 'fixed'
-    textArea.style.opacity = '0'
-    document.body.appendChild(textArea)
-    textArea.select()
-    document.execCommand('copy')
-    document.body.removeChild(textArea)
-  }
-
-  const applyApproveToTree = useCallback((target: PullRequest) => {
-    setPrTreeData(prev => {
-      const next: Record<string, PullRequest[]> = { ...prev }
-      for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
-        next[groupId] = items.map(item => {
-          if (
-            item.id !== target.id ||
-            item.repository !== target.repository ||
-            item.source !== target.source ||
-            item.iApproved
-          )
-            return item
-          return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-        })
-      }
-      return next
-    })
-  }, [])
-
-  const handleApprovePR = useCallback(
-    async (pr: PullRequest) => {
-      if (pr.iApproved) return
-      const resolved = resolvePROwnerRepo(pr)
-      /* v8 ignore start */
-      if (!resolved) return
-      /* v8 ignore stop */
-      const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.repository}-${pr.id}`
-      setApprovingPrKey(prKey)
-      try {
-        await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            await client.approvePullRequest(owner, repo, pr.id)
-          },
-          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
-        )
-        applyApproveToTree(pr)
-      } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.error('Failed to approve PR from sidebar:', error)
-      } finally {
-        setApprovingPrKey(null)
-      }
-    },
-    [accounts, applyApproveToTree]
-  )
-
-  // ── User context menu ──
-  const [userContextMenu, setUserContextMenu] = useState<{
-    x: number
-    y: number
-    login: string
-    org: string
-  } | null>(null)
-
-  const openUserContextMenu = useCallback((e: React.MouseEvent, org: string, login: string) => {
-    e.preventDefault()
-    setUserContextMenu({ x: e.clientX, y: e.clientY, login, org })
-  }, [])
-
-  const closeUserContextMenu = useCallback(() => setUserContextMenu(null), [])
-  useEscapeToClose(!!userContextMenu, closeUserContextMenu)
-
-  const toggleFavoriteUser = useCallback((org: string, login: string) => {
-    const key = `${org}/${login}`
-    setFavoriteUsers(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      window.ipcRenderer
-        .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(next))
-        .catch(() => {})
-      return next
-    })
-  }, [])
-
-  const refreshUser = useCallback((org: string, login: string) => {
-    const cacheKey = `user-activity:v2:${org}/${login}`
-    dataCache.delete(cacheKey)
-    // Re-navigate to force a re-fetch on the detail panel
-    window.dispatchEvent(
-      new CustomEvent('app:navigate', {
-        detail: { viewId: `org-user:${org}/${login}` },
-      })
-    )
-  }, [])
-
   return {
-    prContextMenu,
-    setPrContextMenu,
-    approvingPrKey,
+    ...prTree,
     bookmarkedRepoKeys,
     expandedSections: sections.set,
-    prItems,
-    prTreeData,
-    expandedPrGroups: prGroups.set,
-    expandedPRNodes: prNodes.set,
     uniqueOrgs,
     orgRepos,
     orgMeta,
@@ -1229,22 +1007,8 @@ export function useGitHubSidebarData() {
     toggleRepoCommitGroup,
     toggleSFLGroup,
     toggleRalphGroup,
-    togglePRGroup: prGroups.toggle,
-    togglePRNode: prNodes.toggle,
-    newPRCounts,
-    newPRUrls,
-    markPRsAsSeen,
-    openTreePRContextMenu,
     handleBookmarkToggle,
-    handleApprovePR,
-    copyToClipboard,
-    openPRReview,
     toggleBookmarkRepoByValues,
-    userContextMenu,
-    setUserContextMenu,
-    favoriteUsers,
-    openUserContextMenu,
-    toggleFavoriteUser,
-    refreshUser,
+    ...userMenu,
   }
 }

@@ -109,6 +109,21 @@ vi.mock('../../../utils/errorUtils', () => ({
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
 
+/** Get the main sidebar subscription callback (not the PR tree one). */
+function getMainSubscribeCb(): (key: string) => void {
+  const calls = mockSubscribe.mock.calls as unknown[][]
+  // useSidebarPRTree subscribes first (index 0), main hook subscribes second (index 1)
+  const cb = (calls[1]?.[0] ?? calls[0]?.[0]) as (key: string) => void
+  return cb
+}
+
+/** Get the PR tree subscription callback. */
+function getPRTreeSubscribeCb(): ((key: string) => void) | undefined {
+  const calls = mockSubscribe.mock.calls as unknown[][]
+  // If there are 2+ subscriptions, PR tree is first; otherwise undefined
+  return calls.length >= 2 ? (calls[0]?.[0] as (key: string) => void) : undefined
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(null)
@@ -581,8 +596,7 @@ describe('useGitHubSidebarData', () => {
   it('dataCache subscription routes org-repos updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
 
-    // Retrieve the subscribe callback that the hook registered
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     // When the subscription fires, the hook calls dataCache.get to read updated data
@@ -608,7 +622,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-counts updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -623,7 +637,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-commits updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -641,7 +655,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-issues updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -658,7 +672,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes sfl-status updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -905,7 +919,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-prs updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -942,7 +956,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-issues updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'repo-issues:open:acme/my-repo') {
@@ -959,7 +973,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes sfl-status updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'sfl-status:acme/my-repo') {
@@ -977,10 +991,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription for PR tree data (top-level)', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    // The second subscribe call is the prTreeData subscription
-    const subscribeCalls = mockSubscribe.mock.calls as unknown[][]
-    // Find the subscription that handles 'my-prs' etc
-    const prSubscribeCb = subscribeCalls[1]?.[0] as ((key: string) => void) | undefined
+    const prSubscribeCb = getPRTreeSubscribeCb()
     if (!prSubscribeCb) return // skip if mock setup differs
 
     mockGet.mockImplementation((key: string) => {
@@ -994,8 +1005,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription ignores unknown keys for PR tree', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCalls = mockSubscribe.mock.calls as unknown[][]
-    const prSubscribeCb = subscribeCalls[1]?.[0] as ((key: string) => void) | undefined
+    const prSubscribeCb = getPRTreeSubscribeCb()
     if (!prSubscribeCb) return
 
     const before = { ...result.current.prTreeData }

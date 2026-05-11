@@ -1,0 +1,70 @@
+import { useState, useCallback, useEffect } from 'react'
+import { IPC_INVOKE } from '../../../ipc/contracts'
+import { dataCache } from '../../../services/dataCache'
+import { useEscapeToClose } from '../../../hooks/useEscapeToClose'
+
+export function useSidebarUserMenu() {
+  const [favoriteUsers, setFavoriteUsers] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    window.ipcRenderer
+      .invoke(IPC_INVOKE.CONFIG_GET_FAVORITE_USERS)
+      .then((users: string[]) => {
+        setFavoriteUsers(new Set(users))
+      })
+      /* v8 ignore start */
+      .catch(() => {
+        /* use default */
+      })
+    /* v8 ignore stop */
+  }, [])
+
+  const [userContextMenu, setUserContextMenu] = useState<{
+    x: number
+    y: number
+    login: string
+    org: string
+  } | null>(null)
+
+  const openUserContextMenu = useCallback((e: React.MouseEvent, org: string, login: string) => {
+    e.preventDefault()
+    setUserContextMenu({ x: e.clientX, y: e.clientY, login, org })
+  }, [])
+
+  const closeUserContextMenu = useCallback(() => setUserContextMenu(null), [])
+  useEscapeToClose(!!userContextMenu, closeUserContextMenu)
+
+  const toggleFavoriteUser = useCallback((org: string, login: string) => {
+    const key = `${org}/${login}`
+    setFavoriteUsers(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      window.ipcRenderer
+        .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(next))
+        /* v8 ignore start */
+        .catch(() => {})
+      /* v8 ignore stop */
+      return next
+    })
+  }, [])
+
+  const refreshUser = useCallback((org: string, login: string) => {
+    const cacheKey = `user-activity:v2:${org}/${login}`
+    dataCache.delete(cacheKey)
+    window.dispatchEvent(
+      new CustomEvent('app:navigate', {
+        detail: { viewId: `org-user:${org}/${login}` },
+      })
+    )
+  }, [])
+
+  return {
+    userContextMenu,
+    setUserContextMenu,
+    favoriteUsers,
+    openUserContextMenu,
+    toggleFavoriteUser,
+    refreshUser,
+  }
+}

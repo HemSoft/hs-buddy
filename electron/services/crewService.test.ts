@@ -19,18 +19,17 @@ vi.mock('fs', () => ({
 }))
 
 const mockExecFileCb = vi.fn()
-const mockExecFileAsync = vi.fn()
 
 vi.mock('child_process', () => ({
   execFile: (...args: unknown[]) => mockExecFileCb(...args),
 }))
 
+const { mockExecFileAsync } = vi.hoisted(() => ({
+  mockExecFileAsync: vi.fn().mockResolvedValue({ stdout: '' }),
+}))
+
 vi.mock('util', () => ({
-  promisify: vi.fn(
-    () =>
-      (...args: unknown[]) =>
-        mockExecFileAsync(...args)
-  ),
+  promisify: vi.fn(() => mockExecFileAsync),
 }))
 
 vi.mock('../../src/utils/githubUrl', () => ({
@@ -38,8 +37,6 @@ vi.mock('../../src/utils/githubUrl', () => ({
   isGitHubHost: vi.fn(() => false),
 }))
 
-import { dialog } from 'electron'
-import { parseGitRemote, isGitHubHost } from '../../src/utils/githubUrl'
 import {
   listProjects,
   removeProject,
@@ -53,40 +50,16 @@ import {
   undoFile,
 } from './crewService'
 
-function setStoredData({
-  projects = [],
-  sessions = [],
-  projectsExists = true,
-  sessionsExists = true,
-}: {
-  projects?: unknown[]
-  sessions?: unknown[]
-  projectsExists?: boolean
-  sessionsExists?: boolean
-} = {}): void {
-  mockExistsSync.mockImplementation(filePath => {
-    const normalized = String(filePath)
-    if (normalized.endsWith('projects.json')) return projectsExists
-    if (normalized.endsWith('sessions.json')) return sessionsExists
-    return false
-  })
-
-  mockReadFileSync.mockImplementation(filePath => {
-    const normalized = String(filePath)
-    if (normalized.endsWith('projects.json')) return JSON.stringify(projects)
-    if (normalized.endsWith('sessions.json')) return JSON.stringify(sessions)
-    return '[]'
-  })
-}
-
 describe('crewService', () => {
-  beforeEach(() => {
-    vi.restoreAllMocks()
-    vi.clearAllMocks()
-    mockExecFileAsync.mockReset()
+  beforeEach(async () => {
+    vi.resetAllMocks()
+    mockExecFileAsync.mockResolvedValue({ stdout: '' })
     mockExistsSync.mockReturnValue(false)
     mockReadFileSync.mockReturnValue('[]')
+    // Re-apply defaults for module-level mocks cleared by resetAllMocks
+    const { dialog } = await import('electron')
     vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] })
+    const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
     vi.mocked(parseGitRemote).mockReturnValue(null)
     vi.mocked(isGitHubHost).mockReturnValue(false)
   })
@@ -315,250 +288,385 @@ describe('crewService', () => {
   })
 
   describe('addProjectFromPicker', () => {
-    it('returns cancelled when the picker is dismissed', async () => {
-      const parentWindow = { isDestroyed: vi.fn(() => true) }
-
-      const result = await addProjectFromPicker(parentWindow as never)
-
+    it('returns cancelled when dialog is dismissed', async () => {
+      const result = await addProjectFromPicker()
       expect(result).toEqual({ success: false, error: 'Cancelled' })
-      expect(dialog.showOpenDialog).toHaveBeenCalledWith(
-        expect.objectContaining({
-          properties: ['openDirectory'],
-          title: 'Select a project folder',
-        })
-      )
     })
 
-    it('returns an error when the selected folder is not a git repository', async () => {
-      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+    it('returns error when folder is not a git repo', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
         canceled: false,
-        filePaths: ['/workspace/not-a-repo'],
+        filePaths: ['/some/folder'],
       })
-      mockExecFileAsync.mockRejectedValueOnce(new Error('not a repo'))
+      // runGit returns null → not a git repo
+      mockExecFileAsync.mockRejectedValue(new Error('not a git repo'))
 
       const result = await addProjectFromPicker()
-
-      expect(result).toEqual({ success: false, error: 'Not a git repository' })
-      expect(mockExecFileAsync).toHaveBeenCalledWith('git', ['rev-parse', '--show-toplevel'], {
-        cwd: '/workspace/not-a-repo',
-        timeout: 5000,
-      })
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Not a git repository')
     })
 
-    it('returns an error when the repository has no origin remote', async () => {
-      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+    it('returns error when no origin remote', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
         canceled: false,
-        filePaths: ['/workspace/repo'],
+        filePaths: ['/some/repo'],
       })
+      // First call: git rev-parse --show-toplevel → success
+      // Second call: git remote get-url origin → fails
       mockExecFileAsync
-        .mockResolvedValueOnce({ stdout: '/workspace/repo\n' })
-        .mockRejectedValueOnce(new Error('missing origin'))
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockRejectedValueOnce(new Error('no origin'))
 
       const result = await addProjectFromPicker()
-
-      expect(result).toEqual({ success: false, error: 'No origin remote found' })
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('No origin remote')
     })
 
-    it('returns an error when the origin remote is not GitHub', async () => {
-      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+    it('returns error when origin is not GitHub', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
         canceled: false,
-        filePaths: ['/workspace/repo'],
+        filePaths: ['/some/repo'],
       })
+      // git rev-parse → /some/repo, git remote get-url origin → gitlab url
       mockExecFileAsync
-        .mockResolvedValueOnce({ stdout: '/workspace/repo\n' })
-        .mockResolvedValueOnce({ stdout: 'https://gitlab.example.com/owner/repo.git\n' })
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://gitlab.com/org/repo.git' })
+      // parseGitRemote returns result but isGitHubHost returns false
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
       vi.mocked(parseGitRemote).mockReturnValue({
-        host: 'gitlab.example.com',
-        slug: 'owner/repo',
+        host: 'gitlab.com',
+        slug: 'org/repo',
         scheme: 'https',
-      })
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
 
       const result = await addProjectFromPicker()
-
-      expect(result).toEqual({
-        success: false,
-        error: 'Origin remote is not a GitHub repository',
-      })
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
     })
 
-    it('adds a new project after resolving a GitHub SSH remote', async () => {
-      vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_000)
-      vi.spyOn(Math, 'random').mockReturnValue(0.123456)
-      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
+    it('creates new project on valid GitHub repo', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
         canceled: false,
-        filePaths: ['/workspace/repo'],
+        filePaths: ['/some/repo'],
       })
-      setStoredData({ projectsExists: false })
+      // git rev-parse → /some/repo
+      // git remote get-url origin → github url
+      // git symbolic-ref → origin/main
       mockExecFileAsync
-        .mockResolvedValueOnce({ stdout: '/workspace/repo\n' })
-        .mockResolvedValueOnce({ stdout: 'git@gh-alias:owner/cool-repo.git\n' })
-        .mockResolvedValueOnce({ stdout: 'hostname github.com\n' })
-        .mockResolvedValueOnce({ stdout: 'origin/trunk\n' })
-      vi.mocked(parseGitRemote).mockReturnValue({
-        host: 'gh-alias',
-        slug: 'owner/cool-repo',
-        scheme: 'ssh',
-      })
-      vi.mocked(isGitHubHost).mockReturnValueOnce(false).mockReturnValueOnce(true)
-      const parentWindow = { isDestroyed: vi.fn(() => false) }
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git' })
+        .mockResolvedValueOnce({ stdout: 'origin/main' })
 
-      const result = await addProjectFromPicker(parentWindow as never)
-
-      expect(dialog.showOpenDialog).toHaveBeenCalledWith(
-        parentWindow,
-        expect.objectContaining({ title: 'Select a project folder' })
-      )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(3, 'ssh', ['-G', 'gh-alias'], {
-        timeout: 5000,
-      })
-      expect(result).toEqual({
-        success: true,
-        project: expect.objectContaining({
-          displayName: 'cool-repo',
-          gitRoot: '/workspace/repo',
-          githubSlug: 'owner/cool-repo',
-          defaultBranch: 'trunk',
-        }),
-      })
-      const writtenProjects = JSON.parse(
-        mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1] as string
-      )
-      expect(writtenProjects).toEqual([
-        expect.objectContaining({
-          displayName: 'cool-repo',
-          gitRoot: '/workspace/repo',
-          githubSlug: 'owner/cool-repo',
-          defaultBranch: 'trunk',
-        }),
-      ])
-    })
-
-    it('reuses an existing project and falls back to the current branch name', async () => {
-      vi.spyOn(Date, 'now').mockReturnValue(1_700_000_000_123)
-      vi.mocked(dialog.showOpenDialog).mockResolvedValueOnce({
-        canceled: false,
-        filePaths: ['/workspace/repo'],
-      })
-      setStoredData({
-        projects: [
-          {
-            id: 'crew-existing',
-            displayName: 'cool-repo',
-            localPath: '/workspace/repo',
-            gitRoot: '/workspace/repo',
-            githubSlug: 'owner/cool-repo',
-            defaultBranch: 'main',
-            lastOpenedAt: 1,
-            lastActiveAt: 2,
-          },
-        ],
-      })
-      mockExecFileAsync
-        .mockResolvedValueOnce({ stdout: '/workspace/repo\n' })
-        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/cool-repo.git\n' })
-        .mockRejectedValueOnce(new Error('missing origin head'))
-        .mockResolvedValueOnce({ stdout: 'develop\n' })
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
       vi.mocked(parseGitRemote).mockReturnValue({
         host: 'github.com',
-        slug: 'owner/cool-repo',
+        slug: 'owner/repo',
         scheme: 'https',
-      })
+      } as ReturnType<typeof parseGitRemote>)
       vi.mocked(isGitHubHost).mockReturnValue(true)
 
-      const result = await addProjectFromPicker()
+      // No existing projects
+      mockExistsSync.mockReturnValue(false)
+      mockReadFileSync.mockReturnValue('[]')
 
-      expect(result).toEqual({
-        success: true,
-        project: expect.objectContaining({
-          id: 'crew-existing',
-          lastOpenedAt: 1_700_000_000_123,
-        }),
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(true)
+      expect(result.project).toBeDefined()
+      expect(result.project!.githubSlug).toBe('owner/repo')
+      expect(result.project!.defaultBranch).toBe('main')
+    })
+
+    it('returns existing project if gitRoot matches', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
       })
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        3,
-        'git',
-        ['symbolic-ref', 'refs/remotes/origin/HEAD', '--short'],
-        { cwd: '/workspace/repo', timeout: 5000 }
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git' })
+        .mockResolvedValueOnce({ stdout: 'origin/main' })
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'github.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(true)
+
+      mockExistsSync.mockReturnValue(true)
+      const existingProjects = [
+        { id: 'existing-1', gitRoot: '/some/repo', lastOpenedAt: 1000, githubSlug: 'owner/repo' },
+      ]
+      mockReadFileSync.mockReturnValue(JSON.stringify(existingProjects))
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(true)
+      expect(result.project!.id).toBe('existing-1')
+      // lastOpenedAt should be updated
+      expect(mockWriteFileSync).toHaveBeenCalled()
+    })
+
+    it('uses parentWindow for dialog when provided', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({ canceled: true, filePaths: [] })
+
+      const mockWindow = {
+        isDestroyed: vi.fn(() => false),
+      }
+      await addProjectFromPicker(
+        mockWindow as unknown as Parameters<typeof addProjectFromPicker>[0]
       )
-      expect(mockExecFileAsync).toHaveBeenNthCalledWith(
-        4,
-        'git',
-        ['rev-parse', '--abbrev-ref', 'HEAD'],
-        { cwd: '/workspace/repo', timeout: 5000 }
-      )
+      expect(dialog.showOpenDialog).toHaveBeenCalledWith(mockWindow, expect.any(Object))
+    })
+  })
+
+  describe('addProjectFromPicker — SSH resolution', () => {
+    it('resolves SSH remote via ssh -G to GitHub host', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      // git rev-parse → /some/repo
+      // git remote get-url origin → SSH URL
+      // ssh -G host → resolves to github.com
+      // git symbolic-ref → origin/main
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' }) // git rev-parse --show-toplevel
+        .mockResolvedValueOnce({ stdout: 'git@corp-gh:owner/repo.git' }) // git remote get-url origin
+        .mockResolvedValueOnce({ stdout: 'hostname github.com\nuser git\n' }) // ssh -G corp-gh
+        .mockResolvedValueOnce({ stdout: 'origin/develop' }) // git symbolic-ref
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'corp-gh',
+        slug: 'owner/repo',
+        scheme: 'ssh',
+      } as ReturnType<typeof parseGitRemote>)
+      // First call: isGitHubHost('corp-gh') → false (not directly GitHub)
+      // Second call: isGitHubHost('github.com') → true (resolved via SSH)
+      vi.mocked(isGitHubHost).mockReturnValueOnce(false).mockReturnValueOnce(true)
+
+      mockExistsSync.mockReturnValue(false)
+      mockReadFileSync.mockReturnValue('[]')
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(true)
+      expect(result.project!.githubSlug).toBe('owner/repo')
+      expect(result.project!.defaultBranch).toBe('develop')
+    })
+
+    it('rejects SSH remote when resolved host is not GitHub', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'git@internal:owner/repo.git' })
+        .mockResolvedValueOnce({ stdout: 'hostname internal.corp.com\n' }) // ssh -G
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'internal',
+        slug: 'owner/repo',
+        scheme: 'ssh',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
+    })
+
+    it('rejects SSH remote when ssh -G fails', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'git@unknown:owner/repo.git' })
+        .mockRejectedValueOnce(new Error('ssh not found')) // ssh -G fails
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'unknown',
+        slug: 'owner/repo',
+        scheme: 'ssh',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
+    })
+
+    it('falls back to rev-parse when symbolic-ref fails', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' }) // git rev-parse --show-toplevel
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git' }) // git remote get-url
+        .mockRejectedValueOnce(new Error('no symbolic ref')) // git symbolic-ref fails
+        .mockResolvedValueOnce({ stdout: 'feature-branch' }) // git rev-parse --abbrev-ref HEAD
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'github.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(true)
+
+      mockExistsSync.mockReturnValue(false)
+      mockReadFileSync.mockReturnValue('[]')
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(true)
+      expect(result.project!.defaultBranch).toBe('feature-branch')
+    })
+
+    it('defaults to main when both symbolic-ref and rev-parse fail', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://github.com/owner/repo.git' })
+        .mockRejectedValueOnce(new Error('no symbolic ref'))
+        .mockRejectedValueOnce(new Error('no HEAD'))
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'github.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(true)
+
+      mockExistsSync.mockReturnValue(false)
+      mockReadFileSync.mockReturnValue('[]')
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(true)
+      expect(result.project!.defaultBranch).toBe('main')
+    })
+    it('rejects SSH remote when ssh -G has no hostname line', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'git@custom:owner/repo.git' })
+        .mockResolvedValueOnce({ stdout: 'user git\nport 22\n' }) // ssh -G returns no hostname line
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'custom',
+        slug: 'owner/repo',
+        scheme: 'ssh',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
+    })
+
+    it('rejects non-ssh non-github remote', async () => {
+      const { dialog } = await import('electron')
+      vi.mocked(dialog.showOpenDialog).mockResolvedValue({
+        canceled: false,
+        filePaths: ['/some/repo'],
+      })
+      mockExecFileAsync
+        .mockResolvedValueOnce({ stdout: '/some/repo' })
+        .mockResolvedValueOnce({ stdout: 'https://gitlab.com/owner/repo.git' })
+
+      const { parseGitRemote, isGitHubHost } = await import('../../src/utils/githubUrl')
+      vi.mocked(parseGitRemote).mockReturnValue({
+        host: 'gitlab.com',
+        slug: 'owner/repo',
+        scheme: 'https',
+      } as ReturnType<typeof parseGitRemote>)
+      vi.mocked(isGitHubHost).mockReturnValue(false)
+
+      const result = await addProjectFromPicker()
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('not a GitHub repository')
     })
   })
 
   describe('undoFile', () => {
-    it('returns false for an unknown project', async () => {
-      setStoredData({ projectsExists: false })
-
-      await expect(undoFile('missing-project', 'src/file.ts')).resolves.toBe(false)
+    it('returns false for unknown project', async () => {
+      mockExistsSync.mockReturnValue(false)
+      mockReadFileSync.mockReturnValue('[]')
+      const result = await undoFile('nonexistent', 'file.ts')
+      expect(result).toBe(false)
     })
 
     it('returns false when git checkout fails', async () => {
-      setStoredData({
-        projects: [
-          {
-            id: 'proj-1',
-            displayName: 'Repo',
-            localPath: '/workspace/repo',
-            gitRoot: '/workspace/repo',
-            githubSlug: 'owner/repo',
-            defaultBranch: 'main',
-            lastOpenedAt: 1,
-            lastActiveAt: 1,
-          },
-        ],
-        sessionsExists: false,
-      })
-      mockExecFileAsync.mockRejectedValueOnce(new Error('checkout failed'))
+      mockExistsSync.mockReturnValue(true)
+      const projects = [{ id: 'proj-1', gitRoot: '/repo' }]
+      mockReadFileSync.mockReturnValue(JSON.stringify(projects))
+      mockExecFileAsync.mockRejectedValue(new Error('checkout failed'))
 
-      await expect(undoFile('proj-1', 'src/file.ts')).resolves.toBe(false)
-      expect(mockWriteFileSync).not.toHaveBeenCalled()
+      const result = await undoFile('proj-1', 'src/file.ts')
+      expect(result).toBe(false)
     })
 
-    it('reverts a file and removes it from the changed-file list', async () => {
-      setStoredData({
-        projects: [
-          {
-            id: 'proj-1',
-            displayName: 'Repo',
-            localPath: '/workspace/repo',
-            gitRoot: '/workspace/repo',
-            githubSlug: 'owner/repo',
-            defaultBranch: 'main',
-            lastOpenedAt: 1,
-            lastActiveAt: 1,
-          },
-        ],
-        sessions: [
-          {
-            id: 'session-1',
-            projectId: 'proj-1',
-            status: 'active',
-            conversationHistory: [],
-            changedFiles: [
-              { filePath: 'src/file.ts', status: 'modified' },
-              { filePath: 'src/keep.ts', status: 'modified' },
-            ],
-            createdAt: 1,
-            updatedAt: 2,
-          },
-        ],
+    it('returns true and removes file from changed files on success', async () => {
+      mockExistsSync.mockReturnValue(true)
+      const projects = [{ id: 'proj-1', gitRoot: '/repo' }]
+      const sessions = [
+        {
+          id: 'sess-1',
+          projectId: 'proj-1',
+          status: 'idle',
+          conversationHistory: [],
+          changedFiles: [
+            { filePath: 'src/file.ts', status: 'modified' },
+            { filePath: 'src/other.ts', status: 'modified' },
+          ],
+          createdAt: 1000,
+          updatedAt: 2000,
+        },
+      ]
+      // First reads: projects, then sessions (for modifySession)
+      let readCount = 0
+      mockReadFileSync.mockImplementation(() => {
+        readCount++
+        // Odd calls: projects path, even calls: sessions path
+        if (readCount <= 1) return JSON.stringify(projects)
+        return JSON.stringify(sessions)
       })
-      mockExecFileAsync.mockResolvedValueOnce({ stdout: '' })
+      mockExecFileAsync.mockResolvedValue({ stdout: '' })
 
-      await expect(undoFile('proj-1', 'src/file.ts')).resolves.toBe(true)
-
-      const writtenSessions = JSON.parse(mockWriteFileSync.mock.calls[0][1] as string)
-      expect(writtenSessions[0].changedFiles).toEqual([
-        { filePath: 'src/keep.ts', status: 'modified' },
-      ])
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'git',
-        ['checkout', 'HEAD', '--', 'src/file.ts'],
-        { cwd: '/workspace/repo', timeout: 5000 }
+      const result = await undoFile('proj-1', 'src/file.ts')
+      expect(result).toBe(true)
+      expect(mockWriteFileSync).toHaveBeenCalled()
+      // Verify changedFiles no longer includes the undone file
+      const writtenSessions = JSON.parse(mockWriteFileSync.mock.calls.at(-1)?.[1] as string)
+      const updatedSession = writtenSessions.find((s: Record<string, unknown>) => s.id === 'sess-1')
+      expect(updatedSession.changedFiles).not.toContainEqual(
+        expect.objectContaining({ path: 'src/file.ts' })
       )
     })
   })

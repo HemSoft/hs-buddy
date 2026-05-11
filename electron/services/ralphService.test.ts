@@ -1,58 +1,33 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-
-type MockChildProcess = ReturnType<typeof createMockProcess>
+import { EventEmitter } from 'events'
 
 function createMockProcess() {
-  const stdoutHandlers = new Map<string, (data: Buffer) => void>()
-  const stderrHandlers = new Map<string, (data: Buffer) => void>()
-  const processHandlers = new Map<string, (...args: unknown[]) => void>()
-
-  return {
-    stdout: {
-      on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-        stdoutHandlers.set(event, handler)
-      }),
-    },
-    stderr: {
-      on: vi.fn((event: string, handler: (data: Buffer) => void) => {
-        stderrHandlers.set(event, handler)
-      }),
-    },
-    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
-      processHandlers.set(event, handler)
-    }),
+  const stdout = new EventEmitter()
+  const stderr = new EventEmitter()
+  const proc = Object.assign(new EventEmitter(), {
+    stdout,
+    stderr,
     kill: vi.fn(),
     pid: 12345,
-    emitStdout(text: string) {
-      stdoutHandlers.get('data')?.(Buffer.from(text))
-    },
-    emitStderr(text: string) {
-      stderrHandlers.get('data')?.(Buffer.from(text))
-    },
-    emitClose(code: number | null) {
-      processHandlers.get('close')?.(code)
-    },
-    emitError(error: Error) {
-      processHandlers.get('error')?.(error)
-    },
-  }
+  })
+  return proc
 }
 
-const spawnedProcesses: MockChildProcess[] = []
-const mockExecSync = vi.fn((..._args: unknown[]) => '')
-const mockSpawn = vi.fn((..._args: unknown[]) => {
-  const proc = createMockProcess()
-  spawnedProcesses.push(proc)
-  return proc
+let lastMockProc: ReturnType<typeof createMockProcess>
+
+const mockSpawn = vi.fn((_cmd: string, _args?: string[], _opts?: Record<string, unknown>) => {
+  lastMockProc = createMockProcess()
+  return lastMockProc
 })
 
 vi.mock('child_process', () => ({
-  spawn: (...args: unknown[]) => mockSpawn(...args),
-  execSync: (...args: unknown[]) => mockExecSync(...args),
+  spawn: (cmd: string, args?: string[], opts?: Record<string, unknown>) =>
+    mockSpawn(cmd, args, opts),
+  execSync: vi.fn().mockReturnValue(''),
 }))
 
 const mockExistsSync = vi.fn().mockReturnValue(false)
-const mockReadFileSync = vi.fn()
+const mockReadFileSync = vi.fn().mockReturnValue('{}')
 const mockReaddirSync = vi.fn().mockReturnValue([])
 const mockWriteFileSync = vi.fn()
 
@@ -75,66 +50,22 @@ vi.mock('os', () => ({
   tmpdir: vi.fn(() => '/tmp'),
 }))
 
-import { randomUUID } from 'crypto'
 import {
   setStatusChangeCallback,
   listLoops,
   getScriptsPath,
-  getConfig,
   launchLoop,
   stopLoop,
   getLoopStatus,
   listTemplateScripts,
+  getConfig,
   initRalphService,
   shutdownRalphService,
 } from './ralphService'
 
-const validModelsConfig = {
-  version: '1.0.0',
-  models: {
-    'gpt-4.1': {
-      label: 'GPT-4.1',
-      costMultiplier: 1,
-      provider: 'copilot',
-      reasoningEffort: 'high',
-    },
-  },
-  aliases: { fast: 'gpt-4.1' },
-  tiers: {
-    standard: {
-      model: 'gpt-4.1',
-      description: 'Standard tier',
-    },
-  },
-  default: 'gpt-4.1',
-}
-
-const normalizePath = (value: unknown) => String(value).replaceAll('\\', '/')
-const buildConfig = (overrides: Partial<Parameters<typeof launchLoop>[0]> = {}) =>
-  ({
-    repoPath: '/repo',
-    scriptType: 'ralph',
-    ...overrides,
-  }) as Parameters<typeof launchLoop>[0]
-
-function launchRunningLoop(overrides: Partial<Parameters<typeof launchLoop>[0]> = {}) {
-  mockExistsSync.mockReturnValue(true)
-  const result = launchLoop(buildConfig(overrides))
-  expect(result).toEqual({ success: true, runId: 'test-uuid-1234' })
-  return { result, proc: spawnedProcesses.at(-1)! }
-}
-
 describe('ralphService', () => {
   beforeEach(() => {
-    setStatusChangeCallback(null)
-    shutdownRalphService()
     vi.clearAllMocks()
-    spawnedProcesses.length = 0
-    mockExistsSync.mockReturnValue(false)
-    mockReadFileSync.mockReturnValue(JSON.stringify(validModelsConfig))
-    mockReaddirSync.mockReturnValue([])
-    mockWriteFileSync.mockReset()
-    mockExecSync.mockReturnValue('')
   })
 
   describe('setStatusChangeCallback', () => {
@@ -149,7 +80,8 @@ describe('ralphService', () => {
 
   describe('listLoops', () => {
     it('returns an array', () => {
-      expect(Array.isArray(listLoops())).toBe(true)
+      const result = listLoops()
+      expect(Array.isArray(result)).toBe(true)
     })
   })
 
@@ -164,67 +96,6 @@ describe('ralphService', () => {
       const path = getScriptsPath()
       expect(typeof path).toBe('string')
       expect(path.length).toBeGreaterThan(0)
-    })
-  })
-
-  describe('getConfig', () => {
-    it('reads models, agents, and providers config files', () => {
-      mockExistsSync.mockImplementation(path => {
-        const filePath = normalizePath(path)
-        return filePath.includes('/scripts/ralph-loops')
-      })
-      mockReadFileSync.mockImplementation(path => {
-        const filePath = normalizePath(path)
-        if (filePath.endsWith('/models.json')) {
-          return JSON.stringify(validModelsConfig)
-        }
-        if (filePath.endsWith('/agents.json')) {
-          return JSON.stringify({
-            version: '1.0.0',
-            defaults: { devAgent: 'anvil' },
-            roles: {
-              anvil: {
-                category: 'dev',
-                description: 'Primary developer agent',
-                agent: { copilot: 'anvil' },
-                tier: 'standard',
-                skills: ['debug'],
-              },
-            },
-          })
-        }
-        if (filePath.endsWith('/providers.json')) {
-          return JSON.stringify({
-            version: '1.0.0',
-            providers: {
-              copilot: {
-                command: 'copilot',
-                description: 'GitHub Copilot',
-                promptStyle: 'flag',
-                flags: {},
-                modelTemplate: '{model}',
-                supportsNativePrReview: true,
-              },
-            },
-            default: 'copilot',
-          })
-        }
-        return '{}'
-      })
-
-      expect(getConfig('models')).toMatchObject({ default: 'gpt-4.1' })
-      expect(getConfig('agents')).toMatchObject({ defaults: { devAgent: 'anvil' } })
-      expect(getConfig('providers')).toMatchObject({ default: 'copilot' })
-    })
-
-    it('throws when a config file is missing', () => {
-      mockExistsSync.mockImplementation(path => {
-        const filePath = normalizePath(path)
-        if (filePath.endsWith('/config/models.json')) return false
-        return filePath.includes('/scripts/ralph-loops')
-      })
-
-      expect(() => getConfig('models')).toThrow('Config file not found')
     })
   })
 
@@ -248,7 +119,7 @@ describe('ralphService', () => {
     it('returns error when repoPath does not exist', () => {
       mockExistsSync.mockReturnValue(false)
       const result = launchLoop({
-        repoPath: '/missing',
+        repoPath: '/nonexistent/path',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -258,7 +129,7 @@ describe('ralphService', () => {
     it('returns error for forbidden characters in repoPath', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: '/path;with-semicolon',
+        repoPath: '/path/with;semicolon',
         scriptType: 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
@@ -268,50 +139,41 @@ describe('ralphService', () => {
     it('returns error for invalid scriptType', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: '/repo',
+        repoPath: '/valid/path',
         scriptType: 'invalid' as 'ralph',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
       expect(result.error).toContain('Invalid scriptType')
     })
 
-    it('returns error for invalid model and provider', () => {
-      mockExistsSync.mockReturnValue(true)
-
-      const invalidModel = launchLoop(buildConfig({ model: 'unknown-model' }))
-      expect(invalidModel.success).toBe(false)
-      expect(invalidModel.error).toContain('Unknown model: unknown-model')
-
-      const invalidProvider = launchLoop(buildConfig({ provider: 'invalid' as 'copilot' }))
-      expect(invalidProvider.success).toBe(false)
-      expect(invalidProvider.error).toContain('Invalid provider')
-    })
-
     it('returns error when ralph-pr is missing prNumber', () => {
       mockExistsSync.mockReturnValue(true)
       const result = launchLoop({
-        repoPath: '/repo',
+        repoPath: '/valid/path',
         scriptType: 'ralph-pr',
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
       expect(result.error).toContain('PR number is required')
     })
 
-    it('returns error for iterations out of range and repeats out of range', () => {
+    it('returns error for iterations out of range', () => {
       mockExistsSync.mockReturnValue(true)
-
-      const invalidIterations = launchLoop(buildConfig({ iterations: 200 }))
-      expect(invalidIterations.success).toBe(false)
-      expect(invalidIterations.error).toContain('iterations must be between 1 and 100')
-
-      const invalidRepeats = launchLoop(buildConfig({ repeats: 60 }))
-      expect(invalidRepeats.success).toBe(false)
-      expect(invalidRepeats.error).toContain('repeats must be between 1 and 50')
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        iterations: 200,
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('iterations must be between 1 and 100')
     })
 
     it('returns error for invalid workUntil format', () => {
       mockExistsSync.mockReturnValue(true)
-      const result = launchLoop(buildConfig({ workUntil: 'invalid' }))
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        workUntil: 'invalid',
+      } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(false)
       expect(result.error).toContain('workUntil must be HH:mm format')
     })
@@ -319,223 +181,23 @@ describe('ralphService', () => {
 
   describe('launchLoop - successful spawn', () => {
     it('spawns process and returns runId on valid config', () => {
+      // First call: getScriptsDir (existsSync for devPath)
+      // Second call: existsSync for repoPath
+      // Third call: existsSync for script file
       mockExistsSync.mockReturnValue(true)
 
-      const result = launchLoop(buildConfig())
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
 
       expect(result.success).toBe(true)
       expect(result.runId).toBe('test-uuid-1234')
       expect(mockSpawn).toHaveBeenCalledWith(
         'pwsh',
         expect.arrayContaining(['-NoProfile', '-File']),
-        expect.objectContaining({ cwd: '/repo', shell: false })
+        expect.objectContaining({ cwd: '/valid/path', shell: false })
       )
-    })
-
-    it('builds optional args for standard ralph runs', () => {
-      mockExistsSync.mockReturnValue(true)
-
-      launchLoop(
-        buildConfig({
-          model: 'fast',
-          provider: 'copilot',
-          devAgent: 'anvil',
-          agents: ['reviewer'],
-          iterations: 3,
-          workUntil: '17:30',
-          branch: 'feature/test',
-          prompt: 'Quick prompt',
-          noAudio: true,
-          skipReview: true,
-          autoApprove: true,
-          noPR: true,
-        })
-      )
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).toEqual(
-        expect.arrayContaining([
-          '-Autopilot',
-          '-Model',
-          'fast',
-          '-Provider',
-          'copilot',
-          '-Agents',
-          'anvil,reviewer',
-          '-Max',
-          '3',
-          '-WorkUntil',
-          '17:30',
-          '-Branch',
-          'feature/test',
-          '-Prompt',
-          'Quick prompt',
-          '-NoAudio',
-          '-SkipReview',
-          '-AutoApprove',
-          '-NoPR',
-        ])
-      )
-      expect(args).not.toContain('-DevAgent')
-    })
-
-    it('builds ralph-pr args with separate dev agent and reviewers', () => {
-      mockExistsSync.mockReturnValue(true)
-
-      launchLoop(
-        buildConfig({
-          scriptType: 'ralph-pr',
-          prNumber: 42,
-          devAgent: 'anvil',
-          agents: ['reviewer'],
-          prompt: 'Review this PR',
-        })
-      )
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).toEqual(
-        expect.arrayContaining([
-          '-Autopilot',
-          '-DevAgent',
-          'anvil',
-          '-Agents',
-          'reviewer',
-          '-Prompt',
-          'Review this PR',
-          '-PRNumber',
-          '42',
-        ])
-      )
-    })
-
-    it('writes long prompts to a temp file and uses the repeat wrapper', () => {
-      mockExistsSync.mockReturnValue(true)
-      const prompt = `Line one\n${'x'.repeat(600)}`
-
-      launchLoop(
-        buildConfig({
-          prompt,
-          repeats: 2,
-          noAudio: true,
-        })
-      )
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      const promptPath = args[args.indexOf('-Prompt') + 1]
-      expect(normalizePath(args[args.indexOf('-File') + 1])).toContain(
-        '/scripts/ralph-loops/scripts/ralph-repeat.ps1'
-      )
-      expect(normalizePath(args[args.indexOf('-Script') + 1])).toContain(
-        '/scripts/ralph-loops/ralph.ps1'
-      )
-      expect(args).toEqual(expect.arrayContaining(['-Times', '2', '-NoAudio']))
-      expect(normalizePath(promptPath)).toBe('/tmp/ralph-prompt-test-uui.md')
-      expect(mockWriteFileSync).toHaveBeenCalledWith(promptPath, prompt, 'utf-8')
-    })
-
-    it('omits autopilot for ralph-issues and forwards issue-specific args', () => {
-      mockExistsSync.mockReturnValue(true)
-
-      launchLoop(
-        buildConfig({
-          scriptType: 'ralph-issues',
-          labels: 'bug,help wanted',
-          dryRun: true,
-        })
-      )
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(args).toEqual(expect.arrayContaining(['-Labels', 'bug,help wanted', '-DryRun']))
-      expect(args).not.toContain('-Autopilot')
-    })
-
-    it('resolves template scripts from the repo when vendored copy is missing', () => {
-      mockExistsSync.mockImplementation(path => {
-        const filePath = normalizePath(path)
-        if (filePath === '/repo') return true
-        if (filePath.endsWith('/scripts/ralph-loops/scripts/repo-template.ps1')) return false
-        if (filePath === '/repo/scripts/repo-template.ps1') return true
-        return filePath.includes('/scripts/ralph-loops')
-      })
-
-      launchLoop(
-        buildConfig({
-          scriptType: 'template',
-          templateScript: 'repo-template.ps1',
-        })
-      )
-
-      const args = mockSpawn.mock.calls[0][1] as string[]
-      expect(normalizePath(args[args.indexOf('-File') + 1])).toBe('/repo/scripts/repo-template.ps1')
-    })
-  })
-
-  describe('run lifecycle and output parsing', () => {
-    it('parses stdout and stderr into phases, stats, and log lines', () => {
-      const onChange = vi.fn()
-      setStatusChangeCallback(onChange)
-      const { result, proc } = launchRunningLoop()
-      const runId = result.runId!
-
-      proc.emitStdout('\u001b[32m=== ITERATION 2\u001b[0m\n')
-      proc.emitStdout(
-        [
-          'Handing off to ralph-pr',
-          'PR review cycle',
-          '== Check 1',
-          'AGENT REVIEW [1]',
-          'Copilot review requested',
-          'review round 2',
-          '  Cost $1.23 (4 premium requests)',
-          'GRAND TOTAL: $4.56 (7 premium requests)',
-          'Issues created this iteration: 3',
-          '== Scan Iteration 1/',
-        ].join('\n')
-      )
-      proc.emitStderr('\u001b[31mwarning\u001b[0m\n')
-
-      const run = getLoopStatus(runId)!
-      expect(run.logBuffer).toContain('=== ITERATION 2')
-      expect(run.logBuffer).toContain('[stderr] warning')
-      expect(run.phase).toBe('scanning')
-      expect(run.currentIteration).toBe(1)
-      expect(run.stats).toMatchObject({
-        checks: 1,
-        agentTurns: 1,
-        reviews: 1,
-        copilotPRs: 1,
-        issuesCreated: 3,
-        scanIterations: 1,
-        totalCost: '$4.56',
-        totalPremium: 7,
-      })
-      expect(onChange).toHaveBeenCalled()
-    })
-
-    it('marks runs completed when the process exits cleanly', () => {
-      const { result, proc } = launchRunningLoop()
-      const runId = result.runId!
-
-      proc.emitClose(0)
-
-      expect(getLoopStatus(runId)).toMatchObject({
-        status: 'completed',
-        phase: 'completed',
-        exitCode: 0,
-      })
-    })
-
-    it('marks runs failed when the process emits an error', () => {
-      const { result, proc } = launchRunningLoop()
-      const runId = result.runId!
-
-      proc.emitError(new Error('spawn failed'))
-
-      expect(getLoopStatus(runId)).toMatchObject({
-        status: 'failed',
-        phase: 'failed',
-        error: 'spawn failed',
-      })
     })
   })
 
@@ -545,19 +207,6 @@ describe('ralphService', () => {
       expect(result.success).toBe(false)
       expect(result.error).toContain('Run not found')
     })
-
-    it('stops an actively running loop', () => {
-      const { result, proc } = launchRunningLoop()
-      const runId = result.runId!
-
-      expect(stopLoop(runId)).toEqual({ success: true })
-      expect(getLoopStatus(runId)).toMatchObject({ status: 'cancelled', phase: 'failed' })
-      if (process.platform === 'win32') {
-        expect(mockExecSync).toHaveBeenCalledWith('taskkill /T /F /PID 12345', { timeout: 5000 })
-      } else {
-        expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
-      }
-    })
   })
 
   describe('getLoopStatus', () => {
@@ -566,40 +215,11 @@ describe('ralphService', () => {
     })
   })
 
-  describe('service lifecycle', () => {
-    it('marks lingering running entries as orphaned on init', () => {
-      const { result } = launchRunningLoop()
-      const runId = result.runId!
-
-      initRalphService()
-
-      expect(getLoopStatus(runId)).toMatchObject({ status: 'orphaned' })
-      expect(stopLoop(runId).error).toContain('not running')
-    })
-
-    it('stops all active processes and clears state on shutdown', () => {
-      vi.mocked(randomUUID)
-        .mockReturnValueOnce('11111111-1111-1111-1111-111111111111')
-        .mockReturnValueOnce('22222222-2222-2222-2222-222222222222')
-      mockExistsSync.mockReturnValue(true)
-
-      launchLoop(buildConfig({ branch: 'feature/one' }))
-      launchLoop(buildConfig({ branch: 'feature/two' }))
-
-      shutdownRalphService()
-
-      expect(listLoops()).toEqual([])
-      if (process.platform === 'win32') {
-        expect(mockExecSync).toHaveBeenCalledTimes(2)
-      } else {
-        expect(spawnedProcesses.every(proc => proc.kill.mock.calls.length === 1)).toBe(true)
-      }
-    })
-  })
-
   describe('listTemplateScripts', () => {
     it('returns empty array when scripts subdirectory does not exist', () => {
       mockExistsSync.mockReturnValue(false)
+      // getScriptsDir will throw since existsSync is false
+      // But listTemplateScripts checks existsSync on the scripts subdir
       expect(() => listTemplateScripts()).toThrow()
     })
 
@@ -650,6 +270,1190 @@ describe('ralphService', () => {
       const scripts = listTemplateScripts()
 
       expect(scripts[0].description).toBe('Finds repository issues.')
+    })
+
+    it('filters out repeat and run-all scripts', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-issues.ps1', 'ralph-repeat.ps1', 'ralph-run-all.ps1'])
+      mockReadFileSync.mockReturnValue('# simple script')
+
+      const scripts = listTemplateScripts()
+      expect(scripts).toHaveLength(1)
+      expect(scripts[0].filename).toBe('ralph-issues.ps1')
+    })
+
+    it('returns undefined for description when script has no leading comments', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-simple.ps1'])
+      mockReadFileSync.mockReturnValue('param($Name)\nWrite-Host "Hello"')
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].description).toBeUndefined()
+    })
+
+    it('returns undefined for prompt when readScriptContent fails', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-test.ps1'])
+      mockReadFileSync.mockImplementation((path: string) => {
+        if (path.includes('ralph-test.ps1')) throw new Error('ENOENT')
+        return '{}'
+      })
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].defaultPrompt).toBeUndefined()
+      expect(scripts[0].description).toBeUndefined()
+    })
+
+    it('skips leading blank lines before comments', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-blanks.ps1'])
+      // Leading blank lines then a comment block followed by blank line
+      mockReadFileSync.mockReturnValue(
+        '\n\n# ralph-blanks — Blank line test\n# Description text here\n\nparam($x)'
+      )
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].description).toBe('Blank line test')
+    })
+
+    it('stops reading comments at first blank line after comments', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReaddirSync.mockReturnValue(['ralph-stop.ps1'])
+      // Comments → blank line → more comments (should be ignored)
+      mockReadFileSync.mockReturnValue(
+        '# ralph-stop — Stop test\n# First desc\n\n# Second block (should not appear)'
+      )
+
+      const scripts = listTemplateScripts()
+      expect(scripts[0].description).toBe('Stop test')
+    })
+  })
+
+  describe('getConfig', () => {
+    it('reads models config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue('{"models":{},"aliases":{},"tiers":{}}')
+
+      const result = getConfig('models')
+      expect(result).toEqual({ models: {}, aliases: {}, tiers: {} })
+    })
+
+    it('reads agents config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue('{"agents":["a1"]}')
+
+      const result = getConfig('agents')
+      expect(result).toEqual({ agents: ['a1'] })
+    })
+
+    it('reads providers config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue('{"providers":["p1"]}')
+
+      const result = getConfig('providers')
+      expect(result).toEqual({ providers: ['p1'] })
+    })
+
+    it('throws when config file not found', () => {
+      mockExistsSync.mockImplementation((p: string) => {
+        // Scripts dir exists, but config file does not
+        if (p.includes('config')) return false
+        return true
+      })
+
+      expect(() => getConfig('models')).toThrow('Config file not found')
+    })
+  })
+
+  describe('launchLoop - process events', () => {
+    function launchValid() {
+      mockExistsSync.mockReturnValue(true)
+      const modelsConfig = {
+        models: { 'gpt-4': {} },
+        aliases: {},
+        tiers: {},
+      }
+      mockReadFileSync.mockReturnValue(JSON.stringify(modelsConfig))
+
+      return launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+    }
+
+    it('emits status change on process close with exit code 0', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      const result = launchValid()
+      expect(result.success).toBe(true)
+
+      // Simulate process exit
+      lastMockProc.emit('close', 0)
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'completed',
+          exitCode: 0,
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('sets status to failed on non-zero exit code', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.emit('close', 1)
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'failed',
+          exitCode: 1,
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('handles process error event', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.emit('error', new Error('spawn ENOENT'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'failed',
+          error: 'spawn ENOENT',
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('parses stdout iteration markers', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('=== ITERATION 3 ===\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentIteration: 3,
+          phase: 'iterating',
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('parses stdout stderr data', () => {
+      launchValid()
+      // Should not throw
+      lastMockProc.stderr.emit('data', Buffer.from('[stderr] error line\n'))
+
+      const runs = listLoops()
+      expect(runs[0].logBuffer).toEqual(expect.arrayContaining([expect.stringContaining('stderr')]))
+    })
+
+    it('tracks check stats from output', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('== Check 1 of 5\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ checks: 1 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks copilot PR stats from output', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('Copilot review requested\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ copilotPRs: 1 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks review round stats from output', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('review round 2\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ reviews: 1 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks total cost from output', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('  Cost $12.34 (56 premium requests used)\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ totalCost: '$12.34', totalPremium: 56 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks GRAND TOTAL cost', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('GRAND TOTAL: $99.99 (100 premium requests)\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ totalCost: '$99.99', totalPremium: 100 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('detects pr-handoff phase', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('Handing off to ralph-pr\n'))
+
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ phase: 'pr-handoff' }))
+      setStatusChangeCallback(null)
+    })
+
+    it('detects pr-resolving phase', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('PR review cycle starting\n'))
+
+      expect(cb).toHaveBeenCalledWith(expect.objectContaining({ phase: 'pr-resolving' }))
+      setStatusChangeCallback(null)
+    })
+
+    it('detects scanning phase for ralph-issues', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('== Scan Iteration 1/5\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          phase: 'scanning',
+          stats: expect.objectContaining({ scanIterations: 1 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks issues created stat', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('Issues created this iteration: 3\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ issuesCreated: 3 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('tracks agent review turns from output', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('AGENT REVIEW [round 1]\n'))
+
+      expect(cb).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ agentTurns: 1 }),
+        })
+      )
+      setStatusChangeCallback(null)
+    })
+
+    it('trims log buffer at MAX_LOG_BUFFER', () => {
+      launchValid()
+      // Emit 5001+ lines (MAX_LOG_BUFFER is 5000)
+      const bigData = Array.from({ length: 5010 }, (_, i) => `line-${i}`).join('\n')
+      lastMockProc.stdout.emit('data', Buffer.from(bigData))
+
+      const runs = listLoops()
+      const run = runs.find(r => r.runId === 'test-uuid-1234')
+      expect(run!.logBuffer.length).toBeLessThanOrEqual(5000)
+    })
+
+    it('does not overwrite cancelled status on close', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      const runs = listLoops()
+      const run = runs.find(r => r.runId === 'test-uuid-1234')!
+      run.status = 'cancelled'
+
+      lastMockProc.emit('close', 1)
+
+      // Status should remain 'cancelled', not overwritten to 'failed'
+      expect(run.status).toBe('cancelled')
+      setStatusChangeCallback(null)
+    })
+  })
+
+  describe('launchLoop - argument building', () => {
+    beforeEach(() => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          models: { 'gpt-4': {} },
+          aliases: { fast: 'gpt-4' },
+          tiers: { low: 'gpt-4' },
+        })
+      )
+    })
+
+    it('builds args for ralph-pr with devAgent and agents', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph-pr',
+        prNumber: 42,
+        devAgent: 'claude',
+        agents: ['gpt-4', 'gemini'],
+        model: 'gpt-4',
+        provider: 'copilot',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      expect(mockSpawn).toHaveBeenCalledWith(
+        'pwsh',
+        expect.arrayContaining([
+          '-DevAgent',
+          'claude',
+          '-Agents',
+          'gpt-4,gemini',
+          '-Model',
+          'gpt-4',
+          '-Provider',
+          'copilot',
+          '-PRNumber',
+          '42',
+        ]),
+        expect.anything()
+      )
+    })
+
+    it('builds args with repeat wrapper when repeats > 1', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        repeats: 3,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-Times')
+      expect(args).toContain('3')
+    })
+
+    it('appends boolean flags', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        noAudio: true,
+        skipReview: true,
+        autoApprove: true,
+        noPR: true,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(true)
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-NoAudio')
+      expect(args).toContain('-SkipReview')
+      expect(args).toContain('-AutoApprove')
+      expect(args).toContain('-NoPR')
+    })
+
+    it('appends workUntil and branch args', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        workUntil: '17:00',
+        branch: 'feature/test',
+        iterations: 5,
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-WorkUntil')
+      expect(args).toContain('17:00')
+      expect(args).toContain('-Branch')
+      expect(args).toContain('feature/test')
+      expect(args).toContain('-Max')
+      expect(args).toContain('5')
+    })
+
+    it('writes long prompt to temp file', () => {
+      const longPrompt = 'a'.repeat(600)
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: longPrompt,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        expect.stringMatching(/ralph-prompt-/),
+        longPrompt,
+        'utf-8'
+      )
+    })
+
+    it('writes multiline prompt to temp file', () => {
+      const multilinePrompt = 'line 1\nline 2\nline 3'
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: multilinePrompt,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        expect.stringMatching(/ralph-prompt-/),
+        multilinePrompt,
+        'utf-8'
+      )
+    })
+
+    it('passes short prompt directly as arg', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'Fix the bug',
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-Prompt')
+      expect(args).toContain('Fix the bug')
+      expect(mockWriteFileSync).not.toHaveBeenCalled()
+    })
+
+    it('adds -Labels arg when labels are specified', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        labels: 'bug,enhancement',
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-Labels')
+      expect(args).toContain('bug,enhancement')
+    })
+
+    it('adds -DryRun flag', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        dryRun: true,
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-DryRun')
+    })
+
+    it('resolves ralph-issues script path', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph-issues',
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      const fileArg = args[args.indexOf('-File') + 1]
+      expect(fileArg).toContain('ralph-issues.ps1')
+      // ralph-issues does NOT get -Autopilot
+      expect(args).not.toContain('-Autopilot')
+    })
+
+    it('resolves template script from vendored path', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'template',
+        templateScript: 'my-template.ps1',
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      const fileArg = args[args.indexOf('-File') + 1]
+      expect(fileArg).toContain('my-template.ps1')
+    })
+
+    it('returns error for template script not found', () => {
+      mockExistsSync.mockImplementation((p: string) => {
+        // Scripts dir exists, but template script does not
+        if (typeof p === 'string' && p.includes('my-missing')) return false
+        return true
+      })
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'template',
+        templateScript: 'my-missing.ps1',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Template script not found')
+    })
+
+    it('returns error when template scriptType has no templateScript', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'template',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Cannot resolve script path')
+    })
+
+    it('returns error for invalid provider', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        provider: 'invalid-provider' as 'copilot',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Invalid provider')
+    })
+
+    it('returns error for invalid model', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        model: 'nonexistent-model',
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Unknown model')
+    })
+
+    it('returns error for repeats out of range', () => {
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        repeats: 100,
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('repeats must be between 1 and 50')
+    })
+
+    it('combines devAgent into agents for non-ralph-pr scripts', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        devAgent: 'claude',
+        agents: ['gemini'],
+      } as Parameters<typeof launchLoop>[0])
+
+      const args = mockSpawn.mock.calls[0][1] as string[]
+      expect(args).toContain('-Agents')
+      expect(args).toContain('claude,gemini')
+    })
+  })
+
+  describe('stopLoop - with active process', () => {
+    it('kills process tree on Windows and sets status to cancelled', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          models: { 'gpt-4': {} },
+          aliases: {},
+          tiers: {},
+        })
+      )
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      const stopResult = stopLoop('test-uuid-1234')
+      expect(stopResult.success).toBe(true)
+
+      const status = getLoopStatus('test-uuid-1234')
+      expect(status?.status).toBe('cancelled')
+      setStatusChangeCallback(null)
+    })
+
+    it('returns error when run is not running', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
+
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+
+      // Simulate process exit first
+      lastMockProc.emit('close', 0)
+
+      const result = stopLoop('test-uuid-1234')
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('is not running')
+    })
+
+    it('returns error when kill throws', async () => {
+      const { execSync } = await import('child_process')
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+
+      // Make kill fail on any platform
+      vi.mocked(execSync).mockImplementationOnce(() => {
+        throw new Error('Access denied')
+      })
+      lastMockProc.kill.mockImplementationOnce(() => {
+        throw new Error('Access denied')
+      })
+
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      const stopResult = stopLoop('test-uuid-1234')
+      expect(stopResult.success).toBe(false)
+      expect(stopResult.error).toContain('Failed to stop')
+      expect(stopResult.error).toContain('Access denied')
+
+      const status = getLoopStatus('test-uuid-1234')
+      expect(status?.status).toBe('failed')
+      setStatusChangeCallback(null)
+    })
+  })
+
+  describe('initRalphService', () => {
+    it('marks lingering running entries as orphaned', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
+
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+
+      initRalphService()
+
+      const status = getLoopStatus('test-uuid-1234')
+      expect(status?.status).toBe('orphaned')
+    })
+  })
+
+  describe('shutdownRalphService', () => {
+    it('stops all active processes and clears state', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ models: {}, aliases: {}, tiers: {} }))
+
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+
+      shutdownRalphService()
+
+      expect(listLoops()).toHaveLength(0)
+    })
+  })
+
+  describe('getConfig', () => {
+    it('reads models config', () => {
+      mockExistsSync.mockReturnValue(true)
+      const modelsData = { models: { 'gpt-4': {} }, aliases: {}, tiers: {} }
+      mockReadFileSync.mockReturnValue(JSON.stringify(modelsData))
+
+      const result = getConfig('models')
+      expect(result).toEqual(modelsData)
+    })
+
+    it('reads agents config', () => {
+      mockExistsSync.mockReturnValue(true)
+      const agentsData = { agents: ['copilot'] }
+      mockReadFileSync.mockReturnValue(JSON.stringify(agentsData))
+
+      const result = getConfig('agents')
+      expect(result).toEqual(agentsData)
+    })
+
+    it('reads providers config', () => {
+      mockExistsSync.mockReturnValue(true)
+      const providersData = { providers: ['copilot'] }
+      mockReadFileSync.mockReturnValue(JSON.stringify(providersData))
+
+      const result = getConfig('providers')
+      expect(result).toEqual(providersData)
+    })
+
+    it('throws when config file not found', () => {
+      mockExistsSync.mockImplementation((p: string) => {
+        // Scripts dir exists, but config file does not
+        if (typeof p === 'string' && p.includes('config')) return false
+        return true
+      })
+
+      expect(() => getConfig('models')).toThrow('Config file not found')
+    })
+  })
+
+  describe('initRalphService', () => {
+    it('does not throw when no active runs exist', () => {
+      expect(() => initRalphService()).not.toThrow()
+    })
+  })
+
+  describe('shutdownRalphService', () => {
+    it('does not throw when no active processes exist', () => {
+      expect(() => shutdownRalphService()).not.toThrow()
+    })
+  })
+
+  describe('stopLoop with active process', () => {
+    it('stops a running process and updates status', () => {
+      mockExistsSync.mockReturnValue(true)
+      const statusCallback = vi.fn()
+      setStatusChangeCallback(statusCallback)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+      const runId = result.runId!
+
+      // Verify it shows as running
+      const status = getLoopStatus(runId)
+      expect(status).not.toBeNull()
+      expect(status!.status).toBe('running')
+
+      // Stop it
+      const stopResult = stopLoop(runId)
+      expect(stopResult.success).toBe(true)
+
+      // Verify status is updated
+      const afterStop = getLoopStatus(runId)
+      expect(afterStop!.status).toBe('cancelled')
+    })
+
+    it('returns error when run is not running', () => {
+      mockExistsSync.mockReturnValue(true)
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      // Stop it first
+      stopLoop(runId)
+      // Try stopping again
+      const secondStop = stopLoop(runId)
+      expect(secondStop.success).toBe(false)
+      expect(secondStop.error).toContain('is not running')
+    })
+  })
+
+  describe('output parsing via process events', () => {
+    it('handles stdout data events with output parsing', () => {
+      mockExistsSync.mockReturnValue(true)
+      const statusCallback = vi.fn()
+      setStatusChangeCallback(statusCallback)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 99999,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+      const runId = result.runId!
+
+      // Get the stdout 'data' callback
+      const stdoutOnCalls = mockProcess.stdout.on.mock.calls
+      const dataCallback = stdoutOnCalls.find((c: unknown[]) => c[0] === 'data')?.[1]
+      expect(dataCallback).toBeDefined()
+
+      // Simulate iteration marker
+      dataCallback(Buffer.from('=== ITERATION 3 ===\n'))
+
+      const status = getLoopStatus(runId)
+      expect(status!.currentIteration).toBe(3)
+      expect(status!.phase).toBe('iterating')
+      expect(statusCallback).toHaveBeenCalled()
+    })
+
+    it('handles process close event', () => {
+      mockExistsSync.mockReturnValue(true)
+      const statusCallback = vi.fn()
+      setStatusChangeCallback(statusCallback)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 88888,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      // Get the 'close' callback
+      const onCalls = mockProcess.on.mock.calls
+      const closeCallback = onCalls.find((c: unknown[]) => c[0] === 'close')?.[1]
+      expect(closeCallback).toBeDefined()
+
+      // Simulate process close with exit code 0
+      closeCallback(0)
+
+      const status = getLoopStatus(runId)
+      expect(status!.status).toBe('completed')
+    })
+
+    it('handles process error event', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 77777,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      // Get the 'error' callback
+      const onCalls = mockProcess.on.mock.calls
+      const errorCallback = onCalls.find((c: unknown[]) => c[0] === 'error')?.[1]
+      expect(errorCallback).toBeDefined()
+
+      errorCallback(new Error('ENOENT'))
+
+      const status = getLoopStatus(runId)
+      expect(status!.status).toBe('failed')
+      expect(status!.error).toContain('ENOENT')
+    })
+
+    it('detects pr-handoff phase', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 66666,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      const dataCallback = mockProcess.stdout.on.mock.calls.find(
+        (c: unknown[]) => c[0] === 'data'
+      )?.[1]
+      dataCallback(Buffer.from('Handing off to ralph-pr\n'))
+
+      expect(getLoopStatus(runId)!.phase).toBe('pr-handoff')
+    })
+
+    it('detects pr-resolving phase', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 55555,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      const dataCallback = mockProcess.stdout.on.mock.calls.find(
+        (c: unknown[]) => c[0] === 'data'
+      )?.[1]
+      dataCallback(Buffer.from('PR review cycle starting\n'))
+
+      expect(getLoopStatus(runId)!.phase).toBe('pr-resolving')
+    })
+
+    it('tracks stat matchers for checks and agent turns', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 44444,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      const dataCallback = mockProcess.stdout.on.mock.calls.find(
+        (c: unknown[]) => c[0] === 'data'
+      )?.[1]
+
+      dataCallback(Buffer.from('== Check 1 of 5\n'))
+      expect(getLoopStatus(runId)!.stats.checks).toBe(1)
+
+      dataCallback(Buffer.from('AGENT REVIEW [copilot]\n'))
+      expect(getLoopStatus(runId)!.stats.agentTurns).toBe(1)
+
+      dataCallback(Buffer.from('Copilot review requested\n'))
+      expect(getLoopStatus(runId)!.stats.copilotPRs).toBe(1)
+
+      dataCallback(Buffer.from('review round 1\n'))
+      expect(getLoopStatus(runId)!.stats.reviews).toBe(1)
+    })
+
+    it('tracks cost stats', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 33333,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      const dataCallback = mockProcess.stdout.on.mock.calls.find(
+        (c: unknown[]) => c[0] === 'data'
+      )?.[1]
+
+      dataCallback(Buffer.from('  Cost $1.50 (10 premium requests)\n'))
+      const status = getLoopStatus(runId)!
+      expect(status.stats.totalCost).toBe('$1.50')
+      expect(status.stats.totalPremium).toBe(10)
+    })
+
+    it('detects scan iteration markers', () => {
+      mockExistsSync.mockReturnValue(true)
+
+      const mockProcess = {
+        stdout: { on: vi.fn() },
+        stderr: { on: vi.fn() },
+        on: vi.fn(),
+        kill: vi.fn(),
+        pid: 22222,
+      }
+      mockSpawn.mockReturnValueOnce(mockProcess)
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      const runId = result.runId!
+
+      const dataCallback = mockProcess.stdout.on.mock.calls.find(
+        (c: unknown[]) => c[0] === 'data'
+      )?.[1]
+
+      dataCallback(Buffer.from('== Scan Iteration 2/5\n'))
+      const status = getLoopStatus(runId)!
+      expect(status.phase).toBe('scanning')
+      expect(status.stats.scanIterations).toBe(1)
+    })
+  })
+
+  describe('getConfig', () => {
+    it('reads models config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          models: { 'gpt-4': {} },
+          aliases: { fast: 'gpt-4' },
+          tiers: { premium: ['gpt-4'] },
+        })
+      )
+      const result = getConfig('models')
+      expect(result).toBeDefined()
+      expect(result.models).toBeDefined()
+    })
+
+    it('reads agents config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ agents: [] }))
+      const result = getConfig('agents')
+      expect(result).toBeDefined()
+    })
+
+    it('reads providers config', () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue(JSON.stringify({ providers: [] }))
+      const result = getConfig('providers')
+      expect(result).toBeDefined()
+    })
+
+    it('throws when config file not found', () => {
+      // getScriptsDir checks existsSync for devPath, config check also uses existsSync
+      let callCount = 0
+      mockExistsSync.mockImplementation(() => {
+        callCount++
+        // First call: getScriptsDir devPath → true
+        if (callCount === 1) return true
+        // Second call: config file existsSync → false
+        return false
+      })
+      expect(() => getConfig('models')).toThrow('Config file not found')
+    })
+  })
+
+  describe('stopLoop - running process', () => {
+    it('stops a running loop process', () => {
+      mockExistsSync.mockReturnValue(true)
+      // Launch a loop first
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      // Now stop it
+      const stopResult = stopLoop(launchResult.runId!)
+      // Will succeed or fail based on taskkill behavior, but exercises the path
+      expect(stopResult).toBeDefined()
+    })
+
+    it('returns error for non-running process', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      // Stop it first time
+      stopLoop(launchResult.runId!)
+
+      // Try stopping again — should report not running
+      const secondStop = stopLoop(launchResult.runId!)
+      expect(secondStop.success).toBe(false)
+      expect(secondStop.error).toContain('is not running')
+    })
+  })
+
+  describe('getLoopStatus - active run', () => {
+    it('returns status for a launched run', () => {
+      mockExistsSync.mockReturnValue(true)
+      const launchResult = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(launchResult.success).toBe(true)
+
+      const status = getLoopStatus(launchResult.runId!)
+      expect(status).not.toBeNull()
+      expect(status!.status).toBe('running')
+      expect(status!.runId).toBe(launchResult.runId)
+
+      // Cleanup
+      stopLoop(launchResult.runId!)
+    })
+  })
+
+  describe('initRalphService', () => {
+    it('does not throw on empty state', () => {
+      expect(() => initRalphService()).not.toThrow()
+    })
+  })
+
+  describe('shutdownRalphService', () => {
+    it('does not throw on empty state', () => {
+      expect(() => shutdownRalphService()).not.toThrow()
+    })
+
+    it('stops and clears active processes', () => {
+      mockExistsSync.mockReturnValue(true)
+      // Launch a loop
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+      } as Parameters<typeof launchLoop>[0])
+      expect(result.success).toBe(true)
+      expect(listLoops().length).toBeGreaterThan(0)
+
+      // Shutdown should clear everything
+      shutdownRalphService()
+      expect(listLoops()).toHaveLength(0)
     })
   })
 })

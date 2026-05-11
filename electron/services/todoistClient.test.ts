@@ -135,5 +135,71 @@ describe('todoistClient', () => {
       expect(url).toContain('due+before')
       expect(result).toBeInstanceOf(Map)
     })
+
+    it('uses default 7-day window when no argument provided', async () => {
+      const tasks = [{ id: '1', content: 'Test' }]
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ results: tasks, next_cursor: null }),
+      })
+
+      const { fetchUpcoming } = await import('./todoistClient')
+      await fetchUpcoming()
+
+      const [url] = mockFetch.mock.calls[0]
+      expect(url).toContain('overdue')
+    })
+  })
+
+  describe('reopenTask', () => {
+    it('sends POST to reopen endpoint', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true, text: () => Promise.resolve('null') })
+
+      const { reopenTask } = await import('./todoistClient')
+      await reopenTask('task-456')
+
+      const [url, opts] = mockFetch.mock.calls[0]
+      expect(url).toBe('https://api.todoist.com/api/v1/tasks/task-456/reopen')
+      expect(opts.method).toBe('POST')
+    })
+  })
+
+  describe('updateTask', () => {
+    it('sends POST with update parameters', async () => {
+      const updated = { id: 'task-789', content: 'Updated' }
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve(JSON.stringify(updated)),
+      })
+
+      const { updateTask } = await import('./todoistClient')
+      const result = await updateTask('task-789', { content: 'Updated', priority: 4 })
+
+      const [url, opts] = mockFetch.mock.calls[0]
+      expect(url).toBe('https://api.todoist.com/api/v1/tasks/task-789')
+      expect(opts.method).toBe('POST')
+      expect(JSON.parse(opts.body)).toEqual({ content: 'Updated', priority: 4 })
+      expect(result).toEqual(updated)
+    })
+  })
+
+  describe('deleteTask', () => {
+    it('sends DELETE request with task ID', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: true })
+
+      const { deleteTask } = await import('./todoistClient')
+      await deleteTask('task-del')
+
+      const [url, opts] = mockFetch.mock.calls[0]
+      expect(url).toBe('https://api.todoist.com/api/v1/tasks/task-del')
+      expect(opts.method).toBe('DELETE')
+    })
+
+    it('throws on API error', async () => {
+      mockFetch.mockResolvedValueOnce({ ok: false, status: 404 })
+
+      const { deleteTask } = await import('./todoistClient')
+      await expect(deleteTask('bad-id')).rejects.toThrow('Todoist API error (404)')
+    })
   })
 })

@@ -212,6 +212,52 @@ describe('bookmarks', () => {
     await expect(t.mutation(api.bookmarks.remove, { id })).rejects.toThrow()
   })
 
+  test('update throws on duplicate URL within same category', async () => {
+    const t = convexTest(schema, modules)
+    await t.mutation(api.bookmarks.create, {
+      url: 'https://existing.com',
+      title: 'Existing',
+      category: 'cat',
+    })
+    const id2 = await t.mutation(api.bookmarks.create, {
+      url: 'https://other.com',
+      title: 'Other',
+      category: 'cat',
+    })
+
+    await expect(
+      t.mutation(api.bookmarks.update, { id: id2, url: 'https://existing.com' })
+    ).rejects.toThrow('URL is already bookmarked in this category')
+  })
+
+  test('update allows changing URL to a unique value', async () => {
+    const t = convexTest(schema, modules)
+    const id = await t.mutation(api.bookmarks.create, {
+      url: 'https://old-url.com',
+      title: 'Updatable',
+      category: 'cat',
+    })
+
+    await t.mutation(api.bookmarks.update, { id, url: 'https://new-url.com' })
+
+    const bm = await t.query(api.bookmarks.get, { id })
+    expect(bm?.url).toBe('https://new-url.com')
+  })
+
+  test('update allows changing category when URL is unique in target category', async () => {
+    const t = convexTest(schema, modules)
+    const id = await t.mutation(api.bookmarks.create, {
+      url: 'https://moveme.com',
+      title: 'MovingBM',
+      category: 'old-cat',
+    })
+
+    await t.mutation(api.bookmarks.update, { id, category: 'new-cat' })
+
+    const bm = await t.query(api.bookmarks.get, { id })
+    expect(bm?.category).toBe('new-cat')
+  })
+
   test('reorder updates sort orders for multiple bookmarks', async () => {
     const t = convexTest(schema, modules)
     const id1 = await t.mutation(api.bookmarks.create, {

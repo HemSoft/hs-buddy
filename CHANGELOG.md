@@ -11,13 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Resolve typecheck and cross-platform failures in electron tests
-- Improve test isolation in copilotSessionService
+- Resolve TypeScript errors in electron test files
+- Address PR review comments for type safety and assertions
+- Align readSync tuple cast with Node.js API types
+- Increase function coverage to 86.7% and address review feedback
 
 ### Changed
 
+- Remove 14 v8 ignore pragmas and add 10 genuine tests
+- Improve assertions per review feedback
+
 - Add coverage for 5 untested source files
-- Improve Electron test coverage from 68% to 88%
+- Improve coverage from 67/52/69/69 to 79/63/86/81
 
 ## [0.1.752] - 2026-05-08
 
@@ -34,6 +39,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
+- Remove unused exports and harden extractRepoFromUrl
+- Resolve Lighthouse CI NO_FCP by using --mode e2e and browser IPC mock
 
 ### Changed
 
@@ -54,7 +61,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove 15 v8 ignore pragmas and add 22 tests for genuine coverage
 - Strengthen corrupted-JSON test with mount effect flush and no-poll assertion
 - Resolve merge conflicts with main
-- Add compute-digest handler tests to fix coverage threshold
+- Remove v8 ignore pragmas and add 7 tests
+- Remove 10 v8 ignore pragmas by adding genuine test coverage
 
 ## [0.1.751] - 2026-05-07
 

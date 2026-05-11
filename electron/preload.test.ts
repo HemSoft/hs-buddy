@@ -352,5 +352,281 @@ describe('preload', () => {
         '/path/to/session'
       )
     })
+
+    it('computeDigest invokes copilot-sessions:compute-digest', () => {
+      exposedApis.copilotSessions.computeDigest('/path/to/session')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.COPILOT_SESSIONS_COMPUTE_DIGEST,
+        '/path/to/session'
+      )
+    })
+  })
+
+  // ── Additional bridge method invocation tests ────────────
+
+  describe('github bridge - additional methods', () => {
+    it('switchAccount invokes github:switch-account', () => {
+      exposedApis.github.switchAccount('user2')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, 'user2')
+    })
+
+    it('getCopilotUsage invokes github:get-copilot-usage', () => {
+      exposedApis.github.getCopilotUsage('my-org', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
+        'my-org',
+        'user1'
+      )
+    })
+
+    it('getCopilotQuota invokes github:get-copilot-quota', () => {
+      exposedApis.github.getCopilotQuota('user1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.GITHUB_GET_COPILOT_QUOTA, 'user1')
+    })
+
+    it('getCopilotBudget invokes github:get-copilot-budget', () => {
+      exposedApis.github.getCopilotBudget('my-org', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET,
+        'my-org',
+        'user1'
+      )
+    })
+
+    it('getCopilotMemberUsage invokes github:get-copilot-member-usage', () => {
+      exposedApis.github.getCopilotMemberUsage('my-org', 'member1', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE,
+        'my-org',
+        'member1',
+        'user1'
+      )
+    })
+
+    it('getUserPremiumRequests invokes github:get-user-premium-requests', () => {
+      exposedApis.github.getUserPremiumRequests('my-org', 'member1', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
+        'my-org',
+        'member1',
+        'user1'
+      )
+    })
+  })
+
+  describe('crew bridge - additional methods', () => {
+    it('listProjects invokes crew:list-projects', () => {
+      exposedApis.crew.listProjects()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_LIST_PROJECTS)
+    })
+
+    it('getSession invokes crew:get-session', () => {
+      exposedApis.crew.getSession('proj-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_GET_SESSION, 'proj-1')
+    })
+
+    it('createSession invokes crew:create-session', () => {
+      exposedApis.crew.createSession('proj-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_CREATE_SESSION, 'proj-1')
+    })
+
+    it('addMessage invokes crew:add-message', () => {
+      const msg = { role: 'user', content: 'hello', timestamp: 1000 }
+      exposedApis.crew.addMessage('proj-1', msg)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_ADD_MESSAGE, 'proj-1', msg)
+    })
+
+    it('updateSessionStatus invokes crew:update-session-status', () => {
+      exposedApis.crew.updateSessionStatus('proj-1', 'active')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.CREW_UPDATE_SESSION_STATUS,
+        'proj-1',
+        'active'
+      )
+    })
+
+    it('updateChangedFiles invokes crew:update-changed-files', () => {
+      const files = [{ path: 'src/a.ts' }]
+      exposedApis.crew.updateChangedFiles('proj-1', files)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_UPDATE_CHANGED_FILES, 'proj-1', files)
+    })
+
+    it('clearSession invokes crew:clear-session', () => {
+      exposedApis.crew.clearSession('proj-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_CLEAR_SESSION, 'proj-1')
+    })
+
+    it('undoFile invokes crew:undo-file', () => {
+      exposedApis.crew.undoFile('proj-1', 'src/file.ts')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CREW_UNDO_FILE, 'proj-1', 'src/file.ts')
+    })
+  })
+
+  describe('tempo bridge - additional methods', () => {
+    it('getRange invokes tempo:get-range', () => {
+      exposedApis.tempo.getRange('2025-01-01', '2025-01-07')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_RANGE, {
+        from: '2025-01-01',
+        to: '2025-01-07',
+      })
+    })
+
+    it('getWeek invokes tempo:get-week', () => {
+      exposedApis.tempo.getWeek('2025-01-06', '2025-01-10')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_WEEK, {
+        weekStart: '2025-01-06',
+        weekEnd: '2025-01-10',
+      })
+    })
+
+    it('createWorklog invokes tempo:create-worklog', () => {
+      const payload = { issueKey: 'PROJ-1', hours: 2, date: '2025-01-01' }
+      exposedApis.tempo.createWorklog(payload)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_CREATE_WORKLOG, payload)
+    })
+
+    it('updateWorklog invokes tempo:update-worklog', () => {
+      exposedApis.tempo.updateWorklog(42, { hours: 3 })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_UPDATE_WORKLOG, {
+        worklogId: 42,
+        payload: { hours: 3 },
+      })
+    })
+
+    it('deleteWorklog invokes tempo:delete-worklog', () => {
+      exposedApis.tempo.deleteWorklog(42)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_DELETE_WORKLOG, 42)
+    })
+
+    it('getAccounts invokes tempo:get-accounts', () => {
+      exposedApis.tempo.getAccounts()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_ACCOUNTS)
+    })
+
+    it('getProjectAccounts invokes tempo:get-project-accounts', () => {
+      exposedApis.tempo.getProjectAccounts('PROJ')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_PROJECT_ACCOUNTS, 'PROJ')
+    })
+
+    it('getCapexMap invokes tempo:get-capex-map', () => {
+      exposedApis.tempo.getCapexMap(['PROJ-1', 'PROJ-2'])
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_CAPEX_MAP, ['PROJ-1', 'PROJ-2'])
+    })
+
+    it('getSchedule invokes tempo:get-schedule', () => {
+      exposedApis.tempo.getSchedule('2025-01-01', '2025-01-31')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TEMPO_GET_SCHEDULE, {
+        from: '2025-01-01',
+        to: '2025-01-31',
+      })
+    })
+  })
+
+  describe('todoist bridge - additional methods', () => {
+    it('getUpcoming invokes todoist:get-upcoming', () => {
+      exposedApis.todoist.getUpcoming(7)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_GET_UPCOMING, 7)
+    })
+
+    it('reopenTask invokes todoist:reopen-task', () => {
+      exposedApis.todoist.reopenTask('task-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_REOPEN_TASK, 'task-1')
+    })
+
+    it('updateTask invokes todoist:update-task', () => {
+      exposedApis.todoist.updateTask('task-1', { content: 'Updated' })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_UPDATE_TASK, {
+        taskId: 'task-1',
+        params: { content: 'Updated' },
+      })
+    })
+
+    it('deleteTask invokes todoist:delete-task', () => {
+      exposedApis.todoist.deleteTask('task-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_DELETE_TASK, 'task-1')
+    })
+
+    it('getProjects invokes todoist:get-projects', () => {
+      exposedApis.todoist.getProjects()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TODOIST_GET_PROJECTS)
+    })
+  })
+
+  describe('terminal bridge - additional methods', () => {
+    it('attach invokes terminal:attach', () => {
+      exposedApis.terminal.attach('session-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TERMINAL_ATTACH, 'session-1')
+    })
+
+    it('resolveRepoPath invokes terminal:resolve-repo-path', () => {
+      exposedApis.terminal.resolveRepoPath('owner', 'repo')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.TERMINAL_RESOLVE_REPO_PATH, {
+        owner: 'owner',
+        repo: 'repo',
+      })
+    })
+  })
+
+  describe('ralph bridge - additional methods', () => {
+    it('getStatus invokes ralph:get-status', () => {
+      exposedApis.ralph.getStatus('run-1')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_GET_STATUS, 'run-1')
+    })
+
+    it('getConfig invokes ralph:get-config', () => {
+      exposedApis.ralph.getConfig('models')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_GET_CONFIG, 'models')
+    })
+
+    it('getScriptsPath invokes ralph:get-scripts-path', () => {
+      exposedApis.ralph.getScriptsPath()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_GET_SCRIPTS_PATH)
+    })
+
+    it('listTemplates invokes ralph:list-templates', () => {
+      exposedApis.ralph.listTemplates()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_LIST_TEMPLATES)
+    })
+
+    it('selectDirectory invokes ralph:select-directory', () => {
+      exposedApis.ralph.selectDirectory('/default/path')
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.RALPH_SELECT_DIRECTORY, '/default/path')
+    })
+  })
+
+  describe('copilot bridge - additional methods', () => {
+    it('getActiveCount invokes copilot:active-count', () => {
+      exposedApis.copilot.getActiveCount()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_ACTIVE_COUNT)
+    })
+
+    it('chatSend invokes copilot:chat-send', () => {
+      const args = {
+        message: 'hello',
+        context: 'test',
+        conversationHistory: [],
+        model: 'gpt-4',
+      }
+      exposedApis.copilot.chatSend(args)
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_CHAT_SEND, args)
+    })
+
+    it('quickPrompt invokes copilot:quick-prompt', () => {
+      exposedApis.copilot.quickPrompt({ prompt: 'summarize', model: 'gpt-4' })
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.COPILOT_QUICK_PROMPT, {
+        prompt: 'summarize',
+        model: 'gpt-4',
+      })
+    })
+  })
+
+  describe('shell bridge - additional methods', () => {
+    it('fetchPageTitle invokes shell:fetch-page-title', () => {
+      exposedApis.shell.fetchPageTitle('https://example.com')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.SHELL_FETCH_PAGE_TITLE,
+        'https://example.com'
+      )
+    })
   })
 })

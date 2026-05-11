@@ -120,13 +120,19 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       await navigator.clipboard.writeText(text)
       return
     }
+    console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
     const textArea = document.createElement('textarea')
     textArea.value = text
     textArea.style.position = 'fixed'
     textArea.style.opacity = '0'
     document.body.appendChild(textArea)
     textArea.select()
-    document.execCommand('copy')
+    try {
+      document.execCommand('copy')
+    } catch (_: unknown) {
+      /* v8 ignore next */
+      console.warn('execCommand("copy") failed')
+    }
     document.body.removeChild(textArea)
   }
 

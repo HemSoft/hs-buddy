@@ -44,14 +44,18 @@ export function useSidebarUserMenu() {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
-      window.ipcRenderer
-        .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(next))
-        /* v8 ignore start */
-        .catch(() => {})
-      /* v8 ignore stop */
       return next
     })
   }, [])
+
+  useEffect(() => {
+    if (!hasLocalMutationRef.current) return
+    window.ipcRenderer
+      .invoke(IPC_INVOKE.CONFIG_SET_FAVORITE_USERS, Array.from(favoriteUsers))
+      /* v8 ignore start */
+      .catch(() => {})
+    /* v8 ignore stop */
+  }, [favoriteUsers])
 
   const refreshUser = useCallback((org: string, login: string) => {
     const cacheKey = `user-activity:v2:${org}/${login}`

@@ -109,11 +109,13 @@ vi.mock('../../../utils/errorUtils', () => ({
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
 
-/** Get the main sidebar subscription callback (not the PR tree one). */
+/** Get the main sidebar subscription callback (not the PR tree one).
+ * Selection is index-based: PR tree subscribes first (index 0), main second
+ * (index 1). This is coupled to hook composition order, but the helpers throw
+ * descriptive errors if the expected callbacks are missing, so any order
+ * change will surface immediately as a test failure. */
 function getMainSubscribeCb(): (key: string) => void {
   const calls = mockSubscribe.mock.calls as unknown[][]
-  // With 2 subscriptions: PR tree first (index 0), main second (index 1)
-  // With 1 subscription: only main (index 0)
   if (calls.length === 0) throw new Error('No dataCache.subscribe calls found')
   const idx = calls.length >= 2 ? 1 : 0
   const cb = calls[idx]?.[0] as (key: string) => void
@@ -121,7 +123,8 @@ function getMainSubscribeCb(): (key: string) => void {
   return cb
 }
 
-/** Get the PR tree subscription callback. Throws if not found. */
+/** Get the PR tree subscription callback. Throws if not found.
+ * See getMainSubscribeCb for rationale on index-based selection. */
 function getPRTreeSubscribeCb(): (key: string) => void {
   const calls = mockSubscribe.mock.calls as unknown[][]
   if (calls.length < 2)

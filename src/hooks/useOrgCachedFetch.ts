@@ -114,6 +114,11 @@ export function useOrgCachedFetch<T>({
     hasDataRef.current = data != null
   }, [data])
 
+  const accountsRef = useRef(accounts)
+  useEffect(() => {
+    accountsRef.current = accounts
+  }, [accounts])
+
   const doFetch = useCallback(
     async (forceRefresh = false) => {
       const activeCacheKey = cacheKeyRef.current
@@ -139,7 +144,7 @@ export function useOrgCachedFetch<T>({
         const result = await enqueueRef.current(
           async signal => {
             throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
+            const client = new GitHubClient({ accounts: accountsRef.current }, 7)
             return await fetchFnRef.current(client, org)
           },
           { name: taskName, priority: -1 }
@@ -163,7 +168,7 @@ export function useOrgCachedFetch<T>({
         handleOrgFetchError(fetchError, setPhase, setError)
       }
     },
-    [accounts, taskName, org]
+    [taskName, org]
   )
 
   return { data, phase, error, hasCached, fetch: doFetch }

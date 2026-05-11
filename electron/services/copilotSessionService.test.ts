@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // ── Mock state ────────────────────────────────────────────────
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -99,9 +99,14 @@ import {
 } from './copilotSessionService'
 
 describe('copilotSessionService', () => {
-  const originalEnv = { ...process.env }
+  const originalAppData = process.env.APPDATA
 
   beforeEach(() => {
+    if (originalAppData === undefined) {
+      delete process.env.APPDATA
+    } else {
+      process.env.APPDATA = originalAppData
+    }
     vi.resetAllMocks()
     mockExistsSync.mockReturnValue(false)
     mockReadFileSync.mockImplementation((): string => {
@@ -131,8 +136,12 @@ describe('copilotSessionService', () => {
     })
   })
 
-  afterAll(() => {
-    process.env = originalEnv
+  afterEach(() => {
+    if (originalAppData === undefined) {
+      delete process.env.APPDATA
+    } else {
+      process.env.APPDATA = originalAppData
+    }
   })
 
   // ── getVSCodeStoragePath ──────────────────────────────────

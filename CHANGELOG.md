@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve TypeScript errors in electron test files
 - Address PR review comments for type safety and assertions
 - Align readSync tuple cast with Node.js API types
+- Increase function coverage to 86.7% and address review feedback
 
 ### Changed
 
@@ -35,7 +36,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Move changelog entry to Unreleased section
 - Address PR review feedback — strengthen test assertions and fix TS2556
 - Sync MockStore.store after clear() to prevent stale state
-- Increase function coverage to 86.7% and address review feedback
 
 ### Changed
 

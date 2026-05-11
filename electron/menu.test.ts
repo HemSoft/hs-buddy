@@ -33,6 +33,8 @@ describe('menu', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockMatchesShortcut.mockReset()
+    mockMatchesShortcut.mockImplementation((..._args: unknown[]) => false)
     vi.mocked(mockWin.webContents.getZoomFactor).mockReturnValue(1.0)
     vi.mocked(mockWin.isFullScreen).mockReturnValue(false)
   })
@@ -75,7 +77,9 @@ describe('menu', () => {
 
   it('shortcut Ctrl+- triggers zoomOut', () => {
     mockMatchesShortcut.mockImplementation(
-      (entry: unknown) => (entry as { key: string }).key === '-'
+      (entry: unknown) =>
+        (entry as { key: string }).key === '-' &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
     )
     registerKeyboardShortcuts(mockWin)
     const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
@@ -92,7 +96,8 @@ describe('menu', () => {
     mockMatchesShortcut.mockImplementation(
       (entry: unknown) =>
         (entry as { key: string; shift?: boolean }).key === 'A' &&
-        (entry as { shift?: boolean }).shift === true
+        (entry as { shift?: boolean }).shift === true &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
     )
     registerKeyboardShortcuts(mockWin)
     const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
@@ -107,7 +112,9 @@ describe('menu', () => {
   it('shortcut Ctrl+Tab sends TAB_NEXT', () => {
     mockMatchesShortcut.mockImplementation(
       (entry: unknown) =>
-        (entry as { key: string }).key === 'Tab' && !(entry as { shift?: boolean }).shift
+        (entry as { key: string }).key === 'Tab' &&
+        !(entry as { shift?: boolean }).shift &&
+        (entry as { ctrlOrCmd?: boolean }).ctrlOrCmd === true
     )
     registerKeyboardShortcuts(mockWin)
     const calls = vi.mocked(mockWin.webContents.on).mock.calls as [

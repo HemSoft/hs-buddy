@@ -124,7 +124,7 @@
     "happy-dom": "^20.9.0",
     "husky": "^9.1.7",
     "knip": "^6.0.5",
-    "lint-staged": "^16.2.7",
+    "lint-staged": "^17.0.4",
     "markdownlint-cli2": "^0.22.1",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.4.2",

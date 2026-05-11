@@ -102,10 +102,32 @@ describe('copilotSessionService', () => {
   const originalEnv = { ...process.env }
 
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     mockExistsSync.mockReturnValue(false)
-    mockReadFileSync.mockImplementation(() => {
+    mockReadFileSync.mockImplementation((): string => {
       throw new Error('ENOENT')
+    })
+    mockOpenSync.mockReturnValue(42)
+    mockReadSync.mockReturnValue(0)
+    mockCloseSync.mockImplementation((): void => {})
+    mockReaddirSync.mockReturnValue([])
+    mockStatSync.mockReturnValue({ size: 100, mtimeMs: 2000000, isFile: () => true as const })
+    mockParseKeyPath.mockReturnValue(null)
+    mockResolveFolderOrWorkspaceName.mockReturnValue('test-workspace')
+    mockParseScanChunk.mockReturnValue({
+      title: 'Test Session',
+      firstPrompt: 'Hello world',
+      agent: 'copilot',
+      createdAt: 1000000,
+      requestCount: 5,
+    })
+    mockProcessSessionLine.mockImplementation((): void => {})
+    mockAggregateResults.mockReturnValue({
+      totalPromptTokens: 100,
+      totalOutputTokens: 200,
+      totalToolCalls: 5,
+      allToolNames: ['readFile', 'writeFile'],
+      totalDurationMs: 30000,
     })
   })
 

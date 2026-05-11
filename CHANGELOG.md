@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Remove 14 v8 ignore pragmas and add 10 genuine tests
+- Improve assertions per review feedback
+
 - Add coverage for 5 untested source files
 
 ## [0.1.752] - 2026-05-08

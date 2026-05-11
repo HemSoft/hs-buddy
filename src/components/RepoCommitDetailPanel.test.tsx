@@ -30,9 +30,11 @@ vi.mock('../services/dataCache', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({
-    fetchRepoCommitDetail: (...args: unknown[]) => mockFetchRepoCommitDetail(...args),
-  })),
+  GitHubClient: class {
+    fetchRepoCommitDetail(...args: unknown[]) {
+      return mockFetchRepoCommitDetail(...args)
+    }
+  },
 }))
 
 vi.mock('../utils/errorUtils', () => ({
@@ -453,6 +455,19 @@ describe('RepoCommitDetailPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Fix login bug')).toBeInTheDocument()
+    })
+  })
+
+  it('fetchFn calls client.fetchRepoCommitDetail with correct args', async () => {
+    mockFetchRepoCommitDetail.mockResolvedValue(makeCommitDetail())
+    mockEnqueue.mockImplementation(async (fn: (signal: AbortSignal) => Promise<unknown>) =>
+      fn(new AbortController().signal)
+    )
+
+    render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
+
+    await waitFor(() => {
+      expect(mockFetchRepoCommitDetail).toHaveBeenCalledWith('test-org', 'hs-buddy', 'abc123d')
     })
   })
 

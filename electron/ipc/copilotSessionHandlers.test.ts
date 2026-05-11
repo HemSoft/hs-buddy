@@ -66,19 +66,19 @@ describe('copilotSessionHandlers', () => {
     expect(result).toBeNull()
   })
 
-  it('copilot-sessions:compute-digest returns null when session is not found', async () => {
+  it('copilot-sessions:compute-digest returns null when session not found', async () => {
     const { getSessionDetail } = await import('../services/copilotSessionService')
     vi.mocked(getSessionDetail).mockResolvedValueOnce(null)
     const handler = handlers.get('copilot-sessions:compute-digest')!
     const storagePath = '/home/user/.config/Code/User/workspaceStorage'
-    const result = await handler({}, `${storagePath}/abc/session.jsonl`)
+    const result = await handler({}, `${storagePath}/abc/ws/session.jsonl`)
     expect(result).toBeNull()
   })
 
   it('copilot-sessions:compute-digest returns digest for valid session', async () => {
     const handler = handlers.get('copilot-sessions:compute-digest')!
     const storagePath = '/home/user/.config/Code/User/workspaceStorage'
-    const result = await handler({}, `${storagePath}/abc/session.jsonl`)
+    const result = await handler({}, `${storagePath}/abc/ws/session.jsonl`)
     expect(result).toEqual({ totalTokens: 100 })
   })
 })

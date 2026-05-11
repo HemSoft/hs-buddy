@@ -74,6 +74,38 @@ describe('filesystemHandlers', () => {
       expect(result.entries).toEqual([])
       expect(result.error).toBe('ENOENT')
     })
+
+    it('skips entries excluded by shouldIncludeDirEntry', async () => {
+      const { shouldIncludeDirEntry } = await import('../../src/utils/dirEntryUtils')
+      vi.mocked(shouldIncludeDirEntry)
+        .mockReturnValueOnce(false) // skip first
+        .mockReturnValueOnce(true)  // include second
+
+      vi.mocked(readdir).mockResolvedValue([
+        { name: 'node_modules', isDirectory: () => true },
+        { name: 'src', isDirectory: () => true },
+      ] as never)
+      vi.mocked(stat).mockResolvedValue({ size: 0, isFile: () => false } as never)
+
+      const result = await invoke('/project')
+      expect(result.entries).toHaveLength(1)
+      expect(result.entries[0].name).toBe('src')
+    })
+
+    it('skips entries that fail stat', async () => {
+      vi.mocked(readdir).mockResolvedValue([
+        { name: 'good.ts', isDirectory: () => false },
+        { name: 'broken.ts', isDirectory: () => false },
+      ] as never)
+      vi.mocked(stat)
+        .mockResolvedValueOnce({ size: 50 } as never)
+        .mockRejectedValueOnce(new Error('Permission denied'))
+
+      const result = await invoke('/project')
+      expect(result.entries).toHaveLength(1)
+      expect(result.entries[0].name).toBe('good.ts')
+      expect(result.error).toBeUndefined()
+    })
   })
 
   describe('fs:read-file', () => {

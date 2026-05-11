@@ -163,4 +163,97 @@ describe('menu', () => {
       expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(0.5)
     })
   })
+
+  describe('keyboard shortcut actions', () => {
+    let handler: (
+      event: { preventDefault: ReturnType<typeof vi.fn> },
+      input: {
+        type?: string
+        key: string
+        control?: boolean
+        meta?: boolean
+        shift?: boolean
+      }
+    ) => void
+
+    beforeEach(() => {
+      // Use real matching logic so the correct SHORTCUT action fires
+      mockMatchesShortcut.mockImplementation((...args: unknown[]) => {
+        const shortcut = args[0] as { key: string; ctrlOrCmd?: boolean; shift?: boolean }
+        const input = args[1] as { key: string; control?: boolean; meta?: boolean; shift?: boolean }
+        const ctrlOrCmd = input.control || input.meta
+        if (shortcut.ctrlOrCmd && !ctrlOrCmd) return false
+        if (!shortcut.ctrlOrCmd && ctrlOrCmd) return false
+        if (shortcut.shift && !input.shift) return false
+        if (!shortcut.shift && input.shift) return false
+        return input.key === shortcut.key
+      })
+
+      registerKeyboardShortcuts(mockWin)
+      const calls = vi.mocked(mockWin.webContents.on).mock.calls as [
+        string,
+        (...args: unknown[]) => unknown,
+      ][]
+      handler = calls.find(c => c[0] === 'before-input-event')![1] as typeof handler
+    })
+
+    it('Ctrl++ triggers zoomIn', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: '+', control: true, meta: false, shift: false })
+      expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(1.1)
+      expect(saveZoomLevel).toHaveBeenCalledWith(1.1)
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+- triggers zoomOut', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: '-', control: true, meta: false, shift: false })
+      expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(0.9)
+      expect(saveZoomLevel).toHaveBeenCalledWith(0.9)
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+0 triggers resetZoom', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: '0', control: true, meta: false, shift: false })
+      expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(1.0)
+      expect(saveZoomLevel).toHaveBeenCalledWith(1.0)
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+Shift+A toggles assistant', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: 'A', control: true, meta: false, shift: true })
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('toggle-assistant')
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+Tab switches to next tab', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: 'Tab', control: true, meta: false, shift: false })
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('tab-next')
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+Shift+Tab switches to previous tab', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: 'Tab', control: true, meta: false, shift: true })
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('tab-prev')
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('Ctrl+F4 closes current tab', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: 'F4', control: true, meta: false, shift: false })
+      expect(mockWin.webContents.send).toHaveBeenCalledWith('tab-close')
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+
+    it('F11 toggles full screen', () => {
+      const event = { preventDefault: vi.fn() }
+      handler(event, { type: 'keyDown', key: 'F11', control: false, meta: false, shift: false })
+      expect(mockWin.setFullScreen).toHaveBeenCalledWith(true)
+      expect(event.preventDefault).toHaveBeenCalled()
+    })
+  })
 })

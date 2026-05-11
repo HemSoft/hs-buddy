@@ -341,23 +341,29 @@ describe('configHandlers', () => {
       expect(result).toBeNull()
     })
 
-    it('returns base64 audio for a valid sound file', async () => {
+    it('returns base64 audio data when valid sound file exists', async () => {
       const { stat, readFile } = await import('node:fs/promises')
-      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/ding.mp3')
-      vi.mocked(stat).mockResolvedValue({ isFile: () => true, size: 1000 } as never)
-      vi.mocked(readFile).mockResolvedValue(Buffer.from('audio-data') as never)
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 1024,
+      } as never)
+      vi.mocked(readFile).mockResolvedValueOnce(Buffer.from('fake-audio-data'))
 
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toEqual({
-        base64: Buffer.from('audio-data').toString('base64'),
+        base64: Buffer.from('fake-audio-data').toString('base64'),
         mimeType: 'audio/mpeg',
       })
     })
 
-    it('returns null when file is not a regular file', async () => {
+    it('returns null when file is too large', async () => {
       const { stat } = await import('node:fs/promises')
-      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/ding.mp3')
-      vi.mocked(stat).mockResolvedValue({ isFile: () => false, size: 100 } as never)
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 100_000_000,
+      } as never)
 
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
@@ -365,20 +371,34 @@ describe('configHandlers', () => {
 
     it('returns null when stat throws (file not found)', async () => {
       const { stat } = await import('node:fs/promises')
-      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/missing.mp3')
-      vi.mocked(stat).mockRejectedValue(new Error('ENOENT'))
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/missing.mp3')
+      vi.mocked(stat).mockRejectedValueOnce(new Error('ENOENT'))
 
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
     })
 
-    it('returns null when file exceeds size limit', async () => {
+    it('returns null when path is not a regular file', async () => {
       const { stat } = await import('node:fs/promises')
-      mockConfigManager.getNotificationSoundPath.mockReturnValue('/audio/huge.mp3')
-      vi.mocked(stat).mockResolvedValue({
-        isFile: () => true,
-        size: 10_000_001,
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/dir.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => false,
+        size: 1024,
       } as never)
+
+      const result = await handlers.get('config:play-notification-sound')!()
+      expect(result).toBeNull()
+    })
+
+    it('returns null when buffer exceeds max size despite small stat', async () => {
+      const { stat, readFile } = await import('node:fs/promises')
+      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
+      vi.mocked(stat).mockResolvedValueOnce({
+        isFile: () => true,
+        size: 1024,
+      } as never)
+      // Buffer returned is larger than mocked MAX_NOTIFICATION_SOUND_BYTES (10MB)
+      vi.mocked(readFile).mockResolvedValueOnce(Buffer.alloc(11_000_000))
 
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()

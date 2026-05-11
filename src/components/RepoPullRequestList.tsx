@@ -280,9 +280,7 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
     cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
     taskName: `repo-prs-${prState}-${owner}-${repo}`,
-    /* v8 ignore start */
     fetchFn: client => client.fetchRepoPRs(owner, repo, prState),
-    /* v8 ignore stop */
   })
   const prs = data ?? []
   const isEmpty = prs.length === 0

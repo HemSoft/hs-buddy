@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { RalphRunInfo } from '../../src/types/ralph'
+import { makeRun } from '../../src/test/fixtures/ralph'
 
 vi.mock('electron', () => ({
   dialog: {
@@ -94,21 +94,23 @@ describe('ralphHandlers', () => {
 
   it('status callback sends update to renderer when window is not destroyed', async () => {
     const { setStatusChangeCallback } = vi.mocked(await import('../services/ralphService'))
-    const callback = setStatusChangeCallback.mock.calls[0][0]
-    expect(callback).toBeTypeOf('function')
+    const callback = setStatusChangeCallback.mock.calls[0]?.[0]
+    expect(callback).toBeDefined()
+    if (typeof callback !== 'function') throw new Error('Expected function')
 
-    const mockRun = { runId: 'run-1', status: 'running' } as RalphRunInfo
-    callback!(mockRun)
+    const mockRunInfo = makeRun()
+    callback(mockRunInfo)
 
-    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRun)
+    expect(mockWin.webContents.send).toHaveBeenCalledWith('ralph:status-update', mockRunInfo)
   })
 
   it('status callback skips send when window is destroyed', async () => {
     const { setStatusChangeCallback } = vi.mocked(await import('../services/ralphService'))
-    const callback = setStatusChangeCallback.mock.calls[0][0]
+    const callback = setStatusChangeCallback.mock.calls[0]?.[0]
+    if (typeof callback !== 'function') throw new Error('Expected function')
 
     vi.mocked(mockWin.isDestroyed).mockReturnValue(true)
-    callback!({ runId: 'run-1', status: 'running' } as RalphRunInfo)
+    callback(makeRun())
 
     expect(mockWin.webContents.send).not.toHaveBeenCalled()
   })

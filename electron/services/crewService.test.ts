@@ -328,6 +328,11 @@ describe('crewService', () => {
         ['checkout', 'HEAD', '--', 'src/file.ts'],
         expect.objectContaining({ cwd: '/repo' })
       )
+      const lastWrite = mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1]?.[1]
+      const writtenSessions = JSON.parse(lastWrite as string)
+      expect(writtenSessions[0].changedFiles).toEqual([
+        { filePath: 'src/other.ts', status: 'modified' },
+      ])
     })
   })
 

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.753] - 2026-05-12
+
 ### Fixed
 
 - Resolve TypeScript errors in electron test files
@@ -23,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add coverage for 5 untested source files
 - Improve coverage from 67/52/69/69 to 79/63/86/81
+- Upgrade @uiw/react-markdown-preview 5.1.5 → 5.2.0
 
 ## [0.1.752] - 2026-05-08
 

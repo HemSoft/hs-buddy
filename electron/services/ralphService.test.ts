@@ -1098,13 +1098,7 @@ describe('ralphService', () => {
       const statusCallback = vi.fn()
       setStatusChangeCallback(statusCallback)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 99999,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1114,13 +1108,8 @@ describe('ralphService', () => {
       expect(result.success).toBe(true)
       const runId = result.runId!
 
-      // Get the stdout 'data' callback
-      const stdoutOnCalls = mockProcess.stdout.on.mock.calls
-      const dataCallback = stdoutOnCalls.find((c: unknown[]) => c[0] === 'data')?.[1]
-      expect(dataCallback).toBeDefined()
-
       // Simulate iteration marker
-      dataCallback(Buffer.from('=== ITERATION 3 ===\n'))
+      mockProcess.stdout.emit('data', Buffer.from('=== ITERATION 3 ===\n'))
 
       const status = getLoopStatus(runId)
       expect(status!.currentIteration).toBe(3)
@@ -1133,13 +1122,7 @@ describe('ralphService', () => {
       const statusCallback = vi.fn()
       setStatusChangeCallback(statusCallback)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 88888,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1148,13 +1131,8 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      // Get the 'close' callback
-      const onCalls = mockProcess.on.mock.calls
-      const closeCallback = onCalls.find((c: unknown[]) => c[0] === 'close')?.[1]
-      expect(closeCallback).toBeDefined()
-
       // Simulate process close with exit code 0
-      closeCallback(0)
+      mockProcess.emit('close', 0)
 
       const status = getLoopStatus(runId)
       expect(status!.status).toBe('completed')
@@ -1163,13 +1141,7 @@ describe('ralphService', () => {
     it('handles process error event', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 77777,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1178,12 +1150,8 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      // Get the 'error' callback
-      const onCalls = mockProcess.on.mock.calls
-      const errorCallback = onCalls.find((c: unknown[]) => c[0] === 'error')?.[1]
-      expect(errorCallback).toBeDefined()
-
-      errorCallback(new Error('ENOENT'))
+      // Simulate process error
+      mockProcess.emit('error', new Error('ENOENT'))
 
       const status = getLoopStatus(runId)
       expect(status!.status).toBe('failed')
@@ -1193,13 +1161,7 @@ describe('ralphService', () => {
     it('detects pr-handoff phase', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 66666,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1208,10 +1170,7 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      const dataCallback = mockProcess.stdout.on.mock.calls.find(
-        (c: unknown[]) => c[0] === 'data'
-      )?.[1]
-      dataCallback(Buffer.from('Handing off to ralph-pr\n'))
+      mockProcess.stdout.emit('data', Buffer.from('Handing off to ralph-pr\n'))
 
       expect(getLoopStatus(runId)!.phase).toBe('pr-handoff')
     })
@@ -1219,13 +1178,7 @@ describe('ralphService', () => {
     it('detects pr-resolving phase', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 55555,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1234,10 +1187,7 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      const dataCallback = mockProcess.stdout.on.mock.calls.find(
-        (c: unknown[]) => c[0] === 'data'
-      )?.[1]
-      dataCallback(Buffer.from('PR review cycle starting\n'))
+      mockProcess.stdout.emit('data', Buffer.from('PR review cycle starting\n'))
 
       expect(getLoopStatus(runId)!.phase).toBe('pr-resolving')
     })
@@ -1245,13 +1195,7 @@ describe('ralphService', () => {
     it('tracks stat matchers for checks and agent turns', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 44444,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1260,33 +1204,23 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      const dataCallback = mockProcess.stdout.on.mock.calls.find(
-        (c: unknown[]) => c[0] === 'data'
-      )?.[1]
-
-      dataCallback(Buffer.from('== Check 1 of 5\n'))
+      mockProcess.stdout.emit('data', Buffer.from('== Check 1 of 5\n'))
       expect(getLoopStatus(runId)!.stats.checks).toBe(1)
 
-      dataCallback(Buffer.from('AGENT REVIEW [copilot]\n'))
+      mockProcess.stdout.emit('data', Buffer.from('AGENT REVIEW [copilot]\n'))
       expect(getLoopStatus(runId)!.stats.agentTurns).toBe(1)
 
-      dataCallback(Buffer.from('Copilot review requested\n'))
+      mockProcess.stdout.emit('data', Buffer.from('Copilot review requested\n'))
       expect(getLoopStatus(runId)!.stats.copilotPRs).toBe(1)
 
-      dataCallback(Buffer.from('review round 1\n'))
+      mockProcess.stdout.emit('data', Buffer.from('review round 1\n'))
       expect(getLoopStatus(runId)!.stats.reviews).toBe(1)
     })
 
     it('tracks cost stats', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 33333,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1295,11 +1229,7 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      const dataCallback = mockProcess.stdout.on.mock.calls.find(
-        (c: unknown[]) => c[0] === 'data'
-      )?.[1]
-
-      dataCallback(Buffer.from('  Cost $1.50 (10 premium requests)\n'))
+      mockProcess.stdout.emit('data', Buffer.from('  Cost $1.50 (10 premium requests)\n'))
       const status = getLoopStatus(runId)!
       expect(status.stats.totalCost).toBe('$1.50')
       expect(status.stats.totalPremium).toBe(10)
@@ -1308,13 +1238,7 @@ describe('ralphService', () => {
     it('detects scan iteration markers', () => {
       mockExistsSync.mockReturnValue(true)
 
-      const mockProcess = {
-        stdout: { on: vi.fn() },
-        stderr: { on: vi.fn() },
-        on: vi.fn(),
-        kill: vi.fn(),
-        pid: 22222,
-      }
+      const mockProcess = createMockProcess()
       mockSpawn.mockReturnValueOnce(mockProcess)
 
       const result = launchLoop({
@@ -1323,11 +1247,7 @@ describe('ralphService', () => {
       } as Parameters<typeof launchLoop>[0])
       const runId = result.runId!
 
-      const dataCallback = mockProcess.stdout.on.mock.calls.find(
-        (c: unknown[]) => c[0] === 'data'
-      )?.[1]
-
-      dataCallback(Buffer.from('== Scan Iteration 2/5\n'))
+      mockProcess.stdout.emit('data', Buffer.from('== Scan Iteration 2/5\n'))
       const status = getLoopStatus(runId)!
       expect(status.phase).toBe('scanning')
       expect(status.stats.scanIterations).toBe(1)

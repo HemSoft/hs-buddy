@@ -38,6 +38,7 @@ describe('ralphHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(mockWin.isDestroyed).mockReturnValue(false)
     handlers = new Map()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)

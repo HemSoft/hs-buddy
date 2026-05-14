@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.759] - 2026-05-11
+
+### Fixed
+
+- Track concurrent PR approvals with Set instead of single slot
+
+## [0.1.758] - 2026-05-11
+
+### Fixed
+
+- Serialize favorite saves to prevent stale persisted state
+
+## [0.1.757] - 2026-05-11
+
+### Fixed
+
+- Re-register sdk-logs mock in beforeEach to fix test-electron CI
+
+## [0.1.756] - 2026-05-11
+
+### Fixed
+
+- Require 2+ subscribe calls in getMainSubscribeCb
+
+## [0.1.755] - 2026-05-11
+
+### Fixed
+
+- Add try-catch for clipboard writeText rejection
+
+## [0.1.754] - 2026-05-11
+
+### Fixed
+
+- Address PR review feedback and formatting
+
 ## [0.1.753] - 2026-05-12
 
 ### Fixed
@@ -17,6 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments for type safety and assertions
 - Align readSync tuple cast with Node.js API types
 - Increase function coverage to 86.7% and address review feedback
+- Resolve CI failures and address PR review feedback
+- Address PR #41 review feedback
 
 ### Changed
 
@@ -44,6 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync MockStore.store after clear() to prevent stale state
 - Remove unused exports and harden extractRepoFromUrl
 - Resolve Lighthouse CI NO_FCP by using --mode e2e and browser IPC mock
+- Add per_page:100 to listReviews to prevent missing approvals
 
 ### Changed
 
@@ -66,6 +105,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve merge conflicts with main
 - Remove v8 ignore pragmas and add 7 tests
 - Remove 10 v8 ignore pragmas by adding genuine test coverage
+- Extract behavioral seams from high-complexity hotspots (#17)
 
 ## [0.1.751] - 2026-05-07
 

@@ -2,7 +2,6 @@ import {
   startTransition,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -43,6 +42,7 @@ import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { sumBy } from '../utils/arrayUtils'
 import { RateLimitGauge } from './RateLimitGauge'
+import { useOrgCachedFetch } from '../hooks/useOrgCachedFetch'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
 
@@ -76,175 +76,15 @@ interface RateLimitSnapshot {
   used: number
 }
 
-/** Read a cached value from dataCache, returning null if absent. */
-function tryGetCached<T>(key: string): T | null {
-  return dataCache.get<T>(key)?.data ?? null
-}
-
-/** Handle a fetch error: ignore abort errors, otherwise report. */
-function handleOrgFetchError(
-  error: unknown,
-  setPhase: (phase: LoadPhase) => void,
-  setError: (error: string | null) => void
-) {
-  if (isAbortError(error)) return
-  setPhase('error')
-  setError(getErrorMessage(error))
-}
-
-/** Resolve cached data, returning null when forceRefresh is requested. */
-function resolveCachedData<T>(
-  cacheKey: string,
-  normalize: (d: T | null) => T | null,
-  forceRefresh: boolean
-): T | null {
-  if (forceRefresh) return null
-  return normalize(tryGetCached<T>(cacheKey))
-}
-
-/** Pick the appropriate loading phase based on whether data already exists. */
-function resolveLoadPhase(hasData: boolean): LoadPhase {
-  return hasData ? 'refreshing' : 'loading'
-}
-
-// ---------------------------------------------------------------------------
-// Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
-// ---------------------------------------------------------------------------
-
-interface UseOrgCachedFetchOptions<T> {
-  accounts: GitHubAccount[]
-  org: string
-  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
-  cacheKey: string
-  taskName: string
-  initialData?: T | null
-  normalize?: (data: T | null) => T | null
-  fetchFn: (client: GitHubClient, org: string) => Promise<T>
-}
-
-interface UseOrgCachedFetchResult<T> {
-  data: T | null
-  phase: LoadPhase
-  error: string | null
-  hasCached: boolean
-  fetch: (forceRefresh?: boolean) => Promise<void>
-}
-
-function useOrgCachedFetch<T>({
-  accounts,
-  org,
-  enqueue,
-  cacheKey,
-  taskName,
-  initialData = null,
-  normalize,
-  fetchFn,
-}: UseOrgCachedFetchOptions<T>): UseOrgCachedFetchResult<T> {
-  const enqueueRef = useRef(enqueue)
-  const fetchFnRef = useRef(fetchFn)
-  const cacheKeyRef = useRef(cacheKey)
-  const identityNormalize = useCallback((d: T | null) => d, [])
-  const normalizeFn = normalize ?? identityNormalize
-  const normalizeRef = useRef(normalizeFn)
-  const cachedSeed = normalizeFn(tryGetCached<T>(cacheKey))
-  const hasCached = cachedSeed != null
-  const seedData = initialData != null ? initialData : cachedSeed
-  const [data, setData] = useState<T | null>(() => seedData)
-  const [phase, setPhase] = useState<LoadPhase>(() => (seedData != null ? 'ready' : 'loading'))
-  const [error, setError] = useState<string | null>(null)
-  const hasDataRef = useRef(seedData != null)
-  const seedDataRef = useRef(seedData)
-  seedDataRef.current = seedData
-
-  // Reset state when cacheKey changes (e.g., navigating between orgs).
-  // useLayoutEffect prevents a flash of stale data before paint.
-  useLayoutEffect(() => {
-    cacheKeyRef.current = cacheKey
-    const seed = seedDataRef.current
-    setData(seed)
-    setPhase(seed != null ? 'ready' : 'loading')
-    setError(null)
-    hasDataRef.current = seed != null
-  }, [cacheKey])
-
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
-
-  useEffect(() => {
-    fetchFnRef.current = fetchFn
-  }, [fetchFn])
-
-  useEffect(() => {
-    normalizeRef.current = normalizeFn
-  }, [normalizeFn])
-
-  useEffect(() => {
-    hasDataRef.current = data != null
-  }, [data])
-
-  const doFetch = useCallback(
-    async (forceRefresh = false) => {
-      const activeCacheKey = cacheKeyRef.current
-      const queue = getTaskQueue('github')
-      const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
-      /* v8 ignore start */
-      if (cached != null) {
-        setData(cached)
-        setError(null)
-        setPhase('ready')
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(taskName)) {
-        return
-      }
-
-      setError(null)
-      setPhase(resolveLoadPhase(hasDataRef.current))
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await fetchFnRef.current(client, org)
-          },
-          { name: taskName, priority: -1 }
-        )
-
-        // Discard stale response if cacheKey changed while fetch was in flight
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-
-        const normalized = normalizeRef.current(result)
-        startTransition(() => {
-          setData(normalized)
-          setPhase('ready')
-        })
-        dataCache.set(activeCacheKey, normalized)
-      } catch (fetchError: unknown) {
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-        handleOrgFetchError(fetchError, setPhase, setError)
-      }
-    },
-    [accounts, taskName, org]
-  )
-
-  return { data, phase, error, hasCached, fetch: doFetch }
-}
-
 function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(tryGetCached<OrgOverviewResult>(`org-overview:${org}`))
+  const cachedOverview = normalizeOverview(
+    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
+  )
   if (cachedOverview) {
     return cachedOverview
   }
 
-  const cachedRepos = tryGetCached<OrgRepoResult>(`org-repos:${org}`)
+  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
   if (!cachedRepos) {
     return null
   }
@@ -828,7 +668,7 @@ function handleCopilotSuccess(
 }
 
 function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
-  return tryGetCached<OrgCopilotUsageData>(cacheKey)
+  return dataCache.get<OrgCopilotUsageData>(cacheKey)?.data ?? null
 }
 
 /** Handle copilot fetch result: dispatch success or error. */

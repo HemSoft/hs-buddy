@@ -109,6 +109,41 @@ vi.mock('../../../utils/errorUtils', () => ({
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
 
+/**
+ * Subscribe-callback helpers use index-based selection: PR tree subscribes
+ * first (index 0), main second (index 1). This couples tests to hook
+ * composition order, but the alternative — content-based identification via
+ * invoking callbacks with probe keys — would trigger React state updates and
+ * corrupt test state. The index approach is acceptable because:
+ *   1. Both helpers throw descriptive errors when the expected callback is
+ *      missing, so any hook-order change surfaces immediately as a test failure.
+ *   2. The subscribe order is stable (set by useEffect declaration order in
+ *      useSidebarPRTree and useGitHubSidebarData).
+ */
+
+/** Get the main sidebar subscription callback (index 1, after PR tree). */
+function getMainSubscribeCb(): (key: string) => void {
+  const calls = mockSubscribe.mock.calls as unknown[][]
+  if (calls.length < 2) {
+    throw new Error(
+      `Expected 2+ dataCache.subscribe calls for main sidebar, got ${String(calls.length)}`
+    )
+  }
+  const cb = calls[1]?.[0] as (key: string) => void
+  if (!cb) throw new Error('Main subscribe callback not found')
+  return cb
+}
+
+/** Get the PR tree subscription callback (index 0, first subscriber). */
+function getPRTreeSubscribeCb(): (key: string) => void {
+  const calls = mockSubscribe.mock.calls as unknown[][]
+  if (calls.length < 2)
+    throw new Error(`Expected 2+ dataCache.subscribe calls for PR tree, got ${calls.length}`)
+  const cb = calls[0]?.[0] as (key: string) => void
+  if (!cb) throw new Error('PR tree subscribe callback not found at index 0')
+  return cb
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(null)
@@ -153,7 +188,8 @@ describe('useGitHubSidebarData', () => {
     expect(data.showBookmarkedOnly).toBe(false)
     expect(data.uniqueOrgs).toEqual(['acme'])
     expect(data.prContextMenu).toBeNull()
-    expect(data.approvingPrKey).toBeNull()
+    expect(data.approvingPrKeys).toBeInstanceOf(Set)
+    expect(data.approvingPrKeys.size).toBe(0)
     expect(data.orgRepos).toEqual({})
     expect(data.orgMembers).toEqual({})
     expect(data.orgTeams).toEqual({})
@@ -581,8 +617,7 @@ describe('useGitHubSidebarData', () => {
   it('dataCache subscription routes org-repos updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
 
-    // Retrieve the subscribe callback that the hook registered
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     // When the subscription fires, the hook calls dataCache.get to read updated data
@@ -608,7 +643,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-counts updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -623,7 +658,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-commits updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -641,7 +676,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-issues updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -658,7 +693,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes sfl-status updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -848,10 +883,10 @@ describe('useGitHubSidebarData', () => {
         org: 'acme',
       })
     })
-    expect(result.current.approvingPrKey).toBeNull()
+    expect(result.current.approvingPrKeys.size).toBe(0)
   })
 
-  it('handleApprovePR sets approvingPrKey and approves', async () => {
+  it('handleApprovePR sets approvingPrKeys and approves', async () => {
     const { result } = renderHook(() => useGitHubSidebarData())
     await act(async () => {
       await result.current.handleApprovePR({
@@ -870,8 +905,52 @@ describe('useGitHubSidebarData', () => {
         org: 'acme',
       })
     })
-    // After approval, approvingPrKey is cleared
-    expect(result.current.approvingPrKey).toBeNull()
+    // After approval, approvingPrKeys is cleared
+    expect(result.current.approvingPrKeys.size).toBe(0)
+  })
+
+  it('handleApprovePR skips duplicate in-flight approval for the same PR', async () => {
+    let resolveApproval!: () => void
+    mockApprovePullRequest.mockImplementationOnce(
+      () =>
+        new Promise<void>(r => {
+          resolveApproval = r
+        })
+    )
+    const pr = {
+      source: 'GitHub' as const,
+      repository: 'my-repo',
+      id: 42,
+      title: 'Test',
+      author: 'alice',
+      url: 'https://github.com/acme/my-repo/pull/42',
+      state: 'open',
+      approvalCount: 0,
+      assigneeCount: 0,
+      iApproved: false,
+      created: null,
+      date: null,
+      org: 'acme',
+    }
+    const { result } = renderHook(() => useGitHubSidebarData())
+    let firstDone = false
+    // Start first approval (will hang on the deferred promise)
+    act(() => {
+      result.current.handleApprovePR(pr).then(() => {
+        firstDone = true
+      })
+    })
+    // Second call while first is in-flight should be a no-op
+    await act(async () => {
+      await result.current.handleApprovePR(pr)
+    })
+    expect(mockApprovePullRequest).toHaveBeenCalledTimes(1)
+    // Resolve the first approval
+    await act(async () => {
+      resolveApproval()
+    })
+    expect(firstDone).toBe(true)
+    expect(result.current.approvingPrKeys.size).toBe(0)
   })
 
   it('toggleFavoriteUser adds and removes favorites', () => {
@@ -905,7 +984,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-prs updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
     expect(subscribeCb).toBeDefined()
 
     mockGet.mockImplementation((key: string) => {
@@ -942,7 +1021,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes repo-issues updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'repo-issues:open:acme/my-repo') {
@@ -959,7 +1038,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription routes sfl-status updates', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = (mockSubscribe.mock.calls as unknown[][])[0]?.[0] as (key: string) => void
+    const subscribeCb = getMainSubscribeCb()
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'sfl-status:acme/my-repo') {
@@ -977,11 +1056,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription for PR tree data (top-level)', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    // The second subscribe call is the prTreeData subscription
-    const subscribeCalls = mockSubscribe.mock.calls as unknown[][]
-    // Find the subscription that handles 'my-prs' etc
-    const prSubscribeCb = subscribeCalls[1]?.[0] as ((key: string) => void) | undefined
-    if (!prSubscribeCb) return // skip if mock setup differs
+    const prSubscribeCb = getPRTreeSubscribeCb()
 
     mockGet.mockImplementation((key: string) => {
       if (key === 'my-prs') return { data: [{ id: 10, title: 'Updated PR' }] }
@@ -994,9 +1069,7 @@ describe('useGitHubSidebarData', () => {
 
   it('dataCache subscription ignores unknown keys for PR tree', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCalls = mockSubscribe.mock.calls as unknown[][]
-    const prSubscribeCb = subscribeCalls[1]?.[0] as ((key: string) => void) | undefined
-    if (!prSubscribeCb) return
+    const prSubscribeCb = getPRTreeSubscribeCb()
 
     const before = { ...result.current.prTreeData }
     act(() => prSubscribeCb('unknown-key'))
@@ -1490,6 +1563,81 @@ describe('useGitHubSidebarData', () => {
     expect(result.current.prTreeData['pr-my-prs'][0]?.iApproved).toBe(false)
   })
 
+  it('handleApprovePR does not update PR from different org', async () => {
+    const prInTree = {
+      id: 42,
+      title: 'Test PR',
+      url: 'https://github.com/acme/my-repo/pull/42',
+      repository: 'my-repo',
+      source: 'GitHub' as const,
+      org: 'acme',
+      author: 'alice',
+      iApproved: false,
+      approvalCount: 0,
+      state: 'OPEN',
+      assigneeCount: 0,
+      created: null,
+      date: null,
+    }
+    const prToApprove = {
+      id: 42,
+      title: 'Test PR',
+      url: 'https://github.com/other-org/my-repo/pull/42',
+      repository: 'my-repo',
+      source: 'GitHub' as const,
+      org: 'other-org',
+      author: 'alice',
+      iApproved: false,
+      approvalCount: 0,
+      state: 'OPEN',
+      assigneeCount: 0,
+      created: null,
+      date: null,
+    }
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'my-prs') return { data: [prInTree] }
+      return null
+    })
+    const { result } = renderHook(() => useGitHubSidebarData())
+
+    await act(async () => {
+      await result.current.handleApprovePR(prToApprove)
+    })
+
+    expect(result.current.prTreeData['pr-my-prs'][0]?.iApproved).toBe(false)
+  })
+
+  it('handleApprovePR builds prKey with empty org when org is undefined', async () => {
+    const pr = {
+      id: 42,
+      title: 'Test PR',
+      url: 'https://github.com/acme/my-repo/pull/42',
+      repository: 'my-repo',
+      source: 'GitHub' as const,
+      org: undefined as string | undefined,
+      author: 'alice',
+      iApproved: false,
+      approvalCount: 0,
+      state: 'OPEN',
+      assigneeCount: 0,
+      created: null,
+      date: null,
+    }
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'my-prs') return { data: [pr] }
+      return null
+    })
+    const { result } = renderHook(() => useGitHubSidebarData())
+
+    await act(async () => {
+      await result.current.handleApprovePR(pr)
+    })
+    await act(async () => {})
+
+    expect(result.current.prTreeData['pr-my-prs'][0]?.iApproved).toBe(true)
+    expect(result.current.prTreeData['pr-my-prs'][0]?.approvalCount).toBe(1)
+  })
+
   it('handleApprovePR handles API error', async () => {
     mockApprovePullRequest.mockRejectedValue(new Error('Forbidden'))
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -1515,7 +1663,7 @@ describe('useGitHubSidebarData', () => {
     })
 
     expect(consoleSpy).toHaveBeenCalledWith('Failed to approve PR from sidebar:', expect.any(Error))
-    expect(result.current.approvingPrKey).toBeNull()
+    expect(result.current.approvingPrKeys.size).toBe(0)
     consoleSpy.mockRestore()
   })
 

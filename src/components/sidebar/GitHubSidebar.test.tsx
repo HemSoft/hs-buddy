@@ -110,7 +110,7 @@ function createMockSidebarData() {
       pr: { title: string; url: string; repository: string; org?: string }
     },
     setPrContextMenu: vi.fn(),
-    approvingPrKey: null,
+    approvingPrKeys: new Set<string>(),
     bookmarkedRepoKeys: new Set<string>(['acme/repo']),
     expandedSections: new Set<string>(['pull-requests', 'organizations']),
     prItems: [{ id: 'pr-item-1', label: 'Needs review' }],

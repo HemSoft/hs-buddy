@@ -609,6 +609,7 @@ async function fetchPRsForAccount(
           owner: pr._owner,
           repo: pr._repo,
           pull_number: pr._prNumber,
+          per_page: 100,
         }),
         octokit.pulls.get({
           owner: pr._owner,
@@ -814,6 +815,7 @@ export async function fetchRepoPRs(
         owner,
         repo,
         pull_number: pr.number,
+        per_page: 100,
       })
       const { approvalCount, iApproved } = countApprovals(reviewsData.data, viewerLogin)
       pr.approvalCount = approvalCount

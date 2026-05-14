@@ -1,0 +1,676 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Aspire.Hosting.CodeGeneration.TypeScript</name>
+    </assembly>
+    <members>
+        <member name="T:Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel">
+            <summary>
+            Represents a builder class to be generated with its capabilities.
+            Internal type replacing BuilderModel - used only within the generator.
+            </summary>
+        </member>
+        <member name="T:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator">
+            <summary>
+            Generates a TypeScript SDK using the ATS (Aspire Type System) capability-based API.
+            Produces typed builder classes with fluent methods that use invokeCapability().
+            </summary>
+            <remarks>
+            <para>
+            <b>ATS to TypeScript Type Mapping</b>
+            </para>
+            <para>
+            The generator maps ATS types to TypeScript types according to the following rules:
+            </para>
+            <para>
+            <b>Primitive Types:</b>
+            <list type="table">
+              <listheader>
+                <term>ATS Type</term>
+                <description>TypeScript Type</description>
+              </listheader>
+              <item><term><c>string</c></term><description><c>string</c></description></item>
+              <item><term><c>number</c></term><description><c>number</c></description></item>
+              <item><term><c>boolean</c></term><description><c>boolean</c></description></item>
+              <item><term><c>any</c></term><description><c>unknown</c></description></item>
+            </list>
+            </para>
+            <para>
+            <b>Handle Types:</b>
+            Type IDs use the format <c>{AssemblyName}/{TypeName}</c>.
+            <list type="table">
+              <listheader>
+                <term>ATS Type ID</term>
+                <description>TypeScript Type</description>
+              </listheader>
+              <item><term><c>Aspire.Hosting/IDistributedApplicationBuilder</c></term><description><c>BuilderHandle</c></description></item>
+              <item><term><c>Aspire.Hosting/DistributedApplication</c></term><description><c>ApplicationHandle</c></description></item>
+              <item><term><c>Aspire.Hosting/DistributedApplicationExecutionContext</c></term><description><c>ExecutionContextHandle</c></description></item>
+              <item><term><c>Aspire.Hosting.Redis/RedisResource</c></term><description><c>RedisResourceBuilderHandle</c></description></item>
+              <item><term><c>Aspire.Hosting/ContainerResource</c></term><description><c>ContainerResourceBuilderHandle</c></description></item>
+              <item><term><c>Aspire.Hosting.ApplicationModel/IResource</c></term><description><c>IResourceHandle</c></description></item>
+            </list>
+            </para>
+            <para>
+            <b>Handle Type Naming Rules:</b>
+            <list type="bullet">
+              <item><description>Core types: Use type name + "Handle"</description></item>
+              <item><description>Interface types: Use interface name + "Handle" (keep the I prefix)</description></item>
+              <item><description>Resource types: Use type name + "BuilderHandle"</description></item>
+            </list>
+            </para>
+            <para>
+            <b>Special Types:</b>
+            <list type="table">
+              <listheader>
+                <term>ATS Type</term>
+                <description>TypeScript Type</description>
+              </listheader>
+              <item><term><c>callback</c></term><description><c>(context: EnvironmentContextHandle) =&gt; Promise&lt;void&gt;</c></description></item>
+              <item><term><c>T[]</c> (array)</term><description><c>T[]</c> (array of mapped type)</description></item>
+            </list>
+            </para>
+            <para>
+            <b>Builder Class Generation:</b>
+            <list type="bullet">
+              <item><description><c>Aspire.Hosting.Redis/RedisResource</c> → <c>RedisResourceBuilder</c> class with <c>RedisResourceBuilderPromise</c> thenable wrapper</description></item>
+              <item><description><c>Aspire.Hosting.ApplicationModel/IResource</c> → <c>ResourceBuilderBase</c> abstract class (interface types get "BuilderBase" suffix)</description></item>
+              <item><description>Concrete builders extend interface builders based on type hierarchy</description></item>
+            </list>
+            </para>
+            <para>
+            <b>Method Naming:</b>
+            <list type="bullet">
+              <item><description>Derived from capability ID: <c>Aspire.Hosting.Redis/addRedis</c> → <c>addRedis</c></description></item>
+              <item><description>Can be overridden via <c>[AspireExport(MethodName = "...")]</c></description></item>
+              <item><description>TypeScript uses camelCase (the canonical form from capability IDs)</description></item>
+            </list>
+            </para>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapTypeRefToTypeScript(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Maps an AtsTypeRef to a TypeScript type using category-based dispatch.
+            This is the preferred method - uses type metadata rather than string parsing.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapPrimitiveType(System.String)">
+            <summary>
+            Maps primitive type IDs to TypeScript types.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapEnumType(System.String)">
+            <summary>
+            Maps an enum type ID to the generated TypeScript enum name.
+            Throws if the enum type wasn't collected during scanning.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapUnionTypeToTypeScript(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Maps a union type to TypeScript union syntax (T1 | T2 | ...).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetWrapperOrHandleName(System.String)">
+            <summary>
+            Gets the wrapper class name or handle type name for a handle type ID.
+            Prefers wrapper class if one exists, otherwise generates a handle type name.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetDtoInterfaceName(System.String)">
+            <summary>
+            Gets a TypeScript interface name for a DTO type.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapInputTypeToTypeScript(Aspire.TypeSystem.AtsTypeRef)">
+             <summary>
+             Maps a user-supplied input type to TypeScript.
+             For interface handle types, generated APIs accept any handle-bearing wrapper instance.
+             For cancellation tokens, generated APIs accept either an AbortSignal or a transport-safe CancellationToken.
+             </summary>
+             <remarks>
+             Handle types are widened to accept <c>Awaitable&lt;T&gt;</c> so callers can pass un-awaited
+             fluent chains directly. Examples:
+             <code>
+             // Input: RedisResource handle type
+             // Output: "Awaitable&lt;RedisResource&gt;"
+            
+             // Input: Union of string | RedisResource
+             // Output: "string | Awaitable&lt;RedisResource&gt;"
+            
+             // Input: CancellationToken type
+             // Output: "AbortSignal | CancellationToken"
+            
+             // Input: plain string type
+             // Output: "string"
+             </code>
+             </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.MapParameterToTypeScript(Aspire.TypeSystem.AtsParameterInfo)">
+            <summary>
+            Maps a parameter to its TypeScript type, handling callbacks specially.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.IsInterfaceHandleType(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Checks if a type reference is an interface handle type.
+            Interface handles need union types to accept wrapper classes.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetReturnTypeId(Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Gets the TypeId from a capability's return type.
+            </summary>
+        </member>
+        <member name="P:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.Language">
+            <inheritdoc />
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateDistributedApplication(Aspire.TypeSystem.AtsContext)">
+            <inheritdoc />
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetTypeScriptMethodName(System.String)">
+            <summary>
+            Gets a valid TypeScript method name from a capability method name.
+            Handles dotted names like "EnvironmentContext.resource" by extracting just the final part.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateAspireSdk(Aspire.TypeSystem.AtsContext)">
+            <summary>
+            Generates the aspire.ts SDK file with capability-based API.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateEnumTypes(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsEnumTypeInfo})">
+            <summary>
+            Generates TypeScript enums from discovered enum types.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateDtoInterfaces(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsDtoTypeInfo})">
+            <summary>
+            Generates TypeScript interfaces for DTO types marked with [AspireDto].
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.ToCamelCase(System.String)">
+            <summary>
+            Converts a PascalCase name to camelCase.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.ToPascalCase(System.String)">
+            <summary>
+            Converts a camelCase name to PascalCase.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetOptionsInterfaceName(System.String)">
+            <summary>
+            Gets the options interface name for a method.
+            Strips any type prefix (e.g., "TypeName.methodName" -> "MethodName").
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.ResolveOptionsInterfaceName(Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Gets the options interface name for a specific capability, accounting for type conflicts.
+            Falls back to the default method-name-based interface if no specific mapping exists.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.SeparateParameters(System.Collections.Generic.IEnumerable{Aspire.TypeSystem.AtsParameterInfo})">
+            <summary>
+            Separates parameters into required and optional lists.
+            Required = not optional and not nullable.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.RegisterOptionsInterface(System.String,System.String,System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo})">
+            <summary>
+            Registers an options interface to be generated later.
+            Uses method name to create the interface name. When methods share a name but have
+            incompatible callback parameter types, separate options interfaces are created with
+            numeric suffixes (e.g., RunAsEmulatorOptions, RunAsEmulator1Options).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.AreOptionsCompatible(System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo})">
+            <summary>
+            Checks whether two sets of optional parameters are compatible for sharing an options interface.
+            Parameters with the same name must have the same type (including callback parameter types).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.AreParameterTypesEqual(Aspire.TypeSystem.AtsParameterInfo,Aspire.TypeSystem.AtsParameterInfo)">
+            <summary>
+            Checks whether two parameter infos have the same type (including callback types).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateOptionsInterfaces">
+            <summary>
+            Generates all collected options interfaces.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateBuilderMethod(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel,Aspire.TypeSystem.AtsCapabilityInfo)">
+             <summary>
+             Generates both an internal async method and a public fluent method for a builder capability.
+             </summary>
+             <remarks>
+             <para>Produces a pair of methods: a private <c>_*Internal</c> method that performs the RPC call,
+             and a public method that wraps it in a thenable promise class for fluent chaining.</para>
+             <para>Generated TypeScript (example for <c>withEnvironment</c> on <c>RedisResource</c>):</para>
+             <code>
+             /** @internal */
+             private async _withEnvironmentInternal(name: string, value: string): Promise&lt;RedisResource&gt; {
+                 const rpcArgs: Record&lt;string, unknown&gt; = { builder: this._handle, name, value };
+                 const result = await this._client.invokeCapability&lt;RedisResourceHandle&gt;('...', rpcArgs);
+                 return new RedisResourceImpl(result, this._client);
+             }
+            
+             withEnvironment(name: string, value: string): RedisResourcePromise {
+                 return new RedisResourcePromiseImpl(
+                     this._withEnvironmentInternal(name, value), this._client);
+             }
+            
+             // For build(), the public wrapper flushes pending promises first:
+             build(): DistributedApplicationPromise {
+                 const flushAndBuild = async () =&gt; { await this._client.flushPendingPromises(); return this._buildInternal(); };
+                 return new DistributedApplicationPromiseImpl(flushAndBuild(), this._client, false);
+             }
+             </code>
+             <para>When a parameter is a handle type, promise resolution is emitted before the RPC args
+             (e.g. <c>db = isPromiseLike(db) ? await db : db;</c>).</para>
+             </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GeneratePromiseResolution(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsParameterInfo},System.String)">
+             <summary>
+             Generates promise resolution code for handle-type parameters that may be PromiseLike.
+             </summary>
+             <remarks>
+             For each parameter whose type is a handle (or union containing handles), emits a line
+             that awaits it if it is a <c>PromiseLike</c>. Non-handle and callback parameters are skipped.
+             <code>
+             // For a handle-type param 'db':
+             db = isPromiseLike(db) ? await db : db;
+            
+             // For a non-handle param 'name' (string): nothing emitted
+             </code>
+             </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GeneratePromiseResolutionForParam(System.String,Aspire.TypeSystem.AtsTypeRef,System.String)">
+            <summary>
+            Generates promise resolution for a single named parameter.
+            </summary>
+            <remarks>
+            Used for property setters where only the <c>value</c> parameter needs resolution.
+            <code>
+            // For a handle-type 'value' parameter:
+            value = isPromiseLike(value) ? await value : value;
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.IsWidenedHandleType(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Checks if a type was widened to accept Awaitable&lt;T&gt; in input position.
+            Must match the widening logic in MapInputTypeToTypeScript exactly.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateResolveAndBuildArgs(System.String,System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.String)">
+            <summary>
+            Generates promise resolution and args object construction in one step.
+            This is the unified helper used by builder methods, type class methods, context methods, and wrapper methods.
+            </summary>
+            <remarks>
+            Combines <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GeneratePromiseResolution(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsParameterInfo},System.String)"/> with RPC args construction.
+            Required parameters are inlined in the object literal; optional parameters
+            are added conditionally.
+            <code>
+            // Example output for a method with required 'name', handle-type 'db', and optional 'timeout':
+            db = isPromiseLike(db) ? await db : db;
+            const rpcArgs: Record&lt;string, unknown&gt; = { builder: this._handle, name, db };
+            if (timeout !== undefined) rpcArgs.timeout = timeout;
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateArgsObjectWithConditionals(System.String,System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.String)">
+            <summary>
+            Generates an args object with conditional inclusion of optional parameters.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateThenableClass(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel)">
+            <summary>
+            Generates a thenable wrapper class for a builder that enables fluent chaining.
+            </summary>
+            <remarks>
+            <para>The generated class implements both <c>PromiseLike</c> (via <c>then()</c>) and
+            all fluent methods of the builder, forwarding each call through the inner promise.</para>
+            <para>Generated TypeScript (example for <c>RedisResource</c>):</para>
+            <code>
+            class RedisResourcePromiseImpl implements RedisResourcePromise {
+                constructor(private _promise: Promise&lt;RedisResource&gt;, private _client: AspireClientRpc) {
+                    _client.trackPromise(_promise);
+                }
+                then&lt;T1, T2&gt;(...): PromiseLike&lt;T1 | T2&gt; {
+                    return this._promise.then(...);
+                }
+                withEnvironment(name: string, value: string): RedisResourcePromise {
+                    return new RedisResourcePromiseImpl(
+                        this._promise.then(obj =&gt; obj.withEnvironment(name, value)), this._client);
+                }
+            }
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateEntryPointFunction(Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates an exported entry-point function that creates a builder via an async IIFE.
+            </summary>
+            <remarks>
+            <para>Entry-point functions are standalone exports (not class methods). They wrap the
+            RPC call in an async IIFE and return a thenable promise class for immediate chaining.</para>
+            <para>Generated TypeScript (example for <c>createBuilder</c>):</para>
+            <code>
+            export function createBuilder(client: AspireClientRpc): DistributedApplicationBuilderPromise {
+                const promise = (async () =&gt; {
+                    const rpcArgs: Record&lt;string, unknown&gt; = { };
+                    const handle = await client.invokeCapability&lt;DistributedApplicationBuilderHandle&gt;(
+                        'aspire.capability.createBuilder', rpcArgs);
+                    return new DistributedApplicationBuilderImpl(handle, client);
+                })();
+                return new DistributedApplicationBuilderPromiseImpl(promise, client);
+            }
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateCallbackBody(Aspire.TypeSystem.AtsParameterInfo,System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsCallbackParameterInfo},System.String)">
+            <summary>
+            Generates the body of a callback function.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateHandleWrapperRegistrations(System.Collections.Generic.List{Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel},System.Collections.Generic.List{Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel})">
+            <summary>
+            Generates handle wrapper registrations for all type classes and builder classes.
+            This allows callback handles to be wrapped as typed instances.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateTypeClass(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel)">
+            <summary>
+            Generates a type class (context type or wrapper type).
+            Uses property-like objects for mutable properties and methods for getter-only properties.
+            For types with methods, also generates a Promise wrapper class for fluent chaining.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GroupPropertiesByName(System.Collections.Generic.List{Aspire.TypeSystem.AtsCapabilityInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsCapabilityInfo})">
+            <summary>
+            Groups getters and setters by property name.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.ExtractPropertyName(System.String)">
+            <summary>
+            Extracts the property name from a method name like "ClassName.propertyName" or "setPropertyName".
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GeneratePropertyLikeObject(System.String,Aspire.TypeSystem.AtsCapabilityInfo,Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates a property access member.
+            </summary>
+            <remarks>
+            <para>Getter-only properties are emitted as zero-argument async methods.
+            Mutable properties produce an object with async <c>get</c>/<c>set</c> functions.
+            Dictionary and list properties delegate to <c>AspireDict</c>/<c>AspireList</c> helpers.
+            Wrapper-typed mutable properties delegate to <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateWrapperPropertyObject(System.String,Aspire.TypeSystem.AtsCapabilityInfo,Aspire.TypeSystem.AtsCapabilityInfo,System.String)"/>.</para>
+            <para>Generated TypeScript (example for a string property <c>connectionString</c>):</para>
+            <code>
+            connectionString = {
+                get: async (): Promise&lt;string&gt; =&gt; {
+                    return await this._client.invokeCapability&lt;string&gt;(
+                        'aspire.resource.connectionString.get', { context: this._handle });
+                },
+                set: async (value: string | PromiseLike&lt;string&gt;): Promise&lt;void&gt; =&gt; {
+                    value = isPromiseLike(value) ? await value : value;
+                    await this._client.invokeCapability&lt;void&gt;(
+                        'aspire.resource.connectionString.set', { context: this._handle, value });
+                }
+            };
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateWrapperPropertyObject(System.String,Aspire.TypeSystem.AtsCapabilityInfo,Aspire.TypeSystem.AtsCapabilityInfo,System.String)">
+            <summary>
+            Generates a property-like object that returns a wrapper class.
+            </summary>
+            <remarks>
+            Similar to <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GeneratePropertyLikeObject(System.String,Aspire.TypeSystem.AtsCapabilityInfo,Aspire.TypeSystem.AtsCapabilityInfo)"/> but the getter returns a wrapper
+            class instance instead of a scalar value. The RPC result is a handle that gets
+            wrapped in the implementation class.
+            <code>
+            // Example: a property 'primaryEndpoint' returning EndpointReference
+            primaryEndpoint = {
+                get: async (): Promise&lt;EndpointReference&gt; =&gt; {
+                    const handle = await this._client.invokeCapability&lt;EndpointReferenceHandle&gt;(
+                        'aspire.resource.primaryEndpoint.get', { context: this._handle });
+                    return new EndpointReferenceImpl(handle, this._client);
+                },
+                set: async (value: EndpointReference | PromiseLike&lt;EndpointReference&gt;): Promise&lt;void&gt; =&gt; {
+                    value = isPromiseLike(value) ? await value : value;
+                    await this._client.invokeCapability&lt;void&gt;(
+                        'aspire.resource.primaryEndpoint.set', { context: this._handle, value });
+                }
+            };
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.IsDictionaryType(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Checks if a type reference is a dictionary type.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.IsListType(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Checks if a type reference is a list type.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateDictionaryProperty(System.String,Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates a getter-only method for dictionary types.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateListProperty(System.String,Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates a getter-only method for list types.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateContextMethod(Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates a context instance method (from ExposeMethods=true).
+            </summary>
+            <remarks>
+            <para>Context methods are async methods on wrapper classes that pass <c>this._handle</c>
+            as the context argument. They use <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateResolveAndBuildArgs(System.String,System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.Collections.Generic.List{Aspire.TypeSystem.AtsParameterInfo},System.String)"/> for parameter
+            handling.</para>
+            <para>Generated TypeScript (example for <c>getEndpoint</c> on <c>PostgresResource</c>):</para>
+            <code>
+            async getEndpoint(name: string): Promise&lt;EndpointReference&gt; {
+                const rpcArgs: Record&lt;string, unknown&gt; = { context: this._handle, name };
+                return await this._client.invokeCapability&lt;EndpointReference&gt;(
+                    'aspire.resource.getEndpoint', rpcArgs);
+            }
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateWrapperMethod(Aspire.TypeSystem.AtsCapabilityInfo)">
+            <summary>
+            Generates a method on a wrapper class.
+            </summary>
+            <remarks>
+            <para>Similar to <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateContextMethod(Aspire.TypeSystem.AtsCapabilityInfo)"/> but designed for wrapper classes
+            that expose RPC methods without the thenable/fluent pattern.</para>
+            <para>Generated TypeScript (example for <c>getExpression</c> on <c>EndpointReference</c>):</para>
+            <code>
+            async getExpression(name: string): Promise&lt;string&gt; {
+                const rpcArgs: Record&lt;string, unknown&gt; = { builder: this._handle, name };
+                return await this._client.invokeCapability&lt;string&gt;(
+                    'aspire.endpoint.getExpression', rpcArgs);
+            }
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateTypeClassMethod(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel,Aspire.TypeSystem.AtsCapabilityInfo)">
+             <summary>
+             Generates a method on a type class using the thenable pattern.
+             Generates both an internal async method and a public fluent method.
+             </summary>
+             <remarks>
+             <para>Follows the same internal/public pair pattern as <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateBuilderMethod(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel,Aspire.TypeSystem.AtsCapabilityInfo)"/>
+             but operates on type classes (resources exposed via <c>ExposeMethods</c>).</para>
+             <para>Generated TypeScript (example for <c>withEnvironment</c> on <c>PostgresResource</c>):</para>
+             <code>
+             /** @internal */
+             async _withEnvironmentInternal(name: string, value: string): Promise&lt;PostgresResource&gt; {
+                 const rpcArgs: Record&lt;string, unknown&gt; = { context: this._handle, name, value };
+                 await this._client.invokeCapability&lt;void&gt;('...', rpcArgs);
+                 return this;
+             }
+            
+             withEnvironment(name: string, value: string): PostgresResourcePromise {
+                 return new PostgresResourcePromiseImpl(
+                     this._withEnvironmentInternal(name, value), this._client);
+             }
+             </code>
+             <para>For methods returning a different wrapper type, the internal method returns that
+             wrapper and the public method returns its promise class.</para>
+             </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateTypeClassThenableWrapper(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel,System.Collections.Generic.List{Aspire.TypeSystem.AtsCapabilityInfo})">
+            <summary>
+            Generates a thenable wrapper class for a type class.
+            </summary>
+            <remarks>
+            <para>Identical in structure to <see cref="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GenerateThenableClass(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel)"/> but generated for
+            type classes (resources with <c>ExposeMethods</c>) rather than builder classes.</para>
+            <para>Generated TypeScript (example for <c>PostgresResource</c>):</para>
+            <code>
+            class PostgresResourcePromiseImpl implements PostgresResourcePromise {
+                constructor(private _promise: Promise&lt;PostgresResource&gt;, private _client: AspireClientRpc) {
+                    _client.trackPromise(_promise);
+                }
+                then&lt;T1, T2&gt;(...): PromiseLike&lt;T1 | T2&gt; {
+                    return this._promise.then(...);
+                }
+                withEnvironment(name: string, value: string): PostgresResourcePromise {
+                    return new PostgresResourcePromiseImpl(
+                        this._promise.then(obj =&gt; obj.withEnvironment(name, value)), this._client);
+                }
+            }
+            </code>
+            </remarks>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.CreateBuilderModels(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsCapabilityInfo})">
+            <summary>
+            Groups capabilities by ExpandedTargetTypes to create builder models.
+            Uses expansion to map interface targets to their concrete implementations.
+            Also creates builders for interface types (for use as return type wrappers).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.CollectAllReferencedTypes(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsCapabilityInfo})">
+            <summary>
+            Collects all type refs referenced in capabilities (return types, parameter types, callback types, etc.)
+            Returns a dictionary mapping typeId to AtsTypeRef for use in builder creation.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetEntryPointCapabilities(System.Collections.Generic.IReadOnlyList{Aspire.TypeSystem.AtsCapabilityInfo})">
+            <summary>
+            Gets entry point capabilities (those without TargetTypeId).
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.DeriveClassName(System.String)">
+            <summary>
+            Derives the class name from an ATS type ID.
+            For interfaces like IResource, strips the leading 'I'.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetHandleTypeName(System.String)">
+            <summary>
+            Gets the handle type alias name for a type ID.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.ExtractSimpleTypeName(System.String)">
+            <summary>
+            Extracts the simple type name from a type ID.
+            </summary>
+            <example>
+            "Aspire.Hosting/Aspire.Hosting.ApplicationModel.IResource" → "IResource"
+            "Aspire.Hosting/Aspire.Hosting.DistributedApplication" → "DistributedApplication"
+            </example>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.HasChainableMethods(Aspire.Hosting.CodeGeneration.TypeScript.BuilderModel)">
+            <summary>
+            Determines if a type has chainable methods and should have a Promise wrapper.
+            Types with instance methods or wrapper methods get Promise wrappers.
+            </summary>
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.AtsTypeScriptCodeGenerator.GetPromiseWrapperForReturnType(Aspire.TypeSystem.AtsTypeRef)">
+            <summary>
+            Gets the Promise wrapper class name for a return type, if one exists.
+            Returns null if the return type doesn't have a Promise wrapper.
+            </summary>
+        </member>
+        <member name="T:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport">
+            <summary>
+            Provides language support for TypeScript AppHosts.
+            Implements scaffolding, detection, and runtime configuration.
+            </summary>
+        </member>
+        <member name="F:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.LanguageId">
+            <summary>
+            The language/runtime identifier for TypeScript with Node.js.
+            Format: {language}/{runtime} to support multiple runtimes (e.g., typescript/bun, typescript/deno).
+            </summary>
+        </member>
+        <member name="F:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.CodeGenTarget">
+            <summary>
+            The code generation target language. This maps to the ICodeGenerator.Language property.
+            </summary>
+        </member>
+        <member name="F:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.AppHostTsConfigContent">
+            <summary>
+            The default content for tsconfig.apphost.json, shared between scaffolding and migration.
+            </summary>
+        </member>
+        <member name="P:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.Language">
+            <inheritdoc />
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.Scaffold(Aspire.TypeSystem.ScaffoldRequest)">
+            <inheritdoc />
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.Detect(System.String)">
+            <inheritdoc />
+        </member>
+        <member name="M:Aspire.Hosting.CodeGeneration.TypeScript.TypeScriptLanguageSupport.GetRuntimeSpec">
+            <inheritdoc />
+        </member>
+        <member name="T:Aspire.Shared.Json.AtsJsonCodeWriter">
+            <summary>
+            Provides JSON literal formatting helpers for generated ATS source code.
+            </summary>
+        </member>
+        <member name="M:Aspire.Shared.Json.AtsJsonCodeWriter.ToRelaxedJsonString(System.Text.Json.Nodes.JsonNode)">
+            <summary>
+            Formats a JSON node using relaxed escaping so non-ASCII content remains readable in generated source.
+            </summary>
+        </member>
+        <member name="M:Aspire.Shared.Json.AtsJsonCodeWriter.ToRelaxedJsonString(System.String)">
+            <summary>
+            Formats a string literal as JSON using relaxed escaping.
+            </summary>
+        </member>
+        <member name="T:Aspire.Shared.NpmVersionHelper">
+            <summary>
+            Helpers for parsing and comparing npm-style version ranges.
+            </summary>
+        </member>
+        <member name="M:Aspire.Shared.NpmVersionHelper.ShouldUpgrade(System.String,System.String)">
+            <summary>
+            Determines whether the existing dependency version should be upgraded to the desired version.
+            Returns <c>true</c> when both versions are parseable and the desired version is newer.
+            </summary>
+        </member>
+        <member name="M:Aspire.Shared.NpmVersionHelper.TryParseNpmVersion(System.String,Semver.SemVersion@)">
+            <summary>
+            Attempts to extract a comparable <see cref="T:Semver.SemVersion"/> from an npm version range string.
+            Strips range operators (<c>^</c>, <c>~</c>, <c>&gt;=</c>, <c>&lt;=</c>, <c>&gt;</c>, <c>&lt;</c>, <c>=</c>)
+            and parses the remaining version. Returns <c>false</c> for union ranges (<c>||</c>),
+            workspace references, file paths, and symlinks.
+            </summary>
+        </member>
+    </members>
+</doc>

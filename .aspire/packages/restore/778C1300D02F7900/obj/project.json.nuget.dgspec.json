@@ -1,0 +1,60 @@
+{
+  "format": 1,
+  "restore": {
+    "AspireRestore": {}
+  },
+  "projects": {
+    "AspireRestore": {
+      "restore": {
+        "projectUniqueName": "AspireRestore",
+        "projectName": "AspireRestore",
+        "projectPath": "D:\\github\\HemSoft\\hs-buddy\\.aspire\\packages\\restore\\778C1300D02F7900\\obj\\project.json",
+        "packagesPath": "C:\\Users\\User\\.nuget\\packages\\",
+        "outputPath": "D:\\github\\HemSoft\\hs-buddy\\.aspire\\packages\\restore\\778C1300D02F7900\\obj",
+        "projectStyle": "PackageReference",
+        "UsingMicrosoftNETSdk": false,
+        "configFilePaths": [
+          "C:\\Users\\User\\AppData\\Local\\Temp\\aspire-nuget-config0qued121.4q5\\nuget.config"
+        ],
+        "originalTargetFrameworks": [
+          "net10.0"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {},
+          "https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet9/nuget/v3/index.json": {}
+        },
+        "frameworks": {
+          "net10.0": {
+            "targetAlias": "net10.0",
+            "projectReferences": {}
+          }
+        }
+      },
+      "frameworks": {
+        "net10.0": {
+          "targetAlias": "net10.0",
+          "dependencies": {
+            "Aspire.Hosting": {
+              "target": "Package",
+              "version": "[13.3.0, )"
+            },
+            "Aspire.Hosting.CodeGeneration.TypeScript": {
+              "target": "Package",
+              "version": "[13.3.0, )"
+            },
+            "Aspire.Hosting.JavaScript": {
+              "target": "Package",
+              "version": "[13.3.0, )"
+            }
+          },
+          "runtimeIdentifierGraphPath": "D:\\github\\HemSoft\\hs-buddy\\.aspire\\packages\\restore\\778C1300D02F7900\\obj\\RuntimeIdentifierGraph.json"
+        }
+      },
+      "runtimes": {
+        "win-x64": {
+          "#import": []
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1381 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Aspire.TypeSystem</name>
+    </assembly>
+    <members>
+        <member name="T:Aspire.TypeSystem.AtsTypeRef">
+            <summary>
+            Lightweight type reference with category and interface flag.
+            Used for parameter types and return types in capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.TypeId">
+            <summary>
+            Gets or sets the ATS type ID (e.g., "string", "Aspire.Hosting/RedisResource").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.ClrType">
+            <summary>
+            Gets or sets the CLR type reference for direct type access.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.Category">
+            <summary>
+            Gets or sets the type category (Primitive, Handle, Dto, Callback, Array, List, Dict, Unknown).
+            Note: This is mutable to allow Pass 2 resolution of Unknown types to Handle.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.IsInterface">
+            <summary>
+            Gets or sets whether this is an interface type.
+            Only meaningful for Handle category types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.ElementType">
+            <summary>
+            Gets or sets the element type reference for Array/List types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.KeyType">
+            <summary>
+            Gets or sets the key type reference for Dict types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.ValueType">
+            <summary>
+            Gets or sets the value type reference for Dict types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.IsReadOnly">
+            <summary>
+            Gets or sets whether this is a readonly collection (copied, not a handle).
+            Only meaningful for Array/Dict categories.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.IsResourceBuilder">
+            <summary>
+            Gets whether this type represents a resource builder target type.
+            Computed from ClrType - true for types that implement the Aspire resource contract.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.IsDistributedApplicationBuilder">
+            <summary>
+            Gets whether this type is IDistributedApplicationBuilder.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.IsDistributedApplication">
+            <summary>
+            Gets whether this type is DistributedApplication.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.UnionTypes">
+            <summary>
+            Gets or sets the member types for Union category.
+            When Category = Union, this contains the alternative types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.ImplementedInterfaces">
+            <summary>
+            Gets or sets the interfaces this type implements.
+            </summary>
+            <remarks>
+            Pre-computed during type scanning so generators can consume interface information from the shared ATS model
+            without performing additional reflection.
+            Currently used by Python code generation for interface inheritance and capability placement.
+            Only meaningful for Handle category types.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeRef.BaseType">
+            <summary>
+            Gets or sets the immediate base type of this type.
+            </summary>
+            <remarks>
+            Pre-computed during type scanning so generators can traverse the type hierarchy from the shared ATS model
+            without performing additional reflection.
+            Currently used by Python code generation when mapping inherited members.
+            Returns <see langword="null"/> for interface types or for types with no relevant base class.
+            </remarks>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsDiagnosticSeverity">
+            <summary>
+            Represents the severity of an ATS scanner diagnostic.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsDiagnosticSeverity.Info">
+            <summary>
+            Information - verbose details about scanning (shown with --debug).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsDiagnosticSeverity.Warning">
+            <summary>
+            Warning - the item was skipped but scanning continues.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsDiagnosticSeverity.Error">
+            <summary>
+            Error - a type validation error (e.g., object type without [AspireUnion]).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsDiagnostic">
+            <summary>
+            Represents a diagnostic message from the ATS capability scanner.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDiagnostic.Severity">
+            <summary>
+            Gets the severity of the diagnostic.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDiagnostic.Message">
+            <summary>
+            Gets the diagnostic message.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDiagnostic.Location">
+            <summary>
+            Gets the source location (e.g., type name, method name).
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsDiagnostic.Error(System.String,System.String)">
+            <summary>
+            Creates an error diagnostic.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsDiagnostic.Warning(System.String,System.String)">
+            <summary>
+            Creates a warning diagnostic.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsDiagnostic.Info(System.String,System.String)">
+            <summary>
+            Creates an info diagnostic (verbose output shown with --debug).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsCapabilityInfo">
+            <summary>
+            Represents a discovered [AspireExport] capability.
+            </summary>
+            <remarks>
+            <para>
+            This model is shared between code generation (using RoMethod/RoType metadata reflection)
+            and the runtime CapabilityDispatcher (using System.Reflection).
+            </para>
+            <para>
+            The capability represents a single exportable method that can be invoked via
+            <c>invokeCapability(capabilityId, args)</c> from polyglot clients.
+            </para>
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.CapabilityId">
+            <summary>
+            Gets or sets the capability ID (e.g., "Aspire.Hosting/addRedis").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.MethodName">
+            <summary>
+            Gets or sets the simple method name for generated SDKs (e.g., "addRedis", "isRunMode").
+            For context type capabilities, this is just the property/method name without the type prefix.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.OwningTypeName">
+            <summary>
+            Gets or sets the owning type name for property/method capabilities.
+            </summary>
+            <remarks>
+            For PropertyGetter, PropertySetter, and InstanceMethod capabilities, this is the
+            type name that owns the property/method (e.g., "ExecutionContext").
+            For regular Method capabilities, this is null.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.QualifiedMethodName">
+            <summary>
+            Gets the qualified method name combining OwningTypeName and MethodName.
+            </summary>
+            <remarks>
+            Returns "ExecutionContext.isRunMode" for property capabilities,
+            or just "addRedis" for regular method capabilities.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.Description">
+            <summary>
+            Gets or sets the description of what this capability does.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.IsObsolete">
+            <summary>
+            Gets or sets whether this capability is obsolete.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.ObsoleteMessage">
+            <summary>
+            Gets or sets the obsolete message for this capability.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.Parameters">
+            <summary>
+            Gets or sets the parameters for this capability.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.ReturnType">
+            <summary>
+            Gets or sets the return type reference with full type metadata.
+            Use <see cref="F:Aspire.TypeSystem.AtsConstants.Void"/> TypeId for void return types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.TargetTypeId">
+            <summary>
+            Gets or sets the original (declared) ATS type ID that this capability targets.
+            May be an interface type (e.g., "Aspire.Hosting/IResourceWithEnvironment").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.TargetType">
+            <summary>
+            Gets or sets the target type reference with full type metadata.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.TargetParameterName">
+            <summary>
+            Gets or sets the name of the target parameter (e.g., "builder", "resource").
+            This is the first parameter of the method that represents the target/receiver.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.ExpandedTargetTypes">
+            <summary>
+            Gets or sets the expanded list of concrete types this capability applies to.
+            Pre-computed during scanning by resolving interface targets to all implementing types.
+            </summary>
+            <remarks>
+            For flat codegen (Go, C): use this to put methods on each concrete builder.
+            For inheritance codegen (TypeScript, Java): use <see cref="P:Aspire.TypeSystem.AtsCapabilityInfo.TargetTypeId"/> instead.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.ReturnsBuilder">
+            <summary>
+            Gets or sets whether the return type is a builder type.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.CapabilityKind">
+            <summary>
+            Gets or sets the kind of capability (Method, PropertyGetter, PropertySetter, InstanceMethod).
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.SourceLocation">
+            <summary>
+            Gets or sets the source location where this capability is defined.
+            </summary>
+            <remarks>
+            Format: "TypeName.MethodName" or "TypeName.PropertyName" for diagnostics.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCapabilityInfo.RunSyncOnBackgroundThread">
+            <summary>
+            Gets or sets whether synchronous invocations of this capability should run on a background thread.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsParameterInfo">
+            <summary>
+            Represents a parameter in an ATS capability.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.Name">
+            <summary>
+            Gets or sets the parameter name.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.Type">
+            <summary>
+            Gets or sets the type reference with full type metadata.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.IsOptional">
+            <summary>
+            Gets or sets whether this parameter is optional.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.IsNullable">
+            <summary>
+            Gets or sets whether this parameter is nullable.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.IsCallback">
+            <summary>
+            Gets or sets whether this parameter is a callback delegate.
+            Callbacks are inferred from delegate types (Func, Action, custom delegates).
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.CallbackParameters">
+            <summary>
+            Gets or sets the parameters of the callback delegate.
+            Only populated when <see cref="P:Aspire.TypeSystem.AtsParameterInfo.IsCallback"/> is true.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.CallbackReturnType">
+            <summary>
+            Gets or sets the return type for the callback delegate.
+            Only populated when <see cref="P:Aspire.TypeSystem.AtsParameterInfo.IsCallback"/> is true.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsParameterInfo.DefaultValue">
+            <summary>
+            Gets or sets the default value for optional parameters.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsCallbackParameterInfo">
+            <summary>
+            Represents a parameter in a callback delegate signature.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCallbackParameterInfo.Name">
+            <summary>
+            Gets or sets the parameter name.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsCallbackParameterInfo.Type">
+            <summary>
+            Gets or sets the type reference for this parameter.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsTypeInfo">
+            <summary>
+            Represents type information discovered from [AspireExport(AtsTypeId = "...")].
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.AtsTypeId">
+            <summary>
+            Gets or sets the ATS type ID.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.ClrType">
+            <summary>
+            Gets or sets the CLR type reference for direct type access.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.IsInterface">
+            <summary>
+            Gets or sets whether this type is an interface.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.ImplementedInterfaces">
+            <summary>
+            Gets or sets the interfaces this type implements.
+            Only populated for concrete (non-interface) types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.BaseTypeHierarchy">
+            <summary>
+            Gets or sets the base type hierarchy (from immediate base up to Resource/Object).
+            Only populated for concrete (non-interface) types.
+            Used for expanding capabilities targeting base types to derived types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.HasExposeProperties">
+            <summary>
+            Gets or sets whether this type has [AspireExport(ExposeProperties = true)].
+            Types with this flag will have their properties exposed as capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.HasExposeMethods">
+            <summary>
+            Gets or sets whether this type has [AspireExport(ExposeMethods = true)].
+            Types with this flag will have their methods exposed as capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsTypeInfo.IsResourceBuilder">
+            <summary>
+            Gets whether this handle type represents an Aspire resource type.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsDtoTypeInfo">
+            <summary>
+            Represents a DTO type discovered from [AspireDto] attributes.
+            Used for generating TypeScript interfaces for DTOs.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoTypeInfo.TypeId">
+            <summary>
+            Gets or sets the ATS type ID for this DTO.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoTypeInfo.Name">
+            <summary>
+            Gets or sets the simple type name (for interface name generation).
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoTypeInfo.Description">
+            <summary>
+            Gets or sets a description of this DTO type.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoTypeInfo.ClrType">
+            <summary>
+            Gets or sets the CLR type reference for direct type access.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoTypeInfo.Properties">
+            <summary>
+            Gets or sets the properties of this DTO.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsDtoPropertyInfo">
+            <summary>
+            Represents a property of a DTO type.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoPropertyInfo.Name">
+            <summary>
+            Gets or sets the property name.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoPropertyInfo.Type">
+            <summary>
+            Gets or sets the property type reference.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoPropertyInfo.Description">
+            <summary>
+            Gets or sets a description of this property.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsDtoPropertyInfo.IsOptional">
+            <summary>
+            Gets or sets whether this property is optional (nullable or has default).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsEnumTypeInfo">
+            <summary>
+            Represents an enum type discovered during scanning.
+            Used for generating TypeScript enums.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsEnumTypeInfo.TypeId">
+            <summary>
+            Gets or sets the ATS type ID for this enum (e.g., "enum:Aspire.Hosting.ApplicationModel.ContainerLifetime").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsEnumTypeInfo.Name">
+            <summary>
+            Gets or sets the simple type name (for enum name generation).
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsEnumTypeInfo.ClrType">
+            <summary>
+            Gets or sets the CLR type reference for direct type access.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsEnumTypeInfo.Values">
+            <summary>
+            Gets or sets the enum member names.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsTypeCategory">
+            <summary>
+            Categories of ATS types for serialization and handling.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Primitive">
+            <summary>
+            Primitive types that serialize directly to JSON values.
+            Examples: string, number, boolean, datetime, guid.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Enum">
+            <summary>
+            Enum types that serialize as string values.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Handle">
+            <summary>
+            Handle types that are opaque references to .NET objects.
+            Serialized as { "$handle": "type:id", "$type": "type" }.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Dto">
+            <summary>
+            Data Transfer Objects that serialize as JSON objects.
+            Must be marked with [AspireDto].
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Callback">
+            <summary>
+            Callback types (delegates) that are registered and invoked by ID.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Array">
+            <summary>
+            Readonly array/collection types that serialize as JSON arrays (copied).
+            Examples: T[], IReadOnlyList&lt;T&gt;, IReadOnlyCollection&lt;T&gt;, IEnumerable&lt;T&gt;.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.List">
+            <summary>
+            Mutable list types that are handles to .NET List&lt;T&gt;.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Dict">
+            <summary>
+            Dictionary types that serialize as JSON objects.
+            Mutable dictionaries are handles; readonly dictionaries are copied.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Union">
+            <summary>
+            Union types that can hold one of multiple alternative types.
+            Serialization depends on the member types.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsTypeCategory.Unknown">
+            <summary>
+            Unknown types that couldn't be resolved during the first pass of scanning.
+            In Pass 2, these are either resolved to Handle (if the type is in the universe)
+            or filtered out (if the type is not a valid ATS type).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsCapabilityKind">
+            <summary>
+            Kinds of ATS capabilities for code generation.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsCapabilityKind.Method">
+            <summary>
+            Regular extension method capability.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsCapabilityKind.PropertyGetter">
+            <summary>
+            Property getter capability (from ExposeProperties=true).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsCapabilityKind.PropertySetter">
+            <summary>
+            Property setter capability (from ExposeProperties=true).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsCapabilityKind.InstanceMethod">
+            <summary>
+            Instance method capability (from ExposeMethods=true).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsConstants">
+            <summary>
+            Constants for ATS (Aspire Type System) type IDs and capability IDs.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.AspireHostingAssembly">
+            <summary>
+            The Aspire.Hosting assembly name.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.String">
+            <summary>
+            String type ID. Maps from .NET <see cref="T:System.String"/>.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Char">
+            <summary>
+            Char type ID. Maps from .NET <see cref="T:System.Char"/>.
+            Serializes to JSON string.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Number">
+            <summary>
+            Number type ID. Maps from .NET numeric types (int, long, float, double, decimal, etc.).
+            Serializes to JSON number.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Boolean">
+            <summary>
+            Boolean type ID. Maps from .NET <see cref="T:System.Boolean"/>.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Void">
+            <summary>
+            Void type ID. Represents no return value.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.DateTime">
+            <summary>
+            DateTime type ID. Maps from .NET <see cref="T:System.DateTime"/>.
+            Serializes to JSON string (ISO 8601).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.DateTimeOffset">
+            <summary>
+            DateTimeOffset type ID. Maps from .NET <see cref="T:System.DateTimeOffset"/>.
+            Serializes to JSON string (ISO 8601).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.DateOnly">
+            <summary>
+            DateOnly type ID. Maps from .NET <see cref="T:System.DateOnly"/>.
+            Serializes to JSON string (YYYY-MM-DD).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.TimeOnly">
+            <summary>
+            TimeOnly type ID. Maps from .NET <see cref="T:System.TimeOnly"/>.
+            Serializes to JSON string (HH:mm:ss).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.TimeSpan">
+            <summary>
+            TimeSpan type ID. Maps from .NET <see cref="T:System.TimeSpan"/>.
+            Serializes to JSON number (total milliseconds).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Guid">
+            <summary>
+            Guid type ID. Maps from .NET <see cref="T:System.Guid"/>.
+            Serializes to JSON string.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Uri">
+            <summary>
+            Uri type ID. Maps from .NET <see cref="T:System.Uri"/>.
+            Serializes to JSON string.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.Any">
+            <summary>
+            Any type ID. Maps from .NET <see cref="T:System.Object"/>.
+            Accepts any supported ATS type. Use when a parameter needs to accept
+            multiple types without explicit union declaration.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.CancellationToken">
+            <summary>
+            CancellationToken type ID. Maps from .NET <see cref="T:System.Threading.CancellationToken"/>.
+            In TypeScript, maps to AbortSignal for cancellation support.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.EnumPrefix">
+            <summary>
+            Enum type ID prefix. Maps from .NET enum types.
+            Full format: "enum:{FullTypeName}". Serializes to JSON string (enum name).
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.BuilderTypeId">
+            <summary>
+            Type ID for IDistributedApplicationBuilder.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.ApplicationTypeId">
+            <summary>
+            Type ID for DistributedApplication.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.ReferenceExpressionTypeId">
+            <summary>
+            Type ID for ReferenceExpression.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.CreateBuilderCapability">
+            <summary>
+            Capability ID for creating a builder.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.BuildCapability">
+            <summary>
+            Capability ID for building the application.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.RunCapability">
+            <summary>
+            Capability ID for running the application.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.ArrayTypeId(System.String)">
+            <summary>
+            Creates an array type ID for the given element type.
+            </summary>
+            <param name="elementType">The element type ID.</param>
+            <returns>The array type ID.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.ListTypeId(System.String)">
+            <summary>
+            Creates a List type ID for the given element type.
+            </summary>
+            <param name="elementType">The element type ID.</param>
+            <returns>The List type ID.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.DictTypeId(System.String,System.String)">
+            <summary>
+            Creates a Dict type ID for the given key and value types.
+            </summary>
+            <param name="keyType">The key type ID.</param>
+            <param name="valueType">The value type ID.</param>
+            <returns>The Dict type ID.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.EnumTypeId(System.String)">
+            <summary>
+            Creates an enum type ID for the given enum type full name.
+            </summary>
+            <param name="enumFullName">The full name of the enum type.</param>
+            <returns>The enum type ID.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsEnum(System.String)">
+            <summary>
+            Checks if a type ID represents an enum type.
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is an enum.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsArray(System.String)">
+            <summary>
+            Checks if a type ID represents an array type.
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is an array.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsList(System.String)">
+            <summary>
+            Checks if a type ID represents a List type.
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is a List.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsDict(System.String)">
+            <summary>
+            Checks if a type ID represents a Dict type.
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is a Dict.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsPrimitive(System.String)">
+            <summary>
+            Checks if a type ID represents a primitive type.
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is a primitive.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsHandle(System.String)">
+            <summary>
+            Checks if a type ID represents a handle type (has Assembly/Type format).
+            </summary>
+            <param name="typeId">The ATS type ID to check.</param>
+            <returns>True if the type is a handle.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.GetCategory(System.String,System.Boolean)">
+            <summary>
+            Gets the type category for a type ID.
+            Note: This method cannot distinguish DTOs from Handles based on type ID alone.
+            Use the scanner's type mapping to determine if a handle type is actually a DTO.
+            </summary>
+            <param name="typeId">The ATS type ID.</param>
+            <param name="isCallback">True if this is a callback parameter.</param>
+            <returns>The type category.</returns>
+        </member>
+        <member name="F:Aspire.TypeSystem.AtsConstants.s_primitiveTypes">
+            <summary>
+            Set of CLR types that map to ATS primitive types.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsPrimitiveType(System.Type)">
+            <summary>
+            Checks if a CLR type is a primitive ATS type.
+            </summary>
+            <param name="type">The CLR type to check.</param>
+            <returns>True if the type is a primitive.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.GetCategory(System.Type)">
+            <summary>
+            Gets the type category for a CLR type.
+            </summary>
+            <param name="type">The CLR type.</param>
+            <returns>The type category.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsListType(System.Type)">
+            <summary>
+            Checks if a type is a mutable List type.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsReadOnlyListType(System.Type)">
+            <summary>
+            Checks if a type is a readonly list/collection type.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsDictType(System.Type)">
+            <summary>
+            Checks if a type is a dictionary type.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsConstants.IsReadOnlyDictType(System.Type)">
+            <summary>
+            Checks if a dictionary type is readonly.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsContext">
+            <summary>
+            Contains all scanned types, capabilities, and metadata from ATS assembly scanning.
+            </summary>
+            <remarks>
+            <para>
+            The ATS type system has four distinct categories of exported metadata, each with different
+            serialization and code generation behavior:
+            </para>
+            <list type="bullet">
+              <item>
+                <term>Handle Types (<see cref="P:Aspire.TypeSystem.AtsContext.HandleTypes"/>)</term>
+                <description>
+                Types marked with [AspireExport]. These are passed by reference using opaque handles.
+                The TypeScript SDK generates wrapper classes that hold handles and proxy method calls
+                back to .NET. Examples: IDistributedApplicationBuilder, ContainerResource, EndpointReference.
+                </description>
+              </item>
+              <item>
+                <term>DTO Types (<see cref="P:Aspire.TypeSystem.AtsContext.DtoTypes"/>)</term>
+                <description>
+                Types marked with [AspireDto]. These are serialized as JSON objects and passed by value.
+                The TypeScript SDK generates interfaces matching the DTO's properties.
+                Examples: CreateBuilderOptions, ResourceSnapshot.
+                </description>
+              </item>
+              <item>
+                <term>Enum Types (<see cref="P:Aspire.TypeSystem.AtsContext.EnumTypes"/>)</term>
+                <description>
+                Enum types discovered in capability signatures. These are serialized as strings.
+                The TypeScript SDK generates TypeScript enums with string values.
+                </description>
+              </item>
+              <item>
+                <term>Exported Values (<see cref="P:Aspire.TypeSystem.AtsContext.ExportedValues"/>)</term>
+                <description>
+                Immutable values marked with <c>[AspireValue]</c>. These are snapped during scanning and emitted
+                as predefined value catalogs in generated guest SDKs.
+                </description>
+              </item>
+            </list>
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.Capabilities">
+            <summary>
+            Gets the capabilities discovered during scanning.
+            Capabilities are methods or properties marked with [AspireExport] that can be invoked via RPC.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.HandleTypes">
+            <summary>
+            Gets the handle types discovered during scanning.
+            These are types marked with [AspireExport] that are passed by reference using opaque handles.
+            Code generators create wrapper classes for these types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.DtoTypes">
+            <summary>
+            Gets the DTO types discovered during scanning.
+            These are types marked with [AspireDto] that are serialized as JSON objects.
+            Code generators create interfaces for these types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.EnumTypes">
+            <summary>
+            Gets the enum types discovered during scanning.
+            These are enum types found in capability signatures, serialized as strings.
+            Code generators create enum definitions for these types.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.ExportedValues">
+            <summary>
+            Gets the exported immutable values discovered during scanning.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.Diagnostics">
+            <summary>
+            Gets any diagnostics (warnings/errors) generated during scanning.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.Methods">
+            <summary>
+            Runtime registry mapping capability IDs to methods.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsContext.Properties">
+            <summary>
+            Runtime registry mapping capability IDs to properties.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsContext.GetCategory(System.Type)">
+            <summary>
+            Gets the type category for a CLR type based on scanned data.
+            Used at runtime for marshalling.
+            </summary>
+            <param name="type">The CLR type to classify.</param>
+            <returns>The type category.</returns>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsExportedValueInfo">
+            <summary>
+            Represents an immutable exported ATS value discovered from <c>[AspireValue]</c>.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsExportedValueInfo.OwningAssemblyName">
+            <summary>
+            Gets the name of the assembly that exported this value.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsExportedValueInfo.PathSegments">
+            <summary>
+            Gets the full path of the exported value in generated guest SDKs.
+            </summary>
+            <remarks>
+            The first segment is the generated catalog root name.
+            </remarks>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsExportedValueInfo.Value">
+            <summary>
+            Gets the snapped JSON value emitted into guest SDKs.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsExportedValueInfo.Type">
+            <summary>
+            Gets the ATS type of the exported value.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AtsExportedValueInfo.Description">
+            <summary>
+            Gets an optional XML documentation summary for the exported value.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AtsTypeMapping">
+            <summary>
+            Static utility for deriving ATS type IDs from CLR types.
+            </summary>
+            <remarks>
+            Type IDs follow the format <c>{AssemblyName}/{FullTypeName}</c>.
+            </remarks>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsTypeMapping.DeriveTypeId(System.String,System.String)">
+            <summary>
+            Derives an ATS type ID from an assembly name and full type name.
+            </summary>
+            <param name="assemblyName">The assembly name.</param>
+            <param name="fullTypeName">The full type name including namespace.</param>
+            <returns>The derived type ID in format {AssemblyName}/{FullTypeName}.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.AtsTypeMapping.DeriveTypeId(System.Type)">
+            <summary>
+            Derives an ATS type ID from a CLR type.
+            </summary>
+            <param name="type">The CLR type.</param>
+            <returns>The derived type ID in format {AssemblyName}/{FullTypeName}.</returns>
+        </member>
+        <member name="T:Aspire.TypeSystem.AttributeDataReader">
+            <summary>
+            Provides full-name-based discovery of ATS attributes from <see cref="T:System.Reflection.CustomAttributeData"/>,
+            so that third-party authors can define their own attribute types with the same full name
+            without requiring a package reference to Aspire.Hosting.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireExportData(System.Type)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireExportData"/> from the specified <paramref name="type"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireExportData(System.Reflection.MethodInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireExportData"/> from the specified <paramref name="method"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireExportData(System.Reflection.PropertyInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireExportData"/> from the specified <paramref name="property"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireExportDataAll(System.Reflection.Assembly)">
+            <summary>
+            Gets all <see cref="T:Aspire.TypeSystem.AspireExportData"/> entries from the specified <paramref name="assembly"/>.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.HasAspireExportIgnoreData(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> has the AspireExportIgnore attribute.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.HasAspireExportIgnoreData(System.Reflection.PropertyInfo)">
+            <summary>
+            Determines whether the specified <paramref name="property"/> has the AspireExportIgnore attribute.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.HasAspireExportIgnoreData(System.Reflection.MethodInfo)">
+            <summary>
+            Determines whether the specified <paramref name="method"/> has the AspireExportIgnore attribute.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.HasAspireDtoData(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> has the AspireDto attribute.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireValueData(System.Reflection.FieldInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireValueData"/> from the specified <paramref name="field"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireValueData(System.Reflection.PropertyInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireValueData"/> from the specified <paramref name="property"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireUnionData(System.Reflection.ParameterInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireUnionData"/> from the specified <paramref name="parameter"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetAspireUnionData(System.Reflection.PropertyInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.AspireUnionData"/> from the specified <paramref name="property"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetObsoleteData(System.Reflection.MethodInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.ObsoleteData"/> from the specified <paramref name="method"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetObsoleteData(System.Reflection.PropertyInfo)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.ObsoleteData"/> from the specified <paramref name="property"/>, if present.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.AttributeDataReader.GetObsoleteData(System.Type)">
+            <summary>
+            Gets <see cref="T:Aspire.TypeSystem.ObsoleteData"/> from the specified <paramref name="type"/>, if present.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AspireExportData">
+            <summary>
+            Name-based adapter for [AspireExport] attribute data, parsed from <see cref="T:System.Reflection.CustomAttributeData"/>.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.Id">
+            <summary>
+            Gets the method name / capability id from the constructor argument.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.Type">
+            <summary>
+            Gets the CLR type for assembly-level type exports.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.Description">
+            <summary>
+            Gets a description of what this export does.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.MethodName">
+            <summary>
+            Gets the method name override for generated polyglot SDKs.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.ExposeProperties">
+            <summary>
+            Gets whether to expose properties of this type as ATS capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.ExposeMethods">
+            <summary>
+            Gets whether to expose public instance methods of this type as ATS capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireExportData.RunSyncOnBackgroundThread">
+            <summary>
+            Gets whether synchronous exported methods should be invoked on a background thread by the ATS dispatcher.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AspireUnionData">
+            <summary>
+            Name-based adapter for [AspireUnion] attribute data, parsed from <see cref="T:System.Reflection.CustomAttributeData"/>.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireUnionData.Types">
+            <summary>
+            Gets the CLR types that form the union.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.AspireValueData">
+            <summary>
+            Name-based adapter for [AspireValue] attribute data, parsed from <see cref="T:System.Reflection.CustomAttributeData"/>.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireValueData.CatalogName">
+            <summary>
+            Gets the root name of the generated value catalog.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.AspireValueData.Name">
+            <summary>
+            Gets an optional override for the exported value name.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.ObsoleteData">
+            <summary>
+            Name-based adapter for <see cref="T:System.ObsoleteAttribute"/> data, parsed from <see cref="T:System.Reflection.CustomAttributeData"/>.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ObsoleteData.Message">
+            <summary>
+            Gets the obsolete message, if any.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ObsoleteData.IsError">
+            <summary>
+            Gets whether use of the obsolete API is an error.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.HostingTypeNames">
+            <summary>
+            Contains well-known full type names used by Aspire hosting infrastructure.
+            </summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.AspireExportAttribute">
+            <summary>Full name of the AspireExportAttribute type.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.AspireExportIgnoreAttribute">
+            <summary>Full name of the AspireExportIgnoreAttribute type.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.AspireDtoAttribute">
+            <summary>Full name of the AspireDtoAttribute type.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.AspireValueAttribute">
+            <summary>Full name of the AspireValueAttribute type.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.AspireUnionAttribute">
+            <summary>Full name of the AspireUnionAttribute type.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.ResourceInterface">
+            <summary>Full name of the IResource interface.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.ResourceBuilderInterface">
+            <summary>Full name of the generic IResourceBuilder interface.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.DistributedApplicationBuilder">
+            <summary>Full name of the IDistributedApplicationBuilder interface.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.DistributedApplication">
+            <summary>Full name of the DistributedApplication class.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.ReferenceExpression">
+            <summary>Full name of the ReferenceExpression class.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.ReferenceExpressionBuilder">
+            <summary>Full name of the ReferenceExpressionBuilder class.</summary>
+        </member>
+        <member name="F:Aspire.TypeSystem.HostingTypeNames.ValueProviderInterface">
+            <summary>Full name of the IValueProvider interface.</summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.HostingTypeHelpers">
+            <summary>
+            Provides helper methods for identifying well-known Aspire hosting types by full name.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.HostingTypeHelpers.IsResourceType(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> implements the IResource interface.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.HostingTypeHelpers.IsResourceBuilderType(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> implements the generic IResourceBuilder interface.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.HostingTypeHelpers.IsDistributedApplicationBuilderType(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> is the IDistributedApplicationBuilder interface.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.HostingTypeHelpers.IsDistributedApplicationType(System.Type)">
+            <summary>
+            Determines whether the specified <paramref name="type"/> is the DistributedApplication class.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.ICodeGenerator">
+            <summary>
+            Interface for generating language-specific code from ATS capabilities.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ICodeGenerator.Language">
+            <summary>
+            Gets the target language name (e.g., "TypeScript", "Python").
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.ICodeGenerator.GenerateDistributedApplication(Aspire.TypeSystem.AtsContext)">
+            <summary>
+            Generates the distributed application SDK code from the ATS context.
+            </summary>
+            <param name="context">The ATS context containing capabilities, types, and enums.</param>
+            <returns>A dictionary of file paths to file contents.</returns>
+        </member>
+        <member name="T:Aspire.TypeSystem.ILanguageSupport">
+            <summary>
+            Interface for providing language-specific support for polyglot AppHosts.
+            Implementations provide scaffolding, detection, and runtime execution configuration.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ILanguageSupport.Language">
+            <summary>
+            Gets the language identifier (e.g., "TypeScript", "Python").
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.ILanguageSupport.Scaffold(Aspire.TypeSystem.ScaffoldRequest)">
+            <summary>
+            Generates scaffold files for a new project.
+            </summary>
+            <param name="request">The scaffold request containing project details.</param>
+            <returns>A dictionary of relative file paths to file contents.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.ILanguageSupport.Detect(System.String)">
+            <summary>
+            Detects if a directory contains an AppHost for this language.
+            </summary>
+            <param name="directoryPath">The directory to check.</param>
+            <returns>Detection result with language and file information.</returns>
+        </member>
+        <member name="M:Aspire.TypeSystem.ILanguageSupport.GetRuntimeSpec">
+            <summary>
+            Gets the runtime execution specification for this language.
+            </summary>
+            <returns>The runtime spec containing commands for execution.</returns>
+        </member>
+        <member name="T:Aspire.TypeSystem.ScaffoldRequest">
+            <summary>
+            Request for scaffolding a new AppHost project.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ScaffoldRequest.TargetPath">
+            <summary>
+            Gets the target directory path for the project.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ScaffoldRequest.ProjectName">
+            <summary>
+            Gets the project name. If null, derived from directory name.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.ScaffoldRequest.PortSeed">
+            <summary>
+            Gets an optional seed for deterministic port generation (for testing).
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.DetectionResult">
+            <summary>
+            Result of detecting an AppHost in a directory.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.DetectionResult.IsValid">
+            <summary>
+            Gets whether a valid AppHost was detected.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.DetectionResult.Language">
+            <summary>
+            Gets the detected language (e.g., "TypeScript").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.DetectionResult.AppHostFile">
+            <summary>
+            Gets the path to the detected AppHost file.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.DetectionResult.NotFound">
+            <summary>
+            Creates a result indicating no AppHost was detected.
+            </summary>
+        </member>
+        <member name="M:Aspire.TypeSystem.DetectionResult.Found(System.String,System.String)">
+            <summary>
+            Creates a result indicating an AppHost was detected.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.RuntimeSpec">
+            <summary>
+            Specifies the runtime execution configuration for a language.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.Language">
+            <summary>
+            Gets the language identifier (e.g., "TypeScript", "Python").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.DisplayName">
+            <summary>
+            Gets the display name for the language (e.g., "TypeScript (Node.js)").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.CodeGenLanguage">
+            <summary>
+            Gets the code generation language identifier for the generateCode RPC.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.DetectionPatterns">
+            <summary>
+            Gets the file patterns used to detect this language (e.g., ["apphost.ts"]).
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.Initialize">
+            <summary>
+            Gets the commands to initialize the project environment (e.g., create a virtual environment
+            and install dependencies). Runs once during scaffolding. Null if no initialization is needed.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.InstallDependencies">
+            <summary>
+            Gets the command to install dependencies. Null if no dependencies to install.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.PreExecute">
+            <summary>
+            Gets the commands to run before executing or publishing the AppHost. Null if no pre-execution validation is needed.
+            Watch-mode validation should be part of <see cref="P:Aspire.TypeSystem.RuntimeSpec.WatchExecute" /> when needed.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.Execute">
+            <summary>
+            Gets the command to execute the AppHost for run.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.WatchExecute">
+            <summary>
+            Gets the command to execute the AppHost in watch mode. Null if watch mode not supported.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.PublishExecute">
+            <summary>
+            Gets the command to execute the AppHost for publish. Null to use Execute with args appended.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.ExtensionLaunchCapability">
+            <summary>
+            Gets the extension capability required to launch this language via the VS Code extension.
+            When set (e.g., "node"), the CLI will use the extension launcher if the extension reports
+            this capability. When null, the CLI always uses the default process-based launcher.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.RuntimeSpec.MigrationFiles">
+            <summary>
+            Gets files that must exist in the project directory before execution.
+            If a file in this dictionary is missing, the CLI will create it with the provided content.
+            This supports upgrade scenarios where new runtime requirements are introduced.
+            </summary>
+        </member>
+        <member name="T:Aspire.TypeSystem.CommandSpec">
+            <summary>
+            Specifies a command to execute.
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.CommandSpec.Command">
+            <summary>
+            Gets the command to execute (e.g., "npm", "npx", "python").
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.CommandSpec.Args">
+            <summary>
+            Gets the arguments for the command.
+            Supports placeholders: {appHostFile}, {appHostDir}, {args}
+            </summary>
+        </member>
+        <member name="P:Aspire.TypeSystem.CommandSpec.EnvironmentVariables">
+            <summary>
+            Gets the environment variables to set when executing the command.
+            These are merged with any environment variables provided by the caller.
+            </summary>
+        </member>
+    </members>
+</doc>

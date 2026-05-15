@@ -255,6 +255,7 @@ export function useWeather() {
         await reverseGeocodeLocation(loc)
         writeSavedLocation(loc)
         safeRemoveItem(CACHE_KEY)
+        setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
           /* error already handled in state */
         })
@@ -290,6 +291,7 @@ export function useWeather() {
         const loc = parseGeocodingResult(results[0], query)
         writeSavedLocation(loc)
         safeRemoveItem(CACHE_KEY)
+        setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
           /* error already handled in state */
         })

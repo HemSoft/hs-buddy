@@ -686,6 +686,78 @@ describe('useWeather', () => {
     const saved = localStorage.getItem('weather:location')
     expect(saved).not.toBeNull()
   })
+
+  it('setLocationBySearch clears stale data so savedLocation shows in caption', async () => {
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.data?.locationName).toBe('Morrisville, NC')
+
+    // Mock geocoding success but weather fetch hangs (never resolves during test)
+    let resolveWeather!: (value: unknown) => void
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          { lat: '25.76', lon: '-80.19', address: { city: 'Miami', state: 'Florida' } },
+        ],
+      })
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveWeather = resolve
+          })
+      )
+
+    await act(async () => {
+      result.current.setLocationBySearch('Miami')
+      // Flush geocoding microtask
+      await new Promise(r => setTimeout(r, 0))
+    })
+
+    // Stale data should be cleared — savedLocation reflects new location
+    expect(result.current.data).toBeNull()
+    expect(result.current.savedLocation).toBe('Miami, Florida')
+
+    // Clean up hanging promise
+    await act(async () => {
+      resolveWeather(makeApiResponse())
+    })
+  })
+
+  it('useMyLocation clears stale data when location changes', async () => {
+    const mockGetCurrentPosition = vi.fn((success: PositionCallback) => {
+      success({
+        coords: { latitude: 40.71, longitude: -74.01 },
+      } as GeolocationPosition)
+    })
+    Object.defineProperty(navigator, 'geolocation', {
+      value: { getCurrentPosition: mockGetCurrentPosition },
+      configurable: true,
+    })
+
+    mockFetch
+      .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ address: { city: 'New York', state: 'New York' } }),
+      })
+      .mockResolvedValue(makeApiResponse())
+
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(result.current.data?.locationName).toBe('Morrisville, NC')
+
+    await act(async () => {
+      result.current.useMyLocation()
+    })
+
+    // After useMyLocation completes, stale data from old location should not persist
+    await waitFor(() => {
+      const saved = localStorage.getItem('weather:location')
+      expect(saved).not.toBeNull()
+    })
+    expect(result.current.savedLocation).toBe('New York, New York')
+  })
 })
 
 describe('weatherCodeToDescription', () => {

@@ -316,6 +316,13 @@ export enum ProtocolType {
     Unknown = "Unknown",
 }
 
+/** Enum type for ResourceCommandState */
+export enum ResourceCommandState {
+    Enabled = "Enabled",
+    Disabled = "Disabled",
+    Hidden = "Hidden",
+}
+
 /** Enum type for UrlDisplayLocation */
 export enum UrlDisplayLocation {
     SummaryAndDetails = "SummaryAndDetails",
@@ -346,7 +353,7 @@ export interface CommandOptions {
     iconName?: string;
     iconVariant?: IconVariant;
     isHighlighted?: boolean;
-    updateState?: any;
+    updateState?: Function;
 }
 
 /** DTO interface for CreateBuilderOptions */
@@ -1135,12 +1142,6 @@ export class EndpointReference {
                 { context: this._handle }
             );
         },
-        set: async (value: string): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.ApplicationModel/EndpointReference.setErrorMessage',
-                { context: this._handle, value }
-            );
-        }
     };
 
     /** Gets the IsAllocated property */
@@ -1451,12 +1452,6 @@ export class ExecuteCommandContext {
                 { context: this._handle }
             );
         },
-        set: async (value: string): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.ApplicationModel/ExecuteCommandContext.setResourceName',
-                { context: this._handle, value }
-            );
-        }
     };
 
     /** Gets the CancellationToken property */
@@ -1468,12 +1463,6 @@ export class ExecuteCommandContext {
             );
             return CancellationToken.fromValue(result);
         },
-        set: async (value: AbortSignal | CancellationToken): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.ApplicationModel/ExecuteCommandContext.setCancellationToken',
-                { context: this._handle, value: CancellationToken.fromValue(value) }
-            );
-        }
     };
 
 }
@@ -1580,12 +1569,6 @@ export class PipelineConfigurationContext {
                 { context: this._handle }
             );
         },
-        set: async (value: PipelineStep[]): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.Pipelines/PipelineConfigurationContext.setSteps',
-                { context: this._handle, value }
-            );
-        }
     };
 
     /** Gets the Model property */
@@ -1738,12 +1721,6 @@ export class PipelineStep {
                 { context: this._handle }
             );
         },
-        set: async (value: string): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.Pipelines/PipelineStep.setName',
-                { context: this._handle, value }
-            );
-        }
     };
 
     /** Gets the Description property */
@@ -1754,12 +1731,6 @@ export class PipelineStep {
                 { context: this._handle }
             );
         },
-        set: async (value: string): Promise<void> => {
-            await this._client.invokeCapability<void>(
-                'Aspire.Hosting.Pipelines/PipelineStep.setDescription',
-                { context: this._handle, value }
-            );
-        }
     };
 
     /** Gets the DependsOnSteps property */

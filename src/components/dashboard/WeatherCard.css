@@ -317,6 +317,129 @@
   color: var(--text-muted);
 }
 
+/* ── Pollen Species Detail ─────────────────────────────────────────────── */
+
+.pollen-detail {
+  width: 100%;
+}
+
+.pollen-detail-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-family: var(--font-family-ui);
+  transition: color 0.15s ease;
+}
+
+.pollen-detail-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.pollen-detail-toggle-text {
+  font-size: 10px;
+}
+
+.pollen-detail-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.pollen-species-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pollen-species-group-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+.pollen-species-group-icon {
+  color: #a8d08d;
+}
+
+.pollen-species-group-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pollen-species-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+}
+
+.pollen-species-name {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.pollen-species-value {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.pollen-species-offseason {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+
+.pollen-health-recs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-primary);
+}
+
+.pollen-health-recs-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.pollen-health-recs-list {
+  margin: 0;
+  padding-left: 16px;
+  list-style: disc;
+}
+
+.pollen-health-recs-list li {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 680px) {

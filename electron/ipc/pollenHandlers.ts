@@ -3,10 +3,21 @@ import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 import { configManager } from '../config'
 
+export interface PollenSpecies {
+  code: string
+  displayName: string
+  index: number
+  category: string
+  inSeason: boolean
+  type: 'TREE' | 'GRASS' | 'WEED'
+}
+
 export interface PollenData {
   tree: number
   grass: number
   weed: number
+  species: PollenSpecies[]
+  healthRecommendations: string[]
 }
 
 export interface PollenFetchResult {
@@ -15,27 +26,79 @@ export interface PollenFetchResult {
   error?: string
 }
 
+interface GoogleIndexInfo {
+  value?: number
+  category?: string
+}
+
 interface GooglePollenTypeInfo {
   code?: string
-  indexInfo?: { value?: number }
+  indexInfo?: GoogleIndexInfo
+  healthRecommendations?: string[]
+}
+
+interface GooglePlantInfo {
+  code?: string
+  displayName?: string
+  indexInfo?: GoogleIndexInfo
+  inSeason?: boolean
+  plantDescription?: { type?: string }
 }
 
 interface GoogleForecastResponse {
   dailyInfo?: Array<{
     pollenTypeInfo?: GooglePollenTypeInfo[]
+    plantInfo?: GooglePlantInfo[]
   }>
 }
 
-function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
-  const types = json.dailyInfo?.[0]?.pollenTypeInfo
-  if (!types || types.length === 0) return null
+type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
-  const codeToKey: Record<string, keyof PollenData> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
-  const result: PollenData = { tree: 0, grass: 0, weed: 0 }
-
+function parsePollenTypes(
+  types: GooglePollenTypeInfo[],
+  result: PollenData
+): void {
+  const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
   for (const t of types) {
     const key = codeToKey[t.code ?? '']
     if (key) result[key] = t.indexInfo?.value ?? 0
+    if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
+  }
+}
+
+const VALID_POLLEN_TYPES = new Set(['TREE', 'GRASS', 'WEED'])
+
+function normalizePollenType(raw: string | undefined): 'TREE' | 'GRASS' | 'WEED' {
+  const upper = (raw ?? '').toUpperCase()
+  return VALID_POLLEN_TYPES.has(upper) ? (upper as 'TREE' | 'GRASS' | 'WEED') : 'TREE'
+}
+
+function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
+  if (!plant.code || !plant.displayName) return null
+  return {
+    code: plant.code,
+    displayName: plant.displayName,
+    index: plant.indexInfo?.value ?? 0,
+    category: plant.indexInfo?.category ?? 'None',
+    inSeason: plant.inSeason ?? false,
+    type: normalizePollenType(plant.plantDescription?.type),
+  }
+}
+
+function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+  const day = json.dailyInfo?.[0]
+  if (!day) return null
+
+  const types = day.pollenTypeInfo ?? []
+  const plants = day.plantInfo ?? []
+  if (types.length === 0 && plants.length === 0) return null
+
+  const result: PollenData = { tree: 0, grass: 0, weed: 0, species: [], healthRecommendations: [] }
+  parsePollenTypes(types, result)
+
+  for (const p of plants) {
+    const species = parsePlantInfo(p)
+    if (species) result.species.push(species)
   }
 
   return result

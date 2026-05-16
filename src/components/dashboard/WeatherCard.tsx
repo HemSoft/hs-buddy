@@ -12,12 +12,17 @@ import {
   MapPin,
   Search,
   Flower2,
+  ChevronDown,
+  ChevronUp,
+  TreePine,
+  Sprout,
+  Leaf,
 } from 'lucide-react'
 import { useState, useMemo, type ReactNode } from 'react'
 import { SectionHeading, StatCard, CardHeader, CardActionBar } from './DashboardPrimitives'
 import { useWeather, type ForecastDay } from '../../hooks/useWeather'
 import { usePollen, getPollenLabel, getPollenColor, clearPollenCache } from '../../hooks/usePollen'
-import type { PollenData } from '../../hooks/usePollen'
+import type { PollenData, PollenSpecies } from '../../hooks/usePollen'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './WeatherCard.css'
@@ -115,6 +120,93 @@ function PollenBadge({ label, index }: { label: string; index: number }) {
   )
 }
 
+const POLLEN_TYPE_ICONS: Record<string, typeof TreePine> = {
+  TREE: TreePine,
+  GRASS: Sprout,
+  WEED: Leaf,
+}
+
+function SpeciesRow({ species }: { species: PollenSpecies }) {
+  return (
+    <div className="pollen-species-row">
+      <span className="pollen-species-name">{species.displayName}</span>
+      <span className="pollen-species-value" style={{ color: getPollenColor(species.index) }}>
+        {getPollenLabel(species.index)}
+      </span>
+      {!species.inSeason && <span className="pollen-species-offseason">off-season</span>}
+    </div>
+  )
+}
+
+function SpeciesGroup({ type, label, species }: { type: string; label: string; species: PollenSpecies[] }) {
+  const Icon = POLLEN_TYPE_ICONS[type] ?? Flower2
+  return (
+    <div className="pollen-species-group">
+      <div className="pollen-species-group-header">
+        <Icon size={11} className="pollen-species-group-icon" />
+        <span className="pollen-species-group-label">{label}</span>
+      </div>
+      {species.map(s => (
+        <SpeciesRow key={s.code} species={s} />
+      ))}
+    </div>
+  )
+}
+
+function PollenSpeciesDetail({ species, healthRecommendations }: { species: PollenSpecies[]; healthRecommendations: string[] }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const inSeasonSpecies = species.filter(s => s.inSeason)
+  const offSeasonSpecies = species.filter(s => !s.inSeason)
+  const hasDetail = inSeasonSpecies.length > 0 || offSeasonSpecies.length > 0
+
+  if (!hasDetail && healthRecommendations.length === 0) return null
+
+  const typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }> = []
+  const types = [
+    { type: 'TREE', label: 'Trees' },
+    { type: 'GRASS', label: 'Grasses' },
+    { type: 'WEED', label: 'Weeds' },
+  ]
+  for (const { type, label } of types) {
+    const items = species.filter(s => s.type === type)
+    if (items.length > 0) typeGroups.push({ type, label, items })
+  }
+
+  return (
+    <div className="pollen-detail">
+      <button
+        type="button"
+        className="pollen-detail-toggle"
+        onClick={() => setExpanded(prev => !prev)}
+        aria-expanded={expanded}
+      >
+        <span className="pollen-detail-toggle-text">Species Detail</span>
+        {expanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+      </button>
+
+      {expanded && (
+        <div className="pollen-detail-content">
+          {typeGroups.map(g => (
+            <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
+          ))}
+
+          {healthRecommendations.length > 0 && (
+            <div className="pollen-health-recs">
+              <span className="pollen-health-recs-label">Health Tips</span>
+              <ul className="pollen-health-recs-list">
+                {healthRecommendations.map((rec, i) => (
+                  <li key={i}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PollenSection({ pollen }: { pollen: PollenData }) {
   return (
     <div className="pollen-section">
@@ -127,6 +219,10 @@ function PollenSection({ pollen }: { pollen: PollenData }) {
         <PollenBadge label="Grass" index={pollen.grass} />
         <PollenBadge label="Weed" index={pollen.weed} />
       </div>
+      <PollenSpeciesDetail
+        species={pollen.species}
+        healthRecommendations={pollen.healthRecommendations}
+      />
     </div>
   )
 }

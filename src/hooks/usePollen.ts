@@ -2,10 +2,21 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 import { IPC_INVOKE } from '../ipc/contracts'
 
+export interface PollenSpecies {
+  code: string
+  displayName: string
+  index: number
+  category: string
+  inSeason: boolean
+  type: 'TREE' | 'GRASS' | 'WEED'
+}
+
 export interface PollenData {
   tree: number
   grass: number
   weed: number
+  species: PollenSpecies[]
+  healthRecommendations: string[]
 }
 
 interface PollenCache {

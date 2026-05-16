@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add pollen data to weather card via Tomorrow.io API
+- Expand pollen display with species-level detail
 
 ## [0.1.758] - 2026-05-11
 

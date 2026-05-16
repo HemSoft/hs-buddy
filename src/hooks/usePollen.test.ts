@@ -7,10 +7,11 @@ import {
   clearPollenCache,
   POLLEN_LABELS,
   type PollenData,
+  type PollenSpecies,
 } from './usePollen'
 
 const MOCK_LOCATION = { latitude: 35.8235, longitude: -78.8256 }
-const MOCK_POLLEN: PollenData = { tree: 3, grass: 2, weed: 1 }
+const MOCK_POLLEN: PollenData = { tree: 3, grass: 2, weed: 1, species: [], healthRecommendations: [] }
 
 const mockInvoke = vi.fn()
 
@@ -151,7 +152,7 @@ describe('usePollen', () => {
     unmount()
 
     const newLocation = { latitude: 40.7128, longitude: -74.006 }
-    const newPollen: PollenData = { tree: 4, grass: 3, weed: 2 }
+    const newPollen: PollenData = { tree: 4, grass: 3, weed: 2, species: [], healthRecommendations: [] }
     mockInvoke.mockResolvedValueOnce({ success: true, data: newPollen })
 
     const { result: result2 } = renderHook(() => usePollen(newLocation))
@@ -185,7 +186,7 @@ describe('usePollen', () => {
 
     // Clear cache and call refresh
     clearPollenCache()
-    const updatedPollen: PollenData = { tree: 5, grass: 4, weed: 3 }
+    const updatedPollen: PollenData = { tree: 5, grass: 4, weed: 3, species: [], healthRecommendations: [] }
     mockInvoke.mockResolvedValueOnce({ success: true, data: updatedPollen })
 
     await act(async () => {
@@ -193,5 +194,31 @@ describe('usePollen', () => {
     })
 
     expect(result.current.data).toEqual(updatedPollen)
+  })
+
+  it('preserves species data from IPC response', async () => {
+    const speciesData: PollenSpecies[] = [
+      { code: 'OAK', displayName: 'Oak', index: 4, category: 'High', inSeason: true, type: 'TREE' },
+      { code: 'RAGWEED', displayName: 'Ragweed', index: 0, category: 'None', inSeason: false, type: 'WEED' },
+    ]
+    const pollenWithSpecies: PollenData = {
+      tree: 3,
+      grass: 2,
+      weed: 0,
+      species: speciesData,
+      healthRecommendations: ['Reduce outdoor activities when levels are high.'],
+    }
+
+    mockInvoke.mockResolvedValueOnce({ success: true, data: pollenWithSpecies })
+
+    const { result } = renderHook(() => usePollen(MOCK_LOCATION))
+
+    await waitFor(() => {
+      expect(result.current.data).toEqual(pollenWithSpecies)
+    })
+
+    expect(result.current.data?.species).toHaveLength(2)
+    expect(result.current.data?.species[0].displayName).toBe('Oak')
+    expect(result.current.data?.healthRecommendations).toHaveLength(1)
   })
 })

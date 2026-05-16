@@ -20,6 +20,7 @@ export const viewLabels: Record<string, string> = {
   'settings-pullrequests': 'Pull Requests',
   'settings-copilot': 'Copilot SDK',
   'settings-notifications': 'Notifications',
+  'settings-weather': 'Weather',
   'settings-advanced': 'Advanced',
   'automation-schedules': 'Schedules',
   'automation-runs': 'Runs',

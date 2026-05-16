@@ -32,6 +32,7 @@ export const CONFIG_UI_KEYS = [
   'favorite-users',
   'dashboard-cards',
   'weather-location',
+  'pollen-api-key',
 ] as const
 
 type ConfigUiKey = (typeof CONFIG_UI_KEYS)[number]
@@ -110,6 +111,8 @@ export const IPC_INVOKE = {
   CONFIG_SET_DASHBOARD_CARDS: 'config:set-dashboard-cards',
   CONFIG_GET_WEATHER_LOCATION: 'config:get-weather-location',
   CONFIG_SET_WEATHER_LOCATION: 'config:set-weather-location',
+  CONFIG_GET_POLLEN_API_KEY: 'config:get-pollen-api-key',
+  CONFIG_SET_POLLEN_API_KEY: 'config:set-pollen-api-key',
 
   // ── Cache ──────────────────────────────────────────────────────────────
   CACHE_READ_ALL: 'cache:read-all',
@@ -179,6 +182,9 @@ export const IPC_INVOKE = {
 
   // ── Finance ────────────────────────────────────────────────────────────
   FINANCE_FETCH_QUOTE: 'finance:fetch-quote',
+
+  // ── Pollen ─────────────────────────────────────────────────────────────
+  POLLEN_FETCH_CURRENT: 'pollen:fetch-current',
 
   // ── Slack ──────────────────────────────────────────────────────────────
   SLACK_NUDGE_AUTHOR: 'slack:nudge-author',

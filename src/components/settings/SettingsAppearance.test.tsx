@@ -165,6 +165,7 @@ function createConfig(overrides: Partial<AppConfig['ui']> = {}): AppConfig {
       favoriteUsers: [],
       dashboardCards: {},
       weatherLocation: null,
+      pollenApiKey: '',
       terminalOpen: false,
       terminalPanelHeight: 300,
       ...overrides,

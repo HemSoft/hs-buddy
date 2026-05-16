@@ -13,6 +13,7 @@ describe('viewLabels', () => {
     expect(viewLabels['settings-accounts']).toBe('Accounts')
     expect(viewLabels['settings-appearance']).toBe('Appearance')
     expect(viewLabels['settings-advanced']).toBe('Advanced')
+    expect(viewLabels['settings-weather']).toBe('Weather')
   })
 
   it('contains automation labels', () => {

@@ -32,6 +32,7 @@ const CHANNEL_TO_CONFIG_KEY: Record<ConfigUiChannelKey, UiConfigKey> = {
   'favorite-users': 'favoriteUsers',
   'dashboard-cards': 'dashboardCards',
   'weather-location': 'weatherLocation',
+  'pollen-api-key': 'pollenApiKey',
 }
 
 // Derived from CONFIG_UI_KEYS — guaranteed to stay in sync with contracts.ts

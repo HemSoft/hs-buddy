@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bootstrap lean-ctx section in AGENTS.md
 
+### Added
+
+- Add pollen data to weather card via Tomorrow.io API
+
 ## [0.1.758] - 2026-05-11
 
 ### Fixed

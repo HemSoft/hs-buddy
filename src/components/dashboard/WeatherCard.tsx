@@ -11,10 +11,13 @@ import {
   RefreshCw,
   MapPin,
   Search,
+  Flower2,
 } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { useState, useMemo, type ReactNode } from 'react'
 import { SectionHeading, StatCard, CardHeader, CardActionBar } from './DashboardPrimitives'
 import { useWeather, type ForecastDay } from '../../hooks/useWeather'
+import { usePollen, getPollenLabel, getPollenColor, clearPollenCache } from '../../hooks/usePollen'
+import type { PollenData } from '../../hooks/usePollen'
 import { useAutoRefresh } from '../../hooks/useAutoRefresh'
 import { useExpandCollapse } from '../../hooks/useExpandCollapse'
 import './WeatherCard.css'
@@ -101,6 +104,33 @@ function WeatherCurrentSection({
   )
 }
 
+function PollenBadge({ label, index }: { label: string; index: number }) {
+  return (
+    <div className="pollen-badge">
+      <span className="pollen-badge-label">{label}</span>
+      <span className="pollen-badge-value" style={{ color: getPollenColor(index) }}>
+        {getPollenLabel(index)}
+      </span>
+    </div>
+  )
+}
+
+function PollenSection({ pollen }: { pollen: PollenData }) {
+  return (
+    <div className="pollen-section">
+      <div className="pollen-header">
+        <Flower2 size={12} className="pollen-icon" />
+        <span className="pollen-title">Pollen Index</span>
+      </div>
+      <div className="pollen-grid">
+        <PollenBadge label="Tree" index={pollen.tree} />
+        <PollenBadge label="Grass" index={pollen.grass} />
+        <PollenBadge label="Weed" index={pollen.weed} />
+      </div>
+    </div>
+  )
+}
+
 function WeatherExpandedContent({
   data,
   loading,
@@ -110,6 +140,7 @@ function WeatherExpandedContent({
   onSearch,
   autoRefresh,
   onUseMyLocation,
+  pollen,
 }: {
   data: ReturnType<typeof useWeather>['data']
   loading: boolean
@@ -119,6 +150,7 @@ function WeatherExpandedContent({
   onSearch: () => void
   autoRefresh: ReturnType<typeof useAutoRefresh>
   onUseMyLocation: () => void
+  pollen: PollenData | null
 }) {
   return (
     <>
@@ -163,6 +195,8 @@ function WeatherExpandedContent({
 
       {data && <WeatherCurrentSection data={data} />}
 
+      {data && pollen && <PollenSection pollen={pollen} />}
+
       <CardActionBar
         onRefresh={autoRefresh.refresh}
         loading={loading}
@@ -187,9 +221,30 @@ function WeatherExpandedContent({
 }
 
 export function WeatherCard() {
-  const { data, loading, error, refresh, useMyLocation, setLocationBySearch, savedLocation } =
-    useWeather()
-  const autoRefresh = useAutoRefresh('weather', refresh, 30, loading)
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+    useMyLocation,
+    setLocationBySearch,
+    savedLocation,
+    savedLocationCoords,
+  } = useWeather()
+
+  // Stabilize location reference to avoid unnecessary pollen re-fetches
+  const pollenLocation = useMemo(
+    () => ({ latitude: savedLocationCoords.latitude, longitude: savedLocationCoords.longitude }),
+    [savedLocationCoords.latitude, savedLocationCoords.longitude]
+  )
+  const { data: pollenData, refresh: refreshPollen } = usePollen(pollenLocation)
+
+  const handleRefreshAll = async () => {
+    clearPollenCache()
+    await Promise.allSettled([refresh(), refreshPollen()])
+  }
+
+  const autoRefresh = useAutoRefresh('weather', handleRefreshAll, 30, loading)
   const [searchQuery, setSearchQuery] = useState('')
   const { expanded, toggle } = useExpandCollapse('weather:expanded')
 
@@ -237,6 +292,7 @@ export function WeatherCard() {
           onSearch={handleSearch}
           autoRefresh={autoRefresh}
           onUseMyLocation={useMyLocation}
+          pollen={pollenData}
         />
       )}
     </section>

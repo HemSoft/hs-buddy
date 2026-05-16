@@ -50,6 +50,7 @@ export interface AppConfig {
     favoriteUsers: string[] // Favorite user keys ('org/login') that sort to the top
     dashboardCards: Record<string, boolean> // Dashboard card visibility (cardId → visible)
     weatherLocation: { latitude: number; longitude: number; name: string } | null // Saved weather city
+    pollenApiKey: string // Tomorrow.io API key for pollen data (user-provided, stored locally)
   }
   pr: {
     refreshInterval: number // minutes
@@ -219,6 +220,10 @@ export const configSchema: Schema<AppConfig> = {
         ],
         default: null,
       },
+      pollenApiKey: {
+        type: 'string',
+        default: '',
+      },
     },
     required: [
       'theme',
@@ -241,6 +246,7 @@ export const configSchema: Schema<AppConfig> = {
       'favoriteUsers',
       'dashboardCards',
       'weatherLocation',
+      'pollenApiKey',
     ],
   },
   pr: {
@@ -356,6 +362,7 @@ export const defaultConfig: AppConfig = {
     favoriteUsers: [],
     dashboardCards: {},
     weatherLocation: null,
+    pollenApiKey: '',
   },
   pr: {
     refreshInterval: 15,

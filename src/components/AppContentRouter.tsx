@@ -7,6 +7,7 @@ import {
   SettingsCopilot,
   SettingsNotifications,
   SettingsAdvanced,
+  SettingsWeather,
 } from './settings'
 import { WelcomePanel } from './WelcomePanel'
 import { RepoDetailPanel } from './RepoDetailPanel'
@@ -89,6 +90,7 @@ const SETTINGS_ROUTES: Record<string, () => React.JSX.Element> = {
   'settings-copilot': () => <SettingsCopilot />,
   'settings-notifications': () => <SettingsNotifications />,
   'settings-advanced': () => <SettingsAdvanced />,
+  'settings-weather': () => <SettingsWeather />,
 }
 
 function resolveRoute(

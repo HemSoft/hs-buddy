@@ -15,6 +15,7 @@ import { registerTerminalHandlers } from './terminalHandlers'
 import { registerFilesystemHandlers } from './filesystemHandlers'
 import { registerRalphHandlers } from './ralphHandlers'
 import { registerSlackHandlers } from './slackHandlers'
+import { registerPollenHandlers } from './pollenHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   // Patch ipcMain.handle before any handlers register — gives every
@@ -36,4 +37,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerFilesystemHandlers()
   registerRalphHandlers(win)
   registerSlackHandlers()
+  registerPollenHandlers()
 }

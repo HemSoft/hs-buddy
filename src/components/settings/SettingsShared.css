@@ -595,3 +595,80 @@
 .mt-2 {
   margin-top: 8px;
 }
+
+/* Settings Field Group (label + input) */
+.settings-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-input-row {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-input {
+  flex: 1;
+  padding: 8px 12px;
+  background: var(--input-bg, var(--bg-secondary));
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-heading);
+  transition: border-color 0.2s;
+}
+
+.settings-input:focus {
+  outline: none;
+  border-color: var(--border-focus, var(--accent-primary));
+}
+
+.settings-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Status Row */
+.settings-status-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.settings-status-icon-ok {
+  color: var(--accent-success, #4caf50);
+}
+
+.settings-status-icon-muted {
+  color: var(--text-muted);
+}
+
+.settings-status-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.settings-status-muted {
+  color: var(--text-muted);
+}
+
+/* Settings Link */
+.settings-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent-primary);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.settings-link:hover {
+  text-decoration: underline;
+}

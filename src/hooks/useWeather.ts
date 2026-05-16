@@ -103,7 +103,7 @@ function writeSavedLocation(loc: GeoLocation) {
 async function persistLocationToStore(loc: GeoLocation): Promise<void> {
   try {
     await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_WEATHER_LOCATION, loc)
-  } catch {
+  } catch (_: unknown) {
     // localStorage still has the value; IPC failure is recoverable
   }
 }
@@ -121,7 +121,7 @@ async function loadLocationFromStore(): Promise<GeoLocation | null> {
     ) {
       return loc as GeoLocation
     }
-  } catch {
+  } catch (_: unknown) {
     // electron-store unavailable; fall back to localStorage
   }
   return null
@@ -377,5 +377,14 @@ export function useWeather() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locationHydrated])
 
-  return { ...state, refresh, useMyLocation, setLocationBySearch, savedLocation }
+  const savedLocationCoords = readSavedLocation() ?? DEFAULT_LOCATION
+
+  return {
+    ...state,
+    refresh,
+    useMyLocation,
+    setLocationBySearch,
+    savedLocation,
+    savedLocationCoords,
+  }
 }

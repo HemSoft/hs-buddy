@@ -14,12 +14,21 @@ let mockWeatherData: {
   useMyLocation: typeof mockUseMyLocation
   setLocationBySearch: typeof mockSetLocationBySearch
   savedLocation: string | null
+  savedLocationCoords: { latitude: number; longitude: number }
 }
 
 let mockExpanded = true
 
 vi.mock('../../hooks/useWeather', () => ({
   useWeather: () => mockWeatherData,
+}))
+
+vi.mock('../../hooks/usePollen', () => ({
+  usePollen: () => ({ data: null, loading: false, error: null, refresh: vi.fn() }),
+  getPollenLabel: (index: number) =>
+    ['None', 'Very Low', 'Low', 'Medium', 'High', 'Very High'][index] ?? 'Unknown',
+  getPollenColor: () => '#666',
+  clearPollenCache: vi.fn(),
 }))
 
 vi.mock('../../hooks/useAutoRefresh', () => ({
@@ -104,6 +113,7 @@ describe('WeatherCard', () => {
       useMyLocation: mockUseMyLocation,
       setLocationBySearch: mockSetLocationBySearch,
       savedLocation: 'Raleigh, NC',
+      savedLocationCoords: { latitude: 35.82, longitude: -78.82 },
     }
   })
 
@@ -241,6 +251,7 @@ describe('WeatherCard collapsed', () => {
       useMyLocation: mockUseMyLocation,
       setLocationBySearch: mockSetLocationBySearch,
       savedLocation: null,
+      savedLocationCoords: { latitude: 35.82, longitude: -78.82 },
     }
   })
 
@@ -305,6 +316,7 @@ describe('weatherIcon coverage via forecast codes', () => {
       useMyLocation: mockUseMyLocation,
       setLocationBySearch: mockSetLocationBySearch,
       savedLocation: null,
+      savedLocationCoords: { latitude: 35.82, longitude: -78.82 },
     }
   })
 

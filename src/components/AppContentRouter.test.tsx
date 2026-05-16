@@ -44,6 +44,7 @@ vi.mock('./settings', () => ({
   SettingsCopilot: () => <div>SettingsCopilot</div>,
   SettingsNotifications: () => <div>SettingsNotifications</div>,
   SettingsAdvanced: () => <div>SettingsAdvanced</div>,
+  SettingsWeather: () => <div>SettingsWeather</div>,
 }))
 
 vi.mock('./WelcomePanel', () => ({
@@ -267,6 +268,7 @@ describe('AppContentRouter', () => {
     ['settings-pullrequests', 'SettingsPullRequests'],
     ['settings-copilot', 'SettingsCopilot'],
     ['settings-advanced', 'SettingsAdvanced'],
+    ['settings-weather', 'SettingsWeather'],
     ['automation-runs', 'RunList'],
     ['copilot-prompt', 'CopilotPromptBox'],
     ['copilot-all-results', 'CopilotResultsList'],

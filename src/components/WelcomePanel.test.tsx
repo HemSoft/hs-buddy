@@ -64,7 +64,15 @@ vi.mock('../hooks/useWeather', () => ({
     useMyLocation: vi.fn(),
     setLocationBySearch: vi.fn(),
     savedLocation: 'Morrisville, NC',
+    savedLocationCoords: { latitude: 35.82, longitude: -78.82 },
   }),
+}))
+
+vi.mock('../hooks/usePollen', () => ({
+  usePollen: () => ({ data: null, loading: false, error: null, refresh: vi.fn() }),
+  getPollenLabel: () => 'None',
+  getPollenColor: () => '#666',
+  clearPollenCache: vi.fn(),
 }))
 
 vi.mock('../hooks/useFinance', () => ({

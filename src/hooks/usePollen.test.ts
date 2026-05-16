@@ -108,12 +108,12 @@ describe('usePollen', () => {
   })
 
   it('shows error when API call fails', async () => {
-    mockInvoke.mockResolvedValueOnce({ success: false, error: 'Google Pollen API error: 429' })
+    mockInvoke.mockResolvedValueOnce({ success: false, error: 'Google Pollen API: HTTP 429' })
 
     const { result } = renderHook(() => usePollen(MOCK_LOCATION))
 
     await waitFor(() => {
-      expect(result.current.error).toBe('Google Pollen API error: 429')
+      expect(result.current.error).toBe('Google Pollen API: HTTP 429')
     })
   })
 

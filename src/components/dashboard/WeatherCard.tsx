@@ -131,6 +131,64 @@ function PollenSection({ pollen }: { pollen: PollenData }) {
   )
 }
 
+function PollenErrorHint({ error }: { error: string }) {
+  return (
+    <div className="pollen-section pollen-error-hint">
+      <div className="pollen-header">
+        <Flower2 size={12} className="pollen-icon" />
+        <span className="pollen-title">Pollen Index</span>
+      </div>
+      <span className="pollen-error-text">{error}</span>
+    </div>
+  )
+}
+
+function PollenArea({ pollen, error }: { pollen: PollenData | null; error: string | null }) {
+  if (pollen) return <PollenSection pollen={pollen} />
+  if (error) return <PollenErrorHint error={error} />
+  return null
+}
+
+function WeatherSearchBar({
+  query,
+  onChange,
+  onSearch,
+  disabled,
+}: {
+  query: string
+  onChange: (query: string) => void
+  onSearch: () => void
+  disabled: boolean
+}) {
+  return (
+    <div className="weather-search">
+      <div className="weather-search-input-group">
+        <Search size={14} className="weather-search-icon" />
+        <input
+          type="text"
+          className="weather-search-input"
+          placeholder="City, state or zip code…"
+          value={query}
+          onChange={e => onChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') onSearch()
+          }}
+          aria-label="Search location"
+        />
+      </div>
+      <button
+        type="button"
+        className="welcome-usage-btn"
+        onClick={onSearch}
+        disabled={disabled || !query.trim()}
+        title="Search location"
+      >
+        <span>Go</span>
+      </button>
+    </div>
+  )
+}
+
 function WeatherExpandedContent({
   data,
   loading,
@@ -141,6 +199,7 @@ function WeatherExpandedContent({
   autoRefresh,
   onUseMyLocation,
   pollen,
+  pollenError,
 }: {
   data: ReturnType<typeof useWeather>['data']
   loading: boolean
@@ -151,34 +210,16 @@ function WeatherExpandedContent({
   autoRefresh: ReturnType<typeof useAutoRefresh>
   onUseMyLocation: () => void
   pollen: PollenData | null
+  pollenError: string | null
 }) {
   return (
     <>
-      <div className="weather-search">
-        <div className="weather-search-input-group">
-          <Search size={14} className="weather-search-icon" />
-          <input
-            type="text"
-            className="weather-search-input"
-            placeholder="City, state or zip code…"
-            value={searchQuery}
-            onChange={e => onSearchQueryChange(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter') onSearch()
-            }}
-            aria-label="Search location"
-          />
-        </div>
-        <button
-          type="button"
-          className="welcome-usage-btn"
-          onClick={onSearch}
-          disabled={loading || !searchQuery.trim()}
-          title="Search location"
-        >
-          <span>Go</span>
-        </button>
-      </div>
+      <WeatherSearchBar
+        query={searchQuery}
+        onChange={onSearchQueryChange}
+        onSearch={onSearch}
+        disabled={loading}
+      />
 
       {loading && !data && (
         <div className="weather-loading">
@@ -195,7 +236,7 @@ function WeatherExpandedContent({
 
       {data && <WeatherCurrentSection data={data} />}
 
-      {data && pollen && <PollenSection pollen={pollen} />}
+      {data && <PollenArea pollen={pollen} error={pollenError} />}
 
       <CardActionBar
         onRefresh={autoRefresh.refresh}
@@ -237,7 +278,7 @@ export function WeatherCard() {
     () => ({ latitude: savedLocationCoords.latitude, longitude: savedLocationCoords.longitude }),
     [savedLocationCoords.latitude, savedLocationCoords.longitude]
   )
-  const { data: pollenData, refresh: refreshPollen } = usePollen(pollenLocation)
+  const { data: pollenData, error: pollenError, refresh: refreshPollen } = usePollen(pollenLocation)
 
   const handleRefreshAll = async () => {
     clearPollenCache()
@@ -293,6 +334,7 @@ export function WeatherCard() {
           autoRefresh={autoRefresh}
           onUseMyLocation={useMyLocation}
           pollen={pollenData}
+          pollenError={pollenError}
         />
       )}
     </section>

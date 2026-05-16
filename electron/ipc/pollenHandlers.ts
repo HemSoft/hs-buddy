@@ -41,57 +41,72 @@ function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | n
   return result
 }
 
+async function extractGoogleErrorDetail(res: Response): Promise<string> {
+  try {
+    const errBody = (await res.json()) as { error?: { message?: string } }
+    if (errBody.error?.message) return errBody.error.message
+  } catch (_: unknown) {
+    /* no parsable body */
+  }
+  return `HTTP ${res.status}`
+}
+
+async function fetchPollenData(
+  location: { latitude: number; longitude: number }
+): Promise<PollenFetchResult> {
+  const apiKey = configManager.getUiValue('pollenApiKey') as string
+  if (!apiKey) {
+    return { success: false, error: 'no-api-key' }
+  }
+
+  if (
+    !location ||
+    !Number.isFinite(location.latitude) ||
+    !Number.isFinite(location.longitude)
+  ) {
+    return { success: false, error: 'Invalid location' }
+  }
+
+  try {
+    const url =
+      `https://pollen.googleapis.com/v1/forecast:lookup` +
+      `?key=${apiKey}` +
+      `&location.latitude=${location.latitude}` +
+      `&location.longitude=${location.longitude}` +
+      `&days=1`
+
+    const res = await net.fetch(url, {
+      signal: AbortSignal.timeout(10_000),
+      headers: { 'User-Agent': 'hs-buddy/1.0' },
+    })
+
+    if (!res.ok) {
+      const detail = await extractGoogleErrorDetail(res)
+      return { success: false, error: `Google Pollen API: ${detail}` }
+    }
+
+    const json = (await res.json()) as GoogleForecastResponse
+    const data = parseGooglePollenResponse(json)
+
+    if (!data) {
+      return { success: false, error: 'No pollen data available for this location' }
+    }
+
+    return { success: true, data }
+  } catch (err: unknown) {
+    return {
+      success: false,
+      error: getErrorMessageWithFallback(err, 'Pollen fetch failed'),
+    }
+  }
+}
+
 export function registerPollenHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.POLLEN_FETCH_CURRENT,
     async (
       _event: IpcMainInvokeEvent,
       location: { latitude: number; longitude: number }
-    ): Promise<PollenFetchResult> => {
-      const apiKey = configManager.getUiValue('pollenApiKey') as string
-      if (!apiKey) {
-        return { success: false, error: 'no-api-key' }
-      }
-
-      if (
-        !location ||
-        !Number.isFinite(location.latitude) ||
-        !Number.isFinite(location.longitude)
-      ) {
-        return { success: false, error: 'Invalid location' }
-      }
-
-      try {
-        const url =
-          `https://pollen.googleapis.com/v1/forecast:lookup` +
-          `?key=${apiKey}` +
-          `&location.latitude=${location.latitude}` +
-          `&location.longitude=${location.longitude}` +
-          `&days=1`
-
-        const res = await net.fetch(url, {
-          signal: AbortSignal.timeout(10_000),
-          headers: { 'User-Agent': 'hs-buddy/1.0' },
-        })
-
-        if (!res.ok) {
-          return { success: false, error: `Google Pollen API error: ${res.status}` }
-        }
-
-        const json = (await res.json()) as GoogleForecastResponse
-        const data = parseGooglePollenResponse(json)
-
-        if (!data) {
-          return { success: false, error: 'No pollen data available for this location' }
-        }
-
-        return { success: true, data }
-      } catch (err: unknown) {
-        return {
-          success: false,
-          error: getErrorMessageWithFallback(err, 'Pollen fetch failed'),
-        }
-      }
-    }
+    ): Promise<PollenFetchResult> => fetchPollenData(location)
   )
 }

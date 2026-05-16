@@ -31,6 +31,7 @@ export const CONFIG_UI_KEYS = [
   'show-bookmarked-only',
   'favorite-users',
   'dashboard-cards',
+  'weather-location',
 ] as const
 
 type ConfigUiKey = (typeof CONFIG_UI_KEYS)[number]
@@ -107,6 +108,8 @@ export const IPC_INVOKE = {
   CONFIG_SET_FAVORITE_USERS: 'config:set-favorite-users',
   CONFIG_GET_DASHBOARD_CARDS: 'config:get-dashboard-cards',
   CONFIG_SET_DASHBOARD_CARDS: 'config:set-dashboard-cards',
+  CONFIG_GET_WEATHER_LOCATION: 'config:get-weather-location',
+  CONFIG_SET_WEATHER_LOCATION: 'config:set-weather-location',
 
   // ── Cache ──────────────────────────────────────────────────────────────
   CACHE_READ_ALL: 'cache:read-all',

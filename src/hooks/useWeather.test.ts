@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
 const mockFetch = vi.fn()
@@ -757,6 +757,81 @@ describe('useWeather', () => {
       expect(saved).not.toBeNull()
     })
     expect(result.current.savedLocation).toBe('New York, New York')
+  })
+
+  describe('electron-store persistence (cross-restart)', () => {
+    const mockInvoke = vi.fn()
+
+    beforeEach(() => {
+      // Expose a minimal ipcRenderer mock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(window as any).ipcRenderer = { invoke: mockInvoke }
+      mockInvoke.mockResolvedValue(null)
+    })
+
+    afterEach(() => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (window as any).ipcRenderer
+    })
+
+    it('hydrates location from electron-store on mount', async () => {
+      const storedLoc = { latitude: 25.76, longitude: -80.19, name: 'Miami, FL' }
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-weather-location') return Promise.resolve(storedLoc)
+        return Promise.resolve({ success: true })
+      })
+
+      const { result } = renderHook(() => useWeather())
+
+      await waitFor(() => {
+        expect(result.current.savedLocation).toBe('Miami, FL')
+      })
+
+      // Verify localStorage was synced from electron-store
+      const saved = JSON.parse(localStorage.getItem('weather:location')!)
+      expect(saved.name).toBe('Miami, FL')
+    })
+
+    it('persists location to electron-store on search', async () => {
+      mockFetch
+        .mockResolvedValueOnce(makeApiResponse()) // initial fetch
+        .mockResolvedValueOnce({
+          ok: true,
+          json: async () => [
+            { lat: '34.05', lon: '-118.24', address: { city: 'Los Angeles', state: 'California' } },
+          ],
+        })
+        .mockResolvedValue(makeApiResponse())
+
+      const { result } = renderHook(() => useWeather())
+      await waitFor(() => expect(result.current.loading).toBe(false))
+
+      await act(async () => {
+        await result.current.setLocationBySearch('Los Angeles')
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-weather-location',
+        expect.objectContaining({ name: 'Los Angeles, California' })
+      )
+    })
+
+    it('falls back to localStorage when electron-store unavailable', async () => {
+      // IPC rejects — simulates no Electron main process
+      mockInvoke.mockRejectedValue(new Error('IPC unavailable'))
+
+      // Pre-seed localStorage with a saved location
+      localStorage.setItem(
+        'weather:location',
+        JSON.stringify({ latitude: 40.71, longitude: -74.01, name: 'New York, NY' })
+      )
+
+      const { result } = renderHook(() => useWeather())
+
+      await waitFor(() => {
+        expect(result.current.savedLocation).toBe('New York, NY')
+      })
+    })
   })
 })
 

@@ -49,6 +49,7 @@ export interface AppConfig {
     terminalPanelHeight: number // Preferred height of the terminal panel in pixels
     favoriteUsers: string[] // Favorite user keys ('org/login') that sort to the top
     dashboardCards: Record<string, boolean> // Dashboard card visibility (cardId → visible)
+    weatherLocation: { latitude: number; longitude: number; name: string } | null // Saved weather city
   }
   pr: {
     refreshInterval: number // minutes
@@ -203,6 +204,21 @@ export const configSchema: Schema<AppConfig> = {
         type: 'object',
         default: {},
       },
+      weatherLocation: {
+        anyOf: [
+          {
+            type: 'object',
+            properties: {
+              latitude: { type: 'number' },
+              longitude: { type: 'number' },
+              name: { type: 'string' },
+            },
+            required: ['latitude', 'longitude', 'name'],
+          },
+          { type: 'null' },
+        ],
+        default: null,
+      },
     },
     required: [
       'theme',
@@ -224,6 +240,7 @@ export const configSchema: Schema<AppConfig> = {
       'terminalPanelHeight',
       'favoriteUsers',
       'dashboardCards',
+      'weatherLocation',
     ],
   },
   pr: {
@@ -338,6 +355,7 @@ export const defaultConfig: AppConfig = {
     terminalPanelHeight: 300,
     favoriteUsers: [],
     dashboardCards: {},
+    weatherLocation: null,
   },
   pr: {
     refreshInterval: 15,

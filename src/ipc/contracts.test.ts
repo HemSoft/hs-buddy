@@ -125,7 +125,7 @@ describe('IPC Contract Registry', () => {
     it('has the expected number of invoke channels', () => {
       // If this fails, a channel was added or removed without updating contracts.
       // Update the contract AND this count when adding new IPC handlers.
-      expect(ALL_INVOKE_CHANNELS.length).toBe(123)
+      expect(ALL_INVOKE_CHANNELS.length).toBe(125)
     })
 
     it('has the expected number of send channels', () => {

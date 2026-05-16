@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Track concurrent PR approvals with Set instead of single slot
 - Weather location reverting & wrong taskbar icon
+- Persist weather location across app restarts via electron-store
 
 ### Changed
 

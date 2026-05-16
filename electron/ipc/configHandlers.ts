@@ -31,6 +31,7 @@ const CHANNEL_TO_CONFIG_KEY: Record<ConfigUiChannelKey, UiConfigKey> = {
   'show-bookmarked-only': 'showBookmarkedOnly',
   'favorite-users': 'favoriteUsers',
   'dashboard-cards': 'dashboardCards',
+  'weather-location': 'weatherLocation',
 }
 
 // Derived from CONFIG_UI_KEYS — guaranteed to stay in sync with contracts.ts

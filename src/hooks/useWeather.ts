@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 import { getErrorMessageWithFallback } from '../utils/errorUtils'
+import { IPC_INVOKE } from '../ipc/contracts'
 
 export interface ForecastDay {
   date: string
@@ -96,6 +97,34 @@ function readSavedLocation(): GeoLocation | null {
 
 function writeSavedLocation(loc: GeoLocation) {
   safeSetJson(LOCATION_KEY, loc)
+}
+
+/** Persist location to electron-store (survives app restarts). */
+async function persistLocationToStore(loc: GeoLocation): Promise<void> {
+  try {
+    await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_WEATHER_LOCATION, loc)
+  } catch {
+    // localStorage still has the value; IPC failure is recoverable
+  }
+}
+
+/** Load saved location from electron-store. Returns null when unavailable. */
+async function loadLocationFromStore(): Promise<GeoLocation | null> {
+  try {
+    const loc = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_WEATHER_LOCATION)
+    if (
+      loc &&
+      typeof loc === 'object' &&
+      Number.isFinite(loc.latitude) &&
+      Number.isFinite(loc.longitude) &&
+      typeof loc.name === 'string'
+    ) {
+      return loc as GeoLocation
+    }
+  } catch {
+    // electron-store unavailable; fall back to localStorage
+  }
+  return null
 }
 
 interface GeocodingResult {
@@ -208,6 +237,7 @@ export function useWeather() {
       : { data: null, loading: true, error: null }
   })
 
+  const [locationHydrated, setLocationHydrated] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback(() => {
@@ -254,6 +284,7 @@ export function useWeather() {
 
         await reverseGeocodeLocation(loc)
         writeSavedLocation(loc)
+        await persistLocationToStore(loc)
         safeRemoveItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
@@ -290,6 +321,7 @@ export function useWeather() {
 
         const loc = parseGeocodingResult(results[0], query)
         writeSavedLocation(loc)
+        await persistLocationToStore(loc)
         safeRemoveItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
@@ -308,8 +340,31 @@ export function useWeather() {
 
   const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
 
-  // Fetch on mount if no cached data
+  // Hydrate location from electron-store on mount (survives app restarts)
   useEffect(() => {
+    let cancelled = false
+
+    loadLocationFromStore()
+      .then(storeLoc => {
+        if (cancelled) return
+        if (storeLoc) {
+          // Sync electron-store → localStorage so all sync reads pick it up
+          safeSetJson(LOCATION_KEY, storeLoc)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLocationHydrated(true)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // Fetch weather once hydration is complete and no cache exists
+  useEffect(() => {
+    if (!locationHydrated) return
+
     if (!readCache()) {
       refresh().catch(() => {
         /* error already handled in state */
@@ -320,7 +375,7 @@ export function useWeather() {
       abortRef.current?.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [locationHydrated])
 
   return { ...state, refresh, useMyLocation, setLocationBySearch, savedLocation }
 }

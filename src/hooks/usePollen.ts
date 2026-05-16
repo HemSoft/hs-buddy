@@ -25,7 +25,7 @@ const POLLEN_CACHE_KEY = 'pollen:cache'
 const POLLEN_CACHE_VERSION = 1
 const POLLEN_CACHE_TTL_MS = 2 * 60 * 60 * 1000 // 2 hours
 
-/** Pollen index labels (Tomorrow.io 0-5 scale) */
+/** Pollen index labels (Google UPI 0-5 scale) */
 export const POLLEN_LABELS = ['None', 'Very Low', 'Low', 'Medium', 'High', 'Very High'] as const
 
 export type PollenLevel = (typeof POLLEN_LABELS)[number]
@@ -81,8 +81,8 @@ interface PollenFetchResult {
 }
 
 /**
- * Hook that fetches pollen data from Tomorrow.io via the main process.
- * Requires a Tomorrow.io API key configured in Settings → Weather.
+ * Hook that fetches pollen data from Google Pollen API via the main process.
+ * Requires a Google Cloud API key configured in Settings → Weather.
  * Returns null data (no error) when no API key is configured.
  */
 export function usePollen(location: { latitude: number; longitude: number } | null) {

@@ -78,21 +78,21 @@ export function SettingsWeather() {
             </h3>
           </div>
           <p className="section-description">
-            Pollen data is provided by Tomorrow.io. Sign up for a free API key (no credit card
-            required, 500 calls/day) to see tree, grass, and weed pollen levels in your weather
-            card.
+            Pollen data is provided by the Google Pollen API. Create a free Google Cloud API key (no
+            credit card required, 10,000 calls/month) to see tree, grass, and weed pollen levels in
+            your weather card.
           </p>
 
           <div className="settings-field-group">
             <label htmlFor="pollen-api-key" className="settings-label">
-              Tomorrow.io API Key
+              Google Cloud API Key
             </label>
             <div className="settings-input-row">
               <input
                 id="pollen-api-key"
                 type={showKey ? 'text' : 'password'}
                 className="settings-input"
-                placeholder="Enter your Tomorrow.io API key…"
+                placeholder="Enter your Google Cloud API key…"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 autoComplete="off"
@@ -158,21 +158,25 @@ export function SettingsWeather() {
             </p>
             <p>
               <a
-                href="https://app.tomorrow.io/signup"
+                href="https://console.cloud.google.com/apis/library/pollen.googleapis.com"
                 className="settings-link"
                 onClick={e => {
                   e.preventDefault()
-                  window.ipcRenderer.invoke('shell:open-external', 'https://app.tomorrow.io/signup')
+                  window.ipcRenderer.invoke(
+                    'shell:open-external',
+                    'https://console.cloud.google.com/apis/library/pollen.googleapis.com'
+                  )
                 }}
               >
                 <ExternalLink size={12} />
-                Sign up at Tomorrow.io
+                Enable the Google Pollen API
               </a>{' '}
-              — create a free account and copy your API key from the dashboard.
+              — enable the API in your Google Cloud project, then create an API key under
+              Credentials.
             </p>
             <p className="mt-2">
               <strong>Privacy:</strong> Your API key is stored locally in the app configuration
-              file. It is never sent to any server other than Tomorrow.io.
+              file. It is never sent to any server other than Google.
             </p>
           </div>
         </div>

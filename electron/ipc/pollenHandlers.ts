@@ -15,31 +15,30 @@ export interface PollenFetchResult {
   error?: string
 }
 
-interface TomorrowTimelinesResponse {
-  data?: {
-    timelines?: Array<{
-      intervals?: Array<{
-        values?: {
-          treeIndex?: number
-          grassIndex?: number
-          weedIndex?: number
-        }
-      }>
-    }>
-  }
+interface GooglePollenTypeInfo {
+  code?: string
+  indexInfo?: { value?: number }
 }
 
-function parsePollenResponse(json: TomorrowTimelinesResponse): PollenData | null {
-  const values = json.data?.timelines?.[0]?.intervals?.[0]?.values
-  if (!values) return null
+interface GoogleForecastResponse {
+  dailyInfo?: Array<{
+    pollenTypeInfo?: GooglePollenTypeInfo[]
+  }>
+}
 
-  const tree = values.treeIndex
-  const grass = values.grassIndex
-  const weed = values.weedIndex
+function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+  const types = json.dailyInfo?.[0]?.pollenTypeInfo
+  if (!types || types.length === 0) return null
 
-  if (!Number.isFinite(tree) || !Number.isFinite(grass) || !Number.isFinite(weed)) return null
+  const codeToKey: Record<string, keyof PollenData> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
+  const result: PollenData = { tree: 0, grass: 0, weed: 0 }
 
-  return { tree: tree!, grass: grass!, weed: weed! }
+  for (const t of types) {
+    const key = codeToKey[t.code ?? '']
+    if (key) result[key] = t.indexInfo?.value ?? 0
+  }
+
+  return result
 }
 
 export function registerPollenHandlers(): void {
@@ -64,12 +63,11 @@ export function registerPollenHandlers(): void {
 
       try {
         const url =
-          `https://api.tomorrow.io/v4/timelines` +
-          `?location=${location.latitude},${location.longitude}` +
-          `&fields=treeIndex,grassIndex,weedIndex` +
-          `&timesteps=current` +
-          `&units=metric` +
-          `&apikey=${apiKey}`
+          `https://pollen.googleapis.com/v1/forecast:lookup` +
+          `?key=${apiKey}` +
+          `&location.latitude=${location.latitude}` +
+          `&location.longitude=${location.longitude}` +
+          `&days=1`
 
         const res = await net.fetch(url, {
           signal: AbortSignal.timeout(10_000),
@@ -77,11 +75,11 @@ export function registerPollenHandlers(): void {
         })
 
         if (!res.ok) {
-          return { success: false, error: `Tomorrow.io API error: ${res.status}` }
+          return { success: false, error: `Google Pollen API error: ${res.status}` }
         }
 
-        const json = (await res.json()) as TomorrowTimelinesResponse
-        const data = parsePollenResponse(json)
+        const json = (await res.json()) as GoogleForecastResponse
+        const data = parseGooglePollenResponse(json)
 
         if (!data) {
           return { success: false, error: 'No pollen data available for this location' }

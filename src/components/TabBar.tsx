@@ -24,6 +24,24 @@ interface TabBarProps {
   onCloseAllTabs: () => void
 }
 
+function computeAdjustedPosition(menu: HTMLElement, contextMenu: ContextMenuState) {
+  const rect = menu.getBoundingClientRect()
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+
+  let adjustedX = contextMenu.x
+  let adjustedY = contextMenu.y
+
+  if (rect.right > viewportWidth) {
+    adjustedX = viewportWidth - rect.width - 4
+  }
+  if (rect.bottom > viewportHeight) {
+    adjustedY = viewportHeight - rect.height - 4
+  }
+
+  return { adjustedX, adjustedY }
+}
+
 export function TabBar({
   tabs,
   activeTabId,
@@ -55,20 +73,7 @@ export function TabBar({
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return
-    const menu = menuRef.current
-    const rect = menu.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let adjustedX = contextMenu.x
-    let adjustedY = contextMenu.y
-
-    if (rect.right > viewportWidth) {
-      adjustedX = viewportWidth - rect.width - 4
-    }
-    if (rect.bottom > viewportHeight) {
-      adjustedY = viewportHeight - rect.height - 4
-    }
+    const { adjustedX, adjustedY } = computeAdjustedPosition(menuRef.current, contextMenu)
 
     if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
       setContextMenu(prev => prev && { ...prev, x: adjustedX, y: adjustedY })

@@ -54,6 +54,29 @@ function UpdateTimesDisplay({
   )
 }
 
+function PRThreadCell({ pr }: { pr: PullRequest }) {
+  if (pr.threadsUnaddressed == null) return null
+  if (pr.threadsUnaddressed === 0) {
+    return <CircleCheck size={14} className="list-view-comments-clear" />
+  }
+  return (
+    <span className="list-view-comments-unresolved">
+      <MessageSquare size={12} />
+      {pr.threadsUnaddressed}
+    </span>
+  )
+}
+
+function PRApprovalsCell({ pr }: { pr: PullRequest }) {
+  if (pr.approvalCount <= 0) return null
+  return (
+    <span className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}>
+      <ThumbsUp size={12} />
+      {pr.approvalCount}
+    </span>
+  )
+}
+
 interface PRListTableViewProps {
   prs: PullRequest[]
   onOpenPR?: (viewId: string) => void
@@ -105,26 +128,10 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
               <td className="col-number">{pr.repository}</td>
               <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
               <td>
-                {pr.threadsUnaddressed != null ? (
-                  pr.threadsUnaddressed === 0 ? (
-                    <CircleCheck size={14} className="list-view-comments-clear" />
-                  ) : (
-                    <span className="list-view-comments-unresolved">
-                      <MessageSquare size={12} />
-                      {pr.threadsUnaddressed}
-                    </span>
-                  )
-                ) : null}
+                <PRThreadCell pr={pr} />
               </td>
               <td>
-                {pr.approvalCount > 0 && (
-                  <span
-                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
-                  >
-                    <ThumbsUp size={12} />
-                    {pr.approvalCount}
-                  </span>
-                )}
+                <PRApprovalsCell pr={pr} />
               </td>
             </tr>
           ))}

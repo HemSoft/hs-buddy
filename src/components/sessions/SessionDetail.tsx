@@ -198,6 +198,17 @@ function SessionRequestTimeline({
   )
 }
 
+function renderSessionGuard(
+  isLoading: boolean,
+  error: string | null,
+  session: ReturnType<typeof useCopilotSessionDetail>['session']
+): React.ReactNode | null {
+  if (isLoading) return <div className="session-detail-loading">Loading session…</div>
+  if (error) return <div className="session-detail-error">{error}</div>
+  if (!session) return <div className="session-detail-loading">Session not found.</div>
+  return null
+}
+
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
   const [digest, setDigest] = useState<SessionDigest | null>(null)
@@ -226,12 +237,12 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
     }
   }
 
-  if (isLoading) return <div className="session-detail-loading">Loading session…</div>
-  if (error) return <div className="session-detail-error">{error}</div>
-  if (!session) return <div className="session-detail-loading">Session not found.</div>
+  const guard = renderSessionGuard(isLoading, error, session)
+  if (guard) return guard
 
+  const s = session!
   const requestOccurrences = new Map<string, number>()
-  const requestItems = session.results.map(result => {
+  const requestItems = s.results.map(result => {
     const signature = [
       result.prompt,
       result.promptTokens,
@@ -257,16 +268,16 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
       </button>
 
       <h2 className="session-detail-title">
-        {session.title || `Session ${session.sessionId.slice(0, 8)}`}
+        {s.title || `Session ${s.sessionId.slice(0, 8)}`}
       </h2>
-      <SessionSubtitle session={session} />
+      <SessionSubtitle session={s} />
 
       <SessionMetaGrid
-        requestCount={session.requestCount}
-        totalPromptTokens={session.totalPromptTokens}
-        totalOutputTokens={session.totalOutputTokens}
-        totalToolCalls={session.totalToolCalls}
-        totalDurationMs={session.totalDurationMs}
+        requestCount={s.requestCount}
+        totalPromptTokens={s.totalPromptTokens}
+        totalOutputTokens={s.totalOutputTokens}
+        totalToolCalls={s.totalToolCalls}
+        totalDurationMs={s.totalDurationMs}
       />
 
       <SessionDigestSection
@@ -275,11 +286,11 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         onComputeDigest={computeDigest}
       />
 
-      {session.toolsUsed.length > 0 && (
+      {s.toolsUsed.length > 0 && (
         <div className="session-tools-section">
           <h3>Tools Used</h3>
           <div className="session-tools-list">
-            {session.toolsUsed.map(tool => (
+            {s.toolsUsed.map(tool => (
               <span key={tool} className="session-tool-badge">
                 {tool}
               </span>
@@ -288,7 +299,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         </div>
       )}
 
-      {session.results.length > 0 && <SessionRequestTimeline requestItems={requestItems} />}
+      {s.results.length > 0 && <SessionRequestTimeline requestItems={requestItems} />}
     </div>
   )
 }

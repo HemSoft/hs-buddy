@@ -89,6 +89,27 @@ function IssueTableView({
   )
 }
 
+function IssueAssignees({ issue }: { issue: RepoIssue }) {
+  if (issue.assignees.length === 0) return null
+
+  return (
+    <span className="repo-issue-assignees">
+      {issue.assignees.slice(0, 3).map(a => (
+        <img
+          key={a.login}
+          src={a.avatarUrl}
+          alt={a.login}
+          className="repo-issue-assignee-avatar"
+          title={a.name ? `${a.name} (${a.login})` : a.login}
+        />
+      ))}
+      {issue.assignees.length > 3 && (
+        <span className="repo-issue-assignee-more">+{issue.assignees.length - 3}</span>
+      )}
+    </span>
+  )
+}
+
 function IssueCardView({
   issues,
   onOpenIssue,
@@ -159,22 +180,7 @@ function IssueCardView({
                   {issue.commentCount}
                 </span>
               )}
-              {issue.assignees.length > 0 && (
-                <span className="repo-issue-assignees">
-                  {issue.assignees.slice(0, 3).map(a => (
-                    <img
-                      key={a.login}
-                      src={a.avatarUrl}
-                      alt={a.login}
-                      className="repo-issue-assignee-avatar"
-                      title={a.name ? `${a.name} (${a.login})` : a.login}
-                    />
-                  ))}
-                  {issue.assignees.length > 3 && (
-                    <span className="repo-issue-assignee-more">+{issue.assignees.length - 3}</span>
-                  )}
-                </span>
-              )}
+              <IssueAssignees issue={issue} />
             </span>
           </button>
           <button
@@ -277,6 +283,25 @@ function IssueListBody({
   return <IssueCardView issues={issues} onOpenIssue={onOpenIssue} onContextMenu={onContextMenu} />
 }
 
+function renderRepoIssueListGuard(
+  isEmpty: boolean,
+  loading: boolean,
+  error: string | null,
+  owner: string,
+  repo: string,
+  issueState: NonNullable<RepoIssueListProps['issueState']>,
+  refresh: () => Promise<void>
+): React.JSX.Element | null {
+  if (!isEmpty) return null
+  if (loading) {
+    return <PanelLoadingState message="Loading issues..." subtitle={`${owner}/${repo} · ${issueState}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoIssueList(props: RepoIssueListProps) {
   const { owner, repo, onOpenIssue } = props
   const issueState = props.issueState ?? 'open'
@@ -358,19 +383,8 @@ export function RepoIssueList(props: RepoIssueListProps) {
     setContextMenu(null)
   }
 
-  if (isEmpty) {
-    if (loading) {
-      return (
-        <PanelLoadingState
-          message="Loading issues..."
-          subtitle={`${owner}/${repo} · ${issueState}`}
-        />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
-    }
-  }
+  const guard = renderRepoIssueListGuard(isEmpty, loading, error, owner, repo, issueState, refresh)
+  if (guard) return guard
 
   return (
     <div className="repo-issues-container">

@@ -75,6 +75,23 @@ function CommitListBody({
   )
 }
 
+function renderRepoCommitGuard(
+  hasCommits: boolean,
+  loading: boolean,
+  error: string | null,
+  owner: string,
+  repo: string,
+  refresh: () => Promise<void>
+): React.JSX.Element | null {
+  if (loading && !hasCommits) {
+    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error && !hasCommits) {
+    return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitListPanelProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoCommit[]>({
     cacheKey: `repo-commits:${owner}/${repo}`,
@@ -93,14 +110,8 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
     },
     [onOpenCommit]
   )
-
-  if (loading && commits.length === 0) {
-    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
-  }
-
-  if (error && commits.length === 0) {
-    return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />
-  }
+  const guard = renderRepoCommitGuard(commits.length > 0, loading, error, owner, repo, refresh)
+  if (guard) return guard
 
   return (
     <div className="repo-commits-container">

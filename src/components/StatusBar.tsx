@@ -112,15 +112,21 @@ function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: Backgrou
   )
 }
 
-export function StatusBar({
-  prCount = 0,
-  scheduleCount = 0,
-  jobCount = 0,
-  activeGitHubAccount,
-  backgroundStatus,
-  onNavigate,
-  assistantActive,
-}: StatusBarProps) {
+function resolveStatusCounts({
+  prCount,
+  scheduleCount,
+  jobCount,
+}: StatusBarProps): { prCount: number; scheduleCount: number; jobCount: number } {
+  return {
+    prCount: prCount ?? 0,
+    scheduleCount: scheduleCount ?? 0,
+    jobCount: jobCount ?? 0,
+  }
+}
+
+export function StatusBar(props: StatusBarProps) {
+  const { activeGitHubAccount, backgroundStatus, onNavigate, assistantActive } = props
+  const { prCount, scheduleCount, jobCount } = resolveStatusCounts(props)
   const [currentTime, setCurrentTime] = useState(new Date())
 
   useEffect(() => {

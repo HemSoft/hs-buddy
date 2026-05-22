@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce CRAP scores - batch 4 (complexity 7-10)
 - Reduce CRAP scores batch 5 - complexity 7 functions
 - Reduce CRAP scores batch 6 - complexity 7 functions
+- Reduce CRAP scores batch 7 - complexity extraction
 
 ### Added
 

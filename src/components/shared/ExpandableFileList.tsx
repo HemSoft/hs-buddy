@@ -5,6 +5,31 @@ import { useToggleSet } from '../../hooks/useToggleSet'
 import { getDiffLineClass } from '../../utils/diffUtils'
 import { formatFileStatus } from '../../utils/githubUrl'
 
+function FileExpandedContent({ file }: { file: DiffFile }) {
+  if (file.patch) {
+    let charOffset = 0
+    return (
+      <div className="repo-commit-diff" role="presentation">
+        {file.patch.split('\n').map(line => {
+          const key = `${file.filename}-line-${charOffset}-${line.slice(0, 20)}`
+          charOffset += line.length + 1
+          return (
+            <Fragment key={key}>
+              <div className={getDiffLineClass(line)}>{line || ' '}</div>
+            </Fragment>
+          )
+        })}
+      </div>
+    )
+  }
+  return (
+    <div className="repo-commit-diff-empty">
+      GitHub did not provide a patch preview for this file. This usually means the file is binary,
+      too large, or the change is a pure rename.
+    </div>
+  )
+}
+
 interface ExpandableFileListProps {
   files: DiffFile[]
   /** When this value changes, all expanded files collapse. */
@@ -82,29 +107,7 @@ export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps)
             </div>
           </div>
 
-          {isFileExpanded(file.filename) ? (
-            file.patch ? (
-              <div className="repo-commit-diff" role="presentation">
-                {(() => {
-                  let charOffset = 0
-                  return file.patch.split('\n').map(line => {
-                    const key = `${file.filename}-line-${charOffset}-${line.slice(0, 20)}`
-                    charOffset += line.length + 1
-                    return (
-                      <Fragment key={key}>
-                        <div className={getDiffLineClass(line)}>{line || ' '}</div>
-                      </Fragment>
-                    )
-                  })
-                })()}
-              </div>
-            ) : (
-              <div className="repo-commit-diff-empty">
-                GitHub did not provide a patch preview for this file. This usually means the file is
-                binary, too large, or the change is a pure rename.
-              </div>
-            )
-          ) : null}
+          {isFileExpanded(file.filename) && <FileExpandedContent file={file} />}
         </div>
       ))}
     </div>

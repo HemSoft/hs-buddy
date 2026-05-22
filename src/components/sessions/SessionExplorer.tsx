@@ -159,6 +159,14 @@ function WorkspaceSection({
   )
 }
 
+function shouldShowEmptyState(
+  sessions: unknown[],
+  isLoading: boolean,
+  error: string | null
+): boolean {
+  return sessions.length === 0 && !isLoading && !error
+}
+
 interface SessionExplorerProps {
   onSelectSession: (filePath: string) => void
 }
@@ -247,7 +255,7 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
       )}
 
       <div className="session-list">
-        {sessions.length === 0 && !isLoading && !error && (
+        {shouldShowEmptyState(sessions, isLoading, error) && (
           <div className="session-empty">
             <Database size={24} className="session-empty-icon" />
             <p>No Copilot sessions found.</p>

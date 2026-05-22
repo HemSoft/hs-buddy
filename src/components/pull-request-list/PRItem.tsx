@@ -87,6 +87,13 @@ function PRApproveButton({
   )
 }
 
+function resolvePRItemDate(pr: PullRequest, mode: string): number | string | Date {
+  if (mode === 'recently-merged') {
+    return pr.date || pr.created || Date.now()
+  }
+  return pr.created || Date.now()
+}
+
 function PRItemFooter({
   pr,
   mode,
@@ -111,11 +118,7 @@ function PRItemFooter({
       <div className="pr-date">
         <Clock size={14} />
         <span>
-          {formatDistanceToNow(
-            mode === 'recently-merged'
-              ? pr.date || pr.created || Date.now()
-              : pr.created || Date.now()
-          )}
+          {formatDistanceToNow(resolvePRItemDate(pr, mode))}
         </span>
       </div>
     </div>

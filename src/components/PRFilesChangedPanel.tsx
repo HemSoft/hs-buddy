@@ -12,6 +12,27 @@ interface PRFilesChangedPanelProps {
   pr: PRDetailInfo
 }
 
+function renderFilesGuard(
+  detail: PRFilesChangedSummary | null,
+  loading: boolean,
+  error: string | null,
+  cacheKey: string | null,
+  refresh: () => Promise<void>
+): React.JSX.Element | null {
+  if (detail) return null
+  if (loading) return <PanelLoadingState message="Loading changed files..." />
+  if (error) {
+    return (
+      <PanelErrorState
+        title="Failed to load changed files"
+        error={error}
+        onRetry={cacheKey ? refresh : undefined}
+      />
+    )
+  }
+  return null
+}
+
 export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   const {
     data: detail,
@@ -22,20 +43,10 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   } = usePRPanelData<PRFilesChangedSummary>(pr, 'pr-files', (client, owner, repo, prNumber) =>
     client.fetchPRFilesChanged(owner, repo, prNumber)
   )
+  const guard = renderFilesGuard(detail, loading, error, cacheKey, refresh)
+  if (guard) return guard
 
-  if (!detail) {
-    if (loading) return <PanelLoadingState message="Loading changed files..." />
-    if (error) {
-      return (
-        <PanelErrorState
-          title="Failed to load changed files"
-          error={error}
-          onRetry={cacheKey ? refresh : undefined}
-        />
-      )
-    }
-    return null
-  }
+  const filesDetail = detail as PRFilesChangedSummary
 
   return (
     <div className="pr-files-container">
@@ -44,19 +55,19 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
       <div className="pr-files-summary-grid">
         <div className="repo-detail-card pr-files-summary-card">
           <div className="pr-files-summary-label">Files</div>
-          <div className="pr-files-summary-value">{detail.files.length}</div>
+          <div className="pr-files-summary-value">{filesDetail.files.length}</div>
         </div>
         <div className="repo-detail-card pr-files-summary-card pr-files-summary-card-added">
           <div className="pr-files-summary-label">Additions</div>
-          <div className="pr-files-summary-value">+{detail.additions}</div>
+          <div className="pr-files-summary-value">+{filesDetail.additions}</div>
         </div>
         <div className="repo-detail-card pr-files-summary-card pr-files-summary-card-removed">
           <div className="pr-files-summary-label">Deletions</div>
-          <div className="pr-files-summary-value">-{detail.deletions}</div>
+          <div className="pr-files-summary-value">-{filesDetail.deletions}</div>
         </div>
         <div className="repo-detail-card pr-files-summary-card">
           <div className="pr-files-summary-label">Changes</div>
-          <div className="pr-files-summary-value">{detail.changes}</div>
+          <div className="pr-files-summary-value">{filesDetail.changes}</div>
         </div>
       </div>
 
@@ -70,13 +81,13 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
         </button>
       </div>
 
-      {detail.files.length === 0 ? (
+      {filesDetail.files.length === 0 ? (
         <div className="repo-commits-empty">
           <FileCode2 size={28} />
           <p>No changed files were reported for this pull request.</p>
         </div>
       ) : (
-        <ExpandableFileList files={detail.files} resetKey={`${pr.id}:${pr.url}`} />
+        <ExpandableFileList files={filesDetail.files} resetKey={`${pr.id}:${pr.url}`} />
       )}
     </div>
   )

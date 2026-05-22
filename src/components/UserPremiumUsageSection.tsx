@@ -375,6 +375,33 @@ function SeatPremiumContent({
 
 // ── Full quota view (configured accounts) ──
 
+function renderQuotaGuard(
+  data: QuotaData | null,
+  loading: boolean,
+  error: string | null
+): React.ReactNode | null {
+  if (!data) {
+    if (loading) {
+      return (
+        <div className="ud-premium-loading">
+          <Loader2 size={16} className="spin" />
+          <span>Loading premium usage…</span>
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="ud-premium-error">
+          <AlertCircle size={14} />
+          <QuotaErrorMessage error={error} />
+        </div>
+      )
+    }
+    return null
+  }
+  return null
+}
+
 function QuotaView({ username, org }: { username: string; org: string }) {
   const fetchRef = useRef(0)
   const [state, dispatch] = useReducer(quotaReducer, initQuotaState(username))
@@ -432,25 +459,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
   const { data, loading, error } = state
 
-  if (!data) {
-    if (loading) {
-      return (
-        <div className="ud-premium-loading">
-          <Loader2 size={16} className="spin" />
-          <span>Loading premium usage…</span>
-        </div>
-      )
-    }
-    if (error) {
-      return (
-        <div className="ud-premium-error">
-          <AlertCircle size={14} />
-          <QuotaErrorMessage error={error} />
-        </div>
-      )
-    }
-    return null
-  }
+  const guard = renderQuotaGuard(data, loading, error)
+  if (guard) return guard
+  if (!data) return null
 
   const quotaPremium = data.quota_snapshots?.premium_interactions
   if (!quotaPremium) return null
@@ -490,6 +501,34 @@ function QuotaView({ username, org }: { username: string; org: string }) {
       <QuotaPremiumSections premium={premium} />
     </>
   )
+}
+
+function renderSeatGuard(
+  data: SeatData | null | undefined,
+  loading: boolean,
+  error: string | null
+): React.ReactNode | null {
+  if (loading && data === undefined) {
+    return (
+      <div className="ud-premium-loading">
+        <Loader2 size={16} className="spin" />
+        <span>Loading Copilot seat info…</span>
+      </div>
+    )
+  }
+  if (error && data === undefined) {
+    return (
+      <div className="ud-premium-error">
+        <AlertCircle size={14} />
+        <SeatErrorMessage error={error} />
+      </div>
+    )
+  }
+  if (data === null) {
+    return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
+  }
+  if (data === undefined) return <></>
+  return null
 }
 
 // ── Seat-only view (non-configured org members) ──
@@ -557,34 +596,13 @@ function SeatView({
 
   const { data, loading, error } = state
 
-  if (loading && data === undefined) {
-    return (
-      <div className="ud-premium-loading">
-        <Loader2 size={16} className="spin" />
-        <span>Loading Copilot seat info…</span>
-      </div>
-    )
-  }
-
-  if (error && data === undefined) {
-    return (
-      <div className="ud-premium-error">
-        <AlertCircle size={14} />
-        <SeatErrorMessage error={error} />
-      </div>
-    )
-  }
-
-  if (data === null) {
-    return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
-  }
-
-  if (data === undefined) return null
+  const guard = renderSeatGuard(data, loading, error)
+  if (guard) return guard
 
   return (
     <div className="ud-prem">
       <SeatPremiumContent premium={premium} loading={loading} onRefresh={refreshAll} />
-      <SeatMetaPills data={data} />
+      <SeatMetaPills data={data!} />
     </div>
   )
 }

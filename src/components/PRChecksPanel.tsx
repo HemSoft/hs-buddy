@@ -172,16 +172,12 @@ function StatusContextRow({
   )
 }
 
-export function PRChecksPanel({ pr }: PRChecksPanelProps) {
-  const {
-    data: checks,
-    error,
-    refresh,
-    cacheKey,
-  } = usePRPanelData<PRChecksSummary>(pr, 'pr-checks', (client, owner, repo, prNumber) =>
-    client.fetchPRChecks(owner, repo, prNumber)
-  )
-
+function renderChecksGuard(
+  checks: PRChecksSummary | null,
+  error: string | null,
+  cacheKey: string | null,
+  refresh: () => Promise<void>
+): React.JSX.Element | null {
   if (error) {
     return (
       <PanelErrorState
@@ -191,40 +187,55 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
       />
     )
   }
-
   if (!checks) {
     return <PanelLoadingState message="Loading checks…" size={28} />
   }
+  return null
+}
+
+export function PRChecksPanel({ pr }: PRChecksPanelProps) {
+  const {
+    data: checks,
+    error,
+    refresh,
+    cacheKey,
+  } = usePRPanelData<PRChecksSummary>(pr, 'pr-checks', (client, owner, repo, prNumber) =>
+    client.fetchPRChecks(owner, repo, prNumber)
+  )
+  const guard = renderChecksGuard(checks, error, cacheKey, refresh)
+  if (guard) return guard
+
+  const summary = checks as PRChecksSummary
 
   return (
     <div className="pr-checks-container">
       <div className="pr-checks-summary-grid">
-        <div className={`pr-checks-summary-card tone-${checks.overallState}`}>
+        <div className={`pr-checks-summary-card tone-${summary.overallState}`}>
           <div className="pr-checks-summary-label">Overall</div>
-          <div className="pr-checks-summary-value">{getOverallStateLabel(checks.overallState)}</div>
+          <div className="pr-checks-summary-value">{getOverallStateLabel(summary.overallState)}</div>
         </div>
         <div className="pr-checks-summary-card">
           <div className="pr-checks-summary-label">Total</div>
-          <div className="pr-checks-summary-value">{checks.totalCount}</div>
+          <div className="pr-checks-summary-value">{summary.totalCount}</div>
         </div>
         <div className="pr-checks-summary-card tone-passing">
           <div className="pr-checks-summary-label">Passing</div>
-          <div className="pr-checks-summary-value">{checks.successfulCount}</div>
+          <div className="pr-checks-summary-value">{summary.successfulCount}</div>
         </div>
         <div className="pr-checks-summary-card tone-failing">
           <div className="pr-checks-summary-label">Failing</div>
-          <div className="pr-checks-summary-value">{checks.failedCount}</div>
+          <div className="pr-checks-summary-value">{summary.failedCount}</div>
         </div>
         <div className="pr-checks-summary-card tone-pending">
           <div className="pr-checks-summary-label">Pending</div>
-          <div className="pr-checks-summary-value">{checks.pendingCount}</div>
+          <div className="pr-checks-summary-value">{summary.pendingCount}</div>
         </div>
       </div>
 
       <div className="pr-checks-headline-row">
         <div className="pr-checks-headline-meta">
           <span className="pr-checks-headline-label">Head SHA</span>
-          <code className="pr-checks-headline-sha">{checks.headSha.slice(0, 12)}</code>
+          <code className="pr-checks-headline-sha">{summary.headSha.slice(0, 12)}</code>
         </div>
         <button
           className="pr-checks-open-btn"
@@ -235,7 +246,7 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
         </button>
       </div>
 
-      {checks.totalCount === 0 && (
+      {summary.totalCount === 0 && (
         <div className="pr-checks-empty-state">
           <AlertCircle size={28} />
           <p>No checks or commit statuses were reported for this pull request.</p>
@@ -244,11 +255,11 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
 
       <div className="pr-checks-section">
         <div className="pr-checks-section-title">Check Runs</div>
-        {checks.checkRuns.length === 0 ? (
+        {summary.checkRuns.length === 0 ? (
           <div className="pr-checks-empty">No GitHub check runs</div>
         ) : (
           <div className="pr-checks-list">
-            {checks.checkRuns.map(run => (
+            {summary.checkRuns.map(run => (
               <CheckRunRow key={run.id} run={run} />
             ))}
           </div>
@@ -257,11 +268,11 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
 
       <div className="pr-checks-section">
         <div className="pr-checks-section-title">Commit Statuses</div>
-        {checks.statusContexts.length === 0 ? (
+        {summary.statusContexts.length === 0 ? (
           <div className="pr-checks-empty">No legacy commit status contexts</div>
         ) : (
           <div className="pr-checks-list">
-            {checks.statusContexts.map(ctx => (
+            {summary.statusContexts.map(ctx => (
               <StatusContextRow key={ctx.id} statusContext={ctx} />
             ))}
           </div>

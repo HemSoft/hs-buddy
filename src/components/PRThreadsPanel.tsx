@@ -359,6 +359,49 @@ function PRCommentForm({
   )
 }
 
+function renderThreadsGuard(
+  loading: boolean,
+  error: string | null,
+  data: unknown,
+  fetchThreads: () => Promise<void>
+): React.JSX.Element | null {
+  if (loading && !data) {
+    return (
+      <div className="pr-threads-loading">
+        <Loader2 size={24} className="spin" />
+        <p>Loading conversations…</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="pr-threads-error">
+        <p>Failed to load conversations</p>
+        <p className="pr-threads-error-detail">
+          {/* v8 ignore start */}
+          {error}
+          {/* v8 ignore stop */}
+        </p>
+        <button className="pr-threads-retry" onClick={fetchThreads}>
+          Retry
+        </button>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="pr-threads-loading">
+        <Loader2 size={24} className="spin" />
+        <p>Loading conversations…</p>
+      </div>
+    )
+  }
+
+  return null
+}
+
 export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const {
@@ -399,40 +442,10 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   }, [data, filter, filteredThreads, showResolved])
 
   const dateGroups = useMemo(() => groupByDate(timeline), [timeline])
+  const guard = renderThreadsGuard(loading, error, data, fetchThreads)
+  if (guard) return guard
 
-  if (loading && !data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="pr-threads-error">
-        <p>Failed to load conversations</p>
-        <p className="pr-threads-error-detail">
-          {/* v8 ignore start */}
-          {error}
-          {/* v8 ignore stop */}
-        </p>
-        <button className="pr-threads-retry" onClick={fetchThreads}>
-          Retry
-        </button>
-      </div>
-    )
-  }
-
-  if (!data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
-  }
+  const threadData = data as NonNullable<typeof data>
 
   return (
     <div className="pr-threads-container">
@@ -446,7 +459,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
       )}
 
       <ThreadsTimelineHeader
-        threads={data.threads}
+        threads={threadData.threads}
         filter={filter}
         setFilter={setFilter}
         activeThreads={activeThreads}

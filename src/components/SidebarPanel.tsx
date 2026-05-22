@@ -206,6 +206,33 @@ function GenericSidebarSection({
   )
 }
 
+function resolveSidebarSection(
+  section: string,
+  onItemSelect: (itemId: string) => void,
+  selectedItem: string | null,
+  counts: Record<string, number>,
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+): React.ReactNode | null {
+  if (section === 'github') {
+    return (
+      <GitHubSidebar
+        onItemSelect={onItemSelect}
+        selectedItem={selectedItem}
+        counts={counts}
+        badgeProgress={badgeProgress}
+      />
+    )
+  }
+  if (section === 'copilot') {
+    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+  const SimpleSidebar = SIMPLE_SIDEBARS[section]
+  if (SimpleSidebar) {
+    return <SimpleSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+  return null
+}
+
 export function SidebarPanel({
   section,
   onItemSelect,
@@ -232,24 +259,8 @@ export function SidebarPanel({
 
   if (!data) return null
 
-  if (section === 'github') {
-    return (
-      <GitHubSidebar
-        onItemSelect={onItemSelect}
-        selectedItem={selectedItem}
-        counts={counts}
-        badgeProgress={badgeProgress}
-      />
-    )
-  }
-  if (section === 'copilot') {
-    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
-
-  const SimpleSidebar = SIMPLE_SIDEBARS[section]
-  if (SimpleSidebar) {
-    return <SimpleSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
+  const resolved = resolveSidebarSection(section, onItemSelect, selectedItem, counts, badgeProgress)
+  if (resolved) return resolved
 
   return (
     <GenericSidebarSection

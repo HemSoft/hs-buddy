@@ -132,6 +132,34 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
   }
 }
 
+function renderPRListRoute(
+  activeViewId: string,
+  onOpenTab: (viewId: string) => void,
+  onPRCountChange: (viewId: string, count: number) => void
+): React.JSX.Element | null {
+  if (!activeViewId.startsWith('pr-')) return null
+  const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
+  if (!PR_MODES.includes(mode)) return null
+  return (
+    <PullRequestList
+      mode={mode}
+      onCountChange={count => onPRCountChange(activeViewId, count)}
+      onOpenPR={onOpenTab}
+    />
+  )
+}
+
+function resolveSecondaryExactRoute(
+  activeViewId: string,
+  ctx: ExactRouteContext
+): React.JSX.Element | null {
+  return (
+    resolveRoute(SETTINGS_ROUTES, activeViewId) ??
+    resolveRoute(buildCopilotRoutes(ctx), activeViewId) ??
+    resolveRoute(buildWorkspaceRoutes(ctx), activeViewId)
+  )
+}
+
 function renderExactRoute(
   activeViewId: string,
   prCounts: Record<string, number>,
@@ -145,18 +173,10 @@ function renderExactRoute(
       <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
     )
   }
-  if (activeViewId.startsWith('pr-')) {
-    const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
-    if (PR_MODES.includes(mode)) {
-      return (
-        <PullRequestList
-          mode={mode}
-          onCountChange={count => onPRCountChange(activeViewId, count)}
-          onOpenPR={onOpenTab}
-        />
-      )
-    }
-  }
+
+  const prRoute = renderPRListRoute(activeViewId, onOpenTab, onPRCountChange)
+  if (prRoute) return prRoute
+
   const ctx: ExactRouteContext = {
     prCounts,
     onNavigate,
@@ -164,11 +184,7 @@ function renderExactRoute(
     onOpenTab,
     onPRCountChange,
   }
-  return (
-    resolveRoute(SETTINGS_ROUTES, activeViewId) ??
-    resolveRoute(buildCopilotRoutes(ctx), activeViewId) ??
-    resolveRoute(buildWorkspaceRoutes(ctx), activeViewId)
-  )
+  return resolveSecondaryExactRoute(activeViewId, ctx)
 }
 
 type PrefixRouteEntry = {
@@ -354,6 +370,43 @@ const prefixRoutes: PrefixRouteEntry[] = [
   { prefix: 'pr-detail:', render: slug => renderPRDetailRoute(slug) },
 ]
 
+function renderEmptyContent(): React.JSX.Element {
+  return (
+    <div className="content-placeholder">
+      <div className="content-body" style={{ textAlign: 'center', paddingTop: '120px' }}>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>Open a tab to get started</p>
+      </div>
+    </div>
+  )
+}
+
+function renderPrefixRoute(
+  activeViewId: string,
+  ctx: PrefixRouteContext
+): React.JSX.Element | null {
+  for (const route of prefixRoutes) {
+    if (activeViewId.startsWith(route.prefix)) {
+      const slug = activeViewId.slice(route.prefix.length)
+      const result = route.render(slug, ctx)
+      if (result) return result
+    }
+  }
+  return null
+}
+
+function renderUnknownContent(activeViewId: string): React.JSX.Element {
+  return (
+    <div className="content-placeholder">
+      <div className="content-header">
+        <h2>{viewLabels[activeViewId] || 'Content'}</h2>
+      </div>
+      <div className="content-body">
+        <p>This feature is coming soon!</p>
+      </div>
+    </div>
+  )
+}
+
 export function AppContentRouter({
   activeViewId,
   prCounts,
@@ -364,15 +417,7 @@ export function AppContentRouter({
   onPRCountChange,
 }: AppContentRouterProps) {
   if (!activeViewId) {
-    return (
-      <div className="content-placeholder">
-        <div className="content-body" style={{ textAlign: 'center', paddingTop: '120px' }}>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
-            Open a tab to get started
-          </p>
-        </div>
-      </div>
-    )
+    return renderEmptyContent()
   }
 
   const exact = renderExactRoute(
@@ -386,22 +431,8 @@ export function AppContentRouter({
   if (exact) return exact
 
   const ctx: PrefixRouteContext = { activeViewId, onNavigate, onOpenTab, onCloseView }
-  for (const route of prefixRoutes) {
-    if (activeViewId.startsWith(route.prefix)) {
-      const slug = activeViewId.slice(route.prefix.length)
-      const result = route.render(slug, ctx)
-      if (result) return result
-    }
-  }
+  const prefixRoute = renderPrefixRoute(activeViewId, ctx)
+  if (prefixRoute) return prefixRoute
 
-  return (
-    <div className="content-placeholder">
-      <div className="content-header">
-        <h2>{viewLabels[activeViewId] || 'Content'}</h2>
-      </div>
-      <div className="content-body">
-        <p>This feature is coming soon!</p>
-      </div>
-    </div>
-  )
+  return renderUnknownContent(activeViewId)
 }

@@ -34,6 +34,28 @@ function resolveSpawnDimensions(dims: { cols?: number; rows?: number } | undefin
   }
 }
 
+function hasValidDimensions(
+  d: { cols?: number; rows?: number } | undefined
+): d is { cols: number; rows: number } {
+  return !!d && !!d.cols && !!d.rows
+}
+
+function dimensionsMatch(
+  last: { cols: number; rows: number } | null,
+  cols: number,
+  rows: number
+): boolean {
+  return !!last && last.cols === cols && last.rows === rows
+}
+
+function formatSpawnError(error: string | undefined): string {
+  return `\r\n\x1b[31mFailed to spawn terminal: ${error || 'Unknown error'}\x1b[0m`
+}
+
+function notifyCwdChange(cwd: string | undefined, handler?: (newCwd: string) => void) {
+  if (cwd) handler?.(cwd)
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -158,6 +180,13 @@ export function TerminalPane({
         return
       }
 
+      applySessionResult(term, result)
+    }
+
+    function applySessionResult(
+      term: Terminal,
+      result: { buffer?: string; cursor?: number | null; alive?: boolean }
+    ) {
       if (result.buffer) term.write(result.buffer)
       if (result.cursor != null) attachCursorRef.current = result.cursor
       if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
@@ -206,15 +235,13 @@ export function TerminalPane({
       }
 
       if (!result.success || !result.sessionId) {
-        term.writeln(
-          `\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`
-        )
+        term.writeln(formatSpawnError(result.error))
         return
       }
 
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
-      if (result.cwd) onCwdChange?.(result.cwd)
+      notifyCwdChange(result.cwd, onCwdChange)
 
       await applyAttachBuffer(term, result.sessionId)
     }
@@ -294,11 +321,9 @@ export function TerminalPane({
     function applyResizeDimensions(fit: FitAddon, sid: string) {
       const d = fit.proposeDimensions()
       /* v8 ignore start */
-      if (!d) return
-      if (!d.cols || !d.rows) return
+      if (!hasValidDimensions(d)) return
       /* v8 ignore stop */
-      const last = lastResizeRef.current
-      if (last && last.cols === d.cols && last.rows === d.rows) return
+      if (dimensionsMatch(lastResizeRef.current, d.cols, d.rows)) return
       lastResizeRef.current = { cols: d.cols, rows: d.rows }
       window.terminal.resize(sid, d.cols, d.rows)
     }

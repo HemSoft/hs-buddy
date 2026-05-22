@@ -93,6 +93,74 @@ function getBookmarkCount(bookmarks: readonly unknown[] | undefined): number {
   return bookmarks?.length ?? 0
 }
 
+function reorderBookmarks<T extends { _id: string }>(
+  items: T[],
+  draggedId: string,
+  targetId: string,
+  dropAbove: boolean
+): T[] | null {
+  const list = [...items]
+  const fromIdx = list.findIndex(b => b._id === draggedId)
+  const toIdx = list.findIndex(b => b._id === targetId)
+  /* v8 ignore start */
+  if (fromIdx < 0 || toIdx < 0) return null
+  /* v8 ignore stop */
+  const [moved] = list.splice(fromIdx, 1)
+  const adjustedToIdx = toIdx > fromIdx ? toIdx - 1 : toIdx
+  /* v8 ignore start */
+  const insertIdx = dropAbove ? adjustedToIdx : adjustedToIdx + 1
+  /* v8 ignore stop */
+  list.splice(insertIdx, 0, moved)
+  return list
+}
+
+function clampToViewport(
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): { x: number; y: number } {
+  const clampedX = x + width > window.innerWidth ? window.innerWidth - width - 4 : x
+  const clampedY = y + height > window.innerHeight ? window.innerHeight - height - 4 : y
+  return { x: clampedX, y: clampedY }
+}
+
+function CategoryChevron({
+  hasChildren,
+  isExpanded,
+  fullPath,
+  toggleSection,
+}: {
+  hasChildren: boolean
+  isExpanded: boolean
+  fullPath: string
+  toggleSection: (key: string) => void
+}) {
+  if (!hasChildren) return <span className="sidebar-item-chevron" style={{ width: 12 }} />
+  return (
+    <span
+      className="sidebar-item-chevron"
+      onClick={e => {
+        e.stopPropagation()
+        toggleSection(`cat:${fullPath}`)
+      }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => {
+        /* v8 ignore start */
+        if (e.key === 'Enter' || e.key === ' ') {
+          /* v8 ignore stop */
+          e.stopPropagation()
+          e.preventDefault()
+          toggleSection(`cat:${fullPath}`)
+        }
+      }}
+    >
+      {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+    </span>
+  )
+}
+
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<{
@@ -148,22 +216,14 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       setDragOver(null)
       if (!draggedId || draggedId === targetId) return
 
-      const list = [...categoryBookmarks]
-      const fromIdx = list.findIndex(b => b._id === draggedId)
-      const toIdx = list.findIndex(b => b._id === targetId)
-      /* v8 ignore start */
-      if (fromIdx < 0 || toIdx < 0) return
-      /* v8 ignore stop */
-
-      const [moved] = list.splice(fromIdx, 1)
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-      const adjustedToIdx = toIdx > fromIdx ? toIdx - 1 : toIdx
       /* v8 ignore start */
-      const insertIdx = e.clientY < rect.top + rect.height / 2 ? adjustedToIdx : adjustedToIdx + 1
+      const dropAbove = e.clientY < rect.top + rect.height / 2
       /* v8 ignore stop */
-      list.splice(insertIdx, 0, moved)
+      const reordered = reorderBookmarks(categoryBookmarks, draggedId, targetId, dropAbove)
+      if (!reordered) return
 
-      const updates = list.map((bm, i) => ({
+      const updates = reordered.map((bm, i) => ({
         id: bm._id as Id<'bookmarks'>,
         sortOrder: i,
       }))
@@ -188,14 +248,10 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
-    let adjustedX = contextMenu.x
-    let adjustedY = contextMenu.y
-    if (adjustedX + rect.width > window.innerWidth) adjustedX = window.innerWidth - rect.width - 4
-    if (adjustedY + rect.height > window.innerHeight)
-      adjustedY = window.innerHeight - rect.height - 4
-    if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
+    const clamped = clampToViewport(contextMenu.x, contextMenu.y, rect.width, rect.height)
+    if (clamped.x !== contextMenu.x || clamped.y !== contextMenu.y) {
       /* v8 ignore start */
-      setContextMenu(prev => (prev ? { ...prev, x: adjustedX, y: adjustedY } : null))
+      setContextMenu(prev => (prev ? { ...prev, x: clamped.x, y: clamped.y } : null))
       /* v8 ignore stop */
     }
   }, [contextMenu])
@@ -246,30 +302,12 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             tabIndex={0}
             onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
           >
-            {hasChildren ? (
-              <span
-                className="sidebar-item-chevron"
-                onClick={e => {
-                  e.stopPropagation()
-                  toggleSection(`cat:${node.fullPath}`)
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => {
-                  /* v8 ignore start */
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    /* v8 ignore stop */
-                    e.stopPropagation()
-                    e.preventDefault()
-                    toggleSection(`cat:${node.fullPath}`)
-                  }
-                }}
-              >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              </span>
-            ) : (
-              <span className="sidebar-item-chevron" style={{ width: 12 }} />
-            )}
+            <CategoryChevron
+              hasChildren={hasChildren}
+              isExpanded={isExpanded}
+              fullPath={node.fullPath}
+              toggleSection={toggleSection}
+            />
             <span className="sidebar-item-icon">
               <FolderOpen size={14} />
             </span>

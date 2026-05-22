@@ -38,6 +38,38 @@ function getLatestStatusIcon(latest: { status: string } | null) {
   return Object.hasOwn(STATUS_ICONS, latest.status) ? STATUS_ICONS[latest.status] : PENDING_ICON
 }
 
+function ReviewPublishButton({
+  runId,
+  resultId,
+  model,
+  publishingRunId,
+  publishedRunIds,
+  onPublish,
+}: {
+  runId: string
+  resultId: string
+  model?: string
+  publishingRunId: string | null
+  publishedRunIds: Set<string>
+  onPublish: (runId: string, resultId: string, model?: string) => void
+}) {
+  const isPublished = publishedRunIds.has(runId)
+  return (
+    <button
+      className={`pr-reviews-icon-btn${isPublished ? ' published' : ''}`}
+      onClick={() => onPublish(runId, resultId, model)}
+      disabled={!!publishingRunId || isPublished}
+      title={isPublished ? 'Published to PR' : 'Publish review as PR comment'}
+    >
+      {publishingRunId === runId ? (
+        <Loader2 size={12} className="spin" />
+      ) : (
+        <MessageSquareShare size={12} />
+      )}
+    </button>
+  )
+}
+
 function ReviewRunItem({
   run,
   publishingRunId,
@@ -62,20 +94,14 @@ function ReviewRunItem({
       </div>
       <div className="pr-reviews-item-actions">
         {run.status === 'completed' && (
-          <button
-            className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
-            onClick={() => onPublish(run._id, run.resultId, run.model)}
-            disabled={!!publishingRunId || publishedRunIds.has(run._id)}
-            title={
-              publishedRunIds.has(run._id) ? 'Published to PR' : 'Publish review as PR comment'
-            }
-          >
-            {publishingRunId === run._id ? (
-              <Loader2 size={12} className="spin" />
-            ) : (
-              <MessageSquareShare size={12} />
-            )}
-          </button>
+          <ReviewPublishButton
+            runId={run._id}
+            resultId={run.resultId}
+            model={run.model}
+            publishingRunId={publishingRunId}
+            publishedRunIds={publishedRunIds}
+            onPublish={onPublish}
+          />
         )}
         <button
           className="pr-reviews-icon-btn"
@@ -94,6 +120,14 @@ function buildReviewCommentBody(resultText: string, model?: string, resultModel?
   return `## \u{1F916} AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy \u2014 ${modelName} review*`
 }
 
+function canPublishReview(
+  owner: string | undefined,
+  repo: string | undefined,
+  publishingRunId: string | null
+): boolean {
+  return !!owner && !!repo && !publishingRunId
+}
+
 function usePublishToPR(pr: PRDetailInfo) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
   const owner = pr.org || parsed?.owner
@@ -104,10 +138,7 @@ function usePublishToPR(pr: PRDetailInfo) {
   const [publishedRunIds, setPublishedRunIds] = useState<Set<string>>(new Set())
 
   const handlePublishToPR = async (runId: string, resultId: string, model?: string) => {
-    /* v8 ignore start -- button is disabled when publishingRunId is set */
-    if (publishingRunId) return
-    /* v8 ignore stop */
-    if (!owner || !repo) return
+    if (!canPublishReview(owner, repo, publishingRunId)) return
     setPublishingRunId(runId)
     try {
       const result = await convex.query(api.copilotResults.get, {
@@ -116,7 +147,7 @@ function usePublishToPR(pr: PRDetailInfo) {
       if (!result?.result) return
       const client = new GitHubClient({ accounts }, 7)
       const body = buildReviewCommentBody(result.result, model, result.model)
-      await client.addPRComment(owner, repo, pr.id, body)
+      await client.addPRComment(owner!, repo!, pr.id, body)
       setPublishedRunIds(prev => new Set(prev).add(runId))
     } catch (err: unknown) {
       console.error('Failed to publish review to PR:', err)
@@ -126,6 +157,36 @@ function usePublishToPR(pr: PRDetailInfo) {
   }
 
   return { owner, repo, publishingRunId, publishedRunIds, handlePublishToPR }
+}
+
+function LatestReviewSummary({
+  latest,
+  latestStatusIcon,
+}: {
+  latest: NonNullable<ReturnType<typeof usePRReviewRunsByPR>>[number] | null
+  latestStatusIcon: React.ReactNode
+}) {
+  if (!latest) return null
+  const sha = latest.reviewedHeadSha ? latest.reviewedHeadSha.slice(0, 12) : 'unknown'
+  return (
+    <div className="pr-reviews-latest">
+      <div className="pr-reviews-latest-row">
+        <span className="pr-reviews-label">Latest</span>
+        <span className="pr-reviews-value">
+          {latestStatusIcon}
+          {latest.status}
+        </span>
+      </div>
+      <div className="pr-reviews-latest-row">
+        <span className="pr-reviews-label">Reviewed SHA</span>
+        <span className="pr-reviews-value mono">{sha}</span>
+      </div>
+      <div className="pr-reviews-latest-row">
+        <span className="pr-reviews-label">Run time</span>
+        <span className="pr-reviews-value">{formatDateCompact(latest.createdAt)}</span>
+      </div>
+    </div>
+  )
 }
 
 export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
@@ -180,27 +241,7 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
         </button>
       </div>
 
-      {latest && (
-        <div className="pr-reviews-latest">
-          <div className="pr-reviews-latest-row">
-            <span className="pr-reviews-label">Latest</span>
-            <span className="pr-reviews-value">
-              {latestStatusIcon}
-              {latest.status}
-            </span>
-          </div>
-          <div className="pr-reviews-latest-row">
-            <span className="pr-reviews-label">Reviewed SHA</span>
-            <span className="pr-reviews-value mono">
-              {latest.reviewedHeadSha ? latest.reviewedHeadSha.slice(0, 12) : 'unknown'}
-            </span>
-          </div>
-          <div className="pr-reviews-latest-row">
-            <span className="pr-reviews-label">Run time</span>
-            <span className="pr-reviews-value">{formatDateCompact(latest.createdAt)}</span>
-          </div>
-        </div>
-      )}
+      <LatestReviewSummary latest={latest} latestStatusIcon={latestStatusIcon} />
 
       {!hasRuns ? (
         <div className="pr-reviews-empty">

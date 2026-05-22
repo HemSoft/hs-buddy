@@ -17,6 +17,28 @@ import type { GitHubAccount } from '../../types/config'
 import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import './SettingsShared.css'
 
+function validateNewAccount(
+  username: string,
+  org: string,
+  accounts: GitHubAccount[]
+): string | null {
+  if (!username || !org) return 'Both username and organization are required'
+  if (accounts.some(a => a.username === username && a.org === org))
+    return 'This account already exists'
+  return null
+}
+
+function AccountRepoPath({ repoRoot, isEditing }: { repoRoot?: string; isEditing: boolean }) {
+  if (!repoRoot || isEditing) return null
+  return (
+    <>
+      <span className="list-item-dot">·</span>
+      <FolderOpen size={12} />
+      <span className="list-item-path">{repoRoot}</span>
+    </>
+  )
+}
+
 interface AddAccountFormState {
   showAddForm: boolean
   newUsername: string
@@ -79,6 +101,80 @@ export function addAccountFormReducer(
   return handler(state, action)
 }
 
+function AddAccountFormPanel({
+  showAddForm,
+  newUsername,
+  newOrg,
+  addError,
+  isAdding,
+  dispatch,
+  handleAdd,
+}: {
+  showAddForm: boolean
+  newUsername: string
+  newOrg: string
+  addError: string | null
+  isAdding: boolean
+  dispatch: React.Dispatch<AddAccountFormAction>
+  handleAdd: (e: React.FormEvent) => void
+}) {
+  if (!showAddForm) return null
+  return (
+    <form className="add-form" onSubmit={handleAdd}>
+      <div className="form-row">
+        <div className="form-field">
+          <label htmlFor="username">
+            <User size={14} />
+            Username
+          </label>
+          <input
+            id="username"
+            type="text"
+            value={newUsername}
+            onChange={e => dispatch({ type: 'SET_USERNAME', value: e.target.value })}
+            placeholder="your-github-username"
+            disabled={isAdding}
+          />
+        </div>
+        <div className="form-field">
+          <label htmlFor="org">
+            <Building2 size={14} />
+            Organization
+          </label>
+          <input
+            id="org"
+            type="text"
+            value={newOrg}
+            onChange={e => dispatch({ type: 'SET_ORG', value: e.target.value })}
+            placeholder="organization-name"
+            disabled={isAdding}
+          />
+        </div>
+      </div>
+      {addError && (
+        <div className="form-error">
+          <AlertCircle size={14} />
+          {addError}
+        </div>
+      )}
+      <div className="form-actions">
+        <button
+          type="button"
+          className="settings-btn settings-btn-secondary"
+          onClick={() => dispatch({ type: 'CLOSE_FORM' })}
+          disabled={isAdding}
+        >
+          Cancel
+        </button>
+        <button type="submit" className="settings-btn settings-btn-primary" disabled={isAdding}>
+          {isAdding ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />}
+          Add
+        </button>
+      </div>
+    </form>
+  )
+}
+
 export function SettingsAccounts() {
   const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
   const [formState, dispatch] = useReducer(addAccountFormReducer, INITIAL_FORM_STATE)
@@ -91,13 +187,9 @@ export function SettingsAccounts() {
     const username = newUsername.trim()
     const org = newOrg.trim()
 
-    if (!username || !org) {
-      dispatch({ type: 'SET_ERROR', value: 'Both username and organization are required' })
-      return
-    }
-
-    if (accounts.some(a => a.username === username && a.org === org)) {
-      dispatch({ type: 'SET_ERROR', value: 'This account already exists' })
+    const validationError = validateNewAccount(username, org, accounts)
+    if (validationError) {
+      dispatch({ type: 'SET_ERROR', value: validationError })
       return
     }
 
@@ -172,64 +264,15 @@ export function SettingsAccounts() {
               </button>
             </div>
 
-            {showAddForm && (
-              <form className="add-form" onSubmit={handleAdd}>
-                <div className="form-row">
-                  <div className="form-field">
-                    <label htmlFor="username">
-                      <User size={14} />
-                      Username
-                    </label>
-                    <input
-                      id="username"
-                      type="text"
-                      value={newUsername}
-                      onChange={e => dispatch({ type: 'SET_USERNAME', value: e.target.value })}
-                      placeholder="your-github-username"
-                      disabled={isAdding}
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor="org">
-                      <Building2 size={14} />
-                      Organization
-                    </label>
-                    <input
-                      id="org"
-                      type="text"
-                      value={newOrg}
-                      onChange={e => dispatch({ type: 'SET_ORG', value: e.target.value })}
-                      placeholder="organization-name"
-                      disabled={isAdding}
-                    />
-                  </div>
-                </div>
-                {addError && (
-                  <div className="form-error">
-                    <AlertCircle size={14} />
-                    {addError}
-                  </div>
-                )}
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn-secondary"
-                    onClick={() => dispatch({ type: 'CLOSE_FORM' })}
-                    disabled={isAdding}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="settings-btn settings-btn-primary"
-                    disabled={isAdding}
-                  >
-                    {isAdding ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />}
-                    Add
-                  </button>
-                </div>
-              </form>
-            )}
+            <AddAccountFormPanel
+              showAddForm={showAddForm}
+              newUsername={newUsername}
+              newOrg={newOrg}
+              addError={addError}
+              isAdding={isAdding}
+              dispatch={dispatch}
+              handleAdd={handleAdd}
+            />
 
             {accounts.length === 0 ? (
               <div className="empty-state">
@@ -275,13 +318,7 @@ export function SettingsAccounts() {
                           <div className="list-item-secondary">
                             <Building2 size={14} />
                             <span>{account.org}</span>
-                            {account.repoRoot && !isEditing && (
-                              <>
-                                <span className="list-item-dot">·</span>
-                                <FolderOpen size={12} />
-                                <span className="list-item-path">{account.repoRoot}</span>
-                              </>
-                            )}
+                            <AccountRepoPath repoRoot={account.repoRoot} isEditing={isEditing} />
                           </div>
                         </div>
                         <div className="list-item-actions">

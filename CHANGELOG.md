@@ -40,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplisticate batch 24 — compress TerminalPanel, useCopilotReviewMonitor, useAIReviewMonitor, BookmarkDialog
 - Simplisticate batch 25 — compress usePRThreadsPanel, TempoWorklogEditor, TerminalPane
 - Compress batch 26 — SettingsCopilot, users, PullRequestDetailPanel
+- Compress batch 27 — SettingsAppearance, RalphLaunchForm, useAppTabs
 
 ### Added
 

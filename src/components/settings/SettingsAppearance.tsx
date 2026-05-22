@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useReducer } from 'react'
+import { useState, useEffect, useReducer } from 'react'
 import { useConfig } from '../../hooks/useConfig'
 import { RefreshCw } from 'lucide-react'
 import type { AppConfig } from '../../types/config'
@@ -128,128 +128,57 @@ function isMonoFont(fontName: string): boolean {
   return MONO_FONT_PATTERNS.some(pattern => lower.includes(pattern))
 }
 
+function applyColorsToDOM(colors: AppliedColors) {
+  const root = document.documentElement
+  const customColors: Partial<Record<(typeof CUSTOM_CSS_PROPS)[number], string>> = {
+    '--accent-primary': colors.accent, '--accent-primary-hover': lightenColor(colors.accent, 15), '--border-focus': colors.accent,
+    '--text-primary': colors.fontColor, '--text-heading': lightenColor(colors.fontColor, 20),
+    '--bg-primary': colors.primary, '--panel-bg': colors.primary, '--input-bg': colors.primary,
+    '--bg-secondary': colors.secondary, '--sidebar-bg': colors.secondary,
+    /* v8 ignore start */
+    ...(colors.sbBg ? { '--statusbar-bg': colors.sbBg } : {}),
+    ...(colors.sbFg ? { '--statusbar-fg': colors.sbFg } : {}),
+    /* v8 ignore stop */
+  }
+  for (const [prop, value] of Object.entries(customColors)) {
+    /* v8 ignore start */
+    if (value) { /* v8 ignore stop */ root.style.setProperty(prop, value) }
+  }
+}
+
+function defaultsToAppliedColors(d: typeof DARK_DEFAULTS): AppliedColors {
+  return { accent: d.accentColor, fontColor: d.fontColor, primary: d.bgPrimary, secondary: d.bgSecondary, sbBg: d.statusBarBg, sbFg: d.statusBarFg }
+}
+
+function defaultsToPayload(d: typeof DARK_DEFAULTS) {
+  return { accentColor: d.accentColor, fontColor: d.fontColor, bgPrimary: d.bgPrimary, bgSecondary: d.bgSecondary, statusBarBg: d.statusBarBg, statusBarFg: d.statusBarFg }
+}
+
+async function persistAllColors(api: ConfigApi, d: typeof DARK_DEFAULTS) {
+  await Promise.all([api.setAccentColor(d.accentColor), api.setFontColor(d.fontColor), api.setBgPrimary(d.bgPrimary), api.setBgSecondary(d.bgSecondary), api.setStatusBarBg(d.statusBarBg), api.setStatusBarFg(d.statusBarFg)])
+}
+
 function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEditorProps) {
   const [state, dispatch] = useReducer(appearanceReducer, initialState)
-  const {
-    theme,
-    accentColor,
-    fontColor,
-    bgPrimary,
-    bgSecondary,
-    statusBarBg,
-    statusBarFg,
-    fontFamily,
-    monoFontFamily,
-  } = state
-  const [fontsState, setFontsState] = useState<FontsState>({
-    systemFonts: [],
-    loading: true,
-  })
+  const { theme, accentColor, fontColor, bgPrimary, bgSecondary, statusBarBg, statusBarFg, fontFamily, monoFontFamily } = state
+  const [fontsState, setFontsState] = useState<FontsState>({ systemFonts: [], loading: true })
   const { systemFonts, loading: fontsLoading } = fontsState
 
-  useEffect(() => {
-    api
-      .getSystemFonts()
-      .then(fonts =>
-        setFontsState({
-          systemFonts: fonts,
-          loading: false,
-        })
-      )
-      .catch(() =>
-        setFontsState({
-          systemFonts: [],
-          loading: false,
-        })
-      )
-  }, [api])
-
-  const applyColors = useCallback((colors: AppliedColors) => {
-    const root = document.documentElement
-    const customColors: Partial<Record<(typeof CUSTOM_CSS_PROPS)[number], string>> = {
-      '--accent-primary': colors.accent,
-      '--accent-primary-hover': lightenColor(colors.accent, 15),
-      '--border-focus': colors.accent,
-      '--text-primary': colors.fontColor,
-      '--text-heading': lightenColor(colors.fontColor, 20),
-      '--bg-primary': colors.primary,
-      '--panel-bg': colors.primary,
-      '--input-bg': colors.primary,
-      '--bg-secondary': colors.secondary,
-      '--sidebar-bg': colors.secondary,
-      /* v8 ignore start */
-      ...(colors.sbBg ? { '--statusbar-bg': colors.sbBg } : {}),
-      ...(colors.sbFg ? { '--statusbar-fg': colors.sbFg } : {}),
-      /* v8 ignore stop */
-    }
-
-    for (const [prop, value] of Object.entries(customColors)) {
-      /* v8 ignore start */
-      if (value) {
-        /* v8 ignore stop */
-        root.style.setProperty(prop, value)
-      }
-    }
-  }, [])
+  useEffect(() => { api.getSystemFonts().then(fonts => setFontsState({ systemFonts: fonts, loading: false })).catch(() => setFontsState({ systemFonts: [], loading: false })) }, [api])
 
   const handleThemeChange = async (newTheme: 'dark' | 'light') => {
     document.documentElement.setAttribute('data-theme', newTheme)
-
     const defaults = newTheme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    dispatch({
-      type: 'SET_ALL',
-      payload: {
-        theme: newTheme,
-        accentColor: defaults.accentColor,
-        fontColor: defaults.fontColor,
-        bgPrimary: defaults.bgPrimary,
-        bgSecondary: defaults.bgSecondary,
-        statusBarBg: defaults.statusBarBg,
-        statusBarFg: defaults.statusBarFg,
-      },
-    })
-
-    const root = document.documentElement
-    for (const prop of CUSTOM_CSS_PROPS) {
-      root.style.removeProperty(prop)
-    }
-
-    applyColors({
-      accent: defaults.accentColor,
-      fontColor: defaults.fontColor,
-      primary: defaults.bgPrimary,
-      secondary: defaults.bgSecondary,
-      sbBg: defaults.statusBarBg,
-      sbFg: defaults.statusBarFg,
-    })
-
-    await api.setTheme(newTheme)
-    await Promise.all([
-      api.setAccentColor(defaults.accentColor),
-      api.setFontColor(defaults.fontColor),
-      api.setBgPrimary(defaults.bgPrimary),
-      api.setBgSecondary(defaults.bgSecondary),
-      api.setStatusBarBg(defaults.statusBarBg),
-      api.setStatusBarFg(defaults.statusBarFg),
-    ])
+    dispatch({ type: 'SET_ALL', payload: { theme: newTheme, ...defaultsToPayload(defaults) } })
+    for (const prop of CUSTOM_CSS_PROPS) document.documentElement.style.removeProperty(prop)
+    applyColorsToDOM(defaultsToAppliedColors(defaults))
+    await api.setTheme(newTheme); await persistAllColors(api, defaults)
   }
 
-  const makeColorHandler = (
-    field: 'accentColor' | 'fontColor' | 'bgPrimary' | 'bgSecondary',
-    apiMethod: (color: string) => Promise<unknown>
-  ) => {
-    return async (color: string) => {
-      dispatch({ type: 'SET_FIELD', field, value: color })
-      applyColors({
-        accent: field === 'accentColor' ? color : accentColor,
-        fontColor: field === 'fontColor' ? color : fontColor,
-        primary: field === 'bgPrimary' ? color : bgPrimary,
-        secondary: field === 'bgSecondary' ? color : bgSecondary,
-        sbBg: statusBarBg,
-        sbFg: statusBarFg,
-      })
-      await apiMethod(color)
-    }
+  const makeColorHandler = (field: 'accentColor' | 'fontColor' | 'bgPrimary' | 'bgSecondary', apiMethod: (color: string) => Promise<unknown>) => async (color: string) => {
+    dispatch({ type: 'SET_FIELD', field, value: color })
+    applyColorsToDOM({ accent: field === 'accentColor' ? color : accentColor, fontColor: field === 'fontColor' ? color : fontColor, primary: field === 'bgPrimary' ? color : bgPrimary, secondary: field === 'bgSecondary' ? color : bgSecondary, sbBg: statusBarBg, sbFg: statusBarFg })
+    await apiMethod(color)
   }
 
   const handleAccentChange = makeColorHandler('accentColor', api.setAccentColor)
@@ -257,148 +186,26 @@ function SettingsAppearanceEditor({ api, initialState }: SettingsAppearanceEdito
   const handleBgPrimaryChange = makeColorHandler('bgPrimary', api.setBgPrimary)
   const handleBgSecondaryChange = makeColorHandler('bgSecondary', api.setBgSecondary)
 
-  const handleStatusBarBgChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'statusBarBg', value: color })
-    document.documentElement.style.setProperty('--statusbar-bg', color)
-    await api.setStatusBarBg(color)
-  }
+  const handleStatusBarBgChange = async (color: string) => { dispatch({ type: 'SET_FIELD', field: 'statusBarBg', value: color }); document.documentElement.style.setProperty('--statusbar-bg', color); await api.setStatusBarBg(color) }
+  const handleStatusBarFgChange = async (color: string) => { dispatch({ type: 'SET_FIELD', field: 'statusBarFg', value: color }); document.documentElement.style.setProperty('--statusbar-fg', color); await api.setStatusBarFg(color) }
 
-  const handleStatusBarFgChange = async (color: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'statusBarFg', value: color })
-    document.documentElement.style.setProperty('--statusbar-fg', color)
-    await api.setStatusBarFg(color)
-  }
+  const handleResetColors = async () => { const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS; dispatch({ type: 'SET_ALL', payload: defaultsToPayload(defaults) }); applyColorsToDOM(defaultsToAppliedColors(defaults)); await persistAllColors(api, defaults) }
 
-  const handleResetColors = async () => {
-    const defaults = theme === 'dark' ? DARK_DEFAULTS : LIGHT_DEFAULTS
-    dispatch({
-      type: 'SET_ALL',
-      payload: {
-        accentColor: defaults.accentColor,
-        fontColor: defaults.fontColor,
-        bgPrimary: defaults.bgPrimary,
-        bgSecondary: defaults.bgSecondary,
-        statusBarBg: defaults.statusBarBg,
-        statusBarFg: defaults.statusBarFg,
-      },
-    })
-    applyColors({
-      accent: defaults.accentColor,
-      fontColor: defaults.fontColor,
-      primary: defaults.bgPrimary,
-      secondary: defaults.bgSecondary,
-      sbBg: defaults.statusBarBg,
-      sbFg: defaults.statusBarFg,
-    })
-    await Promise.all([
-      api.setAccentColor(defaults.accentColor),
-      api.setFontColor(defaults.fontColor),
-      api.setBgPrimary(defaults.bgPrimary),
-      api.setBgSecondary(defaults.bgSecondary),
-      api.setStatusBarBg(defaults.statusBarBg),
-      api.setStatusBarFg(defaults.statusBarFg),
-    ])
-  }
+  const handleFontFamilyChange = async (font: string) => { dispatch({ type: 'SET_FIELD', field: 'fontFamily', value: font }); document.documentElement.style.setProperty('--font-family-ui', `'${font}', system-ui, sans-serif`); await api.setFontFamily(font) }
+  const handleMonoFontFamilyChange = async (font: string) => { dispatch({ type: 'SET_FIELD', field: 'monoFontFamily', value: font }); document.documentElement.style.setProperty('--font-family-mono', `'${font}', Consolas, monospace`); await api.setMonoFontFamily(font) }
 
-  const handleFontFamilyChange = async (font: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'fontFamily', value: font })
-    document.documentElement.style.setProperty(
-      '--font-family-ui',
-      `'${font}', system-ui, sans-serif`
-    )
-    await api.setFontFamily(font)
-  }
-
-  const handleMonoFontFamilyChange = async (font: string) => {
-    dispatch({ type: 'SET_FIELD', field: 'monoFontFamily', value: font })
-    document.documentElement.style.setProperty(
-      '--font-family-mono',
-      `'${font}', Consolas, monospace`
-    )
-    await api.setMonoFontFamily(font)
-  }
-
-  const uiFonts = systemFonts.filter(isUIFont)
-
-  const monoFonts = systemFonts.filter(isMonoFont)
-
-  const brandColors: ColorDef[] = [
-    {
-      id: 'accent-color',
-      label: 'Accent',
-      hint: 'Buttons, links, focus indicators',
-      value: accentColor,
-      onChange: handleAccentChange,
-    },
-    {
-      id: 'font-color',
-      label: 'Font',
-      hint: 'Primary text and content',
-      value: fontColor,
-      onChange: handleFontColorChange,
-    },
-  ]
-
-  const backgroundColors: ColorDef[] = [
-    {
-      id: 'bg-primary',
-      label: 'Primary',
-      hint: 'Main content area',
-      value: bgPrimary,
-      onChange: handleBgPrimaryChange,
-    },
-    {
-      id: 'bg-secondary',
-      label: 'Secondary',
-      hint: 'Sidebar & cards',
-      value: bgSecondary,
-      onChange: handleBgSecondaryChange,
-    },
-  ]
-
-  const statusBarColors: ColorDef[] = [
-    {
-      id: 'statusbar-bg',
-      label: 'Background',
-      hint: 'Status bar background',
-      value: statusBarBg,
-      onChange: handleStatusBarBgChange,
-    },
-    {
-      id: 'statusbar-fg',
-      label: 'Text',
-      hint: 'Status bar text & icons',
-      value: statusBarFg,
-      onChange: handleStatusBarFgChange,
-    },
-  ]
+  const uiFonts = systemFonts.filter(isUIFont); const monoFonts = systemFonts.filter(isMonoFont)
+  const brandColors: ColorDef[] = [{ id: 'accent-color', label: 'Accent', hint: 'Buttons, links, focus indicators', value: accentColor, onChange: handleAccentChange }, { id: 'font-color', label: 'Font', hint: 'Primary text and content', value: fontColor, onChange: handleFontColorChange }]
+  const backgroundColors: ColorDef[] = [{ id: 'bg-primary', label: 'Primary', hint: 'Main content area', value: bgPrimary, onChange: handleBgPrimaryChange }, { id: 'bg-secondary', label: 'Secondary', hint: 'Sidebar & cards', value: bgSecondary, onChange: handleBgSecondaryChange }]
+  const statusBarColors: ColorDef[] = [{ id: 'statusbar-bg', label: 'Background', hint: 'Status bar background', value: statusBarBg, onChange: handleStatusBarBgChange }, { id: 'statusbar-fg', label: 'Text', hint: 'Status bar text & icons', value: statusBarFg, onChange: handleStatusBarFgChange }]
 
   return (
     <div className="settings-page">
-      <div className="settings-page-header">
-        <h2>Appearance</h2>
-        <p className="settings-page-description">
-          Customize how Buddy looks and feels. All changes apply immediately.
-        </p>
-      </div>
-
+      <div className="settings-page-header"><h2>Appearance</h2><p className="settings-page-description">Customize how Buddy looks and feels. All changes apply immediately.</p></div>
       <div className="settings-page-content">
         <AppearanceThemeSection theme={theme} onThemeChange={handleThemeChange} />
-        <AppearanceColorsSection
-          brandColors={brandColors}
-          backgroundColors={backgroundColors}
-          statusBarColors={statusBarColors}
-          onReset={handleResetColors}
-        />
-        <AppearanceFontsSection
-          fontFamily={fontFamily}
-          monoFontFamily={monoFontFamily}
-          uiFonts={uiFonts}
-          monoFonts={monoFonts}
-          fontsLoading={fontsLoading}
-          onFontFamilyChange={handleFontFamilyChange}
-          onMonoFontFamilyChange={handleMonoFontFamilyChange}
-        />
+        <AppearanceColorsSection brandColors={brandColors} backgroundColors={backgroundColors} statusBarColors={statusBarColors} onReset={handleResetColors} />
+        <AppearanceFontsSection fontFamily={fontFamily} monoFontFamily={monoFontFamily} uiFonts={uiFonts} monoFonts={monoFonts} fontsLoading={fontsLoading} onFontFamilyChange={handleFontFamilyChange} onMonoFontFamilyChange={handleMonoFontFamilyChange} />
       </div>
     </div>
   )

@@ -1,5 +1,20 @@
 import { useEffect, type RefObject } from 'react'
 
+function isExternalProtocol(href: string): boolean {
+  return /^(https?:|mailto:)/i.test(href)
+}
+
+function findContainedAnchor(
+  target: HTMLElement,
+  container: HTMLElement
+): HTMLAnchorElement | null {
+  const anchor = target.closest('a')
+  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
+    return null
+  }
+  return anchor
+}
+
 function resolveOpenableExternalHref(
   target: EventTarget | null,
   container: HTMLElement
@@ -8,13 +23,9 @@ function resolveOpenableExternalHref(
     return null
   }
 
-  const anchor = target.closest('a')
-  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
-    return null
-  }
-
-  const href = anchor.getAttribute('href')?.trim()
-  if (!href || !/^(https?:|mailto:)/i.test(href)) {
+  const anchor = findContainedAnchor(target, container)
+  const href = anchor?.getAttribute('href')?.trim()
+  if (!href || !isExternalProtocol(href)) {
     return null
   }
 

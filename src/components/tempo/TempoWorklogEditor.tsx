@@ -233,6 +233,13 @@ function buildWorklogPayload(
   }
 }
 
+function hasExistingAccount(
+  worklog: TempoWorklog | null,
+  defaultAccountKey: string | undefined
+): boolean {
+  return Boolean(worklog?.accountKey || defaultAccountKey)
+}
+
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
@@ -260,7 +267,7 @@ export function TempoWorklogEditor({
   const descriptionId = useId()
   const accountId = useId()
   const requestVersionRef = useRef(0)
-  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey || defaultAccountKey))
+  const userPickedAccountRef = useRef(hasExistingAccount(worklog, defaultAccountKey))
 
   // Fetch all accounts on mount
   useEffect(() => {

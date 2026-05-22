@@ -34,6 +34,34 @@ function resolveSpawnDimensions(dims: { cols?: number; rows?: number } | undefin
   }
 }
 
+function isSameDimensions(
+  last: { cols: number; rows: number } | null,
+  cols: number,
+  rows: number
+): boolean {
+  return Boolean(last && last.cols === cols && last.rows === rows)
+}
+
+function formatSpawnError(error: string | undefined): string {
+  return `\r\n\x1b[31mFailed to spawn terminal: ${error || 'Unknown error'}\x1b[0m`
+}
+
+function notifyCwdChange(
+  cwdValue: string | undefined,
+  handler: ((cwd: string) => void) | undefined
+): void {
+  if (cwdValue) handler?.(cwdValue)
+}
+
+function applyAttachResult(
+  term: Terminal,
+  result: { buffer?: string; cursor?: number; alive?: boolean }
+): number | undefined {
+  if (result.buffer) term.write(result.buffer)
+  if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+  return result.cursor ?? undefined
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -158,9 +186,8 @@ export function TerminalPane({
         return
       }
 
-      if (result.buffer) term.write(result.buffer)
-      if (result.cursor != null) attachCursorRef.current = result.cursor
-      if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+      const cursor = applyAttachResult(term, result)
+      if (cursor != null) attachCursorRef.current = cursor
     }
 
     async function initSession() {
@@ -206,15 +233,13 @@ export function TerminalPane({
       }
 
       if (!result.success || !result.sessionId) {
-        term.writeln(
-          `\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`
-        )
+        term.writeln(formatSpawnError(result.error))
         return
       }
 
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
-      if (result.cwd) onCwdChange?.(result.cwd)
+      notifyCwdChange(result.cwd, onCwdChange)
 
       await applyAttachBuffer(term, result.sessionId)
     }
@@ -224,11 +249,9 @@ export function TerminalPane({
       /* v8 ignore start */
       if (!active) return
       /* v8 ignore stop */
-      if (attachResult.success && attachResult.buffer) {
-        term.write(attachResult.buffer)
-      }
-      if (attachResult.success && attachResult.cursor != null) {
-        attachCursorRef.current = attachResult.cursor
+      if (attachResult.success) {
+        const cursor = applyAttachResult(term, attachResult)
+        if (cursor != null) attachCursorRef.current = cursor
       }
     }
 
@@ -297,8 +320,7 @@ export function TerminalPane({
       if (!d) return
       if (!d.cols || !d.rows) return
       /* v8 ignore stop */
-      const last = lastResizeRef.current
-      if (last && last.cols === d.cols && last.rows === d.rows) return
+      if (isSameDimensions(lastResizeRef.current, d.cols, d.rows)) return
       lastResizeRef.current = { cols: d.cols, rows: d.rows }
       window.terminal.resize(sid, d.cols, d.rows)
     }

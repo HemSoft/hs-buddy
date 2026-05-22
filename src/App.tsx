@@ -192,131 +192,29 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
-
-  const {
-    activeTabId,
-    activeViewId,
-    closeAllTabs,
-    closeOtherTabs,
-    closeTab,
-    closeTabsToRight,
-    closeView,
-    openTab,
-    setActiveTabId,
-    tabs,
-  } = useAppTabs({
-    onViewOpen: trackViewOpen,
-  })
-  const {
-    assistantOpen,
-    handlePaneChange,
-    loaded: layoutLoaded,
-    paneSizes,
-    toggleAssistant,
-  } = useAppLayout()
-  const {
-    terminalOpen,
-    terminalTabs,
-    activeTerminalTabId,
-    toggleTerminal,
-    addTerminalTab,
-    closeTerminalTab,
-    selectTerminalTab,
-    renameTerminalTab,
-    setTerminalTabColor,
-    reorderTerminalTabs,
-    updateTabCwd,
-    panelHeight,
-    onPanelResize,
-    loaded: terminalLoaded,
-  } = useTerminalPanel(activeViewId)
+  const { activeTabId, activeViewId, closeAllTabs, closeOtherTabs, closeTab, closeTabsToRight, closeView, openTab, setActiveTabId, tabs } = useAppTabs({ onViewOpen: trackViewOpen })
+  const { assistantOpen, handlePaneChange, loaded: layoutLoaded, paneSizes, toggleAssistant } = useAppLayout()
+  const { terminalOpen, terminalTabs, activeTerminalTabId, toggleTerminal, addTerminalTab, closeTerminalTab, selectTerminalTab, renameTerminalTab, setTerminalTabColor, reorderTerminalTabs, updateTabCwd, panelHeight, onPanelResize, loaded: terminalLoaded } = useTerminalPanel(activeViewId)
   const activeGitHubAccount = useActiveGitHubAccount()
-
-  const {
-    handlePRCountChange,
-    handleSectionSelect,
-    handleItemSelect,
-    handleHomeClick,
-    handleToggleTerminal,
-    handleAddTerminalTab,
-    handleOpenFolderView,
-  } = useAppCallbacks(
-    openTab,
-    setSelectedSection,
-    toggleTerminal,
-    activeViewId,
-    addTerminalTab,
-    setPRCount
-  )
-
+  const { handlePRCountChange, handleSectionSelect, handleItemSelect, handleHomeClick, handleToggleTerminal, handleAddTerminalTab, handleOpenFolderView } = useAppCallbacks(openTab, setSelectedSection, toggleTerminal, activeViewId, addTerminalTab, setPRCount)
   const assistantContext = useAssistantContext(activeViewId)
-  const showLoading = isAppLoading(
-    layoutLoaded,
-    terminalLoaded,
-    migrationLoading,
-    migrationComplete
-  )
-  const { scheduleCount, jobCount, totalPRCount, defaultSizes, assistantPaneSize } =
-    computeAppMetrics(schedules, jobs, prCounts, assistantOpen, paneSizes)
+  const showLoading = isAppLoading(layoutLoaded, terminalLoaded, migrationLoading, migrationComplete)
+  const { scheduleCount, jobCount, totalPRCount, defaultSizes, assistantPaneSize } = computeAppMetrics(schedules, jobs, prCounts, assistantOpen, paneSizes)
 
   return (
     <div className="app">
-      <TitleBar
-        assistantOpen={assistantOpen}
-        onToggleAssistant={toggleAssistant}
-        terminalOpen={terminalOpen}
-        onToggleTerminal={handleToggleTerminal}
-      />
+      <TitleBar assistantOpen={assistantOpen} onToggleAssistant={toggleAssistant} terminalOpen={terminalOpen} onToggleTerminal={handleToggleTerminal} />
       {showLoading ? (
         <AppLoadingState />
       ) : (
         <div className="app-body">
-          <ActivityBar
-            selectedSection={selectedSection}
-            onSectionSelect={handleSectionSelect}
-            isDashboardActive={activeViewId === DASHBOARD_VIEW_ID}
-            onHomeClick={handleHomeClick}
-          />
+          <ActivityBar selectedSection={selectedSection} onSectionSelect={handleSectionSelect} isDashboardActive={activeViewId === DASHBOARD_VIEW_ID} onHomeClick={handleHomeClick} />
           <Allotment onChange={handlePaneChange} defaultSizes={defaultSizes}>
             <Allotment.Pane minSize={200}>
-              <SidebarPanel
-                section={selectedSection}
-                onItemSelect={handleItemSelect}
-                selectedItem={activeViewId}
-                counts={prCounts}
-                badgeProgress={badgeProgress}
-              />
+              <SidebarPanel section={selectedSection} onItemSelect={handleItemSelect} selectedItem={activeViewId} counts={prCounts} badgeProgress={badgeProgress} />
             </Allotment.Pane>
             <Allotment.Pane minSize={400}>
-              <AppMainContent
-                tabs={tabs}
-                activeTabId={activeTabId}
-                setActiveTabId={setActiveTabId}
-                closeTab={closeTab}
-                closeOtherTabs={closeOtherTabs}
-                closeTabsToRight={closeTabsToRight}
-                closeAllTabs={closeAllTabs}
-                onPanelResize={onPanelResize}
-                activeViewId={activeViewId}
-                prCounts={prCounts}
-                handleItemSelect={handleItemSelect}
-                handleSectionSelect={handleSectionSelect}
-                openTab={openTab}
-                closeView={closeView}
-                handlePRCountChange={handlePRCountChange}
-                terminalOpen={terminalOpen}
-                panelHeight={panelHeight}
-                terminalTabs={terminalTabs}
-                activeTerminalTabId={activeTerminalTabId}
-                selectTerminalTab={selectTerminalTab}
-                closeTerminalTab={closeTerminalTab}
-                handleAddTerminalTab={handleAddTerminalTab}
-                renameTerminalTab={renameTerminalTab}
-                setTerminalTabColor={setTerminalTabColor}
-                reorderTerminalTabs={reorderTerminalTabs}
-                updateTabCwd={updateTabCwd}
-                handleOpenFolderView={handleOpenFolderView}
-              />
+              <AppMainContent tabs={tabs} activeTabId={activeTabId} setActiveTabId={setActiveTabId} closeTab={closeTab} closeOtherTabs={closeOtherTabs} closeTabsToRight={closeTabsToRight} closeAllTabs={closeAllTabs} onPanelResize={onPanelResize} activeViewId={activeViewId} prCounts={prCounts} handleItemSelect={handleItemSelect} handleSectionSelect={handleSectionSelect} openTab={openTab} closeView={closeView} handlePRCountChange={handlePRCountChange} terminalOpen={terminalOpen} panelHeight={panelHeight} terminalTabs={terminalTabs} activeTerminalTabId={activeTerminalTabId} selectTerminalTab={selectTerminalTab} closeTerminalTab={closeTerminalTab} handleAddTerminalTab={handleAddTerminalTab} renameTerminalTab={renameTerminalTab} setTerminalTabColor={setTerminalTabColor} reorderTerminalTabs={reorderTerminalTabs} updateTabCwd={updateTabCwd} handleOpenFolderView={handleOpenFolderView} />
             </Allotment.Pane>
             {assistantOpen && (
               <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
@@ -326,15 +224,7 @@ function App() {
           </Allotment>
         </div>
       )}
-      <StatusBar
-        prCount={totalPRCount}
-        scheduleCount={scheduleCount}
-        jobCount={jobCount}
-        activeGitHubAccount={activeGitHubAccount}
-        backgroundStatus={backgroundStatus}
-        onNavigate={openTab}
-        assistantActive={assistantOpen}
-      />
+      <StatusBar prCount={totalPRCount} scheduleCount={scheduleCount} jobCount={jobCount} activeGitHubAccount={activeGitHubAccount} backgroundStatus={backgroundStatus} onNavigate={openTab} assistantActive={assistantOpen} />
     </div>
   )
 }

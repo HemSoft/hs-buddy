@@ -727,100 +727,24 @@ interface OrgTreeNodeProps extends Omit<OrgRepoTreeProps, 'uniqueOrgs'> {
   org: string
 }
 
-function OrgExpandedBody({
-  org,
-  isLoading,
-  teams,
-  isTeamGroupExpanded,
-  isTeamGroupLoading,
-  expandedTeams,
-  teamMembers,
-  loadingTeamMembers,
-  members,
-  contributorCounts,
-  favoriteUsers,
-  isUserGroupExpanded,
-  isUserGroupLoading,
-  filteredRepos,
-  showBookmarkedOnly,
-  bookmarkedRepoKeys,
-  expandedRepos,
-  expandedRepoIssueGroups,
-  expandedRepoIssueStateGroups,
-  expandedRepoPRGroups,
-  expandedRepoPRStateGroups,
-  expandedRepoCommitGroups,
-  expandedPRNodes,
-  repoCounts,
-  loadingRepoCounts,
-  repoPrTreeData,
-  repoCommitTreeData,
-  repoIssueTreeData,
-  loadingRepoCommits,
-  loadingRepoPRs,
-  loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
-  ralphRuns,
-  expandedRalphGroups,
-  selectedItem,
-  refreshTick,
-  onToggleOrgTeamGroup,
-  onToggleTeam,
-  onToggleOrgUserGroup,
-  onToggleRepo,
-  onToggleRepoIssueGroup,
-  onToggleRepoIssueStateGroup,
-  onToggleRepoPRGroup,
-  onToggleRepoPRStateGroup,
-  onToggleRepoCommitGroup,
-  onToggleSFLGroup,
-  onToggleRalphGroup,
-  onTogglePRNode,
-  onItemSelect,
-  onContextMenu,
-  onBookmarkToggle,
-  onUserContextMenu,
-}: {
-  org: string
-  isLoading: boolean
-  teams: OrgTeam[]
-  isTeamGroupExpanded: boolean
-  isTeamGroupLoading: boolean
-  expandedTeams: ReadonlySet<string>
-  teamMembers: Record<string, TeamMember[]>
-  loadingTeamMembers: ReadonlySet<string>
-  members: OrgMember[]
-  contributorCounts: Record<string, number>
-  favoriteUsers: ReadonlySet<string>
-  isUserGroupExpanded: boolean
-  isUserGroupLoading: boolean
-  filteredRepos: OrgRepo[]
-  showBookmarkedOnly: boolean
-  bookmarkedRepoKeys: ReadonlySet<string>
-  expandedRepos: ReadonlySet<string>
-  expandedRepoIssueGroups: ReadonlySet<string>
-  expandedRepoIssueStateGroups: ReadonlySet<string>
-  expandedRepoPRGroups: ReadonlySet<string>
-  expandedRepoPRStateGroups: ReadonlySet<string>
-  expandedRepoCommitGroups: ReadonlySet<string>
-  expandedPRNodes: ReadonlySet<string>
-  repoCounts: Record<string, RepoCounts>
-  loadingRepoCounts: ReadonlySet<string>
-  repoPrTreeData: Record<string, PullRequest[]>
-  repoCommitTreeData: Record<string, RepoCommit[]>
-  repoIssueTreeData: Record<string, RepoIssue[]>
-  loadingRepoCommits: ReadonlySet<string>
-  loadingRepoPRs: ReadonlySet<string>
-  loadingRepoIssues: ReadonlySet<string>
-  sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: ReadonlySet<string>
-  expandedSFLGroups: ReadonlySet<string>
-  ralphRuns: RalphRunInfo[]
-  expandedRalphGroups: ReadonlySet<string>
-  selectedItem: string | null
-  refreshTick: number
+interface OrgExpandedBodyProps {
+  org: string; isLoading: boolean; teams: OrgTeam[]; isTeamGroupExpanded: boolean
+  isTeamGroupLoading: boolean; expandedTeams: ReadonlySet<string>
+  teamMembers: Record<string, TeamMember[]>; loadingTeamMembers: ReadonlySet<string>
+  members: OrgMember[]; contributorCounts: Record<string, number>
+  favoriteUsers: ReadonlySet<string>; isUserGroupExpanded: boolean; isUserGroupLoading: boolean
+  filteredRepos: OrgRepo[]; showBookmarkedOnly: boolean; bookmarkedRepoKeys: ReadonlySet<string>
+  expandedRepos: ReadonlySet<string>; expandedRepoIssueGroups: ReadonlySet<string>
+  expandedRepoIssueStateGroups: ReadonlySet<string>; expandedRepoPRGroups: ReadonlySet<string>
+  expandedRepoPRStateGroups: ReadonlySet<string>; expandedRepoCommitGroups: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>; repoCounts: Record<string, RepoCounts>
+  loadingRepoCounts: ReadonlySet<string>; repoPrTreeData: Record<string, PullRequest[]>
+  repoCommitTreeData: Record<string, RepoCommit[]>; repoIssueTreeData: Record<string, RepoIssue[]>
+  loadingRepoCommits: ReadonlySet<string>; loadingRepoPRs: ReadonlySet<string>
+  loadingRepoIssues: ReadonlySet<string>; sflStatusData: Record<string, SFLRepoStatus>
+  loadingSFLStatus: ReadonlySet<string>; expandedSFLGroups: ReadonlySet<string>
+  ralphRuns: RalphRunInfo[]; expandedRalphGroups: ReadonlySet<string>
+  selectedItem: string | null; refreshTick: number
   onToggleOrgTeamGroup: (org: string) => void
   onToggleTeam: (org: string, teamSlug: string) => void
   onToggleOrgUserGroup: (org: string) => void
@@ -837,93 +761,24 @@ function OrgExpandedBody({
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
   onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
-}) {
+}
+
+function OrgExpandedBody(props: OrgExpandedBodyProps) {
+  const { org, isLoading, teams, isTeamGroupExpanded, isTeamGroupLoading, expandedTeams, teamMembers, loadingTeamMembers, members, contributorCounts, favoriteUsers, isUserGroupExpanded, isUserGroupLoading, filteredRepos, showBookmarkedOnly, bookmarkedRepoKeys, expandedRepos, expandedRepoIssueGroups, expandedRepoIssueStateGroups, expandedRepoPRGroups, expandedRepoPRStateGroups, expandedRepoCommitGroups, expandedPRNodes, repoCounts, loadingRepoCounts, repoPrTreeData, repoCommitTreeData, repoIssueTreeData, loadingRepoCommits, loadingRepoPRs, loadingRepoIssues, sflStatusData, loadingSFLStatus, expandedSFLGroups, ralphRuns, expandedRalphGroups, selectedItem, refreshTick, onToggleOrgTeamGroup, onToggleTeam, onToggleOrgUserGroup, onToggleRepo, onToggleRepoIssueGroup, onToggleRepoIssueStateGroup, onToggleRepoPRGroup, onToggleRepoPRStateGroup, onToggleRepoCommitGroup, onToggleSFLGroup, onToggleRalphGroup, onTogglePRNode, onItemSelect, onContextMenu, onBookmarkToggle, onUserContextMenu } = props
+
   if (isLoading) {
-    return (
-      <div className="sidebar-org-repos">
-        <div className="sidebar-item sidebar-item-empty">
-          <Loader2 size={12} className="spin" />
-          <span className="sidebar-item-label">Loading repos...</span>
-        </div>
-      </div>
-    )
+    return (<div className="sidebar-org-repos"><div className="sidebar-item sidebar-item-empty"><Loader2 size={12} className="spin" /><span className="sidebar-item-label">Loading repos...</span></div></div>)
   }
 
   return (
     <div className="sidebar-org-repos">
-      <OrgTeamsSection
-        org={org}
-        teams={teams}
-        isExpanded={isTeamGroupExpanded}
-        isLoading={isTeamGroupLoading}
-        expandedTeams={expandedTeams}
-        teamMembers={teamMembers}
-        loadingTeamMembers={loadingTeamMembers}
-        selectedItem={selectedItem}
-        onToggleOrgTeamGroup={onToggleOrgTeamGroup}
-        onToggleTeam={onToggleTeam}
-        onItemSelect={onItemSelect}
-      />
-      <OrgUsersSection
-        org={org}
-        members={members}
-        contributorCounts={contributorCounts}
-        favoriteUsers={favoriteUsers}
-        isExpanded={isUserGroupExpanded}
-        isLoading={isUserGroupLoading}
-        selectedItem={selectedItem}
-        onToggleOrgUserGroup={onToggleOrgUserGroup}
-        onItemSelect={onItemSelect}
-        onUserContextMenu={onUserContextMenu}
-      />
+      <OrgTeamsSection org={org} teams={teams} isExpanded={isTeamGroupExpanded} isLoading={isTeamGroupLoading} expandedTeams={expandedTeams} teamMembers={teamMembers} loadingTeamMembers={loadingTeamMembers} selectedItem={selectedItem} onToggleOrgTeamGroup={onToggleOrgTeamGroup} onToggleTeam={onToggleTeam} onItemSelect={onItemSelect} />
+      <OrgUsersSection org={org} members={members} contributorCounts={contributorCounts} favoriteUsers={favoriteUsers} isExpanded={isUserGroupExpanded} isLoading={isUserGroupLoading} selectedItem={selectedItem} onToggleOrgUserGroup={onToggleOrgUserGroup} onItemSelect={onItemSelect} onUserContextMenu={onUserContextMenu} />
       {filteredRepos.length === 0 ? (
-        <div className="sidebar-item sidebar-item-empty">
-          <span className="sidebar-item-label">
-            {showBookmarkedOnly ? 'No bookmarked repos' : 'No repos found'}
-          </span>
-        </div>
+        <div className="sidebar-item sidebar-item-empty"><span className="sidebar-item-label">{showBookmarkedOnly ? 'No bookmarked repos' : 'No repos found'}</span></div>
       ) : (
         filteredRepos.map(repo => (
-          <RepoNode
-            key={repo.name}
-            org={org}
-            repo={repo}
-            bookmarkedRepoKeys={bookmarkedRepoKeys}
-            expandedRepos={expandedRepos}
-            expandedRepoIssueGroups={expandedRepoIssueGroups}
-            expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
-            expandedRepoPRGroups={expandedRepoPRGroups}
-            expandedRepoPRStateGroups={expandedRepoPRStateGroups}
-            expandedRepoCommitGroups={expandedRepoCommitGroups}
-            expandedPRNodes={expandedPRNodes}
-            repoCounts={repoCounts}
-            loadingRepoCounts={loadingRepoCounts}
-            repoPrTreeData={repoPrTreeData}
-            repoCommitTreeData={repoCommitTreeData}
-            repoIssueTreeData={repoIssueTreeData}
-            loadingRepoCommits={loadingRepoCommits}
-            loadingRepoPRs={loadingRepoPRs}
-            loadingRepoIssues={loadingRepoIssues}
-            sflStatusData={sflStatusData}
-            loadingSFLStatus={loadingSFLStatus}
-            expandedSFLGroups={expandedSFLGroups}
-            ralphRuns={ralphRuns}
-            expandedRalphGroups={expandedRalphGroups}
-            selectedItem={selectedItem}
-            refreshTick={refreshTick}
-            onToggleRepo={onToggleRepo}
-            onToggleRepoIssueGroup={onToggleRepoIssueGroup}
-            onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
-            onToggleRepoPRGroup={onToggleRepoPRGroup}
-            onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
-            onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-            onToggleSFLGroup={onToggleSFLGroup}
-            onToggleRalphGroup={onToggleRalphGroup}
-            onTogglePRNode={onTogglePRNode}
-            onItemSelect={onItemSelect}
-            onContextMenu={onContextMenu}
-            onBookmarkToggle={onBookmarkToggle}
-          />
+          <RepoNode key={repo.name} org={org} repo={repo} bookmarkedRepoKeys={bookmarkedRepoKeys} expandedRepos={expandedRepos} expandedRepoIssueGroups={expandedRepoIssueGroups} expandedRepoIssueStateGroups={expandedRepoIssueStateGroups} expandedRepoPRGroups={expandedRepoPRGroups} expandedRepoPRStateGroups={expandedRepoPRStateGroups} expandedRepoCommitGroups={expandedRepoCommitGroups} expandedPRNodes={expandedPRNodes} repoCounts={repoCounts} loadingRepoCounts={loadingRepoCounts} repoPrTreeData={repoPrTreeData} repoCommitTreeData={repoCommitTreeData} repoIssueTreeData={repoIssueTreeData} loadingRepoCommits={loadingRepoCommits} loadingRepoPRs={loadingRepoPRs} loadingRepoIssues={loadingRepoIssues} sflStatusData={sflStatusData} loadingSFLStatus={loadingSFLStatus} expandedSFLGroups={expandedSFLGroups} ralphRuns={ralphRuns} expandedRalphGroups={expandedRalphGroups} selectedItem={selectedItem} refreshTick={refreshTick} onToggleRepo={onToggleRepo} onToggleRepoIssueGroup={onToggleRepoIssueGroup} onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup} onToggleRepoPRGroup={onToggleRepoPRGroup} onToggleRepoPRStateGroup={onToggleRepoPRStateGroup} onToggleRepoCommitGroup={onToggleRepoCommitGroup} onToggleSFLGroup={onToggleSFLGroup} onToggleRalphGroup={onToggleRalphGroup} onTogglePRNode={onTogglePRNode} onItemSelect={onItemSelect} onContextMenu={onContextMenu} onBookmarkToggle={onBookmarkToggle} />
         ))
       )}
     </div>
@@ -975,64 +830,18 @@ function filterTreeRepos(
 }
 
 function OrgTreeNode({
-  org,
-  orgRepos,
-  orgMeta,
-  orgMembers,
-  loadingOrgMembers,
-  expandedOrgUserGroups,
-  orgTeams,
-  loadingOrgTeams,
-  expandedOrgTeamGroups,
-  expandedTeams,
-  teamMembers,
-  loadingTeamMembers,
-  orgContributorCounts,
-  loadingOrgs,
-  expandedOrgs,
-  expandedRepos,
-  expandedRepoIssueGroups,
-  expandedRepoIssueStateGroups,
-  expandedRepoPRGroups,
-  expandedRepoPRStateGroups,
-  expandedRepoCommitGroups,
-  expandedPRNodes,
-  repoCounts,
-  loadingRepoCounts,
-  repoPrTreeData,
-  repoCommitTreeData,
-  repoIssueTreeData,
-  loadingRepoCommits,
-  loadingRepoPRs,
-  loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
-  ralphRuns,
-  expandedRalphGroups,
-  bookmarkedRepoKeys,
-  showBookmarkedOnly,
-  selectedItem,
-  refreshTick,
-  onToggleOrg,
-  onToggleOrgUserGroup,
-  onToggleOrgTeamGroup,
-  onToggleTeam,
-  onToggleRepo,
-  onToggleRepoIssueGroup,
-  onToggleRepoIssueStateGroup,
-  onToggleRepoPRGroup,
-  onToggleRepoPRStateGroup,
-  onToggleRepoCommitGroup,
-  onToggleSFLGroup,
-  onToggleRalphGroup,
-  onTogglePRNode,
-  onItemSelect,
-  onContextMenu,
-  onBookmarkToggle,
-  favoriteUsers,
-  onUserContextMenu,
-  refreshIndicators,
+  org, orgRepos, orgMeta, orgMembers, loadingOrgMembers, expandedOrgUserGroups, orgTeams,
+  loadingOrgTeams, expandedOrgTeamGroups, expandedTeams, teamMembers, loadingTeamMembers,
+  orgContributorCounts, loadingOrgs, expandedOrgs, expandedRepos, expandedRepoIssueGroups,
+  expandedRepoIssueStateGroups, expandedRepoPRGroups, expandedRepoPRStateGroups,
+  expandedRepoCommitGroups, expandedPRNodes, repoCounts, loadingRepoCounts, repoPrTreeData,
+  repoCommitTreeData, repoIssueTreeData, loadingRepoCommits, loadingRepoPRs, loadingRepoIssues,
+  sflStatusData, loadingSFLStatus, expandedSFLGroups, ralphRuns, expandedRalphGroups,
+  bookmarkedRepoKeys, showBookmarkedOnly, selectedItem, refreshTick, onToggleOrg,
+  onToggleOrgUserGroup, onToggleOrgTeamGroup, onToggleTeam, onToggleRepo, onToggleRepoIssueGroup,
+  onToggleRepoIssueStateGroup, onToggleRepoPRGroup, onToggleRepoPRStateGroup,
+  onToggleRepoCommitGroup, onToggleSFLGroup, onToggleRalphGroup, onTogglePRNode, onItemSelect,
+  onContextMenu, onBookmarkToggle, favoriteUsers, onUserContextMenu, refreshIndicators,
 }: OrgTreeNodeProps) {
   const isOrgExpanded = expandedOrgs.has(org)
   const isLoading = loadingOrgs.has(org)
@@ -1050,77 +859,10 @@ function OrgTreeNode({
 
   return (
     <div className="sidebar-org-group">
-      <OrgHeader
-        org={org}
-        isOrgExpanded={isOrgExpanded}
-        isOrgSelected={isOrgSelected}
-        isLoading={isLoading}
-        meta={meta}
-        repoCount={repos.length}
-        visibleRepoCount={filteredRepos.length}
-        showBookmarkedOnly={showBookmarkedOnly}
-        refreshIndicators={refreshIndicators}
-        onToggleOrg={onToggleOrg}
-        onItemSelect={onItemSelect}
-      />
+      <OrgHeader org={org} isOrgExpanded={isOrgExpanded} isOrgSelected={isOrgSelected} isLoading={isLoading} meta={meta} repoCount={repos.length} visibleRepoCount={filteredRepos.length} showBookmarkedOnly={showBookmarkedOnly} refreshIndicators={refreshIndicators} onToggleOrg={onToggleOrg} onItemSelect={onItemSelect} />
       <OrgMetaLabel meta={meta} isLoading={isLoading} />
       {isOrgExpanded && (
-        <OrgExpandedBody
-          org={org}
-          isLoading={isLoading}
-          teams={teams}
-          isTeamGroupExpanded={isTeamGroupExpanded}
-          isTeamGroupLoading={isTeamGroupLoading}
-          expandedTeams={expandedTeams}
-          teamMembers={teamMembers}
-          loadingTeamMembers={loadingTeamMembers}
-          members={members}
-          contributorCounts={contributorCounts}
-          favoriteUsers={favoriteUsers}
-          isUserGroupExpanded={isUserGroupExpanded}
-          isUserGroupLoading={isUserGroupLoading}
-          filteredRepos={filteredRepos}
-          showBookmarkedOnly={showBookmarkedOnly}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          expandedRepos={expandedRepos}
-          expandedRepoIssueGroups={expandedRepoIssueGroups}
-          expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
-          expandedRepoPRGroups={expandedRepoPRGroups}
-          expandedRepoPRStateGroups={expandedRepoPRStateGroups}
-          expandedRepoCommitGroups={expandedRepoCommitGroups}
-          expandedPRNodes={expandedPRNodes}
-          repoCounts={repoCounts}
-          loadingRepoCounts={loadingRepoCounts}
-          repoPrTreeData={repoPrTreeData}
-          repoCommitTreeData={repoCommitTreeData}
-          repoIssueTreeData={repoIssueTreeData}
-          loadingRepoCommits={loadingRepoCommits}
-          loadingRepoPRs={loadingRepoPRs}
-          loadingRepoIssues={loadingRepoIssues}
-          sflStatusData={sflStatusData}
-          loadingSFLStatus={loadingSFLStatus}
-          expandedSFLGroups={expandedSFLGroups}
-          ralphRuns={ralphRuns}
-          expandedRalphGroups={expandedRalphGroups}
-          selectedItem={selectedItem}
-          refreshTick={refreshTick}
-          onToggleOrgTeamGroup={onToggleOrgTeamGroup}
-          onToggleTeam={onToggleTeam}
-          onToggleOrgUserGroup={onToggleOrgUserGroup}
-          onToggleRepo={onToggleRepo}
-          onToggleRepoIssueGroup={onToggleRepoIssueGroup}
-          onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
-          onToggleRepoPRGroup={onToggleRepoPRGroup}
-          onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
-          onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-          onToggleSFLGroup={onToggleSFLGroup}
-          onToggleRalphGroup={onToggleRalphGroup}
-          onTogglePRNode={onTogglePRNode}
-          onItemSelect={onItemSelect}
-          onContextMenu={onContextMenu}
-          onBookmarkToggle={onBookmarkToggle}
-          onUserContextMenu={onUserContextMenu}
-        />
+        <OrgExpandedBody org={org} isLoading={isLoading} teams={teams} isTeamGroupExpanded={isTeamGroupExpanded} isTeamGroupLoading={isTeamGroupLoading} expandedTeams={expandedTeams} teamMembers={teamMembers} loadingTeamMembers={loadingTeamMembers} members={members} contributorCounts={contributorCounts} favoriteUsers={favoriteUsers} isUserGroupExpanded={isUserGroupExpanded} isUserGroupLoading={isUserGroupLoading} filteredRepos={filteredRepos} showBookmarkedOnly={showBookmarkedOnly} bookmarkedRepoKeys={bookmarkedRepoKeys} expandedRepos={expandedRepos} expandedRepoIssueGroups={expandedRepoIssueGroups} expandedRepoIssueStateGroups={expandedRepoIssueStateGroups} expandedRepoPRGroups={expandedRepoPRGroups} expandedRepoPRStateGroups={expandedRepoPRStateGroups} expandedRepoCommitGroups={expandedRepoCommitGroups} expandedPRNodes={expandedPRNodes} repoCounts={repoCounts} loadingRepoCounts={loadingRepoCounts} repoPrTreeData={repoPrTreeData} repoCommitTreeData={repoCommitTreeData} repoIssueTreeData={repoIssueTreeData} loadingRepoCommits={loadingRepoCommits} loadingRepoPRs={loadingRepoPRs} loadingRepoIssues={loadingRepoIssues} sflStatusData={sflStatusData} loadingSFLStatus={loadingSFLStatus} expandedSFLGroups={expandedSFLGroups} ralphRuns={ralphRuns} expandedRalphGroups={expandedRalphGroups} selectedItem={selectedItem} refreshTick={refreshTick} onToggleOrgTeamGroup={onToggleOrgTeamGroup} onToggleTeam={onToggleTeam} onToggleOrgUserGroup={onToggleOrgUserGroup} onToggleRepo={onToggleRepo} onToggleRepoIssueGroup={onToggleRepoIssueGroup} onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup} onToggleRepoPRGroup={onToggleRepoPRGroup} onToggleRepoPRStateGroup={onToggleRepoPRStateGroup} onToggleRepoCommitGroup={onToggleRepoCommitGroup} onToggleSFLGroup={onToggleSFLGroup} onToggleRalphGroup={onToggleRalphGroup} onTogglePRNode={onTogglePRNode} onItemSelect={onItemSelect} onContextMenu={onContextMenu} onBookmarkToggle={onBookmarkToggle} onUserContextMenu={onUserContextMenu} />
       )}
     </div>
   )

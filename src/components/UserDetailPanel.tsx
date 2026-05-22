@@ -200,11 +200,17 @@ function MetaItem({
   )
 }
 
+function StatusMessageItem({ message, emoji }: { message?: string; emoji?: string }) {
+  if (!message) return null
+  return (
+    <span className="ud-meta-item ud-meta-status">
+      {emoji ?? '💬'} {message}
+    </span>
+  )
+}
+
 function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
   const teamsLabel = activity.teams?.join(', ') || null
-  const joinedDate = activity.createdAt
-    ? `GitHub since ${new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
-    : null
 
   return (
     <div className="ud-profile-meta">
@@ -213,13 +219,16 @@ function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
       {/* v8 ignore stop */}
       <MetaItem icon={Building2} value={activity.company} />
       <MetaItem icon={MapPin} value={activity.location} />
-      <MetaItem icon={Clock} value={joinedDate} />
+      <MetaItem
+        icon={Clock}
+        value={
+          activity.createdAt
+            ? `GitHub since ${new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+            : null
+        }
+      />
       {activity.bio && <p className="ud-meta-bio">{activity.bio}</p>}
-      {activity.statusMessage && (
-        <span className="ud-meta-item ud-meta-status">
-          {activity.statusEmoji ?? '💬'} {activity.statusMessage}
-        </span>
-      )}
+      <StatusMessageItem message={activity.statusMessage} emoji={activity.statusEmoji} />
     </div>
   )
 }
@@ -582,6 +591,15 @@ function useUserDetailDerivedData(
   return { profileUrl, avatarUrl, commitsToday }
 }
 
+function UserErrorBanner({ phase, error }: { phase: string; error: string | null }) {
+  if (phase !== 'error' || !error) return null
+  return <div className="ud-error-banner">Failed to load activity: {error}</div>
+}
+
+function getActiveRepos(activity: UserActivitySummary | null | undefined): string[] {
+  return activity?.activeRepos ?? []
+}
+
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const {
     activity,
@@ -621,9 +639,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       />
 
       {/* ── Error ── */}
-      {activityPhase === 'error' && activityError && (
-        <div className="ud-error-banner">Failed to load activity: {activityError}</div>
-      )}
+      <UserErrorBanner phase={activityPhase} error={activityError} />
 
       {/* ── Contribution Graph ── */}
       <UserContributionSection activity={activity} activityPhase={activityPhase} />
@@ -635,7 +651,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       <UserActivitySection activity={activity} activityPhase={activityPhase} />
 
       {/* ── Active Repos ── */}
-      <UserRepositoriesSection activeRepos={readyActivity?.activeRepos ?? []} />
+      <UserRepositoriesSection activeRepos={getActiveRepos(readyActivity)} />
 
       {/* ── Copilot Premium Requests ── */}
       <section className="ud-section">

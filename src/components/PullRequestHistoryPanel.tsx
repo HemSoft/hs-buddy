@@ -388,6 +388,32 @@ function CommitsFocusView({
   )
 }
 
+function PRHistoryFocusContent({
+  focus,
+  history,
+  pr,
+  activeTimeline,
+}: {
+  focus: string
+  history: PRHistorySummary
+  pr: PullRequestHistoryPanelProps['pr']
+  activeTimeline: PRHistorySummary['timeline']
+}) {
+  if (focus === 'commits') {
+    return <CommitsFocusView history={history} activeTimeline={activeTimeline} focus={focus} />
+  }
+  return (
+    <>
+      <PullRequestHistoryOverview history={history} pr={pr} />
+      <PullRequestReviewers history={history} />
+      <div className="pr-history-footer">
+        <Clock size={13} />
+        Thread status is derived from GitHub review thread resolution/outdated state.
+      </div>
+    </>
+  )
+}
+
 function PRHistoryContent({
   pr,
   embedded,
@@ -406,26 +432,25 @@ function PRHistoryContent({
   return (
     <div className={`pr-history-container ${embedded ? 'embedded' : ''}`}>
       <PullRequestHistoryHeader pr={pr} embedded={embedded} />
-
-      {focus === 'all' && (
-        <>
-          <PullRequestHistoryOverview history={history} pr={pr} />
-          <PullRequestReviewers history={history} />
-        </>
-      )}
-
-      {focus === 'commits' && (
-        <CommitsFocusView history={history} activeTimeline={activeTimeline} focus={focus} />
-      )}
-
-      {focus === 'all' && (
-        <div className="pr-history-footer">
-          <Clock size={13} />
-          Thread status is derived from GitHub review thread resolution/outdated state.
-        </div>
-      )}
+      <PRHistoryFocusContent
+        focus={focus}
+        history={history}
+        pr={pr}
+        activeTimeline={activeTimeline}
+      />
     </div>
   )
+}
+
+function getHistoryPanelState(
+  loading: boolean,
+  error: string | null,
+  history: PRHistorySummary | null
+): 'loading' | 'error' | 'ready' {
+  if (loading && !history) return 'loading'
+  if (error) return 'error'
+  if (!history) return 'loading'
+  return 'ready'
 }
 
 export function PullRequestHistoryPanel({
@@ -435,25 +460,22 @@ export function PullRequestHistoryPanel({
   onLoaded,
 }: PullRequestHistoryPanelProps) {
   const { loading, error, history, fetchHistory } = usePRHistoryFetch(pr, onLoaded)
+  const state = getHistoryPanelState(loading, error, history)
 
-  if (loading && !history) {
-    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
-  }
-
-  if (error) {
+  if (state === 'error') {
     return (
       <PanelErrorState
         title="Failed to load PR history"
-        error={error}
+        error={error!}
         onRetry={fetchHistory}
         className="pr-history-error"
       />
     )
   }
 
-  if (!history) {
+  if (state !== 'ready') {
     return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
   }
 
-  return <PRHistoryContent pr={pr} embedded={embedded} focus={focus} history={history} />
+  return <PRHistoryContent pr={pr} embedded={embedded} focus={focus} history={history!} />
 }

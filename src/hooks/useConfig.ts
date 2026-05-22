@@ -142,6 +142,54 @@ function shouldInitializeAccounts(
   )
 }
 
+function resolvePRFallback(config: AppConfig) {
+  if (!config.pr)
+    return {
+      refreshInterval: 15,
+      autoRefresh: false,
+      recentlyMergedDays: DEFAULT_RECENTLY_MERGED_DAYS,
+    }
+  return {
+    refreshInterval: config.pr.refreshInterval ?? 15,
+    autoRefresh: config.pr.autoRefresh ?? false,
+    recentlyMergedDays: config.pr.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+  }
+}
+
+function resolvePRValues(s: {
+  refreshInterval?: number | null
+  autoRefresh?: boolean | null
+  recentlyMergedDays?: number | null
+}) {
+  return {
+    refreshInterval: s.refreshInterval ?? 15,
+    autoRefresh: s.autoRefresh ?? false,
+    recentlyMergedDays: s.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+  }
+}
+
+function resolveCopilotFallback(config: AppConfig) {
+  if (!config.copilot)
+    return { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
+  return {
+    ghAccount: config.copilot.ghAccount ?? '',
+    model: config.copilot.model ?? 'claude-sonnet-4.5',
+    premiumModel: config.copilot.premiumModel ?? 'claude-opus-4.6',
+  }
+}
+
+function resolveCopilotValues(s: {
+  ghAccount?: string | null
+  model?: string | null
+  premiumModel?: string | null
+}) {
+  return {
+    ghAccount: s.ghAccount ?? '',
+    model: s.model ?? 'claude-sonnet-4.5',
+    premiumModel: s.premiumModel ?? 'claude-opus-4.6',
+  }
+}
+
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const { create, update, remove } = useGitHubAccountMutations()
@@ -194,8 +242,10 @@ export function useGitHubAccounts() {
 
   const loading = !convexConnected && !fallbackLoaded
 
-  const findAccount = (username: string, org: string) =>
-    convexAccounts?.find(account => account.username === username && account.org === org)
+  const findAccount = (username: string, org: string) => {
+    if (!convexAccounts) return undefined
+    return convexAccounts.find(account => account.username === username && account.org === org)
+  }
 
   const addAccount = async (account: GitHubAccount) => {
     try {
@@ -251,11 +301,7 @@ export function usePRSettings() {
   const { updatePR } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.pr,
-    config => ({
-      refreshInterval: config.pr?.refreshInterval ?? 15,
-      autoRefresh: config.pr?.autoRefresh ?? false,
-      recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
-    }),
+    resolvePRFallback,
     {
       refreshInterval: 15,
       autoRefresh: true,
@@ -275,10 +321,11 @@ export function usePRSettings() {
     await updatePR({ recentlyMergedDays: days })
   }
 
+  const { refreshInterval, autoRefresh, recentlyMergedDays } = resolvePRValues(currentSettings)
   return {
-    refreshInterval: currentSettings.refreshInterval ?? 15,
-    autoRefresh: currentSettings.autoRefresh ?? false,
-    recentlyMergedDays: currentSettings.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+    refreshInterval,
+    autoRefresh,
+    recentlyMergedDays,
     loading,
     setRefreshInterval,
     setAutoRefresh,
@@ -295,11 +342,7 @@ export function useCopilotSettings() {
   const { updateCopilot } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.copilot ?? undefined,
-    config => ({
-      ghAccount: config.copilot?.ghAccount ?? '',
-      model: config.copilot?.model ?? 'claude-sonnet-4.5',
-      premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
-    }),
+    resolveCopilotFallback,
     { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
   )
 
@@ -315,10 +358,11 @@ export function useCopilotSettings() {
     await updateCopilot({ premiumModel })
   }
 
+  const { ghAccount, model, premiumModel } = resolveCopilotValues(currentSettings)
   return {
-    ghAccount: currentSettings.ghAccount ?? '',
-    model: currentSettings.model ?? 'claude-sonnet-4.5',
-    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
+    ghAccount,
+    model,
+    premiumModel,
     loading,
     setGhAccount,
     setModel,

@@ -40,18 +40,25 @@ function isNonEmptyString(val: unknown): val is string {
   return typeof val === 'string' && val.length > 0
 }
 
+function isValidPRNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isInteger(val) && val > 0
+}
+
 function extractPRMetadata(metadata: Record<string, unknown> | null) {
   if (!metadata) return null
   const { org, repo, prNumber } = metadata
-  if (
-    !isNonEmptyString(org) ||
-    !isNonEmptyString(repo) ||
-    typeof prNumber !== 'number' ||
-    !Number.isInteger(prNumber) ||
-    prNumber <= 0
-  )
-    return null
+  if (!isNonEmptyString(org) || !isNonEmptyString(repo) || !isValidPRNumber(prNumber)) return null
   return { org, repo, prNumber }
+}
+
+function buildPublishBody(resultText: string, model?: string | null): string {
+  const label = model || 'AI'
+  return `## 🤖 AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy — ${label} review*`
+}
+
+function getResultTitle(category: string | undefined, prTitle: unknown): string {
+  if (category === 'pr-review' && prTitle) return `PR Review: ${prTitle as string}`
+  return 'Copilot Result'
 }
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
@@ -126,7 +133,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
+      const body = buildPublishBody(result.result, result.model)
       await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
     } catch (err: unknown) {
@@ -199,11 +206,7 @@ function ResultHeader({
       <div className="copilot-result-header-left">
         <Sparkles size={20} className="copilot-header-icon" />
         <div className="copilot-result-title-info">
-          <h2>
-            {result.category === 'pr-review' && metadata?.prTitle
-              ? `PR Review: ${metadata.prTitle as string}`
-              : 'Copilot Result'}
-          </h2>
+          <h2>{getResultTitle(result.category, metadata?.prTitle)}</h2>
           <div className="copilot-result-meta">
             <span className="copilot-result-status">
               {getStatusIcon(result.status, 16, 'status')}
@@ -233,6 +236,11 @@ function ResultHeader({
   )
 }
 
+function PublishButtonIcon({ publishing }: { publishing: boolean }) {
+  if (publishing) return <Loader2 size={14} className="spin" />
+  return <MessageSquareShare size={14} />
+}
+
 function PublishButton({
   canPublish,
   published,
@@ -252,7 +260,7 @@ function PublishButton({
       disabled={publishing || published}
       title={published ? 'Published to PR' : 'Publish review as PR comment'}
     >
-      {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+      <PublishButtonIcon publishing={publishing} />
       {published && <span className="copied-badge">✓</span>}
     </button>
   )
@@ -365,6 +373,11 @@ function FailedContent({ error, onRetry }: { error?: string | null; onRetry: () 
   )
 }
 
+function CompletedContent({ resultText }: { resultText?: string | null }) {
+  if (!resultText) return null
+  return <MarkdownContent source={resultText} className="copilot-result-markdown" />
+}
+
 function ResultContent({
   contentRef,
   status,
@@ -382,9 +395,7 @@ function ResultContent({
     <div ref={contentRef} className="copilot-result-content">
       {status === 'pending' && <PendingContent />}
       {status === 'running' && <RunningContent />}
-      {status === 'completed' && resultText && (
-        <MarkdownContent source={resultText} className="copilot-result-markdown" />
-      )}
+      {status === 'completed' && <CompletedContent resultText={resultText} />}
       {status === 'failed' && <FailedContent error={error} onRetry={onRetry} />}
     </div>
   )

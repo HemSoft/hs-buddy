@@ -20,7 +20,7 @@ import {
 import type { OrgRepo, RepoCommit, RepoCounts, RepoIssue } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus } from '../../../types/sflStatus'
+import type { SFLRepoStatus, SFLOverallStatus, SFLWorkflowInfo } from '../../../types/sflStatus'
 import type { RalphRunInfo, RalphRunStatus } from '../../../types/ralph'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { formatUpdatedAge } from './orgRepoTreeUtils'
@@ -73,11 +73,16 @@ interface RepoNodeProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
+function DisclosureChevron({ expanded }: { expanded: boolean }) {
+  if (expanded) return <ChevronDown size={12} />
+  return <ChevronRight size={12} />
+}
+
 function DisclosureIcons({ expanded }: { expanded: boolean }) {
   return (
     <>
       <span className="sidebar-item-chevron">
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <DisclosureChevron expanded={expanded} />
       </span>
       <span className="sidebar-item-icon">
         {expanded ? <FolderOpen size={12} /> : <Folder size={12} />}
@@ -113,14 +118,29 @@ function RepoHeader({
       <DisclosureIcons expanded={isRepoExpanded} />
       <span className="sidebar-item-label">{repo.name}</span>
       {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
-      <button
-        className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+      <BookmarkButton
+        isBookmarked={isBookmarked}
         onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
-        title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
-      >
-        <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
-      </button>
+      />
     </div>
+  )
+}
+
+function BookmarkButton({
+  isBookmarked,
+  onClick,
+}: {
+  isBookmarked: boolean
+  onClick: (e: React.MouseEvent) => void
+}) {
+  return (
+    <button
+      className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+      onClick={onClick}
+      title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+    >
+      <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
+    </button>
   )
 }
 
@@ -278,7 +298,7 @@ function RepoCommitsSection({
             handleItemKeyDown(event, () => onToggleRepoCommitGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <GitCommit size={12} />
@@ -487,7 +507,7 @@ function IssueStateGroup({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Icon size={11} />
@@ -581,7 +601,7 @@ function RepoIssuesSection({
             handleItemKeyDown(event, () => onToggleRepoIssueGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <CircleDot size={12} />
@@ -798,7 +818,7 @@ function PRStateGroup({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Icon size={11} />
@@ -911,7 +931,7 @@ function RepoPullRequestsSection({
             handleItemKeyDown(event, () => onToggleRepoPRGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <GitPullRequest size={12} />
@@ -979,6 +999,49 @@ interface RepoSFLSectionProps {
   onToggleSFLGroup: (org: string, repoName: string) => void
 }
 
+function SFLStatusBadge({
+  isLoading,
+  overallStatus,
+}: {
+  isLoading: boolean
+  overallStatus: SFLOverallStatus
+}) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  return (
+    <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[overallStatus]}>
+      {sflOverallStatusIcon(overallStatus)}
+    </span>
+  )
+}
+
+function sflWorkflowTitle(
+  name: string,
+  state: string,
+  latestRun: SFLWorkflowInfo['latestRun']
+): string {
+  const stateLabel = state === 'active' ? 'enabled' : 'disabled'
+  if (!latestRun) return `${name} — ${stateLabel}`
+  const runLabel = latestRun.conclusion || latestRun.status
+  return `${name} — ${stateLabel}, last: ${runLabel}`
+}
+
+function SFLWorkflowItem({ wf }: { wf: SFLWorkflowInfo }) {
+  const conclusion = wf.latestRun?.conclusion ?? null
+  return (
+    <div
+      key={wf.id}
+      className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
+      /* v8 ignore start */
+      title={sflWorkflowTitle(wf.name, wf.state, wf.latestRun)}
+      /* v8 ignore stop */
+    >
+      {sflWorkflowStateIcon(wf.state, conclusion)}
+      <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
+      {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
+    </div>
+  )
+}
+
 function RepoSFLSection({
   org,
   repoName,
@@ -1020,24 +1083,15 @@ function RepoSFLSection({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggleSFLGroup(org, repoName), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Activity size={12} />
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
         {/* v8 ignore start */}
-        {isLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : (
-          /* v8 ignore stop */
-          <span
-            className="sidebar-sfl-status-badge"
-            title={SFL_STATUS_LABELS[sflStatus.overallStatus]}
-          >
-            {sflOverallStatusIcon(sflStatus.overallStatus)}
-          </span>
-        )}
+        <SFLStatusBadge isLoading={isLoading} overallStatus={sflStatus.overallStatus} />
+        {/* v8 ignore stop */}
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-sfl-tree">
@@ -1050,17 +1104,7 @@ function RepoSFLSection({
               <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
             </div>
             {sflStatus.workflows.map(wf => (
-              <div
-                key={wf.id}
-                className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
-                /* v8 ignore start */
-                title={`${wf.name} — ${wf.state === 'active' ? 'enabled' : 'disabled'}${wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''}`}
-                /* v8 ignore stop */
-              >
-                {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
-                <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
-                {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
-              </div>
+              <SFLWorkflowItem key={wf.id} wf={wf} />
             ))}
           </div>
         </div>
@@ -1140,7 +1184,7 @@ function RepoRalphSection({
             handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <RefreshCw size={12} />
@@ -1273,7 +1317,7 @@ function renderPRNode(
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onTogglePRNode(prViewId), true)}
         >
-          {expandedPRNodes.has(prViewId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={expandedPRNodes.has(prViewId)} />
         </span>
         <span className="sidebar-item-icon">{icon}</span>
         <span className="sidebar-item-label">

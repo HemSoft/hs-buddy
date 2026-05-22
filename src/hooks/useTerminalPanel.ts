@@ -34,6 +34,25 @@ function resolveViewRepoContext(activeViewId: string | null | undefined): RepoCo
   return activeViewId ? getRepoContextFromViewId(activeViewId) : null
 }
 
+function isFulfilledBoolean(
+  r: PromiseSettledResult<unknown>
+): r is PromiseFulfilledResult<boolean> {
+  return r.status === 'fulfilled' && typeof r.value === 'boolean'
+}
+
+function isFulfilledNumber(r: PromiseSettledResult<unknown>): r is PromiseFulfilledResult<number> {
+  return r.status === 'fulfilled' && typeof r.value === 'number'
+}
+
+async function tryResolveRepoPath(owner: string, repo: string): Promise<string> {
+  try {
+    const result = await window.terminal.resolveRepoPath(owner, repo)
+    return result.path || ''
+  } catch {
+    return ''
+  }
+}
+
 interface UseTerminalPanelReturn {
   terminalOpen: boolean
   terminalTabs: TerminalTab[]
@@ -82,10 +101,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       /* v8 ignore start */
       if (cancelled) return
       /* v8 ignore stop */
-      if (openResult.status === 'fulfilled' && typeof openResult.value === 'boolean') {
+      if (isFulfilledBoolean(openResult)) {
         setTerminalOpen(openResult.value)
       }
-      if (heightResult.status === 'fulfilled' && typeof heightResult.value === 'number') {
+      if (isFulfilledNumber(heightResult)) {
         setPanelHeight(clampPanelHeight(heightResult.value))
       }
       setLoaded(true)
@@ -116,9 +135,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
 
   // Restore terminal tabs from Convex on first load (only if no tabs exist yet)
   const restoredRef = useRef(false)
+  const savedTabCount = settings?.terminalTabs?.length ?? 0
   /* v8 ignore start -- tab restoration from Convex; hard to unit-test due to async isolation */
   useEffect(() => {
-    if (restoredRef.current || !loaded || !settings?.terminalTabs?.length) return
+    if (restoredRef.current || !loaded || !savedTabCount) return
     if (terminalTabsRef.current.length > 0) return
     restoredRef.current = true
 
@@ -127,16 +147,11 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       const restored: TerminalTab[] = await Promise.all(
         savedTabs.map(async saved => {
           let cwd = saved.cwd
-          // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
           if (saved.repoSlug) {
             const [owner, repo] = saved.repoSlug.split('/')
             if (owner && repo) {
-              try {
-                const result = await window.terminal.resolveRepoPath(owner, repo)
-                if (result.path) cwd = result.path
-              } catch (_: unknown) {
-                /* keep saved cwd */
-              }
+              const resolved = await tryResolveRepoPath(owner, repo)
+              if (resolved) cwd = resolved
             }
           }
           return {
@@ -207,13 +222,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       }
 
       title = repoContext.repo
-
-      try {
-        const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
-        cwd = result.path || ''
-      } catch (_: unknown) {
-        // Fall back to empty cwd if path resolution fails
-      }
+      cwd = await tryResolveRepoPath(repoContext.owner, repoContext.repo)
     } else {
       title = `Terminal ${nextTabNumber++}`
     }

@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch 6 - reduce complexity in TerminalPane, usePRListData, pr-detail, RepoNode, PullRequestDetailPanel, BookmarksSidebar, ralphService, BookmarkDialog, UserDetailPanel, OrgBudgetsSection, AutomationSidebarSection
 - Reduce CRAP scores batch 7 - complexity 229→172
 - Reduce CRAP scores batch 8 - hooks and handlers
+- Reduce CRAP scores batch 9 - smaller hooks
 
 ### Added
 

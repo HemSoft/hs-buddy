@@ -230,6 +230,18 @@ function isDayUnfinished(dailyTotals: Record<string, number>, dateKey: string): 
   return (dailyTotals[dateKey] || 0) < 8
 }
 
+function updateFirstDayTrackers(
+  firstWorkday: string | null,
+  firstUnfinished: string | null,
+  dateKey: string,
+  dailyTotals: Record<string, number>
+): { firstWorkday: string | null; firstUnfinished: string | null } {
+  return {
+    firstWorkday: firstWorkday ?? dateKey,
+    firstUnfinished: firstUnfinished ?? (isDayUnfinished(dailyTotals, dateKey) ? dateKey : null),
+  }
+}
+
 function findFirstEmptyDay(
   issueKeys: Set<string>,
   start: Date,
@@ -245,8 +257,9 @@ function findFirstEmptyDay(
     if (!isWorkday(date, holidaySet)) continue
 
     const dateKey = formatDateKey(date)
-    if (!firstWorkday) firstWorkday = dateKey
-    if (!firstUnfinished && isDayUnfinished(dailyTotals, dateKey)) firstUnfinished = dateKey
+    const updated = updateFirstDayTrackers(firstWorkday, firstUnfinished, dateKey, dailyTotals)
+    firstWorkday = updated.firstWorkday
+    firstUnfinished = updated.firstUnfinished
 
     if (!dayHasIssue(hoursByIssueDate, dateKey, issueKeys)) {
       return { dateKey, firstWorkday, firstUnfinished }
@@ -384,6 +397,11 @@ function useTempoDashboardHandlers(
   return { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay }
 }
 
+function isNewerWorklog(w: TempoWorklog, existing: { latestWorklog: TempoWorklog }): boolean {
+  if (w.date > existing.latestWorklog.date) return true
+  return w.date === existing.latestWorklog.date && w.startTime > existing.latestWorklog.startTime
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- exported for testing
 export function buildTemplateFromWorklogs(worklogs: TempoWorklog[]): {
   issues: TempoIssueSummary[]
@@ -392,11 +410,7 @@ export function buildTemplateFromWorklogs(worklogs: TempoWorklog[]): {
   const seen = new Map<string, { summary: string; latestWorklog: TempoWorklog }>()
   for (const w of worklogs) {
     const existing = seen.get(w.issueKey)
-    if (
-      !existing ||
-      w.date > existing.latestWorklog.date ||
-      (w.date === existing.latestWorklog.date && w.startTime > existing.latestWorklog.startTime)
-    ) {
+    if (!existing || isNewerWorklog(w, existing)) {
       seen.set(w.issueKey, { summary: w.issueSummary, latestWorklog: w })
     }
   }

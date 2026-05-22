@@ -40,17 +40,14 @@ function isNonEmptyString(val: unknown): val is string {
   return typeof val === 'string' && val.length > 0
 }
 
+function isValidPRNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
 function extractPRMetadata(metadata: Record<string, unknown> | null) {
   if (!metadata) return null
   const { org, repo, prNumber } = metadata
-  if (
-    !isNonEmptyString(org) ||
-    !isNonEmptyString(repo) ||
-    typeof prNumber !== 'number' ||
-    !Number.isInteger(prNumber) ||
-    prNumber <= 0
-  )
-    return null
+  if (!isNonEmptyString(org) || !isNonEmptyString(repo) || !isValidPRNumber(prNumber)) return null
   return { org, repo, prNumber }
 }
 
@@ -233,6 +230,14 @@ function ResultHeader({
   )
 }
 
+function resolvePublishButtonProps(published: boolean, publishing: boolean) {
+  return {
+    className: `copilot-action-btn${published ? ' success' : ''}`,
+    disabled: publishing || published,
+    title: published ? 'Published to PR' : 'Publish review as PR comment',
+  }
+}
+
 function PublishButton({
   canPublish,
   published,
@@ -245,13 +250,9 @@ function PublishButton({
   onPublish: () => void
 }) {
   if (!canPublish) return null
+  const { className, disabled, title } = resolvePublishButtonProps(published, publishing)
   return (
-    <button
-      className={`copilot-action-btn${published ? ' success' : ''}`}
-      onClick={onPublish}
-      disabled={publishing || published}
-      title={published ? 'Published to PR' : 'Publish review as PR comment'}
-    >
+    <button className={className} onClick={onPublish} disabled={disabled} title={title}>
       {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
       {published && <span className="copied-badge">✓</span>}
     </button>

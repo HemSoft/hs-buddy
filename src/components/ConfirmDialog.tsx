@@ -16,6 +16,53 @@ function confirmBtnClassName(variant: 'default' | 'danger'): string {
   return `confirm-dialog-btn ${variant === 'danger' ? 'confirm-dialog-btn-danger' : 'confirm-dialog-btn-confirm'}`
 }
 
+function useConfirmDialogEffects(
+  confirmButtonRef: React.RefObject<HTMLButtonElement | null>,
+  onCancel: () => void
+) {
+  useEffect(() => {
+    confirmButtonRef.current?.focus()
+  }, [confirmButtonRef])
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [onCancel])
+}
+
+function ConfirmDialogBody({
+  variant,
+  message,
+  description,
+}: {
+  variant: 'default' | 'danger'
+  message: string
+  description?: string
+}) {
+  return (
+    <div className="confirm-dialog-body">
+      {variant === 'danger' && (
+        <div className="confirm-dialog-icon">
+          <AlertTriangle size={20} />
+        </div>
+      )}
+      <div className="confirm-dialog-text">
+        <p id="confirm-dialog-title" className="confirm-dialog-message">
+          {message}
+        </p>
+        {description && (
+          <p id="confirm-dialog-desc" className="confirm-dialog-description">
+            {description}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ConfirmDialog({
   message,
   description,
@@ -26,22 +73,13 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const confirmButtonRef = useRef<HTMLButtonElement>(null)
-
-  useEffect(() => {
-    confirmButtonRef.current?.focus()
-  }, [])
-
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel()
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [onCancel])
+  useConfirmDialogEffects(confirmButtonRef, onCancel)
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === e.currentTarget) onCancel()
   }
+
+  const descId = description ? 'confirm-dialog-desc' : undefined
 
   return (
     <div className="confirm-dialog-overlay" role="presentation" onClick={handleOverlayClick}>
@@ -50,25 +88,9 @@ export function ConfirmDialog({
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirm-dialog-title"
-        aria-describedby={description ? 'confirm-dialog-desc' : undefined}
+        aria-describedby={descId}
       >
-        <div className="confirm-dialog-body">
-          {variant === 'danger' && (
-            <div className="confirm-dialog-icon">
-              <AlertTriangle size={20} />
-            </div>
-          )}
-          <div className="confirm-dialog-text">
-            <p id="confirm-dialog-title" className="confirm-dialog-message">
-              {message}
-            </p>
-            {description && (
-              <p id="confirm-dialog-desc" className="confirm-dialog-description">
-                {description}
-              </p>
-            )}
-          </div>
-        </div>
+        <ConfirmDialogBody variant={variant} message={message} description={description} />
         <div className="confirm-dialog-actions">
           <button className="confirm-dialog-btn confirm-dialog-btn-cancel" onClick={onCancel}>
             {cancelLabel}

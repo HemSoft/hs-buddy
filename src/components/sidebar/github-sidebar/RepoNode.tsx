@@ -101,6 +101,8 @@ function RepoHeader({
   onToggleRepo: (org: string, repoName: string) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }) {
+  const repoTitle = repo.description ?? repo.fullName
+
   return (
     <div
       className="sidebar-item sidebar-item-disclosure sidebar-repo-item"
@@ -108,7 +110,7 @@ function RepoHeader({
       tabIndex={0}
       onClick={() => onToggleRepo(org, repo.name)}
       onKeyDown={event => handleItemKeyDown(event, () => onToggleRepo(org, repo.name))}
-      title={repo.description || repo.fullName}
+      title={repoTitle}
     >
       <DisclosureIcons expanded={isRepoExpanded} />
       <span className="sidebar-item-label">{repo.name}</span>
@@ -357,6 +359,14 @@ function IssueListItems({
   )
 }
 
+function isCountBadgeLoading(
+  isOpen: boolean,
+  isLoading: boolean,
+  isCountLoading: boolean
+): boolean {
+  return isOpen ? isLoading || isCountLoading : isLoading
+}
+
 function IssueStateCountBadge({
   isOpen,
   isLoading,
@@ -368,12 +378,9 @@ function IssueStateCountBadge({
   isCountLoading: boolean
   counts?: RepoCounts
 }) {
-  if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
-    return null
-  }
-  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (isCountBadgeLoading(isOpen, isLoading, isCountLoading))
+    return <Loader2 size={10} className="spin" />
+  if (isOpen && counts) return <span className="sidebar-item-count">{counts.issues}</span>
   return null
 }
 
@@ -538,14 +545,14 @@ function RepoIssuesSection({
 }: RepoIssuesSectionProps) {
   const issuesViewId = `repo-issues:${repoKey}`
   const closedIssuesViewId = `repo-issues-closed:${repoKey}`
-  const openIssuesKey = `open:${repoKey}`
-  const closedIssuesKey = `closed:${repoKey}`
   const openIssueGroupKey = `${repoKey}:open`
   const closedIssueGroupKey = `${repoKey}:closed`
   const isExpanded = expandedRepoIssueGroups.has(repoKey)
   /* v8 ignore start */
   const isSelected = selectedItem === issuesViewId && !isExpanded
   /* v8 ignore stop */
+  const openIssues = repoIssueTreeData[`open:${repoKey}`] ?? []
+  const closedIssues = repoIssueTreeData[`closed:${repoKey}`] ?? []
 
   return (
     <>
@@ -602,7 +609,7 @@ function RepoIssuesSection({
               isLoading={isOpenIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[openIssuesKey] || []}
+              issues={openIssues}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -617,7 +624,7 @@ function RepoIssuesSection({
               isLoading={isClosedIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[closedIssuesKey] || []}
+              issues={closedIssues}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -664,13 +671,10 @@ function PRStateCountBadge({
   counts?: RepoCounts
   closedCount: number
 }) {
-  if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
-    return null
-  }
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
+  if (isCountBadgeLoading(isOpen, isLoading, isCountLoading))
+    return <Loader2 size={10} className="spin" />
+  if (isOpen && counts) return <span className="sidebar-item-count">{counts.prs}</span>
+  if (!isOpen && closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
   return null
 }
 
@@ -868,14 +872,14 @@ function RepoPullRequestsSection({
 }: RepoPullRequestsSectionProps) {
   const prsViewId = `repo-prs:${repoKey}`
   const closedPrsViewId = `repo-prs-closed:${repoKey}`
-  const openPrsKey = `open:${repoKey}`
-  const closedPrsKey = `closed:${repoKey}`
   const openPrGroupKey = `${repoKey}:open`
   const closedPrGroupKey = `${repoKey}:closed`
   const isExpanded = expandedRepoPRGroups.has(repoKey)
   /* v8 ignore start */
   const isSelected = selectedItem === prsViewId && !isExpanded
   /* v8 ignore stop */
+  const openPrs = repoPrTreeData[`open:${repoKey}`] ?? []
+  const closedPrs = repoPrTreeData[`closed:${repoKey}`] ?? []
 
   return (
     <>
@@ -937,7 +941,7 @@ function RepoPullRequestsSection({
               isLoading={isOpenPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[openPrsKey] || []}
+              prs={openPrs}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -955,7 +959,7 @@ function RepoPullRequestsSection({
               isLoading={isClosedPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[closedPrsKey] || []}
+              prs={closedPrs}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -967,6 +971,21 @@ function RepoPullRequestsSection({
         </div>
       )}
     </>
+  )
+}
+
+function SFLLoadingPlaceholder({ isLoading }: { isLoading: boolean }) {
+  if (!isLoading) return null
+  return (
+    <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
+      <span className="sidebar-item-chevron">
+        <Loader2 size={12} className="spin" />
+      </span>
+      <span className="sidebar-item-icon">
+        <Activity size={12} />
+      </span>
+      <span className="sidebar-item-label">SFL Loop</span>
+    </div>
   )
 }
 
@@ -988,17 +1007,7 @@ function RepoSFLSection({
   onToggleSFLGroup,
 }: RepoSFLSectionProps) {
   if (!sflStatus?.isSFLEnabled) {
-    return isLoading ? (
-      <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
-        <span className="sidebar-item-chevron">
-          <Loader2 size={12} className="spin" />
-        </span>
-        <span className="sidebar-item-icon">
-          <Activity size={12} />
-        </span>
-        <span className="sidebar-item-label">SFL Loop</span>
-      </div>
-    ) : null
+    return <SFLLoadingPlaceholder isLoading={isLoading} />
   }
 
   return (
@@ -1050,22 +1059,46 @@ function RepoSFLSection({
               <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
             </div>
             {sflStatus.workflows.map(wf => (
-              <div
-                key={wf.id}
-                className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
-                /* v8 ignore start */
-                title={`${wf.name} — ${wf.state === 'active' ? 'enabled' : 'disabled'}${wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''}`}
-                /* v8 ignore stop */
-              >
-                {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
-                <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
-                {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
-              </div>
+              <SFLWorkflowItem key={wf.id} wf={wf} />
             ))}
           </div>
         </div>
       )}
     </>
+  )
+}
+
+function buildSFLWorkflowTitle(wf: {
+  name: string
+  state: string
+  latestRun?: { conclusion: string | null; status: string } | null
+}): string {
+  const stateLabel = wf.state === 'active' ? 'enabled' : 'disabled'
+  const runSuffix = wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''
+  return `${wf.name} — ${stateLabel}${runSuffix}`
+}
+
+function SFLWorkflowItem({
+  wf,
+}: {
+  wf: {
+    id: number
+    name: string
+    state: string
+    latestRun?: { conclusion: string | null; status: string } | null
+  }
+}) {
+  return (
+    <div
+      className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
+      /* v8 ignore start */
+      title={buildSFLWorkflowTitle(wf)}
+      /* v8 ignore stop */
+    >
+      {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
+      <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
+      {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
+    </div>
   )
 }
 
@@ -1244,17 +1277,21 @@ function renderPRNode(
   closed = false
 ) {
   const prViewId = createPRDetailViewId(pr)
-  const isSelected = selectedItem === prViewId
+  const isExpanded = expandedPRNodes.has(prViewId)
   const icon = closed ? <CheckCircle2 size={12} /> : <GitPullRequest size={12} />
+  const statePrefix = closed ? 'closed' : 'open'
 
   return (
     <div
-      key={`${closed ? 'closed' : 'open'}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
+      key={`${statePrefix}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
       className="sidebar-pr-group sidebar-pr-children"
     >
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+        className={sidebarItemClass(
+          'sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item',
+          selectedItem === prViewId
+        )}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -1273,7 +1310,7 @@ function renderPRNode(
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onTogglePRNode(prViewId), true)}
         >
-          {expandedPRNodes.has(prViewId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
         </span>
         <span className="sidebar-item-icon">{icon}</span>
         <span className="sidebar-item-label">
@@ -1281,31 +1318,45 @@ function renderPRNode(
         </span>
         <span className="sidebar-pr-meta">{pr.repository}</span>
       </div>
-      {expandedPRNodes.has(prViewId) && (
-        <div className="sidebar-pr-children">
-          {prSubNodes.map(node => {
-            const childViewId = createPRDetailViewId(pr, node.key)
-            const Icon = sectionIcons[node.key]
-            return (
-              <div
-                key={childViewId}
-                /* v8 ignore start */
-                className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
-                /* v8 ignore stop */
-                role="button"
-                tabIndex={0}
-                onClick={() => onItemSelect(childViewId)}
-                onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
-              >
-                <span className="sidebar-item-icon">
-                  <Icon size={12} />
-                </span>
-                <span className="sidebar-item-label">{node.label}</span>
-              </div>
-            )
-          })}
-        </div>
+      {isExpanded && (
+        <PRNodeChildren pr={pr} selectedItem={selectedItem} onItemSelect={onItemSelect} />
       )}
+    </div>
+  )
+}
+
+function PRNodeChildren({
+  pr,
+  selectedItem,
+  onItemSelect,
+}: {
+  pr: PullRequest
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+}) {
+  return (
+    <div className="sidebar-pr-children">
+      {prSubNodes.map(node => {
+        const childViewId = createPRDetailViewId(pr, node.key)
+        const Icon = sectionIcons[node.key]
+        return (
+          <div
+            key={childViewId}
+            /* v8 ignore start */
+            className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+            /* v8 ignore stop */
+            role="button"
+            tabIndex={0}
+            onClick={() => onItemSelect(childViewId)}
+            onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
+          >
+            <span className="sidebar-item-icon">
+              <Icon size={12} />
+            </span>
+            <span className="sidebar-item-label">{node.label}</span>
+          </div>
+        )
+      })}
     </div>
   )
 }

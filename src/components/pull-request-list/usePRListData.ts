@@ -96,13 +96,167 @@ function getFreshCachedData(mode: string, refreshInterval: number): PullRequest[
   /* v8 ignore stop */
 }
 
-function hasExistingPRData(
-  prs: PullRequest[],
-  cached: ReturnType<typeof dataCache.get<PullRequest[]>> | undefined
-): boolean {
+type PullRequestCacheEntry = ReturnType<typeof dataCache.get<PullRequest[]>>
+type PullRequestCountChangeRef = React.RefObject<((count: number) => void) | undefined>
+type PullRequestEnqueue = ReturnType<typeof useTaskQueue>['enqueue']
+type PullRequestAccounts = ReturnType<typeof useGitHubAccounts>['accounts']
+
+function hasExistingPRData(prs: PullRequest[], cached: PullRequestCacheEntry | undefined): boolean {
   /* v8 ignore start */
   return prs.length > 0 || (cached?.data != null && cached.data.length > 0)
   /* v8 ignore stop */
+}
+
+function shouldSkipPRFetchEffect(
+  accountsLoading: boolean,
+  prSettingsLoading: boolean,
+  fetchInProgress: boolean,
+  mode: PRSearchMode
+): boolean {
+  if (accountsLoading) return true
+  if (prSettingsLoading) return true
+  if (!fetchInProgress) return false
+  console.log(`Skipping duplicate fetch for ${mode} - fetch already in progress`)
+  return true
+}
+
+function getCachedPRFetchState(
+  mode: PRSearchMode,
+  forceRefresh: boolean,
+  refreshInterval: number,
+  setPrs: (prs: PullRequest[]) => void,
+  setLoading: (value: boolean) => void,
+  setRefreshing: (value: boolean) => void,
+  setError: (value: string | null) => void,
+  onCountChangeRef: PullRequestCountChangeRef
+): { cached: PullRequestCacheEntry; usedCachedData: boolean } {
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (forceRefresh || !cached) {
+    return { cached, usedCachedData: false }
+  }
+  const intervalMs = refreshInterval * MS_PER_MINUTE
+  const timeSinceLastFetch = Date.now() - cached.fetchedAt
+  if (timeSinceLastFetch >= intervalMs) {
+    return { cached, usedCachedData: false }
+  }
+  console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
+  applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
+  return { cached, usedCachedData: true }
+}
+
+function updatePRLoadingState(
+  hasExistingData: boolean,
+  setLoading: (value: boolean) => void,
+  setRefreshing: (value: boolean) => void
+): void {
+  if (hasExistingData) {
+    setRefreshing(true)
+    setLoading(false)
+    return
+  }
+  setLoading(true)
+}
+
+function resetPRLoadState(
+  setError: (value: string | null) => void,
+  setProgress: (value: LoadingProgress | null) => void,
+  setTotalPrsFound: (value: number) => void
+): void {
+  setError(null)
+  setProgress(null)
+  setTotalPrsFound(0)
+}
+
+async function fetchQueuedPRs(
+  enqueue: PullRequestEnqueue,
+  githubClient: GitHubClient,
+  mode: PRSearchMode,
+  forceRefresh: boolean,
+  refreshInterval: number,
+  handleProgress: ProgressCallback
+): Promise<PullRequest[]> {
+  return enqueue(
+    async signal => {
+      if (!forceRefresh) {
+        const freshData = getFreshCachedData(mode, refreshInterval)
+        if (freshData) {
+          console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
+          return freshData
+        }
+      }
+      throwIfAborted(signal)
+      return fetchPRsByMode(githubClient, mode, handleProgress)
+    },
+    { name: `fetch-${mode}` }
+  )
+}
+
+interface LoadPullRequestsOptions {
+  accounts: PullRequestAccounts
+  cached: PullRequestCacheEntry
+  currentFetchId: number
+  enqueue: PullRequestEnqueue
+  fetchIdRef: { current: number }
+  fetchInProgressRef: { current: boolean }
+  forceRefresh: boolean
+  handleProgress: ProgressCallback
+  mode: PRSearchMode
+  onCountChangeRef: PullRequestCountChangeRef
+  prs: PullRequest[]
+  recentlyMergedDays: number
+  refreshInterval: number
+  setError: (value: string | null) => void
+  setLoading: (value: boolean) => void
+  setProgress: (value: LoadingProgress | null) => void
+  setPrs: (prs: PullRequest[]) => void
+  setRefreshing: (value: boolean) => void
+  setTotalPrsFound: (value: number) => void
+}
+
+async function loadPullRequests(opts: LoadPullRequestsOptions): Promise<void> {
+  updatePRLoadingState(hasExistingPRData(opts.prs, opts.cached), opts.setLoading, opts.setRefreshing)
+  resetPRLoadState(opts.setError, opts.setProgress, opts.setTotalPrsFound)
+  try {
+    if (opts.accounts.length === 0) {
+      opts.setError('No GitHub accounts configured. Please add an account in Settings.')
+      opts.setLoading(false)
+      return
+    }
+    const githubClient = new GitHubClient({ accounts: opts.accounts }, opts.recentlyMergedDays)
+    console.log(
+      'Fetching PRs for',
+      opts.accounts.length,
+      'account(s)...',
+      'mode:',
+      opts.mode,
+      'recentlyMergedDays:',
+      opts.recentlyMergedDays
+    )
+    const results = await fetchQueuedPRs(
+      opts.enqueue,
+      githubClient,
+      opts.mode,
+      opts.forceRefresh,
+      opts.refreshInterval,
+      opts.handleProgress
+    )
+    if (opts.currentFetchId !== opts.fetchIdRef.current) {
+      console.log('Ignoring stale fetch result for', opts.mode)
+      return
+    }
+    console.log('Found PRs:', results.length)
+    sortPRResults(results, opts.mode)
+    applyFetchResults(results, opts.setPrs, opts.onCountChangeRef)
+    dataCache.set(opts.mode, results)
+  } catch (err: unknown) {
+    handlePRFetchError(err, opts.currentFetchId, opts.fetchIdRef, opts.mode, opts.setError)
+  } finally {
+    if (opts.currentFetchId === opts.fetchIdRef.current) {
+      opts.setLoading(false)
+      opts.setRefreshing(false)
+      opts.fetchInProgressRef.current = false
+    }
+  }
 }
 
 function applyFetchResults(
@@ -359,102 +513,46 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
-    if (accountsLoading || prSettingsLoading) {
+    if (shouldSkipPRFetchEffect(accountsLoading, prSettingsLoading, fetchInProgressRef.current, mode)) {
       return
     }
-    /* v8 ignore start */
-    if (fetchInProgressRef.current) {
-      console.log(`Skipping duplicate fetch for ${mode} - fetch already in progress`)
-      return
-      /* v8 ignore stop */
-    }
-    const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
-    if (cached && !isForceRefresh) {
-      const intervalMs = refreshInterval * MS_PER_MINUTE
-      const timeSinceLastFetch = Date.now() - cached.fetchedAt
-      if (timeSinceLastFetch < intervalMs) {
-        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
-        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
-        return
-      }
+    const { cached, usedCachedData } = getCachedPRFetchState(
+      mode,
+      isForceRefresh,
+      refreshInterval,
+      setPrs,
+      setLoading,
+      setRefreshing,
+      setError,
+      onCountChangeRef
+    )
+    if (usedCachedData) {
+      return
     }
     fetchInProgressRef.current = true
     const currentFetchId = ++fetchIdRef.current
-    const fetchPRs = async () => {
-      /* v8 ignore start */
-      const hasExistingData = hasExistingPRData(prs, cached)
-      /* v8 ignore stop */
-      if (hasExistingData) {
-        setRefreshing(true)
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
-      setError(null)
-      setProgress(null)
-      setTotalPrsFound(0)
-      try {
-        if (accounts.length === 0) {
-          setError('No GitHub accounts configured. Please add an account in Settings.')
-          setLoading(false)
-          return
-        }
-        const config = {
-          github: { accounts },
-        }
-        const githubClient = new GitHubClient(config.github, recentlyMergedDays)
-        console.log(
-          'Fetching PRs for',
-          accounts.length,
-          'account(s)...',
-          'mode:',
-          mode,
-          'recentlyMergedDays:',
-          recentlyMergedDays
-        )
-        const results = await enqueueRef.current(
-          async signal => {
-            /* v8 ignore start */
-            if (!isForceRefresh) {
-              const freshData = getFreshCachedData(mode, refreshInterval)
-              if (freshData) {
-                console.log(
-                  `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
-                )
-                return freshData
-              }
-            }
-            /* v8 ignore stop */
-            throwIfAborted(signal)
-            const prs = await fetchPRsByMode(githubClient, mode, handleProgress)
-            return prs
-          },
-          { name: `fetch-${mode}` }
-        )
-        /* v8 ignore start */
-        if (currentFetchId !== fetchIdRef.current) {
-          console.log('Ignoring stale fetch result for', mode)
-          return
-          /* v8 ignore stop */
-        }
-        console.log('Found PRs:', results.length)
-        sortPRResults(results, mode)
-        applyFetchResults(results, setPrs, onCountChangeRef)
-        dataCache.set(mode, results)
-      } catch (err: unknown) {
-        handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
-      } finally {
-        /* v8 ignore start */
-        if (currentFetchId === fetchIdRef.current) {
-          /* v8 ignore stop */
-          setLoading(false)
-          setRefreshing(false)
-          fetchInProgressRef.current = false
-        }
-      }
-    }
-    fetchPRs()
+    void loadPullRequests({
+      accounts,
+      cached,
+      currentFetchId,
+      enqueue: enqueueRef.current,
+      fetchIdRef,
+      fetchInProgressRef,
+      forceRefresh: isForceRefresh,
+      handleProgress,
+      mode,
+      onCountChangeRef,
+      prs,
+      recentlyMergedDays,
+      refreshInterval,
+      setError,
+      setLoading,
+      setProgress,
+      setPrs,
+      setRefreshing,
+      setTotalPrsFound,
+    })
     return () => {
       fetchInProgressRef.current = false
       // eslint-disable-next-line react-hooks/exhaustive-deps -- useLatest ref always holds current value

@@ -105,6 +105,14 @@ function IssueHero({
   )
 }
 
+function getIssueMilestoneTitle(detail: RepoIssueDetail): string {
+  return detail.milestone?.title || 'None'
+}
+
+function formatAssigneeDisplayName(assignee: RepoIssueDetail['assignees'][number]): string {
+  return assignee.name ? `${assignee.name} (${assignee.login})` : assignee.login
+}
+
 function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
   return (
     <aside className="repo-issue-detail-sidebar">
@@ -125,7 +133,7 @@ function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
           </div>
           <div className="repo-issue-detail-fact">
             <span className="label">Milestone</span>
-            <span className="value">{detail.milestone?.title || 'None'}</span>
+            <span className="value">{getIssueMilestoneTitle(detail)}</span>
           </div>
         </div>
       </div>
@@ -157,9 +165,7 @@ function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
             {detail.assignees.map(assignee => (
               <div key={assignee.login} className="repo-issue-detail-assignee">
                 <img src={assignee.avatarUrl} alt={assignee.login} />
-                <span title={assignee.login}>
-                  {assignee.name ? `${assignee.name} (${assignee.login})` : assignee.login}
-                </span>
+                <span title={assignee.login}>{formatAssigneeDisplayName(assignee)}</span>
               </div>
             ))}
           </div>
@@ -206,6 +212,46 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
         />
       </div>
     </article>
+  )
+}
+
+function IssueNarrativeSection({ detail }: { detail: RepoIssueDetail }) {
+  return (
+    <section className="repo-issue-detail-main-card">
+      <div className="repo-issue-detail-card-title">Issue Narrative</div>
+      {detail.body.trim() ? (
+        <div className="repo-issue-detail-markdown" data-color-mode="dark">
+          <MarkdownPreview
+            source={detail.body}
+            remarkPlugins={[remarkGemoji]}
+            style={{ backgroundColor: 'transparent', color: 'inherit' }}
+          />
+        </div>
+      ) : (
+        <div className="repo-issue-detail-empty-body">No description was provided for this issue.</div>
+      )}
+    </section>
+  )
+}
+
+function IssueCommentsSection({ detail }: { detail: RepoIssueDetail }) {
+  return (
+    <section className="repo-issue-detail-comments-card">
+      <div className="repo-issue-detail-comments-header">
+        <div className="repo-issue-detail-card-title">Discussion</div>
+        <span className="repo-issue-detail-comments-count">{detail.comments.length} replies</span>
+      </div>
+
+      {detail.comments.length === 0 ? (
+        <div className="repo-issue-detail-empty-comments">No comments yet.</div>
+      ) : (
+        <div className="repo-issue-detail-comments-list">
+          {detail.comments.map(comment => (
+            <IssueCommentItem key={comment.id} comment={comment} />
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
@@ -275,42 +321,11 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
       />
 
       <div className="repo-issue-detail-layout">
-        <section className="repo-issue-detail-main-card">
-          <div className="repo-issue-detail-card-title">Issue Narrative</div>
-          {detail.body.trim() ? (
-            <div className="repo-issue-detail-markdown" data-color-mode="dark">
-              <MarkdownPreview
-                source={detail.body}
-                remarkPlugins={[remarkGemoji]}
-                style={{ backgroundColor: 'transparent', color: 'inherit' }}
-              />
-            </div>
-          ) : (
-            <div className="repo-issue-detail-empty-body">
-              No description was provided for this issue.
-            </div>
-          )}
-        </section>
-
+        <IssueNarrativeSection detail={detail} />
         <IssueSidebar detail={detail} />
       </div>
 
-      <section className="repo-issue-detail-comments-card">
-        <div className="repo-issue-detail-comments-header">
-          <div className="repo-issue-detail-card-title">Discussion</div>
-          <span className="repo-issue-detail-comments-count">{detail.comments.length} replies</span>
-        </div>
-
-        {detail.comments.length === 0 ? (
-          <div className="repo-issue-detail-empty-comments">No comments yet.</div>
-        ) : (
-          <div className="repo-issue-detail-comments-list">
-            {detail.comments.map(comment => (
-              <IssueCommentItem key={comment.id} comment={comment} />
-            ))}
-          </div>
-        )}
-      </section>
+      <IssueCommentsSection detail={detail} />
     </div>
   )
 }

@@ -43,6 +43,44 @@ function applyCachedGitHubData<T>(
   return true
 }
 
+function getCachedGitHubEntry<T>(cacheKey: string | null) {
+  if (cacheKey === null) return null
+  return dataCache.get<T>(cacheKey)
+}
+
+function resetGitHubDataState<T>(
+  cacheKey: string | null,
+  setData: (data: T | null) => void,
+  setLoading: (loading: boolean) => void,
+  setError: (error: string | null) => void
+) {
+  const next = getCachedGitHubEntry<T>(cacheKey)
+  setData(next ? next.data : null)
+  setLoading(cacheKey !== null && !next)
+  setError(null)
+}
+
+function commitFetchedGitHubData<T>(
+  cacheKey: string,
+  requestId: number,
+  currentRequestId: number,
+  result: T,
+  setData: (data: T | null) => void
+) {
+  if (requestId !== currentRequestId) return
+  setData(result)
+  dataCache.set(cacheKey, result)
+}
+
+function finishGitHubDataFetch(
+  requestId: number,
+  currentRequestId: number,
+  setLoading: (loading: boolean) => void
+) {
+  if (requestId !== currentRequestId) return
+  setLoading(false)
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -80,7 +118,7 @@ export function useGitHubData<T>({
   const requestIdRef = useRef(0)
 
   // Seed initial state from cache
-  const cachedEntry = cacheKey ? dataCache.get<T>(cacheKey) : null
+  const cachedEntry = getCachedGitHubEntry<T>(cacheKey)
   const [data, setData] = useState<T | null>(cachedEntry?.data ?? null)
   const [loading, setLoading] = useState(cacheKey !== null && !cachedEntry)
   const [error, setError] = useState<string | null>(null)
@@ -89,15 +127,11 @@ export function useGitHubData<T>({
   // before paint so stale data from the previous key never flashes on screen.
   const prevKeyRef = useRef(cacheKey)
   useLayoutEffect(() => {
-    if (prevKeyRef.current !== cacheKey) {
-      prevKeyRef.current = cacheKey
-      // Invalidate any in-flight request from the previous cacheKey
-      requestIdRef.current += 1
-      const next = cacheKey ? dataCache.get<T>(cacheKey) : null
-      setData(next?.data ?? null)
-      setLoading(cacheKey !== null && !next)
-      setError(null)
-    }
+    if (prevKeyRef.current === cacheKey) return
+    prevKeyRef.current = cacheKey
+    // Invalidate any in-flight request from the previous cacheKey
+    requestIdRef.current += 1
+    resetGitHubDataState(cacheKey, setData, setLoading, setError)
   }, [cacheKey])
 
   const doFetch = useCallback(
@@ -124,17 +158,11 @@ export function useGitHubData<T>({
           { name: taskName }
         )
 
-        // Guard: discard results from stale requests
-        if (requestId !== requestIdRef.current) return
-
-        setData(result)
-        dataCache.set(cacheKey, result)
+        commitFetchedGitHubData(cacheKey, requestId, requestIdRef.current, result, setData)
       } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false)
-        }
+        finishGitHubDataFetch(requestId, requestIdRef.current, setLoading)
       }
     },
     [accounts, cacheKey, taskName, enqueueRef, fetchFnRef]

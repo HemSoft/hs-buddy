@@ -131,6 +131,61 @@ function resolveAccountsFromSources(
   return electronStoreAccounts
 }
 
+function hasConvexConnection<T>(value: T | undefined): boolean {
+  return value !== undefined
+}
+
+function createAccountsContentKey(
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+): string {
+  const resolvedAccounts = resolveAccountsFromSources(
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
+  return JSON.stringify(resolvedAccounts.map(a => [a.username, a.org, a.repoRoot]))
+}
+
+function syncAccountsRef(
+  prevKeyRef: { current: string },
+  accountsRef: { current: GitHubAccount[] },
+  contentKey: string,
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+) {
+  const resolvedAccounts = resolveAccountsFromSources(
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
+
+  if (prevKeyRef.current !== contentKey) {
+    prevKeyRef.current = contentKey
+    accountsRef.current = resolvedAccounts
+    return
+  }
+
+  if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
+    accountsRef.current = resolvedAccounts
+  }
+}
+
+function findStoredAccount(
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  username: string,
+  org: string
+) {
+  if (!convexAccounts) return undefined
+  return convexAccounts.find(account => account.username === username && account.org === org)
+}
+
+function resolveFallbackLoading(convexConnected: boolean, fallbackLoaded: boolean): boolean {
+  return !convexConnected && !fallbackLoaded
+}
+
 function shouldInitializeAccounts(
   currentAccounts: GitHubAccount[],
   electronStoreAccounts: GitHubAccount[],
@@ -159,43 +214,32 @@ export function useGitHubAccounts() {
       .catch(() => setFallbackLoaded(true))
   }, [])
 
-  // Use Convex if connected, otherwise electron-store
-  const convexConnected = convexAccounts !== undefined
-
-  // Build content key for comparison (include repoRoot so edits trigger refresh)
-  const contentKey =
-    convexConnected && convexAccounts
-      ? JSON.stringify(convexAccounts.map(a => [a.username, a.org, a.repoRoot]))
-      : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org, a.repoRoot]))
+  const convexConnected = hasConvexConnection(convexAccounts)
+  const contentKey = createAccountsContentKey(
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
 
   // Use ref to track previous key and accounts
   const prevKeyRef = useRef(contentKey)
   const accountsRef = useRef<GitHubAccount[]>([])
 
-  // Only update accounts if content actually changed
-  if (prevKeyRef.current !== contentKey) {
-    prevKeyRef.current = contentKey
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  } else if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
-    // Initialize on first valid data
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  }
+  syncAccountsRef(
+    prevKeyRef,
+    accountsRef,
+    contentKey,
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
 
   const accounts = accountsRef.current
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
-
-  const loading = !convexConnected && !fallbackLoaded
+  const loading = resolveFallbackLoading(convexConnected, fallbackLoaded)
 
   const findAccount = (username: string, org: string) =>
-    convexAccounts?.find(account => account.username === username && account.org === org)
+    findStoredAccount(convexAccounts, username, org)
 
   const addAccount = async (account: GitHubAccount) => {
     try {
@@ -256,6 +300,34 @@ function buildPRFallback(config: AppConfig) {
   }
 }
 
+interface CopilotSettingsValue {
+  ghAccount?: string
+  model?: string
+  premiumModel?: string
+}
+
+function getDefaultCopilotSettings(): Required<CopilotSettingsValue> {
+  return { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
+}
+
+function resolveCopilotSource(
+  settings: ReturnType<typeof useSettings>
+): CopilotSettingsValue | undefined {
+  if (!settings) return undefined
+  return settings.copilot
+}
+
+function resolveCopilotValues(
+  currentSettings: CopilotSettingsValue
+): Required<CopilotSettingsValue> {
+  const defaults = getDefaultCopilotSettings()
+  return {
+    ghAccount: currentSettings.ghAccount ?? defaults.ghAccount,
+    model: currentSettings.model ?? defaults.model,
+    premiumModel: currentSettings.premiumModel ?? defaults.premiumModel,
+  }
+}
+
 /**
  * Hook for PR-specific settings
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
@@ -297,12 +369,12 @@ export function usePRSettings() {
 }
 
 function buildCopilotFallback(config: AppConfig) {
-  if (!config.copilot)
-    return { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
+  const defaults = getDefaultCopilotSettings()
+  if (!config.copilot) return defaults
   return {
-    ghAccount: config.copilot.ghAccount ?? '',
-    model: config.copilot.model ?? 'claude-sonnet-4.5',
-    premiumModel: config.copilot.premiumModel ?? 'claude-opus-4.6',
+    ghAccount: config.copilot.ghAccount ?? defaults.ghAccount,
+    model: config.copilot.model ?? defaults.model,
+    premiumModel: config.copilot.premiumModel ?? defaults.premiumModel,
   }
 }
 
@@ -313,11 +385,13 @@ function buildCopilotFallback(config: AppConfig) {
 export function useCopilotSettings() {
   const settings = useSettings()
   const { updateCopilot } = useSettingsMutations()
+  const copilotSource = resolveCopilotSource(settings)
   const { value: currentSettings, loading } = useElectronStoreFallback(
-    settings?.copilot ?? undefined,
+    copilotSource,
     buildCopilotFallback,
-    { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
+    getDefaultCopilotSettings()
   )
+  const copilotValues = resolveCopilotValues(currentSettings)
 
   const setGhAccount = async (account: string) => {
     await updateCopilot({ ghAccount: account })
@@ -332,9 +406,7 @@ export function useCopilotSettings() {
   }
 
   return {
-    ghAccount: currentSettings.ghAccount ?? '',
-    model: currentSettings.model ?? 'claude-sonnet-4.5',
-    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
+    ...copilotValues,
     loading,
     setGhAccount,
     setModel,

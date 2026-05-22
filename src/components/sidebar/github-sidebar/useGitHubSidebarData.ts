@@ -199,6 +199,73 @@ async function fetchCachedData<TRaw>(opts: {
   })
 }
 
+type SidebarEnqueue = ReturnType<typeof useTaskQueue>['enqueue']
+type SidebarAccounts = ReturnType<typeof useGitHubAccounts>['accounts']
+type OrgContributorCounts = Record<string, Record<string, number>>
+type OrgContributorCountsSetter = React.Dispatch<React.SetStateAction<OrgContributorCounts>>
+
+function toOrgContributorMap(overview: OrgOverviewResult): Record<string, number> {
+  return Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
+}
+
+function applyOrgContributorCounts(
+  org: string,
+  overview: OrgOverviewResult,
+  setOrgContributorCounts: OrgContributorCountsSetter
+) {
+  setOrgContributorCounts(prev => ({
+    ...prev,
+    [org]: toOrgContributorMap(overview),
+  }))
+}
+
+function hydrateCachedOrgOverview(
+  org: string,
+  cacheKey: string,
+  forceRefresh: boolean,
+  setOrgContributorCounts: OrgContributorCountsSetter
+): boolean {
+  if (forceRefresh) return false
+  const cached = dataCache.get<OrgOverviewResult>(cacheKey)
+  if (!cached) return false
+  const overview = cached.data
+  if (!overview) return false
+  applyOrgContributorCounts(org, overview, setOrgContributorCounts)
+  return true
+}
+
+async function requestOrgOverview(
+  org: string,
+  accounts: SidebarAccounts,
+  enqueue: SidebarEnqueue
+): Promise<OrgOverviewResult> {
+  return enqueue(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return client.fetchOrgOverview(org)
+    },
+    { name: `org-overview-${org}`, priority: -1 }
+  )
+}
+
+function cacheOrgOverviewResult(
+  org: string,
+  cacheKey: string,
+  result: OrgOverviewResult,
+  setOrgContributorCounts: OrgContributorCountsSetter
+) {
+  applyOrgContributorCounts(org, result, setOrgContributorCounts)
+  dataCache.set(cacheKey, result)
+}
+
+function handleOrgOverviewError(org: string, error: unknown) {
+  /* v8 ignore start */
+  if (isAbortError(error)) return
+  /* v8 ignore stop */
+  console.warn(`[OrgOverview] ${org} failed:`, error)
+}
+
 export interface SidebarItem {
   id: string
   label: string
@@ -533,40 +600,17 @@ export function useGitHubSidebarData() {
   )
 
   const fetchOrgOverview = useCallback(
-    async (org: string, forceRefresh = false) => {
+    async (org: string, forceRefresh?: boolean) => {
       const cacheKey = `org-overview:${org}`
-      const cached = dataCache.get<OrgOverviewResult>(cacheKey)
-
-      const toContributorMap = (overview: OrgOverviewResult) =>
-        Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
-
-      if (cached?.data && !forceRefresh) {
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(cached.data),
-        }))
+      const shouldForceRefresh = Boolean(forceRefresh)
+      if (hydrateCachedOrgOverview(org, cacheKey, shouldForceRefresh, setOrgContributorCounts)) {
         return
       }
-
       try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
-          },
-          { name: `org-overview-${org}`, priority: -1 }
-        )
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(result),
-        }))
-        dataCache.set(cacheKey, result)
+        const result = await requestOrgOverview(org, accounts, enqueueRef.current)
+        cacheOrgOverviewResult(org, cacheKey, result, setOrgContributorCounts)
       } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.warn(`[OrgOverview] ${org} failed:`, error)
+        handleOrgOverviewError(org, error)
       }
     },
     [accounts]

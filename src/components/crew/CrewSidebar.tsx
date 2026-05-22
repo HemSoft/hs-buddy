@@ -30,6 +30,36 @@ type CrewSidebarAction =
   | { type: 'FINISH_ADDING_PROJECT' }
   | { type: 'SET_ADD_PROJECT_ERROR'; error: string | null }
 
+const crewSidebarActionHandlers: {
+  [K in CrewSidebarAction['type']]: (
+    state: CrewSidebarState,
+    action: Extract<CrewSidebarAction, { type: K }>
+  ) => CrewSidebarState
+} = {
+  SET_PROJECTS: (state, action) => ({
+    ...state,
+    projects: action.payload.projects,
+    sessions: action.payload.sessions,
+  }),
+  TOGGLE_SECTION: (state, action) => ({
+    ...state,
+    expandedSections: toggleInSet(state.expandedSections, action.sectionId),
+  }),
+  START_ADDING_PROJECT: state => ({
+    ...state,
+    addProjectError: null,
+    isAddingProject: true,
+  }),
+  FINISH_ADDING_PROJECT: state => ({
+    ...state,
+    isAddingProject: false,
+  }),
+  SET_ADD_PROJECT_ERROR: (state, action) => ({
+    ...state,
+    addProjectError: action.error,
+  }),
+}
+
 const INITIAL_EXPANDED_SECTIONS = new Set(['crew-projects'])
 
 function createInitialState(): CrewSidebarState {
@@ -50,36 +80,7 @@ function toggleInSet<T>(set: Set<T>, item: T): Set<T> {
 }
 
 function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction): CrewSidebarState {
-  switch (action.type) {
-    case 'SET_PROJECTS':
-      return {
-        ...state,
-        projects: action.payload.projects,
-        sessions: action.payload.sessions,
-      }
-    case 'TOGGLE_SECTION':
-      return { ...state, expandedSections: toggleInSet(state.expandedSections, action.sectionId) }
-    case 'START_ADDING_PROJECT':
-      return {
-        ...state,
-        addProjectError: null,
-        isAddingProject: true,
-      }
-    case 'FINISH_ADDING_PROJECT':
-      return {
-        ...state,
-        isAddingProject: false,
-      }
-    case 'SET_ADD_PROJECT_ERROR':
-      return {
-        ...state,
-        addProjectError: action.error,
-      }
-    /* v8 ignore start */
-    default:
-      return state
-    /* v8 ignore stop */
-  }
+  return crewSidebarActionHandlers[action.type](state, action as never)
 }
 
 function sortProjects(projects: CrewProject[]): CrewProject[] {
@@ -128,6 +129,119 @@ async function applyAddProjectResult(
   }
 
   return getAddProjectError(result)
+}
+
+function ProjectSessionIcon({ isActive }: { isActive: boolean }) {
+  if (isActive) {
+    return <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" />
+  }
+
+  return <FolderGit2 size={14} />
+}
+
+function CrewProjectRow({
+  project,
+  selectedItem,
+  session,
+  onItemSelect,
+  onRemoveProject,
+}: {
+  project: CrewProject
+  selectedItem: string | null
+  session: CrewSession | null
+  onItemSelect: (itemId: string) => void
+  onRemoveProject: (e: React.MouseEvent, projectId: string) => void
+}) {
+  const viewId = `crew-project:${project.id}`
+  const isSelected = selectedItem === viewId
+  const isActive = session?.status === 'active'
+
+  return (
+    <div key={project.id} className={`sidebar-item ${isSelected ? 'selected' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-item-main"
+        onClick={() => onItemSelect(viewId)}
+        title={`${project.githubSlug}\n${project.localPath}`}
+        aria-pressed={isSelected}
+      >
+        <span className="sidebar-item-icon">
+          <ProjectSessionIcon isActive={isActive} />
+        </span>
+        <span className="sidebar-item-label">{project.displayName}</span>
+      </button>
+      <button
+        type="button"
+        className="sidebar-item-action crew-remove-project-btn"
+        onClick={e => onRemoveProject(e, project.id)}
+        title="Remove project"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+}
+
+function CrewProjectItems({
+  addProjectError,
+  projects,
+  sessions,
+  selectedItem,
+  isAddingProject,
+  onItemSelect,
+  onRemoveProject,
+  onAddProject,
+}: {
+  addProjectError: string | null
+  projects: CrewProject[]
+  sessions: Record<string, CrewSession | null>
+  selectedItem: string | null
+  isAddingProject: boolean
+  onItemSelect: (itemId: string) => void
+  onRemoveProject: (e: React.MouseEvent, projectId: string) => void
+  onAddProject: () => void
+}) {
+  return (
+    <div className="sidebar-section-items" id="crew-projects-section">
+      {addProjectError && (
+        <div
+          className="sidebar-item sidebar-item-empty"
+          role="alert"
+          style={{ color: '#e85d5d', whiteSpace: 'normal' }}
+        >
+          <span className="sidebar-item-label">{addProjectError}</span>
+        </div>
+      )}
+      {projects.length === 0 ? (
+        <div className="sidebar-item sidebar-item-empty">
+          <span className="sidebar-item-label">No projects yet</span>
+        </div>
+      ) : (
+        projects.map(project => (
+          <CrewProjectRow
+            key={project.id}
+            project={project}
+            selectedItem={selectedItem}
+            session={sessions[project.id]}
+            onItemSelect={onItemSelect}
+            onRemoveProject={onRemoveProject}
+          />
+        ))
+      )}
+      <button
+        type="button"
+        className="sidebar-item sidebar-item-button"
+        onClick={onAddProject}
+        disabled={isAddingProject}
+        style={getAddProjectState(isAddingProject).style}
+      >
+        <span className="sidebar-item-icon">
+          <Plus size={14} />
+        </span>
+        <span className="sidebar-item-label">{getAddProjectState(isAddingProject).label}</span>
+      </button>
+    </div>
+  )
 }
 
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {

@@ -26,6 +26,55 @@ function handleThreadFetchError(
   setError(getErrorMessage(error))
 }
 
+function resolveThreadPanelOwner(
+  prOrg: string | undefined,
+  ownerRepo: { owner: string; repo: string } | null
+): string | undefined {
+  if (prOrg) return prOrg
+  return ownerRepo ? ownerRepo.owner : undefined
+}
+
+function resolveThreadList(data: PRThreadsResult | null): PRThreadsResult['threads'] {
+  if (!data) return []
+  return data.threads
+}
+
+function resolveReviewedThreadStats(
+  latestReview:
+    | { reviewedThreadStats?: { unresolved: number; outdated: number } | null }
+    | null
+    | undefined
+) {
+  return latestReview?.reviewedThreadStats ?? null
+}
+
+function resolveReviewedHeadSha(
+  latestReview: { reviewedHeadSha?: string | null } | null | undefined
+): string | null {
+  return latestReview?.reviewedHeadSha ?? null
+}
+
+function hasThreadSnapshotMismatch(
+  reviewedThreadStats: { unresolved: number; outdated: number } | null,
+  activeCount: number,
+  outdatedCount: number
+): boolean {
+  if (!reviewedThreadStats) return false
+  return (
+    reviewedThreadStats.unresolved !== activeCount ||
+    reviewedThreadStats.outdated !== outdatedCount
+  )
+}
+
+function hasReviewedHeadMismatch(
+  reviewedHeadSha: string | null,
+  currentHeadSha: string | null
+): boolean {
+  if (!reviewedHeadSha) return false
+  if (!currentHeadSha) return false
+  return reviewedHeadSha !== currentHeadSha
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -33,7 +82,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const latestThreadsRequestRef = useRef(0)
   const headShaRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = pr.org || ownerRepo?.owner
+  const owner = resolveThreadPanelOwner(pr.org, ownerRepo)
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -200,25 +249,20 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     [accounts, ownerRepo, pr.repository, pr.id, enqueueRef]
   )
 
-  const threads = data?.threads
-  const activeThreads = useMemo(() => threads?.filter(t => !t.isResolved) ?? [], [threads])
-  const resolvedThreads = useMemo(() => threads?.filter(t => t.isResolved) ?? [], [threads])
-  const outdatedThreads = useMemo(() => threads?.filter(t => t.isOutdated) ?? [], [threads])
+  const threads = resolveThreadList(data)
+  const reviewedThreadStats = resolveReviewedThreadStats(latestReview)
+  const reviewedHeadSha = resolveReviewedHeadSha(latestReview)
+  const activeThreads = useMemo(() => threads.filter(t => !t.isResolved), [threads])
+  const resolvedThreads = useMemo(() => threads.filter(t => t.isResolved), [threads])
+  const outdatedThreads = useMemo(() => threads.filter(t => t.isOutdated), [threads])
 
   const threadSnapshotChanged = useMemo(
-    () =>
-      !!latestReview?.reviewedThreadStats &&
-      (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
-        latestReview.reviewedThreadStats.outdated !== outdatedThreads.length),
-    [latestReview?.reviewedThreadStats, activeThreads.length, outdatedThreads.length]
+    () => hasThreadSnapshotMismatch(reviewedThreadStats, activeThreads.length, outdatedThreads.length),
+    [reviewedThreadStats, activeThreads.length, outdatedThreads.length]
   )
   const needsRefresh = useMemo(
-    () =>
-      (!!latestReview?.reviewedHeadSha &&
-        !!currentHeadSha &&
-        latestReview.reviewedHeadSha !== currentHeadSha) ||
-      threadSnapshotChanged,
-    [latestReview?.reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
+    () => hasReviewedHeadMismatch(reviewedHeadSha, currentHeadSha) || threadSnapshotChanged,
+    [reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
   )
 
   const filteredThreads = useMemo(

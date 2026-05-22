@@ -42,6 +42,45 @@ function resolveForceRefresh(forceRefresh?: boolean): boolean {
   return forceRefresh ?? false
 }
 
+function applyReadyOrgData<T>(
+  cached: T,
+  setData: (data: T | null) => void,
+  setError: (error: string | null) => void,
+  setPhase: (phase: LoadPhase) => void
+) {
+  setData(cached)
+  setError(null)
+  setPhase('ready')
+}
+
+function commitOrgFetchResult<T>(
+  activeCacheKey: string,
+  currentCacheKey: string,
+  normalize: (data: T | null) => T | null,
+  result: T,
+  setData: (data: T | null) => void,
+  setPhase: (phase: LoadPhase) => void
+) {
+  if (currentCacheKey !== activeCacheKey) return
+  const normalized = normalize(result)
+  startTransition(() => {
+    setData(normalized)
+    setPhase('ready')
+  })
+  dataCache.set(activeCacheKey, normalized)
+}
+
+function handleOrgFetchFailure(
+  activeCacheKey: string,
+  currentCacheKey: string,
+  fetchError: unknown,
+  setPhase: (phase: LoadPhase) => void,
+  setError: (error: string | null) => void
+) {
+  if (currentCacheKey !== activeCacheKey) return
+  handleOrgFetchError(fetchError, setPhase, setError)
+}
+
 // ---------------------------------------------------------------------------
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
@@ -134,9 +173,7 @@ export function useOrgCachedFetch<T>({
       )
       /* v8 ignore start */
       if (cached != null) {
-        setData(cached)
-        setError(null)
-        setPhase('ready')
+        applyReadyOrgData(cached, setData, setError, setPhase)
         return
         /* v8 ignore stop */
       }
@@ -158,22 +195,22 @@ export function useOrgCachedFetch<T>({
           { name: taskName, priority: -1 }
         )
 
-        // Discard stale response if cacheKey changed while fetch was in flight
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-
-        const normalized = normalizeRef.current(result)
-        startTransition(() => {
-          setData(normalized)
-          setPhase('ready')
-        })
-        dataCache.set(activeCacheKey, normalized)
+        commitOrgFetchResult(
+          activeCacheKey,
+          cacheKeyRef.current,
+          normalizeRef.current,
+          result,
+          setData,
+          setPhase
+        )
       } catch (fetchError: unknown) {
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-        handleOrgFetchError(fetchError, setPhase, setError)
+        handleOrgFetchFailure(
+          activeCacheKey,
+          cacheKeyRef.current,
+          fetchError,
+          setPhase,
+          setError
+        )
       }
     },
     [taskName, org]

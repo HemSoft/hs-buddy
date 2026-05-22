@@ -308,6 +308,14 @@ function formatBudgetAmount(budgetAmount: number | null | undefined): string {
   return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
 }
 
+function getOrgBudgetValues(budgetState: CopilotBudgetState) {
+  const budgetData = budgetState?.data
+  return {
+    budgetAmount: formatBudgetAmount(budgetData?.budgetAmount),
+    spentAmount: formatCurrency(budgetData?.spent ?? 0),
+  }
+}
+
 function OrgBudgetBand({
   budgetState,
   quotaOverage,
@@ -315,15 +323,17 @@ function OrgBudgetBand({
   budgetState: CopilotBudgetState
   quotaOverage: number
 }) {
+  const { budgetAmount, spentAmount } = getOrgBudgetValues(budgetState)
+
   return (
     <div className="org-detail-budget-band">
       <div>
         <span className="org-detail-budget-label">Budget</span>
-        <strong>{formatBudgetAmount(budgetState?.data?.budgetAmount)}</strong>
+        <strong>{budgetAmount}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">Spent</span>
-        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+        <strong>{spentAmount}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">My Share</span>
@@ -331,6 +341,24 @@ function OrgBudgetBand({
       </div>
     </div>
   )
+}
+
+function getCopilotSectionTitle(isUserNamespace: boolean): string {
+  return isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'
+}
+
+function resolveCopilotHeaderTimestamp(
+  isUserNamespace: boolean,
+  copilotFetchedAt?: number,
+  personalQuotaFetchedAt?: number
+): number | undefined {
+  return isUserNamespace ? personalQuotaFetchedAt : copilotFetchedAt
+}
+
+function CopilotHeaderTimestamp({ timestamp }: { timestamp?: number }) {
+  if (timestamp == null) return null
+
+  return <span className="org-detail-fetched-at">{formatTime(timestamp)}</span>
 }
 
 function CopilotSectionHeader({
@@ -342,20 +370,21 @@ function CopilotSectionHeader({
   copilotFetchedAt?: number
   personalQuotaFetchedAt?: number
 }) {
+  const timestamp = resolveCopilotHeaderTimestamp(
+    isUserNamespace,
+    copilotFetchedAt,
+    personalQuotaFetchedAt
+  )
+
   return (
     <div className="org-detail-section-header">
       <h3>
         <Sparkles size={15} />
-        {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
+        {getCopilotSectionTitle(isUserNamespace)}
       </h3>
       {/* v8 ignore start */}
-      {!isUserNamespace && copilotFetchedAt && (
-        /* v8 ignore stop */
-        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
-      )}
-      {isUserNamespace && personalQuotaFetchedAt ? (
-        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
-      ) : null}
+      <CopilotHeaderTimestamp timestamp={timestamp} />
+      {/* v8 ignore stop */}
     </div>
   )
 }
@@ -387,6 +416,56 @@ function getHeaderTimestamps(
   }
 }
 
+function shouldShowCopilotWarmingMessage(
+  liveCopilotPhase: LoadPhase,
+  copilotUsage: OrgCopilotUsageData | null,
+  shouldShowPersonalQuotaPulse: boolean
+): boolean {
+  return liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
+}
+
+function CopilotUsageGrid({
+  shouldShowPersonalQuotaPulse,
+  personalQuotaSummary,
+  copilotUsage,
+}: {
+  shouldShowPersonalQuotaPulse: boolean
+  personalQuotaSummary: PersonalQuotaSummary | null
+  copilotUsage: OrgCopilotUsageData | null
+}) {
+  if (shouldShowPersonalQuotaPulse && personalQuotaSummary) {
+    return <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
+  }
+
+  return <OrgCopilotGrid copilotUsage={copilotUsage} />
+}
+
+function CopilotBudgetBandSection({
+  isUserNamespace,
+  configuredAccountsCount,
+  personalQuotaSummary,
+  quotaOverage,
+  budgetState,
+}: {
+  isUserNamespace: boolean
+  configuredAccountsCount: number
+  personalQuotaSummary: PersonalQuotaSummary | null
+  quotaOverage: number
+  budgetState: CopilotBudgetState
+}) {
+  if (isUserNamespace) {
+    return (
+      <PersonalBudgetBand
+        configuredAccountsCount={configuredAccountsCount}
+        personalQuotaSummary={personalQuotaSummary}
+        quotaOverage={quotaOverage}
+      />
+    )
+  }
+
+  return <OrgBudgetBand budgetState={budgetState} quotaOverage={quotaOverage} />
+}
+
 function OrgCopilotSection({
   overview,
   copilotUsage,
@@ -406,8 +485,11 @@ function OrgCopilotSection({
   liveCopilotPhase: LoadPhase
   shouldShowPersonalQuotaPulse: boolean
 }) {
-  const showWarmingMessage =
-    liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
+  const showWarmingMessage = shouldShowCopilotWarmingMessage(
+    liveCopilotPhase,
+    copilotUsage,
+    shouldShowPersonalQuotaPulse
+  )
 
   const { copilotFetchedAt, personalQuotaFetchedAt } = getHeaderTimestamps(
     copilotUsage,
@@ -422,22 +504,20 @@ function OrgCopilotSection({
         personalQuotaFetchedAt={personalQuotaFetchedAt}
       />
       <div className="org-detail-copilot-grid">
-        {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
-          <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
-        ) : (
-          <OrgCopilotGrid copilotUsage={copilotUsage} />
-        )}
+        <CopilotUsageGrid
+          shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
+          personalQuotaSummary={personalQuotaSummary}
+          copilotUsage={copilotUsage}
+        />
       </div>
       <CopilotWarmingMessage show={showWarmingMessage} isUserNamespace={overview.isUserNamespace} />
-      {overview.isUserNamespace ? (
-        <PersonalBudgetBand
-          configuredAccountsCount={configuredAccountsCount}
-          personalQuotaSummary={personalQuotaSummary}
-          quotaOverage={quotaOverage}
-        />
-      ) : (
-        <OrgBudgetBand budgetState={budgetState} quotaOverage={quotaOverage} />
-      )}
+      <CopilotBudgetBandSection
+        isUserNamespace={overview.isUserNamespace}
+        configuredAccountsCount={configuredAccountsCount}
+        personalQuotaSummary={personalQuotaSummary}
+        quotaOverage={quotaOverage}
+        budgetState={budgetState}
+      />
     </section>
   )
 }
@@ -488,6 +568,42 @@ function OrgLeadersSection({
   )
 }
 
+function formatMemberSpotlightName(selectedMember: OrgMember): string {
+  return selectedMember.name
+    ? `${selectedMember.name} (${selectedMember.login})`
+    : selectedMember.login
+}
+
+function formatMemberSpotlightMeta(
+  selectedMember: OrgMember,
+  selectedContributor: OrgContributor | null
+): string {
+  const loginPrefix = selectedMember.name ? `@${selectedMember.login} · ` : ''
+  const activityLabel = selectedContributor
+    ? ` · ${selectedContributor.commits} commits today`
+    : ' · no commits today'
+
+  return `${loginPrefix}${selectedMember.type}${activityLabel}`
+}
+
+function MemberSpotlightQuota({
+  selectedConfiguredAccount,
+  selectedMemberQuotaState,
+}: {
+  selectedConfiguredAccount: GitHubAccount | null
+  selectedMemberQuotaState: CopilotQuotaState | null
+}) {
+  if (selectedConfiguredAccount && selectedMemberQuotaState) {
+    return (
+      <div className="org-detail-account-grid org-detail-account-grid-single">
+        <AccountQuotaCard account={selectedConfiguredAccount} state={selectedMemberQuotaState} />
+      </div>
+    )
+  }
+
+  return <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
+}
+
 function OrgMemberSpotlightSection({
   selectedMember,
   selectedContributor,
@@ -509,17 +625,9 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">
-            {selectedMember.name
-              ? `${selectedMember.name} (${selectedMember.login})`
-              : selectedMember.login}
-          </div>
+          <div className="org-detail-member-name">{formatMemberSpotlightName(selectedMember)}</div>
           <div className="org-detail-member-meta">
-            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
-            {selectedMember.type}
-            {selectedContributor
-              ? ` · ${selectedContributor.commits} commits today`
-              : ' · no commits today'}
+            {formatMemberSpotlightMeta(selectedMember, selectedContributor)}
           </div>
         </div>
         <button
@@ -530,13 +638,10 @@ function OrgMemberSpotlightSection({
           Profile
         </button>
       </div>
-      {selectedConfiguredAccount && selectedMemberQuotaState ? (
-        <div className="org-detail-account-grid org-detail-account-grid-single">
-          <AccountQuotaCard account={selectedConfiguredAccount} state={selectedMemberQuotaState} />
-        </div>
-      ) : (
-        <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
-      )}
+      <MemberSpotlightQuota
+        selectedConfiguredAccount={selectedConfiguredAccount}
+        selectedMemberQuotaState={selectedMemberQuotaState}
+      />
     </section>
   )
 }
@@ -669,6 +774,9 @@ function handleCopilotSuccess(
   /* v8 ignore stop */
 }
 
+type OrgCopilotDispatch = React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+type OrgCopilotEnqueue = ReturnType<typeof useTaskQueue>['enqueue']
+
 function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
   return getCachedData<OrgCopilotUsageData>(cacheKey)
 }
@@ -677,7 +785,7 @@ function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
 /* v8 ignore start */
 function handleCopilotFetchResult(
   result: { success: boolean; data?: Parameters<typeof handleCopilotSuccess>[0] },
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>,
+  dispatch: OrgCopilotDispatch,
   cacheKey: string
 ) {
   if (result.success && result.data) {
@@ -688,12 +796,60 @@ function handleCopilotFetchResult(
 }
 
 /** Handle copilot fetch error: ignore aborts, otherwise dispatch error. */
-function handleCopilotCatchError(
-  error: unknown,
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
-) {
+function handleCopilotCatchError(error: unknown, dispatch: OrgCopilotDispatch) {
   if (isAbortError(error)) return
   dispatch({ type: 'error', error: getErrorMessage(error) })
+}
+
+function shouldSkipCopilotFetch(isUserNamespace: boolean): boolean {
+  return isUserNamespace
+}
+
+function hydrateCachedCopilotUsage(
+  cacheKey: string,
+  forceRefresh: boolean,
+  dispatch: OrgCopilotDispatch
+): boolean {
+  if (forceRefresh) return false
+  const cached = getCachedCopilotData(cacheKey)
+  if (!cached) return false
+  dispatch({ type: 'hydrate-cache', usage: cached })
+  return true
+}
+
+function hasQueuedCopilotTask(copilotTaskName: string): boolean {
+  return getTaskQueue('github').hasTaskWithName(copilotTaskName)
+}
+
+async function requestCopilotUsage(
+  enqueue: OrgCopilotEnqueue,
+  org: string,
+  preferredAccount: string | undefined,
+  copilotTaskName: string
+) {
+  return enqueue(
+    async signal => {
+      throwIfAborted(signal)
+      return window.github.getCopilotUsage(org, preferredAccount)
+    },
+    { name: copilotTaskName, priority: -1 }
+  )
+}
+
+async function loadCopilotUsage(
+  enqueue: OrgCopilotEnqueue,
+  org: string,
+  preferredAccount: string | undefined,
+  copilotTaskName: string,
+  dispatch: OrgCopilotDispatch,
+  cacheKey: string
+): Promise<void> {
+  try {
+    const result = await requestCopilotUsage(enqueue, org, preferredAccount, copilotTaskName)
+    handleCopilotFetchResult(result, dispatch, cacheKey)
+  } catch (fetchError: unknown) {
+    handleCopilotCatchError(fetchError, dispatch)
+  }
 }
 /* v8 ignore stop */
 
@@ -738,44 +894,26 @@ function useOrgCopilotData({
   }, [isUserNamespace])
 
   const fetchCopilot = useCallback(
-    async (forceRefresh = false) => {
-      /* v8 ignore start */
-      if (isUserNamespace) {
-        return
-        /* v8 ignore stop */
-      }
-
-      const queue = getTaskQueue('github')
-      const cached = getCachedCopilotData(copilotCacheKey)
-      /* v8 ignore start */
-      if (cached && !forceRefresh) {
-        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(copilotTaskName)) {
+    async (forceRefresh?: boolean) => {
+      const shouldForceRefresh = Boolean(forceRefresh)
+      if (shouldSkipCopilotFetch(isUserNamespace)) {
         return
       }
-
+      if (hydrateCachedCopilotUsage(copilotCacheKey, shouldForceRefresh, dispatchCopilot)) {
+        return
+      }
+      if (hasQueuedCopilotTask(copilotTaskName)) {
+        return
+      }
       dispatchCopilot({ type: 'start-loading', hasUsage: hasCopilotRef.current })
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            return await window.github.getCopilotUsage(org, preferredAccount)
-          },
-          { name: copilotTaskName, priority: -1 }
-        )
-        /* v8 ignore start */
-        handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
-        /* v8 ignore stop */
-      } catch (fetchError: unknown) {
-        /* v8 ignore start */
-        handleCopilotCatchError(fetchError, dispatchCopilot)
-        /* v8 ignore stop */
-      }
+      await loadCopilotUsage(
+        enqueueRef.current,
+        org,
+        preferredAccount,
+        copilotTaskName,
+        dispatchCopilot,
+        copilotCacheKey
+      )
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
   )

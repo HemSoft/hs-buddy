@@ -115,6 +115,33 @@ function formatHeroSubtitle(
   return `${prefix}${commitLabel}`
 }
 
+function UserStatusEmoji({ activity }: { activity: UserActivitySummary | null }) {
+  const statusEmoji = activity?.statusEmoji
+  if (!statusEmoji) {
+    return null
+  }
+
+  return (
+    <span className="ud-status-emoji" title={activity?.statusMessage ?? undefined}>
+      {statusEmoji}
+    </span>
+  )
+}
+
+function hasContributionData(
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error',
+  activity: UserActivitySummary | null
+): activity is UserActivitySummary & {
+  contributionWeeks: NonNullable<UserActivitySummary['contributionWeeks']>
+  totalContributions: number
+} {
+  return (
+    activityPhase === 'ready' &&
+    activity?.contributionWeeks != null &&
+    activity.totalContributions != null
+  )
+}
+
 function UserDetailHero({
   activity,
   activityPhase,
@@ -143,11 +170,7 @@ function UserDetailHero({
         </span>
         <h2 className="ud-hero-title">
           {formatDisplayName(activity, memberLogin)}
-          {activity?.statusEmoji && (
-            <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
-              {activity.statusEmoji}
-            </span>
-          )}
+          <UserStatusEmoji activity={activity} />
         </h2>
         <p className="ud-hero-subtitle">
           {formatHeroSubtitle(memberLogin, activity?.name, commitsToday)}
@@ -297,11 +320,7 @@ function UserContributionSection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (
-    activityPhase === 'ready' &&
-    activity?.contributionWeeks &&
-    activity.totalContributions != null
-  ) {
+  if (hasContributionData(activityPhase, activity)) {
     return (
       <section className="ud-section">
         <h3 className="ud-section-title">
@@ -415,6 +434,39 @@ function isActivityEmpty(
   return activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0
 }
 
+function shouldHideUserActivitySection(
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error',
+  activity: UserActivitySummary | null
+): boolean {
+  return activityPhase !== 'loading' && isActivityEmpty(activityPhase, activity)
+}
+
+function getRecentEvents(activity: UserActivitySummary | null): UserEvent[] {
+  return activity?.recentEvents ?? []
+}
+
+function UserActivityContent({
+  activity,
+  activityPhase,
+}: {
+  activity: UserActivitySummary | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+}) {
+  if (activityPhase === 'loading') {
+    return <SectionLoader label="activity" />
+  }
+
+  return (
+    <div className="ud-event-list">
+      {getRecentEvents(activity)
+        .slice(0, 15)
+        .map(event => (
+          <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
+        ))}
+    </div>
+  )
+}
+
 function UserActivitySection({
   activity,
   activityPhase,
@@ -422,11 +474,9 @@ function UserActivitySection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (activityPhase !== 'loading' && isActivityEmpty(activityPhase, activity)) {
+  if (shouldHideUserActivitySection(activityPhase, activity)) {
     return null
   }
-
-  const recentEvents = activity?.recentEvents ?? []
 
   return (
     <section className="ud-section">
@@ -434,15 +484,7 @@ function UserActivitySection({
         <Activity size={15} />
         Recent Activity
       </h3>
-      {activityPhase === 'loading' ? (
-        <SectionLoader label="activity" />
-      ) : (
-        <div className="ud-event-list">
-          {recentEvents.slice(0, 15).map(event => (
-            <EventRow key={`${event.type}-${event.repo}-${event.createdAt}`} event={event} />
-          ))}
-        </div>
-      )}
+      <UserActivityContent activity={activity} activityPhase={activityPhase} />
     </section>
   )
 }

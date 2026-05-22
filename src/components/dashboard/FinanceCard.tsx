@@ -69,6 +69,46 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
   )
 }
 
+function shouldShowFinanceLoadingState(loading: boolean, hasQuotes: boolean) {
+  return loading && !hasQuotes
+}
+
+function shouldShowEmptyFinanceState(loading: boolean, hasQuotes: boolean) {
+  return !loading && !hasQuotes
+}
+
+function getTrackedSymbolsCaption(count: number) {
+  return `${count} symbol${count !== 1 ? 's' : ''} tracked`
+}
+
+function isFinanceRefreshDisabled(loading: boolean, watchlistLength: number) {
+  return loading || watchlistLength === 0
+}
+
+function FinanceCollapsedSummary({ quotes }: { quotes: QuoteData[] }) {
+  const topQuotes = quotes.slice(0, 3)
+
+  return (
+    <div className="finance-collapsed-summary">
+      {topQuotes.map(q => {
+        /* v8 ignore start */
+        const qChange = q.change ?? 0
+        const qPct = q.changePercent ?? 0
+        /* v8 ignore stop */
+        const positive = qChange >= 0
+        return (
+          <div key={q.symbol} className="finance-collapsed-item">
+            <span className="finance-collapsed-symbol">{q.name}</span>
+            <span className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}>
+              {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function FinanceStatusMessage({
   loading,
   error,
@@ -78,7 +118,7 @@ function FinanceStatusMessage({
   error: string | null
   hasQuotes: boolean
 }) {
-  if (loading && !hasQuotes) {
+  if (shouldShowFinanceLoadingState(loading, hasQuotes)) {
     return (
       <div className="weather-loading">
         <RefreshCw size={16} className="spin" />
@@ -93,7 +133,7 @@ function FinanceStatusMessage({
       </div>
     )
   }
-  if (!loading && !hasQuotes) {
+  if (shouldShowEmptyFinanceState(loading, hasQuotes)) {
     return (
       <div className="weather-error">
         <span>No market data available. Try refreshing.</span>
@@ -183,7 +223,7 @@ export function FinanceCard() {
     'finance',
     refresh,
     15,
-    loading || watchlist.length === 0,
+    isFinanceRefreshDisabled(loading, watchlist.length),
     lastFetchedAt
   )
   const { expanded, toggle } = useExpandCollapse('finance:expanded')
@@ -198,41 +238,18 @@ export function FinanceCard() {
     }
   }
 
-  // Build a quick summary for collapsed view
-  const topQuotes = quotes.slice(0, 3)
-
   return (
     <section className="welcome-section welcome-section-finance" aria-label="Finance overview">
       <CardHeader expanded={expanded} onToggle={toggle}>
         <SectionHeading
           kicker="Markets"
           title="Finance"
-          caption={`${watchlist.length} symbol${watchlist.length !== 1 ? 's' : ''} tracked`}
+          caption={getTrackedSymbolsCaption(watchlist.length)}
         />
       </CardHeader>
 
       {/* Collapsed summary */}
-      {!expanded && quotes.length > 0 && (
-        <div className="finance-collapsed-summary">
-          {topQuotes.map(q => {
-            /* v8 ignore start */
-            const qChange = q.change ?? 0
-            const qPct = q.changePercent ?? 0
-            /* v8 ignore stop */
-            const positive = qChange >= 0
-            return (
-              <div key={q.symbol} className="finance-collapsed-item">
-                <span className="finance-collapsed-symbol">{q.name}</span>
-                <span
-                  className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
-                >
-                  {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {!expanded && quotes.length > 0 && <FinanceCollapsedSummary quotes={quotes} />}
 
       {/* Expanded content */}
       {expanded && (

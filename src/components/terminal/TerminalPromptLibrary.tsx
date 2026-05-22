@@ -146,6 +146,18 @@ function getTerminalAvailability(activeTabId: string | null): TerminalAvailabili
   }
 }
 
+function canPasteIntoActiveTerminal(activeTabId: string) {
+  return getSessionId(activeTabId) !== undefined && hasTerminalPasteHandler(activeTabId)
+}
+
+function isClickInsideLibrary(
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  rootElement: HTMLDivElement,
+  target: Node
+) {
+  return ownerRef?.current?.contains(target) || rootElement.contains(target)
+}
+
 function validateEditorState(editorState: EditorState) {
   const title = editorState.title.trim()
   const content = editorState.content.replace(/\r\n/g, '\n')
@@ -214,7 +226,7 @@ async function pastePromptToActiveTerminal(
     throw new Error('Open a terminal tab to use a prompt.')
   }
 
-  if (getSessionId(activeTabId) === undefined || !hasTerminalPasteHandler(activeTabId)) {
+  if (!canPasteIntoActiveTerminal(activeTabId)) {
     throw new Error('The active terminal is still connecting. Try again in a moment.')
   }
 
@@ -247,7 +259,7 @@ function usePromptLibraryDismiss(
         return
       }
 
-      if (ownerRef?.current?.contains(target) || rootRef.current.contains(target)) {
+      if (isClickInsideLibrary(ownerRef, rootRef.current, target)) {
         return
       }
 

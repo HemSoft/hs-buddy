@@ -187,22 +187,14 @@ export function RunList() {
   const toggleRow = (runId: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev)
-      if (next.has(runId)) {
-        next.delete(runId)
-      } else {
-        next.add(runId)
-      }
+      next.has(runId) ? next.delete(runId) : next.add(runId)
       return next
     })
   }
 
   const handleCancel = async (runId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    try {
-      await cancel({ id: runId as Id<'runs'> })
-    } catch (error: unknown) {
-      console.error('Failed to cancel run:', error)
-    }
+    try { await cancel({ id: runId as Id<'runs'> }) } catch (error: unknown) { console.error('Failed to cancel run:', error) }
   }
 
   const { confirm, confirmDialog } = useConfirm()

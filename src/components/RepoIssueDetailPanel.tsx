@@ -211,12 +211,7 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
 
 export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
-  const {
-    data: detail,
-    loading,
-    error,
-    refresh,
-  } = useGitHubData<RepoIssueDetail>({
+  const { data: detail, loading, error, refresh } = useGitHubData<RepoIssueDetail>({
     cacheKey: `repo-issue:${owner}/${repo}/${issueNumber}`,
     taskName: `repo-issue-${owner}-${repo}-${issueNumber}`,
     /* v8 ignore start */
@@ -229,35 +224,19 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     if (!detail) return
     /* v8 ignore stop */
     const repoRoot = accounts.find(a => a.org === owner)?.repoRoot
-    const repoPath = repoRoot
-      ? [repoRoot, repo].join(window.navigator.platform.startsWith('Win') ? '\\' : '/')
-      : ''
+    const sep = window.navigator.platform.startsWith('Win') ? '\\' : '/'
+    const repoPath = repoRoot ? [repoRoot, repo].join(sep) : ''
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
     setTimeout(() => {
-      window.dispatchEvent(
-        new CustomEvent('ralph:launch-from-issue', {
-          detail: {
-            issueNumber: detail.number,
-            issueTitle: detail.title,
-            issueBody: detail.body,
-            repository: repo,
-            org: owner,
-            repoPath,
-          },
-        })
-      )
+      window.dispatchEvent(new CustomEvent('ralph:launch-from-issue', {
+        detail: { issueNumber: detail.number, issueTitle: detail.title, issueBody: detail.body, repository: repo, org: owner, repoPath },
+      }))
     }, 100)
   }
 
   if (!detail) {
-    if (loading) {
-      return (
-        <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
-    }
+    if (loading) return <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
+    if (error) return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
     /* v8 ignore start */
     return null
     /* v8 ignore stop */
@@ -265,42 +244,27 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
 
   return (
     <div className="repo-issue-detail-panel">
-      <IssueHero
-        detail={detail}
-        owner={owner}
-        repo={repo}
-        loading={loading}
-        refresh={refresh}
-        onStartRalphLoop={handleStartRalphLoop}
-      />
-
+      <IssueHero detail={detail} owner={owner} repo={repo} loading={loading}
+        refresh={refresh} onStartRalphLoop={handleStartRalphLoop} />
       <div className="repo-issue-detail-layout">
         <section className="repo-issue-detail-main-card">
           <div className="repo-issue-detail-card-title">Issue Narrative</div>
           {detail.body.trim() ? (
             <div className="repo-issue-detail-markdown" data-color-mode="dark">
-              <MarkdownPreview
-                source={detail.body}
-                remarkPlugins={[remarkGemoji]}
-                style={{ backgroundColor: 'transparent', color: 'inherit' }}
-              />
+              <MarkdownPreview source={detail.body} remarkPlugins={[remarkGemoji]}
+                style={{ backgroundColor: 'transparent', color: 'inherit' }} />
             </div>
           ) : (
-            <div className="repo-issue-detail-empty-body">
-              No description was provided for this issue.
-            </div>
+            <div className="repo-issue-detail-empty-body">No description was provided for this issue.</div>
           )}
         </section>
-
         <IssueSidebar detail={detail} />
       </div>
-
       <section className="repo-issue-detail-comments-card">
         <div className="repo-issue-detail-comments-header">
           <div className="repo-issue-detail-card-title">Discussion</div>
           <span className="repo-issue-detail-comments-count">{detail.comments.length} replies</span>
         </div>
-
         {detail.comments.length === 0 ? (
           <div className="repo-issue-detail-empty-comments">No comments yet.</div>
         ) : (

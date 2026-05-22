@@ -248,6 +248,31 @@ interface BookmarkFormFieldsProps {
   userEditedTags: MutableRefObject<boolean>
 }
 
+function NewCategoryRow({ state, categories, dispatch }: {
+  state: BookmarkDialogState; categories: string[]; dispatch: Dispatch<BookmarkDialogAction>
+}) {
+  return (
+    <div className="bookmark-category-row">
+      <select
+        className="bookmark-dialog-select"
+        style={{ flex: '0 0 auto', minWidth: 120 }}
+        value=""
+        onChange={e => { if (e.target.value) { dispatch({ type: 'setParentCategory', parent: e.target.value }) } }}
+      >
+        <option value="">Parent…</option>
+        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+      </select>
+      <input
+        type="text" className="bookmark-dialog-input" value={state.newCategory}
+        onChange={e => dispatch({ type: 'setNewCategory', value: e.target.value })}
+        placeholder="Category/Subcategory"
+      />
+      <button type="button" className="bookmark-new-category-btn"
+        onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}>Existing</button>
+    </div>
+  )
+}
+
 function BookmarkCategoryField({
   state,
   isEdit,
@@ -261,14 +286,10 @@ function BookmarkCategoryField({
 }) {
   return (
     <label className="bookmark-dialog-label">
-      <span>
-        Category <span className="bookmark-required">*</span>
-      </span>
+      <span>Category <span className="bookmark-required">*</span></span>
       {isEdit ? (
         <input
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.category}
+          type="text" className="bookmark-dialog-input" value={state.category}
           /* v8 ignore start */
           onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
           /* v8 ignore stop */
@@ -276,62 +297,20 @@ function BookmarkCategoryField({
         />
       ) : !state.useNewCategory ? (
         <div className="bookmark-category-row">
-          <select
-            className="bookmark-dialog-select"
-            value={state.category}
-            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
-          >
+          <select className="bookmark-dialog-select" value={state.category}
+            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}>
             <option value="">Select category…</option>
             {categories.map(c => (
               <option key={c} value={c}>
-                {c.includes('/')
-                  ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
-                  : c}
+                {c.includes('/') ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop() : c}
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            className="bookmark-new-category-btn"
-            onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}
-          >
-            New
-          </button>
+          <button type="button" className="bookmark-new-category-btn"
+            onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}>New</button>
         </div>
       ) : (
-        <div className="bookmark-category-row">
-          <select
-            className="bookmark-dialog-select"
-            style={{ flex: '0 0 auto', minWidth: 120 }}
-            value=""
-            onChange={e => {
-              if (e.target.value) {
-                dispatch({ type: 'setParentCategory', parent: e.target.value })
-              }
-            }}
-          >
-            <option value="">Parent…</option>
-            {categories.map(c => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <input
-            type="text"
-            className="bookmark-dialog-input"
-            value={state.newCategory}
-            onChange={e => dispatch({ type: 'setNewCategory', value: e.target.value })}
-            placeholder="Category/Subcategory"
-          />
-          <button
-            type="button"
-            className="bookmark-new-category-btn"
-            onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}
-          >
-            Existing
-          </button>
-        </div>
+        <NewCategoryRow state={state} categories={categories} dispatch={dispatch} />
       )}
       <span className="bookmark-dialog-hint">Use / for hierarchy (e.g. Development/Frontend)</span>
     </label>
@@ -361,89 +340,36 @@ function BookmarkAiSuggestingHint({ aiSuggesting }: { aiSuggesting: boolean }) {
 }
 
 function BookmarkFormFields({
-  state,
-  isEdit,
-  categories,
-  dispatch,
-  setUrlInputRef,
-  setTitleInputRef,
-  userEditedTitle,
-  userEditedDescription,
-  userEditedTags,
+  state, isEdit, categories, dispatch, setUrlInputRef,
+  setTitleInputRef, userEditedTitle, userEditedDescription, userEditedTags,
 }: BookmarkFormFieldsProps) {
   return (
     <>
       <label className="bookmark-dialog-label">
-        <span>
-          URL <span className="bookmark-required">*</span>
-        </span>
-        <input
-          ref={setUrlInputRef}
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.url}
-          onChange={e => dispatch({ type: 'setUrl', value: e.target.value })}
-          placeholder="https://example.com"
-        />
+        <span>URL <span className="bookmark-required">*</span></span>
+        <input ref={setUrlInputRef} type="text" className="bookmark-dialog-input"
+          value={state.url} onChange={e => dispatch({ type: 'setUrl', value: e.target.value })}
+          placeholder="https://example.com" />
       </label>
-
       <label className="bookmark-dialog-label">
-        <span>
-          Title <span className="bookmark-required">*</span>
-          <BookmarkFetchingTitleHint fetchingTitle={state.fetchingTitle} />
-        </span>
-        <input
-          ref={setTitleInputRef}
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.title}
-          onChange={e => {
-            dispatch({ type: 'setTitle', value: e.target.value })
-            userEditedTitle.current = true
-          }}
-          placeholder={getTitlePlaceholder(state.fetchingTitle)}
-        />
+        <span>Title <span className="bookmark-required">*</span>
+          <BookmarkFetchingTitleHint fetchingTitle={state.fetchingTitle} /></span>
+        <input ref={setTitleInputRef} type="text" className="bookmark-dialog-input"
+          value={state.title} placeholder={getTitlePlaceholder(state.fetchingTitle)}
+          onChange={e => { dispatch({ type: 'setTitle', value: e.target.value }); userEditedTitle.current = true }} />
       </label>
-
       <label className="bookmark-dialog-label">
-        <span>
-          Description
-          <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
-        </span>
-        <textarea
-          className="bookmark-dialog-textarea"
-          value={state.description}
-          onChange={e => {
-            dispatch({ type: 'setDescription', value: e.target.value })
-            userEditedDescription.current = true
-          }}
+        <span>Description <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} /></span>
+        <textarea className="bookmark-dialog-textarea" value={state.description} rows={2}
           placeholder={getDescriptionPlaceholder(state.aiSuggesting)}
-          rows={2}
-        />
+          onChange={e => { dispatch({ type: 'setDescription', value: e.target.value }); userEditedDescription.current = true }} />
       </label>
-
-      <BookmarkCategoryField
-        state={state}
-        isEdit={isEdit}
-        categories={categories}
-        dispatch={dispatch}
-      />
-
+      <BookmarkCategoryField state={state} isEdit={isEdit} categories={categories} dispatch={dispatch} />
       <label className="bookmark-dialog-label">
-        <span>
-          Tags
-          <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
-        </span>
-        <input
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.tagsInput}
-          onChange={e => {
-            dispatch({ type: 'setTagsInput', value: e.target.value })
-            userEditedTags.current = true
-          }}
+        <span>Tags <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} /></span>
+        <input type="text" className="bookmark-dialog-input" value={state.tagsInput}
           placeholder={getTagsPlaceholder(state.aiSuggesting)}
-        />
+          onChange={e => { dispatch({ type: 'setTagsInput', value: e.target.value }); userEditedTags.current = true }} />
         <span className="bookmark-dialog-hint">Comma-separated</span>
       </label>
     </>

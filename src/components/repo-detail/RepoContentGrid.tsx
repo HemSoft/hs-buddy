@@ -101,9 +101,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
                 />
                 <div className="repo-contributor-info">
                   <span className="repo-contributor-name">
-                    {contributor.name
-                      ? `${contributor.name} (${contributor.login})`
-                      : contributor.login}
+                    {formatContributorName(contributor)}
                   </span>
                   <span className="repo-contributor-count">
                     {contributor.contributions.toLocaleString()} commits

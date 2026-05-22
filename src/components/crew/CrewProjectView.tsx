@@ -58,8 +58,10 @@ function getCopilotConversationHistory(session: CrewSession) {
   }))
 }
 
-function getCopilotResponseContent(response: string | { content?: string | null } | null | undefined) {
-  return typeof response === 'string' ? response : response?.content ?? 'No response received.'
+function getCopilotResponseContent(
+  response: string | { content?: string | null } | null | undefined
+) {
+  return typeof response === 'string' ? response : (response?.content ?? 'No response received.')
 }
 
 function ProjectHeader({ project }: ProjectHeaderProps) {

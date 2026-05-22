@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce complexity in WeatherCard and CopilotPromptBox
 - Reduce complexity across 20+ components and hooks
 - Reduce CRAP scores in utils and components (batch 8)
+- Eliminate all remaining production complexity violations
 
 ### Added
 

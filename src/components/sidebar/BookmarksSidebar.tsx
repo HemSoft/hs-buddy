@@ -27,6 +27,17 @@ interface BookmarkItemProps {
   onDrop: (e: React.DragEvent, id: string) => void
 }
 
+function bookmarkItemClassName(
+  bm: { _id: string },
+  selectedItem: string | null,
+  bmViewId: string,
+  dragOver: DragOver
+): string {
+  const selected = selectedItem === bmViewId ? 'selected' : ''
+  const dragClass = dragOver && dragOver.id === bm._id ? `drag-over-${dragOver.position}` : ''
+  return `sidebar-item ${selected} ${dragClass}`
+}
+
 function BookmarkItem({
   bm,
   selectedItem,
@@ -43,7 +54,7 @@ function BookmarkItem({
   return (
     <div
       key={bm._id}
-      className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''} ${dragOver && dragOver.id === bm._id ? `drag-over-${dragOver.position}` : ''}`}
+      className={bookmarkItemClassName(bm, selectedItem, bmViewId, dragOver)}
       style={{ paddingLeft }}
       onClick={() => onItemSelect(bmViewId)}
       onContextMenu={e => onContextMenu(e, bm._id)}
@@ -158,6 +169,58 @@ function CategoryChevron({
     >
       {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
     </span>
+  )
+}
+
+function BookmarkContextMenu({
+  contextMenu,
+  menuRef,
+  bookmarks,
+  closeContextMenu,
+  onEdit,
+}: {
+  contextMenu: { x: number; y: number; bookmarkId: string }
+  menuRef: React.RefObject<HTMLDivElement | null>
+  bookmarks: ReturnType<typeof useBookmarks>
+  closeContextMenu: () => void
+  onEdit: (bm: NonNullable<ReturnType<typeof useBookmarks>>[number]) => void
+}) {
+  return (
+    <>
+      <div className="tab-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
+      <div
+        ref={menuRef}
+        className="tab-context-menu"
+        role="menu"
+        style={{ top: contextMenu.y, left: contextMenu.x }}
+      >
+        <button
+          role="menuitem"
+          onClick={() => {
+            const bm = bookmarks?.find(b => b._id === contextMenu.bookmarkId)
+            if (bm) onEdit(bm)
+            closeContextMenu()
+          }}
+        >
+          Edit
+        </button>
+      </div>
+    </>
+  )
+}
+
+function BookmarkEditDialog({
+  editingBookmark,
+  categories,
+  onClose,
+}: {
+  editingBookmark: NonNullable<ReturnType<typeof useBookmarks>>[number] | null
+  categories: ReturnType<typeof useBookmarkCategories>
+  onClose: () => void
+}) {
+  if (!editingBookmark) return null
+  return (
+    <BookmarkDialog bookmark={editingBookmark} categories={categories ?? []} onClose={onClose} />
   )
 }
 
@@ -394,37 +457,20 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       </div>
 
       {contextMenu && (
-        <>
-          <div className="tab-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
-          <div
-            ref={menuRef}
-            className="tab-context-menu"
-            role="menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            <button
-              role="menuitem"
-              onClick={() => {
-                const bm = bookmarks?.find(b => b._id === contextMenu.bookmarkId)
-                if (bm) setEditingBookmark(bm)
-                closeContextMenu()
-              }}
-            >
-              Edit
-            </button>
-          </div>
-        </>
-      )}
-
-      {editingBookmark && (
-        <BookmarkDialog
-          bookmark={editingBookmark}
-          /* v8 ignore start */
-          categories={categories ?? []}
-          /* v8 ignore stop */
-          onClose={() => setEditingBookmark(null)}
+        <BookmarkContextMenu
+          contextMenu={contextMenu}
+          menuRef={menuRef}
+          bookmarks={bookmarks}
+          closeContextMenu={closeContextMenu}
+          onEdit={setEditingBookmark}
         />
       )}
+
+      <BookmarkEditDialog
+        editingBookmark={editingBookmark}
+        categories={categories}
+        onClose={() => setEditingBookmark(null)}
+      />
     </div>
   )
 }

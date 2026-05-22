@@ -61,8 +61,7 @@ function hasThreadSnapshotMismatch(
 ): boolean {
   if (!reviewedThreadStats) return false
   return (
-    reviewedThreadStats.unresolved !== activeCount ||
-    reviewedThreadStats.outdated !== outdatedCount
+    reviewedThreadStats.unresolved !== activeCount || reviewedThreadStats.outdated !== outdatedCount
   )
 }
 
@@ -257,7 +256,8 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const outdatedThreads = useMemo(() => threads.filter(t => t.isOutdated), [threads])
 
   const threadSnapshotChanged = useMemo(
-    () => hasThreadSnapshotMismatch(reviewedThreadStats, activeThreads.length, outdatedThreads.length),
+    () =>
+      hasThreadSnapshotMismatch(reviewedThreadStats, activeThreads.length, outdatedThreads.length),
     [reviewedThreadStats, activeThreads.length, outdatedThreads.length]
   )
   const needsRefresh = useMemo(

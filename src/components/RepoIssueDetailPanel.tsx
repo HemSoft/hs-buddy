@@ -228,7 +228,9 @@ function IssueNarrativeSection({ detail }: { detail: RepoIssueDetail }) {
           />
         </div>
       ) : (
-        <div className="repo-issue-detail-empty-body">No description was provided for this issue.</div>
+        <div className="repo-issue-detail-empty-body">
+          No description was provided for this issue.
+        </div>
       )}
     </section>
   )

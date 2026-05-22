@@ -204,13 +204,7 @@ export function useOrgCachedFetch<T>({
           setPhase
         )
       } catch (fetchError: unknown) {
-        handleOrgFetchFailure(
-          activeCacheKey,
-          cacheKeyRef.current,
-          fetchError,
-          setPhase,
-          setError
-        )
+        handleOrgFetchFailure(activeCacheKey, cacheKeyRef.current, fetchError, setPhase, setError)
       }
     },
     [taskName, org]

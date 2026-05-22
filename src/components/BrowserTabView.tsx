@@ -124,7 +124,9 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     }
 
     const handleBeforeInput = (event: Event) => {
-      const eventName = getBeforeInputShortcutEvent((event as Event & { input?: WebviewInput }).input)
+      const eventName = getBeforeInputShortcutEvent(
+        (event as Event & { input?: WebviewInput }).input
+      )
       if (!eventName) return
       event.preventDefault()
       window.dispatchEvent(new Event(eventName))

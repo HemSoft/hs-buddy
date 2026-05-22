@@ -99,7 +99,9 @@ function FinanceCollapsedSummary({ quotes }: { quotes: QuoteData[] }) {
         return (
           <div key={q.symbol} className="finance-collapsed-item">
             <span className="finance-collapsed-symbol">{q.name}</span>
-            <span className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}>
+            <span
+              className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
+            >
               {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
             </span>
           </div>

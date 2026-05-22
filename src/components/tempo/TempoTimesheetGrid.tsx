@@ -177,17 +177,14 @@ function buildCellTooltip(
   col: DayColumn,
   cellWorklogCount: number
 ): string {
-  if (hours === 0) return `Click — log time on ${col.date}`
-  const lines = [`${issueKey} · ${hours}h on ${col.date}`, 'Click — edit worklog']
+  if (hours === 0) return `Click to log time on ${col.date}`
+  const lines = [`${issueKey} · ${hours}h on ${col.date}`, 'Click to edit worklog']
   if (cellWorklogCount === 1) lines.push('Right-click — delete')
   lines.push(`${modLabel}+click — copy to next empty day`)
   return lines.join('\n')
 }
 
-function getDayHeaderRef(
-  col: DayColumn,
-  todayRef: React.RefObject<HTMLTableCellElement | null>
-) {
+function getDayHeaderRef(col: DayColumn, todayRef: React.RefObject<HTMLTableCellElement | null>) {
   if (!col.isToday) return undefined
 
   return todayRef

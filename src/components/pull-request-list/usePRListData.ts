@@ -181,7 +181,9 @@ async function fetchQueuedPRs(
       if (!forceRefresh) {
         const freshData = getFreshCachedData(mode, refreshInterval)
         if (freshData) {
-          console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
+          console.log(
+            `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
+          )
           return freshData
         }
       }
@@ -215,7 +217,11 @@ interface LoadPullRequestsOptions {
 }
 
 async function loadPullRequests(opts: LoadPullRequestsOptions): Promise<void> {
-  updatePRLoadingState(hasExistingPRData(opts.prs, opts.cached), opts.setLoading, opts.setRefreshing)
+  updatePRLoadingState(
+    hasExistingPRData(opts.prs, opts.cached),
+    opts.setLoading,
+    opts.setRefreshing
+  )
   resetPRLoadState(opts.setError, opts.setProgress, opts.setTotalPrsFound)
   try {
     if (opts.accounts.length === 0) {
@@ -288,13 +294,21 @@ function getRepoBookmarkKey(owner: string, repo: string) {
 }
 
 function findRepoBookmark(bookmarks: RepoBookmarks, owner: string, repo: string) {
-  return (bookmarks ?? []).find(bookmark => bookmark.owner === owner && bookmark.repo === repo) ?? null
+  return (
+    (bookmarks ?? []).find(bookmark => bookmark.owner === owner && bookmark.repo === repo) ?? null
+  )
 }
 
 async function syncRepoBookmark(params: {
   bookmarks: RepoBookmarks
   bookmarkedRepoKeys: Set<string>
-  createBookmark: (args: { folder: string; owner: string; repo: string; url: string; description: string }) => Promise<unknown>
+  createBookmark: (args: {
+    folder: string
+    owner: string
+    repo: string
+    url: string
+    description: string
+  }) => Promise<unknown>
   removeBookmark: (args: { id: string }) => Promise<unknown>
   pr: PullRequest
 }) {
@@ -551,7 +565,9 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
-    if (shouldSkipPRFetchEffect(accountsLoading, prSettingsLoading, fetchInProgressRef.current, mode)) {
+    if (
+      shouldSkipPRFetchEffect(accountsLoading, prSettingsLoading, fetchInProgressRef.current, mode)
+    ) {
       return
     }
     const isForceRefresh = forceRefresh > 0

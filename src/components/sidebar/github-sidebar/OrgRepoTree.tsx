@@ -356,10 +356,7 @@ function OrgTeamNode({
           <UsersRound size={11} />
         </span>
         <span className="sidebar-item-label">{team.name}</span>
-        <TeamMemberCountBadge
-          isLoadingMembers={isLoadingMembers}
-          memberCount={team.memberCount}
-        />
+        <TeamMemberCountBadge isLoadingMembers={isLoadingMembers} memberCount={team.memberCount} />
       </div>
       <OrgTeamNodeMembers
         isExpanded={isTeamExpanded}

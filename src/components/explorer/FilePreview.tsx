@@ -71,7 +71,7 @@ function toShikiLang(lang: string): BundledLanguage {
 
 function getFilePreviewLineCount(data: FileData | null): number {
   if (!data || !data.content) return 0
-  return data.content.split('\\n').length
+  return data.content.split('\n').length
 }
 
 function FilePreviewHeader({
@@ -88,7 +88,8 @@ function FilePreviewHeader({
       <FileText size={14} />
       <span className="file-preview-filename">{getFileName(filePath)}</span>
       <span className="file-preview-meta">
-        {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {formatFileSize(data.size)}
+        {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} ·{' '}
+        {formatFileSize(data.size)}
       </span>
     </div>
   )

@@ -625,7 +625,8 @@ const FOCUSED_SECTION_RENDERERS: Record<
 }
 
 function FocusedSectionContent(props: FocusedSectionContentProps) {
-  return FOCUSED_SECTION_RENDERERS[props.section](props)
+  const renderer = FOCUSED_SECTION_RENDERERS[props.section]
+  return renderer ? renderer(props) : null
 }
 
 function resolvePRActivityAt(pr: PRDetailInfo, historyUpdatedAt: string | null): string | null {
@@ -697,9 +698,7 @@ function shouldSkipNudge(nudgeState: NudgeState): boolean {
   return nudgeState === 'sending' || nudgeState === 'sent'
 }
 
-function scheduleNudgeReset(
-  setNudgeState: React.Dispatch<React.SetStateAction<NudgeState>>
-): void {
+function scheduleNudgeReset(setNudgeState: React.Dispatch<React.SetStateAction<NudgeState>>): void {
   setTimeout(() => setNudgeState('idle'), 5000)
 }
 

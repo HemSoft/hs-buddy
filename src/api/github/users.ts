@@ -413,7 +413,10 @@ function buildRecentAuthoredPRs(
   authoredMerged: UserSearchResult,
   maxPRs: number
 ): UserPRSummary[] {
-  return [...authoredOpen.data.items.map(mapSearchItemToUserPR), ...authoredMerged.data.items.map(mapSearchItemToUserPR)]
+  return [
+    ...authoredOpen.data.items.map(mapSearchItemToUserPR),
+    ...authoredMerged.data.items.map(mapSearchItemToUserPR),
+  ]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, maxPRs)
 }
@@ -436,7 +439,9 @@ function getRecentlyPushedRepos(
   repoSource: { repos: OrgRepoSlim[] } | null,
   startOfDay: Date
 ): OrgRepoSlim[] {
-  return resolveRepoSourceRepos(repoSource).filter(repo => isRepoPushedSince(repo, startOfDay.getTime()))
+  return resolveRepoSourceRepos(repoSource).filter(repo =>
+    isRepoPushedSince(repo, startOfDay.getTime())
+  )
 }
 
 function addRepoIfPresent(activeRepoSet: Set<string>, repo: string | null | undefined): void {
@@ -503,18 +508,27 @@ async function fetchUserActivityData(
   maxPRs: number,
   ninetyDaysAgo: string
 ): Promise<UserActivityData> {
-  const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile, orgMembership, userTeams, contributionDates] =
-    await Promise.all([
-      fetchAuthoredOpenPullRequests(octokit, owner, login, maxPRs),
-      fetchAuthoredMergedPullRequests(octokit, owner, login, maxPRs, ninetyDaysAgo),
-      fetchReviewedPullRequests(octokit, owner, login),
-      fetchUserEvents(octokit, login, maxEvents),
-      fetchOrgOrUserRepos(octokit, owner).catch(() => null),
-      fetchUserProfile(config, owner, login),
-      octokit.orgs.getMembershipForUser({ org: owner, username: login }).catch(() => null),
-      fetchUserTeams(config, owner, login),
-      searchActivityDatesInternal(octokit, owner, login).catch(() => []),
-    ])
+  const [
+    authoredOpen,
+    authoredMerged,
+    reviewed,
+    events,
+    repoSource,
+    userProfile,
+    orgMembership,
+    userTeams,
+    contributionDates,
+  ] = await Promise.all([
+    fetchAuthoredOpenPullRequests(octokit, owner, login, maxPRs),
+    fetchAuthoredMergedPullRequests(octokit, owner, login, maxPRs, ninetyDaysAgo),
+    fetchReviewedPullRequests(octokit, owner, login),
+    fetchUserEvents(octokit, login, maxEvents),
+    fetchOrgOrUserRepos(octokit, owner).catch(() => null),
+    fetchUserProfile(config, owner, login),
+    octokit.orgs.getMembershipForUser({ org: owner, username: login }).catch(() => null),
+    fetchUserTeams(config, owner, login),
+    searchActivityDatesInternal(octokit, owner, login).catch(() => []),
+  ])
 
   return {
     authoredOpen,

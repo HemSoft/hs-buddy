@@ -246,7 +246,9 @@ function resolveBudgetCardMetrics(
   return computeBudgetCardMetrics(data, quotaOverage)
 }
 
-function getPreventFurtherUsage(data: NonNullable<OrgBudgetState['data']> | null): boolean | undefined {
+function getPreventFurtherUsage(
+  data: NonNullable<OrgBudgetState['data']> | null
+): boolean | undefined {
   return data?.preventFurtherUsage
 }
 

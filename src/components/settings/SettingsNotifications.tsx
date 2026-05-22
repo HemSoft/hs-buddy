@@ -79,11 +79,19 @@ function SoundFileSelection({
         {basename(soundPath)}
       </code>
       <div className="sound-file-actions">
-        <button className="settings-btn settings-btn-secondary" onClick={onPreview} title="Preview sound">
+        <button
+          className="settings-btn settings-btn-secondary"
+          onClick={onPreview}
+          title="Preview sound"
+        >
           <Play size={14} />
           Preview
         </button>
-        <button className="settings-btn settings-btn-secondary" onClick={onClear} title="Remove sound file">
+        <button
+          className="settings-btn settings-btn-secondary"
+          onClick={onClear}
+          title="Remove sound file"
+        >
           <X size={14} />
           Clear
         </button>
@@ -241,7 +249,11 @@ export function SettingsNotifications() {
           </p>
 
           <div className="sound-file-row">
-            <SoundFileSelection soundPath={soundPath ?? ''} onPreview={handlePreview} onClear={handleClear} />
+            <SoundFileSelection
+              soundPath={soundPath ?? ''}
+              onPreview={handlePreview}
+              onClear={handleClear}
+            />
           </div>
 
           <div className="button-group" style={{ marginTop: '8px' }}>

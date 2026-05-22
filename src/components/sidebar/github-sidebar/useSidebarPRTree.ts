@@ -68,13 +68,15 @@ interface UseSidebarPRTreeOptions {
   >
 }
 
+function getSidebarPROrg(pr: PullRequest): string {
+  return pr.org ?? ''
+}
+
 function isMatchingSidebarPR(item: PullRequest, target: PullRequest): boolean {
-  return (
-    item.id === target.id &&
-    item.repository === target.repository &&
-    (item.org ?? '') === (target.org ?? '') &&
-    item.source === target.source
-  )
+  if (item.id !== target.id) return false
+  if (item.repository !== target.repository) return false
+  if (getSidebarPROrg(item) !== getSidebarPROrg(target)) return false
+  return item.source === target.source
 }
 
 function applyApproveToTreeData(

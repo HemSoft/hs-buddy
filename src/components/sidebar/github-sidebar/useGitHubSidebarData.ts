@@ -274,7 +274,9 @@ function getSidebarBookmarkKey(org: string, repoName: string) {
 }
 
 function findSidebarBookmark(bookmarks: SidebarBookmarks, org: string, repoName: string) {
-  return (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+  return (
+    (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+  )
 }
 
 function wasBookmarkInserted(result: unknown) {

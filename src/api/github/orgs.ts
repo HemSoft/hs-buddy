@@ -102,7 +102,9 @@ const ORG_REPO_NUM_DEFAULTS = { stargazers_count: 0, forks_count: 0, archived: f
 // ─── Helper functions ─────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function resolveOrgRepoMetadata(repo: any): Pick<OrgRepo, 'description' | 'defaultBranch' | 'language'> {
+function resolveOrgRepoMetadata(
+  repo: any
+): Pick<OrgRepo, 'description' | 'defaultBranch' | 'language'> {
   return {
     description: repo.description ?? null,
     defaultBranch: repo.default_branch || 'main',

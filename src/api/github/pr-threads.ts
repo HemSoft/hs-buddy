@@ -74,7 +74,10 @@ function cloneSimpleThreadNodes(
   return [...(nodes ?? [])]
 }
 
-function hasSimpleThreadCursor(pageInfo: { hasNextPage: boolean; endCursor: string | null }): boolean {
+function hasSimpleThreadCursor(pageInfo: {
+  hasNextPage: boolean
+  endCursor: string | null
+}): boolean {
   return pageInfo.hasNextPage && Boolean(pageInfo.endCursor)
 }
 

@@ -48,29 +48,36 @@ type DashboardAction =
     }
   | { type: 'setError'; error: string | null }
 
+function applySetViewDefaults(
+  action: DashboardAction & { type: 'setView' }
+): Partial<DashboardState> {
+  return {
+    viewMode: action.mode,
+    selectedScript: action.script ?? null,
+    prLaunchData: action.prLaunchData ?? null,
+    issueLaunchData: action.issueLaunchData ?? null,
+  }
+}
+
 function reducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
     case 'setView':
-      return {
-        ...state,
-        viewMode: action.mode,
-        selectedScript: action.script ?? null,
-        prLaunchData: action.prLaunchData ?? null,
-        issueLaunchData: action.issueLaunchData ?? null,
-      }
+      return { ...state, ...applySetViewDefaults(action) }
     case 'setError':
       return { ...state, error: action.error }
   }
 }
 
+function getLaunchIdentifiers(state: DashboardState): { pr: string; issue: string } {
+  return {
+    pr: state.prLaunchData?.prNumber ?? '',
+    issue: state.issueLaunchData?.issueNumber ?? '',
+  }
+}
+
 function buildResetKey(resetKey: number, state: DashboardState): string {
-  return [
-    resetKey,
-    state.viewMode,
-    state.selectedScript ?? '',
-    state.prLaunchData?.prNumber ?? '',
-    state.issueLaunchData?.issueNumber ?? '',
-  ].join('|')
+  const { pr, issue } = getLaunchIdentifiers(state)
+  return [resetKey, state.viewMode, state.selectedScript ?? '', pr, issue].join('|')
 }
 
 function partitionRuns(runs: RalphRunInfo[]): {

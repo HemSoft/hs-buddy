@@ -8,14 +8,12 @@ import {
 import { type Octokit, getOctokitForOwner } from './shared'
 
 function mapLatestWorkflowRun(
-  latestRun:
-    | {
-        status?: string | null
-        conclusion?: string | null
-        created_at: string
-        html_url: string
-      }
-    | null
+  latestRun: {
+    status?: string | null
+    conclusion?: string | null
+    created_at: string
+    html_url: string
+  } | null
 ): SFLWorkflowInfo['latestRun'] {
   if (!latestRun) return null
   return {

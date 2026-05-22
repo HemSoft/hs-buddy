@@ -414,10 +414,10 @@ function extractBranchRefs(
 }
 
 /** Build the latest-review-by-user map from a list of REST reviews. */
-function buildLatestReviewState(review: {
+function buildLatestReviewState(review: { state: string; submitted_at?: string | null }): {
   state: string
-  submitted_at?: string | null
-}): { state: string; submittedAt: string } {
+  submittedAt: string
+} {
   return { state: review.state, submittedAt: review.submitted_at || '' }
 }
 

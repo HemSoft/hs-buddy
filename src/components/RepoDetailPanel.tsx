@@ -56,7 +56,9 @@ function RepoWorkflowBadge({ detail }: { detail: RepoDetail }) {
       role="button"
       tabIndex={0}
       onClick={() => window.shell?.openExternal(detail.latestWorkflowRun.url)}
-      onKeyDown={onKeyboardActivate(() => window.shell?.openExternal(detail.latestWorkflowRun?.url))}
+      onKeyDown={onKeyboardActivate(() =>
+        window.shell?.openExternal(detail.latestWorkflowRun?.url)
+      )}
     >
       {/* v8 ignore start */}
       <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
@@ -146,7 +148,15 @@ function RepoHeaderActions({
   )
 }
 
-function RepoHeaderInfo({ owner, repo, detail }: { owner: string; repo: string; detail: RepoDetail }) {
+function RepoHeaderInfo({
+  owner,
+  repo,
+  detail,
+}: {
+  owner: string
+  repo: string
+  detail: RepoDetail
+}) {
   return (
     <div className="repo-detail-header-left">
       <h2 className="repo-detail-name">

@@ -598,7 +598,9 @@ function extractDetailedThreads(result: {
   return result.repository?.pullRequest?.reviewThreads
 }
 
-function cloneDetailedThreadNodes(nodes: DetailedThreadNode[] | null | undefined): DetailedThreadNode[] {
+function cloneDetailedThreadNodes(
+  nodes: DetailedThreadNode[] | null | undefined
+): DetailedThreadNode[] {
   return [...(nodes ?? [])]
 }
 

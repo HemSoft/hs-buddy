@@ -98,7 +98,11 @@ function TerminalTabItem({
       onDrop={e => handleDrop(e, tab.id)}
     >
       <TerminalTabColorDot color={tab.color} />
-      <button type="button" className="terminal-panel-tab-button" onClick={() => handleTabSelect(tab.id)}>
+      <button
+        type="button"
+        className="terminal-panel-tab-button"
+        onClick={() => handleTabSelect(tab.id)}
+      >
         <span className="terminal-panel-tab-title">{tab.title}</span>
       </button>
       <button

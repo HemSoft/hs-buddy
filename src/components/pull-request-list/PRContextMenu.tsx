@@ -20,7 +20,9 @@ function hasUnresolvedComments(pr: PullRequest): boolean {
 }
 
 function getAddressCommentsLabel(pr: PullRequest, hasUnresolved: boolean): string {
-  return hasUnresolved ? `Address Unresolved Comments (${pr.threadsUnaddressed})` : 'No Unresolved Comments'
+  return hasUnresolved
+    ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
+    : 'No Unresolved Comments'
 }
 
 function getApproveLabel(pr: PullRequest): string {

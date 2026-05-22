@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 import { IPC_INVOKE } from '../ipc/contracts'
 
@@ -46,13 +46,16 @@ export function getPollenLabel(index: number): PollenLevel {
   return POLLEN_LABELS[clamped]
 }
 
+const POLLEN_COLORS: ReadonlyArray<{ max: number; color: string }> = [
+  { max: 0, color: 'var(--text-muted)' },
+  { max: 1, color: '#4caf50' },
+  { max: 2, color: '#8bc34a' },
+  { max: 3, color: '#ffc107' },
+  { max: 4, color: '#ff9800' },
+]
+
 export function getPollenColor(index: number): string {
-  if (index <= 0) return 'var(--text-muted)'
-  if (index <= 1) return '#4caf50' // green
-  if (index <= 2) return '#8bc34a' // light green
-  if (index <= 3) return '#ffc107' // amber
-  if (index <= 4) return '#ff9800' // orange
-  return '#f44336' // red
+  return POLLEN_COLORS.find(c => index <= c.max)?.color ?? '#f44336'
 }
 
 const COORD_TOLERANCE = 0.01 // ~1km
@@ -89,6 +92,28 @@ interface PollenFetchResult {
   success: boolean
   data?: PollenData
   error?: string
+}
+
+function applyPollenResult(
+  result: PollenFetchResult,
+  latitude: number,
+  longitude: number,
+  setState: React.Dispatch<React.SetStateAction<PollenState>>
+): void {
+  if (result.success && result.data) {
+    writePollenCache(result.data, latitude, longitude)
+    setState({ data: result.data, loading: false, error: null })
+    return
+  }
+  if (result.error === 'no-api-key') {
+    setState({ data: null, loading: false, error: null })
+    return
+  }
+  setState(prev => ({
+    data: prev.data,
+    loading: false,
+    error: result.error ?? 'Pollen fetch failed',
+  }))
 }
 
 /**
@@ -128,20 +153,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       })) as PollenFetchResult
 
       if (!mountedRef.current) return
-
-      if (result.success && result.data) {
-        writePollenCache(result.data, latitude, longitude)
-        setState({ data: result.data, loading: false, error: null })
-      } else if (result.error === 'no-api-key') {
-        // No API key → silent no-op (not an error state)
-        setState({ data: null, loading: false, error: null })
-      } else {
-        setState(prev => ({
-          data: prev.data,
-          loading: false,
-          error: result.error ?? 'Pollen fetch failed',
-        }))
-      }
+      applyPollenResult(result, latitude, longitude, setState)
     } catch (_: unknown) {
       // IPC unavailable (test env, non-Electron) → silent no-op
       if (mountedRef.current) {

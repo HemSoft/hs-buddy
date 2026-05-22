@@ -31,6 +31,36 @@ export function groupPrsByOwner<T extends { _owner: string }>(prs: T[]): Map<str
 /* v8 ignore start -- GraphQL thread counting; requires real API */
 
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
+async function fetchThreadPage(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  cursor: string,
+  token: string
+) {
+  const pageQuery = `query {
+      repository(owner: "${owner}", name: "${repo}") {
+        pullRequest(number: ${prNumber}) {
+          reviewThreads(first: 100, after: "${cursor}") {
+            pageInfo { hasNextPage endCursor }
+            nodes { isResolved }
+          }
+        }
+      }
+    }`
+  const pageResult = await graphql<{
+    repository: {
+      pullRequest: {
+        reviewThreads: {
+          pageInfo: { hasNextPage: boolean; endCursor: string | null }
+          nodes: Array<{ isResolved: boolean }>
+        }
+      } | null
+    } | null
+  }>(pageQuery, { headers: { authorization: `token ${token}` } })
+  return pageResult.repository?.pullRequest?.reviewThreads ?? null
+}
+
 async function paginateReviewThreads(
   owner: string,
   repo: string,
@@ -45,27 +75,7 @@ async function paginateReviewThreads(
   let { hasNextPage, endCursor } = firstPage.pageInfo
 
   while (hasNextPage && endCursor) {
-    const pageQuery = `query {
-        repository(owner: "${owner}", name: "${repo}") {
-          pullRequest(number: ${prNumber}) {
-            reviewThreads(first: 100, after: "${endCursor}") {
-              pageInfo { hasNextPage endCursor }
-              nodes { isResolved }
-            }
-          }
-        }
-      }`
-    const pageResult = await graphql<{
-      repository: {
-        pullRequest: {
-          reviewThreads: {
-            pageInfo: { hasNextPage: boolean; endCursor: string | null }
-            nodes: Array<{ isResolved: boolean }>
-          }
-        } | null
-      } | null
-    }>(pageQuery, { headers: { authorization: `token ${token}` } })
-    const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
+    const pageThreads = await fetchThreadPage(owner, repo, prNumber, endCursor, token)
     if (!pageThreads) break
     allNodes.push(...(pageThreads.nodes || []))
     hasNextPage = pageThreads.pageInfo.hasNextPage

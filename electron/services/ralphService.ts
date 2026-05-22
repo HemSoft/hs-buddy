@@ -220,28 +220,42 @@ function validateModelConfig(model: string): string | null {
   return null
 }
 
+function validateProviderAndModel(config: RalphLaunchConfig): string | null {
+  if (config.provider && !VALID_PROVIDERS.has(config.provider)) {
+    return `Invalid provider: ${config.provider}`
+  }
+  if (config.model) return validateModelConfig(config.model)
+  return null
+}
+
 function validateOptionsConfig(config: RalphLaunchConfig): string | null {
   if (!VALID_SCRIPT_TYPES.has(config.scriptType)) {
     return `Invalid scriptType: ${config.scriptType}`
   }
-  if (config.provider && !VALID_PROVIDERS.has(config.provider)) {
-    return `Invalid provider: ${config.provider}`
-  }
-  if (config.model && validateModelConfig(config.model)) {
-    return validateModelConfig(config.model)
-  }
+  const provModelErr = validateProviderAndModel(config)
+  if (provModelErr) return provModelErr
   if (config.scriptType === 'ralph-pr' && !config.prNumber) {
     return 'PR number is required for ralph-pr script'
   }
   return validateTimingConfig(config)
 }
 
+interface RangeRule {
+  key: keyof RalphLaunchConfig
+  min: number
+  max: number
+  msg: string
+}
+
+const RANGE_RULES: ReadonlyArray<RangeRule> = [
+  { key: 'iterations', min: 1, max: 100, msg: 'iterations must be between 1 and 100' },
+  { key: 'repeats', min: 1, max: 50, msg: 'repeats must be between 1 and 50' },
+]
+
 function validateTimingConfig(config: RalphLaunchConfig): string | null {
-  if (config.iterations !== undefined && (config.iterations < 1 || config.iterations > 100)) {
-    return 'iterations must be between 1 and 100'
-  }
-  if (config.repeats !== undefined && (config.repeats < 1 || config.repeats > 50)) {
-    return 'repeats must be between 1 and 50'
+  for (const { key, min, max, msg } of RANGE_RULES) {
+    const val = config[key] as number | undefined
+    if (val !== undefined && (val < min || val > max)) return msg
   }
   if (config.workUntil && !/^\d{2}:\d{2}$/.test(config.workUntil)) {
     return 'workUntil must be HH:mm format'
@@ -255,20 +269,28 @@ function validateLaunchConfig(config: RalphLaunchConfig): string | null {
 
 // ── Process Spawning ────────────────────────────────────────────
 
+const SCRIPT_TYPE_FILES: Record<string, string> = {
+  ralph: 'ralph.ps1',
+  'ralph-pr': 'ralph-pr.ps1',
+  'ralph-issues': 'ralph-issues.ps1',
+}
+
 function resolveScriptPath(config: RalphLaunchConfig): string {
   const scriptsDir = getScriptsDir()
-  if (config.scriptType === 'ralph') return join(scriptsDir, 'ralph.ps1')
-  if (config.scriptType === 'ralph-pr') return join(scriptsDir, 'ralph-pr.ps1')
-  if (config.scriptType === 'ralph-issues') return join(scriptsDir, 'ralph-issues.ps1')
+  const builtIn = SCRIPT_TYPE_FILES[config.scriptType]
+  if (builtIn) return join(scriptsDir, builtIn)
+
   // Template scripts: check vendored scripts/ dir first, then repo's scripts/ dir
-  if (config.templateScript) {
-    const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
-    if (existsSync(vendoredPath)) return vendoredPath
-    const repoPath = join(config.repoPath, 'scripts', config.templateScript)
-    if (existsSync(repoPath)) return repoPath
-    throw new Error(`Template script not found: ${config.templateScript}`)
-  }
-  throw new Error('Cannot resolve script path')
+  if (!config.templateScript) throw new Error('Cannot resolve script path')
+  const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
+  if (existsSync(vendoredPath)) return vendoredPath
+  const repoPath = join(config.repoPath, 'scripts', config.templateScript)
+  if (existsSync(repoPath)) return repoPath
+  throw new Error(`Template script not found: ${config.templateScript}`)
+}
+
+function buildCombinedAgents(config: RalphLaunchConfig): string[] {
+  return [...(config.devAgent ? [config.devAgent] : []), ...(config.agents ?? [])]
 }
 
 // ralph-pr uses separate -DevAgent param; ralph.ps1 mixes dev into -Agents
@@ -277,7 +299,7 @@ function appendAgentArgs(args: string[], config: RalphLaunchConfig): void {
     if (config.devAgent) args.push('-DevAgent', config.devAgent)
     if (config.agents?.length) args.push('-Agents', config.agents.join(','))
   } else {
-    const allAgents = [...(config.devAgent ? [config.devAgent] : []), ...(config.agents ?? [])]
+    const allAgents = buildCombinedAgents(config)
     if (allAgents.length) args.push('-Agents', allAgents.join(','))
   }
 }
@@ -294,16 +316,29 @@ function resolvePromptArg(prompt: string): string {
   return prompt
 }
 
+interface OptionalArgRule {
+  key: keyof RalphLaunchConfig
+  flag: string
+  transform?: (v: unknown) => string
+}
+
+const OPTIONAL_ARGS: ReadonlyArray<OptionalArgRule> = [
+  { key: 'model', flag: '-Model' },
+  { key: 'provider', flag: '-Provider' },
+  { key: 'iterations', flag: '-Max', transform: String },
+  { key: 'workUntil', flag: '-WorkUntil' },
+  { key: 'branch', flag: '-Branch' },
+  { key: 'prNumber', flag: '-PRNumber', transform: String },
+  { key: 'labels', flag: '-Labels' },
+]
+
 function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
-  if (config.model) args.push('-Model', config.model)
-  if (config.provider) args.push('-Provider', config.provider)
+  for (const { key, flag, transform } of OPTIONAL_ARGS) {
+    const val = config[key]
+    if (val) args.push(flag, transform ? transform(val) : (val as string))
+  }
   appendAgentArgs(args, config)
-  if (config.iterations) args.push('-Max', String(config.iterations))
-  if (config.workUntil) args.push('-WorkUntil', config.workUntil)
-  if (config.branch) args.push('-Branch', config.branch)
   if (config.prompt) args.push('-Prompt', resolvePromptArg(config.prompt))
-  if (config.prNumber) args.push('-PRNumber', String(config.prNumber))
-  if (config.labels) args.push('-Labels', config.labels)
   if (config.dryRun) args.push('-DryRun')
 }
 
@@ -462,34 +497,45 @@ function appendLogLine(runId: string, line: string): void {
   }
 }
 
+interface PhaseDetector {
+  test: (clean: string) => RegExpMatchArray | boolean | null
+  apply: (run: RalphRunInfo, result: RegExpMatchArray | boolean | null) => void
+}
+
+const PHASE_DETECTORS: ReadonlyArray<PhaseDetector> = [
+  {
+    test: clean => clean.match(/=== ITERATION (\d+)/),
+    apply: (run, m) => {
+      run.currentIteration = Number.parseInt((m as RegExpMatchArray)[1], 10)
+      run.phase = 'iterating'
+    },
+  },
+  {
+    test: clean => clean.includes('Handing off to ralph-pr'),
+    apply: run => { run.phase = 'pr-handoff' },
+  },
+  {
+    test: clean => clean.includes('PR review cycle') || clean.includes('Checking CI status'),
+    apply: run => { run.phase = 'pr-resolving' },
+  },
+  {
+    test: clean => /^={2,}\s*Scan Iteration\s+\d+/i.test(clean),
+    apply: run => {
+      run.stats.scanIterations++
+      run.currentIteration = run.stats.scanIterations
+      run.phase = 'scanning'
+    },
+  },
+]
+
 function detectPhase(run: RalphRunInfo, clean: string): void {
-  const iterMatch = clean.match(/=== ITERATION (\d+)/)
-  if (iterMatch) {
-    run.currentIteration = Number.parseInt(iterMatch[1], 10)
-    run.phase = 'iterating'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
-
-  if (clean.includes('Handing off to ralph-pr')) {
-    run.phase = 'pr-handoff'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
-
-  if (clean.includes('PR review cycle') || clean.includes('Checking CI status')) {
-    run.phase = 'pr-resolving'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
-
-  // ralph-issues scan iteration markers: "== Scan Iteration N/"
-  if (/^={2,}\s*Scan Iteration\s+\d+/i.test(clean)) {
-    run.stats.scanIterations++
-    run.currentIteration = run.stats.scanIterations
-    run.phase = 'scanning'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
+  for (const { test, apply } of PHASE_DETECTORS) {
+    const result = test(clean)
+    if (result) {
+      apply(run, result)
+      run.updatedAt = Date.now()
+      emitStatusChange(run)
+    }
   }
 }
 
@@ -567,6 +613,27 @@ function parseOutputLine(runId: string, line: string): void {
 
 // ── Run Management ──────────────────────────────────────────────
 
+function killProcess(proc: ReturnType<typeof spawn>): void {
+  if (process.platform === 'win32' && proc.pid) {
+    execSync(`taskkill /T /F /PID ${proc.pid}`, { timeout: KILL_TIMEOUT_MS })
+  } else {
+    proc.kill('SIGTERM')
+  }
+}
+
+function finalizeRun(
+  run: RalphRunInfo,
+  status: 'cancelled' | 'failed',
+  error?: string
+): void {
+  run.status = status
+  run.phase = 'failed'
+  run.updatedAt = Date.now()
+  run.completedAt = Date.now()
+  if (error) run.error = error
+  emitStatusChange(run)
+}
+
 export function stopLoop(runId: string): RalphStopResult {
   const proc = activeProcesses.get(runId)
   const run = activeRuns.get(runId)
@@ -577,28 +644,14 @@ export function stopLoop(runId: string): RalphStopResult {
   }
 
   try {
-    // Windows: kill the entire process tree
-    if (process.platform === 'win32' && proc.pid) {
-      execSync(`taskkill /T /F /PID ${proc.pid}`, { timeout: KILL_TIMEOUT_MS })
-    } else {
-      proc.kill('SIGTERM')
-    }
-
-    run.status = 'cancelled'
-    run.phase = 'failed'
-    run.updatedAt = Date.now()
-    run.completedAt = Date.now()
+    killProcess(proc)
     activeProcesses.delete(runId)
-    emitStatusChange(run)
-
+    finalizeRun(run, 'cancelled')
     return { success: true }
   } catch (err: unknown) {
-    run.status = 'failed'
-    run.phase = 'failed'
-    run.updatedAt = Date.now()
-    run.error = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
-    emitStatusChange(run)
-    return { success: false, error: run.error }
+    const msg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
+    finalizeRun(run, 'failed', msg)
+    return { success: false, error: msg }
   }
 }
 

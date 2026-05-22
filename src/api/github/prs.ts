@@ -235,6 +235,14 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */
+function resolveGraphQLDates(node: ViewerPRNode) {
+  return {
+    created: node.createdAt ? new Date(node.createdAt) : null,
+    updatedAt: node.updatedAt || null,
+    date: node.closedAt || node.mergedAt || null,
+  }
+}
+
 function mapGraphQLNodeToPullRequest(
   node: ViewerPRNode,
   orgAvatarUrl: string | null,
@@ -242,6 +250,7 @@ function mapGraphQLNodeToPullRequest(
 ): PullRequest & { _owner: string; _repo: string; _prNumber: number } {
   const [owner, repo] = node.repository.nameWithOwner.split('/')
   const { login: author, avatarUrl: authorAvatarUrl } = resolveGraphQLAuthor(node.author)
+  const dates = resolveGraphQLDates(node)
 
   return {
     source: 'GitHub' as const,
@@ -251,9 +260,7 @@ function mapGraphQLNodeToPullRequest(
     author,
     authorAvatarUrl,
     assigneeCount: node.assignees.totalCount,
-    created: node.createdAt ? new Date(node.createdAt) : null,
-    updatedAt: node.updatedAt || null,
-    date: node.closedAt || node.mergedAt || null,
+    ...dates,
     url: node.url,
     state: node.state.toLowerCase(),
     approvalCount: 0,
@@ -553,6 +560,34 @@ async function fetchPRsViaGraphQLFallback(
   return result
 }
 
+async function tryGraphQLFallback(
+  config: PRConfig['github'],
+  username: string,
+  org: string,
+  orgAvatarUrl: string | null,
+  allPrs: PullRequest[]
+): Promise<void> {
+  try {
+    const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
+    if (fallbackPrs.length > 0) {
+      console.info(
+        `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
+      )
+      allPrs.push(...fallbackPrs)
+    }
+  } catch (error: unknown) {
+    console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
+  }
+}
+
+function filterPRsByMode(prs: PullRequest[], mode: PRSearchMode): PullRequest[] {
+  return prs.filter(pr => {
+    if (mode === 'needs-review') return !pr.iApproved
+    if (mode === 'need-a-nudge') return pr.iApproved
+    return true
+  })
+}
+
 async function fetchPRsForAccount(
   config: PRConfig['github'],
   recentlyMergedDays: number,
@@ -582,17 +617,7 @@ async function fetchPRsForAccount(
     console.debug(
       `[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`
     )
-    try {
-      const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
-      if (fallbackPrs.length > 0) {
-        console.info(
-          `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
-        )
-        allPrs.push(...fallbackPrs)
-      }
-    } catch (error: unknown) {
-      console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
-    }
+    await tryGraphQLFallback(config, username, org, orgAvatarUrl, allPrs)
   }
 
   // Batch fetch reviews in parallel (with concurrency limit)
@@ -634,8 +659,8 @@ async function fetchPRsForAccount(
   await fetchBatchThreadStats(config, prsWithMeta)
 
   // Clean up metadata and filter by mode
-  return allPrs
-    .map(pr => {
+  return filterPRsByMode(
+    allPrs.map(pr => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
         _owner?: string
@@ -643,12 +668,9 @@ async function fetchPRsForAccount(
         _prNumber?: number
       }
       return cleanPr
-    })
-    .filter(pr => {
-      if (mode === 'needs-review') return !pr.iApproved
-      if (mode === 'need-a-nudge') return pr.iApproved
-      return true
-    })
+    }),
+    mode
+  )
 }
 
 /**

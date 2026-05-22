@@ -70,11 +70,15 @@ function normalizePollenType(raw: string | undefined): 'TREE' | 'GRASS' | 'WEED'
   return VALID_POLLEN_TYPES.has(upper) ? (upper as 'TREE' | 'GRASS' | 'WEED') : 'TREE'
 }
 
-function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
-  if (!plant.code || !plant.displayName) return null
+interface PlantDefaults {
+  index: number
+  category: string
+  inSeason: boolean
+  type: 'TREE' | 'GRASS' | 'WEED'
+}
+
+function resolvePlantDefaults(plant: GooglePlantInfo): PlantDefaults {
   return {
-    code: plant.code,
-    displayName: plant.displayName,
     index: plant.indexInfo?.value ?? 0,
     category: plant.indexInfo?.category ?? 'None',
     inSeason: plant.inSeason ?? false,
@@ -82,18 +86,28 @@ function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
   }
 }
 
-function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
+  if (!plant.code || !plant.displayName) return null
+  const defaults = resolvePlantDefaults(plant)
+  return { code: plant.code, displayName: plant.displayName, ...defaults }
+}
+
+function extractDayData(json: GoogleForecastResponse) {
   const day = json.dailyInfo?.[0]
   if (!day) return null
-
   const types = day.pollenTypeInfo ?? []
   const plants = day.plantInfo ?? []
-  if (types.length === 0 && plants.length === 0) return null
+  return types.length === 0 && plants.length === 0 ? null : { types, plants }
+}
+
+function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+  const dayData = extractDayData(json)
+  if (!dayData) return null
 
   const result: PollenData = { tree: 0, grass: 0, weed: 0, species: [], healthRecommendations: [] }
-  parsePollenTypes(types, result)
+  parsePollenTypes(dayData.types, result)
 
-  for (const p of plants) {
+  for (const p of dayData.plants) {
     const species = parsePlantInfo(p)
     if (species) result.species.push(species)
   }
@@ -111,28 +125,38 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
+function validatePollenRequest(location: {
+  latitude: number
+  longitude: number
+}): PollenFetchResult | null {
+  const apiKey = configManager.getUiValue('pollenApiKey') as string
+  if (!apiKey) return { success: false, error: 'no-api-key' }
+  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
+    return { success: false, error: 'Invalid location' }
+  }
+  return null
+}
+
+function buildPollenUrl(location: { latitude: number; longitude: number }): string {
+  const apiKey = configManager.getUiValue('pollenApiKey') as string
+  return (
+    `https://pollen.googleapis.com/v1/forecast:lookup` +
+    `?key=${apiKey}` +
+    `&location.latitude=${location.latitude}` +
+    `&location.longitude=${location.longitude}` +
+    `&days=1`
+  )
+}
+
 async function fetchPollenData(location: {
   latitude: number
   longitude: number
 }): Promise<PollenFetchResult> {
-  const apiKey = configManager.getUiValue('pollenApiKey') as string
-  if (!apiKey) {
-    return { success: false, error: 'no-api-key' }
-  }
-
-  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
-    return { success: false, error: 'Invalid location' }
-  }
+  const invalid = validatePollenRequest(location)
+  if (invalid) return invalid
 
   try {
-    const url =
-      `https://pollen.googleapis.com/v1/forecast:lookup` +
-      `?key=${apiKey}` +
-      `&location.latitude=${location.latitude}` +
-      `&location.longitude=${location.longitude}` +
-      `&days=1`
-
-    const res = await net.fetch(url, {
+    const res = await net.fetch(buildPollenUrl(location), {
       signal: AbortSignal.timeout(10_000),
       headers: { 'User-Agent': 'hs-buddy/1.0' },
     })
@@ -145,11 +169,9 @@ async function fetchPollenData(location: {
     const json = (await res.json()) as GoogleForecastResponse
     const data = parseGooglePollenResponse(json)
 
-    if (!data) {
-      return { success: false, error: 'No pollen data available for this location' }
-    }
-
-    return { success: true, data }
+    return data
+      ? { success: true, data }
+      : { success: false, error: 'No pollen data available for this location' }
   } catch (err: unknown) {
     return {
       success: false,

@@ -162,6 +162,34 @@ function SpeciesGroup({
   )
 }
 
+function buildTypeGroups(species: PollenSpecies[]): Array<{ type: string; label: string; items: PollenSpecies[] }> {
+  const types = [
+    { type: 'TREE', label: 'Trees' },
+    { type: 'GRASS', label: 'Grasses' },
+    { type: 'WEED', label: 'Weeds' },
+  ]
+  const groups: Array<{ type: string; label: string; items: PollenSpecies[] }> = []
+  for (const { type, label } of types) {
+    const items = species.filter(s => s.type === type)
+    if (items.length > 0) groups.push({ type, label, items })
+  }
+  return groups
+}
+
+function HealthRecommendations({ recommendations }: { recommendations: string[] }) {
+  if (recommendations.length === 0) return null
+  return (
+    <div className="pollen-health-recs">
+      <span className="pollen-health-recs-label">Health Tips</span>
+      <ul className="pollen-health-recs-list">
+        {recommendations.map((rec, i) => (
+          <li key={i}>{rec}</li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function PollenSpeciesDetail({
   species,
   healthRecommendations,
@@ -171,22 +199,10 @@ function PollenSpeciesDetail({
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  const inSeasonSpecies = species.filter(s => s.inSeason)
-  const offSeasonSpecies = species.filter(s => !s.inSeason)
-  const hasDetail = inSeasonSpecies.length > 0 || offSeasonSpecies.length > 0
+  const hasAnySpecies = species.some(s => s.inSeason) || species.some(s => !s.inSeason)
+  if (!hasAnySpecies && healthRecommendations.length === 0) return null
 
-  if (!hasDetail && healthRecommendations.length === 0) return null
-
-  const typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }> = []
-  const types = [
-    { type: 'TREE', label: 'Trees' },
-    { type: 'GRASS', label: 'Grasses' },
-    { type: 'WEED', label: 'Weeds' },
-  ]
-  for (const { type, label } of types) {
-    const items = species.filter(s => s.type === type)
-    if (items.length > 0) typeGroups.push({ type, label, items })
-  }
+  const typeGroups = buildTypeGroups(species)
 
   return (
     <div className="pollen-detail">
@@ -205,17 +221,7 @@ function PollenSpeciesDetail({
           {typeGroups.map(g => (
             <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
           ))}
-
-          {healthRecommendations.length > 0 && (
-            <div className="pollen-health-recs">
-              <span className="pollen-health-recs-label">Health Tips</span>
-              <ul className="pollen-health-recs-list">
-                {healthRecommendations.map((rec, i) => (
-                  <li key={i}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <HealthRecommendations recommendations={healthRecommendations} />
         </div>
       )}
     </div>

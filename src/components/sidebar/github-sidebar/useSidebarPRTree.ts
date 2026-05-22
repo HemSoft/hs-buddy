@@ -11,6 +11,15 @@ import { useToggleSet } from '../../../hooks/useToggleSet'
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose'
 import type { SidebarItem } from './useGitHubSidebarData'
 
+function isPRMatch(item: PullRequest, target: PullRequest): boolean {
+  return (
+    item.id === target.id &&
+    item.repository === target.repository &&
+    (item.org ?? '') === (target.org ?? '') &&
+    item.source === target.source
+  )
+}
+
 const PR_TREE_CACHE_KEYS: Record<string, string> = {
   'pr-my-prs': 'my-prs',
   'pr-needs-review': 'needs-review',
@@ -149,14 +158,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
         next[groupId] = items.map(item => {
-          if (
-            item.id !== target.id ||
-            item.repository !== target.repository ||
-            (item.org ?? '') !== (target.org ?? '') ||
-            item.source !== target.source ||
-            item.iApproved
-          )
-            return item
+          if (!isPRMatch(item, target) || item.iApproved) return item
           return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
         })
       }

@@ -79,8 +79,42 @@ function partitionRuns(runs: RalphRunInfo[]): {
   return { active, recent }
 }
 
+function useDashboardEventListeners(dispatch: React.Dispatch<DashboardAction>): void {
+  useEffect(() => {
+    const handleScript = (e: Event) => {
+      dispatch({ type: 'setView', mode: 'launch', script: (e as CustomEvent<string>).detail })
+    }
+    const handlePR = (e: Event) => {
+      const data = (e as CustomEvent<PRLaunchData>).detail
+      dispatch({ type: 'setView', mode: 'launch', script: 'ralph-pr', prLaunchData: data })
+    }
+    const handleIssue = (e: Event) => {
+      const data = (e as CustomEvent<IssueLaunchData>).detail
+      dispatch({ type: 'setView', mode: 'launch', script: 'ralph', issueLaunchData: data })
+    }
+    window.addEventListener('ralph:select-script', handleScript)
+    window.addEventListener('ralph:launch-pr-review', handlePR)
+    window.addEventListener('ralph:launch-from-issue', handleIssue)
+    return () => {
+      window.removeEventListener('ralph:select-script', handleScript)
+      window.removeEventListener('ralph:launch-pr-review', handlePR)
+      window.removeEventListener('ralph:launch-from-issue', handleIssue)
+    }
+  }, [dispatch])
+}
+
 interface RalphDashboardProps {
   onOpenTab?: (viewId: string) => void
+}
+
+function buildResetKey(state: DashboardState, renderErrorResetKey: number): string {
+  return [
+    renderErrorResetKey,
+    state.viewMode,
+    state.selectedScript ?? '',
+    state.prLaunchData?.prNumber ?? '',
+    state.issueLaunchData?.issueNumber ?? '',
+  ].join('|')
 }
 
 export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
@@ -104,41 +138,7 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
       .catch(() => {})
   }, [])
 
-  // Listen for sidebar script selection events
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const script = (e as CustomEvent<string>).detail
-      dispatch({ type: 'setView', mode: 'launch', script })
-    }
-    window.addEventListener('ralph:select-script', handler)
-    return () => {
-      window.removeEventListener('ralph:select-script', handler)
-    }
-  }, [])
-
-  // Listen for PR detail "Start Ralph Review" action
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const data = (e as CustomEvent<PRLaunchData>).detail
-      dispatch({ type: 'setView', mode: 'launch', script: 'ralph-pr', prLaunchData: data })
-    }
-    window.addEventListener('ralph:launch-pr-review', handler)
-    return () => {
-      window.removeEventListener('ralph:launch-pr-review', handler)
-    }
-  }, [])
-
-  // Listen for Issue detail "Start Ralph Loop" action
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const data = (e as CustomEvent<IssueLaunchData>).detail
-      dispatch({ type: 'setView', mode: 'launch', script: 'ralph', issueLaunchData: data })
-    }
-    window.addEventListener('ralph:launch-from-issue', handler)
-    return () => {
-      window.removeEventListener('ralph:launch-from-issue', handler)
-    }
-  }, [])
+  useDashboardEventListeners(dispatch)
 
   const handleStop = useCallback(
     async (runId: string) => {
@@ -189,13 +189,7 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
   const { active, recent } = partitionRuns(runs)
   const displayError = state.error ?? hookError
   const isLaunchView = state.viewMode === 'launch'
-  const dashboardBodyResetKey = [
-    renderErrorResetKey,
-    state.viewMode,
-    state.selectedScript ?? '',
-    state.prLaunchData?.prNumber ?? '',
-    state.issueLaunchData?.issueNumber ?? '',
-  ].join('|')
+  const dashboardBodyResetKey = buildResetKey(state, renderErrorResetKey)
 
   if (loading) {
     return (

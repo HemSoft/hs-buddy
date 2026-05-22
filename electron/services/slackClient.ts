@@ -16,18 +16,17 @@ const getEnv = createEnvResolver(
   cmd => execSync(cmd, { encoding: 'utf8', timeout: 5000 })
 )
 
+const TOKEN_SOURCES: ReadonlyArray<() => string | undefined> = [
+  () => getEnv('SLACK_BOT_TOKEN'),
+  () => getEnv('SLACK_TOKEN'),
+  () => getEnv('SLACK_RAE_BOT_USER_OAUTH_TOKEN'),
+  () => process.env.SLACK_BOT_TOKEN,
+  () => process.env.SLACK_TOKEN,
+  () => process.env.SLACK_RAE_BOT_USER_OAUTH_TOKEN,
+]
+
 function getBotToken(): string {
-  // Check in priority order: explicit override, then generic SLACK_TOKEN (has full scopes),
-  // then Relias Assistant token (lacks users:read.email).
-  // Uses createEnvResolver which checks Machine scope + process.env on Windows.
-  const token =
-    getEnv('SLACK_BOT_TOKEN') ||
-    getEnv('SLACK_TOKEN') ||
-    getEnv('SLACK_RAE_BOT_USER_OAUTH_TOKEN') ||
-    // Direct process.env fallback in case Machine-scope PowerShell lookup fails
-    process.env.SLACK_BOT_TOKEN ||
-    process.env.SLACK_TOKEN ||
-    process.env.SLACK_RAE_BOT_USER_OAUTH_TOKEN
+  const token = TOKEN_SOURCES.map(fn => fn()).find(Boolean)
   if (!token) {
     throw new Error(
       'No Slack bot token found. Set SLACK_BOT_TOKEN or SLACK_TOKEN as an environment variable.'
@@ -105,51 +104,47 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
   return { success: true }
 }
 
+function fetchGitHubEmail(githubLogin: string): string | null {
+  try {
+    const result = execSync(`gh api /users/${encodeURIComponent(githubLogin)} --jq .email`, {
+      encoding: 'utf8',
+      timeout: 10000,
+    }).trim()
+    if (result && result !== 'null' && result.includes('@')) return result
+  } catch (_: unknown) {
+    // gh CLI not available or user not found
+  }
+  return null
+}
+
+async function resolveByEmailPatterns(githubLogin: string): Promise<string | null> {
+  const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
+  for (const candidate of patterns) {
+    const slackId = await lookupSlackUserByEmail(candidate)
+    if (slackId) return slackId
+  }
+  return null
+}
+
 /**
  * Resolve a GitHub login to a Slack user ID.
  * Strategy: GitHub profile email → Slack lookupByEmail.
  * Results are cached in memory.
  */
 async function resolveGitHubToSlack(githubLogin: string): Promise<string | null> {
-  // Check cache first
   const cached = slackIdCache.get(githubLogin.toLowerCase())
   if (cached) return cached
 
-  // Get email from GitHub profile via gh CLI
-  let email: string | null = null
-  try {
-    const result = execSync(`gh api /users/${encodeURIComponent(githubLogin)} --jq .email`, {
-      encoding: 'utf8',
-      timeout: 10000,
-    }).trim()
-    if (result && result !== 'null' && result.includes('@')) {
-      email = result
-    }
-  } catch (_: unknown) {
-    // gh CLI not available or user not found
-  }
+  const email = fetchGitHubEmail(githubLogin)
 
-  // If no public email, try the org-specific email pattern
-  // Many orgs use firstname.lastname@company.com — but we can't infer that reliably
-  // For Relias, the pattern is typically the GitHub username + @relias.com or @reliaslearning.com
   if (!email) {
-    // Try common corporate patterns
-    const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
-    for (const candidate of patterns) {
-      const slackId = await lookupSlackUserByEmail(candidate)
-      if (slackId) {
-        slackIdCache.set(githubLogin.toLowerCase(), slackId)
-        return slackId
-      }
-    }
-    return null
+    const slackId = await resolveByEmailPatterns(githubLogin)
+    if (slackId) slackIdCache.set(githubLogin.toLowerCase(), slackId)
+    return slackId
   }
 
-  // Resolve email to Slack user
   const slackId = await lookupSlackUserByEmail(email)
-  if (slackId) {
-    slackIdCache.set(githubLogin.toLowerCase(), slackId)
-  }
+  if (slackId) slackIdCache.set(githubLogin.toLowerCase(), slackId)
   return slackId
 }
 

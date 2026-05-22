@@ -38,6 +38,36 @@ function mapToPRDetailId(pr: RepoPullRequest, owner: string): string {
   return createPRDetailViewId(mapRepoPRToPullRequest(pr, owner))
 }
 
+function PRStatusCell({ pr }: { pr: RepoPullRequest }) {
+  if (pr.draft) {
+    return <GitPullRequest size={14} className="list-view-status-draft" />
+  }
+  return <PRStateIcon state={pr.state} />
+}
+
+function PRThreadsCell({ pr }: { pr: RepoPullRequest }) {
+  if (pr.threadsUnaddressed == null) return null
+  if (pr.threadsUnaddressed > 0) {
+    return (
+      <span className="list-view-comments-unresolved">
+        <MessageSquare size={12} />
+        {pr.threadsUnaddressed}
+      </span>
+    )
+  }
+  return <CircleCheck size={14} className="list-view-comments-clear" />
+}
+
+function PRApprovalsCell({ pr, classPrefix = 'list-view-approvals' }: { pr: RepoPullRequest; classPrefix?: string }) {
+  if ((pr.approvalCount ?? 0) <= 0) return null
+  return (
+    <span className={`${classPrefix}${pr.iApproved ? ` ${classPrefix}--mine` : ''}`}>
+      <ThumbsUp size={12} />
+      {pr.approvalCount}
+    </span>
+  )
+}
+
 function PRTableView({
   prs,
   handlePRClick,
@@ -62,11 +92,7 @@ function PRTableView({
           {prs.map(pr => (
             <tr key={pr.number} onClick={() => handlePRClick(pr)}>
               <td className="col-status">
-                {pr.draft ? (
-                  <GitPullRequest size={14} className="list-view-status-draft" />
-                ) : (
-                  <PRStateIcon state={pr.state} />
-                )}
+                <PRStatusCell pr={pr} />
               </td>
               <td className="col-title">
                 <span className="col-number">#{pr.number}</span> {pr.title}
@@ -90,26 +116,10 @@ function PRTableView({
               </td>
               <td className="col-date">{formatDistanceToNow(pr.updatedAt)}</td>
               <td>
-                {pr.threadsUnaddressed != null ? (
-                  pr.threadsUnaddressed > 0 ? (
-                    <span className="list-view-comments-unresolved">
-                      <MessageSquare size={12} />
-                      {pr.threadsUnaddressed}
-                    </span>
-                  ) : (
-                    <CircleCheck size={14} className="list-view-comments-clear" />
-                  )
-                ) : null}
+                <PRThreadsCell pr={pr} />
               </td>
               <td>
-                {(pr.approvalCount ?? 0) > 0 && (
-                  <span
-                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
-                  >
-                    <ThumbsUp size={12} />
-                    {pr.approvalCount}
-                  </span>
-                )}
+                <PRApprovalsCell pr={pr} />
               </td>
             </tr>
           ))}
@@ -175,14 +185,7 @@ function PRCardView({
               {formatDistanceToNow(pr.createdAt)}
             </span>
             <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
-            {(pr.approvalCount ?? 0) > 0 && (
-              <span
-                className={`repo-pr-approvals${pr.iApproved ? ' repo-pr-approvals--mine' : ''}`}
-              >
-                <ThumbsUp size={12} />
-                {pr.approvalCount}
-              </span>
-            )}
+            <PRApprovalsCell pr={pr} classPrefix="repo-pr-approvals" />
           </div>
         </button>
       ))}

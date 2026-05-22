@@ -123,6 +123,23 @@ function ApproveButton({
   )
 }
 
+function resolveNudgeClassName(nudgeState: 'idle' | 'sending' | 'sent' | 'error'): string {
+  const base = 'pr-detail-refresh-btn'
+  if (nudgeState === 'sent') return `${base} pr-detail-nudge-sent`
+  if (nudgeState === 'error') return `${base} pr-detail-nudge-error`
+  return base
+}
+
+function resolveNudgeTitle(
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error',
+  nudgeError: string | null
+): string {
+  if (nudgeState === 'sent') return 'Nudge sent!'
+  if (nudgeState === 'error')
+    return `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
+  return 'Nudge author via Slack'
+}
+
 function NudgeButton({
   nudgeState,
   nudgeError,
@@ -134,15 +151,9 @@ function NudgeButton({
 }) {
   return (
     <button
-      className={`pr-detail-refresh-btn${nudgeState === 'sent' ? ' pr-detail-nudge-sent' : ''}${nudgeState === 'error' ? ' pr-detail-nudge-error' : ''}`}
+      className={resolveNudgeClassName(nudgeState)}
       onClick={onNudge}
-      title={
-        nudgeState === 'sent'
-          ? 'Nudge sent!'
-          : nudgeState === 'error'
-            ? `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
-            : 'Nudge author via Slack'
-      }
+      title={resolveNudgeTitle(nudgeState, nudgeError)}
       disabled={nudgeState === 'sending' || nudgeState === 'sent'}
     >
       {nudgeState === 'sending' ? (
@@ -634,6 +645,75 @@ function resolveLabelsAndIssue(
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
+function applyNudgeError(
+  msg: string,
+  setNudgeError: (v: string) => void,
+  setNudgeState: (v: 'idle' | 'sending' | 'sent' | 'error') => void
+): void {
+  setNudgeError(msg)
+  setNudgeState('error')
+  setTimeout(() => setNudgeState('idle'), 5000)
+}
+
+interface PRDetailBannersProps {
+  pr: PRDetailInfo
+  copilotReviewBanner: { completedAt: number } | null
+  setCopilotReviewBanner: (v: null) => void
+  codeRabbitReviewBanner: { completedAt: number } | null
+  setCodeRabbitReviewBanner: (v: null) => void
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  nudgeError: string | null
+  setNudgeState: (v: 'idle') => void
+  setNudgeError: (v: null) => void
+}
+
+function PRDetailBanners({
+  pr,
+  copilotReviewBanner,
+  setCopilotReviewBanner,
+  codeRabbitReviewBanner,
+  setCodeRabbitReviewBanner,
+  nudgeState,
+  nudgeError,
+  setNudgeState,
+  setNudgeError,
+}: PRDetailBannersProps) {
+  return (
+    <>
+      {copilotReviewBanner && (
+        <CopilotReviewBanner
+          completedAt={copilotReviewBanner.completedAt}
+          onDismiss={() => {
+            setCopilotReviewBanner(null)
+            clearPendingReview(pr.url)
+          }}
+        />
+      )}
+      {codeRabbitReviewBanner && (
+        <AIReviewBanner
+          providerName={codeRabbitProvider.name}
+          completedAt={codeRabbitReviewBanner.completedAt}
+          onDismiss={() => {
+            setCodeRabbitReviewBanner(null)
+            clearPendingAIReview(codeRabbitProvider.id, pr.url)
+          }}
+        />
+      )}
+      {(nudgeState === 'sent' || nudgeState === 'error') && (
+        <NudgeBanner
+          state={nudgeState}
+          error={nudgeError}
+          author={pr.author}
+          onDismiss={() => {
+            setNudgeState('idle')
+            setNudgeError(null)
+          }}
+        />
+      )}
+    </>
+  )
+}
+
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const { pr } = props
   const section = props.section ?? null
@@ -791,17 +871,13 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
       })
       if (result.success) {
         setNudgeState('sent')
-      } else {
-        console.warn('[Nudge] Failed:', result.error)
-        setNudgeError(result.error || 'Unknown error')
-        setNudgeState('error')
-        setTimeout(() => setNudgeState('idle'), 5000)
+        return
       }
+      console.warn('[Nudge] Failed:', result.error)
+      applyNudgeError(result.error || 'Unknown error', setNudgeError, setNudgeState)
     } catch (err: unknown) {
       console.error('[Nudge] Error:', err)
-      setNudgeError(String(err))
-      setNudgeState('error')
-      setTimeout(() => setNudgeState('idle'), 5000)
+      applyNudgeError(String(err), setNudgeError, setNudgeState)
     }
   }, [nudgeState, pr.author, pr.title, pr.url])
 
@@ -839,38 +915,17 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
       />
 
       <div className="pr-detail-body">
-        {copilotReviewBanner && (
-          <CopilotReviewBanner
-            completedAt={copilotReviewBanner.completedAt}
-            onDismiss={() => {
-              setCopilotReviewBanner(null)
-              clearPendingReview(pr.url)
-            }}
-          />
-        )}
-
-        {codeRabbitReviewBanner && (
-          <AIReviewBanner
-            providerName={codeRabbitProvider.name}
-            completedAt={codeRabbitReviewBanner.completedAt}
-            onDismiss={() => {
-              setCodeRabbitReviewBanner(null)
-              clearPendingAIReview(codeRabbitProvider.id, pr.url)
-            }}
-          />
-        )}
-
-        {(nudgeState === 'sent' || nudgeState === 'error') && (
-          <NudgeBanner
-            state={nudgeState}
-            error={nudgeError}
-            author={pr.author}
-            onDismiss={() => {
-              setNudgeState('idle')
-              setNudgeError(null)
-            }}
-          />
-        )}
+        <PRDetailBanners
+          pr={pr}
+          copilotReviewBanner={copilotReviewBanner}
+          setCopilotReviewBanner={setCopilotReviewBanner}
+          codeRabbitReviewBanner={codeRabbitReviewBanner}
+          setCodeRabbitReviewBanner={setCodeRabbitReviewBanner}
+          nudgeState={nudgeState}
+          nudgeError={nudgeError}
+          setNudgeState={setNudgeState}
+          setNudgeError={setNudgeError}
+        />
 
         {sectionLabel && (
           <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />

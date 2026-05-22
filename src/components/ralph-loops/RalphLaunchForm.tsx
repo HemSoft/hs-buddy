@@ -8,8 +8,30 @@ import type {
   RalphModelsConfig,
   RalphProvider,
   RalphProviderEntry,
+  RalphProvidersConfig,
   RalphTemplateInfo,
 } from '../../types/ralph'
+
+function buildModelOptions(
+  models: RalphModelsConfig | null,
+  provider: string,
+  providers: RalphProvidersConfig | null | undefined
+): Array<{ value: string; label: string }> {
+  if (!models) return []
+  const supported = provider
+    ? providers?.providers?.[provider]?.supportedModelProviders
+    : undefined
+  const filteredModels = Object.entries(models.models)
+    .filter(([, m]) => !supported || supported.includes(m.provider))
+    .map(([key, m]) => ({ value: key, label: `${m.label} (${m.reasoningEffort})` }))
+  const filteredAliases = Object.entries(models.aliases)
+    .filter(([, target]) => {
+      const targetModel = models.models[target]
+      return !supported || (targetModel && supported.includes(targetModel.provider))
+    })
+    .map(([alias, target]) => ({ value: alias, label: `${alias} → ${target}` }))
+  return [...filteredModels, ...filteredAliases]
+}
 
 interface RalphLaunchFormProps {
   initialScript?: string | null
@@ -33,23 +55,67 @@ interface ReviewerModelGroup {
   options: { value: string; label: string }[]
 }
 
-function buildProviderModelGroup(
+function collectModelOptions(
   provKey: string,
-  prov: RalphProviderEntry,
+  supported: string[],
   models: RalphModelsConfig
-): ReviewerModelGroup | null {
-  const supported = prov.supportedModelProviders ?? []
+): { value: string; label: string }[] {
   const opts: { value: string; label: string }[] = []
   for (const [modelKey, m] of Object.entries(models.models)) {
     if (supported.includes(m.provider)) {
       opts.push({ value: `${provKey}:${modelKey}`, label: `${m.label} (${m.reasoningEffort})` })
     }
   }
+  return opts
+}
+
+function collectAliasOptions(
+  provKey: string,
+  supported: string[],
+  models: RalphModelsConfig
+): { value: string; label: string }[] {
+  const opts: { value: string; label: string }[] = []
   for (const [alias, target] of Object.entries(models.aliases)) {
     if (models.models[target] && supported.includes(models.models[target].provider)) {
       opts.push({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` })
     }
   }
+  return opts
+}
+
+function validateSubmit(
+  repoPath: string,
+  scriptChoice: ScriptChoice,
+  prNumber: string
+): string | null {
+  if (!repoPath) return 'Select a repository path'
+  if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+  return null
+}
+
+function isModelIncompatible(
+  model: string,
+  provider: string,
+  providers: RalphProvidersConfig,
+  models: RalphModelsConfig
+): boolean {
+  const supported = providers.providers[provider]?.supportedModelProviders
+  if (!supported) return false
+  const resolvedKey = models.aliases[model] ?? model
+  const entry = models.models[resolvedKey]
+  return !!entry && !supported.includes(entry.provider)
+}
+
+function buildProviderModelGroup(
+  provKey: string,
+  prov: RalphProviderEntry,
+  models: RalphModelsConfig
+): ReviewerModelGroup | null {
+  const supported = prov.supportedModelProviders ?? []
+  const opts = [
+    ...collectModelOptions(provKey, supported, models),
+    ...collectAliasOptions(provKey, supported, models),
+  ]
   return opts.length > 0
     ? { provider: provKey, label: prov.description ?? provKey, options: opts }
     : null
@@ -444,35 +510,13 @@ export function RalphLaunchForm({
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
     if (!model || !provider || !providers || !models) return
-    const supported = providers.providers[provider]?.supportedModelProviders
-    if (!supported) return
-    const resolvedKey = models.aliases[model] ?? model
-    const entry = models.models[resolvedKey]
-    if (entry && !supported.includes(entry.provider)) setModel('')
+    if (isModelIncompatible(model, provider, providers, models)) setModel('')
   }, [provider, providers, models, model])
 
-  const modelOptions = useMemo(() => {
-    if (!models) return []
-    const supported = provider
-      ? providers?.providers?.[provider]?.supportedModelProviders
-      : undefined
-    const filteredModels = Object.entries(models.models)
-      .filter(([, m]) => !supported || supported.includes(m.provider))
-      .map(([key, m]) => ({
-        value: key,
-        label: `${m.label} (${m.reasoningEffort})`,
-      }))
-    const filteredAliases = Object.entries(models.aliases)
-      .filter(([, target]) => {
-        const targetModel = models.models[target]
-        return !supported || (targetModel && supported.includes(targetModel.provider))
-      })
-      .map(([alias, target]) => ({
-        value: alias,
-        label: `${alias} → ${target}`,
-      }))
-    return [...filteredModels, ...filteredAliases]
-  }, [models, provider, providers])
+  const modelOptions = useMemo(
+    () => buildModelOptions(models, provider, providers),
+    [models, provider, providers]
+  )
 
   // Per-reviewer options: Account: Model list across ALL providers (not filtered by main)
   const reviewerModelOptions = useMemo(() => {
@@ -536,12 +580,9 @@ export function RalphLaunchForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repoPath) {
-      setError('Select a repository path')
-      return
-    }
-    if (scriptChoice === 'ralph-pr' && !prNumber) {
-      setError('PR number is required for ralph-pr')
+    const validationError = validateSubmit(repoPath, scriptChoice, prNumber)
+    if (validationError) {
+      setError(validationError)
       return
     }
 

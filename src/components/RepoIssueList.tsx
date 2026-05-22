@@ -89,6 +89,104 @@ function IssueTableView({
   )
 }
 
+function IssueAssignees({ issue }: { issue: RepoIssue }) {
+  if (issue.assignees.length === 0) {
+    return null
+  }
+
+  return (
+    <span className="repo-issue-assignees">
+      {issue.assignees.slice(0, 3).map(a => (
+        <img
+          key={a.login}
+          src={a.avatarUrl}
+          alt={a.login}
+          className="repo-issue-assignee-avatar"
+          title={a.name ? `${a.name} (${a.login})` : a.login}
+        />
+      ))}
+      {issue.assignees.length > 3 && (
+        <span className="repo-issue-assignee-more">+{issue.assignees.length - 3}</span>
+      )}
+    </span>
+  )
+}
+
+function IssueCardItem({
+  issue,
+  onOpenIssue,
+  onContextMenu,
+}: {
+  issue: RepoIssue
+  onOpenIssue?: (issueNumber: number) => void
+  onContextMenu: (e: React.MouseEvent, issue: RepoIssue) => void
+}) {
+  return (
+    <div className="repo-issue-item" onContextMenu={e => onContextMenu(e, issue)}>
+      <button
+        type="button"
+        className="repo-issue-main"
+        onClick={() => {
+          if (onOpenIssue) {
+            onOpenIssue(issue.number)
+            return
+          }
+          window.shell?.openExternal(issue.url)
+        }}
+        title={issue.title}
+      >
+        <span className="repo-issue-header">
+          <span className="repo-issue-title-row">
+            <CircleDot size={16} className="repo-issue-icon" />
+            <span className="repo-issue-title">{issue.title}</span>
+          </span>
+          {issue.labels.length > 0 && (
+            <span className="repo-issue-labels">
+              {issue.labels.map(label => (
+                <span
+                  key={label.name}
+                  className="repo-issue-label"
+                  style={getLabelStyle(label.color)}
+                >
+                  {label.name}
+                </span>
+              ))}
+            </span>
+          )}
+        </span>
+        <span className="repo-issue-meta">
+          <span className="repo-issue-number">#{issue.number}</span>
+          <span className="repo-issue-author">
+            {issue.authorAvatarUrl && (
+              <img src={issue.authorAvatarUrl} alt={issue.author} className="repo-issue-avatar" />
+            )}
+            {issue.author}
+          </span>
+          <span className="repo-issue-date">
+            <Clock size={12} />
+            {formatDistanceToNow(issue.createdAt)}
+          </span>
+          {issue.commentCount > 0 && (
+            <span className="repo-issue-comments">
+              <MessageSquare size={12} />
+              {issue.commentCount}
+            </span>
+          )}
+          <IssueAssignees issue={issue} />
+        </span>
+      </button>
+      <button
+        type="button"
+        className="repo-issue-external-link-btn"
+        onClick={() => window.shell?.openExternal(issue.url)}
+        title="Open issue on GitHub"
+      >
+        <ExternalLink size={14} className="external-link-icon" />
+      </button>
+    </div>
+  )
+}
+
 function IssueCardView({
   issues,
   onOpenIssue,
@@ -101,91 +199,12 @@ function IssueCardView({
   return (
     <div className="repo-issues-list">
       {issues.map(issue => (
-        <div
+        <IssueCardItem
           key={issue.number}
-          className="repo-issue-item"
-          onContextMenu={e => onContextMenu(e, issue)}
-        >
-          <button
-            type="button"
-            className="repo-issue-main"
-            onClick={() => {
-              if (onOpenIssue) {
-                onOpenIssue(issue.number)
-                return
-              }
-              window.shell?.openExternal(issue.url)
-            }}
-            title={issue.title}
-          >
-            <span className="repo-issue-header">
-              <span className="repo-issue-title-row">
-                <CircleDot size={16} className="repo-issue-icon" />
-                <span className="repo-issue-title">{issue.title}</span>
-              </span>
-              {issue.labels.length > 0 && (
-                <span className="repo-issue-labels">
-                  {issue.labels.map(label => (
-                    <span
-                      key={label.name}
-                      className="repo-issue-label"
-                      style={getLabelStyle(label.color)}
-                    >
-                      {label.name}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </span>
-            <span className="repo-issue-meta">
-              <span className="repo-issue-number">#{issue.number}</span>
-              <span className="repo-issue-author">
-                {issue.authorAvatarUrl && (
-                  <img
-                    src={issue.authorAvatarUrl}
-                    alt={issue.author}
-                    className="repo-issue-avatar"
-                  />
-                )}
-                {issue.author}
-              </span>
-              <span className="repo-issue-date">
-                <Clock size={12} />
-                {formatDistanceToNow(issue.createdAt)}
-              </span>
-              {issue.commentCount > 0 && (
-                <span className="repo-issue-comments">
-                  <MessageSquare size={12} />
-                  {issue.commentCount}
-                </span>
-              )}
-              {issue.assignees.length > 0 && (
-                <span className="repo-issue-assignees">
-                  {issue.assignees.slice(0, 3).map(a => (
-                    <img
-                      key={a.login}
-                      src={a.avatarUrl}
-                      alt={a.login}
-                      className="repo-issue-assignee-avatar"
-                      title={a.name ? `${a.name} (${a.login})` : a.login}
-                    />
-                  ))}
-                  {issue.assignees.length > 3 && (
-                    <span className="repo-issue-assignee-more">+{issue.assignees.length - 3}</span>
-                  )}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            type="button"
-            className="repo-issue-external-link-btn"
-            onClick={() => window.shell?.openExternal(issue.url)}
-            title="Open issue on GitHub"
-          >
-            <ExternalLink size={14} className="external-link-icon" />
-          </button>
-        </div>
+          issue={issue}
+          onOpenIssue={onOpenIssue}
+          onContextMenu={onContextMenu}
+        />
       ))}
     </div>
   )
@@ -277,9 +296,90 @@ function IssueListBody({
   return <IssueCardView issues={issues} onOpenIssue={onOpenIssue} onContextMenu={onContextMenu} />
 }
 
+const EMPTY_ISSUES: RepoIssue[] = []
+
+function resolveIssueState(issueState: RepoIssueListProps['issueState']) {
+  return issueState ?? 'open'
+}
+
+function getIssues(data: RepoIssue[] | null | undefined) {
+  return data ?? EMPTY_ISSUES
+}
+
+function getInitialIssueListState({
+  isEmpty,
+  loading,
+  error,
+  owner,
+  repo,
+  issueState,
+  refresh,
+}: {
+  isEmpty: boolean
+  loading: boolean
+  error: string | null
+  owner: string
+  repo: string
+  issueState: NonNullable<RepoIssueListProps['issueState']>
+  refresh: () => void
+}) {
+  if (!isEmpty) {
+    return null
+  }
+  if (loading) {
+    return (
+      <PanelLoadingState
+        message="Loading issues..."
+        subtitle={`${owner}/${repo} · ${issueState}`}
+      />
+    )
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
+function RepoIssueContextMenu({
+  contextMenu,
+  owner,
+  repo,
+  onStartRalphLoop,
+  onViewDetails,
+  onCopyLink,
+  onOpenOnGitHub,
+  onClose,
+}: {
+  contextMenu: { x: number; y: number; issue: RepoIssue } | null
+  owner: string
+  repo: string
+  onStartRalphLoop: () => void
+  onViewDetails: () => void
+  onCopyLink: () => void
+  onOpenOnGitHub: () => void
+  onClose: () => void
+}) {
+  if (!contextMenu) return null
+
+  return (
+    <IssueContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      issue={contextMenu.issue}
+      owner={owner}
+      repo={repo}
+      onStartRalphLoop={onStartRalphLoop}
+      onViewDetails={onViewDetails}
+      onCopyLink={onCopyLink}
+      onOpenOnGitHub={onOpenOnGitHub}
+      onClose={onClose}
+    />
+  )
+}
+
 export function RepoIssueList(props: RepoIssueListProps) {
   const { owner, repo, onOpenIssue } = props
-  const issueState = props.issueState ?? 'open'
+  const issueState = resolveIssueState(props.issueState)
   const { accounts } = useGitHubAccounts()
   const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
     cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
@@ -288,7 +388,7 @@ export function RepoIssueList(props: RepoIssueListProps) {
     fetchFn: client => client.fetchRepoIssues(owner, repo, issueState),
     /* v8 ignore stop */
   })
-  const issues = data ?? []
+  const issues = getIssues(data)
   const isEmpty = issues.length === 0
   const [viewMode, setViewMode] = useViewMode(`repo-issues-${owner}-${repo}`)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; issue: RepoIssue } | null>(
@@ -358,18 +458,18 @@ export function RepoIssueList(props: RepoIssueListProps) {
     setContextMenu(null)
   }
 
-  if (isEmpty) {
-    if (loading) {
-      return (
-        <PanelLoadingState
-          message="Loading issues..."
-          subtitle={`${owner}/${repo} · ${issueState}`}
-        />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
-    }
+  const initialState = getInitialIssueListState({
+    isEmpty,
+    loading,
+    error,
+    owner,
+    repo,
+    issueState,
+    refresh,
+  })
+
+  if (initialState) {
+    return initialState
   }
 
   return (
@@ -394,20 +494,16 @@ export function RepoIssueList(props: RepoIssueListProps) {
         onContextMenu={handleContextMenu}
       />
 
-      {contextMenu && (
-        <IssueContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          issue={contextMenu.issue}
-          owner={owner}
-          repo={repo}
-          onStartRalphLoop={handleStartRalphLoop}
-          onViewDetails={handleViewDetails}
-          onCopyLink={handleCopyLink}
-          onOpenOnGitHub={handleOpenOnGitHub}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
+      <RepoIssueContextMenu
+        contextMenu={contextMenu}
+        owner={owner}
+        repo={repo}
+        onStartRalphLoop={handleStartRalphLoop}
+        onViewDetails={handleViewDetails}
+        onCopyLink={handleCopyLink}
+        onOpenOnGitHub={handleOpenOnGitHub}
+        onClose={() => setContextMenu(null)}
+      />
     </div>
   )
 }

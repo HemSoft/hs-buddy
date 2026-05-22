@@ -63,6 +63,18 @@ interface StatusBarProps {
   assistantActive?: boolean
 }
 
+function resolveStatusCounts({
+  prCount,
+  scheduleCount,
+  jobCount,
+}: Pick<StatusBarProps, 'prCount' | 'scheduleCount' | 'jobCount'>) {
+  return {
+    prCount: prCount ?? 0,
+    scheduleCount: scheduleCount ?? 0,
+    jobCount: jobCount ?? 0,
+  }
+}
+
 function buildSyncingTooltip(status: BackgroundStatus): string {
   const label = status.activeLabel || 'GitHub data'
   const suffix = status.activeTasks > 1 ? ` — ${status.activeTasks} tasks remaining` : ''
@@ -113,15 +125,20 @@ function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: Backgrou
 }
 
 export function StatusBar({
-  prCount = 0,
-  scheduleCount = 0,
-  jobCount = 0,
+  prCount: prCountProp,
+  scheduleCount: scheduleCountProp,
+  jobCount: jobCountProp,
   activeGitHubAccount,
   backgroundStatus,
   onNavigate,
   assistantActive,
 }: StatusBarProps) {
   const [currentTime, setCurrentTime] = useState(new Date())
+  const { prCount, scheduleCount, jobCount } = resolveStatusCounts({
+    prCount: prCountProp,
+    scheduleCount: scheduleCountProp,
+    jobCount: jobCountProp,
+  })
 
   useEffect(() => {
     const timer = setInterval(() => {

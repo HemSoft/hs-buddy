@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { AssistantMessage, AssistantContext } from '../types/assistant'
 import { serializeContext } from './useAssistantContext'
 import { getErrorMessage } from '../utils/errorUtils'
@@ -7,6 +7,74 @@ import { IPC_INVOKE } from '../ipc/contracts'
 let messageIdCounter = 0
 function nextId(): string {
   return `msg-${Date.now()}-${++messageIdCounter}`
+}
+
+function buildConversationHistory(messages: AssistantMessage[]) {
+  return messages.map(message => ({
+    role: message.role,
+    content: message.content,
+  }))
+}
+
+function buildChatRequest(
+  context: AssistantContext,
+  message: string,
+  messages: AssistantMessage[],
+  model?: string
+) {
+  const payload = {
+    message,
+    context: serializeContext(context),
+    conversationHistory: buildConversationHistory(messages),
+  }
+  if (!model) return payload
+  return { ...payload, model }
+}
+
+function updateAssistantMessage(
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  content: string
+) {
+  setMessages(prev =>
+    prev.map(message => (message.id === messageId ? { ...message, content } : message))
+  )
+}
+
+function applyAssistantResponse(
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  response: string | null | undefined
+) {
+  updateAssistantMessage(setMessages, messageId, response || '*No response received.*')
+}
+
+function applyAssistantError(
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  err: unknown
+) {
+  updateAssistantMessage(setMessages, messageId, `⚠️ Error: ${getErrorMessage(err)}`)
+}
+
+function applyAssistantResponseIfActive(
+  abortRef: { current: boolean },
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  response: string | null | undefined
+) {
+  if (abortRef.current) return
+  applyAssistantResponse(setMessages, messageId, response)
+}
+
+function applyAssistantErrorIfActive(
+  abortRef: { current: boolean },
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  err: unknown
+) {
+  if (abortRef.current) return
+  applyAssistantError(setMessages, messageId, err)
 }
 
 /**
@@ -21,7 +89,8 @@ export function useAssistantConversation(context: AssistantContext) {
   const sendMessage = useCallback(
     async (text: string, model?: string) => {
       const trimmed = text.trim()
-      if (!trimmed || isStreaming) return
+      if (!trimmed) return
+      if (isStreaming) return
 
       const userMessage: AssistantMessage = {
         id: nextId(),
@@ -43,39 +112,14 @@ export function useAssistantConversation(context: AssistantContext) {
       abortRef.current = false
 
       try {
-        const systemPrompt = serializeContext(context)
-
-        // Build conversation history for multi-turn
-        const history = messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        }))
-
-        const response = await window.ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_SEND, {
-          message: trimmed,
-          context: systemPrompt,
-          conversationHistory: history,
-          ...(model ? { model } : {}),
-        })
-
-        if (abortRef.current) return
-
-        // Update the assistant message with the response
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMessage.id
-              ? { ...m, content: response || '*No response received.*' }
-              : m
-          )
+        const response = await window.ipcRenderer.invoke(
+          IPC_INVOKE.COPILOT_CHAT_SEND,
+          buildChatRequest(context, trimmed, messages, model)
         )
+
+        applyAssistantResponseIfActive(abortRef, setMessages, assistantMessage.id, response)
       } catch (err: unknown) {
-        if (abortRef.current) return
-        const errorMsg = getErrorMessage(err)
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMessage.id ? { ...m, content: `⚠️ Error: ${errorMsg}` } : m
-          )
-        )
+        applyAssistantErrorIfActive(abortRef, setMessages, assistantMessage.id, err)
       } finally {
         setIsStreaming(false)
       }

@@ -235,6 +235,84 @@ function ScheduleCronConfig({
   )
 }
 
+function ScheduleDetailContent({
+  scheduleId,
+  schedule,
+  runs,
+  editorOpen,
+  setEditorOpen,
+  handleToggle,
+  handleDelete,
+}: {
+  scheduleId: string
+  schedule: NonNullable<ReturnType<typeof useSchedule>>
+  runs: ReturnType<typeof useScheduleRuns>
+  editorOpen: boolean
+  setEditorOpen: React.Dispatch<React.SetStateAction<boolean>>
+  handleToggle: () => void
+  handleDelete: () => void
+}) {
+  const formatCron = formatCronSchedule
+  const statusBadge = resolveStatusBadge(schedule.enabled)
+
+  return (
+    <div className="schedule-detail">
+      {editorOpen && (
+        /* v8 ignore start */
+        <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
+        /* v8 ignore stop */
+      )}
+
+      <div className="schedule-detail-header">
+        <div className="schedule-detail-title-row">
+          <Calendar size={16} className="schedule-icon" />
+          <h2>{schedule.name}</h2>
+          <span className={statusBadge.className}>{statusBadge.label}</span>
+        </div>
+        <div className="schedule-detail-actions">
+          <ScheduleHeaderActions
+            enabled={schedule.enabled}
+            onToggle={handleToggle}
+            onEdit={() => setEditorOpen(true)}
+            onDelete={handleDelete}
+          />
+        </div>
+      </div>
+
+      {schedule.description && (
+        <div className="schedule-detail-description">{schedule.description}</div>
+      )}
+
+      <div className="schedule-detail-meta">
+        <span title={new Date(schedule.createdAt).toLocaleString()}>
+          <Calendar size={12} />
+          Created {formatDistanceToNow(schedule.createdAt)}
+        </span>
+        <span title={new Date(schedule.updatedAt).toLocaleString()}>
+          <Clock size={12} />
+          Updated {formatDistanceToNow(schedule.updatedAt)}
+        </span>
+      </div>
+
+      <div className="schedule-detail-section">
+        <h3>Schedule</h3>
+        <ScheduleCronConfig schedule={schedule} formatCron={formatCron} />
+      </div>
+
+      <ScheduleJobSection job={schedule.job} />
+
+      <ScheduleRunStatusSection
+        lastRunAt={schedule.lastRunAt}
+        lastRunStatus={schedule.lastRunStatus}
+        nextRunAt={schedule.nextRunAt}
+        enabled={schedule.enabled}
+      />
+
+      <ScheduleRecentRuns runs={runs} />
+    </div>
+  )
+}
+
 export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const schedule = useSchedule(scheduleId as Id<'schedules'>)
   const runs = useScheduleRuns(scheduleId as Id<'schedules'>, 10)
@@ -292,65 +370,17 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
     }
   }
 
-  const formatCron = formatCronSchedule
-  const statusBadge = resolveStatusBadge(schedule.enabled)
-
   return (
     <>
-      <div className="schedule-detail">
-        {editorOpen && (
-          /* v8 ignore start */
-          <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
-          /* v8 ignore stop */
-        )}
-
-        <div className="schedule-detail-header">
-          <div className="schedule-detail-title-row">
-            <Calendar size={16} className="schedule-icon" />
-            <h2>{schedule.name}</h2>
-            <span className={statusBadge.className}>{statusBadge.label}</span>
-          </div>
-          <div className="schedule-detail-actions">
-            <ScheduleHeaderActions
-              enabled={schedule.enabled}
-              onToggle={handleToggle}
-              onEdit={() => setEditorOpen(true)}
-              onDelete={handleDelete}
-            />
-          </div>
-        </div>
-
-        {schedule.description && (
-          <div className="schedule-detail-description">{schedule.description}</div>
-        )}
-
-        <div className="schedule-detail-meta">
-          <span title={new Date(schedule.createdAt).toLocaleString()}>
-            <Calendar size={12} />
-            Created {formatDistanceToNow(schedule.createdAt)}
-          </span>
-          <span title={new Date(schedule.updatedAt).toLocaleString()}>
-            <Clock size={12} />
-            Updated {formatDistanceToNow(schedule.updatedAt)}
-          </span>
-        </div>
-
-        <div className="schedule-detail-section">
-          <h3>Schedule</h3>
-          <ScheduleCronConfig schedule={schedule} formatCron={formatCron} />
-        </div>
-
-        <ScheduleJobSection job={schedule.job} />
-
-        <ScheduleRunStatusSection
-          lastRunAt={schedule.lastRunAt}
-          lastRunStatus={schedule.lastRunStatus}
-          nextRunAt={schedule.nextRunAt}
-          enabled={schedule.enabled}
-        />
-
-        <ScheduleRecentRuns runs={runs} />
-      </div>
+      <ScheduleDetailContent
+        scheduleId={scheduleId}
+        schedule={schedule}
+        runs={runs}
+        editorOpen={editorOpen}
+        setEditorOpen={setEditorOpen}
+        handleToggle={handleToggle}
+        handleDelete={handleDelete}
+      />
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>
   )

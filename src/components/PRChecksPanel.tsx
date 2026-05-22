@@ -172,6 +172,67 @@ function StatusContextRow({
   )
 }
 
+function EmptyChecksState({ totalCount }: { totalCount: number }) {
+  if (totalCount !== 0) {
+    return null
+  }
+
+  return (
+    <div className="pr-checks-empty-state">
+      <AlertCircle size={28} />
+      <p>No checks or commit statuses were reported for this pull request.</p>
+    </div>
+  )
+}
+
+function CheckRunsSection({ checkRuns }: { checkRuns: PRChecksSummary['checkRuns'] }) {
+  if (checkRuns.length === 0) {
+    return (
+      <div className="pr-checks-section">
+        <div className="pr-checks-section-title">Check Runs</div>
+        <div className="pr-checks-empty">No GitHub check runs</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pr-checks-section">
+      <div className="pr-checks-section-title">Check Runs</div>
+      <div className="pr-checks-list">
+        {checkRuns.map(run => (
+          <CheckRunRow key={run.id} run={run} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StatusContextsSection({
+  statusContexts,
+}: {
+  statusContexts: PRChecksSummary['statusContexts']
+}) {
+  if (statusContexts.length === 0) {
+    return (
+      <div className="pr-checks-section">
+        <div className="pr-checks-section-title">Commit Statuses</div>
+        <div className="pr-checks-empty">No legacy commit status contexts</div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pr-checks-section">
+      <div className="pr-checks-section-title">Commit Statuses</div>
+      <div className="pr-checks-list">
+        {statusContexts.map(ctx => (
+          <StatusContextRow key={ctx.id} statusContext={ctx} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
   const {
     data: checks,
@@ -235,38 +296,9 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
         </button>
       </div>
 
-      {checks.totalCount === 0 && (
-        <div className="pr-checks-empty-state">
-          <AlertCircle size={28} />
-          <p>No checks or commit statuses were reported for this pull request.</p>
-        </div>
-      )}
-
-      <div className="pr-checks-section">
-        <div className="pr-checks-section-title">Check Runs</div>
-        {checks.checkRuns.length === 0 ? (
-          <div className="pr-checks-empty">No GitHub check runs</div>
-        ) : (
-          <div className="pr-checks-list">
-            {checks.checkRuns.map(run => (
-              <CheckRunRow key={run.id} run={run} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      <div className="pr-checks-section">
-        <div className="pr-checks-section-title">Commit Statuses</div>
-        {checks.statusContexts.length === 0 ? (
-          <div className="pr-checks-empty">No legacy commit status contexts</div>
-        ) : (
-          <div className="pr-checks-list">
-            {checks.statusContexts.map(ctx => (
-              <StatusContextRow key={ctx.id} statusContext={ctx} />
-            ))}
-          </div>
-        )}
-      </div>
+      <EmptyChecksState totalCount={checks.totalCount} />
+      <CheckRunsSection checkRuns={checks.checkRuns} />
+      <StatusContextsSection statusContexts={checks.statusContexts} />
     </div>
   )
 }

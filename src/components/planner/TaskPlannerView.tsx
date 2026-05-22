@@ -301,10 +301,23 @@ function TodayTaskList({
 
 const PLANNER_DEFAULTS = { mode: 'upcoming' as PlannerMode }
 
+function getPlannerConfig(mode: PlannerMode) {
+  return mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
+}
+
+function PlannerErrorBanner({ message }: { message: string | null }) {
+  if (!message) return null
+  return (
+    <div className="planner-error">
+      <AlertCircle size={14} />
+      <span>{message}</span>
+    </div>
+  )
+}
+
 export function TaskPlannerView(props: { mode?: PlannerMode }) {
   const { mode } = { ...PLANNER_DEFAULTS, ...props }
-  const { days, heading } =
-    mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
+  const { days, heading } = getPlannerConfig(mode)
   const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
   const { projects, load: loadProjects } = useTodoistProjects()
   const { complete, create } = useTaskActions(refresh)
@@ -331,7 +344,6 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
 
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 
-  const errorMessage = error || actionError
   const spinnerClass = isLoading ? 'spinning' : ''
 
   return (
@@ -352,12 +364,7 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
         </div>
       </div>
 
-      {errorMessage && (
-        <div className="planner-error">
-          <AlertCircle size={14} />
-          <span>{errorMessage}</span>
-        </div>
-      )}
+      <PlannerErrorBanner message={error || actionError} />
 
       <div className="planner-day-list">
         {mode === 'today' && dayGroups.length > 0 ? (

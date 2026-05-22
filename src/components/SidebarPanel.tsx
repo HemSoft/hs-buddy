@@ -75,6 +75,16 @@ const DEFAULT_COUNTS: Record<string, number> = {}
 const DEFAULT_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> =
   {}
 
+function resolveSidebarMetrics({
+  counts,
+  badgeProgress,
+}: Pick<SidebarPanelProps, 'counts' | 'badgeProgress'>) {
+  return {
+    counts: counts ?? DEFAULT_COUNTS,
+    badgeProgress: badgeProgress ?? DEFAULT_BADGE_PROGRESS,
+  }
+}
+
 function SidebarItemRow({
   item,
   selectedItem,
@@ -210,8 +220,8 @@ export function SidebarPanel({
   section,
   onItemSelect,
   selectedItem,
-  counts = DEFAULT_COUNTS,
-  badgeProgress = DEFAULT_BADGE_PROGRESS,
+  counts: countsProp,
+  badgeProgress: badgeProgressProp,
 }: SidebarPanelProps) {
   const {
     has: isSectionExpanded,
@@ -221,6 +231,10 @@ export function SidebarPanel({
   const data = sectionData[section]
   const jobs = useJobs()
   const schedules = useSchedules()
+  const { counts, badgeProgress } = resolveSidebarMetrics({
+    counts: countsProp,
+    badgeProgress: badgeProgressProp,
+  })
 
   useEffect(() => {
     expandSection(section)

@@ -79,6 +79,10 @@ function sanitizeWatchlist(raw: unknown): string[] | null {
   return deduped.length > 0 ? deduped : null
 }
 
+function hasSameWatchlist(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((symbol, index) => symbol === right[index])
+}
+
 /** Extract the rejection message from a Promise.allSettled rejected entry. */
 function rejectionMessage(reason: unknown): string {
   return getErrorMessage(reason)
@@ -152,32 +156,41 @@ export function useFinance() {
   // NOT overwrite their changes when the async IPC load resolves.
   const mutatedRef = useRef(false)
 
-  const refresh = useCallback((symbols?: string[]) => {
-    const list = symbols ?? watchlistRef.current
-    abortRef.current = false
-
-    setState(prev => ({ ...prev, loading: true, error: null }))
-
-    return fetchQuotes(list)
-      .then(quotes => {
-        if (!abortRef.current) {
-          const fetchedAt = Date.now()
-          writeCache(quotes, fetchedAt)
-          setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
-        }
-      })
-      .catch(err => {
-        if (!abortRef.current) {
-          setState(prev => ({
-            quotes: prev.quotes,
-            loading: false,
-            error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
-            lastFetchedAt: prev.lastFetchedAt,
-          }))
-        }
-        throw err
-      })
+  const applyFetchedQuotes = useCallback((quotes: QuoteData[]) => {
+    if (abortRef.current) return
+    const fetchedAt = Date.now()
+    writeCache(quotes, fetchedAt)
+    setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
   }, [])
+
+  const applyQuoteRefreshError = useCallback((err: unknown) => {
+    if (abortRef.current) return
+    setState(prev => ({
+      quotes: prev.quotes,
+      loading: false,
+      error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
+      lastFetchedAt: prev.lastFetchedAt,
+    }))
+  }, [])
+
+  const refresh = useCallback(
+    (symbols?: string[]) => {
+      const list = symbols ?? watchlistRef.current
+      abortRef.current = false
+
+      setState(prev => ({ ...prev, loading: true, error: null }))
+
+      return fetchQuotes(list)
+        .then(quotes => {
+          applyFetchedQuotes(quotes)
+        })
+        .catch(err => {
+          applyQuoteRefreshError(err)
+          throw err
+        })
+    },
+    [applyFetchedQuotes, applyQuoteRefreshError]
+  )
 
   const addSymbol = useCallback(
     (symbol: string) => {
@@ -195,6 +208,21 @@ export function useFinance() {
 
       safeRemoveItem(CACHE_KEY)
       refresh(next).catch(() => {
+        /* error already handled in state */
+      })
+    },
+    [refresh]
+  )
+
+  const syncLoadedWatchlist = useCallback(
+    (sanitized: string[]) => {
+      const current = watchlistRef.current
+      if (hasSameWatchlist(sanitized, current)) return
+      writeWatchlist(sanitized)
+      watchlistRef.current = sanitized
+      setWatchlistState(sanitized)
+      safeRemoveItem(CACHE_KEY)
+      refresh(sanitized).catch(() => {
         /* error already handled in state */
       })
     },
@@ -227,19 +255,7 @@ export function useFinance() {
         if (cancelled || mutatedRef.current) return
         const sanitized = sanitizeWatchlist(raw)
         if (sanitized === null) return
-        const current = watchlistRef.current
-        // Skip update if values match to avoid unnecessary refresh
-        if (sanitized.length === current.length && sanitized.every((s, i) => s === current[i])) {
-          return
-        }
-        writeWatchlist(sanitized)
-        watchlistRef.current = sanitized
-        setWatchlistState(sanitized)
-        // Re-fetch quotes against the authoritative list
-        safeRemoveItem(CACHE_KEY)
-        refresh(sanitized).catch(() => {
-          /* error already handled in state */
-        })
+        syncLoadedWatchlist(sanitized)
       })
       .catch((err: unknown) => {
         console.warn('[useFinance] Failed to load watchlist from config store:', err)

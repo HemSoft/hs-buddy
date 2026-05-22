@@ -28,6 +28,8 @@ type TimelineEntry =
   | { type: 'comment'; timestamp: string; data: PRReviewComment }
   | { type: 'review'; timestamp: string; data: PRReviewSummary }
 
+type PRThreadsPanelState = ReturnType<typeof usePRThreadsPanel>
+
 function latestTimestamp(updatedAt: string, createdAt: string): string {
   return updatedAt > createdAt ? updatedAt : createdAt
 }
@@ -126,6 +128,146 @@ function groupByDate(entries: TimelineEntry[]): Map<string, TimelineEntry[]> {
     }
   }
   return groups
+}
+
+function buildPanelTimeline({
+  data,
+  filter,
+  filteredThreads,
+  showResolved,
+}: Pick<
+  PRThreadsPanelState,
+  'data' | 'filter' | 'filteredThreads' | 'showResolved'
+>): TimelineEntry[] {
+  if (!data) {
+    return []
+  }
+
+  const visibleThreads =
+    filter === 'all'
+      ? filteredThreads.filter(thread => !thread.isResolved || showResolved)
+      : filteredThreads
+  const comments = filter === 'all' ? data.issueComments : []
+  const reviews = filter === 'all' ? data.reviews : []
+  return buildTimeline(visibleThreads, comments, reviews)
+}
+
+function PRThreadsLoadingState() {
+  return (
+    <div className="pr-threads-loading">
+      <Loader2 size={24} className="spin" />
+      <p>Loading conversations…</p>
+    </div>
+  )
+}
+
+function PRThreadsErrorState({
+  error,
+  fetchThreads,
+}: {
+  error: NonNullable<PRThreadsPanelState['error']>
+  fetchThreads: PRThreadsPanelState['fetchThreads']
+}) {
+  return (
+    <div className="pr-threads-error">
+      <p>Failed to load conversations</p>
+      <p className="pr-threads-error-detail">
+        {/* v8 ignore start */}
+        {error}
+        {/* v8 ignore stop */}
+      </p>
+      <button className="pr-threads-retry" onClick={fetchThreads}>
+        Retry
+      </button>
+    </div>
+  )
+}
+
+function LatestReviewSection({
+  latestReview,
+  needsRefresh,
+  openLatestReview,
+  requestReReview,
+}: Pick<
+  PRThreadsPanelState,
+  'latestReview' | 'needsRefresh' | 'openLatestReview' | 'requestReReview'
+>) {
+  if (!latestReview) {
+    return null
+  }
+
+  return (
+    <AIReviewBanner
+      latestReview={latestReview}
+      needsRefresh={needsRefresh}
+      openLatestReview={openLatestReview}
+      requestReReview={requestReReview}
+    />
+  )
+}
+
+function PRThreadsTimeline({
+  timeline,
+  dateGroups,
+  pr,
+  handleReplyAdded,
+  handleResolveToggled,
+  handleReactToComment,
+}: {
+  timeline: TimelineEntry[]
+  dateGroups: Map<string, TimelineEntry[]>
+  pr: PRDetailInfo
+  handleReplyAdded: PRThreadsPanelState['handleReplyAdded']
+  handleResolveToggled: PRThreadsPanelState['handleResolveToggled']
+  handleReactToComment: PRThreadsPanelState['handleReactToComment']
+}) {
+  if (timeline.length === 0) {
+    return (
+      <div className="pr-threads-empty-state">
+        <MessageCircle size={32} />
+        <p>No conversations yet</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="pr-timeline">
+      {[...dateGroups.entries()].map(([dateLabel, entries]) => (
+        <details key={dateLabel} className="pr-timeline-date-group" open>
+          <summary className="pr-timeline-date-header">
+            <div className="pr-timeline-date-line" />
+            <span className="pr-timeline-date-label">{dateLabel}</span>
+            <div className="pr-timeline-date-line" />
+          </summary>
+          <div className="pr-timeline-entries">
+            {entries.map(entry => (
+              <div key={`${entry.type}-${entry.data.id}`} className="pr-timeline-entry">
+                <div className="pr-timeline-rail">
+                  <div className={`pr-timeline-dot pr-timeline-dot-${entry.type}`} />
+                  <div className="pr-timeline-connector" />
+                </div>
+                <div className="pr-timeline-content">
+                  <div className="pr-timeline-meta">
+                    <span className="pr-timeline-time">{formatTimeLabel(entry.timestamp)}</span>
+                    <span className="pr-timeline-type-badge">
+                      {entry.type === 'thread' ? 'review thread' : entry.type}
+                    </span>
+                  </div>
+                  <TimelineEntryContent
+                    entry={entry}
+                    pr={pr}
+                    handleReplyAdded={handleReplyAdded}
+                    handleResolveToggled={handleResolveToggled}
+                    handleReactToComment={handleReactToComment}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  )
 }
 
 function AIReviewBanner({
@@ -386,64 +528,33 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     requestReReview,
   } = usePRThreadsPanel(pr)
 
-  const timeline = useMemo(() => {
-    if (!data) return []
-    const visibleThreads =
-      filter === 'all'
-        ? filteredThreads.filter(t => !t.isResolved || showResolved)
-        : filteredThreads
-    // When filtering by thread status, only show threads — comments/reviews are not thread-specific
-    const comments = filter === 'all' ? data.issueComments : []
-    const reviews = filter === 'all' ? data.reviews : []
-    return buildTimeline(visibleThreads, comments, reviews)
-  }, [data, filter, filteredThreads, showResolved])
+  const timeline = useMemo(
+    () => buildPanelTimeline({ data, filter, filteredThreads, showResolved }),
+    [data, filter, filteredThreads, showResolved]
+  )
 
   const dateGroups = useMemo(() => groupByDate(timeline), [timeline])
 
   if (loading && !data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
+    return <PRThreadsLoadingState />
   }
 
   if (error) {
-    return (
-      <div className="pr-threads-error">
-        <p>Failed to load conversations</p>
-        <p className="pr-threads-error-detail">
-          {/* v8 ignore start */}
-          {error}
-          {/* v8 ignore stop */}
-        </p>
-        <button className="pr-threads-retry" onClick={fetchThreads}>
-          Retry
-        </button>
-      </div>
-    )
+    return <PRThreadsErrorState error={error} fetchThreads={fetchThreads} />
   }
 
   if (!data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
+    return <PRThreadsLoadingState />
   }
 
   return (
     <div className="pr-threads-container">
-      {latestReview && (
-        <AIReviewBanner
-          latestReview={latestReview}
-          needsRefresh={needsRefresh}
-          openLatestReview={openLatestReview}
-          requestReReview={requestReReview}
-        />
-      )}
+      <LatestReviewSection
+        latestReview={latestReview}
+        needsRefresh={needsRefresh}
+        openLatestReview={openLatestReview}
+        requestReReview={requestReReview}
+      />
 
       <ThreadsTimelineHeader
         threads={data.threads}
@@ -455,50 +566,14 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         setShowResolved={setShowResolved}
       />
 
-      {/* Chronological timeline */}
-      {timeline.length > 0 ? (
-        <div className="pr-timeline">
-          {[...dateGroups.entries()].map(([dateLabel, entries]) => (
-            <details key={dateLabel} className="pr-timeline-date-group" open>
-              <summary className="pr-timeline-date-header">
-                <div className="pr-timeline-date-line" />
-                <span className="pr-timeline-date-label">{dateLabel}</span>
-                <div className="pr-timeline-date-line" />
-              </summary>
-              <div className="pr-timeline-entries">
-                {entries.map(entry => (
-                  <div key={`${entry.type}-${entry.data.id}`} className="pr-timeline-entry">
-                    <div className="pr-timeline-rail">
-                      <div className={`pr-timeline-dot pr-timeline-dot-${entry.type}`} />
-                      <div className="pr-timeline-connector" />
-                    </div>
-                    <div className="pr-timeline-content">
-                      <div className="pr-timeline-meta">
-                        <span className="pr-timeline-time">{formatTimeLabel(entry.timestamp)}</span>
-                        <span className="pr-timeline-type-badge">
-                          {entry.type === 'thread' ? 'review thread' : entry.type}
-                        </span>
-                      </div>
-                      <TimelineEntryContent
-                        entry={entry}
-                        pr={pr}
-                        handleReplyAdded={handleReplyAdded}
-                        handleResolveToggled={handleResolveToggled}
-                        handleReactToComment={handleReactToComment}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      ) : (
-        <div className="pr-threads-empty-state">
-          <MessageCircle size={32} />
-          <p>No conversations yet</p>
-        </div>
-      )}
+      <PRThreadsTimeline
+        timeline={timeline}
+        dateGroups={dateGroups}
+        pr={pr}
+        handleReplyAdded={handleReplyAdded}
+        handleResolveToggled={handleResolveToggled}
+        handleReactToComment={handleReactToComment}
+      />
 
       <PRCommentForm
         commentTextareaRef={commentTextareaRef}

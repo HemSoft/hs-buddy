@@ -10,6 +10,37 @@ import {
 } from 'lucide-react'
 import './SettingsShared.css'
 
+function ResetButtonContent({
+  isResetting,
+  resetConfirm,
+}: {
+  isResetting: boolean
+  resetConfirm: boolean
+}) {
+  if (isResetting) {
+    return (
+      <>
+        <RefreshCw className="spin" size={14} />
+        Resetting...
+      </>
+    )
+  }
+  if (resetConfirm) {
+    return (
+      <>
+        <AlertTriangle size={14} />
+        Click Again to Confirm
+      </>
+    )
+  }
+  return (
+    <>
+      <RotateCcw size={14} />
+      Reset to Defaults
+    </>
+  )
+}
+
 export function SettingsAdvanced() {
   const { api, refresh, loading } = useConfig()
   const [storePath, setStorePath] = useState<string>('')
@@ -112,22 +143,7 @@ export function SettingsAdvanced() {
               onClick={handleReset}
               disabled={isResetting}
             >
-              {isResetting ? (
-                <>
-                  <RefreshCw className="spin" size={14} />
-                  Resetting...
-                </>
-              ) : resetConfirm ? (
-                <>
-                  <AlertTriangle size={14} />
-                  Click Again to Confirm
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={14} />
-                  Reset to Defaults
-                </>
-              )}
+              <ResetButtonContent isResetting={isResetting} resetConfirm={resetConfirm} />
             </button>
           </div>
         </div>

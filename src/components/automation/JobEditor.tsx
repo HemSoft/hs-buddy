@@ -27,6 +27,102 @@ function getEditorTitle(
   return 'Create Job'
 }
 
+function JobEditorWorkerConfig({
+  workerType,
+  command,
+  shell,
+  timeout,
+  cwd,
+  prompt,
+  ghAccount,
+  model,
+  targetRepo,
+  skillName,
+  skillAction,
+  skillParams,
+  onCommandChange,
+  onShellChange,
+  onTimeoutChange,
+  onCwdChange,
+  onPromptChange,
+  onGhAccountChange,
+  onModelChange,
+  onTargetRepoChange,
+  onSkillNameChange,
+  onSkillActionChange,
+  onSkillParamsChange,
+}: {
+  workerType: 'exec' | 'ai' | 'skill'
+  command: string
+  shell: 'powershell' | 'bash' | 'cmd'
+  timeout: number
+  cwd: string
+  prompt: string
+  ghAccount: string
+  model: string
+  targetRepo: string
+  skillName: string
+  skillAction: string
+  skillParams: string
+  onCommandChange: (v: string) => void
+  onShellChange: (v: 'powershell' | 'bash' | 'cmd') => void
+  onTimeoutChange: (v: number) => void
+  onCwdChange: (v: string) => void
+  onPromptChange: (v: string) => void
+  onGhAccountChange: (v: string) => void
+  onModelChange: (v: string) => void
+  onTargetRepoChange: (v: string) => void
+  onSkillNameChange: (v: string) => void
+  onSkillActionChange: (v: string) => void
+  onSkillParamsChange: (v: string) => void
+}) {
+  if (workerType === 'exec') {
+    return (
+      <ExecConfigSection
+        command={command}
+        shell={shell}
+        timeout={timeout}
+        cwd={cwd}
+        onCommandChange={onCommandChange}
+        onShellChange={onShellChange}
+        onTimeoutChange={onTimeoutChange}
+        onCwdChange={onCwdChange}
+      />
+    )
+  }
+
+  if (workerType === 'ai') {
+    return (
+      <AiConfigSection
+        prompt={prompt}
+        ghAccount={ghAccount}
+        model={model}
+        targetRepo={targetRepo}
+        onPromptChange={onPromptChange}
+        onGhAccountChange={onGhAccountChange}
+        onModelChange={onModelChange}
+        onTargetRepoChange={onTargetRepoChange}
+      />
+    )
+  }
+
+  return (
+    <SkillConfigSection
+      skillName={skillName}
+      skillAction={skillAction}
+      skillParams={skillParams}
+      onSkillNameChange={onSkillNameChange}
+      onSkillActionChange={onSkillActionChange}
+      onSkillParamsChange={onSkillParamsChange}
+    />
+  )
+}
+
+function JobEditorSaveLabel({ saving, isEditing }: { saving: boolean; isEditing: boolean }) {
+  if (saving) return <>Saving...</>
+  return <>{isEditing ? 'Update Job' : 'Create Job'}</>
+}
+
 function WorkerTypeSelector({
   workerType,
   setWorkerType,
@@ -117,43 +213,6 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
     handleSave,
   } = useJobEditorForm(jobId, duplicateFrom, onSaved, onClose)
 
-  const renderExecConfig = () => (
-    <ExecConfigSection
-      command={command}
-      shell={shell}
-      timeout={timeout}
-      cwd={cwd}
-      onCommandChange={setCommand}
-      onShellChange={setShell}
-      onTimeoutChange={setTimeout}
-      onCwdChange={setCwd}
-    />
-  )
-
-  const renderAiConfig = () => (
-    <AiConfigSection
-      prompt={prompt}
-      ghAccount={ghAccount}
-      model={model}
-      targetRepo={targetRepo}
-      onPromptChange={setPrompt}
-      onGhAccountChange={setGhAccount}
-      onModelChange={setModel}
-      onTargetRepoChange={setTargetRepo}
-    />
-  )
-
-  const renderSkillConfig = () => (
-    <SkillConfigSection
-      skillName={skillName}
-      skillAction={skillAction}
-      skillParams={skillParams}
-      onSkillNameChange={setSkillName}
-      onSkillActionChange={setSkillAction}
-      onSkillParamsChange={setSkillParams}
-    />
-  )
-
   return (
     <div className="job-editor-overlay">
       <div className="job-editor">
@@ -206,9 +265,31 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
 
           <div className="form-divider" />
 
-          {workerType === 'exec' && renderExecConfig()}
-          {workerType === 'ai' && renderAiConfig()}
-          {workerType === 'skill' && renderSkillConfig()}
+          <JobEditorWorkerConfig
+            workerType={workerType}
+            command={command}
+            shell={shell}
+            timeout={timeout}
+            cwd={cwd}
+            prompt={prompt}
+            ghAccount={ghAccount}
+            model={model}
+            targetRepo={targetRepo}
+            skillName={skillName}
+            skillAction={skillAction}
+            skillParams={skillParams}
+            onCommandChange={setCommand}
+            onShellChange={setShell}
+            onTimeoutChange={setTimeout}
+            onCwdChange={setCwd}
+            onPromptChange={setPrompt}
+            onGhAccountChange={setGhAccount}
+            onModelChange={setModel}
+            onTargetRepoChange={setTargetRepo}
+            onSkillNameChange={setSkillName}
+            onSkillActionChange={setSkillAction}
+            onSkillParamsChange={setSkillParams}
+          />
         </div>
 
         <div className="job-editor-footer">
@@ -217,7 +298,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             <Save size={16} />
-            {saving ? 'Saving...' : isEditing ? 'Update Job' : 'Create Job'}
+            <JobEditorSaveLabel saving={saving} isEditing={isEditing} />
           </button>
         </div>
       </div>

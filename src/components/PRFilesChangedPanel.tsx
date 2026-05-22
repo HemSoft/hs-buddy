@@ -12,6 +12,53 @@ interface PRFilesChangedPanelProps {
   pr: PRDetailInfo
 }
 
+function PRFilesChangedPendingState({
+  loading,
+  error,
+  refresh,
+  cacheKey,
+}: {
+  loading: boolean
+  error: string | null | undefined
+  refresh: () => void
+  cacheKey: string | null | undefined
+}) {
+  if (loading) {
+    return <PanelLoadingState message="Loading changed files..." />
+  }
+
+  if (error) {
+    return (
+      <PanelErrorState
+        title="Failed to load changed files"
+        error={error}
+        onRetry={cacheKey ? refresh : undefined}
+      />
+    )
+  }
+
+  return null
+}
+
+function PRFilesChangedList({
+  files,
+  resetKey,
+}: {
+  files: PRFilesChangedSummary['files']
+  resetKey: string
+}) {
+  if (files.length === 0) {
+    return (
+      <div className="repo-commits-empty">
+        <FileCode2 size={28} />
+        <p>No changed files were reported for this pull request.</p>
+      </div>
+    )
+  }
+
+  return <ExpandableFileList files={files} resetKey={resetKey} />
+}
+
 export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   const {
     data: detail,
@@ -24,17 +71,14 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   )
 
   if (!detail) {
-    if (loading) return <PanelLoadingState message="Loading changed files..." />
-    if (error) {
-      return (
-        <PanelErrorState
-          title="Failed to load changed files"
-          error={error}
-          onRetry={cacheKey ? refresh : undefined}
-        />
-      )
-    }
-    return null
+    return (
+      <PRFilesChangedPendingState
+        loading={loading}
+        error={error}
+        refresh={refresh}
+        cacheKey={cacheKey}
+      />
+    )
   }
 
   return (
@@ -70,14 +114,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
         </button>
       </div>
 
-      {detail.files.length === 0 ? (
-        <div className="repo-commits-empty">
-          <FileCode2 size={28} />
-          <p>No changed files were reported for this pull request.</p>
-        </div>
-      ) : (
-        <ExpandableFileList files={detail.files} resetKey={`${pr.id}:${pr.url}`} />
-      )}
+      <PRFilesChangedList files={detail.files} resetKey={`${pr.id}:${pr.url}`} />
     </div>
   )
 }

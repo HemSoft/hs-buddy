@@ -18,6 +18,104 @@ interface PRReviewPanelProps {
   onClose?: () => void
 }
 
+function PRReviewCloseButton({ onClose }: { onClose?: () => void }) {
+  if (!onClose) {
+    return null
+  }
+
+  return (
+    <button className="pr-review-close-btn" onClick={onClose} title="Close">
+      <X size={16} />
+    </button>
+  )
+}
+
+function PRReviewHeader({ onClose }: { onClose?: () => void }) {
+  return (
+    <div className="pr-review-panel-header">
+      <div className="pr-review-panel-title">
+        <Sparkles size={18} />
+        <h2>PR Review</h2>
+      </div>
+      <PRReviewCloseButton onClose={onClose} />
+    </div>
+  )
+}
+
+function PRReviewUsageBadge({ account }: { account: string | null | undefined }) {
+  if (!account) {
+    return null
+  }
+
+  return <PremiumUsageBadge username={account} />
+}
+
+function PRReviewErrorMessage({ error }: { error: string | null }) {
+  if (!error) {
+    return null
+  }
+
+  return <div className="pr-review-error">{error}</div>
+}
+
+function PRReviewActions({
+  prompt,
+  submitting,
+  scheduleDelay,
+  setScheduleDelay,
+  handleRunNow,
+  handleSchedule,
+}: {
+  prompt: string
+  submitting: boolean
+  scheduleDelay: number
+  setScheduleDelay: (delay: number) => void
+  handleRunNow: () => void
+  handleSchedule: () => void
+}) {
+  const disableActions = submitting || !prompt.trim()
+
+  return (
+    <div className="pr-review-actions">
+      <button
+        className="pr-review-btn pr-review-btn-primary"
+        onClick={handleRunNow}
+        disabled={disableActions}
+      >
+        <Play size={14} />
+        Run Now
+      </button>
+
+      <div className="pr-review-schedule-group">
+        <button
+          className="pr-review-btn pr-review-btn-secondary"
+          onClick={handleSchedule}
+          disabled={disableActions}
+        >
+          <Clock size={14} />
+          Schedule
+        </button>
+        <div className="pr-review-schedule-delay">
+          <span>in</span>
+          <select
+            className="pr-review-delay-select"
+            value={scheduleDelay}
+            onChange={e => setScheduleDelay(Number(e.target.value))}
+            disabled={submitting}
+          >
+            <option value={1}>1 min</option>
+            <option value={5}>5 min</option>
+            <option value={15}>15 min</option>
+            <option value={30}>30 min</option>
+            <option value={60}>1 hour</option>
+            <option value={120}>2 hours</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
   const {
     account,
@@ -48,18 +146,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
 
   return (
     <div className="pr-review-panel">
-      {/* Header */}
-      <div className="pr-review-panel-header">
-        <div className="pr-review-panel-title">
-          <Sparkles size={18} />
-          <h2>PR Review</h2>
-        </div>
-        {onClose && (
-          <button className="pr-review-close-btn" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        )}
-      </div>
+      <PRReviewHeader onClose={onClose} />
 
       <PRInfoCard
         prTitle={prInfo.prTitle}
@@ -86,7 +173,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
               title="GitHub account used for authentication"
               variant="select"
             />
-            {account && <PremiumUsageBadge username={account} />}
+            <PRReviewUsageBadge account={account} />
           </div>
         </div>
 
@@ -121,47 +208,16 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         onSaveAsDefault={handleSaveAsDefault}
       />
 
-      {/* Error */}
-      {error && <div className="pr-review-error">{error}</div>}
+      <PRReviewErrorMessage error={error} />
 
-      {/* Action Buttons */}
-      <div className="pr-review-actions">
-        <button
-          className="pr-review-btn pr-review-btn-primary"
-          onClick={handleRunNow}
-          disabled={submitting || !prompt.trim()}
-        >
-          <Play size={14} />
-          Run Now
-        </button>
-
-        <div className="pr-review-schedule-group">
-          <button
-            className="pr-review-btn pr-review-btn-secondary"
-            onClick={handleSchedule}
-            disabled={submitting || !prompt.trim()}
-          >
-            <Clock size={14} />
-            Schedule
-          </button>
-          <div className="pr-review-schedule-delay">
-            <span>in</span>
-            <select
-              className="pr-review-delay-select"
-              value={scheduleDelay}
-              onChange={e => setScheduleDelay(Number(e.target.value))}
-              disabled={submitting}
-            >
-              <option value={1}>1 min</option>
-              <option value={5}>5 min</option>
-              <option value={15}>15 min</option>
-              <option value={30}>30 min</option>
-              <option value={60}>1 hour</option>
-              <option value={120}>2 hours</option>
-            </select>
-          </div>
-        </div>
-      </div>
+      <PRReviewActions
+        prompt={prompt}
+        submitting={submitting}
+        scheduleDelay={scheduleDelay}
+        setScheduleDelay={setScheduleDelay}
+        handleRunNow={handleRunNow}
+        handleSchedule={handleSchedule}
+      />
     </div>
   )
 }

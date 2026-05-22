@@ -45,6 +45,101 @@ interface UseTerminalPanelReturn {
 
 let nextTabNumber = 1
 
+type PersistedTerminalTab = Pick<TerminalTab, 'title' | 'cwd' | 'repoSlug' | 'color'>
+
+function applyLoadedTerminalConfig(
+  openResult: PromiseSettledResult<boolean>,
+  heightResult: PromiseSettledResult<number>,
+  setTerminalOpen: (open: boolean) => void,
+  setPanelHeight: (height: number) => void,
+  setLoaded: (loaded: boolean) => void
+) {
+  if (openResult.status === 'fulfilled' && typeof openResult.value === 'boolean') {
+    setTerminalOpen(openResult.value)
+  }
+  if (heightResult.status === 'fulfilled' && typeof heightResult.value === 'number') {
+    setPanelHeight(clampPanelHeight(heightResult.value))
+  }
+  setLoaded(true)
+}
+
+function getSavedTerminalTabs(
+  restored: boolean,
+  loaded: boolean,
+  settingsTabs: PersistedTerminalTab[] | null | undefined
+): PersistedTerminalTab[] | null {
+  if (restored || !loaded) return null
+  if (!settingsTabs || settingsTabs.length === 0) return null
+  return settingsTabs
+}
+
+function parseRepoSlug(repoSlug: string): { owner: string; repo: string } | null {
+  const [owner, repo] = repoSlug.split('/')
+  if (!owner || !repo) return null
+  return { owner, repo }
+}
+
+async function resolveRepoSlugPath(
+  repoSlug: string | undefined,
+  fallbackCwd: string
+): Promise<string> {
+  if (!repoSlug) return fallbackCwd
+  const parsed = parseRepoSlug(repoSlug)
+  if (!parsed) return fallbackCwd
+  try {
+    const result = await window.terminal.resolveRepoPath(parsed.owner, parsed.repo)
+    return result.path || fallbackCwd
+  } catch (_: unknown) {
+    return fallbackCwd
+  }
+}
+
+async function restoreTerminalTab(saved: PersistedTerminalTab): Promise<TerminalTab> {
+  return {
+    id: `term-restore-${crypto.randomUUID()}`,
+    title: saved.title,
+    cwd: await resolveRepoSlugPath(saved.repoSlug, saved.cwd),
+    repoSlug: saved.repoSlug,
+    color: saved.color,
+  }
+}
+
+function findTabByRepoSlug(tabs: TerminalTab[], repoSlug: string): TerminalTab | undefined {
+  return tabs.find(tab => tab.repoSlug === repoSlug)
+}
+
+function createTerminalTab(title: string, cwd: string, repoSlug?: string): TerminalTab {
+  return {
+    id: `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    title,
+    cwd,
+    repoSlug,
+  }
+}
+
+function syncTerminalTabForView(
+  activeViewId: string | null | undefined,
+  currentTabs: TerminalTab[],
+  addTerminalTab: (repoContext: RepoContext | null) => Promise<TerminalTab | undefined>,
+  setActiveTerminalTabId: (tabId: string) => void
+) {
+  const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+  if (currentTabs.length === 0) {
+    void addTerminalTab(repoContext)
+    return
+  }
+  if (!repoContext) return
+
+  const repoSlug = `${repoContext.owner}/${repoContext.repo}`
+  const existing = findTabByRepoSlug(currentTabs, repoSlug)
+  if (existing) {
+    setActiveTerminalTabId(existing.id)
+    return
+  }
+
+  void addTerminalTab(repoContext)
+}
+
 export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanelReturn {
   const [terminalOpen, setTerminalOpen] = useState(false)
   const [terminalTabs, setTerminalTabs] = useState<TerminalTab[]>([])
@@ -74,13 +169,13 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       /* v8 ignore start */
       if (cancelled) return
       /* v8 ignore stop */
-      if (openResult.status === 'fulfilled' && typeof openResult.value === 'boolean') {
-        setTerminalOpen(openResult.value)
-      }
-      if (heightResult.status === 'fulfilled' && typeof heightResult.value === 'number') {
-        setPanelHeight(clampPanelHeight(heightResult.value))
-      }
-      setLoaded(true)
+      applyLoadedTerminalConfig(
+        openResult,
+        heightResult,
+        setTerminalOpen,
+        setPanelHeight,
+        setLoaded
+      )
     })
     /* v8 ignore start */
     return () => {
@@ -110,36 +205,14 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const restoredRef = useRef(false)
   /* v8 ignore start -- tab restoration from Convex; hard to unit-test due to async isolation */
   useEffect(() => {
-    if (restoredRef.current || !loaded || !settings?.terminalTabs?.length) return
+    const savedTabs = getSavedTerminalTabs(restoredRef.current, loaded, settings?.terminalTabs)
+    if (!savedTabs) return
     if (terminalTabsRef.current.length > 0) return
     restoredRef.current = true
+    const restorableTabs = savedTabs
 
     async function restoreTabs() {
-      const savedTabs = settings!.terminalTabs!
-      const restored: TerminalTab[] = await Promise.all(
-        savedTabs.map(async saved => {
-          let cwd = saved.cwd
-          // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
-          if (saved.repoSlug) {
-            const [owner, repo] = saved.repoSlug.split('/')
-            if (owner && repo) {
-              try {
-                const result = await window.terminal.resolveRepoPath(owner, repo)
-                if (result.path) cwd = result.path
-              } catch (_: unknown) {
-                /* keep saved cwd */
-              }
-            }
-          }
-          return {
-            id: `term-restore-${crypto.randomUUID()}`,
-            title: saved.title,
-            cwd,
-            repoSlug: saved.repoSlug,
-            color: saved.color,
-          }
-        })
-      )
+      const restored = await Promise.all(restorableTabs.map(restoreTerminalTab))
       terminalTabsRef.current = restored
       setTerminalTabs(restored)
       if (restored.length > 0) setActiveTerminalTabId(restored[0].id)
@@ -184,55 +257,38 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   /* v8 ignore stop */
 
   const addTerminalTab = useCallback(async (repoContext: RepoContext | null) => {
-    let cwd = ''
-    let title: string
-    let repoSlug: string | undefined
-
-    if (repoContext) {
-      repoSlug = `${repoContext.owner}/${repoContext.repo}`
-
-      // Optimistic dedup via ref (avoids unnecessary IPC calls)
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-        return existing
-      }
-
-      title = repoContext.repo
-
-      try {
-        const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
-        cwd = result.path || ''
-      } catch (_: unknown) {
-        // Fall back to empty cwd if path resolution fails
-      }
-    } else {
-      title = `Terminal ${nextTabNumber++}`
+    if (!repoContext) {
+      const newTab = createTerminalTab(`Terminal ${nextTabNumber++}`, '')
+      const nextTabs = [...terminalTabsRef.current, newTab]
+      terminalTabsRef.current = nextTabs
+      setTerminalTabs(nextTabs)
+      setActiveTerminalTabId(newTab.id)
+      return newTab
     }
 
-    const tabId = `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const newTab: TerminalTab = {
-      id: tabId,
-      title,
-      cwd,
-      repoSlug,
+    const repoSlug = `${repoContext.owner}/${repoContext.repo}`
+    const existing = findTabByRepoSlug(terminalTabsRef.current, repoSlug)
+    if (existing) {
+      setActiveTerminalTabId(existing.id)
+      return existing
     }
 
-    // Re-check against the latest ref after async work completes so dedup/add and
-    // active-tab selection are derived from the same snapshot.
-    if (repoSlug) {
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-        return existing
-      }
+    const newTab = createTerminalTab(
+      repoContext.repo,
+      await resolveRepoSlugPath(repoSlug, ''),
+      repoSlug
+    )
+
+    const existingAfterAwait = findTabByRepoSlug(terminalTabsRef.current, repoSlug)
+    if (existingAfterAwait) {
+      setActiveTerminalTabId(existingAfterAwait.id)
+      return existingAfterAwait
     }
 
     const nextTabs = [...terminalTabsRef.current, newTab]
     terminalTabsRef.current = nextTabs
     setTerminalTabs(nextTabs)
-
-    setActiveTerminalTabId(tabId)
+    setActiveTerminalTabId(newTab.id)
     return newTab
   }, [])
 
@@ -245,23 +301,12 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
 
       if (!next) return
 
-      const currentTabs = terminalTabsRef.current
-      const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
-
-      if (currentTabs.length === 0) {
-        void addTerminalTab(repoContext)
-        return
-      }
-
-      if (!repoContext) return
-
-      const slug = `${repoContext.owner}/${repoContext.repo}`
-      const existing = currentTabs.find(t => t.repoSlug === slug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-      } else {
-        void addTerminalTab(repoContext)
-      }
+      syncTerminalTabForView(
+        activeViewId,
+        terminalTabsRef.current,
+        addTerminalTab,
+        setActiveTerminalTabId
+      )
     },
     [addTerminalTab]
   )

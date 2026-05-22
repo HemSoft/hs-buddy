@@ -7,7 +7,7 @@ import type { Id } from '../../../convex/_generated/dataModel'
 import { RunCard, type RunWithJob } from './run-list/RunCard'
 import { RunFilterBar, type StatusFilter } from './run-list/RunFilterBar'
 import { ViewModeToggle } from '../shared/ViewModeToggle'
-import { useViewMode } from '../../hooks/useViewMode'
+import { useViewMode, type ViewMode } from '../../hooks/useViewMode'
 import { getStatusIcon, getStatusLabel } from '../shared/statusDisplay'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { formatDistanceToNow, formatDuration } from '../../utils/dateUtils'
@@ -15,6 +15,121 @@ import './RunList.css'
 import '../shared/ListView.css'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+function RunListTable({
+  filteredRuns,
+  toggleRow,
+}: {
+  filteredRuns: RunWithJob[]
+  toggleRow: (runId: string) => void
+}) {
+  return (
+    <table className="list-view-table">
+      <thead>
+        <tr>
+          <th className="col-status"></th>
+          <th className="col-title">Name</th>
+          <th>Status</th>
+          <th>Duration</th>
+          <th>Triggered</th>
+        </tr>
+      </thead>
+      <tbody>
+        {filteredRuns.map((run: RunWithJob) => (
+          <tr key={run._id} onClick={() => toggleRow(run._id)}>
+            <td className="col-status">{getStatusIcon(run.status)}</td>
+            <td className="col-title">
+              {run.job ? (
+                <>
+                  {getWorkerIcon(run.job.workerType, 14)} {run.job.name}
+                </>
+              ) : (
+                <span style={{ opacity: 0.5 }}>Deleted Job</span>
+              )}
+              {run.schedule && (
+                <span className="run-schedule-badge" style={{ marginLeft: 6 }}>
+                  via {run.schedule.name}
+                </span>
+              )}
+            </td>
+            <td>
+              <span className={`run-status-badge status-${run.status}`}>
+                {getStatusLabel(run.status)}
+              </span>
+            </td>
+            <td className="col-date">
+              {run.duration !== undefined ? formatDuration(run.duration) : '—'}
+            </td>
+            <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function RunListCards({
+  filteredRuns,
+  expandedRows,
+  toggleRow,
+  handleCancel,
+}: {
+  filteredRuns: RunWithJob[]
+  expandedRows: Set<string>
+  toggleRow: (runId: string) => void
+  handleCancel: (runId: string, e: React.MouseEvent) => Promise<void>
+}) {
+  return (
+    <>
+      {filteredRuns.map((run: RunWithJob) => (
+        <RunCard
+          key={run._id}
+          run={run}
+          isExpanded={expandedRows.has(run._id)}
+          onToggle={toggleRow}
+          onCancel={handleCancel}
+        />
+      ))}
+    </>
+  )
+}
+
+function RunListContent({
+  filteredRuns,
+  statusFilter,
+  viewMode,
+  expandedRows,
+  toggleRow,
+  handleCancel,
+}: {
+  filteredRuns: RunWithJob[]
+  statusFilter: StatusFilter
+  viewMode: ViewMode
+  expandedRows: Set<string>
+  toggleRow: (runId: string) => void
+  handleCancel: (runId: string, e: React.MouseEvent) => Promise<void>
+}) {
+  return (
+    <div className="run-list-content">
+      {filteredRuns.length === 0 && (
+        <div className="run-list-no-results">
+          <p>No {statusFilter} runs found.</p>
+        </div>
+      )}
+
+      {viewMode === 'list' ? (
+        <RunListTable filteredRuns={filteredRuns} toggleRow={toggleRow} />
+      ) : (
+        <RunListCards
+          filteredRuns={filteredRuns}
+          expandedRows={expandedRows}
+          toggleRow={toggleRow}
+          handleCancel={handleCancel}
+        />
+      )}
+    </div>
+  )
+}
 
 export function RunList() {
   const runs = useRecentRuns(100)
@@ -121,69 +236,14 @@ export function RunList() {
           onFilterChange={setStatusFilter}
         />
 
-        <div className="run-list-content">
-          {filteredRuns.length === 0 && (
-            <div className="run-list-no-results">
-              <p>No {statusFilter} runs found.</p>
-            </div>
-          )}
-
-          {viewMode === 'list' ? (
-            <table className="list-view-table">
-              <thead>
-                <tr>
-                  <th className="col-status"></th>
-                  <th className="col-title">Name</th>
-                  <th>Status</th>
-                  <th>Duration</th>
-                  <th>Triggered</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRuns.map((run: RunWithJob) => (
-                  <tr key={run._id} onClick={() => toggleRow(run._id)}>
-                    <td className="col-status">{getStatusIcon(run.status)}</td>
-                    <td className="col-title">
-                      {run.job ? (
-                        <>
-                          {getWorkerIcon(run.job.workerType, 14)} {run.job.name}
-                        </>
-                      ) : (
-                        <span style={{ opacity: 0.5 }}>Deleted Job</span>
-                      )}
-                      {run.schedule && (
-                        <span className="run-schedule-badge" style={{ marginLeft: 6 }}>
-                          via {run.schedule.name}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span className={`run-status-badge status-${run.status}`}>
-                        {getStatusLabel(run.status)}
-                      </span>
-                    </td>
-                    <td className="col-date">
-                      {run.duration !== undefined ? formatDuration(run.duration) : '—'}
-                    </td>
-                    <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <>
-              {filteredRuns.map((run: RunWithJob) => (
-                <RunCard
-                  key={run._id}
-                  run={run}
-                  isExpanded={!!(expandedRows as Set<string>).has(run._id)}
-                  onToggle={toggleRow}
-                  onCancel={handleCancel}
-                />
-              ))}
-            </>
-          )}
-        </div>
+        <RunListContent
+          filteredRuns={filteredRuns}
+          statusFilter={statusFilter}
+          viewMode={viewMode}
+          expandedRows={expandedRows}
+          toggleRow={toggleRow}
+          handleCancel={handleCancel}
+        />
       </div>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>

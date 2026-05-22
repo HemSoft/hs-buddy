@@ -21,15 +21,64 @@ export const INTERVAL_OPTIONS = [
 
 const ALLOWED_INTERVALS = new Set(INTERVAL_OPTIONS.map(o => o.value))
 
+function isAllowedIntervalMinutes(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && ALLOWED_INTERVALS.has(value)
+}
+
 function isValidAutoRefreshSettings(
-  parsed: AutoRefreshSettings
+  parsed: unknown
 ): parsed is AutoRefreshSettings & { enabled: boolean; intervalMinutes: number } {
-  return (
-    typeof parsed.enabled === 'boolean' &&
-    typeof parsed.intervalMinutes === 'number' &&
-    Number.isFinite(parsed.intervalMinutes) &&
-    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-  )
+  if (typeof parsed !== 'object' || parsed === null) return false
+  const settings = parsed as AutoRefreshSettings
+  return typeof settings.enabled === 'boolean' && isAllowedIntervalMinutes(settings.intervalMinutes)
+}
+
+function canComputeNextRefresh(
+  settings: AutoRefreshSettings,
+  paused: boolean,
+  lastRefreshedAt: number | null
+): lastRefreshedAt is number {
+  return settings.enabled && !paused && lastRefreshedAt != null && settings.intervalMinutes > 0
+}
+
+function getNextRefreshStatus(
+  settings: AutoRefreshSettings,
+  paused: boolean,
+  lastRefreshedAt: number | null
+) {
+  if (!canComputeNextRefresh(settings, paused, lastRefreshedAt)) {
+    return { nextRefreshSecs: null, nextRefreshLabel: null }
+  }
+
+  const elapsed = Date.now() - lastRefreshedAt
+  const remaining = Math.max(0, settings.intervalMinutes * 60_000 - elapsed)
+  const nextRefreshSecs = Math.ceil(remaining / 1000)
+  return {
+    nextRefreshSecs,
+    nextRefreshLabel: nextRefreshSecs > 0 ? formatSecondsCountdown(nextRefreshSecs) : null,
+  }
+}
+
+function mergeStatusLabels(
+  previous: {
+    lastRefreshedLabel: string | null
+    nextRefreshSecs: number | null
+    nextRefreshLabel: string | null
+  },
+  next: {
+    lastRefreshedLabel: string | null
+    nextRefreshSecs: number | null
+    nextRefreshLabel: string | null
+  }
+) {
+  if (
+    previous.lastRefreshedLabel === next.lastRefreshedLabel &&
+    previous.nextRefreshSecs === next.nextRefreshSecs &&
+    previous.nextRefreshLabel === next.nextRefreshLabel
+  ) {
+    return previous
+  }
+  return next
 }
 
 function readSettings(cardId: string, defaultInterval: number): AutoRefreshSettings {
@@ -46,16 +95,8 @@ function readSettings(cardId: string, defaultInterval: number): AutoRefreshSetti
 
 function isStoredSettingsCorrupt(cardId: string): boolean {
   const key = `${STORAGE_PREFIX}${cardId}`
-  const raw = safeGetItem(key)
-  if (raw === null) return false // Key doesn't exist — nothing to repair
-  const parsed = safeGetJson<AutoRefreshSettings>(key)
-  if (!parsed) return true // Raw exists but parse failed — corrupt JSON
-  return !(
-    typeof parsed.enabled === 'boolean' &&
-    typeof parsed.intervalMinutes === 'number' &&
-    Number.isFinite(parsed.intervalMinutes) &&
-    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-  )
+  if (safeGetItem(key) === null) return false
+  return !isValidAutoRefreshSettings(safeGetJson<AutoRefreshSettings>(key))
 }
 
 function writeSettings(cardId: string, settings: AutoRefreshSettings) {
@@ -199,31 +240,12 @@ export function useAutoRefresh(
 
   useEffect(() => {
     const compute = () => {
-      const lastLabel = lastRefreshedAt ? formatDistanceToNow(lastRefreshedAt) : null
-
-      let nextSecs: number | null = null
-      let nextLabel: string | null = null
-      if (settings.enabled && !paused && lastRefreshedAt && settings.intervalMinutes > 0) {
-        const elapsed = Date.now() - lastRefreshedAt
-        const remaining = Math.max(0, settings.intervalMinutes * 60_000 - elapsed)
-        nextSecs = Math.ceil(remaining / 1000)
-        nextLabel = nextSecs > 0 ? formatSecondsCountdown(nextSecs) : null
+      const nextStatus = {
+        lastRefreshedLabel: lastRefreshedAt ? formatDistanceToNow(lastRefreshedAt) : null,
+        ...getNextRefreshStatus(settings, paused, lastRefreshedAt),
       }
 
-      setStatusLabels(prev => {
-        if (
-          prev.lastRefreshedLabel === lastLabel &&
-          prev.nextRefreshSecs === nextSecs &&
-          prev.nextRefreshLabel === nextLabel
-        ) {
-          return prev
-        }
-        return {
-          lastRefreshedLabel: lastLabel,
-          nextRefreshSecs: nextSecs,
-          nextRefreshLabel: nextLabel,
-        }
-      })
+      setStatusLabels(prev => mergeStatusLabels(prev, nextStatus))
     }
 
     compute()

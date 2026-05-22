@@ -151,6 +151,69 @@ function ModelPickerRefreshButton({
   )
 }
 
+function ModelPickerPendingState({
+  modelsLoading,
+  modelsError,
+  className,
+}: {
+  modelsLoading: boolean
+  modelsError: string | null
+  className: string
+}) {
+  if (modelsLoading) {
+    return (
+      <div className={className}>
+        <div style={SELECT_STATUS_STYLE}>
+          <Loader2 size={16} className="spin" />
+          Fetching available models...
+        </div>
+      </div>
+    )
+  }
+  if (modelsError) {
+    return (
+      <div className={className}>
+        <div className="form-error" style={{ marginBottom: '8px' }}>
+          Failed to fetch models: {modelsError}
+        </div>
+      </div>
+    )
+  }
+  return null
+}
+
+function ModelOptionGroups({
+  enabledModels,
+  disabledModels,
+}: {
+  enabledModels: SdkModel[]
+  disabledModels: SdkModel[]
+}) {
+  return (
+    <>
+      {enabledModels.length > 0 && (
+        <optgroup label="Available Models">
+          {enabledModels.map(m => (
+            <option key={m.id} value={m.id}>
+              {m.name}
+              {billingLabel(m.billingMultiplier)}
+            </option>
+          ))}
+        </optgroup>
+      )}
+      {disabledModels.length > 0 && (
+        <optgroup label="Disabled by Policy">
+          {disabledModels.map(m => (
+            <option key={m.id} value={m.id} disabled>
+              {m.name} (disabled)
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </>
+  )
+}
+
 function ModelPickerSelectVariant({
   value,
   enabledModels,
@@ -178,24 +241,13 @@ function ModelPickerSelectVariant({
   className: string
   id?: string
 }) {
-  if (modelsLoading) {
+  if (modelsLoading || modelsError) {
     return (
-      <div className={className}>
-        <div style={SELECT_STATUS_STYLE}>
-          <Loader2 size={16} className="spin" />
-          Fetching available models...
-        </div>
-      </div>
-    )
-  }
-
-  if (modelsError) {
-    return (
-      <div className={className}>
-        <div className="form-error" style={{ marginBottom: '8px' }}>
-          Failed to fetch models: {modelsError}
-        </div>
-      </div>
+      <ModelPickerPendingState
+        modelsLoading={modelsLoading}
+        modelsError={modelsError}
+        className={className}
+      />
     )
   }
 
@@ -221,25 +273,7 @@ function ModelPickerSelectVariant({
             className="settings-select"
             disabled={disabled}
           >
-            {enabledModels.length > 0 && (
-              <optgroup label="Available Models">
-                {enabledModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {billingLabel(m.billingMultiplier)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {disabledModels.length > 0 && (
-              <optgroup label="Disabled by Policy">
-                {disabledModels.map(m => (
-                  <option key={m.id} value={m.id} disabled>
-                    {m.name} (disabled)
-                  </option>
-                ))}
-              </optgroup>
-            )}
+            <ModelOptionGroups enabledModels={enabledModels} disabledModels={disabledModels} />
           </select>
         </div>
         <ModelPickerRefreshButton

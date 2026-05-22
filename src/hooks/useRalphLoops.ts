@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
 import type {
   RalphRunInfo,
   RalphLaunchConfig,
@@ -7,6 +7,20 @@ import type {
 } from '../types/ralph'
 
 const POLL_INTERVAL_MS = 3_000
+
+function applyLoopRefreshResult(
+  result: unknown,
+  setRuns: Dispatch<SetStateAction<RalphRunInfo[]>>,
+  setError: Dispatch<SetStateAction<string | null>>
+) {
+  if (!Array.isArray(result)) return
+  setRuns(result)
+  setError(null)
+}
+
+function applyLoopRefreshError(err: unknown, setError: Dispatch<SetStateAction<string | null>>) {
+  setError(err instanceof Error ? err.message : 'Failed to list loops')
+}
 
 /** Hook for managing ralph loop state with IPC + real-time push events. */
 export function useRalphLoops() {
@@ -19,13 +33,10 @@ export function useRalphLoops() {
     try {
       const result = await window.ralph.list()
       if (!mountedRef.current) return
-      if (Array.isArray(result)) {
-        setRuns(result)
-        setError(null)
-      }
+      applyLoopRefreshResult(result, setRuns, setError)
     } catch (err: unknown) {
       if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to list loops')
+      applyLoopRefreshError(err, setError)
     } finally {
       if (mountedRef.current) setLoading(false)
     }

@@ -46,13 +46,18 @@ export function getPollenLabel(index: number): PollenLevel {
   return POLLEN_LABELS[clamped]
 }
 
+const POLLEN_COLORS = [
+  'var(--text-muted)',
+  '#4caf50',
+  '#8bc34a',
+  '#ffc107',
+  '#ff9800',
+  '#f44336',
+] as const
+
 export function getPollenColor(index: number): string {
-  if (index <= 0) return 'var(--text-muted)'
-  if (index <= 1) return '#4caf50' // green
-  if (index <= 2) return '#8bc34a' // light green
-  if (index <= 3) return '#ffc107' // amber
-  if (index <= 4) return '#ff9800' // orange
-  return '#f44336' // red
+  const clamped = Math.max(0, Math.min(POLLEN_COLORS.length - 1, Math.ceil(index)))
+  return POLLEN_COLORS[clamped]
 }
 
 const COORD_TOLERANCE = 0.01 // ~1km
@@ -64,12 +69,22 @@ function isLocationChanged(cached: PollenCache, lat: number, lon: number): boole
   )
 }
 
+function hasCurrentPollenCacheVersion(cached: PollenCache): boolean {
+  return (cached.version ?? 0) >= POLLEN_CACHE_VERSION
+}
+
+function isReusablePollenCache(cached: PollenCache, lat: number, lon: number): boolean {
+  return (
+    hasCurrentPollenCacheVersion(cached) &&
+    Date.now() - cached.timestamp <= POLLEN_CACHE_TTL_MS &&
+    !isLocationChanged(cached, lat, lon)
+  )
+}
+
 function readPollenCache(lat: number, lon: number): PollenData | null {
   const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
   if (!cached) return null
-  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return null
-  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return null
-  if (isLocationChanged(cached, lat, lon)) return null
+  if (!isReusablePollenCache(cached, lat, lon)) return null
   return cached.data
 }
 
@@ -119,14 +134,27 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
     }
   }, [])
 
+  const showCachedPollen = useCallback((cached: PollenData) => {
+    setState({ data: cached, loading: false, error: null })
+  }, [])
+
+  const applyFetchedPollen = useCallback((result: PollenFetchResult, lat: number, lon: number) => {
+    if (!mountedRef.current) return
+    setState(resolvePollenState(result, lat, lon))
+  }, [])
+
+  const clearPollenFetchError = useCallback(() => {
+    if (!mountedRef.current) return
+    setState({ data: null, loading: false, error: null })
+  }, [])
+
   const refresh = useCallback(async () => {
     if (!location) return
 
     const { latitude, longitude } = location
-
     const cached = readPollenCache(latitude, longitude)
     if (cached) {
-      setState({ data: cached, loading: false, error: null })
+      showCachedPollen(cached)
       return
     }
 
@@ -137,15 +165,11 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
         latitude,
         longitude,
       })) as PollenFetchResult
-
-      if (!mountedRef.current) return
-      setState(resolvePollenState(result, latitude, longitude))
+      applyFetchedPollen(result, latitude, longitude)
     } catch (_: unknown) {
-      if (mountedRef.current) {
-        setState({ data: null, loading: false, error: null })
-      }
+      clearPollenFetchError()
     }
-  }, [location])
+  }, [location, showCachedPollen, applyFetchedPollen, clearPollenFetchError])
 
   // Fetch on mount and when location changes
   useEffect(() => {

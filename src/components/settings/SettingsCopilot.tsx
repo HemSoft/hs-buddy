@@ -60,6 +60,68 @@ export function settingsReducer(state: SettingsState, action: SettingsAction): S
   return handler(state, action)
 }
 
+function CustomModelInput({
+  visible,
+  value,
+  onKeyDown,
+  onChange,
+  onSave,
+}: {
+  visible: boolean
+  value: string
+  onKeyDown: (e: React.KeyboardEvent) => void
+  onChange: (value: string) => void
+  onSave: () => void
+}) {
+  if (!visible) return null
+  return (
+    <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onKeyDown={onKeyDown}
+        placeholder="Enter custom model name"
+        className="settings-input"
+        style={{ flex: 1 }}
+      />
+      <button
+        className="settings-btn settings-btn-primary"
+        onClick={onSave}
+        disabled={!value.trim()}
+      >
+        Apply
+      </button>
+    </div>
+  )
+}
+
+function NoAccountsWarning() {
+  return (
+    <div className="form-error" style={{ marginTop: '8px' }}>
+      <AlertCircle size={14} />
+      No GitHub accounts configured. Add accounts in the Accounts settings page.
+    </div>
+  )
+}
+
+function SavedIndicator({ visible }: { visible: boolean }) {
+  if (!visible) return null
+  return (
+    <span
+      style={{
+        color: 'var(--text-success, #4ec9b0)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '12px',
+      }}
+    >
+      <CheckCircle size={14} /> Saved
+    </span>
+  )
+}
+
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
 
@@ -196,19 +258,7 @@ export function SettingsCopilot() {
         <p className="settings-page-description">
           Configure the GitHub account and model used for Copilot SDK interactions.
         </p>
-        {saveStatus === 'saved' && (
-          <span
-            style={{
-              color: 'var(--text-success, #4ec9b0)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '12px',
-            }}
-          >
-            <CheckCircle size={14} /> Saved
-          </span>
-        )}
+        <SavedIndicator visible={saveStatus === 'saved'} />
       </div>
 
       <div className="settings-page-content">
@@ -233,12 +283,7 @@ export function SettingsCopilot() {
             active.
           </p>
 
-          {uniqueAccounts.length === 0 && (
-            <div className="form-error" style={{ marginTop: '8px' }}>
-              <AlertCircle size={14} />
-              No GitHub accounts configured. Add accounts in the Accounts settings page.
-            </div>
-          )}
+          {uniqueAccounts.length === 0 && <NoAccountsWarning />}
         </div>
 
         {/* Model Section */}
@@ -262,26 +307,13 @@ export function SettingsCopilot() {
             showRefresh
           />
 
-          {isCustomModel && (
-            <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={customModel}
-                onChange={e => dispatch({ type: 'set_custom_model', value: e.target.value })}
-                onKeyDown={handleCustomModelKeyDown}
-                placeholder="Enter custom model name"
-                className="settings-input"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="settings-btn settings-btn-primary"
-                onClick={() => void handleCustomModelSave()}
-                disabled={!customModel.trim()}
-              >
-                Apply
-              </button>
-            </div>
-          )}
+          <CustomModelInput
+            visible={isCustomModel}
+            value={customModel}
+            onKeyDown={handleCustomModelKeyDown}
+            onChange={v => dispatch({ type: 'set_custom_model', value: v })}
+            onSave={() => void handleCustomModelSave()}
+          />
 
           <p className="hint">
             The model is passed to the Copilot SDK&apos;s <code>createSession()</code> call.

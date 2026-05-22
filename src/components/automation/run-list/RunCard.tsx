@@ -66,6 +66,72 @@ function ExpandIcon({ hasDetails, isExpanded }: { hasDetails: boolean; isExpande
   return isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
 }
 
+function RunCardTitle({ run }: { run: RunWithJob }) {
+  return (
+    <span className="run-card-title">
+      {run.job ? (
+        <>
+          {getWorkerIcon(run.job.workerType, 14)}
+          <span className="run-job-name">{run.job.name}</span>
+        </>
+      ) : (
+        <span className="run-job-name deleted">Deleted Job</span>
+      )}
+      {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
+    </span>
+  )
+}
+
+function RunCardMeta({ run }: { run: RunWithJob }) {
+  return (
+    <span className="run-card-meta">
+      <span className="run-meta-item" title={format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}>
+        {getTriggerIcon(run.triggeredBy)}
+        {formatDistanceToNow(run.startedAt)}
+      </span>
+      {run.duration !== undefined && (
+        <span className="run-meta-item">
+          <Clock size={12} />
+          {formatDuration(run.duration)}
+        </span>
+      )}
+      {run.status === 'running' && (
+        <span className="run-meta-item running-indicator">
+          <Loader size={12} className="spin" />
+          Running...
+        </span>
+      )}
+      <span className={`run-status-badge status-${run.status}`}>{getStatusLabel(run.status)}</span>
+    </span>
+  )
+}
+
+function RunCardCancelAction({
+  canCancel,
+  runId,
+  onCancel,
+}: {
+  canCancel: boolean
+  runId: string
+  onCancel: (runId: string, e: MouseEvent) => void
+}) {
+  if (!canCancel) return null
+
+  return (
+    <button className="btn-icon-sm btn-danger" onClick={e => onCancel(runId, e)} title="Cancel Run">
+      <Ban size={14} />
+    </button>
+  )
+}
+
+function hasRunCardDetails(run: RunWithJob) {
+  return run.output !== undefined || run.error !== undefined || run.input !== undefined
+}
+
+function canCancelRun(status: RunStatus) {
+  return status === 'pending' || status === 'running'
+}
+
 function RunCardHeader({
   run,
   hasDetails,
@@ -96,52 +162,13 @@ function RunCardHeader({
         <span className="run-card-status">{getStatusIcon(run.status)}</span>
 
         <span className="run-card-info">
-          <span className="run-card-title">
-            {run.job ? (
-              <>
-                {getWorkerIcon(run.job.workerType, 14)}
-                <span className="run-job-name">{run.job.name}</span>
-              </>
-            ) : (
-              <span className="run-job-name deleted">Deleted Job</span>
-            )}
-            {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
-          </span>
-
-          <span className="run-card-meta">
-            <span className="run-meta-item" title={format(run.startedAt, 'yyyy-MM-dd HH:mm:ss')}>
-              {getTriggerIcon(run.triggeredBy)}
-              {formatDistanceToNow(run.startedAt)}
-            </span>
-            {run.duration !== undefined && (
-              <span className="run-meta-item">
-                <Clock size={12} />
-                {formatDuration(run.duration)}
-              </span>
-            )}
-            {run.status === 'running' && (
-              <span className="run-meta-item running-indicator">
-                <Loader size={12} className="spin" />
-                Running...
-              </span>
-            )}
-            <span className={`run-status-badge status-${run.status}`}>
-              {getStatusLabel(run.status)}
-            </span>
-          </span>
+          <RunCardTitle run={run} />
+          <RunCardMeta run={run} />
         </span>
       </button>
 
       <div className="run-card-actions">
-        {canCancel && (
-          <button
-            className="btn-icon-sm btn-danger"
-            onClick={e => onCancel(run._id, e)}
-            title="Cancel Run"
-          >
-            <Ban size={14} />
-          </button>
-        )}
+        <RunCardCancelAction canCancel={canCancel} runId={run._id} onCancel={onCancel} />
       </div>
     </div>
   )
@@ -191,8 +218,8 @@ function RunCardDetails({ run }: { run: RunWithJob }) {
 }
 
 export function RunCard({ run, isExpanded, onToggle, onCancel }: RunCardProps) {
-  const hasDetails = run.output !== undefined || run.error !== undefined || run.input !== undefined
-  const canCancel = run.status === 'pending' || run.status === 'running'
+  const hasDetails = hasRunCardDetails(run)
+  const canCancel = canCancelRun(run.status)
 
   return (
     <div className={`run-card run-status-${run.status}`}>

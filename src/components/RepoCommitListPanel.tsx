@@ -19,6 +19,12 @@ interface RepoCommitListPanelProps {
   onOpenCommit?: (sha: string) => void
 }
 
+const EMPTY_COMMITS: RepoCommit[] = []
+
+function getCommits(data: RepoCommit[] | null | undefined) {
+  return data ?? EMPTY_COMMITS
+}
+
 function CommitListBody({
   commits,
   loading,
@@ -75,13 +81,53 @@ function CommitListBody({
   )
 }
 
+function RepoCommitListHeader({
+  owner,
+  repo,
+  commitCount,
+  loading,
+  refresh,
+}: {
+  owner: string
+  repo: string
+  commitCount: number
+  loading: boolean
+  refresh: () => void
+}) {
+  return (
+    <div className="repo-commits-header">
+      <div className="repo-commits-header-left">
+        <h2>
+          <GitCommit size={20} />
+          <span className="repo-commits-owner">{owner}</span>
+          <span className="repo-commits-separator">/</span>
+          <span className="repo-commits-name">{repo}</span>
+          <span className="repo-commits-label">Commits</span>
+        </h2>
+        <p className="repo-commits-subtitle">Recent commit activity for this repository.</p>
+      </div>
+      <div className="repo-commits-header-actions">
+        <span className="repo-commits-count">{commitCount} recent</span>
+        <button
+          className="repo-commits-refresh-btn"
+          onClick={refresh}
+          disabled={loading}
+          title="Refresh"
+        >
+          <RefreshCw size={14} className={loading ? 'spin' : ''} />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitListPanelProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoCommit[]>({
     cacheKey: `repo-commits:${owner}/${repo}`,
     taskName: `repo-commits-${owner}-${repo}`,
     fetchFn: client => client.fetchRepoCommits(owner, repo),
   })
-  const commits = data ?? []
+  const commits = getCommits(data)
 
   const handleCommitClick = useCallback(
     (commit: RepoCommit) => {
@@ -104,29 +150,13 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
 
   return (
     <div className="repo-commits-container">
-      <div className="repo-commits-header">
-        <div className="repo-commits-header-left">
-          <h2>
-            <GitCommit size={20} />
-            <span className="repo-commits-owner">{owner}</span>
-            <span className="repo-commits-separator">/</span>
-            <span className="repo-commits-name">{repo}</span>
-            <span className="repo-commits-label">Commits</span>
-          </h2>
-          <p className="repo-commits-subtitle">Recent commit activity for this repository.</p>
-        </div>
-        <div className="repo-commits-header-actions">
-          <span className="repo-commits-count">{commits.length} recent</span>
-          <button
-            className="repo-commits-refresh-btn"
-            onClick={refresh}
-            disabled={loading}
-            title="Refresh"
-          >
-            <RefreshCw size={14} className={loading ? 'spin' : ''} />
-          </button>
-        </div>
-      </div>
+      <RepoCommitListHeader
+        owner={owner}
+        repo={repo}
+        commitCount={commits.length}
+        loading={loading}
+        refresh={refresh}
+      />
       <CommitListBody commits={commits} loading={loading} handleCommitClick={handleCommitClick} />
     </div>
   )

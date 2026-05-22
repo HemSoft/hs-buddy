@@ -375,6 +375,26 @@ function SeatPremiumContent({
 
 // ── Full quota view (configured accounts) ──
 
+function QuotaLoadingOrError({ loading, error }: { loading: boolean; error: string | null }) {
+  if (loading) {
+    return (
+      <div className="ud-premium-loading">
+        <Loader2 size={16} className="spin" />
+        <span>Loading premium usage…</span>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="ud-premium-error">
+        <AlertCircle size={14} />
+        <QuotaErrorMessage error={error} />
+      </div>
+    )
+  }
+  return null
+}
+
 function QuotaView({ username, org }: { username: string; org: string }) {
   const fetchRef = useRef(0)
   const [state, dispatch] = useReducer(quotaReducer, initQuotaState(username))
@@ -432,25 +452,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
   const { data, loading, error } = state
 
-  if (!data) {
-    if (loading) {
-      return (
-        <div className="ud-premium-loading">
-          <Loader2 size={16} className="spin" />
-          <span>Loading premium usage…</span>
-        </div>
-      )
-    }
-    if (error) {
-      return (
-        <div className="ud-premium-error">
-          <AlertCircle size={14} />
-          <QuotaErrorMessage error={error} />
-        </div>
-      )
-    }
-    return null
-  }
+  if (!data) return <QuotaLoadingOrError loading={loading} error={error} />
 
   const quotaPremium = data.quota_snapshots?.premium_interactions
   if (!quotaPremium) return null
@@ -494,6 +496,26 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
 // ── Seat-only view (non-configured org members) ──
 
+function SeatLoadingOrError({ loading, error }: { loading: boolean; error: string | null }) {
+  if (loading) {
+    return (
+      <div className="ud-premium-loading">
+        <Loader2 size={16} className="spin" />
+        <span>Loading Copilot seat info…</span>
+      </div>
+    )
+  }
+  if (error) {
+    return (
+      <div className="ud-premium-error">
+        <AlertCircle size={14} />
+        <SeatErrorMessage error={error} />
+      </div>
+    )
+  }
+  return null
+}
+
 function SeatView({
   org,
   memberLogin,
@@ -510,6 +532,16 @@ function SeatView({
   // Per-user premium request data
   const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(cacheKey))
 
+  function handleSeatResult(result: { success: boolean; data?: SeatData | null; error?: string }) {
+    if (result.success) {
+      const payload = result.data ?? null
+      seatCache.set(cacheKey, { data: payload, fetchedAt: Date.now() })
+      dispatch({ type: 'FETCH_SUCCESS', payload })
+    } else {
+      dispatch({ type: 'FETCH_ERROR', payload: result.error || 'Failed to load' })
+    }
+  }
+
   const fetchSeat = () => {
     const id = ++fetchRef.current
     dispatch({ type: 'FETCH_START' })
@@ -519,12 +551,7 @@ function SeatView({
         /* v8 ignore start */
         if (id !== fetchRef.current) return
         /* v8 ignore stop */
-        if (result.success) {
-          seatCache.set(cacheKey, { data: result.data ?? null, fetchedAt: Date.now() })
-          dispatch({ type: 'FETCH_SUCCESS', payload: result.data ?? null })
-        } else {
-          dispatch({ type: 'FETCH_ERROR', payload: result.error || 'Failed to load' })
-        }
+        handleSeatResult(result)
       })
       .catch(err => {
         /* v8 ignore start */
@@ -557,29 +584,11 @@ function SeatView({
 
   const { data, loading, error } = state
 
-  if (loading && data === undefined) {
-    return (
-      <div className="ud-premium-loading">
-        <Loader2 size={16} className="spin" />
-        <span>Loading Copilot seat info…</span>
-      </div>
-    )
-  }
-
-  if (error && data === undefined) {
-    return (
-      <div className="ud-premium-error">
-        <AlertCircle size={14} />
-        <SeatErrorMessage error={error} />
-      </div>
-    )
-  }
+  if (data === undefined) return <SeatLoadingOrError loading={loading} error={error} />
 
   if (data === null) {
     return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
   }
-
-  if (data === undefined) return null
 
   return (
     <div className="ud-prem">

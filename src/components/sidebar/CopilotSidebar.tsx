@@ -19,6 +19,10 @@ interface CopilotSidebarProps {
   selectedItem: string | null
 }
 
+function getTotalActiveCount(activeCount: ReturnType<typeof useCopilotActiveCount>) {
+  return (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
+}
+
 function SidebarNavItem({
   id,
   icon,
@@ -49,6 +53,28 @@ function SidebarNavItem({
   )
 }
 
+function getRecentResultPRTitle(
+  result: NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+) {
+  const metadata = result.metadata as Record<string, unknown> | null
+  if (!metadata) {
+    return 'Untitled'
+  }
+  return typeof metadata.prTitle === 'string' ? metadata.prTitle : 'Untitled'
+}
+
+function getRecentResultLabel(
+  result: NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+) {
+  if (result.category === 'pr-review') {
+    return `PR Review: ${getRecentResultPRTitle(result)}`
+  }
+  if (result.prompt.length > 40) {
+    return result.prompt.slice(0, 40) + '...'
+  }
+  return result.prompt
+}
+
 function RecentResultItem({
   result,
   selectedItem,
@@ -59,12 +85,7 @@ function RecentResultItem({
   onItemSelect: (itemId: string) => void
 }) {
   const viewId = `copilot-result:${result._id}`
-  const label =
-    result.category === 'pr-review'
-      ? `PR Review: ${((result.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
-      : result.prompt.length > 40
-        ? result.prompt.slice(0, 40) + '...'
-        : result.prompt
+  const label = getRecentResultLabel(result)
 
   return (
     <div
@@ -206,7 +227,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
 
-  const totalActive = (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
+  const totalActive = getTotalActiveCount(activeCount)
 
   return (
     <div className="sidebar-panel">

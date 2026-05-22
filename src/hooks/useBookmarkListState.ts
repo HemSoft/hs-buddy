@@ -35,6 +35,24 @@ function extractTitleFromHtml(html: string, url: string): string | null {
   return isUsableLinkText(linkText, url) ? linkText : null
 }
 
+function includesBookmarkText(value: string | undefined, query: string): boolean {
+  return typeof value === 'string' && value.toLowerCase().includes(query)
+}
+
+function tagsContainQuery(tags: string[] | undefined, query: string): boolean {
+  if (!tags) return false
+  return tags.some(tag => tag.toLowerCase().includes(query))
+}
+
+function matchesSearchQuery(bookmark: Bookmark, query: string): boolean {
+  return (
+    includesBookmarkText(bookmark.title, query) ||
+    includesBookmarkText(bookmark.url, query) ||
+    includesBookmarkText(bookmark.description, query) ||
+    tagsContainQuery(bookmark.tags, query)
+  )
+}
+
 export type Bookmark = {
   _id: Id<'bookmarks'>
   url: string
@@ -128,7 +146,7 @@ function handleDeleteAction(
   }
 }
 
-function handleFilterAction(
+function handleQueryFilterAction(
   state: BookmarkListState,
   action: BookmarkListAction
 ): BookmarkListState | null {
@@ -141,11 +159,24 @@ function handleFilterAction(
       return { ...state, selectedTag: action.tag }
     case 'clear-filters':
       return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
-    case 'set-drag-over':
-      return { ...state, dragOver: action.active }
     default:
       return null
   }
+}
+
+function handleDragAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  if (action.type !== 'set-drag-over') return null
+  return { ...state, dragOver: action.active }
+}
+
+function handleFilterAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  return handleQueryFilterAction(state, action) ?? handleDragAction(state, action)
 }
 
 function bookmarkListReducer(
@@ -203,13 +234,7 @@ export function useBookmarkListState(filterCategory?: string) {
     }
     if (state.searchQuery.trim()) {
       const q = state.searchQuery.toLowerCase()
-      result = result.filter(
-        b =>
-          b.title.toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q) ||
-          b.description?.toLowerCase().includes(q) ||
-          b.tags?.some(t => t.toLowerCase().includes(q))
-      )
+      result = result.filter(bookmark => matchesSearchQuery(bookmark, q))
     }
 
     result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)

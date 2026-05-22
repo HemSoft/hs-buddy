@@ -198,6 +198,33 @@ function SessionRequestTimeline({
   )
 }
 
+function SessionTimelineSection({
+  results,
+  requestItems,
+}: {
+  results: { length: number }
+  requestItems: { key: string; result: SessionRequestResult }[]
+}) {
+  if (results.length === 0) return null
+  return <SessionRequestTimeline requestItems={requestItems} />
+}
+
+function SessionToolsSection({ tools }: { tools: string[] }) {
+  if (tools.length === 0) return null
+  return (
+    <div className="session-tools-section">
+      <h3>Tools Used</h3>
+      <div className="session-tools-list">
+        {tools.map(tool => (
+          <span key={tool} className="session-tool-badge">
+            {tool}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
   const [digest, setDigest] = useState<SessionDigest | null>(null)
@@ -275,20 +302,9 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         onComputeDigest={computeDigest}
       />
 
-      {session.toolsUsed.length > 0 && (
-        <div className="session-tools-section">
-          <h3>Tools Used</h3>
-          <div className="session-tools-list">
-            {session.toolsUsed.map(tool => (
-              <span key={tool} className="session-tool-badge">
-                {tool}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <SessionToolsSection tools={session.toolsUsed} />
 
-      {session.results.length > 0 && <SessionRequestTimeline requestItems={requestItems} />}
+      <SessionTimelineSection results={session.results} requestItems={requestItems} />
     </div>
   )
 }

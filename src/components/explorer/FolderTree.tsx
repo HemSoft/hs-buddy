@@ -68,148 +68,75 @@ export function shouldLoadChildren(
 }
 
 export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeProps) {
-  const [state, dispatch] = useReducer(folderTreeReducer, {
-    nodes: [],
-    loading: false,
-    error: null,
-  })
+  const [state, dispatch] = useReducer(folderTreeReducer, { nodes: [], loading: false, error: null })
   const { nodes, loading, error } = state
   const pendingLoads = useRef(new Set<string>())
   const mountedRef = useRef(true)
   const nodesRef = useRef<TreeNode[]>([])
 
-  useLayoutEffect(() => {
-    nodesRef.current = nodes
-  }, [nodes])
-
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
+  useLayoutEffect(() => { nodesRef.current = nodes }, [nodes])
+  useEffect(() => { return () => { mountedRef.current = false } }, [])
 
   const loadDirectory = useCallback(async (dirPath: string): Promise<TreeNode[]> => {
     const result = await window.filesystem.readDir(dirPath)
     /* v8 ignore start */
     if (result.error) throw new Error(result.error)
     /* v8 ignore stop */
-    return result.entries.map((entry: DirEntry) => ({
-      name: entry.name,
-      path: entry.path,
-      type: entry.type,
-      size: entry.size,
-      loaded: false,
-      expanded: false,
-    }))
+    return result.entries.map((entry: DirEntry) => ({ name: entry.name, path: entry.path, type: entry.type, size: entry.size, loaded: false, expanded: false }))
   }, [])
 
-  // Load root directory
   useEffect(() => {
     /* v8 ignore start */
     if (!rootPath) return
     /* v8 ignore stop */
-
     let cancelled = false
     dispatch({ type: 'root-load-start' })
     loadDirectory(rootPath)
-      .then(loaded => {
-        /* v8 ignore start */
-        if (!cancelled) dispatch({ type: 'root-load-success', nodes: loaded })
-        /* v8 ignore stop */
-      })
-      .catch(err => {
-        /* v8 ignore start */
-        if (!cancelled)
-          /* v8 ignore stop */
-          dispatch({
-            type: 'root-load-error',
-            error: getErrorMessageWithFallback(err, 'Failed to load directory'),
-          })
-      })
-    return () => {
-      cancelled = true
-    }
+      .then(loaded => { /* v8 ignore start */ if (!cancelled) dispatch({ type: 'root-load-success', nodes: loaded }) /* v8 ignore stop */ })
+      .catch(err => { /* v8 ignore start */ if (!cancelled) /* v8 ignore stop */ dispatch({ type: 'root-load-error', error: getErrorMessageWithFallback(err, 'Failed to load directory') }) })
+    return () => { cancelled = true }
   }, [rootPath, loadDirectory])
 
-  const toggleExpand = useCallback(
-    async (nodePath: string) => {
-      // Derive load decision outside the updater to keep it pure (React StrictMode safe)
-      const findNode = (items: TreeNode[]): TreeNode | undefined => {
-        for (const item of items) {
-          if (item.path === nodePath) return item
-          if (item.children) {
-            const found = findNode(item.children)
-            /* v8 ignore start */
-            if (found) return found
-            /* v8 ignore stop */
-          }
-        }
-        /* v8 ignore start */
-        return undefined
-        /* v8 ignore stop */
+  const toggleExpand = useCallback(async (nodePath: string) => {
+    const findNode = (items: TreeNode[]): TreeNode | undefined => {
+      for (const item of items) {
+        if (item.path === nodePath) return item
+        if (item.children) { const found = findNode(item.children); /* v8 ignore start */ if (found) return found /* v8 ignore stop */ }
       }
-      const target = findNode(nodesRef.current)
-      const needsLoad = shouldLoadChildren(target, pendingLoads.current.has(nodePath))
-
-      dispatch({
-        type: 'update-nodes',
-        updater: prev => {
-          const update = (items: TreeNode[]): TreeNode[] =>
-            items.map(node => {
-              if (node.path === nodePath) {
-                /* v8 ignore start */
-                if (node.type !== 'directory') return node
-                /* v8 ignore stop */
-                return { ...node, expanded: !node.expanded }
-              }
-              if (node.children) {
-                return { ...node, children: update(node.children) }
-              }
-              return node
-            })
-          return update(prev)
-        },
+      /* v8 ignore start */
+      return undefined
+      /* v8 ignore stop */
+    }
+    const target = findNode(nodesRef.current)
+    const needsLoad = shouldLoadChildren(target, pendingLoads.current.has(nodePath))
+    dispatch({ type: 'update-nodes', updater: prev => {
+      const update = (items: TreeNode[]): TreeNode[] => items.map(node => {
+        if (node.path === nodePath) { /* v8 ignore start */ if (node.type !== 'directory') return node; /* v8 ignore stop */ return { ...node, expanded: !node.expanded } }
+        if (node.children) return { ...node, children: update(node.children) }
+        return node
       })
-
-      if (needsLoad) {
-        pendingLoads.current.add(nodePath)
-        try {
-          const children = await loadDirectory(nodePath)
-          /* v8 ignore start */
-          if (!mountedRef.current) return
-          /* v8 ignore stop */
-          dispatch({
-            type: 'update-nodes',
-            updater: prev => {
-              const update = (items: TreeNode[]): TreeNode[] =>
-                items.map(node => {
-                  if (node.path === nodePath) {
-                    return { ...node, children, loaded: true }
-                  }
-                  if (node.children) {
-                    return { ...node, children: update(node.children) }
-                  }
-                  return node
-                })
-              return update(prev)
-            },
+      return update(prev)
+    } })
+    if (needsLoad) {
+      pendingLoads.current.add(nodePath)
+      try {
+        const children = await loadDirectory(nodePath)
+        /* v8 ignore start */
+        if (!mountedRef.current) return
+        /* v8 ignore stop */
+        dispatch({ type: 'update-nodes', updater: prev => {
+          const update = (items: TreeNode[]): TreeNode[] => items.map(node => {
+            if (node.path === nodePath) return { ...node, children, loaded: true }
+            if (node.children) return { ...node, children: update(node.children) }
+            return node
           })
-        } catch (_: unknown) {
-          // Silently fail on subdirectory load errors
-        } finally {
-          pendingLoads.current.delete(nodePath)
-        }
-      }
-    },
-    [loadDirectory]
-  )
+          return update(prev)
+        } })
+      } catch (_: unknown) { /* silently fail */ } finally { pendingLoads.current.delete(nodePath) }
+    }
+  }, [loadDirectory])
 
-  const handleFileClick = useCallback(
-    (filePath: string) => {
-      onFileSelect(filePath)
-    },
-    [onFileSelect]
-  )
+  const handleFileClick = useCallback((filePath: string) => { onFileSelect(filePath) }, [onFileSelect])
 
   if (loading && nodes.length === 0) {
     return <div className="folder-tree-loading">Loading…</div>

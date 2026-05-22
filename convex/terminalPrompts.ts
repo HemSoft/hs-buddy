@@ -16,25 +16,26 @@ function validatePromptFields(fields: { title?: string; content?: string }) {
   }
 }
 
-function comparePrompts(
-  a: {
-    lastUsedAt?: number
-    updatedAt: number
-    title: string
-    sortOrder?: number
-  },
-  b: {
-    lastUsedAt?: number
-    updatedAt: number
-    title: string
-    sortOrder?: number
-  }
-) {
-  const lastUsedDiff = (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0)
+type SortablePrompt = {
+  lastUsedAt?: number
+  updatedAt: number
+  title: string
+  sortOrder?: number
+}
+
+function getLastUsed(p: SortablePrompt): number {
+  return p.lastUsedAt ?? 0
+}
+
+function getSortOrder(p: SortablePrompt): number {
+  return p.sortOrder ?? Number.MAX_SAFE_INTEGER
+}
+
+function comparePrompts(a: SortablePrompt, b: SortablePrompt) {
+  const lastUsedDiff = getLastUsed(b) - getLastUsed(a)
   if (lastUsedDiff !== 0) return lastUsedDiff
 
-  const sortOrderDiff =
-    (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+  const sortOrderDiff = getSortOrder(a) - getSortOrder(b)
   if (sortOrderDiff !== 0) return sortOrderDiff
 
   const updatedAtDiff = b.updatedAt - a.updatedAt

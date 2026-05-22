@@ -173,15 +173,19 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
   )
 }
 
+const LOG_LINE_CLASSIFIERS: Array<[RegExp, string]> = [
+  [/^={2,}/, 'log-header'],
+  [/^[═─]{3,}/, 'log-separator'],
+  [/^\s+Round \d+/i, 'log-section'],
+  [/^\s+Totals\s*\(/i, 'log-section'],
+  [/^\[[\w-]+\]\s*\[\d{4}-/, 'log-timestamp'],
+  [/^\s+(Changes|Requests|Tokens|Cost|Elapsed)\s/, 'log-stat'],
+  [/^\s*\|/, 'log-command'],
+  [/CI is now running|Action taken|Waiting|in progress/i, 'log-info'],
+]
+
 function classifyLogLine(line: string): string {
-  if (/^={2,}/.test(line)) return 'log-header'
-  if (/^[═─]{3,}/.test(line)) return 'log-separator'
-  if (/^\s+Round \d+/i.test(line) || /^\s+Totals\s*\(/i.test(line)) return 'log-section'
-  if (/^\[[\w-]+\]\s*\[\d{4}-/.test(line)) return 'log-timestamp'
-  if (/^\s+(Changes|Requests|Tokens|Cost|Elapsed)\s/.test(line)) return 'log-stat'
-  if (/^\s*\|/.test(line)) return 'log-command'
-  if (/CI is now running|Action taken|Waiting|in progress/i.test(line)) return 'log-info'
-  return ''
+  return LOG_LINE_CLASSIFIERS.find(([re]) => re.test(line))?.[1] ?? ''
 }
 
 function LogViewer({ run }: { run: RalphRunInfo }) {

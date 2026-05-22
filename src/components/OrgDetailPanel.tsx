@@ -76,15 +76,21 @@ interface RateLimitSnapshot {
   used: number
 }
 
+function getCachedOverview(org: string): OrgOverviewResult | null {
+  return normalizeOverview(dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null)
+}
+
+function getCachedRepos(org: string): OrgRepoResult | null {
+  return dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+}
+
 function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(
-    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
-  )
+  const cachedOverview = getCachedOverview(org)
   if (cachedOverview) {
     return cachedOverview
   }
 
-  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  const cachedRepos = getCachedRepos(org)
   if (!cachedRepos) {
     return null
   }

@@ -33,23 +33,65 @@ interface ReviewerModelGroup {
   options: { value: string; label: string }[]
 }
 
+function buildAliasOptions(
+  models: RalphModelsConfig,
+  supported: string[],
+  provKey: string
+): { value: string; label: string }[] {
+  return Object.entries(models.aliases)
+    .filter(
+      ([, target]) => models.models[target] && supported.includes(models.models[target].provider)
+    )
+    .map(([alias, target]) => ({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` }))
+}
+
+function isModelSupported(
+  models: RalphModelsConfig,
+  supported: string[] | undefined,
+  target: string
+): boolean {
+  const targetModel = models.models[target]
+  return !supported || (!!targetModel && supported.includes(targetModel.provider))
+}
+
+function isCurrentModelIncompatible(
+  model: string,
+  provider: string,
+  providers: RalphProvidersConfig,
+  models: RalphModelsConfig
+): boolean {
+  const supported = providers.providers[provider]?.supportedModelProviders
+  if (!supported) return false
+  const resolvedKey = models.aliases[model] ?? model
+  const entry = models.models[resolvedKey]
+  return !!entry && !supported.includes(entry.provider)
+}
+
+function computeModelOptions(
+  models: RalphModelsConfig | undefined,
+  supported: string[] | undefined
+): { value: string; label: string }[] {
+  if (!models) return []
+  const filteredModels = Object.entries(models.models)
+    .filter(([, m]) => !supported || supported.includes(m.provider))
+    .map(([key, m]) => ({ value: key, label: `${m.label} (${m.reasoningEffort})` }))
+  const filteredAliases = Object.entries(models.aliases)
+    .filter(([, target]) => isModelSupported(models, supported, target))
+    .map(([alias, target]) => ({ value: alias, label: `${alias} → ${target}` }))
+  return [...filteredModels, ...filteredAliases]
+}
+
 function buildProviderModelGroup(
   provKey: string,
   prov: RalphProviderEntry,
   models: RalphModelsConfig
 ): ReviewerModelGroup | null {
   const supported = prov.supportedModelProviders ?? []
-  const opts: { value: string; label: string }[] = []
-  for (const [modelKey, m] of Object.entries(models.models)) {
-    if (supported.includes(m.provider)) {
-      opts.push({ value: `${provKey}:${modelKey}`, label: `${m.label} (${m.reasoningEffort})` })
-    }
-  }
-  for (const [alias, target] of Object.entries(models.aliases)) {
-    if (models.models[target] && supported.includes(models.models[target].provider)) {
-      opts.push({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` })
-    }
-  }
+  const modelOpts = Object.entries(models.models)
+    .filter(([, m]) => supported.includes(m.provider))
+    .map(([key, m]) => ({ value: `${provKey}:${key}`, label: `${m.label} (${m.reasoningEffort})` }))
+  const aliasOpts = buildAliasOptions(models, supported, provKey)
+  const opts = [...modelOpts, ...aliasOpts]
   return opts.length > 0
     ? { provider: provKey, label: prov.description ?? provKey, options: opts }
     : null
@@ -444,34 +486,14 @@ export function RalphLaunchForm({
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
     if (!model || !provider || !providers || !models) return
-    const supported = providers.providers[provider]?.supportedModelProviders
-    if (!supported) return
-    const resolvedKey = models.aliases[model] ?? model
-    const entry = models.models[resolvedKey]
-    if (entry && !supported.includes(entry.provider)) setModel('')
+    if (isCurrentModelIncompatible(model, provider, providers, models)) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(() => {
-    if (!models) return []
     const supported = provider
       ? providers?.providers?.[provider]?.supportedModelProviders
       : undefined
-    const filteredModels = Object.entries(models.models)
-      .filter(([, m]) => !supported || supported.includes(m.provider))
-      .map(([key, m]) => ({
-        value: key,
-        label: `${m.label} (${m.reasoningEffort})`,
-      }))
-    const filteredAliases = Object.entries(models.aliases)
-      .filter(([, target]) => {
-        const targetModel = models.models[target]
-        return !supported || (targetModel && supported.includes(targetModel.provider))
-      })
-      .map(([alias, target]) => ({
-        value: alias,
-        label: `${alias} → ${target}`,
-      }))
-    return [...filteredModels, ...filteredAliases]
+    return computeModelOptions(models, supported)
   }, [models, provider, providers])
 
   // Per-reviewer options: Account: Model list across ALL providers (not filtered by main)
@@ -534,14 +556,17 @@ export function RalphLaunchForm({
     }
   }
 
+  const validateForm = (): string | null => {
+    if (!repoPath) return 'Select a repository path'
+    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repoPath) {
-      setError('Select a repository path')
-      return
-    }
-    if (scriptChoice === 'ralph-pr' && !prNumber) {
-      setError('PR number is required for ralph-pr')
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
 

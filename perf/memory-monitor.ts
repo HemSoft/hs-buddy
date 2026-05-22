@@ -162,17 +162,39 @@ function setupGC(forceGC: boolean): { doGC: () => void; gcUnavailable: boolean }
   return { doGC, gcUnavailable }
 }
 
+interface ResolvedLeakOptions {
+  operation: () => Promise<void> | void
+  cycles: number
+  warmupCycles: number
+  leakThresholdBytes: number
+  forceGC: boolean
+}
+
+function resolveLeakOptions(options: MemoryLeakOptions): ResolvedLeakOptions {
+  return {
+    operation: options.operation,
+    cycles: options.cycles ?? 50,
+    warmupCycles: options.warmupCycles ?? 5,
+    leakThresholdBytes: options.leakThresholdBytes ?? 5 * 1024 * 1024,
+    forceGC: options.forceGC ?? true,
+  }
+}
+
+function isLeak(
+  heapGrowthBytes: number,
+  leakThresholdBytes: number,
+  slope: number,
+  rSquared: number
+): boolean {
+  return heapGrowthBytes > leakThresholdBytes && slope > 0 && rSquared > 0.7
+}
+
 /**
  * Run the operation repeatedly and detect memory leaks via heap growth analysis.
  */
 export async function detectMemoryLeak(options: MemoryLeakOptions): Promise<MemoryLeakResult> {
-  const {
-    operation,
-    cycles = 50,
-    warmupCycles = 5,
-    leakThresholdBytes = 5 * 1024 * 1024, // 5MB
-    forceGC = true,
-  } = options
+  const { operation, cycles, warmupCycles, leakThresholdBytes, forceGC } =
+    resolveLeakOptions(options)
 
   validateOptions(cycles, warmupCycles)
 
@@ -209,7 +231,7 @@ export async function detectMemoryLeak(options: MemoryLeakOptions): Promise<Memo
   const intervals = Math.max(1, cycles - 1)
   const avgGrowthPerCycle = heapGrowthBytes / intervals
 
-  const leaked = heapGrowthBytes > leakThresholdBytes && slope > 0 && rSquared > 0.7
+  const leaked = isLeak(heapGrowthBytes, leakThresholdBytes, slope, rSquared)
 
   return {
     leaked,

@@ -87,22 +87,14 @@ export class StartupTimer {
     }
   }
 
-  /**
-   * Log the report to stdout (once only — repeated calls are no-ops).
-   * Emits a structured sentinel line for machine-readable parsing.
-   * @param targetMs - Target startup time in milliseconds (default: from PERF_STARTUP_TARGET_MS env or 3000)
-   */
-  report(targetMs?: number): void {
-    if (this.reported) return
-    const report = this.getReport()
-    if (!report) return
-    this.reported = true
-
+  private resolveTarget(targetMs?: number): number {
     const DEFAULT_TARGET_MS = 3000
+    if (targetMs != null) return targetMs
     const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
-    const target =
-      targetMs ?? (Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS)
+    return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
+  }
 
+  private printTimingTable(report: StartupReport): void {
     console.log('\n⏱️  Startup Performance Report')
     console.log('─'.repeat(50))
     for (const mark of report.marks) {
@@ -114,6 +106,21 @@ export class StartupTimer {
     }
     console.log('─'.repeat(50))
     console.log(`  Total: ${report.totalStartupMs.toFixed(0)}ms`)
+  }
+
+  /**
+   * Log the report to stdout (once only — repeated calls are no-ops).
+   * Emits a structured sentinel line for machine-readable parsing.
+   * @param targetMs - Target startup time in milliseconds (default: from PERF_STARTUP_TARGET_MS env or 3000)
+   */
+  report(targetMs?: number): void {
+    if (this.reported) return
+    const report = this.getReport()
+    if (!report) return
+    this.reported = true
+
+    const target = this.resolveTarget(targetMs)
+    this.printTimingTable(report)
 
     if (report.totalStartupMs > target) {
       console.log(

@@ -553,6 +553,19 @@ async function fetchPRsViaGraphQLFallback(
   return result
 }
 
+function computeMergedAfter(mode: PRSearchMode, recentlyMergedDays: number): string | undefined {
+  if (mode !== 'recently-merged') return undefined
+  const mergedAfterDate = new Date()
+  mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
+  return mergedAfterDate.toISOString().split('T')[0]
+}
+
+function filterByMode(prs: PullRequest[], mode: PRSearchMode): PullRequest[] {
+  if (mode === 'needs-review') return prs.filter(pr => !pr.iApproved)
+  if (mode === 'need-a-nudge') return prs.filter(pr => pr.iApproved)
+  return prs
+}
+
 async function fetchPRsForAccount(
   config: PRConfig['github'],
   recentlyMergedDays: number,
@@ -564,20 +577,11 @@ async function fetchPRsForAccount(
   if (!octokit) return []
 
   const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
-
-  // Compute mergedAfter date for recently-merged mode
-  let mergedAfter: string | undefined
-  if (mode === 'recently-merged') {
-    const mergedAfterDate = new Date()
-    mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
-    mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-  }
-
+  const mergedAfter = computeMergedAfter(mode, recentlyMergedDays)
   const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
   const allPrs = await executeSearchQueries(config, octokit, queries, org)
 
   // Fallback: when search returns 0 results for my-prs, try GraphQL viewer.pullRequests
-  // which bypasses the search index (resilient to GitHub Search API outages)
   if (allPrs.length === 0 && mode === 'my-prs') {
     console.debug(
       `[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`
@@ -634,8 +638,8 @@ async function fetchPRsForAccount(
   await fetchBatchThreadStats(config, prsWithMeta)
 
   // Clean up metadata and filter by mode
-  return allPrs
-    .map(pr => {
+  return filterByMode(
+    allPrs.map(pr => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
         _owner?: string
@@ -643,12 +647,9 @@ async function fetchPRsForAccount(
         _prNumber?: number
       }
       return cleanPr
-    })
-    .filter(pr => {
-      if (mode === 'needs-review') return !pr.iApproved
-      if (mode === 'need-a-nudge') return pr.iApproved
-      return true
-    })
+    }),
+    mode
+  )
 }
 
 /**

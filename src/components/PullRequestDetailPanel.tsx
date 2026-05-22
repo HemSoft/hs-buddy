@@ -123,6 +123,20 @@ function ApproveButton({
   )
 }
 
+function getNudgeClassName(state: 'idle' | 'sending' | 'sent' | 'error'): string {
+  const base = 'pr-detail-refresh-btn'
+  if (state === 'sent') return `${base} pr-detail-nudge-sent`
+  if (state === 'error') return `${base} pr-detail-nudge-error`
+  return base
+}
+
+function getNudgeTitle(state: 'idle' | 'sending' | 'sent' | 'error', error: string | null): string {
+  if (state === 'sent') return 'Nudge sent!'
+  if (state === 'error')
+    return `Nudge failed: ${/* v8 ignore start */ error || 'unknown error' /* v8 ignore stop */}`
+  return 'Nudge author via Slack'
+}
+
 function NudgeButton({
   nudgeState,
   nudgeError,
@@ -134,15 +148,9 @@ function NudgeButton({
 }) {
   return (
     <button
-      className={`pr-detail-refresh-btn${nudgeState === 'sent' ? ' pr-detail-nudge-sent' : ''}${nudgeState === 'error' ? ' pr-detail-nudge-error' : ''}`}
+      className={getNudgeClassName(nudgeState)}
       onClick={onNudge}
-      title={
-        nudgeState === 'sent'
-          ? 'Nudge sent!'
-          : nudgeState === 'error'
-            ? `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
-            : 'Nudge author via Slack'
-      }
+      title={getNudgeTitle(nudgeState, nudgeError)}
       disabled={nudgeState === 'sending' || nudgeState === 'sent'}
     >
       {nudgeState === 'sending' ? (
@@ -634,6 +642,12 @@ function resolveLabelsAndIssue(
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
+function getInitialBranches(pr: PRDetailInfo): { headBranch: string; baseBranch: string } | null {
+  return pr.headBranch && pr.baseBranch
+    ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch }
+    : null
+}
+
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const { pr } = props
   const section = props.section ?? null
@@ -680,7 +694,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   )
 
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
-    pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
+    getInitialBranches(pr)
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
@@ -805,6 +819,20 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     }
   }, [nudgeState, pr.author, pr.title, pr.url])
 
+  const handleStartRalphReview = useCallback(() => {
+    const org = pr.org || ownerRepo?.owner || ''
+    const repoRoot = accounts.find(a => a.org === org)?.repoRoot
+    const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
+    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('ralph:launch-pr-review', {
+          detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+        })
+      )
+    }, 100)
+  }, [accounts, ownerRepo, pr.id, pr.org, pr.repository])
+
   return (
     <div className="pr-detail-container">
       <PRDetailHeader
@@ -821,21 +849,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         nudgeError={nudgeError}
         onNudge={handleNudgeAuthor}
         aiReviewProviders={aiReviewProviders}
-        onStartRalphReview={() => {
-          const org = pr.org || ownerRepo?.owner || ''
-          const repoRoot = accounts.find(a => a.org === org)?.repoRoot
-          const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
-          window.dispatchEvent(
-            new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
-          )
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent('ralph:launch-pr-review', {
-                detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
-              })
-            )
-          }, 100)
-        }}
+        onStartRalphReview={handleStartRalphReview}
       />
 
       <div className="pr-detail-body">

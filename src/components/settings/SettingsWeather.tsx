@@ -3,6 +3,106 @@ import { RefreshCw, Key, ExternalLink, CheckCircle, AlertCircle } from 'lucide-r
 import { IPC_INVOKE } from '../../ipc/contracts'
 import './SettingsShared.css'
 
+function ApiKeyInputRow({
+  apiKey,
+  showKey,
+  onApiKeyChange,
+  onToggleShow,
+}: {
+  apiKey: string
+  showKey: boolean
+  onApiKeyChange: (value: string) => void
+  onToggleShow: () => void
+}) {
+  return (
+    <div className="settings-field-group">
+      <label htmlFor="pollen-api-key" className="settings-label">
+        Google Cloud API Key
+      </label>
+      <div className="settings-input-row">
+        <input
+          id="pollen-api-key"
+          type={showKey ? 'text' : 'password'}
+          className="settings-input"
+          placeholder="Enter your Google Cloud API key…"
+          value={apiKey}
+          onChange={e => onApiKeyChange(e.target.value)}
+          autoComplete="off"
+        />
+        <button
+          type="button"
+          className="settings-btn settings-btn-secondary"
+          onClick={onToggleShow}
+          title={showKey ? 'Hide key' : 'Show key'}
+        >
+          {showKey ? 'Hide' : 'Show'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SaveButtonGroup({
+  saving,
+  isDirty,
+  apiKey,
+  isConfigured,
+  onSave,
+  onClear,
+}: {
+  saving: boolean
+  isDirty: boolean
+  apiKey: string
+  isConfigured: boolean
+  onSave: () => void
+  onClear: () => void
+}) {
+  return (
+    <div className="button-group">
+      <button
+        className="settings-btn settings-btn-primary"
+        onClick={onSave}
+        disabled={saving || !isDirty || !apiKey.trim()}
+      >
+        {saving ? (
+          <>
+            <RefreshCw className="spin" size={14} />
+            Saving…
+          </>
+        ) : (
+          'Save Key'
+        )}
+      </button>
+      {isConfigured && (
+        <button className="settings-btn settings-btn-secondary" onClick={onClear} disabled={saving}>
+          Clear Key
+        </button>
+      )}
+    </div>
+  )
+}
+
+function ConfigStatusIndicator({ isConfigured }: { isConfigured: boolean }) {
+  if (isConfigured) {
+    return (
+      <div className="settings-status-row">
+        <CheckCircle size={14} className="settings-status-icon-ok" />
+        <span className="settings-status-text">
+          Configured — pollen data will appear in your weather card.
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="settings-status-row">
+      <AlertCircle size={14} className="settings-status-icon-muted" />
+      <span className="settings-status-text settings-status-muted">
+        Not configured — add an API key to see pollen data.
+      </span>
+    </div>
+  )
+}
+
 export function SettingsWeather() {
   const [apiKey, setApiKey] = useState('')
   const [savedKey, setSavedKey] = useState('')
@@ -83,74 +183,23 @@ export function SettingsWeather() {
             your weather card.
           </p>
 
-          <div className="settings-field-group">
-            <label htmlFor="pollen-api-key" className="settings-label">
-              Google Cloud API Key
-            </label>
-            <div className="settings-input-row">
-              <input
-                id="pollen-api-key"
-                type={showKey ? 'text' : 'password'}
-                className="settings-input"
-                placeholder="Enter your Google Cloud API key…"
-                value={apiKey}
-                onChange={e => setApiKey(e.target.value)}
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                className="settings-btn settings-btn-secondary"
-                onClick={() => setShowKey(!showKey)}
-                title={showKey ? 'Hide key' : 'Show key'}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
-            </div>
-          </div>
+          <ApiKeyInputRow
+            apiKey={apiKey}
+            showKey={showKey}
+            onApiKeyChange={setApiKey}
+            onToggleShow={() => setShowKey(!showKey)}
+          />
 
-          <div className="button-group">
-            <button
-              className="settings-btn settings-btn-primary"
-              onClick={handleSave}
-              disabled={saving || !isDirty || !apiKey.trim()}
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="spin" size={14} />
-                  Saving…
-                </>
-              ) : (
-                'Save Key'
-              )}
-            </button>
-            {isConfigured && (
-              <button
-                className="settings-btn settings-btn-secondary"
-                onClick={handleClear}
-                disabled={saving}
-              >
-                Clear Key
-              </button>
-            )}
-          </div>
+          <SaveButtonGroup
+            saving={saving}
+            isDirty={isDirty}
+            apiKey={apiKey}
+            isConfigured={isConfigured}
+            onSave={handleSave}
+            onClear={handleClear}
+          />
 
-          <div className="settings-status-row">
-            {isConfigured ? (
-              <>
-                <CheckCircle size={14} className="settings-status-icon-ok" />
-                <span className="settings-status-text">
-                  Configured — pollen data will appear in your weather card.
-                </span>
-              </>
-            ) : (
-              <>
-                <AlertCircle size={14} className="settings-status-icon-muted" />
-                <span className="settings-status-text settings-status-muted">
-                  Not configured — add an API key to see pollen data.
-                </span>
-              </>
-            )}
-          </div>
+          <ConfigStatusIndicator isConfigured={isConfigured} />
 
           <div className="info-box">
             <p>

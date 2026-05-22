@@ -54,13 +54,15 @@ interface GoogleForecastResponse {
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
-function parsePollenTypes(types: GooglePollenTypeInfo[], result: PollenData): void {
+function applyPollenType(t: GooglePollenTypeInfo, result: PollenData): void {
   const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
-  for (const t of types) {
-    const key = codeToKey[t.code ?? '']
-    if (key) result[key] = t.indexInfo?.value ?? 0
-    if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
-  }
+  const key = codeToKey[t.code ?? '']
+  if (key) result[key] = t.indexInfo?.value ?? 0
+  if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
+}
+
+function parsePollenTypes(types: GooglePollenTypeInfo[], result: PollenData): void {
+  for (const t of types) applyPollenType(t, result)
 }
 
 const VALID_POLLEN_TYPES = new Set(['TREE', 'GRASS', 'WEED'])
@@ -82,22 +84,24 @@ function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
   }
 }
 
+function hasDayData(types: GooglePollenTypeInfo[], plants: GooglePlantInfo[]): boolean {
+  return types.length > 0 || plants.length > 0
+}
+
 function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
   const day = json.dailyInfo?.[0]
   if (!day) return null
 
   const types = day.pollenTypeInfo ?? []
   const plants = day.plantInfo ?? []
-  if (types.length === 0 && plants.length === 0) return null
+  if (!hasDayData(types, plants)) return null
 
   const result: PollenData = { tree: 0, grass: 0, weed: 0, species: [], healthRecommendations: [] }
   parsePollenTypes(types, result)
-
   for (const p of plants) {
     const species = parsePlantInfo(p)
     if (species) result.species.push(species)
   }
-
   return result
 }
 
@@ -111,28 +115,35 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
+function validatePollenLocation(location: { latitude: number; longitude: number }): string | null {
+  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
+    return 'Invalid location'
+  }
+  return null
+}
+
+function buildPollenUrl(apiKey: string, location: { latitude: number; longitude: number }): string {
+  return (
+    `https://pollen.googleapis.com/v1/forecast:lookup` +
+    `?key=${apiKey}` +
+    `&location.latitude=${location.latitude}` +
+    `&location.longitude=${location.longitude}` +
+    `&days=1`
+  )
+}
+
 async function fetchPollenData(location: {
   latitude: number
   longitude: number
 }): Promise<PollenFetchResult> {
   const apiKey = configManager.getUiValue('pollenApiKey') as string
-  if (!apiKey) {
-    return { success: false, error: 'no-api-key' }
-  }
+  if (!apiKey) return { success: false, error: 'no-api-key' }
 
-  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
-    return { success: false, error: 'Invalid location' }
-  }
+  const locationError = validatePollenLocation(location)
+  if (locationError) return { success: false, error: locationError }
 
   try {
-    const url =
-      `https://pollen.googleapis.com/v1/forecast:lookup` +
-      `?key=${apiKey}` +
-      `&location.latitude=${location.latitude}` +
-      `&location.longitude=${location.longitude}` +
-      `&days=1`
-
-    const res = await net.fetch(url, {
+    const res = await net.fetch(buildPollenUrl(apiKey, location), {
       signal: AbortSignal.timeout(10_000),
       headers: { 'User-Agent': 'hs-buddy/1.0' },
     })
@@ -144,17 +155,11 @@ async function fetchPollenData(location: {
 
     const json = (await res.json()) as GoogleForecastResponse
     const data = parseGooglePollenResponse(json)
-
-    if (!data) {
-      return { success: false, error: 'No pollen data available for this location' }
-    }
-
-    return { success: true, data }
+    return data
+      ? { success: true, data }
+      : { success: false, error: 'No pollen data available for this location' }
   } catch (err: unknown) {
-    return {
-      success: false,
-      error: getErrorMessageWithFallback(err, 'Pollen fetch failed'),
-    }
+    return { success: false, error: getErrorMessageWithFallback(err, 'Pollen fetch failed') }
   }
 }
 

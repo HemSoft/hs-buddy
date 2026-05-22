@@ -209,48 +209,38 @@ function formatEntryRow(entry: ComparisonEntry): string {
   return `| ${status} | ${label} | ${formatHz(entry.baselineHz)} | ${formatHz(entry.currentHz)} | ${formatChange(entry.changePercent)} | ${formatRme(entry.rme)} |`
 }
 
+function formatEntriesSection(entries: ComparisonEntry[]): string[] {
+  if (entries.length === 0) return []
+  return [
+    '| Status | Benchmark | Baseline | Current | Change | RME |',
+    '|--------|-----------|----------|---------|--------|-----|',
+    ...entries.map(formatEntryRow),
+    '',
+  ]
+}
+
+function formatListSection(title: string, items: string[]): string[] {
+  if (items.length === 0) return []
+  return [`**${title}**: ${items.length}`, ...items.map(key => `  - ${key}`), '']
+}
+
 export function formatResults(result: ComparisonResult): string {
-  const lines: string[] = []
-
-  lines.push('## Benchmark Comparison')
-  lines.push('')
-  lines.push(`Threshold: ${result.threshold}% regression`)
-  lines.push('')
-
-  if (result.entries.length > 0) {
-    lines.push('| Status | Benchmark | Baseline | Current | Change | RME |')
-    lines.push('|--------|-----------|----------|---------|--------|-----|')
-
-    for (const entry of result.entries) {
-      lines.push(formatEntryRow(entry))
-    }
-    lines.push('')
-  }
-
-  if (result.newBenchmarks.length > 0) {
-    lines.push(`**New benchmarks** (no baseline): ${result.newBenchmarks.length}`)
-    for (const key of result.newBenchmarks) {
-      lines.push(`  - ${key}`)
-    }
-    lines.push('')
-  }
-
-  if (result.removedBenchmarks.length > 0) {
-    lines.push(`**Removed benchmarks**: ${result.removedBenchmarks.length}`)
-    for (const key of result.removedBenchmarks) {
-      lines.push(`  - ${key}`)
-    }
-    lines.push('')
-  }
+  const lines: string[] = [
+    '## Benchmark Comparison',
+    '',
+    `Threshold: ${result.threshold}% regression`,
+    '',
+    ...formatEntriesSection(result.entries),
+    ...formatListSection('New benchmarks (no baseline)', result.newBenchmarks),
+    ...formatListSection('Removed benchmarks', result.removedBenchmarks),
+  ]
 
   const regressions = result.entries.filter(e => !e.passed)
-  if (regressions.length > 0) {
-    lines.push(
-      `❌ **FAILED**: ${regressions.length} benchmark(s) regressed more than ${result.threshold}%`
-    )
-  } else {
-    lines.push('✅ **PASSED**: No significant regressions detected')
-  }
+  lines.push(
+    regressions.length > 0
+      ? `❌ **FAILED**: ${regressions.length} benchmark(s) regressed more than ${result.threshold}%`
+      : '✅ **PASSED**: No significant regressions detected'
+  )
 
   return lines.join('\n')
 }
@@ -296,12 +286,23 @@ function requireArgValue(args: string[], index: number, flag: string): string {
   return args[index + 1]
 }
 
-function parseArgs(): {
+interface ParsedArgs {
   baselinePath: string
   currentPath: string
   threshold: number
   update: boolean
-} {
+}
+
+function parseThreshold(raw: string): number {
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    console.error(`❌ --threshold must be a non-negative number, got "${raw}"`)
+    process.exit(1)
+  }
+  return parsed
+}
+
+function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
   let baselinePath = DEFAULT_BASELINE_PATH
   let currentPath = DEFAULT_CURRENT_PATH
@@ -310,29 +311,18 @@ function parseArgs(): {
 
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--baseline': {
-        const val = requireArgValue(args, i, '--baseline')
-        baselinePath = resolve(ROOT, val)
+      case '--baseline':
+        baselinePath = resolve(ROOT, requireArgValue(args, i, '--baseline'))
         i++
         break
-      }
-      case '--current': {
-        const val = requireArgValue(args, i, '--current')
-        currentPath = resolve(ROOT, val)
+      case '--current':
+        currentPath = resolve(ROOT, requireArgValue(args, i, '--current'))
         i++
         break
-      }
-      case '--threshold': {
-        const raw = requireArgValue(args, i, '--threshold')
+      case '--threshold':
+        threshold = parseThreshold(requireArgValue(args, i, '--threshold'))
         i++
-        const parsed = Number(raw)
-        if (!Number.isFinite(parsed) || parsed < 0) {
-          console.error(`❌ --threshold must be a non-negative number, got "${raw}"`)
-          process.exit(1)
-        }
-        threshold = parsed
         break
-      }
       case '--update':
         update = true
         break
@@ -342,28 +332,45 @@ function parseArgs(): {
   return { baselinePath, currentPath, threshold, update }
 }
 
+function handleUpdate(baselinePath: string, currentPath: string): void {
+  if (!existsSync(currentPath)) {
+    console.error(`❌ Current results file not found: ${currentPath}`)
+    console.error('Run `bun run bench:json` first to generate benchmark results.')
+    process.exit(1)
+  }
+  const data = readFileSync(currentPath, 'utf-8')
+  const parsed: unknown = JSON.parse(data)
+  if (!isValidBenchOutput(parsed)) {
+    console.error('❌ Current results file is not valid vitest bench JSON output')
+    process.exit(1)
+  }
+  writeFileSync(baselinePath, JSON.stringify(parsed, null, 2) + '\n')
+  const benchCount = parsed.files.reduce(
+    (sum, f) => sum + f.groups.reduce((gs, g) => gs + g.benchmarks.length, 0),
+    0
+  )
+  console.log(`✅ Updated baseline (${benchCount} benchmarks) → ${baselinePath}`)
+}
+
+function loadAndValidate(path: string, label: string): BenchmarkOutput {
+  if (!existsSync(path)) {
+    console.error(`❌ ${label} file not found: ${path}`)
+    console.error('Run `bun run bench:json` first to generate benchmark results.')
+    process.exit(1)
+  }
+  const raw: unknown = JSON.parse(readFileSync(path, 'utf-8'))
+  if (!isValidBenchOutput(raw)) {
+    console.error(`❌ ${label} file is not valid vitest bench JSON output`)
+    process.exit(1)
+  }
+  return raw
+}
+
 function main(): void {
   const { baselinePath, currentPath, threshold, update } = parseArgs()
 
-  // Update mode: copy current results to baseline
   if (update) {
-    if (!existsSync(currentPath)) {
-      console.error(`❌ Current results file not found: ${currentPath}`)
-      console.error('Run `bun run bench:json` first to generate benchmark results.')
-      process.exit(1)
-    }
-    const data = readFileSync(currentPath, 'utf-8')
-    const parsed: unknown = JSON.parse(data)
-    if (!isValidBenchOutput(parsed)) {
-      console.error('❌ Current results file is not valid vitest bench JSON output')
-      process.exit(1)
-    }
-    writeFileSync(baselinePath, JSON.stringify(parsed, null, 2) + '\n')
-    const benchCount = parsed.files.reduce(
-      (sum, f) => sum + f.groups.reduce((gs, g) => gs + g.benchmarks.length, 0),
-      0
-    )
-    console.log(`✅ Updated baseline (${benchCount} benchmarks) → ${baselinePath}`)
+    handleUpdate(baselinePath, currentPath)
     return
   }
 
@@ -374,24 +381,8 @@ function main(): void {
     return
   }
 
-  if (!existsSync(currentPath)) {
-    console.error(`❌ Current results file not found: ${currentPath}`)
-    console.error('Run `bun run bench:json` first to generate benchmark results.')
-    process.exit(1)
-  }
-
-  const baselineRaw: unknown = JSON.parse(readFileSync(baselinePath, 'utf-8'))
-  const currentRaw: unknown = JSON.parse(readFileSync(currentPath, 'utf-8'))
-
-  if (!isValidBenchOutput(baselineRaw)) {
-    console.error('❌ Baseline file is not valid vitest bench JSON output')
-    process.exit(1)
-  }
-
-  if (!isValidBenchOutput(currentRaw)) {
-    console.error('❌ Current results file is not valid vitest bench JSON output')
-    process.exit(1)
-  }
+  const baselineRaw = loadAndValidate(baselinePath, 'Baseline')
+  const currentRaw = loadAndValidate(currentPath, 'Current results')
 
   const result = compareBenchmarks(baselineRaw, currentRaw, threshold)
   console.log(formatResults(result))

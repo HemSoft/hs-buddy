@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce complexity in RepoNode, OrgTree, config hooks
 - Reduce CRAP scores - batch 4 (PRReviews, Settings, Automation, Bookmarks, Terminal)
 - Reduce CRAP scores - batch 5 (PR detail, history, user panels)
+- Reduce complexity in WeatherCard and CopilotPromptBox
 
 ### Added
 

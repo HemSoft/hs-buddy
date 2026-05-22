@@ -203,6 +203,26 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     }
   }, [prompt])
 
+  function revertAutoDetection() {
+    /* v8 ignore start */
+    if (autoDetectedRef.current) {
+      /* v8 ignore stop */
+      autoDetectedRef.current = false
+      setState(previousState => ({
+        ...previousState,
+        localAccount: ghAccount,
+      }))
+    }
+  }
+
+  function findMatchingAccount(orgs: string[]) {
+    for (const org of orgs) {
+      const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
+      if (acct) return acct
+    }
+    return null
+  }
+
   /**
    * Auto-detect the correct GitHub account from org/owner in the prompt text.
    * Only auto-switches if the user hasn't manually picked a different account.
@@ -217,32 +237,17 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       }
 
       if (orgs.length === 0) {
-        // No GitHub URL — if we previously auto-detected, revert to default
-        /* v8 ignore start */
-        if (autoDetectedRef.current) {
-          /* v8 ignore stop */
-          autoDetectedRef.current = false
-          setState(previousState => ({
-            ...previousState,
-            localAccount: ghAccount,
-          }))
-        }
+        revertAutoDetection()
         return
       }
 
-      // Find the first org that matches a configured account
-      for (const org of orgs) {
-        const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
-        if (acct) {
-          if (localAccount !== acct.username) {
-            autoDetectedRef.current = true
-            setState(previousState => ({
-              ...previousState,
-              localAccount: acct.username,
-            }))
-          }
-          return
-        }
+      const acct = findMatchingAccount(orgs)
+      if (acct && localAccount !== acct.username) {
+        autoDetectedRef.current = true
+        setState(previousState => ({
+          ...previousState,
+          localAccount: acct.username,
+        }))
       }
     },
     [githubAccounts, ghAccount, localAccount]
@@ -253,6 +258,22 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     const timer = setTimeout(() => resolveAccountFromPrompt(prompt), 300)
     return () => clearTimeout(timer)
   }, [prompt, resolveAccountFromPrompt])
+
+  function handleCopilotResult(result: { success: boolean; resultId?: string; error?: string }) {
+    if (result.success && result.resultId) {
+      setState(previousState => ({
+        ...previousState,
+        prompt: '',
+        error: null,
+      }))
+      onOpenResult?.(result.resultId)
+    } else {
+      setState(previousState => ({
+        ...previousState,
+        error: result.error ?? 'Unknown error',
+      }))
+    }
+  }
 
   const handleSubmit = async () => {
     const trimmed = prompt.trim()
@@ -272,20 +293,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         metadata: buildCopilotMetadata(localAccount),
       })
 
-      if (result.success && result.resultId) {
-        setState(previousState => ({
-          ...previousState,
-          prompt: '',
-          error: null,
-        }))
-        // Open the result tab
-        onOpenResult?.(result.resultId)
-      } else {
-        setState(previousState => ({
-          ...previousState,
-          error: result.error ?? 'Unknown error',
-        }))
-      }
+      handleCopilotResult(result)
     } catch (err: unknown) {
       setState(previousState => ({
         ...previousState,

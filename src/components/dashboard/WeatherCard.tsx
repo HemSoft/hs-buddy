@@ -173,6 +173,10 @@ function buildTypeGroups(species: PollenSpecies[]) {
     .filter(g => g.items.length > 0)
 }
 
+function shouldRenderPollenDetail(species: PollenSpecies[], recs: string[]): boolean {
+  return species.length > 0 || recs.length > 0
+}
+
 function PollenSpeciesDetail({
   species,
   healthRecommendations,
@@ -182,11 +186,7 @@ function PollenSpeciesDetail({
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  const inSeasonSpecies = species.filter(s => s.inSeason)
-  const offSeasonSpecies = species.filter(s => !s.inSeason)
-  const hasDetail = inSeasonSpecies.length > 0 || offSeasonSpecies.length > 0
-
-  if (!hasDetail && healthRecommendations.length === 0) return null
+  if (!shouldRenderPollenDetail(species, healthRecommendations)) return null
 
   const typeGroups = buildTypeGroups(species)
 
@@ -302,6 +302,24 @@ function WeatherSearchBar({
   )
 }
 
+function WeatherDataContent({
+  data,
+  pollen,
+  pollenError,
+}: {
+  data: ReturnType<typeof useWeather>['data']
+  pollen: PollenData | null
+  pollenError: string | null
+}) {
+  if (!data) return null
+  return (
+    <>
+      <WeatherCurrentSection data={data} />
+      <PollenArea pollen={pollen} error={pollenError} />
+    </>
+  )
+}
+
 function WeatherExpandedContent({
   data,
   loading,
@@ -347,9 +365,7 @@ function WeatherExpandedContent({
         </div>
       )}
 
-      {data && <WeatherCurrentSection data={data} />}
-
-      {data && <PollenArea pollen={pollen} error={pollenError} />}
+      <WeatherDataContent data={data} pollen={pollen} pollenError={pollenError} />
 
       <CardActionBar
         onRefresh={autoRefresh.refresh}
@@ -371,6 +387,24 @@ function WeatherExpandedContent({
         </button>
       </CardActionBar>
     </>
+  )
+}
+
+function CollapsedWeatherSummary({ data }: { data: ReturnType<typeof useWeather>['data'] }) {
+  if (!data) return null
+  return (
+    <div className="weather-collapsed-summary">
+      <div className="weather-collapsed-left">
+        <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
+        <span className="weather-collapsed-temp">
+          {`${data.temperature}${data.temperatureUnit}`}
+        </span>
+        <span className="weather-collapsed-desc">{data.description}</span>
+      </div>
+      <span className="weather-collapsed-hilo">
+        H: {data.high}° &nbsp; L: {data.low}°
+      </span>
+    </div>
   )
 }
 
@@ -409,31 +443,16 @@ export function WeatherCard() {
     }
   }
 
+  const locationCaption = data?.locationName ?? savedLocation
+
   return (
     <section className="welcome-section welcome-section-weather" aria-label="Weather overview">
       <CardHeader expanded={expanded} onToggle={toggle}>
-        <SectionHeading
-          kicker="Local weather"
-          title="Weather"
-          caption={data?.locationName ?? savedLocation}
-        />
+        <SectionHeading kicker="Local weather" title="Weather" caption={locationCaption} />
       </CardHeader>
 
       {/* Collapsed summary — always visible */}
-      {!expanded && data && (
-        <div className="weather-collapsed-summary">
-          <div className="weather-collapsed-left">
-            <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
-            <span className="weather-collapsed-temp">
-              {`${data.temperature}${data.temperatureUnit}`}
-            </span>
-            <span className="weather-collapsed-desc">{data.description}</span>
-          </div>
-          <span className="weather-collapsed-hilo">
-            H: {data.high}° &nbsp; L: {data.low}°
-          </span>
-        </div>
-      )}
+      {!expanded && <CollapsedWeatherSummary data={data} />}
 
       {/* Expanded content */}
       {expanded && (

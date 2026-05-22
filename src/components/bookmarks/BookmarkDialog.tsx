@@ -542,76 +542,28 @@ function shouldSkipAiSuggest(
   return isEdit || !initialUrl || !initialTitleReady || url !== initialUrl
 }
 
-export function BookmarkDialog({
-  bookmark,
-  categories,
-  initialUrl,
-  initialTitle,
-  onClose,
-}: BookmarkDialogProps) {
+export function BookmarkDialog({ bookmark, categories, initialUrl, initialTitle, onClose }: BookmarkDialogProps) {
   const { create, update } = useBookmarkMutations()
   const isEdit = bookmark !== null
-  const [state, dispatch] = useReducer(
-    bookmarkDialogReducer,
-    { bookmark, initialUrl, initialTitle },
-    ({ bookmark, initialUrl, initialTitle }) =>
-      createInitialState(bookmark, initialUrl, initialTitle)
-  )
-
-  const urlRef = useRef<HTMLInputElement | null>(null)
-  const titleRef = useRef<HTMLInputElement | null>(null)
-  const userEditedTitle = useRef(false)
-  const userEditedDescription = useRef(false)
-  const userEditedTags = useRef(false)
+  const [state, dispatch] = useReducer(bookmarkDialogReducer, { bookmark, initialUrl, initialTitle }, ({ bookmark, initialUrl, initialTitle }) => createInitialState(bookmark, initialUrl, initialTitle))
+  const urlRef = useRef<HTMLInputElement | null>(null); const titleRef = useRef<HTMLInputElement | null>(null)
+  const userEditedTitle = useRef(false); const userEditedDescription = useRef(false); const userEditedTags = useRef(false)
   const aiRequestedFor = useRef<string | null>(null)
+  const setUrlInputRef = useCallback((node: HTMLInputElement | null) => { urlRef.current = node; if (node && !isEdit) node.focus() }, [isEdit])
+  const setTitleInputRef = useCallback((node: HTMLInputElement | null) => { titleRef.current = node; if (node && isEdit) node.focus() }, [isEdit])
 
-  const setUrlInputRef = useCallback(
-    (node: HTMLInputElement | null) => {
-      urlRef.current = node
-      if (node && !isEdit) {
-        node.focus()
-      }
-    },
-    [isEdit]
-  )
-
-  const setTitleInputRef = useCallback(
-    (node: HTMLInputElement | null) => {
-      titleRef.current = node
-      if (node && isEdit) {
-        node.focus()
-      }
-    },
-    [isEdit]
-  )
-
-  // Auto-fetch page title when we have a URL but no title
   useEffect(() => {
     if (isEdit || !initialUrl || initialTitle || state.url !== initialUrl) return
     let cancelled = false
     dispatch({ type: 'titleFetch:start' })
-    window.shell
-      .fetchPageTitle(initialUrl)
-      .then(result => {
-        if (cancelled) return
-        if (!userEditedTitle.current && result.success && result.title) {
-          dispatch({ type: 'titleFetch:finish', title: result.title })
-          return
-        }
-        dispatch({ type: 'titleFetch:finish' })
-      })
-      .catch(() => {
-        /* v8 ignore start */
-        if (!cancelled) dispatch({ type: 'titleFetch:finish' })
-        /* v8 ignore stop */
-      })
-    return () => {
-      cancelled = true
-      dispatch({ type: 'titleFetch:cancel' })
-    }
+    window.shell.fetchPageTitle(initialUrl).then(result => {
+      if (cancelled) return
+      if (!userEditedTitle.current && result.success && result.title) { dispatch({ type: 'titleFetch:finish', title: result.title }); return }
+      dispatch({ type: 'titleFetch:finish' })
+    }).catch(() => { /* v8 ignore start */ if (!cancelled) dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */ })
+    return () => { cancelled = true; dispatch({ type: 'titleFetch:cancel' }) }
   }, [isEdit, initialUrl, initialTitle, state.url])
 
-  // AI-suggest description and tags once we have a URL (and optionally title)
   useEffect(() => {
     if (shouldSkipAiSuggest(isEdit, initialUrl, state.initialTitleReady, state.url)) return
     const resolvedTitle = state.title.trim()
@@ -619,152 +571,38 @@ export function BookmarkDialog({
     /* v8 ignore start */
     if (aiRequestedFor.current === key) return
     /* v8 ignore stop */
-
-    // Set the guard before the async call to prevent duplicate requests
-    // if state.title changes while the request is in-flight
     aiRequestedFor.current = key
     let cancelled = false
     dispatch({ type: 'ai:start' })
     const titleLine = resolvedTitle ? `\nTitle: ${resolvedTitle}` : ''
-    window.copilot
-      .quickPrompt({
-        prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):
-{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}
-
-URL: ${initialUrl}${titleLine}
-
-Rules:
-- description: 1 short sentence, max 120 chars
-- tags: 3-5 lowercase single-word tags relevant to the content
-- Respond with ONLY the JSON object, nothing else`,
-        model: 'gpt-4o-mini',
-      })
-      .then(text => {
-        if (cancelled || !text) {
-          if (!cancelled) dispatch({ type: 'ai:finish' })
-          return
-        }
-
-        const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(
-          text,
-          userEditedDescription.current,
-          userEditedTags.current
-        )
-
-        /* v8 ignore start */
-        if (!cancelled) {
-          /* v8 ignore stop */
-          dispatch({
-            type: 'ai:finish',
-            description: nextDescription,
-            tagsInput: nextTagsInput,
-          })
-        }
-      })
-      .catch(err => {
-        console.warn('[BookmarkDialog] AI suggestion failed:', err)
-        /* v8 ignore start */
-        if (!cancelled) dispatch({ type: 'ai:finish' })
-        /* v8 ignore stop */
-      })
-    return () => {
+    window.copilot.quickPrompt({ prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):\n{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}\n\nURL: ${initialUrl}${titleLine}\n\nRules:\n- description: 1 short sentence, max 120 chars\n- tags: 3-5 lowercase single-word tags relevant to the content\n- Respond with ONLY the JSON object, nothing else`, model: 'gpt-4o-mini' }).then(text => {
+      if (cancelled || !text) { if (!cancelled) dispatch({ type: 'ai:finish' }); return }
+      const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(text, userEditedDescription.current, userEditedTags.current)
       /* v8 ignore start */
-      if (aiRequestedFor.current === key) {
-        /* v8 ignore stop */
-        dispatch({ type: 'ai:finish' })
-        aiRequestedFor.current = null
-      }
-      cancelled = true
-    }
+      if (!cancelled) { /* v8 ignore stop */ dispatch({ type: 'ai:finish', description: nextDescription, tagsInput: nextTagsInput }) }
+    }).catch(err => { console.warn('[BookmarkDialog] AI suggestion failed:', err); /* v8 ignore start */ if (!cancelled) dispatch({ type: 'ai:finish' }) /* v8 ignore stop */ })
+    return () => { /* v8 ignore start */ if (aiRequestedFor.current === key) { /* v8 ignore stop */ dispatch({ type: 'ai:finish' }); aiRequestedFor.current = null } cancelled = true }
   }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url])
-
-  const prepareSubmitData = (formState: BookmarkDialogState) => {
-    const trimmedUrl = formState.url.trim()
-    const trimmedTitle = formState.title.trim()
-    const trimmedDescription = formState.description.trim()
-    const resolvedCategory = resolveCategory(formState)
-    const tags = formState.tagsInput.split(',').flatMap(t => {
-      const trimmed = t.trim()
-      return trimmed ? [trimmed] : []
-    })
-    return { trimmedUrl, trimmedTitle, trimmedDescription, resolvedCategory, tags }
-  }
-
-  const buildBookmarkPayload = (
-    trimmedUrl: string,
-    trimmedTitle: string,
-    trimmedDescription: string,
-    resolvedCategory: string,
-    tags: string[]
-  ) => ({
-    url: trimmedUrl,
-    title: trimmedTitle,
-    description: trimmedDescription || undefined,
-    category: resolvedCategory,
-    tags: tags.length > 0 ? tags : undefined,
-  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     const validationError = validateBookmarkForm(state)
-    if (validationError) {
-      dispatch({ type: 'setError', value: validationError })
-      return
-    }
-
-    const { trimmedUrl, trimmedTitle, trimmedDescription, resolvedCategory, tags } =
-      prepareSubmitData(state)
-
+    if (validationError) { dispatch({ type: 'setError', value: validationError }); return }
+    const trimmedUrl = state.url.trim(); const trimmedTitle = state.title.trim(); const trimmedDescription = state.description.trim()
+    const resolvedCat = resolveCategory(state); const tags = state.tagsInput.split(',').flatMap(t => { const trimmed = t.trim(); return trimmed ? [trimmed] : [] })
+    const payload = { url: trimmedUrl, title: trimmedTitle, description: trimmedDescription || undefined, category: resolvedCat, tags: tags.length > 0 ? tags : undefined }
     dispatch({ type: 'submit:start' })
-    try {
-      const payload = buildBookmarkPayload(
-        trimmedUrl,
-        trimmedTitle,
-        trimmedDescription,
-        resolvedCategory,
-        tags
-      )
-      if (isEdit && bookmark) {
-        await update({ id: bookmark._id, ...payload })
-      } else {
-        await create(payload)
-      }
-      onClose()
-    } catch (err: unknown) {
-      dispatch({
-        type: 'setError',
-        value: getUserFacingErrorMessage(err, 'Failed to save bookmark'),
-      })
-    } finally {
-      dispatch({ type: 'submit:finish' })
-    }
+    try { if (isEdit && bookmark) { await update({ id: bookmark._id, ...payload }) } else { await create(payload) } onClose() } catch (err: unknown) { dispatch({ type: 'setError', value: getUserFacingErrorMessage(err, 'Failed to save bookmark') }) } finally { dispatch({ type: 'submit:finish' }) }
   }
 
   return (
     <BookmarkDialogShell isEdit={isEdit} onClose={onClose}>
       <form className="bookmark-dialog-form" onSubmit={handleSubmit}>
         {state.error && <div className="bookmark-dialog-error">{state.error}</div>}
-
-        <BookmarkFormFields
-          state={state}
-          isEdit={isEdit}
-          categories={categories}
-          dispatch={dispatch}
-          setUrlInputRef={setUrlInputRef}
-          setTitleInputRef={setTitleInputRef}
-          userEditedTitle={userEditedTitle}
-          userEditedDescription={userEditedDescription}
-          userEditedTags={userEditedTags}
-        />
-
+        <BookmarkFormFields state={state} isEdit={isEdit} categories={categories} dispatch={dispatch} setUrlInputRef={setUrlInputRef} setTitleInputRef={setTitleInputRef} userEditedTitle={userEditedTitle} userEditedDescription={userEditedDescription} userEditedTags={userEditedTags} />
         <div className="bookmark-dialog-actions">
-          <button type="button" className="bookmark-dialog-btn-cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="submit" className="bookmark-dialog-btn-save" disabled={state.saving}>
-            {state.saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Bookmark'}
-          </button>
+          <button type="button" className="bookmark-dialog-btn-cancel" onClick={onClose}>Cancel</button>
+          <button type="submit" className="bookmark-dialog-btn-save" disabled={state.saving}>{state.saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Bookmark'}</button>
         </div>
       </form>
     </BookmarkDialogShell>

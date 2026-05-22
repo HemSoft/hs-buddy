@@ -208,111 +208,52 @@ function getScheduleCounts(schedules: ReturnType<typeof useSchedules>) {
 
 export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelProps) {
   const schedules = useSchedules()
-  const [configState, setConfigState] = useState<ForecastConfigState>({
-    forecastDays: 3,
-    loaded: false,
-  })
+  const [configState, setConfigState] = useState<ForecastConfigState>({ forecastDays: 3, loaded: false })
   const { forecastDays, loaded: loadedConfig } = configState
 
-  // Load config from electron-store
   useEffect(() => {
-    window.ipcRenderer
-      .invoke(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS)
-      .then((days: number) =>
-        setConfigState({
-          forecastDays: normalizeForecastDays(days),
-          loaded: true,
-        })
-      )
-      .catch(() =>
-        setConfigState(currentState => ({
-          ...currentState,
-          loaded: true,
-        }))
-      )
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS)
+      .then((days: number) => setConfigState({ forecastDays: normalizeForecastDays(days), loaded: true }))
+      .catch(() => setConfigState(s => ({ ...s, loaded: true })))
   }, [])
 
-  // Save config when changed
   const handleDaysChange = (value: string) => {
     const days = normalizeForecastDays(parseInt(value, 10))
-    setConfigState(currentState => ({
-      ...currentState,
-      forecastDays: days,
-    }))
+    setConfigState(s => ({ ...s, forecastDays: days }))
     window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_SCHEDULE_FORECAST_DAYS, days).catch(() => {})
   }
 
-  // Compute upcoming occurrences
-  const dayGroups = useMemo(
-    () => computeDayGroups(schedules, forecastDays),
-    [schedules, forecastDays]
-  )
-
+  const dayGroups = useMemo(() => computeDayGroups(schedules, forecastDays), [schedules, forecastDays])
   const totalOccurrences = sumBy(dayGroups, g => g.occurrences.length)
   const { enabledCount, disabledCount } = getScheduleCounts(schedules)
 
   if (schedules === undefined || !loadedConfig) {
-    return (
-      <div className="schedule-overview">
-        <div className="schedule-overview-loading">
-          <div className="loading-spinner" />
-          <span>Loading schedule forecast...</span>
-        </div>
-      </div>
-    )
+    return (<div className="schedule-overview"><div className="schedule-overview-loading"><div className="loading-spinner" /><span>Loading schedule forecast...</span></div></div>)
   }
 
   return (
     <div className="schedule-overview">
       <div className="schedule-overview-header">
-        <div className="schedule-overview-title">
-          <Calendar size={18} />
-          <h2>Upcoming Scheduled Jobs</h2>
-        </div>
+        <div className="schedule-overview-title"><Calendar size={18} /><h2>Upcoming Scheduled Jobs</h2></div>
         <div className="schedule-overview-controls">
           <span className="schedule-overview-label">Forecast:</span>
-          <InlineDropdown
-            value={String(forecastDays)}
-            options={DAYS_OPTIONS}
-            onChange={handleDaysChange}
-            icon={<Clock size={12} />}
-            className="schedule-forecast-dropdown"
-          />
+          <InlineDropdown value={String(forecastDays)} options={DAYS_OPTIONS} onChange={handleDaysChange} icon={<Clock size={12} />} className="schedule-forecast-dropdown" />
         </div>
       </div>
-
-      <ScheduleOverviewSummary
-        enabledCount={enabledCount}
-        disabledCount={disabledCount}
-        totalOccurrences={totalOccurrences}
-        forecastDays={forecastDays}
-      />
-
+      <ScheduleOverviewSummary enabledCount={enabledCount} disabledCount={disabledCount} totalOccurrences={totalOccurrences} forecastDays={forecastDays} />
       <div className="schedule-overview-timeline">
         {dayGroups.length === 0 ? (
-          <ScheduleEmptyState
-            forecastDays={forecastDays}
-            totalSchedules={schedules.length}
-            enabledCount={enabledCount}
-          />
+          <ScheduleEmptyState forecastDays={forecastDays} totalSchedules={schedules.length} enabledCount={enabledCount} />
         ) : (
           dayGroups.map(group => (
             <div key={group.dateKey} className="day-group">
               <div className="day-group-header">
                 <span className="day-group-label">{group.label}</span>
-                <span className="day-group-count">
-                  {group.occurrences.length} run{group.occurrences.length !== 1 ? 's' : ''}
-                </span>
+                <span className="day-group-count">{group.occurrences.length} run{group.occurrences.length !== 1 ? 's' : ''}</span>
               </div>
               <div className="day-group-items">
                 {group.occurrences.map(occ => (
-                  <button
-                    key={`${occ.scheduleId}-${occ.time.getTime()}`}
-                    type="button"
-                    className="occurrence-row"
-                    onClick={() => onOpenSchedule?.(occ.scheduleId)}
-                    title={`Schedule: ${occ.scheduleName}\nJob: ${occ.jobName}\nCron: ${occ.cron}`}
-                  >
+                  <button key={`${occ.scheduleId}-${occ.time.getTime()}`} type="button" className="occurrence-row" onClick={() => onOpenSchedule?.(occ.scheduleId)} title={`Schedule: ${occ.scheduleName}\nJob: ${occ.jobName}\nCron: ${occ.cron}`}>
                     <span className="occurrence-time">{formatTime(occ.time)}</span>
                     <span className="occurrence-timeline-dot" />
                     <span className="occurrence-info">
@@ -320,11 +261,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
                       <ChevronRight size={10} className="occurrence-arrow" />
                       <span className="occurrence-job-name">{occ.jobName}</span>
                     </span>
-                    <span
-                      className={`occurrence-worker-badge ${getWorkerBadgeClass(occ.workerType)}`}
-                    >
-                      {occ.workerType}
-                    </span>
+                    <span className={`occurrence-worker-badge ${getWorkerBadgeClass(occ.workerType)}`}>{occ.workerType}</span>
                   </button>
                 ))}
               </div>

@@ -246,21 +246,13 @@ function PRDetailHeader({
           </span>
         </div>
         <div className="pr-detail-subtitle">
-          <span className="pr-detail-author">{pr.author}</span>
-          <span className="pr-detail-dot">·</span>
-          <span>{sourceLabel}</span>
-          <span className="pr-detail-dot">·</span>
-          <span>{pr.repository}</span>
-          <BranchFlow branches={branches} />
+          <span className="pr-detail-author">{pr.author}</span><span className="pr-detail-dot">·</span>
+          <span>{sourceLabel}</span><span className="pr-detail-dot">·</span>
+          <span>{pr.repository}</span><BranchFlow branches={branches} />
         </div>
       </div>
       <div className="pr-detail-header-actions">
-        <button
-          className={`pr-detail-refresh-btn${copilotStateConfig.buttonClass}`}
-          onClick={handleRequestCopilotReview}
-          title={copilotStateConfig.title}
-          disabled={copilotReviewState !== 'idle'}
-        >
+        <button className={`pr-detail-refresh-btn${copilotStateConfig.buttonClass}`} onClick={handleRequestCopilotReview} title={copilotStateConfig.title} disabled={copilotReviewState !== 'idle'}>
           <CopilotReviewButtonIcon state={copilotReviewState} />
         </button>
         <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
@@ -278,46 +270,16 @@ function PRDetailHeader({
       </div>
       {contextMenu && (
         <PRDetailContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          youApproved={youApproved}
-          copilotReviewState={copilotReviewState}
-          nudgeState={nudgeState}
-          aiReviewProviders={aiReviewProviders.map(p => ({
-            ...p,
-            onRequest: () => {
-              p.onRequest()
-              setContextMenu(null)
-            },
-          }))}
-          onRequestCopilotReview={() => {
-            handleRequestCopilotReview()
-            setContextMenu(null)
-          }}
-          onApprove={() => {
-            onApprove()
-            setContextMenu(null)
-          }}
-          onNudge={() => {
-            onNudge()
-            setContextMenu(null)
-          }}
-          onRefresh={() => {
-            onRefresh()
-            setContextMenu(null)
-          }}
-          onCopyLink={() => {
-            navigator.clipboard.writeText(pr.url)
-            setContextMenu(null)
-          }}
-          onOpenExternal={() => {
-            window.shell.openExternal(pr.url)
-            setContextMenu(null)
-          }}
-          onStartRalphReview={() => {
-            onStartRalphReview()
-            setContextMenu(null)
-          }}
+          x={contextMenu.x} y={contextMenu.y} youApproved={youApproved}
+          copilotReviewState={copilotReviewState} nudgeState={nudgeState}
+          aiReviewProviders={aiReviewProviders.map(p => ({ ...p, onRequest: () => { p.onRequest(); setContextMenu(null) } }))}
+          onRequestCopilotReview={() => { handleRequestCopilotReview(); setContextMenu(null) }}
+          onApprove={() => { onApprove(); setContextMenu(null) }}
+          onNudge={() => { onNudge(); setContextMenu(null) }}
+          onRefresh={() => { onRefresh(); setContextMenu(null) }}
+          onCopyLink={() => { navigator.clipboard.writeText(pr.url); setContextMenu(null) }}
+          onOpenExternal={() => { window.shell.openExternal(pr.url); setContextMenu(null) }}
+          onStartRalphReview={() => { onStartRalphReview(); setContextMenu(null) }}
           onClose={() => setContextMenu(null)}
         />
       )}

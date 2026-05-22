@@ -637,8 +637,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const [editingBookmark, setEditingBookmark] = useState<BookmarkRecord | null>(null)
   const [dragOver, setDragOver] = useState<DragOver>(null)
-  const draggedIdRef = useRef<string | null>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [draggedIdRef, menuRef] = [useRef<string | null>(null), useRef<HTMLDivElement>(null)]
   const bookmarks = useBookmarks()
   const categories = useBookmarkCategories()
   const { reorder } = useBookmarkMutations()
@@ -660,71 +659,41 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   }, [bookmarks, contextMenu, closeContextMenu])
 
   const handleDragStart = useCallback((e: React.DragEvent, bookmarkId: string) => {
-    draggedIdRef.current = bookmarkId
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', bookmarkId)
+    draggedIdRef.current = bookmarkId; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', bookmarkId)
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent, targetId: string) => {
     if (!draggedIdRef.current || draggedIdRef.current === targetId) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
+    e.preventDefault(); e.dataTransfer.dropEffect = 'move'
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    const midY = rect.top + rect.height / 2
     /* v8 ignore start */
-    setDragOver({ id: targetId, position: e.clientY < midY ? 'above' : 'below' })
+    setDragOver({ id: targetId, position: e.clientY < rect.top + rect.height / 2 ? 'above' : 'below' })
     /* v8 ignore stop */
   }, [])
 
-  const handleDragEnd = useCallback(() => {
-    draggedIdRef.current = null
-    setDragOver(null)
-  }, [])
+  const handleDragEnd = useCallback(() => { draggedIdRef.current = null; setDragOver(null) }, [])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent, targetId: string, categoryBookmarks: readonly BookmarkRecord[]) => {
-      e.preventDefault()
-      const draggedId = draggedIdRef.current
-      draggedIdRef.current = null
-      setDragOver(null)
-      if (!draggedId || draggedId === targetId) return
-
-      const reorderedBookmarks = reorderCategoryBookmarks(
-        categoryBookmarks,
-        draggedId,
-        targetId,
-        e.currentTarget as HTMLElement,
-        e.clientY
-      )
-      if (!reorderedBookmarks) return
-
-      reorder({ updates: createReorderUpdates(reorderedBookmarks) }).catch(() => {
-        /* Convex will retry; optimistic UI handles re-sync */
-      })
-    },
-    [reorder]
-  )
+  const handleDrop = useCallback((e: React.DragEvent, targetId: string, categoryBookmarks: readonly BookmarkRecord[]) => {
+    e.preventDefault()
+    const draggedId = draggedIdRef.current
+    draggedIdRef.current = null; setDragOver(null)
+    if (!draggedId || draggedId === targetId) return
+    const reorderedBookmarks = reorderCategoryBookmarks(categoryBookmarks, draggedId, targetId, e.currentTarget as HTMLElement, e.clientY)
+    if (!reorderedBookmarks) return
+    reorder({ updates: createReorderUpdates(reorderedBookmarks) }).catch(() => {})
+  }, [reorder])
 
   useEffect(() => {
     if (!contextMenu) return
-    const handleKeyDown = (e: KeyboardEvent) => {
-      /* v8 ignore start */
-      if (e.key === 'Escape') closeContextMenu()
-      /* v8 ignore stop */
-    }
+    const handleKeyDown = (e: KeyboardEvent) => { /* v8 ignore start */ if (e.key === 'Escape') closeContextMenu() /* v8 ignore stop */ }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return
-
-    const nextPosition = adjustContextMenuPosition(
-      contextMenu,
-      menuRef.current.getBoundingClientRect()
-    )
+    const nextPosition = adjustContextMenuPosition(contextMenu, menuRef.current.getBoundingClientRect())
     if (!hasContextMenuPositionChanged(contextMenu, nextPosition)) return
-
     /* v8 ignore start */
     setContextMenu(prev => updateContextMenuPosition(prev, nextPosition))
     /* v8 ignore stop */
@@ -732,40 +701,21 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
 
   const totalCount = getBookmarkCount(bookmarks)
   const categoryCounts = useMemo(() => buildCategoryCounts(bookmarks), [bookmarks])
-  const categoryTree = useMemo(
-    () => buildCategoryTree(categories ?? [], categoryCounts),
-    [categories, categoryCounts]
-  )
+  const categoryTree = useMemo(() => buildCategoryTree(categories ?? [], categoryCounts), [categories, categoryCounts])
   const bookmarksByCategory = useMemo(() => buildBookmarksByCategory(bookmarks), [bookmarks])
 
   return (
     <div className="sidebar-panel">
       <BookmarksHeader totalCount={totalCount} />
       <BookmarksContent
-        categoryTree={categoryTree}
-        bookmarksByCategory={bookmarksByCategory}
-        isSectionExpanded={isSectionExpanded}
-        toggleSection={toggleSection}
-        selectedItem={selectedItem}
-        dragOver={dragOver}
-        onItemSelect={onItemSelect}
-        onContextMenu={handleContextMenu}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
-        onDrop={handleDrop}
+        categoryTree={categoryTree} bookmarksByCategory={bookmarksByCategory}
+        isSectionExpanded={isSectionExpanded} toggleSection={toggleSection}
+        selectedItem={selectedItem} dragOver={dragOver} onItemSelect={onItemSelect}
+        onContextMenu={handleContextMenu} onDragStart={handleDragStart}
+        onDragOver={handleDragOver} onDragEnd={handleDragEnd} onDrop={handleDrop}
       />
-      <BookmarksContextMenu
-        contextMenu={contextMenu}
-        menuRef={menuRef}
-        closeContextMenu={closeContextMenu}
-        onEdit={handleEditBookmark}
-      />
-      <BookmarkEditorDialog
-        editingBookmark={editingBookmark}
-        categories={categories}
-        onClose={closeBookmarkDialog}
-      />
+      <BookmarksContextMenu contextMenu={contextMenu} menuRef={menuRef} closeContextMenu={closeContextMenu} onEdit={handleEditBookmark} />
+      <BookmarkEditorDialog editingBookmark={editingBookmark} categories={categories} onClose={closeBookmarkDialog} />
     </div>
   )
 }

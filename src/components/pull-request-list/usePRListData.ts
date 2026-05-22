@@ -420,34 +420,16 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       /* v8 ignore start */
       const hasExistingData = hasExistingPRData(prs, cached)
       /* v8 ignore stop */
-      if (hasExistingData) {
-        setRefreshing(true)
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
-      setError(null)
-      setProgress(null)
-      setTotalPrsFound(0)
+      if (hasExistingData) { setRefreshing(true); setLoading(false) } else { setLoading(true) }
+      setError(null); setProgress(null); setTotalPrsFound(0)
       try {
         if (accounts.length === 0) {
           setError('No GitHub accounts configured. Please add an account in Settings.')
           setLoading(false)
           return
         }
-        const config = {
-          github: { accounts },
-        }
-        const githubClient = new GitHubClient(config.github, recentlyMergedDays)
-        console.log(
-          'Fetching PRs for',
-          accounts.length,
-          'account(s)...',
-          'mode:',
-          mode,
-          'recentlyMergedDays:',
-          recentlyMergedDays
-        )
+        const githubClient = new GitHubClient({ accounts }, recentlyMergedDays)
+        console.log('Fetching PRs for', accounts.length, 'account(s)...', 'mode:', mode, 'recentlyMergedDays:', recentlyMergedDays)
         const results = await enqueueRef.current(
           async signal => {
             /* v8 ignore start */
@@ -480,13 +462,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       } catch (err: unknown) {
         handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
       } finally {
-        finalizeFetchState(
-          currentFetchId,
-          fetchIdRef,
-          setLoading,
-          setRefreshing,
-          fetchInProgressRef
-        )
+        finalizeFetchState(currentFetchId, fetchIdRef, setLoading, setRefreshing, fetchInProgressRef)
       }
     }
     fetchPRs()

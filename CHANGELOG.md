@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity across 5 files to improve CRAP scores
 - Extract helpers to reduce CRAP scores in utils and hooks
 - Reduce complexity in services, API, and component logic
+- Extract sub-components to reduce complexity (pass 3)
 
 ### Added
 

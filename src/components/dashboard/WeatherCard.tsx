@@ -162,44 +162,19 @@ function SpeciesGroup({
   )
 }
 
-function buildTypeGroups(
-  species: PollenSpecies[]
-): Array<{ type: string; label: string; items: PollenSpecies[] }> {
-  const types = [
-    { type: 'TREE', label: 'Trees' },
-    { type: 'GRASS', label: 'Grasses' },
-    { type: 'WEED', label: 'Weeds' },
-  ]
-  return types
-    .map(({ type, label }) => ({ type, label, items: species.filter(s => s.type === type) }))
-    .filter(g => g.items.length > 0)
-}
+const POLLEN_TYPE_LABELS = [
+  { type: 'TREE', label: 'Trees' },
+  { type: 'GRASS', label: 'Grasses' },
+  { type: 'WEED', label: 'Weeds' },
+] as const
 
-function PollenDetailContent({
-  typeGroups,
-  healthRecommendations,
-}: {
-  typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }>
-  healthRecommendations: string[]
-}) {
-  return (
-    <div className="pollen-detail-content">
-      {typeGroups.map(g => (
-        <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
-      ))}
-
-      {healthRecommendations.length > 0 && (
-        <div className="pollen-health-recs">
-          <span className="pollen-health-recs-label">Health Tips</span>
-          <ul className="pollen-health-recs-list">
-            {healthRecommendations.map((rec, i) => (
-              <li key={i}>{rec}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  )
+function groupSpeciesByType(species: PollenSpecies[]) {
+  const groups: Array<{ type: string; label: string; items: PollenSpecies[] }> = []
+  for (const { type, label } of POLLEN_TYPE_LABELS) {
+    const items = species.filter(s => s.type === type)
+    if (items.length > 0) groups.push({ type, label, items })
+  }
+  return groups
 }
 
 function PollenSpeciesDetail({
@@ -211,8 +186,11 @@ function PollenSpeciesDetail({
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  const typeGroups = buildTypeGroups(species)
-  if (typeGroups.length === 0 && healthRecommendations.length === 0) return null
+  const hasDetail = species.some(s => s.inSeason) || species.some(s => !s.inSeason)
+
+  if (!hasDetail && healthRecommendations.length === 0) return null
+
+  const typeGroups = groupSpeciesByType(species)
 
   return (
     <div className="pollen-detail">
@@ -227,10 +205,22 @@ function PollenSpeciesDetail({
       </button>
 
       {expanded && (
-        <PollenDetailContent
-          typeGroups={typeGroups}
-          healthRecommendations={healthRecommendations}
-        />
+        <div className="pollen-detail-content">
+          {typeGroups.map(g => (
+            <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
+          ))}
+
+          {healthRecommendations.length > 0 && (
+            <div className="pollen-health-recs">
+              <span className="pollen-health-recs-label">Health Tips</span>
+              <ul className="pollen-health-recs-list">
+                {healthRecommendations.map((rec, i) => (
+                  <li key={i}>{rec}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
@@ -314,33 +304,6 @@ function WeatherSearchBar({
   )
 }
 
-function WeatherLoadingOrError({
-  loading,
-  error,
-  hasData,
-}: {
-  loading: boolean
-  error: string | null
-  hasData: boolean
-}) {
-  if (loading && !hasData) {
-    return (
-      <div className="weather-loading">
-        <RefreshCw size={16} className="spin" />
-        <span>Fetching weather…</span>
-      </div>
-    )
-  }
-  if (error && !hasData) {
-    return (
-      <div className="weather-error">
-        <span>{error}</span>
-      </div>
-    )
-  }
-  return null
-}
-
 function WeatherExpandedContent({
   data,
   loading,
@@ -373,7 +336,18 @@ function WeatherExpandedContent({
         disabled={loading}
       />
 
-      <WeatherLoadingOrError loading={loading} error={error} hasData={!!data} />
+      {loading && !data && (
+        <div className="weather-loading">
+          <RefreshCw size={16} className="spin" />
+          <span>Fetching weather…</span>
+        </div>
+      )}
+
+      {error && !data && (
+        <div className="weather-error">
+          <span>{error}</span>
+        </div>
+      )}
 
       {data && <WeatherCurrentSection data={data} />}
 
@@ -399,36 +373,6 @@ function WeatherExpandedContent({
         </button>
       </CardActionBar>
     </>
-  )
-}
-
-function WeatherCollapsedSummary({
-  data,
-}: {
-  data: {
-    weatherCode: number
-    temperature: number
-    temperatureUnit: string
-    description: string
-    high: number
-    low: number
-  } | null
-}) {
-  /* v8 ignore next -- defensive null guard; component only renders when data is available */
-  if (!data) return null
-  return (
-    <div className="weather-collapsed-summary">
-      <div className="weather-collapsed-left">
-        <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
-        <span className="weather-collapsed-temp">
-          {`${data.temperature}${data.temperatureUnit}`}
-        </span>
-        <span className="weather-collapsed-desc">{data.description}</span>
-      </div>
-      <span className="weather-collapsed-hilo">
-        H: {data.high}° &nbsp; L: {data.low}°
-      </span>
-    </div>
   )
 }
 
@@ -477,8 +421,23 @@ export function WeatherCard() {
         />
       </CardHeader>
 
-      {!expanded && <WeatherCollapsedSummary data={data} />}
+      {/* Collapsed summary — always visible */}
+      {!expanded && data && (
+        <div className="weather-collapsed-summary">
+          <div className="weather-collapsed-left">
+            <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
+            <span className="weather-collapsed-temp">
+              {`${data.temperature}${data.temperatureUnit}`}
+            </span>
+            <span className="weather-collapsed-desc">{data.description}</span>
+          </div>
+          <span className="weather-collapsed-hilo">
+            H: {data.high}° &nbsp; L: {data.low}°
+          </span>
+        </div>
+      )}
 
+      {/* Expanded content */}
       {expanded && (
         <WeatherExpandedContent
           data={data}

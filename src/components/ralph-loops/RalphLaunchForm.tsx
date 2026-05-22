@@ -8,6 +8,7 @@ import type {
   RalphModelsConfig,
   RalphProvider,
   RalphProviderEntry,
+  RalphProvidersConfig,
   RalphTemplateInfo,
 } from '../../types/ralph'
 
@@ -31,6 +32,19 @@ interface ReviewerModelGroup {
   provider: string
   label: string
   options: { value: string; label: string }[]
+}
+
+function isModelIncompatible(
+  model: string,
+  provider: string,
+  providers: RalphProvidersConfig,
+  models: RalphModelsConfig
+): boolean {
+  const supported = providers.providers[provider]?.supportedModelProviders
+  if (!supported) return false
+  const resolvedKey = models.aliases[model] ?? model
+  const entry = models.models[resolvedKey]
+  return !!entry && !supported.includes(entry.provider)
 }
 
 function collectModelOptions(
@@ -453,11 +467,7 @@ export function RalphLaunchForm({
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
     if (!model || !provider || !providers || !models) return
-    const supported = providers.providers[provider]?.supportedModelProviders
-    if (!supported) return
-    const resolvedKey = models.aliases[model] ?? model
-    const entry = models.models[resolvedKey]
-    if (entry && !supported.includes(entry.provider)) setModel('')
+    if (isModelIncompatible(model, provider, providers, models)) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(() => {

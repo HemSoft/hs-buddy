@@ -239,6 +239,10 @@ export async function getActiveCliAccount(): Promise<string | null> {
   }
 }
 
+function isNonEmptyToken(token: unknown): token is string {
+  return typeof token === 'string' && token.trim().length > 0
+}
+
 /**
  * Get GitHub CLI authentication token for a specific account.
  * Uses 'gh auth token --user <username>' to get account-specific tokens.
@@ -253,7 +257,7 @@ export async function getGitHubCLIToken(username: string): Promise<string | null
   try {
     // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token --user <username>'
     const token = await window.ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, username)
-    if (token && typeof token === 'string' && token.trim().length > 0) {
+    if (isNonEmptyToken(token)) {
       const trimmedToken = token.trim()
       tokenCache.set(username, trimmedToken)
       return trimmedToken
@@ -355,6 +359,13 @@ export async function getTokenForOwner(config: PRConfig['github'], owner: string
   throw new Error('No authenticated GitHub account available')
 }
 
+function buildUnavailableAccountMessage(triedCount: number, label: string): string {
+  if (triedCount > 0) {
+    return `Could not ${label} - all ${triedCount} account(s) failed`
+  }
+  return `Could not ${label} - no authenticated account available`
+}
+
 /**
  * Try each account in owner-priority order until one succeeds.
  * Logs warnings on per-account failures; throws if all accounts fail
@@ -378,15 +389,10 @@ export async function withFirstAvailableAccount<T>(
     } catch (error: unknown) {
       lastError = error
       console.warn(`Failed to ${label} with account ${account.username}:`, error)
-      continue
     }
   }
   if (noAccountFallback !== undefined) return noAccountFallback
-  const message =
-    triedCount > 0
-      ? `Could not ${label} - all ${triedCount} account(s) failed`
-      : `Could not ${label} - no authenticated account available`
-  throw new Error(message, { cause: lastError })
+  throw new Error(buildUnavailableAccountMessage(triedCount, label), { cause: lastError })
 }
 
 /**

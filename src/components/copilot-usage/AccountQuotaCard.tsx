@@ -131,6 +131,27 @@ function QuotaFooter({
   )
 }
 
+function QuotaRefreshIndicator({ state }: { state: AccountQuotaState }) {
+  if (!state.loading) {
+    return null
+  }
+
+  return <RefreshCw size={12} className="spin" />
+}
+
+function AccountOrganizations({ organizations }: { organizations: string[] }) {
+  if (organizations.length === 0) {
+    return null
+  }
+
+  return (
+    <div className="usage-account-orgs">
+      <Building2 size={11} />
+      <span>{organizations.join(', ')}</span>
+    </div>
+  )
+}
+
 function QuotaDataView({
   state,
   data,
@@ -155,7 +176,7 @@ function QuotaDataView({
           </span>
         </div>
         {/* v8 ignore start */}
-        {state?.loading && <RefreshCw size={12} className="spin" />}
+        <QuotaRefreshIndicator state={state} />
         {/* v8 ignore stop */}
       </div>
 
@@ -191,12 +212,7 @@ function QuotaDataView({
       <QuotaProjectionView projection={projection} />
       <QuotaFooter state={state} data={data} />
 
-      {data.organization_login_list.length > 0 && (
-        <div className="usage-account-orgs">
-          <Building2 size={11} />
-          <span>{data.organization_login_list.join(', ')}</span>
-        </div>
-      )}
+      <AccountOrganizations organizations={data.organization_login_list} />
     </>
   )
 }
@@ -242,27 +258,43 @@ function isLoadingWithoutData(loading: boolean, data: unknown): boolean {
   return loading && !data
 }
 
+function resolveQuotaState(state: AccountQuotaState | undefined): AccountQuotaState {
+  return state ?? INITIAL_QUOTA_STATE
+}
+
 export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardProps) {
-  const state = rawState ?? INITIAL_QUOTA_STATE
+  const state = resolveQuotaState(rawState)
   const quotaView = prepareQuotaViewData(state)
-  const showLoading = isLoadingWithoutData(state.loading, state.data)
-  const showError = !!state.error && !state.data
+
+  if (isLoadingWithoutData(state.loading, state.data)) {
+    return (
+      <div className="usage-account-card">
+        <QuotaLoadingView />
+      </div>
+    )
+  }
+
+  if (state.error && !state.data) {
+    return (
+      <div className="usage-account-card">
+        <QuotaErrorView username={account.username} error={state.error} />
+      </div>
+    )
+  }
+
+  if (!quotaView) {
+    return <div className="usage-account-card" />
+  }
 
   return (
     <div className="usage-account-card">
-      {showLoading && <QuotaLoadingView />}
-
-      {showError && <QuotaErrorView username={account.username} error={state.error!} />}
-
-      {quotaView && (
-        <QuotaDataView
-          state={state}
-          data={quotaView.data}
-          premium={quotaView.premium}
-          metrics={quotaView.metrics}
-          projection={quotaView.projection}
-        />
-      )}
+      <QuotaDataView
+        state={state}
+        data={quotaView.data}
+        premium={quotaView.premium}
+        metrics={quotaView.metrics}
+        projection={quotaView.projection}
+      />
     </div>
   )
 }

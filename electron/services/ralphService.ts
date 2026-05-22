@@ -227,17 +227,34 @@ function validateScriptRequirements(config: RalphLaunchConfig): string | null {
   return null
 }
 
+function getProviderValidationError(provider?: string): string | null {
+  if (!provider) return null
+  if (!VALID_PROVIDERS.has(provider)) {
+    return `Invalid provider: ${provider}`
+  }
+  return null
+}
+
+function getModelValidationError(model?: string): string | null {
+  if (!model) return null
+  return validateModelConfig(model)
+}
+
 function validateOptionsConfig(config: RalphLaunchConfig): string | null {
   if (!VALID_SCRIPT_TYPES.has(config.scriptType)) {
     return `Invalid scriptType: ${config.scriptType}`
   }
-  if (config.provider && !VALID_PROVIDERS.has(config.provider)) {
-    return `Invalid provider: ${config.provider}`
-  }
-  if (config.model && validateModelConfig(config.model)) {
-    return validateModelConfig(config.model)
-  }
-  return validateScriptRequirements(config) ?? validateTimingConfig(config)
+
+  const providerError = getProviderValidationError(config.provider)
+  if (providerError) return providerError
+
+  const modelError = getModelValidationError(config.model)
+  if (modelError) return modelError
+
+  const scriptRequirementError = validateScriptRequirements(config)
+  if (scriptRequirementError) return scriptRequirementError
+
+  return validateTimingConfig(config)
 }
 
 function validateRange(
@@ -294,15 +311,29 @@ function collectAllAgents(config: RalphLaunchConfig): string[] {
   return [...devAgentArr, ...(config.agents ?? [])]
 }
 
+function appendArg(args: string[], flag: string, value: string): void {
+  args.push(flag, value)
+}
+
+function appendOptionalStringArg(args: string[], flag: string, value?: string): void {
+  if (!value) return
+  appendArg(args, flag, value)
+}
+
+function appendJoinedArgs(args: string[], flag: string, values: string[]): void {
+  if (values.length === 0) return
+  appendArg(args, flag, values.join(','))
+}
+
 // ralph-pr uses separate -DevAgent param; ralph.ps1 mixes dev into -Agents
 function appendAgentArgs(args: string[], config: RalphLaunchConfig): void {
   if (config.scriptType === 'ralph-pr') {
-    if (config.devAgent) args.push('-DevAgent', config.devAgent)
-    if (config.agents?.length) args.push('-Agents', config.agents.join(','))
-  } else {
-    const allAgents = collectAllAgents(config)
-    if (allAgents.length) args.push('-Agents', allAgents.join(','))
+    appendOptionalStringArg(args, '-DevAgent', config.devAgent)
+    appendJoinedArgs(args, '-Agents', config.agents ?? [])
+    return
   }
+
+  appendJoinedArgs(args, '-Agents', collectAllAgents(config))
 }
 
 // Write multi-line or long prompts to a temp file to avoid Windows
@@ -318,11 +349,11 @@ function resolvePromptArg(prompt: string): string {
 }
 
 function appendStringArgs(args: string[], config: RalphLaunchConfig): void {
-  if (config.model) args.push('-Model', config.model)
-  if (config.provider) args.push('-Provider', config.provider)
-  if (config.workUntil) args.push('-WorkUntil', config.workUntil)
-  if (config.branch) args.push('-Branch', config.branch)
-  if (config.labels) args.push('-Labels', config.labels)
+  appendOptionalStringArg(args, '-Model', config.model)
+  appendOptionalStringArg(args, '-Provider', config.provider)
+  appendOptionalStringArg(args, '-WorkUntil', config.workUntil)
+  appendOptionalStringArg(args, '-Branch', config.branch)
+  appendOptionalStringArg(args, '-Labels', config.labels)
 }
 
 function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
@@ -371,29 +402,21 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
   return args
 }
 
-export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
-  const validationError = validateLaunchConfig(config)
-  if (validationError) return { success: false, error: validationError }
+function getRalphErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return String(err)
+}
 
-  const runId = randomUUID()
-
-  let scriptPath: string
+function resolveScriptPathSafe(config: RalphLaunchConfig): { scriptPath: string | null; error: string | null } {
   try {
-    scriptPath = resolveScriptPath(config)
+    return { scriptPath: resolveScriptPath(config), error: null }
   } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) }
+    return { scriptPath: null, error: getRalphErrorMessage(err) }
   }
+}
 
-  const args = buildArgs(config, scriptPath)
-
-  const proc = spawn('pwsh', args, {
-    cwd: config.repoPath,
-    shell: false,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
-  })
-
-  const run: RalphRunInfo = {
+function createRunInfo(runId: string, config: RalphLaunchConfig, proc: ChildProcess): RalphRunInfo {
+  return {
     runId,
     config,
     status: 'running',
@@ -418,58 +441,96 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
       totalPremium: 0,
     },
   }
+}
 
-  activeRuns.set(runId, run)
-  activeProcesses.set(runId, proc)
+function getOutputLines(data: Buffer): string[] {
+  return data.toString().split('\n').filter(Boolean)
+}
 
-  // Stream stdout
+function appendStdout(runId: string, data: Buffer): void {
+  for (const line of getOutputLines(data)) {
+    appendLogLine(runId, line)
+    parseOutputLine(runId, line)
+  }
+}
+
+function appendStderr(runId: string, data: Buffer): void {
+  for (const line of getOutputLines(data)) {
+    appendLogLine(runId, `[stderr] ${line}`)
+  }
+}
+
+function getTerminalStatus(code: number | null): 'completed' | 'failed' {
+  return code === 0 ? 'completed' : 'failed'
+}
+
+function handleRunClose(runId: string, code: number | null): void {
+  const run = activeRuns.get(runId)
+  if (run && run.status !== 'cancelled') {
+    const terminal = getTerminalStatus(code)
+    Object.assign(run, {
+      exitCode: code,
+      completedAt: Date.now(),
+      updatedAt: Date.now(),
+      status: terminal,
+      phase: terminal,
+    })
+    emitStatusChange(run)
+  }
+  activeProcesses.delete(runId)
+}
+
+function handleRunError(runId: string, err: Error): void {
+  const run = activeRuns.get(runId)
+  if (run) {
+    Object.assign(run, {
+      status: 'failed',
+      phase: 'failed',
+      error: err.message,
+      updatedAt: Date.now(),
+      completedAt: Date.now(),
+    })
+    emitStatusChange(run)
+  }
+  activeProcesses.delete(runId)
+}
+
+function attachProcessListeners(runId: string, proc: ChildProcess): void {
   proc.stdout.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n').filter(Boolean)
-    for (const line of lines) {
-      appendLogLine(runId, line)
-      parseOutputLine(runId, line)
-    }
+    appendStdout(runId, data)
   })
-
-  // Stream stderr
   proc.stderr.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n').filter(Boolean)
-    for (const line of lines) {
-      appendLogLine(runId, `[stderr] ${line}`)
-    }
+    appendStderr(runId, data)
   })
-
-  // Handle exit — respects manually-set terminal status (e.g. 'cancelled' from stopLoop)
   proc.on('close', code => {
-    const r = activeRuns.get(runId)
-    if (r && r.status !== 'cancelled') {
-      const terminal = code === 0 ? 'completed' : ('failed' as const)
-      Object.assign(r, {
-        exitCode: code,
-        completedAt: Date.now(),
-        updatedAt: Date.now(),
-        status: terminal,
-        phase: terminal,
-      })
-      emitStatusChange(r)
-    }
-    activeProcesses.delete(runId)
+    handleRunClose(runId, code)
+  })
+  proc.on('error', err => {
+    handleRunError(runId, err)
+  })
+}
+
+export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
+  const validationError = validateLaunchConfig(config)
+  if (validationError) return { success: false, error: validationError }
+
+  const scriptResult = resolveScriptPathSafe(config)
+  if (!scriptResult.scriptPath || scriptResult.error) {
+    return { success: false, error: scriptResult.error ?? 'Cannot resolve script path' }
+  }
+
+  const runId = randomUUID()
+  const args = buildArgs(config, scriptResult.scriptPath)
+  const proc = spawn('pwsh', args, {
+    cwd: config.repoPath,
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env },
   })
 
-  proc.on('error', err => {
-    const r = activeRuns.get(runId)
-    if (r) {
-      Object.assign(r, {
-        status: 'failed',
-        phase: 'failed',
-        error: err.message,
-        updatedAt: Date.now(),
-        completedAt: Date.now(),
-      })
-      emitStatusChange(r)
-    }
-    activeProcesses.delete(runId)
-  })
+  activeRuns.set(runId, createRunInfo(runId, config, proc))
+  activeProcesses.set(runId, proc)
+  attachProcessListeners(runId, proc)
 
   return { success: true, runId }
 }
@@ -489,35 +550,41 @@ function appendLogLine(runId: string, line: string): void {
   }
 }
 
-function detectPhase(run: RalphRunInfo, clean: string): void {
+function updateRunPhase(run: RalphRunInfo, phase: RalphRunInfo['phase']): void {
+  run.phase = phase
+  run.updatedAt = Date.now()
+  emitStatusChange(run)
+}
+
+function detectIterationPhase(run: RalphRunInfo, clean: string): void {
   const iterMatch = clean.match(/=== ITERATION (\d+)/)
-  if (iterMatch) {
-    run.currentIteration = Number.parseInt(iterMatch[1], 10)
-    run.phase = 'iterating'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
+  if (!iterMatch) return
+  run.currentIteration = Number.parseInt(iterMatch[1], 10)
+  updateRunPhase(run, 'iterating')
+}
 
-  if (clean.includes('Handing off to ralph-pr')) {
-    run.phase = 'pr-handoff'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
+function detectHandoffPhase(run: RalphRunInfo, clean: string): void {
+  if (!clean.includes('Handing off to ralph-pr')) return
+  updateRunPhase(run, 'pr-handoff')
+}
 
-  if (clean.includes('PR review cycle') || clean.includes('Checking CI status')) {
-    run.phase = 'pr-resolving'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
+function detectResolvingPhase(run: RalphRunInfo, clean: string): void {
+  if (!clean.includes('PR review cycle') && !clean.includes('Checking CI status')) return
+  updateRunPhase(run, 'pr-resolving')
+}
 
-  // ralph-issues scan iteration markers: "== Scan Iteration N/"
-  if (/^={2,}\s*Scan Iteration\s+\d+/i.test(clean)) {
-    run.stats.scanIterations++
-    run.currentIteration = run.stats.scanIterations
-    run.phase = 'scanning'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
-  }
+function detectScanningPhase(run: RalphRunInfo, clean: string): void {
+  if (!/^={2,}\s*Scan Iteration\s+\d+/i.test(clean)) return
+  run.stats.scanIterations++
+  run.currentIteration = run.stats.scanIterations
+  updateRunPhase(run, 'scanning')
+}
+
+function detectPhase(run: RalphRunInfo, clean: string): void {
+  detectIterationPhase(run, clean)
+  detectHandoffPhase(run, clean)
+  detectResolvingPhase(run, clean)
+  detectScanningPhase(run, clean)
 }
 
 type StatMatcher = {
@@ -611,12 +678,17 @@ function markRunStopped(run: RalphRunInfo, status: 'cancelled' | 'failed', error
   emitStatusChange(run)
 }
 
+function isLoopRunning(proc: ChildProcess | undefined, run: RalphRunInfo): boolean {
+  if (!proc) return false
+  return run.status === 'running'
+}
+
 export function stopLoop(runId: string): RalphStopResult {
   const proc = activeProcesses.get(runId)
   const run = activeRuns.get(runId)
 
   if (!run) return { success: false, error: `Run not found: ${runId}` }
-  if (!proc || run.status !== 'running') {
+  if (!isLoopRunning(proc, run)) {
     return { success: false, error: `Run ${runId} is not running (status: ${run.status})` }
   }
 
@@ -626,7 +698,7 @@ export function stopLoop(runId: string): RalphStopResult {
     activeProcesses.delete(runId)
     return { success: true }
   } catch (err: unknown) {
-    const msg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
+    const msg = `Failed to stop: ${getRalphErrorMessage(err)}`
     markRunStopped(run, 'failed', msg)
     return { success: false, error: msg }
   }

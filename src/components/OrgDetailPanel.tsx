@@ -1355,6 +1355,26 @@ function RosterFilterBar({
   )
 }
 
+function getMemberRosterItemClassName(memberLogin: string | undefined, login: string): string {
+  return `org-detail-roster-item ${memberLogin === login ? 'active' : ''}`
+}
+
+function formatMemberRosterName(member: OrgMember): string {
+  return member.name ? `${member.name} (${member.login})` : member.login
+}
+
+function formatMemberRosterMeta(
+  member: OrgMember,
+  contributor: OrgContributor | undefined,
+  isConfigured: boolean
+): string {
+  const loginPrefix = member.name ? `@${member.login} · ` : ''
+  const activityLabel = contributor ? `${contributor.commits} today` : 'idle today'
+  const configuredLabel = isConfigured ? ' · configured' : ''
+
+  return `${loginPrefix}${activityLabel}${configuredLabel}`
+}
+
 function MemberRosterItem({
   member,
   org,
@@ -1370,16 +1390,12 @@ function MemberRosterItem({
 }) {
   return (
     <button
-      className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
+      className={getMemberRosterItemClassName(memberLogin, member.login)}
       onClick={() => navigateToOrgUser(org, member.login)}
     >
-      <span className="org-detail-roster-name">
-        {member.name ? `${member.name} (${member.login})` : member.login}
-      </span>
+      <span className="org-detail-roster-name">{formatMemberRosterName(member)}</span>
       <span className="org-detail-roster-meta">
-        {member.name ? `@${member.login} · ` : ''}
-        {contributor ? `${contributor.commits} today` : 'idle today'}
-        {isConfigured ? ' · configured' : ''}
+        {formatMemberRosterMeta(member, contributor, isConfigured)}
       </span>
     </button>
   )
@@ -1447,6 +1463,36 @@ function MemberRosterSection({
   )
 }
 
+function OrgDetailUpdateBanner({ show }: { show: boolean }) {
+  if (!show) return null
+
+  return (
+    <div className="org-detail-update-banner">
+      <RefreshCw size={14} className="spin" />
+      <span>
+        Updating live organization signals in the background. Existing data stays interactive.
+      </span>
+    </div>
+  )
+}
+
+function OrgDetailInlineError({
+  label,
+  message,
+  phase,
+  onRetry,
+}: {
+  label: string
+  message: string | null
+  phase: LoadPhase
+  onRetry: () => void
+}) {
+  if (!message) return null
+  if (phase !== 'error') return null
+
+  return <InlineErrorBanner label={label} message={message} onRetry={onRetry} />
+}
+
 function OrgDetailAlerts({
   isUpdating,
   membersError,
@@ -1464,30 +1510,56 @@ function OrgDetailAlerts({
 }) {
   return (
     <>
-      {isUpdating && (
-        <div className="org-detail-update-banner">
-          <RefreshCw size={14} className="spin" />
-          <span>
-            Updating live organization signals in the background. Existing data stays interactive.
-          </span>
-        </div>
-      )}
-      {membersError && liveMembersPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
-      {copilotError && liveCopilotPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
+      <OrgDetailUpdateBanner show={isUpdating} />
+      {/* v8 ignore start */}
+      <OrgDetailInlineError
+        label="Members"
+        message={membersError}
+        phase={liveMembersPhase}
+        onRetry={onRetry}
+      />
+      <OrgDetailInlineError
+        label="Copilot"
+        message={copilotError}
+        phase={liveCopilotPhase}
+        onRetry={onRetry}
+      />
+      {/* v8 ignore stop */}
     </>
   )
 }
 
 function getHighlightedLogin(member: { login: string } | undefined | null): string | null {
   return member?.login ?? null
+}
+
+function shouldShowOverviewError(
+  overviewError: string | null,
+  overview: OrgOverviewResult | null
+): boolean {
+  if (!overviewError) return false
+
+  return !overview
+}
+
+function OrgDetailErrorState({
+  overviewError,
+  onRetry,
+}: {
+  overviewError: string | null
+  onRetry: () => void
+}) {
+  return (
+    <div className="org-detail-error">
+      <AlertCircle size={32} />
+      <p className="org-detail-error-title">Failed to load organization overview</p>
+      <p className="org-detail-error-detail">{overviewError}</p>
+      <button className="org-detail-refresh-btn" onClick={onRetry}>
+        <RefreshCw size={14} />
+        Retry
+      </button>
+    </div>
+  )
 }
 
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
@@ -1584,18 +1656,8 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     return <OrgDetailSkeleton org={org} />
   }
 
-  if (overviewError && !overview) {
-    return (
-      <div className="org-detail-error">
-        <AlertCircle size={32} />
-        <p className="org-detail-error-title">Failed to load organization overview</p>
-        <p className="org-detail-error-detail">{overviewError}</p>
-        <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
-          <RefreshCw size={14} />
-          Retry
-        </button>
-      </div>
-    )
+  if (shouldShowOverviewError(overviewError, overview)) {
+    return <OrgDetailErrorState overviewError={overviewError} onRetry={() => fetchAll(true)} />
   }
 
   if (!overview) return null

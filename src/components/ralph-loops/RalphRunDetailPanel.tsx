@@ -159,6 +159,50 @@ function StatsGrid({ stats }: { stats: RalphRunStats }) {
   )
 }
 
+function getRunModel(run: RalphRunInfo) {
+  return run.config.model || 'default'
+}
+
+function getRunBranch(run: RalphRunInfo) {
+  return run.config.branch || '(auto)'
+}
+
+function shouldShowIterationProgress(run: RalphRunInfo) {
+  return run.totalIterations != null && run.totalIterations > 0
+}
+
+function getRunStatus(run: RalphRunInfo | null) {
+  return run?.status ?? null
+}
+
+function getRunErrorMessage(error: string | null, run: RalphRunInfo | null) {
+  if (error) {
+    return error
+  }
+
+  return run ? null : 'Run not found'
+}
+
+function RunNotFoundState({ message, runId }: { message: string; runId: string }) {
+  return (
+    <div className="ralph-run-detail">
+      <div className="ralph-run-detail-empty">
+        <AlertCircle size={32} />
+        <span>{message}</span>
+        <span className="ralph-run-detail-runid">{runId}</span>
+      </div>
+    </div>
+  )
+}
+
+function RunErrorBanner({ error }: { error: string | null }) {
+  if (!error) {
+    return null
+  }
+
+  return <div className="ralph-run-detail-error">{error}</div>
+}
+
 function ProgressSection({ run }: { run: RalphRunInfo }) {
   const [, setTick] = useState(0)
 
@@ -168,8 +212,8 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
     return () => clearInterval(timer)
   }, [run.status])
 
-  const model = run.config.model || 'default'
-  const branch = run.config.branch || '(auto)'
+  const model = getRunModel(run)
+  const branch = getRunBranch(run)
   const phase = PHASE_LABELS[run.phase]
   const duration = formatDuration(run.startedAt, run.completedAt)
   const stats = run.stats
@@ -185,7 +229,7 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
           Branch: <strong>{branch}</strong>
         </span>
       </div>
-      {run.totalIterations != null && run.totalIterations > 0 && (
+      {shouldShowIterationProgress(run) && (
         <ProgressBar
           current={run.currentIteration}
           total={run.totalIterations}
@@ -292,7 +336,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     if (!run || !isActive(run.status)) return
     const timer = setInterval(fetchRun, LOG_POLL_MS)
     return () => clearInterval(timer)
-  }, [run?.status, fetchRun]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [getRunStatus(run), fetchRun]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStop = useCallback(
     async (id: string) => {
@@ -317,16 +361,10 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     )
   }
 
-  if (error || !run) {
-    return (
-      <div className="ralph-run-detail">
-        <div className="ralph-run-detail-empty">
-          <AlertCircle size={32} />
-          <span>{error}</span>
-          <span className="ralph-run-detail-runid">{runId}</span>
-        </div>
-      </div>
-    )
+  const runErrorMessage = getRunErrorMessage(error, run)
+
+  if (runErrorMessage || !run) {
+    return <RunNotFoundState message={runErrorMessage ?? 'Run not found'} runId={runId} />
   }
 
   return (
@@ -335,7 +373,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
 
       <ProgressSection run={run} />
 
-      {run.error && <div className="ralph-run-detail-error">{run.error}</div>}
+      <RunErrorBanner error={run.error} />
 
       <LogViewer run={run} />
     </div>

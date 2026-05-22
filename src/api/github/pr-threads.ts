@@ -68,6 +68,16 @@ function extractSimpleThreads(result: {
   return result.repository?.pullRequest?.reviewThreads
 }
 
+function cloneSimpleThreadNodes(
+  nodes: Array<{ isResolved: boolean }> | null | undefined
+): Array<{ isResolved: boolean }> {
+  return [...(nodes ?? [])]
+}
+
+function hasSimpleThreadCursor(pageInfo: { hasNextPage: boolean; endCursor: string | null }): boolean {
+  return pageInfo.hasNextPage && Boolean(pageInfo.endCursor)
+}
+
 async function paginateReviewThreads(
   owner: string,
   repo: string,
@@ -78,10 +88,10 @@ async function paginateReviewThreads(
   },
   token: string
 ): Promise<Array<{ isResolved: boolean }>> {
-  const allNodes = [...(firstPage.nodes ?? [])]
+  const allNodes = cloneSimpleThreadNodes(firstPage.nodes)
   let { hasNextPage, endCursor } = firstPage.pageInfo
 
-  while (hasNextPage && endCursor) {
+  while (hasSimpleThreadCursor({ hasNextPage, endCursor })) {
     const pageResult = await graphql<{
       repository: {
         pullRequest: {
@@ -91,12 +101,12 @@ async function paginateReviewThreads(
           }
         } | null
       } | null
-    }>(buildSimpleThreadsPageQuery(owner, repo, prNumber, endCursor), {
+    }>(buildSimpleThreadsPageQuery(owner, repo, prNumber, endCursor!), {
       headers: { authorization: `token ${token}` },
     })
     const pageThreads = extractSimpleThreads(pageResult)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes ?? []))
+    allNodes.push(...cloneSimpleThreadNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }

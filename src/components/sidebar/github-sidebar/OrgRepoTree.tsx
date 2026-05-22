@@ -132,6 +132,26 @@ function OrgRepoCount({
   )
 }
 
+function OrgChevronIcon({ isOrgExpanded }: { isOrgExpanded: boolean }) {
+  return isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />
+}
+
+function OrgFolderIcon({ isOrgExpanded }: { isOrgExpanded: boolean }) {
+  return isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
+function OrgNamespaceBadge({ meta }: { meta?: OrgMetadata }) {
+  if (!meta?.isUserNamespace) {
+    return null
+  }
+
+  return (
+    <span className="sidebar-namespace-badge" title="User account (not an org)">
+      user
+    </span>
+  )
+}
+
 function OrgHeader({
   org,
   isOrgExpanded,
@@ -163,17 +183,13 @@ function OrgHeader({
         }}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrg(org), true)}
       >
-        {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <OrgChevronIcon isOrgExpanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-icon">
-        {isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+        <OrgFolderIcon isOrgExpanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-label">{org}</span>
-      {meta?.isUserNamespace && (
-        <span className="sidebar-namespace-badge" title="User account (not an org)">
-          user
-        </span>
-      )}
+      <OrgNamespaceBadge meta={meta} />
       <OrgRepoCount
         isLoading={isLoading}
         repoCount={repoCount}
@@ -279,6 +295,35 @@ function OrgTeamNodeMembers({
   )
 }
 
+function resolveTeamNodeTitle(team: OrgTeam): string {
+  return team.description ?? team.name
+}
+
+function resolveTeamUserMembers(
+  teamMembers: Record<string, TeamMember[]>,
+  teamKey: string
+): TeamMember[] {
+  return teamMembers[teamKey] ?? []
+}
+
+function TeamMemberCountBadge({
+  isLoadingMembers,
+  memberCount,
+}: {
+  isLoadingMembers: boolean
+  memberCount: number
+}) {
+  if (isLoadingMembers) {
+    return <Loader2 size={10} className="spin" />
+  }
+
+  if (memberCount > 0) {
+    return <span className="sidebar-item-count">{memberCount}</span>
+  }
+
+  return null
+}
+
 function OrgTeamNode({
   org,
   team,
@@ -291,7 +336,7 @@ function OrgTeamNode({
 }: OrgTeamNodeProps) {
   const teamKey = `${org}/${team.slug}`
   const isTeamExpanded = expandedTeams.has(teamKey)
-  const teamUserMembers = teamMembers[teamKey] ?? []
+  const teamUserMembers = resolveTeamUserMembers(teamMembers, teamKey)
   const isLoadingMembers = loadingTeamMembers.has(teamKey)
 
   return (
@@ -301,7 +346,7 @@ function OrgTeamNode({
         role="button"
         tabIndex={0}
         onClick={() => onToggleTeam(org, team.slug)}
-        title={team.description ?? team.name}
+        title={resolveTeamNodeTitle(team)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleTeam(org, team.slug))}
       >
         <span className="sidebar-item-chevron">
@@ -311,11 +356,10 @@ function OrgTeamNode({
           <UsersRound size={11} />
         </span>
         <span className="sidebar-item-label">{team.name}</span>
-        {isLoadingMembers ? (
-          <Loader2 size={10} className="spin" />
-        ) : team.memberCount > 0 ? (
-          <span className="sidebar-item-count">{team.memberCount}</span>
-        ) : null}
+        <TeamMemberCountBadge
+          isLoadingMembers={isLoadingMembers}
+          memberCount={team.memberCount}
+        />
       </div>
       <OrgTeamNodeMembers
         isExpanded={isTeamExpanded}

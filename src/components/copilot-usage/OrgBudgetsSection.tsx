@@ -26,13 +26,31 @@ function clampPct(value: number, budget: number): number {
   return Math.min((value / budget) * 100, 100)
 }
 
+function resolveBudgetSpendAmounts(
+  d: NonNullable<OrgBudgetState['data']>,
+  quotaOverage: number
+): { displaySpent: number; myShare: number } {
+  if (d.useQuotaOverage) {
+    return { displaySpent: quotaOverage, myShare: 0 }
+  }
+
+  return { displaySpent: d.spent ?? 0, myShare: quotaOverage }
+}
+
+function resolveMySharePct(myShare: number, effectiveBudget: number, pct: number): number | null {
+  if (myShare <= 0) {
+    return null
+  }
+
+  return Math.min((myShare / effectiveBudget) * 100, pct)
+}
+
 function computeBudgetCardMetrics(
   d: NonNullable<OrgBudgetState['data']>,
   quotaOverage: number
 ): BudgetCardMetrics {
   const effectiveBudget = resolveEffectiveBudget(d)
-  const displaySpent = d.useQuotaOverage ? quotaOverage : (d.spent ?? 0)
-  const myShare = d.useQuotaOverage ? 0 : quotaOverage
+  const { displaySpent, myShare } = resolveBudgetSpendAmounts(d, quotaOverage)
   const barValue = Math.max(displaySpent, myShare)
 
   if (!effectiveBudget) {
@@ -47,7 +65,7 @@ function computeBudgetCardMetrics(
   }
 
   const pct = clampPct(barValue, effectiveBudget)
-  const mySharePct = myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct) : null
+  const mySharePct = resolveMySharePct(myShare, effectiveBudget, pct)
   const barColor = getQuotaColor(pct)
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
 }
@@ -217,6 +235,41 @@ function BudgetCardError({ error }: { error: string }) {
 
 const BUDGET_CARD_DEFAULTS: OrgBudgetState = { data: null, loading: false, error: null }
 
+function resolveBudgetCardMetrics(
+  data: NonNullable<OrgBudgetState['data']> | null,
+  quotaOverage: number
+): BudgetCardMetrics | null {
+  if (!data) {
+    return null
+  }
+
+  return computeBudgetCardMetrics(data, quotaOverage)
+}
+
+function getPreventFurtherUsage(data: NonNullable<OrgBudgetState['data']> | null): boolean | undefined {
+  return data?.preventFurtherUsage
+}
+
+function BudgetCardContent({
+  data,
+  error,
+  metrics,
+}: {
+  data: NonNullable<OrgBudgetState['data']> | null
+  error: string | null
+  metrics: BudgetCardMetrics | null
+}) {
+  if (error && !data) {
+    return <BudgetCardError error={error} />
+  }
+
+  if (data && metrics) {
+    return <BudgetCardBody d={data} metrics={metrics} />
+  }
+
+  return null
+}
+
 function BudgetCard({
   org,
   state,
@@ -227,15 +280,16 @@ function BudgetCard({
   quotaOverage: number
 }) {
   const { data: d, loading, error } = { ...BUDGET_CARD_DEFAULTS, ...state }
-  const metrics = d ? computeBudgetCardMetrics(d, quotaOverage) : null
+  const metrics = resolveBudgetCardMetrics(d, quotaOverage)
 
   return (
     <div className="usage-budget-card">
-      <BudgetCardHeader org={org} loading={loading} preventFurtherUsage={d?.preventFurtherUsage} />
-
-      {error && !d && <BudgetCardError error={error} />}
-
-      {metrics && <BudgetCardBody d={d!} metrics={metrics} />}
+      <BudgetCardHeader
+        org={org}
+        loading={loading}
+        preventFurtherUsage={getPreventFurtherUsage(d)}
+      />
+      <BudgetCardContent data={d} error={error} metrics={metrics} />
     </div>
   )
 }

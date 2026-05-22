@@ -44,6 +44,100 @@ function deriveContextMenu(
     : null
 }
 
+function getTabTooltip(tab: TerminalTab): string {
+  return tab.cwd || tab.title
+}
+
+function getTabStyle(tab: TerminalTab): React.CSSProperties | undefined {
+  return tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined
+}
+
+function TerminalTabColorDot({ color }: { color?: string }) {
+  if (!color) {
+    return null
+  }
+
+  return <span className="terminal-panel-tab-color-dot" />
+}
+
+function TerminalTabItem({
+  tab,
+  activeTabId,
+  dragOverId,
+  handleContextMenu,
+  handleDragStart,
+  handleDragOver,
+  handleDragEnd,
+  handleDrop,
+  handleTabSelect,
+  handleTabClose,
+}: {
+  tab: TerminalTab
+  activeTabId: string | null
+  dragOverId: string | null
+  handleContextMenu: (e: React.MouseEvent, tab: TerminalTab) => void
+  handleDragStart: (e: React.DragEvent, tabId: string) => void
+  handleDragOver: (e: React.DragEvent, tabId: string) => void
+  handleDragEnd: () => void
+  handleDrop: (e: React.DragEvent, toId: string) => void
+  handleTabSelect: (tabId: string) => void
+  handleTabClose: (e: SyntheticEvent, tabId: string) => void
+}) {
+  return (
+    <div
+      className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
+      /* v8 ignore start */
+      title={getTabTooltip(tab)}
+      /* v8 ignore stop */
+      onContextMenu={e => handleContextMenu(e, tab)}
+      style={getTabStyle(tab)}
+      draggable
+      onDragStart={e => handleDragStart(e, tab.id)}
+      onDragOver={e => handleDragOver(e, tab.id)}
+      onDragEnd={handleDragEnd}
+      onDrop={e => handleDrop(e, tab.id)}
+    >
+      <TerminalTabColorDot color={tab.color} />
+      <button type="button" className="terminal-panel-tab-button" onClick={() => handleTabSelect(tab.id)}>
+        <span className="terminal-panel-tab-title">{tab.title}</span>
+      </button>
+      <button
+        type="button"
+        className="terminal-panel-tab-close"
+        onClick={e => handleTabClose(e, tab.id)}
+        aria-label={`Close ${tab.title}`}
+      >
+        <X size={12} />
+      </button>
+    </div>
+  )
+}
+
+function TerminalPanelBody({
+  activeTab,
+  onTabCwdChange,
+}: {
+  activeTab: TerminalTab | undefined
+  onTabCwdChange: (tabId: string, cwd: string) => void
+}) {
+  if (!activeTab) {
+    return <div className="terminal-panel-empty">No terminal sessions. Click + to open one.</div>
+  }
+
+  return (
+    <Suspense fallback={<div className="terminal-panel-loading">Loading terminal…</div>}>
+      <TerminalPane
+        key={activeTab.id}
+        viewKey={activeTab.id}
+        /* v8 ignore start */
+        cwd={activeTab.cwd || undefined}
+        /* v8 ignore stop */
+        onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
+      />
+    </Suspense>
+  )
+}
+
 export function TerminalPanel({
   tabs,
   activeTabId,
@@ -170,37 +264,19 @@ export function TerminalPanel({
         </div>
         <div className="terminal-panel-tabs">
           {tabs.map(tab => (
-            <div
+            <TerminalTabItem
               key={tab.id}
-              className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
-              /* v8 ignore start */
-              title={tab.cwd || tab.title}
-              /* v8 ignore stop */
-              onContextMenu={e => handleContextMenu(e, tab)}
-              style={tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined}
-              draggable
-              onDragStart={e => handleDragStart(e, tab.id)}
-              onDragOver={e => handleDragOver(e, tab.id)}
-              onDragEnd={handleDragEnd}
-              onDrop={e => handleDrop(e, tab.id)}
-            >
-              {tab.color && <span className="terminal-panel-tab-color-dot" />}
-              <button
-                type="button"
-                className="terminal-panel-tab-button"
-                onClick={() => handleTabSelect(tab.id)}
-              >
-                <span className="terminal-panel-tab-title">{tab.title}</span>
-              </button>
-              <button
-                type="button"
-                className="terminal-panel-tab-close"
-                onClick={e => handleTabClose(e, tab.id)}
-                aria-label={`Close ${tab.title}`}
-              >
-                <X size={12} />
-              </button>
-            </div>
+              tab={tab}
+              activeTabId={activeTabId}
+              dragOverId={dragOverId}
+              handleContextMenu={handleContextMenu}
+              handleDragStart={handleDragStart}
+              handleDragOver={handleDragOver}
+              handleDragEnd={handleDragEnd}
+              handleDrop={handleDrop}
+              handleTabSelect={handleTabSelect}
+              handleTabClose={handleTabClose}
+            />
           ))}
           <button
             type="button"
@@ -214,20 +290,7 @@ export function TerminalPanel({
         </div>
       </div>
       <div className="terminal-panel-body">
-        {activeTab ? (
-          <Suspense fallback={<div className="terminal-panel-loading">Loading terminal…</div>}>
-            <TerminalPane
-              key={activeTab.id}
-              viewKey={activeTab.id}
-              /* v8 ignore start */
-              cwd={activeTab.cwd || undefined}
-              /* v8 ignore stop */
-              onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
-            />
-          </Suspense>
-        ) : (
-          <div className="terminal-panel-empty">No terminal sessions. Click + to open one.</div>
-        )}
+        <TerminalPanelBody activeTab={activeTab} onTabCwdChange={onTabCwdChange} />
       </div>
       {contextMenu && (
         <TerminalTabContextMenu

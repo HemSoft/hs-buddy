@@ -19,6 +19,15 @@ const STATUS_FILTERS = [
 
 const PROMPT_PREVIEW_MAX_LENGTH = 80
 
+type CopilotResult = NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+
+function filterCopilotResults(results: CopilotResult[], statusFilter: string): CopilotResult[] {
+  if (statusFilter === 'all') {
+    return results
+  }
+  return results.filter(result => result.status === statusFilter)
+}
+
 function PromptResultLabel({
   result,
 }: {
@@ -94,11 +103,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
   const results = useCopilotResultsRecent(50)
   const { remove } = useCopilotResultMutations()
 
-  const filteredResults = results
-    ? statusFilter === 'all'
-      ? results
-      : results.filter(r => r.status === statusFilter)
-    : []
+  const filteredResults = results ? filterCopilotResults(results, statusFilter) : []
 
   const handleDelete = async (e: React.MouseEvent, resultId: string) => {
     e.stopPropagation()

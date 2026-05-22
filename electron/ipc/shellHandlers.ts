@@ -94,6 +94,44 @@ async function fetchPageContent(url: string): Promise<string> {
   throw new Error('Too many redirects')
 }
 
+function getBrowserWindowTitle(title: string | undefined, hostname: string): string {
+  return title ?? hostname
+}
+
+function getBrowserWindowIconPath(): string {
+  const iconName = process.platform === 'win32' ? 'icon.ico' : 'icon.png'
+  return path.join(__dirname, '..', '..', 'public', iconName)
+}
+
+function createInAppBrowserWindow(title: string | undefined, hostname: string): BrowserWindow {
+  return new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 600,
+    minHeight: 400,
+    title: getBrowserWindowTitle(title, hostname),
+    icon: getBrowserWindowIconPath(),
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      partition: 'persist:browser',
+    },
+    backgroundColor: '#1e1e1e',
+  })
+}
+
+async function loadBrowserWindowUrl(browserWin: BrowserWindow, url: string): Promise<void> {
+  try {
+    await browserWin.loadURL(url)
+  } catch (loadError: unknown) {
+    const message = getErrorMessage(loadError)
+    if (!message.includes('ERR_ABORTED')) {
+      throw loadError
+    }
+  }
+}
+
 export function registerShellHandlers(): void {
   // Open external links in default browser
   ipcMain.handle(IPC_INVOKE.SHELL_OPEN_EXTERNAL, async (_event, url: string) => {
@@ -122,27 +160,7 @@ export function registerShellHandlers(): void {
         // Validate URL with DNS check — SSRF protection
         const parsed = await validateUrlWithDns(url)
 
-        const browserWin = new BrowserWindow({
-          width: 1200,
-          height: 800,
-          minWidth: 600,
-          minHeight: 400,
-          title: title ?? parsed.hostname,
-          icon: path.join(
-            __dirname,
-            '..',
-            '..',
-            'public',
-            process.platform === 'win32' ? 'icon.ico' : 'icon.png'
-          ),
-          webPreferences: {
-            contextIsolation: true,
-            nodeIntegration: false,
-            sandbox: true,
-            partition: 'persist:browser',
-          },
-          backgroundColor: '#1e1e1e',
-        })
+        const browserWin = createInAppBrowserWindow(title, parsed.hostname)
 
         // Remove the application menu from the browser window
         browserWin.setMenuBarVisibility(false)
@@ -201,17 +219,10 @@ export function registerShellHandlers(): void {
           return { action: 'deny' }
         })
 
-        try {
-          await browserWin.loadURL(url)
-        } catch (loadError: unknown) {
-          // When will-redirect intercepts a redirect, it calls preventDefault()
-          // which aborts the original loadURL() promise with ERR_ABORTED.
-          // This is expected — guardedNavigate() is handling the redirect target.
-          const msg = getErrorMessage(loadError)
-          if (!msg.includes('ERR_ABORTED')) {
-            throw loadError
-          }
-        }
+        // When will-redirect intercepts a redirect, it calls preventDefault()
+        // which aborts the original loadURL() promise with ERR_ABORTED.
+        // This is expected — guardedNavigate() is handling the redirect target.
+        await loadBrowserWindowUrl(browserWin, url)
         recordWindowOpen(parsed.hostname)
         return { success: true }
       } catch (error: unknown) {

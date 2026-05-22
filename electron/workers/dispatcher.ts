@@ -28,6 +28,28 @@ const workers: Record<string, Worker> = {
   skill: skillWorker,
 }
 
+type SnapshotAccount = { username: string; org: string }
+
+type SnapshotCounts = {
+  succeeded: number
+  failed: number
+}
+
+function getSnapshotAccounts(run: { input?: { accounts?: SnapshotAccount[] } }): SnapshotAccount[] {
+  if (!Array.isArray(run.input?.accounts)) {
+    return []
+  }
+  return run.input.accounts
+}
+
+function updateSnapshotCounts(counts: SnapshotCounts, ok: boolean): void {
+  if (ok) {
+    counts.succeeded++
+    return
+  }
+  counts.failed++
+}
+
 class Dispatcher {
   private client: ConvexHttpClient
   private timer: ReturnType<typeof setInterval> | null = null
@@ -195,10 +217,10 @@ class Dispatcher {
   /** Collect Copilot usage snapshots and persist to copilotUsageHistory */
   private async executeSnapshotCollection(run: {
     _id: Id<'runs'>
-    input?: { accounts?: Array<{ username: string; org: string }> }
+    input?: { accounts?: SnapshotAccount[] }
   }): Promise<void> {
-    const accounts = run.input?.accounts as Array<{ username: string; org: string }> | undefined
-    if (!accounts || accounts.length === 0) {
+    const accounts = getSnapshotAccounts(run)
+    if (accounts.length === 0) {
       await this.client.mutation(api.runs.fail, {
         id: run._id,
         error: 'No accounts provided for snapshot collection',
@@ -207,17 +229,15 @@ class Dispatcher {
     }
 
     const start = Date.now()
-    let succeeded = 0
-    let failed = 0
+    const counts: SnapshotCounts = { succeeded: 0, failed: 0 }
 
     for (const { username, org } of accounts) {
       const ok = await this.collectAccountSnapshot(username, org)
-      if (ok) succeeded++
-      else failed++
+      updateSnapshotCounts(counts, ok)
     }
 
     const duration = Date.now() - start
-    const output = buildSnapshotCollectionOutput(succeeded, failed)
+    const output = buildSnapshotCollectionOutput(counts.succeeded, counts.failed)
     console.log(`[Dispatcher] ${output.stdout} in ${duration}ms`)
 
     await this.client.mutation(api.runs.complete, {

@@ -132,6 +132,17 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
   }
 }
 
+function resolveExactRouteGroup(
+  activeViewId: string,
+  ctx: ExactRouteContext
+): React.JSX.Element | null {
+  return (
+    resolveRoute(SETTINGS_ROUTES, activeViewId) ??
+    resolveRoute(buildCopilotRoutes(ctx), activeViewId) ??
+    resolveRoute(buildWorkspaceRoutes(ctx), activeViewId)
+  )
+}
+
 function renderExactRoute(
   activeViewId: string,
   prCounts: Record<string, number>,
@@ -164,11 +175,7 @@ function renderExactRoute(
     onOpenTab,
     onPRCountChange,
   }
-  return (
-    resolveRoute(SETTINGS_ROUTES, activeViewId) ??
-    resolveRoute(buildCopilotRoutes(ctx), activeViewId) ??
-    resolveRoute(buildWorkspaceRoutes(ctx), activeViewId)
-  )
+  return resolveExactRouteGroup(activeViewId, ctx)
 }
 
 type PrefixRouteEntry = {

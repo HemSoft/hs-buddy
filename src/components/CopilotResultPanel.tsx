@@ -51,6 +51,79 @@ function extractPRMetadata(metadata: Record<string, unknown> | null) {
   return { org, repo, prNumber }
 }
 
+function shouldSkipPRPublish(resultText: string | null | undefined, publishing: boolean) {
+  return !resultText || publishing
+}
+
+function getPublishReviewBody(resultText: string, model: string | null | undefined) {
+  return `## 🤖 AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy — ${model || 'AI'} review*`
+}
+
+function getResultTitle(
+  result: NonNullable<ReturnType<typeof useCopilotResult>>,
+  metadata: Record<string, unknown> | null
+) {
+  if (result.category !== 'pr-review') {
+    return 'Copilot Result'
+  }
+
+  return isNonEmptyString(metadata?.prTitle) ? `PR Review: ${metadata.prTitle}` : 'Copilot Result'
+}
+
+function ResultMeta({ result }: { result: NonNullable<ReturnType<typeof useCopilotResult>> }) {
+  return (
+    <div className="copilot-result-meta">
+      <span className="copilot-result-status">
+        {getStatusIcon(result.status, 16, 'status')}
+        {getStatusLabel(result.status, true)}
+      </span>
+      {result.model && <span className="copilot-result-model">{result.model}</span>}
+      <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
+      {result.duration && (
+        <span className="copilot-result-duration">{formatDuration(result.duration)}</span>
+      )}
+    </div>
+  )
+}
+
+function CompletedContent({ resultText }: { resultText?: string | null }) {
+  if (!resultText) {
+    return null
+  }
+
+  return <MarkdownContent source={resultText} className="copilot-result-markdown" />
+}
+
+function ResultContentBody({
+  status,
+  resultText,
+  error,
+  onRetry,
+}: {
+  status: string
+  resultText?: string | null
+  error?: string | null
+  onRetry: () => void
+}) {
+  if (status === 'pending') {
+    return <PendingContent />
+  }
+
+  if (status === 'running') {
+    return <RunningContent />
+  }
+
+  if (status === 'completed') {
+    return <CompletedContent resultText={resultText} />
+  }
+
+  if (status === 'failed') {
+    return <FailedContent error={error} onRetry={onRetry} />
+  }
+
+  return null
+}
+
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const result = useCopilotResult(resultId as Id<'copilotResults'>)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -116,14 +189,14 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   }
 
   const handlePublishToPR = async () => {
-    if (!result.result || publishing) return
+    if (shouldSkipPRPublish(result.result, publishing)) return
     const prMeta = extractPRMetadata(metadata)
     if (!prMeta) return
 
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
+      const body = getPublishReviewBody(result.result, result.model)
       await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
     } catch (err: unknown) {
@@ -196,22 +269,8 @@ function ResultHeader({
       <div className="copilot-result-header-left">
         <Sparkles size={20} className="copilot-header-icon" />
         <div className="copilot-result-title-info">
-          <h2>
-            {result.category === 'pr-review' && metadata?.prTitle
-              ? `PR Review: ${metadata.prTitle as string}`
-              : 'Copilot Result'}
-          </h2>
-          <div className="copilot-result-meta">
-            <span className="copilot-result-status">
-              {getStatusIcon(result.status, 16, 'status')}
-              {getStatusLabel(result.status, true)}
-            </span>
-            {result.model && <span className="copilot-result-model">{result.model}</span>}
-            <span className="copilot-result-date">{formatDateFull(result.createdAt)}</span>
-            {result.duration && (
-              <span className="copilot-result-duration">{formatDuration(result.duration)}</span>
-            )}
-          </div>
+          <h2>{getResultTitle(result, metadata)}</h2>
+          <ResultMeta result={result} />
         </div>
       </div>
       <ResultActions
@@ -395,12 +454,7 @@ function ResultContent({
 }) {
   return (
     <div ref={contentRef} className="copilot-result-content">
-      {status === 'pending' && <PendingContent />}
-      {status === 'running' && <RunningContent />}
-      {status === 'completed' && resultText && (
-        <MarkdownContent source={resultText} className="copilot-result-markdown" />
-      )}
-      {status === 'failed' && <FailedContent error={error} onRetry={onRetry} />}
+      <ResultContentBody status={status} resultText={resultText} error={error} onRetry={onRetry} />
     </div>
   )
 }

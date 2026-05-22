@@ -9,6 +9,32 @@ import { getSessionDetail } from './copilotSessionService'
 // Creates realistic JSONL files matching VS Code Copilot chatSession format.
 // The regex-extraction hot path in copilotSessionService operates on these lines.
 
+type ResultMetadata = {
+  promptTokens?: number
+  outputTokens?: number
+  toolCallRounds?: Array<{ toolCalls?: unknown[] }>
+}
+
+function getResultMetadata(line: string): ResultMetadata {
+  const parsed = JSON.parse(line) as { v?: { metadata?: ResultMetadata } }
+  return parsed.v?.metadata ?? {}
+}
+
+function countToolCalls(rounds?: Array<{ toolCalls?: unknown[] }>): number {
+  let toolCallCount = 0
+  for (const round of rounds ?? []) {
+    toolCallCount += round.toolCalls?.length ?? 0
+  }
+  return toolCallCount
+}
+
+function readParsedResultData(line: string): void {
+  const meta = getResultMetadata(line)
+  void (meta.promptTokens ?? 0)
+  void (meta.outputTokens ?? 0)
+  void countToolCalls(meta.toolCallRounds)
+}
+
 function generateJSONLFixture(requestCount: number): string {
   const lines: string[] = []
 
@@ -189,15 +215,7 @@ describe('regex extraction (hot path)', () => {
   })
 
   bench('extractResultData JSON.parse', () => {
-    const parsed = JSON.parse(resultLine)
-    const meta = parsed.v.metadata ?? {}
-    void (meta.promptTokens ?? 0)
-    void (meta.outputTokens ?? 0)
-    let toolCallCount = 0
-    for (const round of meta.toolCallRounds ?? []) {
-      toolCallCount += (round.toolCalls ?? []).length
-    }
-    void toolCallCount
+    readParsedResultData(resultLine)
   })
 
   const promptTokensRe = /"promptTokens":(\d+)/

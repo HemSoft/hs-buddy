@@ -138,38 +138,34 @@ function CronOptions({
     )
   }
 
-  if (frequency === 'monthly') {
-    return (
-      <>
-        <div className="cron-option">
-          <span className="option-label">On day</span>
-          <select
-            value={dayOfMonth}
-            onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
-          >
-            {Array.from({ length: 31 }, (_, day) => (
-              <option key={day + 1} value={day + 1}>
-                {day + 1}
-              </option>
-            ))}
-          </select>
-          <span className="option-suffix">of every month</span>
-        </div>
-        <div className="cron-option">
-          <span className="option-label">At</span>
-          {hourSelect}
-          <span className="option-separator">:</span>
-          {minuteSelect}
-        </div>
-      </>
-    )
-  }
-
-  if (frequency === 'custom') {
+  if (frequency !== 'monthly') {
     return null // handled separately in CronBuilder
   }
 
-  return null
+  return (
+    <>
+      <div className="cron-option">
+        <span className="option-label">On day</span>
+        <select
+          value={dayOfMonth}
+          onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
+        >
+          {Array.from({ length: 31 }, (_, day) => (
+            <option key={day + 1} value={day + 1}>
+              {day + 1}
+            </option>
+          ))}
+        </select>
+        <span className="option-suffix">of every month</span>
+      </div>
+      <div className="cron-option">
+        <span className="option-label">At</span>
+        {hourSelect}
+        <span className="option-separator">:</span>
+        {minuteSelect}
+      </div>
+    </>
+  )
 }
 
 function freqBtnClass(current: string, target: string): string {

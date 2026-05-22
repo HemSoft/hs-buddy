@@ -101,6 +101,23 @@ const ORG_REPO_NUM_DEFAULTS = { stargazers_count: 0, forks_count: 0, archived: f
 
 // ─── Helper functions ─────────────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveOrgRepoMetadata(repo: any): Pick<OrgRepo, 'description' | 'defaultBranch' | 'language'> {
+  return {
+    description: repo.description ?? null,
+    defaultBranch: repo.default_branch || 'main',
+    language: repo.language ?? null,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveOrgRepoActivity(repo: any): Pick<OrgRepo, 'updatedAt' | 'pushedAt'> {
+  return {
+    updatedAt: repo.updated_at ?? null,
+    pushedAt: repo.pushed_at ?? null,
+  }
+}
+
 /** Map a repo entry from Octokit response to OrgRepo. */
 /* v8 ignore start -- API response null-guards in org repo mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -109,16 +126,13 @@ function mapRawRepoToOrgRepo(repo: any): OrgRepo {
   return {
     name: repo.name,
     fullName: repo.full_name,
-    description: repo.description ?? null,
     url: repo.html_url,
-    defaultBranch: repo.default_branch || 'main',
-    language: repo.language ?? null,
     stargazersCount: d.stargazers_count,
     forksCount: d.forks_count,
     isPrivate: repo.private,
     isArchived: d.archived,
-    updatedAt: repo.updated_at ?? null,
-    pushedAt: repo.pushed_at ?? null,
+    ...resolveOrgRepoMetadata(repo),
+    ...resolveOrgRepoActivity(repo),
   }
 }
 

@@ -1,17 +1,24 @@
 import { getQuotaColor } from './quotaUtils'
 
-/** SVG circular progress ring with optional projected ghost arc */
-export function UsageRing({
-  percentUsed,
-  projectedPercent,
-  size = 100,
-  strokeWidth = 8,
-}: {
+type UsageRingProps = {
   percentUsed: number
   projectedPercent?: number
   size?: number
   strokeWidth?: number
-}) {
+}
+
+const USAGE_RING_DEFAULTS = {
+  size: 100,
+  strokeWidth: 8,
+}
+
+function resolveUsageRingProps(props: UsageRingProps) {
+  return { ...USAGE_RING_DEFAULTS, ...props }
+}
+
+/** SVG circular progress ring with optional projected ghost arc */
+export function UsageRing(rawProps: UsageRingProps) {
+  const { percentUsed, projectedPercent, size, strokeWidth } = resolveUsageRingProps(rawProps)
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (Math.min(percentUsed, 100) / 100) * circumference

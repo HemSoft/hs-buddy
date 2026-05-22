@@ -101,14 +101,23 @@ function GridEmpty({
   )
 }
 
+function getTotalStatusClass(isDayComplete: boolean, dayTotal: number): string {
+  if (isDayComplete) return 'full'
+  if (dayTotal > 0) return 'partial'
+
+  return ''
+}
+
 function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
-  const parts = ['tempo-grid-total-cell']
-  if (col.isWeekend) parts.push('weekend')
-  if (col.isHoliday) parts.push('holiday')
-  if (col.isToday) parts.push('today')
-  if (isDayComplete) parts.push('full')
-  else if (dayTotal > 0) parts.push('partial')
-  return parts.join(' ')
+  return [
+    'tempo-grid-total-cell',
+    col.isWeekend ? 'weekend' : '',
+    col.isHoliday ? 'holiday' : '',
+    col.isToday ? 'today' : '',
+    getTotalStatusClass(isDayComplete, dayTotal),
+  ]
+    .filter(Boolean)
+    .join(' ')
 }
 
 function renderTotalCellContent(isDayComplete: boolean, dayTotal: number) {
@@ -173,6 +182,67 @@ function buildCellTooltip(
   if (cellWorklogCount === 1) lines.push('Right-click — delete')
   lines.push(`${modLabel}+click — copy to next empty day`)
   return lines.join('\n')
+}
+
+function getDayHeaderRef(
+  col: DayColumn,
+  todayRef: React.RefObject<HTMLTableCellElement | null>
+) {
+  if (!col.isToday) return undefined
+
+  return todayRef
+}
+
+function buildDayHeaderClassName(col: DayColumn): string {
+  return [
+    'tempo-grid-day-header',
+    col.isWeekend && 'weekend',
+    col.isHoliday && 'holiday',
+    col.isToday && 'today',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function getDayHeaderLabel(col: DayColumn): string {
+  if (col.isHoliday) return '🎉'
+
+  return col.dayLabel
+}
+
+function DayHeaderCell({
+  col,
+  todayRef,
+}: {
+  col: DayColumn
+  todayRef: React.RefObject<HTMLTableCellElement | null>
+}) {
+  return (
+    <th
+      key={col.date}
+      ref={getDayHeaderRef(col, todayRef)}
+      className={buildDayHeaderClassName(col)}
+      title={col.holidayName}
+    >
+      <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
+      <span className="tempo-grid-day-label">{getDayHeaderLabel(col)}</span>
+    </th>
+  )
+}
+
+function getIssueHoursForDate(issue: TempoIssueSummary, date: string): number {
+  return issue.hoursByDate[date] || 0
+}
+
+function getCellWorklogs(
+  hours: number,
+  worklogs: TempoWorklog[],
+  issueKey: string,
+  date: string
+): TempoWorklog[] {
+  if (hours === 0) return []
+
+  return findWorklogsForCell(worklogs, issueKey, date)
 }
 
 export function TempoTimesheetGrid({
@@ -273,17 +343,7 @@ export function TempoTimesheetGrid({
               <th className="tempo-grid-key-header">Key</th>
               <th className="tempo-grid-logged-header">Logged</th>
               {columns.map(col => (
-                <th
-                  key={col.date}
-                  ref={col.isToday ? todayRef : undefined}
-                  className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`}
-                  title={col.holidayName}
-                >
-                  <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
-                  <span className="tempo-grid-day-label">
-                    {col.isHoliday ? '🎉' : col.dayLabel}
-                  </span>
-                </th>
+                <DayHeaderCell key={col.date} col={col} todayRef={todayRef} />
               ))}
             </tr>
           </thead>
@@ -302,19 +362,14 @@ export function TempoTimesheetGrid({
                   </td>
                   <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
                   {columns.map(col => {
-                    const hours = issue.hoursByDate[col.date] || 0
-                    const cellWorklogs =
-                      hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
+                    const hours = getIssueHoursForDate(issue, col.date)
+                    const cellWorklogs = getCellWorklogs(hours, worklogs, issue.issueKey, col.date)
 
                     return (
                       <td
                         key={col.date}
                         className={getCellClassName(col, hours, isCapex)}
-                        title={
-                          hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
-                            : `Click to log time on ${col.date}`
-                        }
+                        title={buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length)}
                         onClick={e => {
                           if (isModKey(e) && cellWorklogs.length > 0) {
                             onCopyToToday(cellWorklogs)

@@ -19,6 +19,45 @@ const filterButtons: { label: string; value: StatusFilter }[] = [
   { label: 'Cancelled', value: 'cancelled' },
 ]
 
+function getRunFilterCount(
+  value: StatusFilter,
+  totalCount: number,
+  statusCounts: Record<string, number>
+): number {
+  return value === 'all' ? totalCount : statusCounts[value as RunStatus] || 0
+}
+
+function getRunFilterButtonClass(statusFilter: StatusFilter, value: StatusFilter): string {
+  return `filter-btn ${statusFilter === value ? 'active' : ''} ${value !== 'all' ? `filter-${value}` : ''}`
+}
+
+function RunFilterButton({
+  label,
+  value,
+  statusFilter,
+  totalCount,
+  statusCounts,
+  onFilterChange,
+}: {
+  label: string
+  value: StatusFilter
+  statusFilter: StatusFilter
+  totalCount: number
+  statusCounts: Record<string, number>
+  onFilterChange: (filter: StatusFilter) => void
+}) {
+  const count = getRunFilterCount(value, totalCount, statusCounts)
+  return (
+    <button
+      className={getRunFilterButtonClass(statusFilter, value)}
+      onClick={() => onFilterChange(value)}
+    >
+      {label}
+      {count > 0 && <span className="filter-count">{count}</span>}
+    </button>
+  )
+}
+
 export function RunFilterBar({
   statusFilter,
   totalCount,
@@ -28,19 +67,17 @@ export function RunFilterBar({
   return (
     <div className="run-filter-bar">
       <Filter size={14} className="filter-icon" />
-      {filterButtons.map(({ label, value }) => {
-        const count = value === 'all' ? totalCount : statusCounts[value as RunStatus] || 0
-        return (
-          <button
-            key={value}
-            className={`filter-btn ${statusFilter === value ? 'active' : ''} ${value !== 'all' ? `filter-${value}` : ''}`}
-            onClick={() => onFilterChange(value)}
-          >
-            {label}
-            {count > 0 && <span className="filter-count">{count}</span>}
-          </button>
-        )
-      })}
+      {filterButtons.map(({ label, value }) => (
+        <RunFilterButton
+          key={value}
+          label={label}
+          value={value}
+          statusFilter={statusFilter}
+          totalCount={totalCount}
+          statusCounts={statusCounts}
+          onFilterChange={onFilterChange}
+        />
+      ))}
     </div>
   )
 }

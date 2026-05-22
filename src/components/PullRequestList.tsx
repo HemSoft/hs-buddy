@@ -380,6 +380,48 @@ function PRListActiveHeader({
   )
 }
 
+function PRListContextMenuSection({
+  contextMenu,
+  bookmarkedRepoKeys,
+  onAIReview,
+  onRequestCopilotReview,
+  onAddressComments,
+  onApprove,
+  onCopyLink,
+  onBookmark,
+  onClose,
+}: {
+  contextMenu: ReturnType<typeof usePRListData>['contextMenu']
+  bookmarkedRepoKeys: ReturnType<typeof usePRListData>['bookmarkedRepoKeys']
+  onAIReview: () => void
+  onRequestCopilotReview: () => void
+  onAddressComments: () => void
+  onApprove: () => void
+  onCopyLink: () => void
+  onBookmark: () => void
+  onClose: () => void
+}) {
+  if (!contextMenu) {
+    return null
+  }
+
+  return (
+    <PRContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      pr={contextMenu.pr}
+      bookmarkedRepoKeys={bookmarkedRepoKeys}
+      onAIReview={onAIReview}
+      onRequestCopilotReview={onRequestCopilotReview}
+      onAddressComments={onAddressComments}
+      onApprove={onApprove}
+      onCopyLink={onCopyLink}
+      onBookmark={onBookmark}
+      onClose={onClose}
+    />
+  )
+}
+
 export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
   const {
     prs,
@@ -469,21 +511,17 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
           ))}
         </div>
       )}
-      {contextMenu && (
-        <PRContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          pr={contextMenu.pr}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          onAIReview={handleAIReview}
-          onRequestCopilotReview={handleRequestCopilotReview}
-          onAddressComments={handleAddressComments}
-          onApprove={handleApproveFromMenu}
-          onCopyLink={handleCopyLink}
-          onBookmark={handleBookmarkRepo}
-          onClose={closeContextMenu}
-        />
-      )}
+      <PRListContextMenuSection
+        contextMenu={contextMenu}
+        bookmarkedRepoKeys={bookmarkedRepoKeys}
+        onAIReview={handleAIReview}
+        onRequestCopilotReview={handleRequestCopilotReview}
+        onAddressComments={handleAddressComments}
+        onApprove={handleApproveFromMenu}
+        onCopyLink={handleCopyLink}
+        onBookmark={handleBookmarkRepo}
+        onClose={closeContextMenu}
+      />
     </div>
   )
 }

@@ -36,6 +36,28 @@ const sections = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
+function getActivityBarTooltipLabel(hoveredItem: string | null): string | undefined {
+  if (!hoveredItem) return undefined
+  if (hoveredItem === 'home') return 'Dashboard'
+  return sections.find(section => section.id === hoveredItem)?.label
+}
+
+function ActivityBarTooltip({
+  hoveredItem,
+  tooltipPosition,
+}: {
+  hoveredItem: string | null
+  tooltipPosition: { top: number } | null
+}) {
+  const label = getActivityBarTooltipLabel(hoveredItem)
+  if (!label || !tooltipPosition) return null
+  return (
+    <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
+      {label}
+    </div>
+  )
+}
+
 export function ActivityBar({
   selectedSection,
   onSectionSelect,
@@ -89,11 +111,7 @@ export function ActivityBar({
       </div>
 
       {/* Custom Tooltip */}
-      {hoveredItem && tooltipPosition && (
-        <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
-          {hoveredItem === 'home' ? 'Dashboard' : sections.find(s => s.id === hoveredItem)?.label}
-        </div>
-      )}
+      <ActivityBarTooltip hoveredItem={hoveredItem} tooltipPosition={tooltipPosition} />
     </div>
   )
 }

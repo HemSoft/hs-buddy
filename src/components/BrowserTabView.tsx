@@ -112,15 +112,18 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       F4: () => 'app:tab-close',
     }
 
-    const handleBeforeInput = (event: Event) => {
-      const input = (event as Event & { input?: WebviewInput }).input
-      if (!input || input.type !== 'keyDown') return
-      const ctrlOrCmd = input.control || input.meta
-      if (!ctrlOrCmd) return
+    const getBeforeInputShortcutEvent = (input?: WebviewInput): string | null => {
+      if (!input || input.type !== 'keyDown') return null
+      if (!input.control && !input.meta) return null
       const eventName = WEBVIEW_SHORTCUTS[input.key]
+      return eventName ? eventName(input.shift) : null
+    }
+
+    const handleBeforeInput = (event: Event) => {
+      const eventName = getBeforeInputShortcutEvent((event as Event & { input?: WebviewInput }).input)
       if (!eventName) return
       event.preventDefault()
-      window.dispatchEvent(new Event(eventName(input.shift)))
+      window.dispatchEvent(new Event(eventName))
     }
 
     webview.addEventListener('before-input-event', handleBeforeInput)

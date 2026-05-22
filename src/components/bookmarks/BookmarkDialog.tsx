@@ -572,6 +572,15 @@ function resolveCategory(state: BookmarkDialogState): string {
   return (state.useNewCategory ? state.newCategory : state.category).trim()
 }
 
+function validateBookmarkTags(tagsInput: string): string | null {
+  const tags = tagsInput.split(',').filter(t => t.trim())
+  if (tags.length > MAX_BOOKMARK_TAGS) {
+    return 'Maximum 50 tags allowed'
+  }
+
+  return null
+}
+
 function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const trimmedUrl = state.url.trim()
   const trimmedTitle = state.title.trim()
@@ -584,10 +593,7 @@ function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const urlError = validateUrlProtocol(trimmedUrl)
   if (urlError) return urlError
 
-  const tags = state.tagsInput.split(',').filter(t => t.trim())
-  if (tags.length > MAX_BOOKMARK_TAGS) return 'Maximum 50 tags allowed'
-
-  return null
+  return validateBookmarkTags(state.tagsInput)
 }
 
 function stripMarkdownCodeBlocks(text: string): string {
@@ -597,15 +603,46 @@ function stripMarkdownCodeBlocks(text: string): string {
     .trim()
 }
 
+function getSuggestedDescription(
+  parsed: { description?: string },
+  userEditedDescription: boolean
+): string | undefined {
+  if (userEditedDescription || !parsed.description) {
+    return undefined
+  }
+
+  return parsed.description
+}
+
+function getSuggestedTagsInput(
+  parsed: { tags?: string[] },
+  userEditedTags: boolean
+): string | undefined {
+  if (userEditedTags || !parsed.tags?.length) {
+    return undefined
+  }
+
+  return parsed.tags.join(', ')
+}
+
 function pickUneditedFields(
   parsed: { description?: string; tags?: string[] },
   userEditedDescription: boolean,
   userEditedTags: boolean
 ): { description?: string; tagsInput?: string } {
-  return {
-    ...(parsed.description && !userEditedDescription && { description: parsed.description }),
-    ...(parsed.tags?.length && !userEditedTags && { tagsInput: parsed.tags.join(', ') }),
+  const description = getSuggestedDescription(parsed, userEditedDescription)
+  const tagsInput = getSuggestedTagsInput(parsed, userEditedTags)
+  const next: { description?: string; tagsInput?: string } = {}
+
+  if (description) {
+    next.description = description
   }
+
+  if (tagsInput) {
+    next.tagsInput = tagsInput
+  }
+
+  return next
 }
 
 function parseAIResponse(

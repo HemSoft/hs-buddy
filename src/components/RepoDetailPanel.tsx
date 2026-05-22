@@ -37,6 +37,35 @@ function getVisibilityIcon(visibility: string) {
   return <Icon size={14} />
 }
 
+function RepoWorkflowBadge({ detail }: { detail: RepoDetail }) {
+  if (!detail.latestWorkflowRun) {
+    return null
+  }
+
+  const info = getWorkflowStatusInfo(
+    detail.latestWorkflowRun.status,
+    detail.latestWorkflowRun.conclusion
+  )
+  const StatusIcon = info.icon
+
+  return (
+    <span
+      className="repo-badge repo-badge-ci"
+      style={{ borderColor: info.color, color: info.color }}
+      title={`${detail.latestWorkflowRun.name} — ${info.label}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => window.shell?.openExternal(detail.latestWorkflowRun.url)}
+      onKeyDown={onKeyboardActivate(() => window.shell?.openExternal(detail.latestWorkflowRun?.url))}
+    >
+      {/* v8 ignore start */}
+      <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
+      {/* v8 ignore stop */}
+      {info.label}
+    </span>
+  )
+}
+
 function RepoBadges({ detail }: { detail: RepoDetail }) {
   return (
     <div className="repo-detail-badges">
@@ -71,32 +100,7 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
           {detail.license}
         </span>
       )}
-      {detail.latestWorkflowRun &&
-        (() => {
-          const info = getWorkflowStatusInfo(
-            detail.latestWorkflowRun.status,
-            detail.latestWorkflowRun.conclusion
-          )
-          const StatusIcon = info.icon
-          return (
-            <span
-              className="repo-badge repo-badge-ci"
-              style={{ borderColor: info.color, color: info.color }}
-              title={`${detail.latestWorkflowRun.name} — ${info.label}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
-              onKeyDown={onKeyboardActivate(() =>
-                window.shell?.openExternal(detail.latestWorkflowRun!.url)
-              )}
-            >
-              {/* v8 ignore start */}
-              <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
-              {/* v8 ignore stop */}
-              {info.label}
-            </span>
-          )
-        })()}
+      <RepoWorkflowBadge detail={detail} />
     </div>
   )
 }
@@ -142,6 +146,30 @@ function RepoHeaderActions({
   )
 }
 
+function RepoHeaderInfo({ owner, repo, detail }: { owner: string; repo: string; detail: RepoDetail }) {
+  return (
+    <div className="repo-detail-header-left">
+      <h2 className="repo-detail-name">
+        <span className="repo-detail-owner">{owner}</span>
+        <span className="repo-detail-separator">/</span>
+        <span className="repo-detail-repo">{repo}</span>
+      </h2>
+      {detail.description && <p className="repo-detail-description">{detail.description}</p>}
+      <RepoBadges detail={detail} />
+      {detail.topics.length > 0 && (
+        <div className="repo-detail-topics">
+          {detail.topics.map(topic => (
+            <span key={topic} className="repo-topic">
+              <Tag size={10} />
+              {topic}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   const {
     data: detail,
@@ -179,25 +207,7 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
     <div className="repo-detail-container">
       {/* Header */}
       <div className="repo-detail-header">
-        <div className="repo-detail-header-left">
-          <h2 className="repo-detail-name">
-            <span className="repo-detail-owner">{owner}</span>
-            <span className="repo-detail-separator">/</span>
-            <span className="repo-detail-repo">{repo}</span>
-          </h2>
-          {detail.description && <p className="repo-detail-description">{detail.description}</p>}
-          <RepoBadges detail={detail} />
-          {detail.topics.length > 0 && (
-            <div className="repo-detail-topics">
-              {detail.topics.map(topic => (
-                <span key={topic} className="repo-topic">
-                  <Tag size={10} />
-                  {topic}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <RepoHeaderInfo owner={owner} repo={repo} detail={detail} />
         <RepoHeaderActions detail={detail} loading={loading} refresh={refresh} />
       </div>
 

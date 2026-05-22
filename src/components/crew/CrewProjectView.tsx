@@ -51,6 +51,17 @@ interface SessionErrorBannerProps {
   status: CrewSession['status']
 }
 
+function getCopilotConversationHistory(session: CrewSession) {
+  return session.conversationHistory.map(message => ({
+    role: message.role,
+    content: message.content,
+  }))
+}
+
+function getCopilotResponseContent(response: string | { content?: string | null } | null | undefined) {
+  return typeof response === 'string' ? response : response?.content ?? 'No response received.'
+}
+
 function ProjectHeader({ project }: ProjectHeaderProps) {
   return (
     <div
@@ -336,16 +347,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
       const response = await window.copilot.chatSend({
         message: trimmedMessage,
         context: `Project: ${project.githubSlug} at ${project.localPath}`,
-        conversationHistory:
-          /* v8 ignore start */
-          session.conversationHistory.map(m => ({
-            /* v8 ignore stop */
-            role: m.role,
-            content: m.content,
-          })) ?? [],
+        conversationHistory: getCopilotConversationHistory(session),
       })
-      const responseContent =
-        typeof response === 'string' ? response : (response?.content ?? 'No response received.')
+      const responseContent = getCopilotResponseContent(response)
 
       const assistantMsg: CrewChatMessage = {
         role: 'assistant',

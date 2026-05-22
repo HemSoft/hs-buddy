@@ -5,6 +5,26 @@ import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
 import './CopilotUsagePanel.css'
 
+function buildUsageHeaderProps(
+  aggregateTotals: { totalUsed: number; totalOverageCost: number },
+  aggregateProjections: { projectedTotal?: number; projectedOverageCost?: number } | null,
+  anyLoading: boolean,
+  refreshAll: () => void
+) {
+  return {
+    totalUsed: aggregateTotals.totalUsed,
+    totalOverageCost: aggregateTotals.totalOverageCost,
+    projectedTotal: aggregateProjections?.projectedTotal ?? null,
+    projectedOverageCost: aggregateProjections?.projectedOverageCost ?? null,
+    anyLoading,
+    onRefreshAll: refreshAll,
+  }
+}
+
+function getQuotaAccount(account: { username: string; org?: string }) {
+  return { username: account.username, org: account.org ?? '' }
+}
+
 export function CopilotUsagePanel() {
   const {
     accounts,
@@ -21,12 +41,7 @@ export function CopilotUsagePanel() {
   return (
     <div className="copilot-usage-panel">
       <UsageHeader
-        totalUsed={aggregateTotals.totalUsed}
-        totalOverageCost={aggregateTotals.totalOverageCost}
-        projectedTotal={aggregateProjections?.projectedTotal ?? null}
-        projectedOverageCost={aggregateProjections?.projectedOverageCost ?? null}
-        anyLoading={anyLoading}
-        onRefreshAll={refreshAll}
+        {...buildUsageHeaderProps(aggregateTotals, aggregateProjections, anyLoading, refreshAll)}
       />
 
       <div className="usage-accounts-grid">
@@ -42,7 +57,7 @@ export function CopilotUsagePanel() {
             .map((account: { username: string; org?: string }) => (
               <AccountQuotaCard
                 key={account.username}
-                account={{ username: account.username, org: account.org ?? '' }}
+                account={getQuotaAccount(account)}
                 state={quotas[account.username]}
               />
             ))

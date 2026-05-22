@@ -605,42 +605,71 @@ interface FocusedSectionContentProps {
   onHistoryLoaded: (history: PRHistorySummary) => void
 }
 
-function FocusedSectionContent({
-  section,
-  pr,
-  refreshKey,
-  onHistoryLoaded,
-}: FocusedSectionContentProps) {
-  switch (section) {
-    case 'conversation':
-      return <PRThreadsPanel key={refreshKey} pr={pr} />
-    case 'commits':
-      return (
-        <PullRequestHistoryPanel
-          key={refreshKey}
-          pr={pr}
-          embedded
-          focus="commits"
-          onLoaded={onHistoryLoaded}
-        />
-      )
-    case 'checks':
-      return <PRChecksPanel key={refreshKey} pr={pr} />
-    case 'files-changed':
-      return <PRFilesChangedPanel key={refreshKey} pr={pr} />
-    case 'ai-reviews':
-      return <PRReviewsPanel key={refreshKey} pr={pr} />
-  }
+const FOCUSED_SECTION_RENDERERS: Record<
+  PRDetailSection,
+  (props: FocusedSectionContentProps) => JSX.Element
+> = {
+  conversation: ({ pr, refreshKey }) => <PRThreadsPanel key={refreshKey} pr={pr} />,
+  commits: ({ pr, refreshKey, onHistoryLoaded }) => (
+    <PullRequestHistoryPanel
+      key={refreshKey}
+      pr={pr}
+      embedded
+      focus="commits"
+      onLoaded={onHistoryLoaded}
+    />
+  ),
+  checks: ({ pr, refreshKey }) => <PRChecksPanel key={refreshKey} pr={pr} />,
+  'files-changed': ({ pr, refreshKey }) => <PRFilesChangedPanel key={refreshKey} pr={pr} />,
+  'ai-reviews': ({ pr, refreshKey }) => <PRReviewsPanel key={refreshKey} pr={pr} />,
+}
+
+function FocusedSectionContent(props: FocusedSectionContentProps) {
+  return FOCUSED_SECTION_RENDERERS[props.section](props)
+}
+
+function resolvePRActivityAt(pr: PRDetailInfo, historyUpdatedAt: string | null): string | null {
+  if (historyUpdatedAt) return historyUpdatedAt
+  if (pr.updatedAt) return pr.updatedAt
+
+  return pr.date || pr.created
+}
+
+function formatRelativeTimestamp(timestamp: string | null | undefined): string {
+  if (!timestamp) return ''
+
+  return formatDistanceToNow(timestamp)
 }
 
 function resolveActivityDates(
   pr: PRDetailInfo,
   historyUpdatedAt: string | null
 ): { activityAt: string | null; activityRelative: string; createdRelative: string } {
-  const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
-  const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
-  const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
+  const activityAt = resolvePRActivityAt(pr, historyUpdatedAt)
+  const activityRelative = formatRelativeTimestamp(activityAt)
+  const createdRelative = formatRelativeTimestamp(pr.created)
   return { activityAt, activityRelative, createdRelative }
+}
+
+function resolveStateLabel(pr: PRDetailInfo): string {
+  const stateLabel = pr.state?.trim()
+
+  return stateLabel || 'open'
+}
+
+function resolveSectionLabel(section: PRDetailSection | null): string | null {
+  if (!section) return null
+
+  return SECTION_LABELS[section] ?? null
+}
+
+function resolveEffectiveIssue(
+  pr: PRDetailInfo,
+  linkedIssues: PRLinkedIssue[],
+  branches: { headBranch: string; baseBranch: string } | null,
+  ownerRepo: { owner: string; repo: string } | null
+): { number: number; url: string } | null {
+  return linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
 }
 
 function resolveLabelsAndIssue(
@@ -655,16 +684,49 @@ function resolveLabelsAndIssue(
   isFocusedSection: boolean
   effectiveIssue: { number: number; url: string } | null
 } {
-  const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
+  const stateLabel = resolveStateLabel(pr)
+  const sectionLabel = resolveSectionLabel(section)
   const isFocusedSection = section !== null
-  const effectiveIssue =
-    linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
+  const effectiveIssue = resolveEffectiveIssue(pr, linkedIssues, branches, ownerRepo)
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
+type NudgeState = 'idle' | 'sending' | 'sent' | 'error'
+
+function shouldSkipNudge(nudgeState: NudgeState): boolean {
+  return nudgeState === 'sending' || nudgeState === 'sent'
+}
+
+function scheduleNudgeReset(
+  setNudgeState: React.Dispatch<React.SetStateAction<NudgeState>>
+): void {
+  setTimeout(() => setNudgeState('idle'), 5000)
+}
+
+function handleNudgeFailure(
+  error: string | undefined,
+  setNudgeError: React.Dispatch<React.SetStateAction<string | null>>,
+  setNudgeState: React.Dispatch<React.SetStateAction<NudgeState>>
+): void {
+  console.warn('[Nudge] Failed:', error)
+  setNudgeError(error || 'Unknown error')
+  setNudgeState('error')
+  scheduleNudgeReset(setNudgeState)
+}
+
+function handleNudgeException(
+  err: unknown,
+  setNudgeError: React.Dispatch<React.SetStateAction<string | null>>,
+  setNudgeState: React.Dispatch<React.SetStateAction<NudgeState>>
+): void {
+  console.error('[Nudge] Error:', err)
+  setNudgeError(String(err))
+  setNudgeState('error')
+  scheduleNudgeReset(setNudgeState)
+}
+
 function useNudgeAuthor(pr: PRDetailInfo) {
-  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [nudgeState, setNudgeState] = useState<NudgeState>('idle')
   const [nudgeError, setNudgeError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -674,7 +736,7 @@ function useNudgeAuthor(pr: PRDetailInfo) {
 
   const handleNudgeAuthor = useCallback(async () => {
     /* v8 ignore start -- button is disabled in sending/sent states */
-    if (nudgeState === 'sending' || nudgeState === 'sent') return
+    if (shouldSkipNudge(nudgeState)) return
     /* v8 ignore stop */
     setNudgeState('sending')
     setNudgeError(null)
@@ -687,16 +749,10 @@ function useNudgeAuthor(pr: PRDetailInfo) {
       if (result.success) {
         setNudgeState('sent')
       } else {
-        console.warn('[Nudge] Failed:', result.error)
-        setNudgeError(result.error || 'Unknown error')
-        setNudgeState('error')
-        setTimeout(() => setNudgeState('idle'), 5000)
+        handleNudgeFailure(result.error, setNudgeError, setNudgeState)
       }
     } catch (err: unknown) {
-      console.error('[Nudge] Error:', err)
-      setNudgeError(String(err))
-      setNudgeState('error')
-      setTimeout(() => setNudgeState('idle'), 5000)
+      handleNudgeException(err, setNudgeError, setNudgeState)
     }
   }, [nudgeState, pr.author, pr.title, pr.url])
 
@@ -752,6 +808,41 @@ function PRBanners({
       )}
     </>
   )
+}
+
+function resolveRalphReviewOrg(
+  pr: PRDetailInfo,
+  ownerRepo: { owner: string; repo: string } | null
+): string {
+  return pr.org || ownerRepo?.owner || ''
+}
+
+function resolveRalphReviewRepoPath(
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  org: string,
+  repository: string
+): string {
+  const repoRoot = accounts.find(account => account.org === org)?.repoRoot
+
+  return repoRoot ? `${repoRoot}\${repository}` : ''
+}
+
+function launchRalphReviewForPullRequest(
+  pr: PRDetailInfo,
+  ownerRepo: { owner: string; repo: string } | null,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+): void {
+  const org = resolveRalphReviewOrg(pr, ownerRepo)
+  const repoPath = resolveRalphReviewRepoPath(accounts, org, pr.repository)
+
+  window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent('ralph:launch-pr-review', {
+        detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+      })
+    )
+  }, 100)
 }
 
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
@@ -916,21 +1007,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         nudgeError={nudgeError}
         onNudge={handleNudgeAuthor}
         aiReviewProviders={aiReviewProviders}
-        onStartRalphReview={() => {
-          const org = pr.org || ownerRepo?.owner || ''
-          const repoRoot = accounts.find(a => a.org === org)?.repoRoot
-          const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
-          window.dispatchEvent(
-            new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
-          )
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent('ralph:launch-pr-review', {
-                detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
-              })
-            )
-          }, 100)
-        }}
+        onStartRalphReview={() => launchRalphReviewForPullRequest(pr, ownerRepo, accounts)}
       />
 
       <div className="pr-detail-body">

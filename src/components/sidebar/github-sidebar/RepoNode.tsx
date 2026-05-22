@@ -90,6 +90,32 @@ function DisclosureIcons({ expanded }: { expanded: boolean }) {
   )
 }
 
+function getRepoHeaderTitle(repo: OrgRepo): string {
+  return repo.description || repo.fullName
+}
+
+function RepoBookmarkButton({
+  org,
+  repo,
+  isBookmarked,
+  onBookmarkToggle,
+}: {
+  org: string
+  repo: OrgRepo
+  isBookmarked: boolean
+  onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
+}) {
+  return (
+    <button
+      className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+      onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
+      title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+    >
+      <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
+    </button>
+  )
+}
+
 function RepoHeader({
   org,
   repo,
@@ -112,18 +138,17 @@ function RepoHeader({
       tabIndex={0}
       onClick={() => onToggleRepo(org, repo.name)}
       onKeyDown={event => handleItemKeyDown(event, () => onToggleRepo(org, repo.name))}
-      title={repo.description || repo.fullName}
+      title={getRepoHeaderTitle(repo)}
     >
       <DisclosureIcons expanded={isRepoExpanded} />
       <span className="sidebar-item-label">{repo.name}</span>
       {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
-      <button
-        className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
-        onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
-        title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
-      >
-        <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
-      </button>
+      <RepoBookmarkButton
+        org={org}
+        repo={repo}
+        isBookmarked={isBookmarked}
+        onBookmarkToggle={onBookmarkToggle}
+      />
     </div>
   )
 }
@@ -361,6 +386,22 @@ function IssueListItems({
   )
 }
 
+function shouldShowIssueStateLoader(
+  isOpen: boolean,
+  isLoading: boolean,
+  isCountLoading: boolean
+): boolean {
+  return isOpen ? isLoading || isCountLoading : isLoading
+}
+
+function getIssueStateCount(isOpen: boolean, counts?: RepoCounts): number | null {
+  if (!isOpen || !counts) {
+    return null
+  }
+
+  return counts.issues
+}
+
 function IssueStateCountBadge({
   isOpen,
   isLoading,
@@ -372,13 +413,16 @@ function IssueStateCountBadge({
   isCountLoading: boolean
   counts?: RepoCounts
 }) {
-  if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
+  if (shouldShowIssueStateLoader(isOpen, isLoading, isCountLoading)) {
+    return <Loader2 size={10} className="spin" />
+  }
+
+  const count = getIssueStateCount(isOpen, counts)
+  if (count == null) {
     return null
   }
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  return null
+
+  return <span className="sidebar-item-count">{count}</span>
 }
 
 const ISSUE_STATE_CONFIG = {

@@ -100,6 +100,7 @@ type PullRequestCacheEntry = ReturnType<typeof dataCache.get<PullRequest[]>>
 type PullRequestCountChangeRef = React.RefObject<((count: number) => void) | undefined>
 type PullRequestEnqueue = ReturnType<typeof useTaskQueue>['enqueue']
 type PullRequestAccounts = ReturnType<typeof useGitHubAccounts>['accounts']
+type RepoBookmarks = ReturnType<typeof useRepoBookmarks>
 
 function hasExistingPRData(prs: PullRequest[], cached: PullRequestCacheEntry | undefined): boolean {
   /* v8 ignore start */
@@ -278,6 +279,59 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
   })
 }
 
+function getRepoBookmarkOwner(pr: PullRequest) {
+  return pr.org || ''
+}
+
+function getRepoBookmarkKey(owner: string, repo: string) {
+  return `${owner}/${repo}`
+}
+
+function findRepoBookmark(bookmarks: RepoBookmarks, owner: string, repo: string) {
+  return (bookmarks ?? []).find(bookmark => bookmark.owner === owner && bookmark.repo === repo) ?? null
+}
+
+async function syncRepoBookmark(params: {
+  bookmarks: RepoBookmarks
+  bookmarkedRepoKeys: Set<string>
+  createBookmark: (args: { folder: string; owner: string; repo: string; url: string; description: string }) => Promise<unknown>
+  removeBookmark: (args: { id: string }) => Promise<unknown>
+  pr: PullRequest
+}) {
+  const owner = getRepoBookmarkOwner(params.pr)
+  const repo = params.pr.repository
+  const key = getRepoBookmarkKey(owner, repo)
+
+  if (params.bookmarkedRepoKeys.has(key)) {
+    const bookmark = findRepoBookmark(params.bookmarks, owner, repo)
+    if (bookmark) {
+      await params.removeBookmark({ id: bookmark._id })
+    }
+    return
+  }
+
+  await params.createBookmark({
+    folder: owner,
+    owner,
+    repo,
+    url: params.pr.url.replace(/\/pull\/\d+$/, ''),
+    description: '',
+  })
+}
+
+function getApproveKey(pr: PullRequest) {
+  return `${pr.repository}-${pr.id}`
+}
+
+function syncApprovedCache(mode: PRSearchMode, pr: PullRequest) {
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (!cached?.data) {
+    return
+  }
+
+  dataCache.set(mode, markApproved(cached.data, pr))
+}
+
 export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {
   const cachedEntry = dataCache.get<PullRequest[]>(mode)
   const [prs, setPrs] = useState<PullRequest[]>(cachedEntry?.data || [])
@@ -374,26 +428,13 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
 
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
-    const { pr } = contextMenu
-    const org = pr.org || ''
-    const repoName = pr.repository
-    const key = `${org}/${repoName}`
-    if (bookmarkedRepoKeys.has(key)) {
-      /* v8 ignore start */
-      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      if (bookmark) await removeBookmark({ id: bookmark._id })
-      /* v8 ignore stop */
-    } else {
-      await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: pr.url.replace(/\/pull\/\d+$/, ''),
-        description: '',
-      })
-    }
+    await syncRepoBookmark({
+      bookmarks,
+      bookmarkedRepoKeys,
+      createBookmark,
+      removeBookmark,
+      pr: contextMenu.pr,
+    })
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark])
 
@@ -466,7 +507,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       if (pr.iApproved) return
       const ownerRepo = parseOwnerRepoFromUrl(pr.url)
       if (!ownerRepo) return
-      const approveKey = `${pr.repository}-${pr.id}`
+      const approveKey = getApproveKey(pr)
       setApproving(approveKey)
       try {
         await enqueueRef.current(
@@ -478,10 +519,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
           { name: `approve-pr-${pr.repository}-${pr.id}` }
         )
         setPrs(prev => markApproved(prev, pr))
-        const cached = dataCache.get<PullRequest[]>(mode)
-        if (cached?.data) {
-          dataCache.set(mode, markApproved(cached.data, pr))
-        }
+        syncApprovedCache(mode, pr)
       } catch (error: unknown) {
         console.error('Failed to approve PR:', error)
       } finally {

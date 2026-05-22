@@ -273,6 +273,13 @@ interface BookmarkListProps {
   onOpenTab?: (viewId: string) => void
 }
 
+function getBookmarkDialogInitialValues(droppedUrl: string | null, droppedTitle: string | null) {
+  return {
+    initialUrl: droppedUrl ?? undefined,
+    initialTitle: droppedTitle ?? undefined,
+  }
+}
+
 function BookmarkDialogs({
   dialogOpen,
   editingBookmark,
@@ -294,14 +301,15 @@ function BookmarkDialogs({
   dispatch: BookmarkDispatch
   handleDelete: () => void
 }) {
+  const initialValues = getBookmarkDialogInitialValues(droppedUrl, droppedTitle)
+
   return (
     <>
       {dialogOpen && (
         <BookmarkDialog
           bookmark={editingBookmark}
           categories={categories}
-          initialUrl={droppedUrl ?? undefined}
-          initialTitle={droppedTitle ?? undefined}
+          {...initialValues}
           onClose={() => dispatch({ type: 'close-dialog' })}
         />
       )}

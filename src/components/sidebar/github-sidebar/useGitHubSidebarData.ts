@@ -201,6 +201,9 @@ async function fetchCachedData<TRaw>(opts: {
 
 type SidebarEnqueue = ReturnType<typeof useTaskQueue>['enqueue']
 type SidebarAccounts = ReturnType<typeof useGitHubAccounts>['accounts']
+type SidebarBookmarks = ReturnType<typeof useRepoBookmarks>
+type SidebarBookmarkMutations = ReturnType<typeof useRepoBookmarkMutations>
+type SidebarIncrementStat = ReturnType<typeof useBuddyStatsMutations>['increment']
 type OrgContributorCounts = Record<string, Record<string, number>>
 type OrgContributorCountsSetter = React.Dispatch<React.SetStateAction<OrgContributorCounts>>
 
@@ -264,6 +267,54 @@ function handleOrgOverviewError(org: string, error: unknown) {
   if (isAbortError(error)) return
   /* v8 ignore stop */
   console.warn(`[OrgOverview] ${org} failed:`, error)
+}
+
+function getSidebarBookmarkKey(org: string, repoName: string) {
+  return `${org}/${repoName}`
+}
+
+function findSidebarBookmark(bookmarks: SidebarBookmarks, org: string, repoName: string) {
+  return (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+}
+
+function wasBookmarkInserted(result: unknown) {
+  if (!result || typeof result !== 'object') {
+    return false
+  }
+
+  return Boolean((result as { inserted?: unknown }).inserted)
+}
+
+async function syncSidebarRepoBookmark(params: {
+  org: string
+  repoName: string
+  repoUrl: string
+  bookmarks: SidebarBookmarks
+  bookmarkedRepoKeys: Set<string>
+  createBookmark: SidebarBookmarkMutations['create']
+  removeBookmark: SidebarBookmarkMutations['remove']
+  incrementStat: SidebarIncrementStat
+}) {
+  const key = getSidebarBookmarkKey(params.org, params.repoName)
+  if (params.bookmarkedRepoKeys.has(key)) {
+    const bookmark = findSidebarBookmark(params.bookmarks, params.org, params.repoName)
+    if (bookmark) {
+      await params.removeBookmark({ id: bookmark._id })
+    }
+    return
+  }
+
+  const result = await params.createBookmark({
+    folder: params.org,
+    owner: params.org,
+    repo: params.repoName,
+    url: params.repoUrl,
+    description: '',
+  })
+
+  if (wasBookmarkInserted(result)) {
+    params.incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
+  }
 }
 
 export interface SidebarItem {
@@ -700,30 +751,16 @@ export function useGitHubSidebarData() {
 
   const toggleBookmarkRepoByValues = useCallback(
     async (org: string, repoName: string, repoUrl: string) => {
-      const key = `${org}/${repoName}`
-      if (bookmarkedRepoKeys.has(key)) {
-        /* v8 ignore start */
-        const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-        /* v8 ignore stop */
-        /* v8 ignore start */
-        if (bookmark) {
-          /* v8 ignore stop */
-          await removeBookmark({ id: bookmark._id })
-        }
-        return
-      }
-      const result = await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: repoUrl,
-        description: '',
+      await syncSidebarRepoBookmark({
+        org,
+        repoName,
+        repoUrl,
+        bookmarks,
+        bookmarkedRepoKeys,
+        createBookmark,
+        removeBookmark,
+        incrementStat,
       })
-      /* v8 ignore start */
-      if (result?.inserted) {
-        /* v8 ignore stop */
-        incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
-      }
     },
     [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
   )

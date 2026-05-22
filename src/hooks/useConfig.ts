@@ -242,11 +242,28 @@ export function useGitHubAccounts() {
   }
 }
 
+function resolvePRConfig(config: AppConfig) {
+  return config.pr
+}
+
+function resolvePRRefreshInterval(pr: AppConfig['pr']) {
+  return pr?.refreshInterval ?? 15
+}
+
+function resolvePRAutoRefresh(pr: AppConfig['pr']) {
+  return pr?.autoRefresh ?? false
+}
+
+function resolvePRRecentlyMergedDays(pr: AppConfig['pr']) {
+  return pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS
+}
+
 function resolvePRFallback(config: AppConfig) {
+  const pr = resolvePRConfig(config)
   return {
-    refreshInterval: config.pr?.refreshInterval ?? 15,
-    autoRefresh: config.pr?.autoRefresh ?? false,
-    recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+    refreshInterval: resolvePRRefreshInterval(pr),
+    autoRefresh: resolvePRAutoRefresh(pr),
+    recentlyMergedDays: resolvePRRecentlyMergedDays(pr),
   }
 }
 
@@ -290,11 +307,28 @@ export function usePRSettings() {
   }
 }
 
+function resolveCopilotConfig(config: AppConfig) {
+  return config.copilot
+}
+
+function resolveCopilotGhAccount(copilot: AppConfig['copilot']) {
+  return copilot?.ghAccount ?? ''
+}
+
+function resolveCopilotModel(copilot: AppConfig['copilot']) {
+  return copilot?.model ?? 'claude-sonnet-4.5'
+}
+
+function resolveCopilotPremiumModel(copilot: AppConfig['copilot']) {
+  return copilot?.premiumModel ?? 'claude-opus-4.6'
+}
+
 function resolveCopilotFallback(config: AppConfig) {
+  const copilot = resolveCopilotConfig(config)
   return {
-    ghAccount: config.copilot?.ghAccount ?? '',
-    model: config.copilot?.model ?? 'claude-sonnet-4.5',
-    premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
+    ghAccount: resolveCopilotGhAccount(copilot),
+    model: resolveCopilotModel(copilot),
+    premiumModel: resolveCopilotPremiumModel(copilot),
   }
 }
 

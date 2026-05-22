@@ -229,43 +229,43 @@ export function useAIReviewMonitor({
         return 'continue'
       }
 
+      const stopMonitorOnMaxPolls = () => {
+        clearTimers()
+        clearPendingAIReview(provider.id, monitorPrUrl)
+        /* v8 ignore start */
+        if (monitorSessionRef.current === sessionId) setReviewState('idle')
+        /* v8 ignore stop */
+      }
+
+      const shouldContinuePolling = async (): Promise<boolean> => {
+        try {
+          const result = await doPoll()
+          return handlePollResult(result) !== 'stop'
+        } catch (pollErr: unknown) {
+          /* v8 ignore start */
+          if (isAbortError(pollErr)) return false
+          /* v8 ignore stop */
+          console.debug(`${provider.name} review poll failed:`, pollErr)
+          return true
+        }
+      }
+
       const pollOnce = async () => {
         /* v8 ignore start */
         if (monitorSessionRef.current !== sessionId) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > maxPolls) {
-          clearTimers()
-          clearPendingAIReview(provider.id, monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setReviewState('idle')
-          /* v8 ignore stop */
+          stopMonitorOnMaxPolls()
           return
         }
-        try {
-          const result = await doPoll()
-          if (handlePollResult(result) === 'stop') return
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug(`${provider.name} review poll failed:`, pollErr)
-        }
+        if (!(await shouldContinuePolling())) return
         scheduleNextPoll()
       }
 
       if (runImmediately) {
         void (async () => {
-          try {
-            const result = await doPoll()
-            if (handlePollResult(result) === 'stop') return
-          } catch (pollErr: unknown) {
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug(`${provider.name} review poll failed:`, pollErr)
-          }
-          scheduleNextPoll()
+          if (await shouldContinuePolling()) scheduleNextPoll()
         })()
         return
       }

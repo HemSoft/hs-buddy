@@ -39,6 +39,14 @@ interface BookmarksSidebarProps {
 
 type DragOver = { id: string; position: 'above' | 'below' } | null
 
+interface CategoryBookmark {
+  _id: string
+  url: string
+  title: string
+  faviconUrl?: string
+  sortOrder: number
+}
+
 interface BookmarkItemProps {
   bm: { _id: string; url: string; title: string; faviconUrl?: string }
   selectedItem: string | null
@@ -114,6 +122,135 @@ function categoryLabel(name: string) {
   return name || 'Uncategorized'
 }
 
+function CategoryNodeChevron({
+  hasChildren,
+  isExpanded,
+  onToggle,
+}: {
+  hasChildren: boolean
+  isExpanded: boolean
+  onToggle: () => void
+}) {
+  if (!hasChildren) return <span className="sidebar-item-chevron" style={{ width: 12 }} />
+  return (
+    <span
+      className="sidebar-item-chevron"
+      onClick={e => {
+        e.stopPropagation()
+        onToggle()
+      }}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.stopPropagation()
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+    >
+      {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+    </span>
+  )
+}
+
+function CategoryTreeNode({
+  node,
+  depth,
+  bookmarksByCategory,
+  isSectionExpanded,
+  selectedItem,
+  dragOver,
+  onItemSelect,
+  onToggleSection,
+  onContextMenu,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
+}: {
+  node: CategoryNode
+  depth: number
+  bookmarksByCategory: Map<string, CategoryBookmark[]>
+  isSectionExpanded: (key: string) => boolean
+  selectedItem: string | null
+  dragOver: DragOver
+  onItemSelect: (itemId: string) => void
+  onToggleSection: (key: string) => void
+  onContextMenu: (e: React.MouseEvent, id: string) => void
+  onDragStart: (e: React.DragEvent, id: string) => void
+  onDragOver: (e: React.DragEvent, id: string) => void
+  onDragEnd: () => void
+  onDrop: (e: React.DragEvent, id: string, categoryBookmarks: CategoryBookmark[]) => void
+}) {
+  const catViewId = `bookmarks-category:${node.fullPath}`
+  const sectionKey = `cat:${node.fullPath}`
+  const directBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
+  const hasChildren = categoryHasContent(node, directBookmarks.length)
+  const isExpanded = isSectionExpanded(sectionKey)
+
+  return (
+    <div>
+      <div
+        className={categoryItemClassName(selectedItem, catViewId)}
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
+        onClick={() => onItemSelect(catViewId)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
+      >
+        <CategoryNodeChevron
+          hasChildren={hasChildren}
+          isExpanded={isExpanded}
+          onToggle={() => onToggleSection(sectionKey)}
+        />
+        <span className="sidebar-item-icon">
+          <FolderOpen size={14} />
+        </span>
+        <span className="sidebar-item-label">{categoryLabel(node.name)}</span>
+        {node.totalCount > 0 && <span className="sidebar-item-count">{node.totalCount}</span>}
+      </div>
+      {hasChildren && isExpanded && (
+        <>
+          {node.children.map(child => (
+            <CategoryTreeNode
+              key={child.fullPath}
+              node={child}
+              depth={depth + 1}
+              bookmarksByCategory={bookmarksByCategory}
+              isSectionExpanded={isSectionExpanded}
+              selectedItem={selectedItem}
+              dragOver={dragOver}
+              onItemSelect={onItemSelect}
+              onToggleSection={onToggleSection}
+              onContextMenu={onContextMenu}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+              onDrop={onDrop}
+            />
+          ))}
+          {directBookmarks.map(bm => (
+            <BookmarkItem
+              key={bm._id}
+              bm={bm}
+              selectedItem={selectedItem}
+              dragOver={dragOver}
+              paddingLeft={`${12 + (depth + 1) * 16}px`}
+              onItemSelect={onItemSelect}
+              onContextMenu={onContextMenu}
+              onDragStart={onDragStart}
+              onDragOver={onDragOver}
+              onDragEnd={onDragEnd}
+              onDrop={e => onDrop(e, bm._id, directBookmarks)}
+            />
+          ))}
+        </>
+      )}
+    </div>
+  )
+}
+
 function getBookmarkCount(bookmarks: readonly unknown[] | undefined): number {
   return bookmarks?.length ?? 0
 }
@@ -166,7 +303,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   }, [])
 
   const handleDrop = useCallback(
-    (e: React.DragEvent, targetId: string, categoryBookmarks: NonNullable<typeof bookmarks>) => {
+    (e: React.DragEvent, targetId: string, categoryBookmarks: CategoryBookmark[]) => {
       e.preventDefault()
       const draggedId = draggedIdRef.current
       draggedIdRef.current = null
@@ -233,7 +370,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   )
 
   const bookmarksByCategory = useMemo(() => {
-    const map = new Map<string, NonNullable<typeof bookmarks>>()
+    const map = new Map<string, CategoryBookmark[]>()
     bookmarks?.forEach(b => {
       const list = map.get(b.category) ?? []
       list.push(b)
@@ -244,92 +381,6 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     }
     return map
   }, [bookmarks])
-
-  const renderCategoryNode = useCallback(
-    (node: CategoryNode, depth: number) => {
-      const catViewId = `bookmarks-category:${node.fullPath}`
-      const directBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
-      const hasChildren = categoryHasContent(node, directBookmarks.length)
-      const isExpanded = isSectionExpanded(`cat:${node.fullPath}`)
-      const displayCount = node.totalCount
-
-      return (
-        <div key={node.fullPath}>
-          <div
-            className={categoryItemClassName(selectedItem, catViewId)}
-            style={{ paddingLeft: `${12 + depth * 16}px` }}
-            onClick={() => onItemSelect(catViewId)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
-          >
-            {hasChildren ? (
-              <span
-                className="sidebar-item-chevron"
-                onClick={e => {
-                  e.stopPropagation()
-                  toggleSection(`cat:${node.fullPath}`)
-                }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={e => {
-                  /* v8 ignore start */
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    /* v8 ignore stop */
-                    e.stopPropagation()
-                    e.preventDefault()
-                    toggleSection(`cat:${node.fullPath}`)
-                  }
-                }}
-              >
-                {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-              </span>
-            ) : (
-              <span className="sidebar-item-chevron" style={{ width: 12 }} />
-            )}
-            <span className="sidebar-item-icon">
-              <FolderOpen size={14} />
-            </span>
-            <span className="sidebar-item-label">{categoryLabel(node.name)}</span>
-            {displayCount > 0 && <span className="sidebar-item-count">{displayCount}</span>}
-          </div>
-          {hasChildren && isExpanded && (
-            <>
-              {node.children.map(child => renderCategoryNode(child, depth + 1))}
-              {directBookmarks.map(bm => (
-                <BookmarkItem
-                  key={bm._id}
-                  bm={bm}
-                  selectedItem={selectedItem}
-                  dragOver={dragOver}
-                  paddingLeft={`${12 + (depth + 1) * 16}px`}
-                  onItemSelect={onItemSelect}
-                  onContextMenu={handleContextMenu}
-                  onDragStart={handleDragStart}
-                  onDragOver={handleDragOver}
-                  onDragEnd={handleDragEnd}
-                  onDrop={e => handleDrop(e, bm._id, directBookmarks)}
-                />
-              ))}
-            </>
-          )}
-        </div>
-      )
-    },
-    [
-      isSectionExpanded,
-      selectedItem,
-      onItemSelect,
-      toggleSection,
-      bookmarksByCategory,
-      handleContextMenu,
-      handleDragStart,
-      handleDragOver,
-      handleDragEnd,
-      handleDrop,
-      dragOver,
-    ]
-  )
 
   return (
     <div className="sidebar-panel">
@@ -343,9 +394,24 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
             if (!node.name) {
               const uncatBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
               return [
-                /* v8 ignore start */
-                ...node.children.map(child => renderCategoryNode(child, 0)),
-                /* v8 ignore stop */
+                ...node.children.map(child => (
+                  <CategoryTreeNode
+                    key={child.fullPath}
+                    node={child}
+                    depth={0}
+                    bookmarksByCategory={bookmarksByCategory}
+                    isSectionExpanded={isSectionExpanded}
+                    selectedItem={selectedItem}
+                    dragOver={dragOver}
+                    onItemSelect={onItemSelect}
+                    onToggleSection={toggleSection}
+                    onContextMenu={handleContextMenu}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd}
+                    onDrop={handleDrop}
+                  />
+                )),
                 ...uncatBookmarks.map(bm => (
                   <BookmarkItem
                     key={bm._id}
@@ -363,7 +429,24 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
                 )),
               ]
             }
-            return [renderCategoryNode(node, 0)]
+            return [
+              <CategoryTreeNode
+                key={node.fullPath}
+                node={node}
+                depth={0}
+                bookmarksByCategory={bookmarksByCategory}
+                isSectionExpanded={isSectionExpanded}
+                selectedItem={selectedItem}
+                dragOver={dragOver}
+                onItemSelect={onItemSelect}
+                onToggleSection={toggleSection}
+                onContextMenu={handleContextMenu}
+                onDragStart={handleDragStart}
+                onDragOver={handleDragOver}
+                onDragEnd={handleDragEnd}
+                onDrop={handleDrop}
+              />,
+            ]
           })
         ) : (
           <div className="sidebar-item" style={{ color: 'var(--text-muted)' }}>

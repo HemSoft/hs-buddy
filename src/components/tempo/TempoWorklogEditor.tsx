@@ -144,6 +144,87 @@ function getAccountOptions(projectAccounts: TempoAccount[], accounts: TempoAccou
   return projectAccounts.length > 0 ? projectAccounts : accounts
 }
 
+function resolveProjectKey(issueKey: string): string | null {
+  const normalized = issueKey.trim().toUpperCase()
+  const projectKey = normalized.split('-')[0]
+  if (!projectKey || !normalized.includes('-')) return null
+  return projectKey
+}
+
+function applyProjectAccounts(
+  dispatch: React.Dispatch<TempoWorklogEditorAction>,
+  accounts: Array<{ key: string; name: string; isDefault: boolean }>,
+  userPickedAccountRef?: React.MutableRefObject<boolean>
+) {
+  dispatch({ type: 'setProjectAccounts', projectAccounts: accounts })
+  if (userPickedAccountRef?.current) return
+  const defaultAccount = accounts.find(a => a.isDefault)
+  if (defaultAccount) {
+    dispatch({ type: 'setAccountKey', value: defaultAccount.key })
+  }
+}
+
+function useProjectAccountsLoader(
+  issueKey: string,
+  dispatch: React.Dispatch<TempoWorklogEditorAction>,
+  userPickedAccountRef: React.MutableRefObject<boolean>,
+  requestVersionRef: React.MutableRefObject<number>
+) {
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    const projectKey = resolveProjectKey(issueKey)
+    if (!projectKey) {
+      dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
+      return
+    }
+    userPickedAccountRef.current = false
+    const version = ++requestVersionRef.current
+    debounceRef.current = setTimeout(() => {
+      dispatch({ type: 'setAccountsLoading', value: true })
+      window.tempo.getProjectAccounts(projectKey).then(res => {
+        if (requestVersionRef.current !== version) return
+        dispatch({ type: 'setAccountsLoading', value: false })
+        if (res.data) applyProjectAccounts(dispatch, res.data, userPickedAccountRef)
+      })
+    }, 400)
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [dispatch, issueKey, requestVersionRef, userPickedAccountRef])
+}
+
+function useEditProjectAccountsLoader(
+  isEdit: boolean,
+  issueKey: string,
+  dispatch: React.Dispatch<TempoWorklogEditorAction>
+) {
+  useEffect(() => {
+    if (!isEdit) return
+    const projectKey = resolveProjectKey(issueKey)
+    if (!projectKey) return
+    window.tempo.getProjectAccounts(projectKey).then(res => {
+      if (res.data) applyProjectAccounts(dispatch, res.data)
+    })
+  }, [dispatch, isEdit, issueKey])
+}
+
+function buildWorklogPayload(
+  state: TempoWorklogEditorState,
+  worklog: TempoWorklog | null,
+  existingWorklogs: TempoWorklog[]
+): CreateWorklogPayload {
+  return {
+    issueKey: state.issueKey.trim().toUpperCase(),
+    hours: parseFloat(state.hours),
+    date: state.date,
+    startTime: worklog?.startTime || nextStartTime(existingWorklogs),
+    description: state.description,
+    accountKey: state.accountKey || undefined,
+  }
+}
+
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
@@ -170,7 +251,6 @@ export function TempoWorklogEditor({
   const dateId = useId()
   const descriptionId = useId()
   const accountId = useId()
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestVersionRef = useRef(0)
   const userPickedAccountRef = useRef(Boolean(worklog?.accountKey || defaultAccountKey))
 
@@ -181,55 +261,8 @@ export function TempoWorklogEditor({
     })
   }, [])
 
-  // Fetch project-specific account links when issue key changes (debounced)
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    const key = state.issueKey.trim().toUpperCase()
-    const projectKey = key.split('-')[0]
-    if (!projectKey || !key.includes('-')) {
-      dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
-      return
-    }
-    userPickedAccountRef.current = false
-    const version = ++requestVersionRef.current
-    debounceRef.current = setTimeout(() => {
-      dispatch({ type: 'setAccountsLoading', value: true })
-      window.tempo.getProjectAccounts(projectKey).then(res => {
-        if (requestVersionRef.current !== version) return // stale response
-        dispatch({ type: 'setAccountsLoading', value: false })
-        if (res.data) {
-          dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
-          // Auto-select default only if user hasn't manually picked
-          /* v8 ignore start */
-          if (!userPickedAccountRef.current) {
-            /* v8 ignore stop */
-            const defaultAccount = res.data.find(a => a.isDefault)
-            if (defaultAccount) {
-              dispatch({ type: 'setAccountKey', value: defaultAccount.key })
-            }
-          }
-        }
-      })
-    }, 400)
-    return () => {
-      /* v8 ignore start */
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      /* v8 ignore stop */
-    }
-  }, [state.issueKey])
-
-  // For edit mode, fetch project accounts on mount
-  useEffect(() => {
-    if (!isEdit) return
-    const key = state.issueKey.trim().toUpperCase()
-    const projectKey = key.split('-')[0]
-    /* v8 ignore start */
-    if (!projectKey || !key.includes('-')) return
-    /* v8 ignore stop */
-    window.tempo.getProjectAccounts(projectKey).then(res => {
-      if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
-    })
-  }, [isEdit]) // eslint-disable-line react-hooks/exhaustive-deps
+  useProjectAccountsLoader(state.issueKey, dispatch, userPickedAccountRef, requestVersionRef)
+  useEditProjectAccountsLoader(isEdit, state.issueKey, dispatch)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -249,15 +282,7 @@ export function TempoWorklogEditor({
 
     dispatch({ type: 'submit:start' })
     try {
-      const startTime = worklog?.startTime || nextStartTime(existingWorklogs)
-      await onSave({
-        issueKey: state.issueKey.trim().toUpperCase(),
-        hours: parseFloat(state.hours),
-        date: state.date,
-        startTime,
-        description: state.description,
-        accountKey: state.accountKey || undefined,
-      })
+      await onSave(buildWorklogPayload(state, worklog, existingWorklogs))
     } catch (err: unknown) {
       dispatch({ type: 'submit:error', value: String(err) })
       return

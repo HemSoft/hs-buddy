@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { IPC_INVOKE } from '../ipc/contracts'
+import type { AppConfig } from '../types/config'
 
 async function migrateAccounts<T>(
   configAccounts: T[] | undefined,
@@ -29,6 +30,71 @@ async function migrateSettings<T>(
   console.log('[Migration] PR settings migrated to Convex')
 }
 
+function resolveMigrationTimeout(
+  isComplete: boolean,
+  setTimedOut: (value: boolean) => void,
+  setIsComplete: (value: boolean) => void
+): void {
+  if (isComplete) return
+  console.warn('[Migration] Convex connection timeout - proceeding without migration')
+  setTimedOut(true)
+  setIsComplete(true)
+}
+
+function shouldSkipMigrationAttempt(isLoading: boolean): boolean {
+  return isLoading
+}
+
+function shouldCompleteMigrationAttempt(alreadyAttempted: boolean): boolean {
+  return alreadyAttempted
+}
+
+interface MigrationAttemptOptions<Account, PRSettings> {
+  isLoading: boolean
+  migrationAttempted: { current: boolean }
+  setIsComplete: (value: boolean) => void
+  existingAccounts: { length: number } | undefined
+  existingSettings: object | null | undefined
+  bulkImportAccounts: (args: { accounts: Account[] }) => Promise<{ length: number }>
+  initSettings: (args: { pr: PRSettings }) => Promise<unknown>
+}
+
+async function runMigrationAttempt<Account, PRSettings>({
+  isLoading,
+  migrationAttempted,
+  setIsComplete,
+  existingAccounts,
+  existingSettings,
+  bulkImportAccounts,
+  initSettings,
+}: MigrationAttemptOptions<Account, PRSettings>): Promise<void> {
+  if (shouldSkipMigrationAttempt(isLoading)) {
+    return
+  }
+
+  if (shouldCompleteMigrationAttempt(migrationAttempted.current)) {
+    setIsComplete(true)
+    return
+  }
+
+  migrationAttempted.current = true
+
+  try {
+    const config = (await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)) as AppConfig
+
+    await migrateAccounts(
+      config.github?.accounts as Account[] | undefined,
+      existingAccounts,
+      bulkImportAccounts
+    )
+    await migrateSettings(config.pr as PRSettings | undefined, existingSettings, initSettings)
+  } catch (error: unknown) {
+    console.error('[Migration] Failed to migrate from electron-store:', error)
+  } finally {
+    setIsComplete(true)
+  }
+}
+
 /**
  * One-time migration from electron-store to Convex
  * Runs on app startup with a timeout to prevent infinite loading
@@ -50,43 +116,21 @@ export function useMigrateToConvex() {
   // Timeout after 3 seconds to prevent infinite loading
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (!isComplete) {
-        console.warn('[Migration] Convex connection timeout - proceeding without migration')
-        setTimedOut(true)
-        setIsComplete(true)
-      }
+      resolveMigrationTimeout(isComplete, setTimedOut, setIsComplete)
     }, 3000)
     return () => clearTimeout(timeout)
   }, [isComplete])
 
   useEffect(() => {
-    // Wait for Convex queries to load first
-    if (isLoading) {
-      return
-    }
-
-    // Only attempt migration once per session
-    if (migrationAttempted.current) {
-      setIsComplete(true)
-      return
-    }
-    migrationAttempted.current = true
-
-    const migrate = async () => {
-      try {
-        // Get data from electron-store
-        const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
-
-        await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
-        await migrateSettings(config.pr, existingSettings, initSettings)
-      } catch (error: unknown) {
-        console.error('[Migration] Failed to migrate from electron-store:', error)
-      } finally {
-        setIsComplete(true)
-      }
-    }
-
-    migrate()
+    void runMigrationAttempt({
+      isLoading,
+      migrationAttempted,
+      setIsComplete,
+      existingAccounts,
+      existingSettings,
+      bulkImportAccounts,
+      initSettings,
+    })
   }, [isLoading, existingAccounts, existingSettings, bulkImportAccounts, initSettings])
 
   return { isComplete, isLoading }

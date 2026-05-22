@@ -8,6 +8,39 @@ import type {
 
 const POLL_INTERVAL_MS = 3_000
 
+function resolveRalphRefreshError(err: unknown): string {
+  return err instanceof Error ? err.message : 'Failed to list loops'
+}
+
+function handleRalphRefreshSuccess(
+  result: unknown,
+  mountedRef: { current: boolean },
+  setRuns: (value: RalphRunInfo[]) => void,
+  setError: (value: string | null) => void
+): void {
+  if (!mountedRef.current) return
+  if (Array.isArray(result)) {
+    setRuns(result as RalphRunInfo[])
+    setError(null)
+  }
+}
+
+function handleRalphRefreshFailure(
+  err: unknown,
+  mountedRef: { current: boolean },
+  setError: (value: string) => void
+): void {
+  if (!mountedRef.current) return
+  setError(resolveRalphRefreshError(err))
+}
+
+function finalizeRalphRefresh(
+  mountedRef: { current: boolean },
+  setLoading: (value: boolean) => void
+): void {
+  if (mountedRef.current) setLoading(false)
+}
+
 /** Hook for managing ralph loop state with IPC + real-time push events. */
 export function useRalphLoops() {
   const [runs, setRuns] = useState<RalphRunInfo[]>([])
@@ -18,16 +51,11 @@ export function useRalphLoops() {
   const refresh = useCallback(async () => {
     try {
       const result = await window.ralph.list()
-      if (!mountedRef.current) return
-      if (Array.isArray(result)) {
-        setRuns(result)
-        setError(null)
-      }
+      handleRalphRefreshSuccess(result, mountedRef, setRuns, setError)
     } catch (err: unknown) {
-      if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to list loops')
+      handleRalphRefreshFailure(err, mountedRef, setError)
     } finally {
-      if (mountedRef.current) setLoading(false)
+      finalizeRalphRefresh(mountedRef, setLoading)
     }
   }, [])
 

@@ -223,7 +223,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       const resolved = resolvePROwnerRepo(pr)
       const prKey = buildSidebarPrKey(pr)
       if (shouldSkipSidebarPrApproval(pr, resolved, approvingPrKeys, prKey)) return
-      const { owner, repo } = resolved
+      const { owner, repo } = resolved!
       setSidebarPrApprovalState(setApprovingPrKeys, prKey, true)
       try {
         await approveSidebarPrRequest(accounts, enqueueRef.current, owner, repo, pr.id)

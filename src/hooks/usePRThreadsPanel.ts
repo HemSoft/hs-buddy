@@ -15,6 +15,31 @@ import { applyReactionToResult } from '../utils/reactions'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 
+function shouldIgnorePRThreadsRequest(requestId: number, currentRequestId: number): boolean {
+  return requestId !== currentRequestId
+}
+
+function handlePRThreadsFetchError(
+  err: unknown,
+  requestId: number,
+  currentRequestId: number,
+  setError: (error: string) => void
+): void {
+  if (isAbortError(err)) return
+  if (shouldIgnorePRThreadsRequest(requestId, currentRequestId)) return
+  setError(getErrorMessage(err))
+}
+
+function finalizePRThreadsRequest(
+  requestId: number,
+  currentRequestId: number,
+  setLoading: (loading: boolean) => void
+): void {
+  if (requestId === currentRequestId) {
+    setLoading(false)
+  }
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -85,7 +110,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         { name: `pr-threads-${pr.repository}-${pr.id}` }
       )
 
-      if (requestId !== latestThreadsRequestRef.current) {
+      if (shouldIgnorePRThreadsRequest(requestId, latestThreadsRequestRef.current)) {
         return
       }
 
@@ -93,19 +118,9 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       /* v8 ignore start */
     } catch (err: unknown) {
       /* v8 ignore stop */
-      /* v8 ignore start */
-      if (isAbortError(err)) return
-      /* v8 ignore stop */
-
-      if (requestId !== latestThreadsRequestRef.current) {
-        return
-      }
-
-      setError(getErrorMessage(err))
+      handlePRThreadsFetchError(err, requestId, latestThreadsRequestRef.current, setError)
     } finally {
-      if (requestId === latestThreadsRequestRef.current) {
-        setLoading(false)
-      }
+      finalizePRThreadsRequest(requestId, latestThreadsRequestRef.current, setLoading)
     }
   }, [accounts, pr.id, pr.repository, ownerRepo, enqueueRef])
 

@@ -7,6 +7,17 @@ interface AutoRefreshSettings {
   intervalMinutes: number
 }
 
+interface AutoRefreshStatusLabels {
+  lastRefreshedLabel: string | null
+  nextRefreshSecs: number | null
+  nextRefreshLabel: string | null
+}
+
+interface NextRefreshStatus {
+  nextRefreshSecs: number | null
+  nextRefreshLabel: string | null
+}
+
 const STORAGE_PREFIX = 'card-refresh:'
 const LAST_REFRESHED_PREFIX = 'card-last-refreshed:'
 
@@ -73,6 +84,58 @@ function readLastRefreshed(cardId: string): number | null {
 
 function writeLastRefreshed(cardId: string, ts: number) {
   safeSetItem(`${LAST_REFRESHED_PREFIX}${cardId}`, String(ts))
+}
+
+function resolveLastRefreshedLabel(lastRefreshedAt: number | null): string | null {
+  return lastRefreshedAt ? formatDistanceToNow(lastRefreshedAt) : null
+}
+
+function shouldShowNextRefresh(
+  settings: AutoRefreshSettings,
+  paused: boolean,
+  lastRefreshedAt: number | null
+): boolean {
+  return settings.enabled && !paused && lastRefreshedAt != null && settings.intervalMinutes > 0
+}
+
+function resolveNextRefreshStatus(
+  settings: AutoRefreshSettings,
+  paused: boolean,
+  lastRefreshedAt: number | null
+): NextRefreshStatus {
+  if (!shouldShowNextRefresh(settings, paused, lastRefreshedAt)) {
+    return {
+      nextRefreshSecs: null,
+      nextRefreshLabel: null,
+    }
+  }
+
+  const elapsed = Date.now() - lastRefreshedAt!
+  const remaining = Math.max(0, settings.intervalMinutes * 60_000 - elapsed)
+  const nextRefreshSecs = Math.ceil(remaining / 1000)
+  return {
+    nextRefreshSecs,
+    nextRefreshLabel: nextRefreshSecs > 0 ? formatSecondsCountdown(nextRefreshSecs) : null,
+  }
+}
+
+function resolveAutoRefreshStatusLabels(
+  prev: AutoRefreshStatusLabels,
+  lastRefreshedLabel: string | null,
+  nextRefresh: NextRefreshStatus
+): AutoRefreshStatusLabels {
+  if (
+    prev.lastRefreshedLabel === lastRefreshedLabel &&
+    prev.nextRefreshSecs === nextRefresh.nextRefreshSecs &&
+    prev.nextRefreshLabel === nextRefresh.nextRefreshLabel
+  ) {
+    return prev
+  }
+  return {
+    lastRefreshedLabel,
+    nextRefreshSecs: nextRefresh.nextRefreshSecs,
+    nextRefreshLabel: nextRefresh.nextRefreshLabel,
+  }
 }
 
 /**
@@ -191,39 +254,17 @@ export function useAutoRefresh(
   )
 
   // Status indicators — 1-second timer for live countdown
-  const [statusLabels, setStatusLabels] = useState({
-    lastRefreshedLabel: null as string | null,
-    nextRefreshSecs: null as number | null,
-    nextRefreshLabel: null as string | null,
+  const [statusLabels, setStatusLabels] = useState<AutoRefreshStatusLabels>({
+    lastRefreshedLabel: null,
+    nextRefreshSecs: null,
+    nextRefreshLabel: null,
   })
 
   useEffect(() => {
     const compute = () => {
-      const lastLabel = lastRefreshedAt ? formatDistanceToNow(lastRefreshedAt) : null
-
-      let nextSecs: number | null = null
-      let nextLabel: string | null = null
-      if (settings.enabled && !paused && lastRefreshedAt && settings.intervalMinutes > 0) {
-        const elapsed = Date.now() - lastRefreshedAt
-        const remaining = Math.max(0, settings.intervalMinutes * 60_000 - elapsed)
-        nextSecs = Math.ceil(remaining / 1000)
-        nextLabel = nextSecs > 0 ? formatSecondsCountdown(nextSecs) : null
-      }
-
-      setStatusLabels(prev => {
-        if (
-          prev.lastRefreshedLabel === lastLabel &&
-          prev.nextRefreshSecs === nextSecs &&
-          prev.nextRefreshLabel === nextLabel
-        ) {
-          return prev
-        }
-        return {
-          lastRefreshedLabel: lastLabel,
-          nextRefreshSecs: nextSecs,
-          nextRefreshLabel: nextLabel,
-        }
-      })
+      const lastLabel = resolveLastRefreshedLabel(lastRefreshedAt)
+      const nextRefresh = resolveNextRefreshStatus(settings, paused, lastRefreshedAt)
+      setStatusLabels(prev => resolveAutoRefreshStatusLabels(prev, lastLabel, nextRefresh))
     }
 
     compute()

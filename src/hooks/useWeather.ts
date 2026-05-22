@@ -108,18 +108,25 @@ async function persistLocationToStore(loc: GeoLocation): Promise<void> {
   }
 }
 
+function isStoredWeatherLocation(loc: unknown): loc is GeoLocation {
+  if (!loc || typeof loc !== 'object') {
+    return false
+  }
+
+  const location = loc as Partial<GeoLocation>
+  return (
+    Number.isFinite(location.latitude) &&
+    Number.isFinite(location.longitude) &&
+    typeof location.name === 'string'
+  )
+}
+
 /** Load saved location from electron-store. Returns null when unavailable. */
 async function loadLocationFromStore(): Promise<GeoLocation | null> {
   try {
     const loc = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_WEATHER_LOCATION)
-    if (
-      loc &&
-      typeof loc === 'object' &&
-      Number.isFinite(loc.latitude) &&
-      Number.isFinite(loc.longitude) &&
-      typeof loc.name === 'string'
-    ) {
-      return loc as GeoLocation
+    if (isStoredWeatherLocation(loc)) {
+      return loc
     }
   } catch (_: unknown) {
     // electron-store unavailable; fall back to localStorage

@@ -999,6 +999,82 @@ function OrgMetaLabel({
   )
 }
 
+function getFilteredOrgRepos(
+  org: string,
+  repos: OrgRepo[],
+  bookmarkedRepoKeys: ReadonlySet<string>,
+  showBookmarkedOnly: boolean
+): OrgRepo[] {
+  return showBookmarkedOnly
+    ? repos.filter(repo => bookmarkedRepoKeys.has(`${org}/${repo.name}`))
+    : repos
+}
+
+function OrgTreeExpandedSection(
+  props: Pick<
+    OrgTreeNodeProps,
+    | 'expandedTeams'
+    | 'teamMembers'
+    | 'loadingTeamMembers'
+    | 'favoriteUsers'
+    | 'showBookmarkedOnly'
+    | 'bookmarkedRepoKeys'
+    | 'expandedRepos'
+    | 'expandedRepoIssueGroups'
+    | 'expandedRepoIssueStateGroups'
+    | 'expandedRepoPRGroups'
+    | 'expandedRepoPRStateGroups'
+    | 'expandedRepoCommitGroups'
+    | 'expandedPRNodes'
+    | 'repoCounts'
+    | 'loadingRepoCounts'
+    | 'repoPrTreeData'
+    | 'repoCommitTreeData'
+    | 'repoIssueTreeData'
+    | 'loadingRepoCommits'
+    | 'loadingRepoPRs'
+    | 'loadingRepoIssues'
+    | 'sflStatusData'
+    | 'loadingSFLStatus'
+    | 'expandedSFLGroups'
+    | 'ralphRuns'
+    | 'expandedRalphGroups'
+    | 'selectedItem'
+    | 'refreshTick'
+    | 'onToggleOrgTeamGroup'
+    | 'onToggleTeam'
+    | 'onToggleOrgUserGroup'
+    | 'onToggleRepo'
+    | 'onToggleRepoIssueGroup'
+    | 'onToggleRepoIssueStateGroup'
+    | 'onToggleRepoPRGroup'
+    | 'onToggleRepoPRStateGroup'
+    | 'onToggleRepoCommitGroup'
+    | 'onToggleSFLGroup'
+    | 'onToggleRalphGroup'
+    | 'onTogglePRNode'
+    | 'onItemSelect'
+    | 'onContextMenu'
+    | 'onBookmarkToggle'
+    | 'onUserContextMenu'
+  > & {
+    org: string
+    isOrgExpanded: boolean
+    isLoading: boolean
+    teams: OrgTeam[]
+    isTeamGroupExpanded: boolean
+    isTeamGroupLoading: boolean
+    members: OrgMember[]
+    contributorCounts: Record<string, number>
+    isUserGroupExpanded: boolean
+    isUserGroupLoading: boolean
+    filteredRepos: OrgRepo[]
+  }
+) {
+  if (!props.isOrgExpanded) return null
+  return <OrgExpandedBody {...props} />
+}
+
 function OrgTreeNode({
   org,
   orgRepos,
@@ -1065,15 +1141,9 @@ function OrgTreeNode({
   const repos = orgRepos[org] ?? []
   const members = orgMembers[org] ?? []
   const meta = orgMeta[org]
-  const isUserGroupExpanded = expandedOrgUserGroups.has(org)
-  const isUserGroupLoading = loadingOrgMembers.has(org)
   const teams = orgTeams[org] ?? []
-  const isTeamGroupExpanded = expandedOrgTeamGroups.has(org)
-  const isTeamGroupLoading = loadingOrgTeams.has(org)
   const contributorCounts = orgContributorCounts[org] ?? {}
-  const filteredRepos = showBookmarkedOnly
-    ? repos.filter(repo => bookmarkedRepoKeys.has(`${org}/${repo.name}`))
-    : repos
+  const filteredRepos = getFilteredOrgRepos(org, repos, bookmarkedRepoKeys, showBookmarkedOnly)
 
   return (
     <div className="sidebar-org-group">
@@ -1091,64 +1161,63 @@ function OrgTreeNode({
         onItemSelect={onItemSelect}
       />
       <OrgMetaLabel meta={meta} isLoading={isLoading} />
-      {isOrgExpanded && (
-        <OrgExpandedBody
-          org={org}
-          isLoading={isLoading}
-          teams={teams}
-          isTeamGroupExpanded={isTeamGroupExpanded}
-          isTeamGroupLoading={isTeamGroupLoading}
-          expandedTeams={expandedTeams}
-          teamMembers={teamMembers}
-          loadingTeamMembers={loadingTeamMembers}
-          members={members}
-          contributorCounts={contributorCounts}
-          favoriteUsers={favoriteUsers}
-          isUserGroupExpanded={isUserGroupExpanded}
-          isUserGroupLoading={isUserGroupLoading}
-          filteredRepos={filteredRepos}
-          showBookmarkedOnly={showBookmarkedOnly}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          expandedRepos={expandedRepos}
-          expandedRepoIssueGroups={expandedRepoIssueGroups}
-          expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
-          expandedRepoPRGroups={expandedRepoPRGroups}
-          expandedRepoPRStateGroups={expandedRepoPRStateGroups}
-          expandedRepoCommitGroups={expandedRepoCommitGroups}
-          expandedPRNodes={expandedPRNodes}
-          repoCounts={repoCounts}
-          loadingRepoCounts={loadingRepoCounts}
-          repoPrTreeData={repoPrTreeData}
-          repoCommitTreeData={repoCommitTreeData}
-          repoIssueTreeData={repoIssueTreeData}
-          loadingRepoCommits={loadingRepoCommits}
-          loadingRepoPRs={loadingRepoPRs}
-          loadingRepoIssues={loadingRepoIssues}
-          sflStatusData={sflStatusData}
-          loadingSFLStatus={loadingSFLStatus}
-          expandedSFLGroups={expandedSFLGroups}
-          ralphRuns={ralphRuns}
-          expandedRalphGroups={expandedRalphGroups}
-          selectedItem={selectedItem}
-          refreshTick={refreshTick}
-          onToggleOrgTeamGroup={onToggleOrgTeamGroup}
-          onToggleTeam={onToggleTeam}
-          onToggleOrgUserGroup={onToggleOrgUserGroup}
-          onToggleRepo={onToggleRepo}
-          onToggleRepoIssueGroup={onToggleRepoIssueGroup}
-          onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
-          onToggleRepoPRGroup={onToggleRepoPRGroup}
-          onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
-          onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-          onToggleSFLGroup={onToggleSFLGroup}
-          onToggleRalphGroup={onToggleRalphGroup}
-          onTogglePRNode={onTogglePRNode}
-          onItemSelect={onItemSelect}
-          onContextMenu={onContextMenu}
-          onBookmarkToggle={onBookmarkToggle}
-          onUserContextMenu={onUserContextMenu}
-        />
-      )}
+      <OrgTreeExpandedSection
+        org={org}
+        isOrgExpanded={isOrgExpanded}
+        isLoading={isLoading}
+        teams={teams}
+        isTeamGroupExpanded={expandedOrgTeamGroups.has(org)}
+        isTeamGroupLoading={loadingOrgTeams.has(org)}
+        expandedTeams={expandedTeams}
+        teamMembers={teamMembers}
+        loadingTeamMembers={loadingTeamMembers}
+        members={members}
+        contributorCounts={contributorCounts}
+        favoriteUsers={favoriteUsers}
+        isUserGroupExpanded={expandedOrgUserGroups.has(org)}
+        isUserGroupLoading={loadingOrgMembers.has(org)}
+        filteredRepos={filteredRepos}
+        showBookmarkedOnly={showBookmarkedOnly}
+        bookmarkedRepoKeys={bookmarkedRepoKeys}
+        expandedRepos={expandedRepos}
+        expandedRepoIssueGroups={expandedRepoIssueGroups}
+        expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
+        expandedRepoPRGroups={expandedRepoPRGroups}
+        expandedRepoPRStateGroups={expandedRepoPRStateGroups}
+        expandedRepoCommitGroups={expandedRepoCommitGroups}
+        expandedPRNodes={expandedPRNodes}
+        repoCounts={repoCounts}
+        loadingRepoCounts={loadingRepoCounts}
+        repoPrTreeData={repoPrTreeData}
+        repoCommitTreeData={repoCommitTreeData}
+        repoIssueTreeData={repoIssueTreeData}
+        loadingRepoCommits={loadingRepoCommits}
+        loadingRepoPRs={loadingRepoPRs}
+        loadingRepoIssues={loadingRepoIssues}
+        sflStatusData={sflStatusData}
+        loadingSFLStatus={loadingSFLStatus}
+        expandedSFLGroups={expandedSFLGroups}
+        ralphRuns={ralphRuns}
+        expandedRalphGroups={expandedRalphGroups}
+        selectedItem={selectedItem}
+        refreshTick={refreshTick}
+        onToggleOrgTeamGroup={onToggleOrgTeamGroup}
+        onToggleTeam={onToggleTeam}
+        onToggleOrgUserGroup={onToggleOrgUserGroup}
+        onToggleRepo={onToggleRepo}
+        onToggleRepoIssueGroup={onToggleRepoIssueGroup}
+        onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
+        onToggleRepoPRGroup={onToggleRepoPRGroup}
+        onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
+        onToggleRepoCommitGroup={onToggleRepoCommitGroup}
+        onToggleSFLGroup={onToggleSFLGroup}
+        onToggleRalphGroup={onToggleRalphGroup}
+        onTogglePRNode={onTogglePRNode}
+        onItemSelect={onItemSelect}
+        onContextMenu={onContextMenu}
+        onBookmarkToggle={onBookmarkToggle}
+        onUserContextMenu={onUserContextMenu}
+      />
     </div>
   )
 }

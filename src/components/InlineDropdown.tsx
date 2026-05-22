@@ -164,6 +164,23 @@ function handleMenuItemKeyDown(
   }
 }
 
+function handleMenuItemClick(
+  isDisabled: boolean | undefined,
+  optValue: string,
+  handleSelect: (v: string) => void
+): void {
+  if (!isDisabled) handleSelect(optValue)
+}
+
+function DropdownMenuCheck({ isSelected }: { isSelected: boolean }) {
+  return <span className="idropdown-item-check">{isSelected && <Check size={12} />}</span>
+}
+
+function DropdownMenuHint({ hint }: { hint?: string }) {
+  if (!hint) return null
+  return <span className="idropdown-item-hint">{hint}</span>
+}
+
 function DropdownMenuItem({
   opt,
   enabledIdx,
@@ -180,24 +197,23 @@ function DropdownMenuItem({
   setFocusIndex: React.Dispatch<React.SetStateAction<number>>
 }) {
   const isFocused = enabledIdx >= 0 && enabledIdx === focusIndex
+  const isSelected = opt.value === value
 
   return (
     <div
       className={buildItemClassName(opt.value, value, opt.disabled, isFocused)}
       role="option"
-      aria-selected={opt.value === value}
+      aria-selected={isSelected}
       aria-disabled={opt.disabled}
       tabIndex={resolveItemTabIndex(opt.disabled, isFocused)}
-      onClick={() => {
-        if (!opt.disabled) handleSelect(opt.value)
-      }}
+      onClick={() => handleMenuItemClick(opt.disabled, opt.value, handleSelect)}
       onKeyDown={e => handleMenuItemKeyDown(e, opt.disabled, opt.value, handleSelect)}
       onMouseEnter={() => handleMenuItemFocus(opt.disabled, enabledIdx, setFocusIndex)}
       onFocus={() => handleMenuItemFocus(opt.disabled, enabledIdx, setFocusIndex)}
     >
-      <span className="idropdown-item-check">{opt.value === value && <Check size={12} />}</span>
+      <DropdownMenuCheck isSelected={isSelected} />
       <span className="idropdown-item-label">{opt.label}</span>
-      {opt.hint && <span className="idropdown-item-hint">{opt.hint}</span>}
+      <DropdownMenuHint hint={opt.hint} />
     </div>
   )
 }
@@ -220,6 +236,30 @@ function renderDropdownMenuItem(
       handleSelect={handleSelect}
       setFocusIndex={setFocusIndex}
     />
+  )
+}
+
+function getDropdownMenuClassName(align: 'left' | 'right', openUpward: boolean): string {
+  return `idropdown-menu ${align === 'right' ? 'idropdown-menu-right' : ''} ${openUpward ? 'idropdown-menu-up' : ''}`
+}
+
+function DropdownMenuItems({
+  options,
+  enabledIndexMap,
+  value,
+  focusIndex,
+  handleSelect,
+  setFocusIndex,
+}: {
+  options: DropdownOption[]
+  enabledIndexMap: Map<string, number>
+  value: string
+  focusIndex: number
+  handleSelect: (v: string) => void
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+}) {
+  return options.map(opt =>
+    renderDropdownMenuItem(opt, enabledIndexMap, value, focusIndex, handleSelect, setFocusIndex)
   )
 }
 
@@ -255,12 +295,17 @@ function DropdownMenu({
     <div
       ref={menuRef}
       id={listboxId}
-      className={`idropdown-menu ${align === 'right' ? 'idropdown-menu-right' : ''} ${openUpward ? 'idropdown-menu-up' : ''}`}
+      className={getDropdownMenuClassName(align, openUpward)}
       role="listbox"
     >
-      {options.map(opt =>
-        renderDropdownMenuItem(opt, enabledIndexMap, value, focusIndex, handleSelect, setFocusIndex)
-      )}
+      <DropdownMenuItems
+        options={options}
+        enabledIndexMap={enabledIndexMap}
+        value={value}
+        focusIndex={focusIndex}
+        handleSelect={handleSelect}
+        setFocusIndex={setFocusIndex}
+      />
     </div>
   )
 }
@@ -279,6 +324,14 @@ function resolveItemTabIndex(isDisabled: boolean | undefined, isFocused: boolean
   return isFocused ? 0 : -1
 }
 
+function resolveContainerClassName(isOpen: boolean, disabled: boolean, className: string): string {
+  return `idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`
+}
+
+function resolveChevronClassName(isOpen: boolean): string {
+  return `idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`
+}
+
 function resolveContainerAttrs(
   isOpen: boolean,
   disabled: boolean,
@@ -286,22 +339,89 @@ function resolveContainerAttrs(
   listboxId: string
 ) {
   return {
-    className: `idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`,
+    className: resolveContainerClassName(isOpen, disabled, className),
     tabIndex: disabled ? -1 : 0,
     ariaControls: isOpen ? listboxId : undefined,
-    chevronClassName: `idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`,
+    chevronClassName: resolveChevronClassName(isOpen),
   }
 }
 
 function resolveProps(raw: InlineDropdownProps) {
+  const placeholder = raw.placeholder ?? 'Select...'
+  const disabled = raw.disabled ?? false
+  const className = raw.className ?? ''
+  const align = raw.align ?? ('left' as const)
+  const openUpward = raw.openUpward ?? false
   return {
     ...raw,
-    placeholder: raw.placeholder ?? 'Select...',
-    disabled: raw.disabled ?? false,
-    className: raw.className ?? '',
-    align: raw.align ?? ('left' as const),
-    openUpward: raw.openUpward ?? false,
+    placeholder,
+    disabled,
+    className,
+    align,
+    openUpward,
   }
+}
+
+function resolveDisplayLabel(options: DropdownOption[], value: string, placeholder: string): string {
+  return options.find(o => o.value === value)?.label ?? placeholder
+}
+
+function useCloseDropdownOnOutsideClick(
+  isOpen: boolean,
+  containerRef: React.RefObject<HTMLDivElement | null>,
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>
+) {
+  useEffect(() => {
+    if (!isOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [containerRef, isOpen, setIsOpen])
+}
+
+function useScrollFocusedDropdownItemIntoView(
+  isOpen: boolean,
+  focusIndex: number,
+  menuRef: React.RefObject<HTMLDivElement | null>
+) {
+  useEffect(() => {
+    if (isOpen && focusIndex >= 0 && menuRef.current) {
+      const items = menuRef.current.querySelectorAll('.idropdown-item')
+      items[focusIndex]?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [focusIndex, isOpen, menuRef])
+}
+
+function DropdownTrigger({
+  icon,
+  displayLabel,
+  disabled,
+  chevronClassName,
+  onToggle,
+}: {
+  icon?: React.ReactNode
+  displayLabel: string
+  disabled: boolean
+  chevronClassName: string
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="idropdown-trigger"
+      onClick={onToggle}
+      disabled={disabled}
+      tabIndex={-1}
+    >
+      {icon && <span className="idropdown-icon">{icon}</span>}
+      <span className="idropdown-label">{displayLabel}</span>
+      <ChevronDown size={10} className={chevronClassName} />
+    </button>
+  )
 }
 
 export function InlineDropdown(rawProps: InlineDropdownProps) {
@@ -324,28 +444,10 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
   const menuRef = useRef<HTMLDivElement>(null)
   const listboxId = useId()
 
-  const selectedOption = options.find(o => o.value === value)
-  const displayLabel = selectedOption?.label ?? placeholder
+  const displayLabel = resolveDisplayLabel(options, value, placeholder)
 
-  // Close on click outside
-  useEffect(() => {
-    if (!isOpen) return
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen])
-
-  // Scroll focused item into view
-  useEffect(() => {
-    if (isOpen && focusIndex >= 0 && menuRef.current) {
-      const items = menuRef.current.querySelectorAll('.idropdown-item')
-      items[focusIndex]?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [focusIndex, isOpen])
+  useCloseDropdownOnOutsideClick(isOpen, containerRef, setIsOpen)
+  useScrollFocusedDropdownItemIntoView(isOpen, focusIndex, menuRef)
 
   const enabledOptions = options.filter(o => !o.disabled)
 
@@ -401,17 +503,13 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
       aria-controls={attrs.ariaControls}
       onKeyDown={handleKeyDown}
     >
-      <button
-        type="button"
-        className="idropdown-trigger"
-        onClick={handleToggle}
+      <DropdownTrigger
+        icon={icon}
+        displayLabel={displayLabel}
         disabled={disabled}
-        tabIndex={-1}
-      >
-        {icon && <span className="idropdown-icon">{icon}</span>}
-        <span className="idropdown-label">{displayLabel}</span>
-        <ChevronDown size={10} className={attrs.chevronClassName} />
-      </button>
+        chevronClassName={attrs.chevronClassName}
+        onToggle={handleToggle}
+      />
 
       {isOpen && (
         <DropdownMenu

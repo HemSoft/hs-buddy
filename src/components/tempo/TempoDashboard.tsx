@@ -453,6 +453,33 @@ function computeDashboardDerived(
   return { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults }
 }
 
+function getPreviousMonthCopyKey(viewMonth: Date): string {
+  return `${viewMonth.getFullYear()}-${String(viewMonth.getMonth() + 1).padStart(2, '0')}`
+}
+
+async function fetchPreviousMonthWeek(viewMonth: Date) {
+  const previousMonthDate = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1)
+  const { from, to } = getMonthRange(previousMonthDate)
+  return window.tempo.getWeek(from, to)
+}
+
+function applyPreviousMonthCopyResult(
+  dispatch: React.Dispatch<TempoDashboardAction>,
+  result: Awaited<ReturnType<typeof window.tempo.getWeek>>
+) {
+  if (result.success && result.data && result.data.worklogs.length > 0) {
+    const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
+    dispatch({ type: 'setTemplateIssues', issues, prefills })
+    return
+  }
+
+  dispatch({ type: 'setLoadingTemplates', loading: false })
+  dispatch({
+    type: 'setActionError',
+    error: result.success ? 'No entries found in the previous month.' : result.error || 'Failed to load previous month data.',
+  })
+}
+
 export function TempoDashboard() {
   const [state, dispatch] = useReducer(
     tempoDashboardReducer,
@@ -477,34 +504,13 @@ export function TempoDashboard() {
     computeDashboardDerived(state, month, today, todayKey)
 
   const handleCopyFromPreviousMonth = useCallback(async () => {
-    const y = state.viewMonth.getFullYear()
-    const m = state.viewMonth.getMonth()
-    const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`
+    const monthKey = getPreviousMonthCopyKey(state.viewMonth)
     copyMonthRef.current = monthKey
 
     dispatch({ type: 'setLoadingTemplates', loading: true })
-    const prevDate = new Date(y, m - 1, 1)
-    const { from, to } = getMonthRange(prevDate)
-    const result = await window.tempo.getWeek(from, to)
-
+    const result = await fetchPreviousMonthWeek(state.viewMonth)
     if (copyMonthRef.current !== monthKey) return
-
-    if (result.success && result.data && result.data.worklogs.length > 0) {
-      const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
-      dispatch({ type: 'setTemplateIssues', issues, prefills })
-    } else if (result.success) {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: 'No entries found in the previous month.',
-      })
-    } else {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: result.error || 'Failed to load previous month data.',
-      })
-    }
+    applyPreviousMonthCopyResult(dispatch, result)
   }, [state.viewMonth])
 
   // Merge real issue summaries with templates (templates hidden if real data exists for that key)

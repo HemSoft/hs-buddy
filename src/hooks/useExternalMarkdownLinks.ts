@@ -1,5 +1,26 @@
 import { useEffect, type RefObject } from 'react'
 
+function resolveOpenableExternalHref(
+  target: EventTarget | null,
+  container: HTMLElement
+): string | null {
+  if (!(target instanceof HTMLElement)) {
+    return null
+  }
+
+  const anchor = target.closest('a')
+  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
+    return null
+  }
+
+  const href = anchor.getAttribute('href')?.trim()
+  if (!href || !/^(https?:|mailto:)/i.test(href)) {
+    return null
+  }
+
+  return href
+}
+
 export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const container = containerRef.current
@@ -8,18 +29,8 @@ export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | n
     }
 
     const handleClick = (event: MouseEvent) => {
-      const target = event.target
-      if (!(target instanceof HTMLElement)) {
-        return
-      }
-
-      const anchor = target.closest('a')
-      if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
-        return
-      }
-
-      const href = anchor.getAttribute('href')?.trim()
-      if (!href || !/^(https?:|mailto:)/i.test(href)) {
+      const href = resolveOpenableExternalHref(event.target, container)
+      if (!href) {
         return
       }
 

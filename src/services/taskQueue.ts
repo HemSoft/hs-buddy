@@ -251,6 +251,54 @@ export class TaskQueue {
     }
   }
 
+  private notifyTaskStart<T>(task: Task<T>): void {
+    this.callbacks.onTaskStart?.(task.id, task.name)
+  }
+
+  private notifyTaskComplete<T>(task: Task<T>): void {
+    this.callbacks.onTaskComplete?.(task.id, task.name)
+  }
+
+  private notifyTaskError<T>(task: Task<T>, error: unknown): void {
+    this.callbacks.onTaskError?.(task.id, error, task.name)
+  }
+
+  private isTaskCancelled<T>(task: Task<T>): boolean {
+    return task.status === 'cancelled'
+  }
+
+  private handleTaskSuccess<T>(task: Task<T>, result: T): void {
+    if (this.isTaskCancelled(task)) {
+      this.stats.cancelled++
+      task.reject(new DOMException('Task cancelled', 'AbortError'))
+      return
+    }
+
+    task.status = 'completed'
+    this.stats.completed++
+    task.resolve(result)
+    this.notifyTaskComplete(task)
+  }
+
+  private handleTaskFailure<T>(task: Task<T>, error: unknown): void {
+    if (isAbortError(error)) {
+      task.status = 'cancelled'
+      this.stats.cancelled++
+      task.reject(error)
+      return
+    }
+
+    task.status = 'failed'
+    this.stats.failed++
+    task.reject(error)
+    this.notifyTaskError(task, error)
+  }
+
+  private finalizeTaskRun<T>(task: Task<T>): void {
+    this.runningTasks.delete(task.id)
+    this.stats.running--
+  }
+
   /**
    * Run a single task.
    */
@@ -259,38 +307,17 @@ export class TaskQueue {
     this.runningTasks.set(task.id, task)
     this.stats.running++
 
-    this.callbacks.onTaskStart?.(task.id, task.name)
+    this.notifyTaskStart(task)
 
     try {
       const result = await task.execute(task.abortController.signal)
-
-      // Check if cancelled during execution (status may have changed via cancel())
-      if ((task.status as TaskStatus) === 'cancelled') {
-        this.stats.cancelled++
-        task.reject(new DOMException('Task cancelled', 'AbortError'))
-      } else {
-        task.status = 'completed'
-        this.stats.completed++
-        task.resolve(result)
-        this.callbacks.onTaskComplete?.(task.id, task.name)
-      }
+      this.handleTaskSuccess(task, result)
     } catch (error: unknown) {
-      if (isAbortError(error)) {
-        task.status = 'cancelled'
-        this.stats.cancelled++
-        task.reject(error)
-      } else {
-        task.status = 'failed'
-        this.stats.failed++
-        task.reject(error)
-        this.callbacks.onTaskError?.(task.id, error, task.name)
-      }
+      this.handleTaskFailure(task, error)
     } finally {
-      this.runningTasks.delete(task.id)
-      this.stats.running--
+      this.finalizeTaskRun(task)
     }
 
-    // Process next task
     this.processQueue()
   }
 }

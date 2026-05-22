@@ -388,6 +388,83 @@ function PromptField({
   )
 }
 
+interface ReviewAgentsSectionProps {
+  options: { value: string; label: string }[]
+  selected: string[]
+  reviewerModels: Record<string, string>
+  reviewerModelOptions: ReviewerModelGroup[]
+  onToggle: (key: string) => void
+  onModelChange: (role: string, model: string) => void
+}
+
+function ReviewAgentsSection({
+  options,
+  selected,
+  reviewerModels,
+  reviewerModelOptions,
+  onToggle,
+  onModelChange,
+}: ReviewAgentsSectionProps) {
+  if (options.length === 0) return null
+  return (
+    <div className="ralph-form-field">
+      <span className="ralph-form-label">PR Review Agents</span>
+      <div className="ralph-agent-chips">
+        {options.map(o => {
+          const isSelected = selected.includes(o.value)
+          return (
+            <div key={o.value} className="ralph-agent-chip-wrapper">
+              <button
+                type="button"
+                className={`ralph-agent-chip ${isSelected ? 'selected' : ''}`}
+                onClick={() => onToggle(o.value)}
+                title={o.label}
+              >
+                {o.value}
+              </button>
+              {isSelected && (
+                <select
+                  className="ralph-agent-model-select"
+                  value={reviewerModels[o.value] ?? ''}
+                  onChange={e => onModelChange(o.value, e.target.value)}
+                  title={`Model for ${o.value}`}
+                >
+                  <option value="">Default model</option>
+                  {reviewerModelOptions.map(g => (
+                    <optgroup key={g.provider} label={g.label}>
+                      {g.options.map(m => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function LaunchButton({ launching, canSubmit }: { launching: boolean; canSubmit: boolean }) {
+  return (
+    <button type="submit" className="ralph-launch-btn" disabled={!canSubmit}>
+      <Play size={14} />
+      {launching ? 'Launching…' : 'Launch'}
+    </button>
+  )
+}
+
+function getConfigDefaults(
+  models: RalphModelsConfig | null | undefined,
+  providers: RalphProvidersConfig | null | undefined
+) {
+  return { defaultModel: models?.default, defaultProvider: providers?.default }
+}
+
 export function RalphLaunchForm({
   initialScript,
   initialPR,
@@ -398,8 +475,9 @@ export function RalphLaunchForm({
   const { data: agents } = useRalphAgents()
   const { data: providers } = useRalphProviders()
 
+  const effectiveScript: ScriptChoice = initialScript ?? 'ralph'
   const [repoPath, setRepoPath] = useState(() => safeGetItem('ralph-last-repo') ?? '')
-  const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(initialScript ?? 'ralph')
+  const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(effectiveScript)
 
   // Sync when sidebar changes the selected script
   useEffect(() => {
@@ -596,15 +674,14 @@ export function RalphLaunchForm({
     setLaunching(false)
   }
 
-  const defaultModel = models?.default
-  const defaultProvider = providers?.default
-  const canSubmit = !launching && !!repoPath
+  const { defaultModel, defaultProvider } = getConfigDefaults(models, providers)
+  const canSubmit = !launching && Boolean(repoPath)
 
   return (
     <form className="ralph-launch-form" onSubmit={handleSubmit}>
       <h3 className="ralph-form-title">Launch Loop</h3>
 
-      {error && <div className="ralph-form-error">{error}</div>}
+      {error ? <div className="ralph-form-error">{error}</div> : null}
 
       <div className="ralph-form-field">
         <label htmlFor="ralph-repo">Repository</label>
@@ -689,54 +766,18 @@ export function RalphLaunchForm({
         </label>
       </div>
 
-      {reviewAgentOptions.length > 0 && (
-        <div className="ralph-form-field">
-          <span className="ralph-form-label">PR Review Agents</span>
-          <div className="ralph-agent-chips">
-            {reviewAgentOptions.map(o => {
-              const isSelected = reviewAgents.includes(o.value)
-              return (
-                <div key={o.value} className="ralph-agent-chip-wrapper">
-                  <button
-                    type="button"
-                    className={`ralph-agent-chip ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleReviewAgent(o.value)}
-                    title={o.label}
-                  >
-                    {o.value}
-                  </button>
-                  {isSelected && (
-                    <select
-                      className="ralph-agent-model-select"
-                      value={reviewerModels[o.value] ?? ''}
-                      onChange={e => setReviewerModel(o.value, e.target.value)}
-                      title={`Model for ${o.value}`}
-                    >
-                      <option value="">Default model</option>
-                      {reviewerModelOptions.map(g => (
-                        <optgroup key={g.provider} label={g.label}>
-                          {g.options.map(m => (
-                            <option key={m.value} value={m.value}>
-                              {m.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+      <ReviewAgentsSection
+        options={reviewAgentOptions}
+        selected={reviewAgents}
+        reviewerModels={reviewerModels}
+        reviewerModelOptions={reviewerModelOptions}
+        onToggle={toggleReviewAgent}
+        onModelChange={setReviewerModel}
+      />
 
       <PromptField scriptChoice={scriptChoice} prompt={prompt} onChange={setPrompt} />
 
-      <button type="submit" className="ralph-launch-btn" disabled={!canSubmit}>
-        <Play size={14} />
-        {launching ? 'Launching…' : 'Launch'}
-      </button>
+      <LaunchButton launching={launching} canSubmit={canSubmit} />
     </form>
   )
 }

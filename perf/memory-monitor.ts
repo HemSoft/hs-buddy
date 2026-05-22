@@ -61,26 +61,7 @@ export interface MemoryLeakResult {
   gcUnavailable: boolean
 }
 
-/**
- * Calculate linear regression (least squares) for the heap growth trend.
- */
-function collectRegressionSums(points: Array<{ x: number; y: number }>) {
-  let sumX = 0
-  let sumY = 0
-  let sumXY = 0
-  let sumX2 = 0
-
-  for (const { x, y } of points) {
-    sumX += x
-    sumY += y
-    sumXY += x * y
-    sumX2 += x * x
-  }
-
-  return { sumX, sumY, sumXY, sumX2 }
-}
-
-function calculateRSquared(
+function computeRSquared(
   points: Array<{ x: number; y: number }>,
   slope: number,
   intercept: number,
@@ -96,6 +77,9 @@ function calculateRSquared(
   return ssTot === 0 ? (ssRes === 0 ? 1 : 0) : 1 - ssRes / ssTot
 }
 
+/**
+ * Calculate linear regression (least squares) for the heap growth trend.
+ */
 export function linearRegression(points: Array<{ x: number; y: number }>): {
   slope: number
   intercept: number
@@ -104,14 +88,24 @@ export function linearRegression(points: Array<{ x: number; y: number }>): {
   const n = points.length
   if (n < 2) return { slope: 0, intercept: 0, rSquared: 0 }
 
-  const { sumX, sumY, sumXY, sumX2 } = collectRegressionSums(points)
+  let sumX = 0
+  let sumY = 0
+  let sumXY = 0
+  let sumX2 = 0
+
+  for (const { x, y } of points) {
+    sumX += x
+    sumY += y
+    sumXY += x * y
+    sumX2 += x * x
+  }
+
   const denom = n * sumX2 - sumX * sumX
   if (denom === 0) return { slope: 0, intercept: sumY / n, rSquared: 0 }
 
   const slope = (n * sumXY - sumX * sumY) / denom
   const intercept = (sumY - slope * sumX) / n
-  const meanY = sumY / n
-  const rSquared = calculateRSquared(points, slope, intercept, meanY)
+  const rSquared = computeRSquared(points, slope, intercept, sumY / n)
 
   return { slope, intercept, rSquared }
 }
@@ -174,31 +168,18 @@ function setupGC(forceGC: boolean): { doGC: () => void; gcUnavailable: boolean }
   return { doGC, gcUnavailable }
 }
 
-interface ResolvedLeakOptions {
-  operation: () => Promise<void> | void
-  cycles: number
-  warmupCycles: number
-  leakThresholdBytes: number
-  forceGC: boolean
-}
+const DEFAULT_CYCLES = 50
+const DEFAULT_WARMUP_CYCLES = 5
+const DEFAULT_LEAK_THRESHOLD_BYTES = 5 * 1024 * 1024 // 5MB
 
-function resolveLeakOptions(options: MemoryLeakOptions): ResolvedLeakOptions {
+function resolveLeakOptions(options: MemoryLeakOptions) {
   return {
     operation: options.operation,
-    cycles: options.cycles ?? 50,
-    warmupCycles: options.warmupCycles ?? 5,
-    leakThresholdBytes: options.leakThresholdBytes ?? 5 * 1024 * 1024,
+    cycles: options.cycles ?? DEFAULT_CYCLES,
+    warmupCycles: options.warmupCycles ?? DEFAULT_WARMUP_CYCLES,
+    leakThresholdBytes: options.leakThresholdBytes ?? DEFAULT_LEAK_THRESHOLD_BYTES,
     forceGC: options.forceGC ?? true,
   }
-}
-
-function isLeak(
-  heapGrowthBytes: number,
-  leakThresholdBytes: number,
-  slope: number,
-  rSquared: number
-): boolean {
-  return heapGrowthBytes > leakThresholdBytes && slope > 0 && rSquared > 0.7
 }
 
 /**
@@ -243,7 +224,7 @@ export async function detectMemoryLeak(options: MemoryLeakOptions): Promise<Memo
   const intervals = Math.max(1, cycles - 1)
   const avgGrowthPerCycle = heapGrowthBytes / intervals
 
-  const leaked = isLeak(heapGrowthBytes, leakThresholdBytes, slope, rSquared)
+  const leaked = heapGrowthBytes > leakThresholdBytes && slope > 0 && rSquared > 0.7
 
   return {
     leaked,
@@ -283,73 +264,37 @@ function requireNumericArg(args: string[], index: number, flag: string, min: num
   return value
 }
 
-interface MemoryMonitorCliArgs {
-  cycles: number
-  warmupCycles: number
-  thresholdMB: number
-}
+const HELP_TEXT = [
+  'Usage: bun perf/memory-monitor.ts [options]',
+  '',
+  'Options:',
+  '  --cycles <n>     Number of measurement cycles (default: 50)',
+  '  --warmup <n>     Warmup cycles before measurement (default: 5)',
+  '  --threshold <MB> Heap growth threshold in MB (default: 5)',
+  '  --help           Show this help message',
+].join('\n')
 
-type MemoryMonitorCliHandler = (
-  args: string[],
-  index: number,
-  state: MemoryMonitorCliArgs
-) => number | null
-
-const MEMORY_MONITOR_CLI_HANDLERS: Record<string, MemoryMonitorCliHandler> = {
-  '--cycles': (args, index, state) => {
-    state.cycles = requireNumericArg(args, index + 1, '--cycles', 1)
-    return index + 1
-  },
-  '--warmup': (args, index, state) => {
-    state.warmupCycles = requireNumericArg(args, index + 1, '--warmup', 0)
-    return index + 1
-  },
-  '--threshold': (args, index, state) => {
-    state.thresholdMB = requireNumericArg(args, index + 1, '--threshold', 0)
-    return index + 1
-  },
-  '--help': () => {
-    console.log(
-      [
-        'Usage: bun perf/memory-monitor.ts [options]',
-        '',
-        'Options:',
-        '  --cycles <n>     Number of measurement cycles (default: 50)',
-        '  --warmup <n>     Warmup cycles before measurement (default: 5)',
-        '  --threshold <MB> Heap growth threshold in MB (default: 5)',
-        '  --help           Show this help message',
-      ].join('\n')
-    )
-    return null
-  },
-}
-
-function parseMemoryMonitorCliArg(
-  arg: string,
-  args: string[],
-  index: number,
-  state: MemoryMonitorCliArgs
-): number | null {
-  const handler = MEMORY_MONITOR_CLI_HANDLERS[arg]
-  if (!handler) {
-    return index
-  }
-  return handler(args, index, state)
-}
-
-function parseCliArgs(): MemoryMonitorCliArgs | null {
+function parseCliArgs(): { cycles: number; warmupCycles: number; thresholdMB: number } | null {
   const args = process.argv.slice(2)
-  const state: MemoryMonitorCliArgs = { cycles: 50, warmupCycles: 5, thresholdMB: 5 }
+  const result = { cycles: 50, warmupCycles: 5, thresholdMB: 5 }
+
+  const handlers: Record<string, (i: number) => number | null> = {
+    '--cycles': (i) => { result.cycles = requireNumericArg(args, i + 1, '--cycles', 1); return i + 1 },
+    '--warmup': (i) => { result.warmupCycles = requireNumericArg(args, i + 1, '--warmup', 0); return i + 1 },
+    '--threshold': (i) => { result.thresholdMB = requireNumericArg(args, i + 1, '--threshold', 0); return i + 1 },
+    '--help': () => { console.log(HELP_TEXT); return null },
+  }
 
   for (let i = 0; i < args.length; i++) {
-    const nextIndex = parseMemoryMonitorCliArg(args[i], args, i, state)
-    if (nextIndex === null) {
-      return null
+    const handler = handlers[args[i]]
+    if (handler) {
+      const next = handler(i)
+      if (next === null) return null
+      i = next
     }
-    i = nextIndex
   }
 
-  return state
+  return result
 }
 
 async function main(): Promise<void> {

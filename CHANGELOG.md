@@ -73,6 +73,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract sub-components to reduce complexity (pass 3)
 - Reduce complexity in components and hooks (pass 4)
 - Reduce complexity in forms, scripts, and cards (pass 5)
+- Reduce complexity in perf scripts, bench-compare, RalphLaunchForm, and RepoPullRequestList
 
 ### Added
 

@@ -40,6 +40,36 @@ const ENABLED = process.env.PERF_STARTUP === '1'
 /** Structured sentinel emitted to stdout for machine-readable parsing. */
 export const STARTUP_SENTINEL = '::PERF_STARTUP_REPORT::'
 
+const DEFAULT_TARGET_MS = 3000
+
+function resolveStartupTarget(explicit?: number): number {
+  if (explicit != null) return explicit
+  const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
+  return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
+}
+
+function printReportTable(report: StartupReport, target: number): void {
+  console.log('\n⏱️  Startup Performance Report')
+  console.log('─'.repeat(50))
+  for (const mark of report.marks) {
+    console.log(`  ${mark.name.padEnd(20)} ${mark.elapsedFromStartMs.toFixed(0)}ms`)
+  }
+  console.log('─'.repeat(50))
+  for (const [phase, duration] of Object.entries(report.phases)) {
+    console.log(`  ${phase}: ${duration.toFixed(0)}ms`)
+  }
+  console.log('─'.repeat(50))
+  console.log(`  Total: ${report.totalStartupMs.toFixed(0)}ms`)
+
+  if (report.totalStartupMs > target) {
+    console.log(
+      `  ⚠️  Exceeds ${target}ms target by ${(report.totalStartupMs - target).toFixed(0)}ms`
+    )
+  } else {
+    console.log(`  ✅ Within ${target}ms target`)
+  }
+}
+
 export class StartupTimer {
   private readonly processStartMs: number
   private readonly marks: TimingMark[] = []
@@ -87,27 +117,6 @@ export class StartupTimer {
     }
   }
 
-  private resolveTarget(targetMs?: number): number {
-    const DEFAULT_TARGET_MS = 3000
-    if (targetMs != null) return targetMs
-    const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
-    return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
-  }
-
-  private printTimingTable(report: StartupReport): void {
-    console.log('\n⏱️  Startup Performance Report')
-    console.log('─'.repeat(50))
-    for (const mark of report.marks) {
-      console.log(`  ${mark.name.padEnd(20)} ${mark.elapsedFromStartMs.toFixed(0)}ms`)
-    }
-    console.log('─'.repeat(50))
-    for (const [phase, duration] of Object.entries(report.phases)) {
-      console.log(`  ${phase}: ${duration.toFixed(0)}ms`)
-    }
-    console.log('─'.repeat(50))
-    console.log(`  Total: ${report.totalStartupMs.toFixed(0)}ms`)
-  }
-
   /**
    * Log the report to stdout (once only — repeated calls are no-ops).
    * Emits a structured sentinel line for machine-readable parsing.
@@ -119,16 +128,8 @@ export class StartupTimer {
     if (!report) return
     this.reported = true
 
-    const target = this.resolveTarget(targetMs)
-    this.printTimingTable(report)
-
-    if (report.totalStartupMs > target) {
-      console.log(
-        `  ⚠️  Exceeds ${target}ms target by ${(report.totalStartupMs - target).toFixed(0)}ms`
-      )
-    } else {
-      console.log(`  ✅ Within ${target}ms target`)
-    }
+    const target = resolveStartupTarget(targetMs)
+    printReportTable(report, target)
 
     // Machine-readable sentinel for perf:startup runner
     console.log(`${STARTUP_SENTINEL}${JSON.stringify(report)}`)

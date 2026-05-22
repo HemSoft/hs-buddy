@@ -135,6 +135,19 @@ export function parseBenchOutput(data: BenchmarkOutput): Map<string, BenchmarkRe
  * Compare current benchmark results against a baseline.
  * Returns regression analysis with pass/fail per benchmark.
  */
+function findRemovedBenchmarks(
+  baselineMap: Map<string, { name: string; hz: number; rme: number }>,
+  currentMap: Map<string, { name: string; hz: number; rme: number }>
+): string[] {
+  const removed: string[] = []
+  for (const key of baselineMap.keys()) {
+    if (!currentMap.has(key)) {
+      removed.push(key)
+    }
+  }
+  return removed
+}
+
 export function compareBenchmarks(
   baseline: BenchmarkOutput,
   current: BenchmarkOutput,
@@ -145,7 +158,6 @@ export function compareBenchmarks(
 
   const entries: ComparisonEntry[] = []
   const newBenchmarks: string[] = []
-  const removedBenchmarks: string[] = []
 
   // Check each current benchmark against baseline
   for (const [key, currentBench] of currentMap) {
@@ -173,13 +185,7 @@ export function compareBenchmarks(
     })
   }
 
-  // Check for benchmarks that existed in baseline but not in current
-  for (const key of baselineMap.keys()) {
-    if (!currentMap.has(key)) {
-      removedBenchmarks.push(key)
-    }
-  }
-
+  const removedBenchmarks = findRemovedBenchmarks(baselineMap, currentMap)
   const passed = entries.every(e => e.passed)
 
   return { entries, newBenchmarks, removedBenchmarks, passed, threshold }
@@ -293,6 +299,15 @@ function requireArgValue(args: string[], index: number, flag: string): string {
   return args[index + 1]
 }
 
+function parseThreshold(raw: string): number {
+  const parsed = Number(raw)
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    console.error(`❌ --threshold must be a non-negative number, got "${raw}"`)
+    process.exit(1)
+  }
+  return parsed
+}
+
 function parseArgs(): {
   baselinePath: string
   currentPath: string
@@ -300,43 +315,21 @@ function parseArgs(): {
   update: boolean
 } {
   const args = process.argv.slice(2)
-  let baselinePath = DEFAULT_BASELINE_PATH
-  let currentPath = DEFAULT_CURRENT_PATH
-  let threshold = DEFAULT_THRESHOLD
-  let update = false
+  const result = { baselinePath: DEFAULT_BASELINE_PATH, currentPath: DEFAULT_CURRENT_PATH, threshold: DEFAULT_THRESHOLD, update: false }
 
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--baseline': {
-        const val = requireArgValue(args, i, '--baseline')
-        baselinePath = resolve(ROOT, val)
-        i++
-        break
-      }
-      case '--current': {
-        const val = requireArgValue(args, i, '--current')
-        currentPath = resolve(ROOT, val)
-        i++
-        break
-      }
-      case '--threshold': {
-        const raw = requireArgValue(args, i, '--threshold')
-        i++
-        const parsed = Number(raw)
-        if (!Number.isFinite(parsed) || parsed < 0) {
-          console.error(`❌ --threshold must be a non-negative number, got "${raw}"`)
-          process.exit(1)
-        }
-        threshold = parsed
-        break
-      }
-      case '--update':
-        update = true
-        break
-    }
+  const handlers: Record<string, (i: number) => number> = {
+    '--baseline': (i) => { result.baselinePath = resolve(ROOT, requireArgValue(args, i, '--baseline')); return i + 1 },
+    '--current': (i) => { result.currentPath = resolve(ROOT, requireArgValue(args, i, '--current')); return i + 1 },
+    '--threshold': (i) => { result.threshold = parseThreshold(requireArgValue(args, i, '--threshold')); return i + 1 },
+    '--update': (i) => { result.update = true; return i },
   }
 
-  return { baselinePath, currentPath, threshold, update }
+  for (let i = 0; i < args.length; i++) {
+    const handler = handlers[args[i]]
+    if (handler) i = handler(i)
+  }
+
+  return result
 }
 
 function updateBaseline(currentPath: string, baselinePath: string): void {
@@ -359,6 +352,24 @@ function updateBaseline(currentPath: string, baselinePath: string): void {
   console.log(`✅ Updated baseline (${benchCount} benchmarks) → ${baselinePath}`)
 }
 
+function loadValidatedBenchFile(path: string, label: string): BenchmarkOutput {
+  if (!existsSync(path)) {
+    console.error(`❌ ${label} file not found: ${path}`)
+    console.error(
+      label === 'Current results'
+        ? 'Run `bun run bench:json` first to generate benchmark results.'
+        : ''
+    )
+    process.exit(1)
+  }
+  const raw: unknown = JSON.parse(readFileSync(path, 'utf-8'))
+  if (!isValidBenchOutput(raw)) {
+    console.error(`❌ ${label} file is not valid vitest bench JSON output`)
+    process.exit(1)
+  }
+  return raw
+}
+
 function main(): void {
   const { baselinePath, currentPath, threshold, update } = parseArgs()
 
@@ -374,24 +385,8 @@ function main(): void {
     return
   }
 
-  if (!existsSync(currentPath)) {
-    console.error(`❌ Current results file not found: ${currentPath}`)
-    console.error('Run `bun run bench:json` first to generate benchmark results.')
-    process.exit(1)
-  }
-
-  const baselineRaw: unknown = JSON.parse(readFileSync(baselinePath, 'utf-8'))
-  const currentRaw: unknown = JSON.parse(readFileSync(currentPath, 'utf-8'))
-
-  if (!isValidBenchOutput(baselineRaw)) {
-    console.error('❌ Baseline file is not valid vitest bench JSON output')
-    process.exit(1)
-  }
-
-  if (!isValidBenchOutput(currentRaw)) {
-    console.error('❌ Current results file is not valid vitest bench JSON output')
-    process.exit(1)
-  }
+  const baselineRaw = loadValidatedBenchFile(baselinePath, 'Baseline')
+  const currentRaw = loadValidatedBenchFile(currentPath, 'Current results')
 
   const result = compareBenchmarks(baselineRaw, currentRaw, threshold)
   console.log(formatResults(result))

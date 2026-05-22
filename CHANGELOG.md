@@ -72,6 +72,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce complexity in services, API, and component logic
 - Extract sub-components to reduce complexity (pass 3)
 - Reduce complexity in components and hooks (pass 4)
+- Reduce complexity in forms, scripts, and cards (pass 5)
 
 ### Added
 

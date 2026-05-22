@@ -553,14 +553,17 @@ export function RalphLaunchForm({
     }
   }
 
+  const validateForm = (): string | null => {
+    if (!repoPath) return 'Select a repository path'
+    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    return null
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repoPath) {
-      setError('Select a repository path')
-      return
-    }
-    if (scriptChoice === 'ralph-pr' && !prNumber) {
-      setError('PR number is required for ralph-pr')
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
 
@@ -592,6 +595,10 @@ export function RalphLaunchForm({
     }
     setLaunching(false)
   }
+
+  const defaultModel = models?.default
+  const defaultProvider = providers?.default
+  const canSubmit = !launching && !!repoPath
 
   return (
     <form className="ralph-launch-form" onSubmit={handleSubmit}>
@@ -642,8 +649,8 @@ export function RalphLaunchForm({
         onProviderChange={setProvider}
         modelOptions={modelOptions}
         providerOptions={providerOptions}
-        defaultModel={models?.default}
-        defaultProvider={providers?.default}
+        defaultModel={defaultModel}
+        defaultProvider={defaultProvider}
       />
 
       <div className="ralph-form-row">
@@ -726,7 +733,7 @@ export function RalphLaunchForm({
 
       <PromptField scriptChoice={scriptChoice} prompt={prompt} onChange={setPrompt} />
 
-      <button type="submit" className="ralph-launch-btn" disabled={launching || !repoPath}>
+      <button type="submit" className="ralph-launch-btn" disabled={!canSubmit}>
         <Play size={14} />
         {launching ? 'Launching…' : 'Launch'}
       </button>

@@ -573,27 +573,13 @@ export function SettingsAccounts() {
     e.preventDefault()
     const { username, org } = trimAccountInput(newUsername, newOrg)
     const validationError = validateNewAccount(username, org, accounts)
-
-    if (validationError) {
-      dispatch({ type: 'SET_ERROR', value: validationError })
-      return
-    }
-
+    if (validationError) { dispatch({ type: 'SET_ERROR', value: validationError }); return }
     dispatch({ type: 'START_ADD' })
-
-    const account: GitHubAccount = {
-      username,
-      org,
-    }
-
     try {
-      const result = await addAccount(account)
+      const result = await addAccount({ username, org })
       dispatch({ type: 'FINISH_ADD', error: resolveAddAccountError(result) })
     } catch (error: unknown) {
-      dispatch({
-        type: 'FINISH_ADD',
-        error: getUserFacingErrorMessage(error, 'Failed to add account'),
-      })
+      dispatch({ type: 'FINISH_ADD', error: getUserFacingErrorMessage(error, 'Failed to add account') })
     }
   }
 

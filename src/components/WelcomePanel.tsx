@@ -290,39 +290,24 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   }
 
   const handleCopilotUsageAction = () => {
-    if (hasCopilotAccounts) {
-      onSectionChange('copilot')
-      onNavigate('copilot-usage')
-      return
-    }
-
-    onSectionChange('settings')
-    onNavigate('settings-accounts')
+    onSectionChange(hasCopilotAccounts ? 'copilot' : 'settings')
+    onNavigate(hasCopilotAccounts ? 'copilot-usage' : 'settings-accounts')
   }
 
   const commandCenterProps = {
-    accountCount: accounts.length,
-    hasCopilotAccounts,
-    anyLoading,
-    onRefresh: refreshAll,
-    onOpenUsage: handleCopilotUsageAction,
-    totalUsed: aggregateTotals.totalUsed,
-    totalOverage: aggregateTotals.totalOverageCost,
+    accountCount: accounts.length, hasCopilotAccounts, anyLoading,
+    onRefresh: refreshAll, onOpenUsage: handleCopilotUsageAction,
+    totalUsed: aggregateTotals.totalUsed, totalOverage: aggregateTotals.totalOverageCost,
     projectedTotal: aggregateProjections?.projectedTotal,
     projectedOverageCost: aggregateProjections?.projectedOverageCost,
   }
 
   const workspacePulseProps = {
-    totalPrsViewed: welcomeStats.totalPrsViewed,
-    activePrs: welcomeStats.activePrs,
-    copilotPrReviews: welcomeStats.copilotPrReviews,
-    reposBrowsed: welcomeStats.reposBrowsed,
-    runsTriggered: welcomeStats.runsTriggered,
-    totalFinished: welcomeStats.totalFinished,
-    successRate: welcomeStats.successRate,
-    bookmarks: welcomeStats.bookmarks,
-    firstLaunch: welcomeStats.firstLaunch,
-    appLaunches: welcomeStats.appLaunches,
+    totalPrsViewed: welcomeStats.totalPrsViewed, activePrs: welcomeStats.activePrs,
+    copilotPrReviews: welcomeStats.copilotPrReviews, reposBrowsed: welcomeStats.reposBrowsed,
+    runsTriggered: welcomeStats.runsTriggered, totalFinished: welcomeStats.totalFinished,
+    successRate: welcomeStats.successRate, bookmarks: welcomeStats.bookmarks,
+    firstLaunch: welcomeStats.firstLaunch, appLaunches: welcomeStats.appLaunches,
   }
 
   return (

@@ -686,46 +686,7 @@ interface OrgReposSectionProps {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- WIP: will replace inline repo rendering in OrgTreeNode
 function OrgReposSection({
   /* v8 ignore stop */
-  org,
-  repos,
-  isExpanded,
-  showBookmarkedOnly: _showBookmarkedOnly,
-  bookmarkedRepoKeys,
-  expandedRepos,
-  expandedRepoIssueGroups,
-  expandedRepoIssueStateGroups,
-  expandedRepoPRGroups,
-  expandedRepoPRStateGroups,
-  expandedRepoCommitGroups,
-  expandedPRNodes,
-  repoCounts,
-  loadingRepoCounts,
-  repoPrTreeData,
-  repoCommitTreeData,
-  repoIssueTreeData,
-  loadingRepoCommits,
-  loadingRepoPRs,
-  loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
-  ralphRuns,
-  expandedRalphGroups,
-  selectedItem,
-  refreshTick,
-  onToggleOrgRepoGroup,
-  onToggleRepo,
-  onToggleRepoIssueGroup,
-  onToggleRepoIssueStateGroup,
-  onToggleRepoPRGroup,
-  onToggleRepoPRStateGroup,
-  onToggleRepoCommitGroup,
-  onToggleSFLGroup,
-  onToggleRalphGroup,
-  onTogglePRNode,
-  onItemSelect,
-  onContextMenu,
-  onBookmarkToggle,
+  org, repos, isExpanded, showBookmarkedOnly: _showBookmarkedOnly, bookmarkedRepoKeys, expandedRepos, expandedRepoIssueGroups, expandedRepoIssueStateGroups, expandedRepoPRGroups, expandedRepoPRStateGroups, expandedRepoCommitGroups, expandedPRNodes, repoCounts, loadingRepoCounts, repoPrTreeData, repoCommitTreeData, repoIssueTreeData, loadingRepoCommits, loadingRepoPRs, loadingRepoIssues, sflStatusData, loadingSFLStatus, expandedSFLGroups, ralphRuns, expandedRalphGroups, selectedItem, refreshTick, onToggleOrgRepoGroup, onToggleRepo, onToggleRepoIssueGroup, onToggleRepoIssueStateGroup, onToggleRepoPRGroup, onToggleRepoPRStateGroup, onToggleRepoCommitGroup, onToggleSFLGroup, onToggleRalphGroup, onTogglePRNode, onItemSelect, onContextMenu, onBookmarkToggle,
 }: OrgReposSectionProps) {
   /* v8 ignore start */
   const sortedRepos = [...repos].sort((a, b) => {
@@ -739,23 +700,9 @@ function OrgReposSection({
   return (
     /* v8 ignore stop */
     <>
-      <div
-        className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        role="button"
-        tabIndex={0}
-        /* v8 ignore start */
-        onClick={() => onToggleOrgRepoGroup(org)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))}
-        /* v8 ignore stop */
-      >
-        <span className="sidebar-item-chevron">
-          {/* v8 ignore start */}
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          {/* v8 ignore stop */}
-        </span>
-        <span className="sidebar-item-icon">
-          <FolderGit2 size={12} />
-        </span>
+      <div className="sidebar-item sidebar-item-disclosure sidebar-org-users-item" role="button" tabIndex={0} /* v8 ignore start */ onClick={() => onToggleOrgRepoGroup(org)} onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))} /* v8 ignore stop */>
+        <span className="sidebar-item-chevron">{/* v8 ignore start */}{isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}{/* v8 ignore stop */}</span>
+        <span className="sidebar-item-icon"><FolderGit2 size={12} /></span>
         <span className="sidebar-item-label">Repositories</span>
         {/* v8 ignore start */}
         {repos.length > 0 && <span className="sidebar-item-count">{repos.length}</span>}
@@ -763,51 +710,10 @@ function OrgReposSection({
       {isExpanded && (
         <div className="sidebar-org-users-list">
           {sortedRepos.length === 0 ? (
-            <div className="sidebar-item sidebar-item-empty">
-              <span className="sidebar-item-label">No repos found</span>
-            </div>
+            <div className="sidebar-item sidebar-item-empty"><span className="sidebar-item-label">No repos found</span></div>
           ) : (
             sortedRepos.map(repo => (
-              <RepoNode
-                key={repo.name}
-                org={org}
-                repo={repo}
-                bookmarkedRepoKeys={bookmarkedRepoKeys}
-                expandedRepos={expandedRepos}
-                expandedRepoIssueGroups={expandedRepoIssueGroups}
-                expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
-                expandedRepoPRGroups={expandedRepoPRGroups}
-                expandedRepoPRStateGroups={expandedRepoPRStateGroups}
-                expandedRepoCommitGroups={expandedRepoCommitGroups}
-                expandedPRNodes={expandedPRNodes}
-                repoCounts={repoCounts}
-                loadingRepoCounts={loadingRepoCounts}
-                repoPrTreeData={repoPrTreeData}
-                repoCommitTreeData={repoCommitTreeData}
-                repoIssueTreeData={repoIssueTreeData}
-                loadingRepoCommits={loadingRepoCommits}
-                loadingRepoPRs={loadingRepoPRs}
-                loadingRepoIssues={loadingRepoIssues}
-                sflStatusData={sflStatusData}
-                loadingSFLStatus={loadingSFLStatus}
-                expandedSFLGroups={expandedSFLGroups}
-                ralphRuns={ralphRuns}
-                expandedRalphGroups={expandedRalphGroups}
-                selectedItem={selectedItem}
-                refreshTick={refreshTick}
-                onToggleRepo={onToggleRepo}
-                onToggleRepoIssueGroup={onToggleRepoIssueGroup}
-                onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
-                onToggleRepoPRGroup={onToggleRepoPRGroup}
-                onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
-                onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-                onToggleSFLGroup={onToggleSFLGroup}
-                onToggleRalphGroup={onToggleRalphGroup}
-                onTogglePRNode={onTogglePRNode}
-                onItemSelect={onItemSelect}
-                onContextMenu={onContextMenu}
-                onBookmarkToggle={onBookmarkToggle}
-              />
+              <RepoNode key={repo.name} org={org} repo={repo} bookmarkedRepoKeys={bookmarkedRepoKeys} expandedRepos={expandedRepos} expandedRepoIssueGroups={expandedRepoIssueGroups} expandedRepoIssueStateGroups={expandedRepoIssueStateGroups} expandedRepoPRGroups={expandedRepoPRGroups} expandedRepoPRStateGroups={expandedRepoPRStateGroups} expandedRepoCommitGroups={expandedRepoCommitGroups} expandedPRNodes={expandedPRNodes} repoCounts={repoCounts} loadingRepoCounts={loadingRepoCounts} repoPrTreeData={repoPrTreeData} repoCommitTreeData={repoCommitTreeData} repoIssueTreeData={repoIssueTreeData} loadingRepoCommits={loadingRepoCommits} loadingRepoPRs={loadingRepoPRs} loadingRepoIssues={loadingRepoIssues} sflStatusData={sflStatusData} loadingSFLStatus={loadingSFLStatus} expandedSFLGroups={expandedSFLGroups} ralphRuns={ralphRuns} expandedRalphGroups={expandedRalphGroups} selectedItem={selectedItem} refreshTick={refreshTick} onToggleRepo={onToggleRepo} onToggleRepoIssueGroup={onToggleRepoIssueGroup} onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup} onToggleRepoPRGroup={onToggleRepoPRGroup} onToggleRepoPRStateGroup={onToggleRepoPRStateGroup} onToggleRepoCommitGroup={onToggleRepoCommitGroup} onToggleSFLGroup={onToggleSFLGroup} onToggleRalphGroup={onToggleRalphGroup} onTogglePRNode={onTogglePRNode} onItemSelect={onItemSelect} onContextMenu={onContextMenu} onBookmarkToggle={onBookmarkToggle} />
             ))
           )}
         </div>

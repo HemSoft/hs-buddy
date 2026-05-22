@@ -62,13 +62,7 @@ function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded
   )
 }
 
-function PullRequestHistoryOverview({
-  history,
-  pr,
-}: {
-  history: PRHistorySummary
-  pr: PRDetailInfo
-}) {
+function PullRequestHistoryOverview({ history, pr }: { history: PRHistorySummary; pr: PRDetailInfo }) {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null)
   const { premiumModel } = useCopilotSettings()
   const { accounts } = useGitHubAccounts()
@@ -76,135 +70,64 @@ function PullRequestHistoryOverview({
   useEffect(() => {
     if (!menu) return
     const close = () => setMenu(null)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close()
-    }
-    window.addEventListener('keydown', onKey)
-    window.addEventListener('scroll', close, true)
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      window.removeEventListener('scroll', close, true)
-    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('keydown', onKey); window.addEventListener('scroll', close, true)
+    return () => { window.removeEventListener('keydown', onKey); window.removeEventListener('scroll', close, true) }
   }, [menu])
 
   const handleAddressComments = useCallback(() => {
     const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({
-      prId: pr.id,
-      org,
-      repository: pr.repository,
-      url: pr.url,
-    })
-    window.dispatchEvent(
-      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
-    )
+    const prompt = buildAddressCommentsPrompt({ prId: pr.id, org, repository: pr.repository, url: pr.url })
+    window.dispatchEvent(new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } }))
     setMenu(null)
   }, [pr.id, pr.org, pr.source, pr.repository, pr.url, premiumModel])
 
   const handleRequestCopilotReview = useCallback(() => {
     const parsed = parseOwnerRepoFromUrl(pr.url)
     if (!parsed) return
-    const client = new GitHubClient({ accounts }, 7)
-    void client.requestCopilotReview(parsed.owner, parsed.repo, pr.id)
+    void new GitHubClient({ accounts }, 7).requestCopilotReview(parsed.owner, parsed.repo, pr.id)
     setMenu(null)
   }, [pr.url, pr.id, accounts])
 
   return (
     <>
       <div className="pr-history-grid">
-        <div className="pr-history-card">
-          <div className="label">Created</div>
-          <div className="value">{formatDateFull(history.createdAt)}</div>
-        </div>
-        <div className="pr-history-card">
-          <div className="label">Last Updated</div>
-          <div className="value">{formatDateFull(history.updatedAt)}</div>
-        </div>
-        <div className="pr-history-card">
-          <div className="label">Merged</div>
-          <div className="value">{formatDateFull(history.mergedAt)}</div>
-        </div>
+        <div className="pr-history-card"><div className="label">Created</div><div className="value">{formatDateFull(history.createdAt)}</div></div>
+        <div className="pr-history-card"><div className="label">Last Updated</div><div className="value">{formatDateFull(history.updatedAt)}</div></div>
+        <div className="pr-history-card"><div className="label">Merged</div><div className="value">{formatDateFull(history.mergedAt)}</div></div>
       </div>
-
       <div className="pr-history-metrics">
-        <div className="metric-row">
-          <span className="metric-label">
-            <GitCommit size={14} /> Commits
-          </span>
-          <span className="metric-value">{history.commitCount}</span>
-        </div>
-        <div className="metric-row">
-          <span className="metric-label">
-            <MessageCircle size={14} /> Comments (Total)
-          </span>
-          <span className="metric-value">{history.totalComments}</span>
-        </div>
-        <div className="metric-row nested">
-          <span className="metric-label">Issue comments</span>
-          <span className="metric-value">{history.issueCommentCount}</span>
-        </div>
-        <div className="metric-row nested">
-          <span className="metric-label">Review comments</span>
-          <span className="metric-value">{history.reviewCommentCount}</span>
-        </div>
+        <div className="metric-row"><span className="metric-label"><GitCommit size={14} /> Commits</span><span className="metric-value">{history.commitCount}</span></div>
+        <div className="metric-row"><span className="metric-label"><MessageCircle size={14} /> Comments (Total)</span><span className="metric-value">{history.totalComments}</span></div>
+        <div className="metric-row nested"><span className="metric-label">Issue comments</span><span className="metric-value">{history.issueCommentCount}</span></div>
+        <div className="metric-row nested"><span className="metric-label">Review comments</span><span className="metric-value">{history.reviewCommentCount}</span></div>
       </div>
-
       <div className="pr-history-thread-status">
         <h3>Review Thread Status</h3>
         <div className="thread-grid">
-          <div className="thread-card">
-            <div className="thread-label">Total</div>
-            <div className="thread-value">{history.threadsTotal}</div>
-          </div>
-          <div className="thread-card">
-            <div className="thread-label">Outdated</div>
-            <div className="thread-value">{history.threadsOutdated}</div>
-          </div>
+          <div className="thread-card"><div className="thread-label">Total</div><div className="thread-value">{history.threadsTotal}</div></div>
+          <div className="thread-card"><div className="thread-label">Outdated</div><div className="thread-value">{history.threadsOutdated}</div></div>
           <div className="thread-card">
             <div className="thread-label-row">
               <div className="thread-label">Addressed</div>
-              <div className="thread-indicator good" aria-label="Addressed">
-                <CheckCircle2 size={12} />
-                Good
-              </div>
+              <div className="thread-indicator good" aria-label="Addressed"><CheckCircle2 size={12} />Good</div>
             </div>
             <div className="thread-value">{history.threadsAddressed}</div>
           </div>
-          <div
-            className="thread-card thread-card-interactive"
-            onContextMenu={e => {
-              e.preventDefault()
-              setMenu({ x: e.clientX, y: e.clientY })
-            }}
-            title="Right-click for actions"
-          >
+          <div className="thread-card thread-card-interactive" onContextMenu={e => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }) }} title="Right-click for actions">
             <div className="thread-label-row">
               <div className="thread-label">Unaddressed</div>
-              <div className="thread-indicator bad" aria-label="Unaddressed">
-                <XCircle size={12} />
-                Bad
-              </div>
+              <div className="thread-indicator bad" aria-label="Unaddressed"><XCircle size={12} />Bad</div>
             </div>
             <div className="thread-value">{history.threadsUnaddressed}</div>
           </div>
         </div>
-
         {menu && (
           <>
-            <div
-              className="pr-context-menu-overlay"
-              onClick={() => setMenu(null)}
-              aria-hidden="true"
-            />
+            <div className="pr-context-menu-overlay" onClick={() => setMenu(null)} aria-hidden="true" />
             <div className="pr-context-menu" style={{ top: menu.y, left: menu.x }}>
-              <button onClick={handleAddressComments} disabled={history.threadsUnaddressed === 0}>
-                <MessageSquareWarning size={14} />
-                Address Unresolved Comments
-              </button>
-              <button onClick={handleRequestCopilotReview}>
-                <Sparkles size={14} />
-                Request Copilot Review
-              </button>
+              <button onClick={handleAddressComments} disabled={history.threadsUnaddressed === 0}><MessageSquareWarning size={14} />Address Unresolved Comments</button>
+              <button onClick={handleRequestCopilotReview}><Sparkles size={14} />Request Copilot Review</button>
             </div>
           </>
         )}

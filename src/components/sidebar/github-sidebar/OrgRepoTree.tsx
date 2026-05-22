@@ -26,6 +26,10 @@ import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
 import { handleItemKeyDown, refreshStateClass, sidebarItemClass } from './repoNodeUtils'
 
+function lookup<T>(data: Record<string, T>, key: string, fallback: T): T {
+  return data[key] ?? fallback
+}
+
 function orgRefreshClass(org: string, indicators?: RefreshIndicators): string {
   return indicators ? refreshStateClass(indicators[`org-repos:${org}`]) : ''
 }
@@ -1062,15 +1066,15 @@ function OrgTreeNode({
   const isOrgExpanded = expandedOrgs.has(org)
   const isLoading = loadingOrgs.has(org)
   const isOrgSelected = selectedItem === `org-detail:${org}`
-  const repos = orgRepos[org] ?? []
-  const members = orgMembers[org] ?? []
+  const repos = lookup(orgRepos, org, [] as OrgRepo[])
+  const members = lookup(orgMembers, org, [] as OrgMember[])
   const meta = orgMeta[org]
   const isUserGroupExpanded = expandedOrgUserGroups.has(org)
   const isUserGroupLoading = loadingOrgMembers.has(org)
-  const teams = orgTeams[org] ?? []
+  const teams = lookup(orgTeams, org, [] as OrgTeam[])
   const isTeamGroupExpanded = expandedOrgTeamGroups.has(org)
   const isTeamGroupLoading = loadingOrgTeams.has(org)
-  const contributorCounts = orgContributorCounts[org] ?? {}
+  const contributorCounts = lookup(orgContributorCounts, org, {} as Record<string, number>)
   const filteredRepos = showBookmarkedOnly
     ? repos.filter(repo => bookmarkedRepoKeys.has(`${org}/${repo.name}`))
     : repos

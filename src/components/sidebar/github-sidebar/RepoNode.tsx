@@ -33,6 +33,10 @@ import {
   sidebarItemClass,
 } from './repoNodeUtils'
 
+function lookup<T>(data: Record<string, T>, key: string, fallback: T): T {
+  return data[key] ?? fallback
+}
+
 interface RepoNodeProps {
   org: string
   repo: OrgRepo
@@ -602,7 +606,7 @@ function RepoIssuesSection({
               isLoading={isOpenIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[openIssuesKey] || []}
+              issues={lookup(repoIssueTreeData, openIssuesKey, [])}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -617,7 +621,7 @@ function RepoIssuesSection({
               isLoading={isClosedIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[closedIssuesKey] || []}
+              issues={lookup(repoIssueTreeData, closedIssuesKey, [])}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -651,6 +655,26 @@ interface RepoPullRequestsSectionProps {
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function OpenPRBadge({
+  isLoading,
+  isCountLoading,
+  counts,
+}: {
+  isLoading: boolean
+  isCountLoading: boolean
+  counts?: RepoCounts
+}) {
+  if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
+  if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
+  return null
+}
+
+function ClosedPRBadge({ isLoading, closedCount }: { isLoading: boolean; closedCount: number }) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
+  return null
+}
+
 function PRStateCountBadge({
   isOpen,
   isLoading,
@@ -664,14 +688,9 @@ function PRStateCountBadge({
   counts?: RepoCounts
   closedCount: number
 }) {
-  if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
-    return null
-  }
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
-  return null
+  if (isOpen)
+    return <OpenPRBadge isLoading={isLoading} isCountLoading={isCountLoading} counts={counts} />
+  return <ClosedPRBadge isLoading={isLoading} closedCount={closedCount} />
 }
 
 function PRStateGroupContent({
@@ -937,7 +956,7 @@ function RepoPullRequestsSection({
               isLoading={isOpenPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[openPrsKey] || []}
+              prs={lookup(repoPrTreeData, openPrsKey, [])}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -955,7 +974,7 @@ function RepoPullRequestsSection({
               isLoading={isClosedPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[closedPrsKey] || []}
+              prs={lookup(repoPrTreeData, closedPrsKey, [])}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -979,6 +998,69 @@ interface RepoSFLSectionProps {
   onToggleSFLGroup: (org: string, repoName: string) => void
 }
 
+function buildSFLWorkflowTitle(wf: {
+  name: string
+  state: string
+  latestRun?: { conclusion: string | null; status: string } | null
+}): string {
+  const stateLabel = wf.state === 'active' ? 'enabled' : 'disabled'
+  const runSuffix = wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''
+  return `${wf.name} — ${stateLabel}${runSuffix}`
+}
+
+function SFLWorkflowItem({ wf }: { wf: SFLRepoStatus['workflows'][number] }) {
+  const conclusion = wf.latestRun?.conclusion ?? null
+  return (
+    <div
+      key={wf.id}
+      className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
+      /* v8 ignore start */
+      title={buildSFLWorkflowTitle(wf)}
+      /* v8 ignore stop */
+    >
+      {sflWorkflowStateIcon(wf.state, conclusion)}
+      <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
+      {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
+    </div>
+  )
+}
+
+function SFLExpandedContent({ sflStatus }: { sflStatus: SFLRepoStatus }) {
+  return (
+    <div className="sidebar-job-tree sidebar-sfl-tree">
+      <div className="sidebar-job-items">
+        <div className="sidebar-item sidebar-job-item sidebar-sfl-summary">
+          {sflOverallStatusIcon(sflStatus.overallStatus)}
+          <span className="sidebar-item-label">{SFL_STATUS_LABELS[sflStatus.overallStatus]}</span>
+          <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
+        </div>
+        {sflStatus.workflows.map(wf => (
+          <SFLWorkflowItem key={wf.id} wf={wf} />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function hasSFLEnabled(status: SFLRepoStatus | undefined): status is SFLRepoStatus {
+  return !!status?.isSFLEnabled
+}
+
+function SFLStatusIndicator({
+  isLoading,
+  sflStatus,
+}: {
+  isLoading: boolean
+  sflStatus: SFLRepoStatus
+}) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  return (
+    <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[sflStatus.overallStatus]}>
+      {sflOverallStatusIcon(sflStatus.overallStatus)}
+    </span>
+  )
+}
+
 function RepoSFLSection({
   org,
   repoName,
@@ -987,7 +1069,7 @@ function RepoSFLSection({
   isExpanded,
   onToggleSFLGroup,
 }: RepoSFLSectionProps) {
-  if (!sflStatus?.isSFLEnabled) {
+  if (!hasSFLEnabled(sflStatus)) {
     return isLoading ? (
       <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
         <span className="sidebar-item-chevron">
@@ -1027,44 +1109,10 @@ function RepoSFLSection({
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
         {/* v8 ignore start */}
-        {isLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : (
-          /* v8 ignore stop */
-          <span
-            className="sidebar-sfl-status-badge"
-            title={SFL_STATUS_LABELS[sflStatus.overallStatus]}
-          >
-            {sflOverallStatusIcon(sflStatus.overallStatus)}
-          </span>
-        )}
+        <SFLStatusIndicator isLoading={isLoading} sflStatus={sflStatus} />
+        {/* v8 ignore stop */}
       </div>
-      {isExpanded && (
-        <div className="sidebar-job-tree sidebar-sfl-tree">
-          <div className="sidebar-job-items">
-            <div className="sidebar-item sidebar-job-item sidebar-sfl-summary">
-              {sflOverallStatusIcon(sflStatus.overallStatus)}
-              <span className="sidebar-item-label">
-                {SFL_STATUS_LABELS[sflStatus.overallStatus]}
-              </span>
-              <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
-            </div>
-            {sflStatus.workflows.map(wf => (
-              <div
-                key={wf.id}
-                className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
-                /* v8 ignore start */
-                title={`${wf.name} — ${wf.state === 'active' ? 'enabled' : 'disabled'}${wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''}`}
-                /* v8 ignore stop */
-              >
-                {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
-                <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
-                {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {isExpanded && <SFLExpandedContent sflStatus={sflStatus} />}
     </>
   )
 }
@@ -1241,20 +1289,24 @@ function renderPRNode(
   onItemSelect: (itemId: string) => void,
   onTogglePRNode: (prViewId: string) => void,
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void,
-  closed = false
+  closed: boolean
 ) {
   const prViewId = createPRDetailViewId(pr)
   const isSelected = selectedItem === prViewId
   const icon = closed ? <CheckCircle2 size={12} /> : <GitPullRequest size={12} />
+  const keyPrefix = closed ? 'closed' : 'open'
 
   return (
     <div
-      key={`${closed ? 'closed' : 'open'}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
+      key={`${keyPrefix}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
       className="sidebar-pr-group sidebar-pr-children"
     >
       <div
         /* v8 ignore start */
-        className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
+        className={sidebarItemClass(
+          'sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item',
+          isSelected
+        )}
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
@@ -1290,7 +1342,10 @@ function renderPRNode(
               <div
                 key={childViewId}
                 /* v8 ignore start */
-                className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
+                className={sidebarItemClass(
+                  'sidebar-item sidebar-pr-child',
+                  selectedItem === childViewId
+                )}
                 /* v8 ignore stop */
                 role="button"
                 tabIndex={0}

@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump @opentelemetry/api-logs from 0.216.0 to 0.218.0
 - Reduce CRAP scores via complexity extraction
 - Reduce more CRAP scores via helper extraction
+- Reduce complexity in RepoNode, OrgTree, config hooks
 
 ### Added
 

@@ -1,11 +1,25 @@
 import { useEffect, type RefObject } from 'react'
 
-function resolveExternalHref(target: EventTarget | null, container: HTMLElement): string | null {
+function findAnchorInContainer(
+  target: EventTarget | null,
+  container: HTMLElement
+): HTMLAnchorElement | null {
   if (!(target instanceof HTMLElement)) return null
   const anchor = target.closest('a')
-  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) return null
+  if (!(anchor instanceof HTMLAnchorElement)) return null
+  if (!container.contains(anchor)) return null
+  return anchor
+}
+
+function isExternalUrl(href: string | undefined): href is string {
+  return !!href && /^(https?:|mailto:)/i.test(href)
+}
+
+function resolveExternalHref(target: EventTarget | null, container: HTMLElement): string | null {
+  const anchor = findAnchorInContainer(target, container)
+  if (!anchor) return null
   const href = anchor.getAttribute('href')?.trim()
-  if (!href || !/^(https?:|mailto:)/i.test(href)) return null
+  if (!isExternalUrl(href)) return null
   return href
 }
 

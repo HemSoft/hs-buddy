@@ -189,6 +189,16 @@ interface PRDetailHeaderProps {
   aiReviewProviders: AIReviewProviderEntry[]
 }
 
+function shouldShowBranches(
+  branches: { baseBranch: string; headBranch: string } | null
+): boolean {
+  return Boolean(branches?.baseBranch && branches?.headBranch)
+}
+
+function resolveOrgLabel(pr: { org?: string; source?: string }): string {
+  return pr.org || pr.source || ''
+}
+
 function PRDetailHeader({
   pr,
   stateLabel,
@@ -206,6 +216,8 @@ function PRDetailHeader({
   aiReviewProviders,
 }: PRDetailHeaderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const showBranches = shouldShowBranches(branches)
+  const orgLabel = resolveOrgLabel(pr)
 
   const handleMoreClick = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -228,16 +240,16 @@ function PRDetailHeader({
         <div className="pr-detail-subtitle">
           <span className="pr-detail-author">{pr.author}</span>
           <span className="pr-detail-dot">·</span>
-          <span>{pr.org || pr.source}</span>
+          <span>{orgLabel}</span>
           <span className="pr-detail-dot">·</span>
           <span>{pr.repository}</span>
-          {branches?.baseBranch && branches?.headBranch && (
+          {showBranches && (
             <>
               <span className="pr-detail-dot">·</span>
               <span className="pr-detail-branch-flow">
                 <GitBranch size={12} />
-                into <strong>{branches.baseBranch}</strong> from{' '}
-                <strong>{branches.headBranch}</strong>
+                into <strong>{branches!.baseBranch}</strong> from{' '}
+                <strong>{branches!.headBranch}</strong>
               </span>
             </>
           )}
@@ -393,6 +405,39 @@ function NudgeBanner({ state, error, author, onDismiss }: NudgeBannerProps) {
   )
 }
 
+function LinkedIssueCard({ issue }: { issue: { number: number; url: string } | null }) {
+  if (!issue) {
+    return (
+      <div className="pr-detail-card" title="No linked issue">
+        <div className="pr-detail-card-title">
+          <CircleDot size={12} />
+          Linked Issue
+        </div>
+        <div className="pr-detail-card-value">
+          <span className="pr-detail-card-secondary">None</span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className="pr-detail-card pr-detail-card-interactive"
+      onClick={() => window.shell.openExternal(issue.url)}
+      onKeyDown={onKeyboardActivate(() => window.shell.openExternal(issue.url))}
+      title={`Open Issue #${issue.number} on GitHub`}
+    >
+      <div className="pr-detail-card-title">
+        <CircleDot size={12} />
+        Linked Issue
+      </div>
+      <div className="pr-detail-card-value">
+        <span className="pr-detail-linked-issue">#{issue.number}</span>
+      </div>
+    </button>
+  )
+}
+
 interface PROverviewSectionProps {
   pr: PRDetailInfo
   youApproved: boolean
@@ -427,70 +472,65 @@ function PROverviewSection({
           <div className="pr-detail-card-title">You Approved</div>
           <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
         </div>
-        {effectiveIssue ? (
-          <button
-            type="button"
-            className="pr-detail-card pr-detail-card-interactive"
-            onClick={() => window.shell.openExternal(effectiveIssue.url)}
-            onKeyDown={onKeyboardActivate(() => window.shell.openExternal(effectiveIssue.url))}
-            title={`Open Issue #${effectiveIssue.number} on GitHub`}
-          >
-            <div className="pr-detail-card-title">
-              <CircleDot size={12} />
-              Linked Issue
-            </div>
-            <div className="pr-detail-card-value">
-              <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
-            </div>
-          </button>
-        ) : (
-          <div className="pr-detail-card" title="No linked issue">
-            <div className="pr-detail-card-title">
-              <CircleDot size={12} />
-              Linked Issue
-            </div>
-            <div className="pr-detail-card-value">
-              <span className="pr-detail-card-secondary">None</span>
-            </div>
-          </div>
-        )}
+        <LinkedIssueCard issue={effectiveIssue} />
       </div>
 
-      <div className="pr-detail-meta-list">
-        <div className="pr-detail-meta-item pr-detail-meta-item-author">
-          <div className="pr-detail-meta-label">
-            <User size={14} />
-            Author
-          </div>
-          <div className="pr-detail-meta-value">
-            {pr.authorAvatarUrl && (
-              <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
-            )}
-            <span className="pr-detail-author-text">{pr.author}</span>
-          </div>
+      <PRMetaList
+        pr={pr}
+        createdRelative={createdRelative}
+        activityRelative={activityRelative}
+        activityAt={activityAt}
+      />
+    </>
+  )
+}
+
+function PRMetaList({
+  pr,
+  createdRelative,
+  activityRelative,
+  activityAt,
+}: {
+  pr: PRDetailInfo
+  createdRelative: string
+  activityRelative: string
+  activityAt: string | null
+}) {
+  return (
+    <div className="pr-detail-meta-list">
+      <div className="pr-detail-meta-item pr-detail-meta-item-author">
+        <div className="pr-detail-meta-label">
+          <User size={14} />
+          Author
         </div>
-        <div className="pr-detail-meta-item">
-          <div className="pr-detail-meta-label">
-            <Clock size={14} />
-            Created
-            {createdRelative && (
-              <span className="pr-detail-meta-relative">({createdRelative})</span>
-            )}
-          </div>
-          <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
-        </div>
-        <div className="pr-detail-meta-item">
-          <div className="pr-detail-meta-label">
-            <Check size={14} />
-            Last Activity
-            {activityRelative && (
-              <span className="pr-detail-meta-relative">({activityRelative})</span>
-            )}
-          </div>
-          <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
+        <div className="pr-detail-meta-value">
+          {pr.authorAvatarUrl && (
+            <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
+          )}
+          <span className="pr-detail-author-text">{pr.author}</span>
         </div>
       </div>
-    </>
+      <div className="pr-detail-meta-item">
+        <div className="pr-detail-meta-label">
+          <Clock size={14} />
+          Created
+          {createdRelative && (
+            <span className="pr-detail-meta-relative">({createdRelative})</span>
+          )}
+        </div>
+        <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
+      </div>
+      <div className="pr-detail-meta-item">
+        <div className="pr-detail-meta-label">
+          <Check size={14} />
+          Last Activity
+          {activityRelative && (
+            <span className="pr-detail-meta-relative">({activityRelative})</span>
+          )}
+        </div>
+        <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
+      </div>
+    </div>
   )
 }
 
@@ -615,14 +655,29 @@ function FocusedSectionContent({
   }
 }
 
+function resolveLatestActivity(
+  historyUpdatedAt: string | null,
+  pr: PRDetailInfo
+): string | null {
+  return historyUpdatedAt || pr.updatedAt || pr.date || pr.created
+}
+
 function resolveActivityDates(
   pr: PRDetailInfo,
   historyUpdatedAt: string | null
 ): { activityAt: string | null; activityRelative: string; createdRelative: string } {
-  const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
+  const activityAt = resolveLatestActivity(historyUpdatedAt, pr)
   const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
   const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
   return { activityAt, activityRelative, createdRelative }
+}
+
+function resolveStateLabel(state: string | undefined): string {
+  return state?.trim() || 'open'
+}
+
+function resolveSectionLabel(section: PRDetailSection | null): string | null {
+  return section ? (SECTION_LABELS[section] ?? null) : null
 }
 
 function resolveLabelsAndIssue(
@@ -637,8 +692,8 @@ function resolveLabelsAndIssue(
   isFocusedSection: boolean
   effectiveIssue: { number: number; url: string } | null
 } {
-  const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
+  const stateLabel = resolveStateLabel(pr.state)
+  const sectionLabel = resolveSectionLabel(section)
   const isFocusedSection = section !== null
   const effectiveIssue =
     linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)

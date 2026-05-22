@@ -7,6 +7,31 @@ import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { isSafeImageUrl, buildCategoryTree, type CategoryNode } from './bookmarksSidebarUtils'
 
+function computeDropInsertIndex(
+  fromIdx: number,
+  toIdx: number,
+  clientY: number,
+  element: HTMLElement
+): number {
+  const rect = element.getBoundingClientRect()
+  const adjustedToIdx = toIdx > fromIdx ? toIdx - 1 : toIdx
+  return clientY < rect.top + rect.height / 2 ? adjustedToIdx : adjustedToIdx + 1
+}
+
+function computeAdjustedMenuPosition(
+  x: number,
+  y: number,
+  menuWidth: number,
+  menuHeight: number
+): { x: number; y: number } | null {
+  let adjustedX = x
+  let adjustedY = y
+  if (adjustedX + menuWidth > window.innerWidth) adjustedX = window.innerWidth - menuWidth - 4
+  if (adjustedY + menuHeight > window.innerHeight) adjustedY = window.innerHeight - menuHeight - 4
+  if (adjustedX !== x || adjustedY !== y) return { x: adjustedX, y: adjustedY }
+  return null
+}
+
 interface BookmarksSidebarProps {
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
@@ -156,11 +181,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       /* v8 ignore stop */
 
       const [moved] = list.splice(fromIdx, 1)
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-      const adjustedToIdx = toIdx > fromIdx ? toIdx - 1 : toIdx
-      /* v8 ignore start */
-      const insertIdx = e.clientY < rect.top + rect.height / 2 ? adjustedToIdx : adjustedToIdx + 1
-      /* v8 ignore stop */
+      const insertIdx = computeDropInsertIndex(fromIdx, toIdx, e.clientY, e.currentTarget as HTMLElement)
       list.splice(insertIdx, 0, moved)
 
       const updates = list.map((bm, i) => ({
@@ -188,14 +209,10 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
-    let adjustedX = contextMenu.x
-    let adjustedY = contextMenu.y
-    if (adjustedX + rect.width > window.innerWidth) adjustedX = window.innerWidth - rect.width - 4
-    if (adjustedY + rect.height > window.innerHeight)
-      adjustedY = window.innerHeight - rect.height - 4
-    if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
+    const adjusted = computeAdjustedMenuPosition(contextMenu.x, contextMenu.y, rect.width, rect.height)
+    if (adjusted) {
       /* v8 ignore start */
-      setContextMenu(prev => (prev ? { ...prev, x: adjustedX, y: adjustedY } : null))
+      setContextMenu(prev => (prev ? { ...prev, ...adjusted } : null))
       /* v8 ignore stop */
     }
   }, [contextMenu])

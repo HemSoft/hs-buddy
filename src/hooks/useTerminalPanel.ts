@@ -16,6 +16,25 @@ function clampPanelHeight(value: number): number {
   return Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, value))
 }
 
+function shouldSkipTabRestore(
+  restored: boolean,
+  loaded: boolean,
+  savedTabs: unknown[] | null | undefined,
+  currentTabCount: number
+): boolean {
+  if (restored || !loaded || !savedTabs?.length) return true
+  return currentTabCount > 0
+}
+
+async function resolveRepoCwd(owner: string, repo: string): Promise<string> {
+  try {
+    const result = await window.terminal.resolveRepoPath(owner, repo)
+    return result.path || ''
+  } catch (_: unknown) {
+    return ''
+  }
+}
+
 export interface TerminalTab {
   id: string
   title: string
@@ -110,8 +129,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const restoredRef = useRef(false)
   /* v8 ignore start -- tab restoration from Convex; hard to unit-test due to async isolation */
   useEffect(() => {
-    if (restoredRef.current || !loaded || !settings?.terminalTabs?.length) return
-    if (terminalTabsRef.current.length > 0) return
+    if (shouldSkipTabRestore(restoredRef.current, loaded, settings?.terminalTabs, terminalTabsRef.current.length)) return
     restoredRef.current = true
 
     async function restoreTabs() {
@@ -199,13 +217,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       }
 
       title = repoContext.repo
-
-      try {
-        const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
-        cwd = result.path || ''
-      } catch (_: unknown) {
-        // Fall back to empty cwd if path resolution fails
-      }
+      cwd = await resolveRepoCwd(repoContext.owner, repoContext.repo)
     } else {
       title = `Terminal ${nextTabNumber++}`
     }

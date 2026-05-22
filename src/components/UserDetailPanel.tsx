@@ -200,8 +200,12 @@ function MetaItem({
   )
 }
 
+function resolveTeamsLabel(teams: string[] | undefined): string | null {
+  return teams?.join(', ') || null
+}
+
 function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
-  const teamsLabel = activity.teams?.join(', ') || null
+  const teamsLabel = resolveTeamsLabel(activity.teams)
   const joinedDate = activity.createdAt
     ? `GitHub since ${new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
     : null
@@ -582,6 +586,15 @@ function useUserDetailDerivedData(
   return { profileUrl, avatarUrl, commitsToday }
 }
 
+function UserDetailError({ error }: { error: string | null }) {
+  if (!error) return null
+  return <div className="ud-error-banner">Failed to load activity: {error}</div>
+}
+
+function resolveActiveRepos(activity: UserActivitySummary | null): string[] {
+  return activity?.activeRepos ?? []
+}
+
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const {
     activity,
@@ -621,9 +634,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       />
 
       {/* ── Error ── */}
-      {activityPhase === 'error' && activityError && (
-        <div className="ud-error-banner">Failed to load activity: {activityError}</div>
-      )}
+      {activityPhase === 'error' && <UserDetailError error={activityError} />}
 
       {/* ── Contribution Graph ── */}
       <UserContributionSection activity={activity} activityPhase={activityPhase} />
@@ -635,7 +646,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       <UserActivitySection activity={activity} activityPhase={activityPhase} />
 
       {/* ── Active Repos ── */}
-      <UserRepositoriesSection activeRepos={readyActivity?.activeRepos ?? []} />
+      <UserRepositoriesSection activeRepos={resolveActiveRepos(readyActivity)} />
 
       {/* ── Copilot Premium Requests ── */}
       <section className="ud-section">

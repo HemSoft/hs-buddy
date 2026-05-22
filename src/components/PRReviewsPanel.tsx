@@ -38,6 +38,35 @@ function getLatestStatusIcon(latest: { status: string } | null) {
   return Object.hasOwn(STATUS_ICONS, latest.status) ? STATUS_ICONS[latest.status] : PENDING_ICON
 }
 
+function PublishRunButton({
+  runId,
+  resultId,
+  model,
+  publishingRunId,
+  publishedRunIds,
+  onPublish,
+}: {
+  runId: string
+  resultId: string
+  model?: string
+  publishingRunId: string | null
+  publishedRunIds: Set<string>
+  onPublish: (runId: string, resultId: string, model?: string) => void
+}) {
+  const isPublished = publishedRunIds.has(runId)
+  const isPublishing = publishingRunId === runId
+  return (
+    <button
+      className={`pr-reviews-icon-btn${isPublished ? ' published' : ''}`}
+      onClick={() => onPublish(runId, resultId, model)}
+      disabled={!!publishingRunId || isPublished}
+      title={isPublished ? 'Published to PR' : 'Publish review as PR comment'}
+    >
+      {isPublishing ? <Loader2 size={12} className="spin" /> : <MessageSquareShare size={12} />}
+    </button>
+  )
+}
+
 function ReviewRunItem({
   run,
   publishingRunId,
@@ -62,20 +91,14 @@ function ReviewRunItem({
       </div>
       <div className="pr-reviews-item-actions">
         {run.status === 'completed' && (
-          <button
-            className={`pr-reviews-icon-btn${publishedRunIds.has(run._id) ? ' published' : ''}`}
-            onClick={() => onPublish(run._id, run.resultId, run.model)}
-            disabled={!!publishingRunId || publishedRunIds.has(run._id)}
-            title={
-              publishedRunIds.has(run._id) ? 'Published to PR' : 'Publish review as PR comment'
-            }
-          >
-            {publishingRunId === run._id ? (
-              <Loader2 size={12} className="spin" />
-            ) : (
-              <MessageSquareShare size={12} />
-            )}
-          </button>
+          <PublishRunButton
+            runId={run._id}
+            resultId={run.resultId}
+            model={run.model}
+            publishingRunId={publishingRunId}
+            publishedRunIds={publishedRunIds}
+            onPublish={onPublish}
+          />
         )}
         <button
           className="pr-reviews-icon-btn"
@@ -125,15 +148,15 @@ function usePublishToPR(pr: PRDetailInfo) {
     }
   }
 
-  return { owner, repo, publishingRunId, publishedRunIds, handlePublishToPR }
+  return { owner, repo, resolvedOrg: owner ?? '', publishingRunId, publishedRunIds, handlePublishToPR }
 }
 
 export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
-  const { owner, repo, publishingRunId, publishedRunIds, handlePublishToPR } = usePublishToPR(pr)
+  const { owner, repo, resolvedOrg, publishingRunId, publishedRunIds, handlePublishToPR } = usePublishToPR(pr)
 
   const runs = usePRReviewRunsByPR(owner, repo, pr.id, 25)
 
-  const hasRuns = !!runs && runs.length > 0
+  const hasRuns = runs != null && runs.length > 0
   const latest = hasRuns ? runs[0] : null
 
   const latestStatusIcon = useMemo(() => getLatestStatusIcon(latest), [latest])
@@ -143,16 +166,14 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
   }
 
   const handleReReview = () => {
-    const prompt = buildReReviewPrompt(pr.url, latest?.reviewedHeadSha)
-
     dispatchPRReviewOpen({
       prUrl: pr.url,
       prTitle: pr.title,
       prNumber: pr.id,
       repo: pr.repository,
-      org: pr.org || owner || '',
+      org: resolvedOrg,
       author: pr.author,
-      initialPrompt: prompt,
+      initialPrompt: buildReReviewPrompt(pr.url, latest?.reviewedHeadSha),
     })
   }
 

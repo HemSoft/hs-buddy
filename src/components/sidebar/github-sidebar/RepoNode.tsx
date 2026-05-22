@@ -86,6 +86,13 @@ function DisclosureIcons({ expanded }: { expanded: boolean }) {
   )
 }
 
+function resolveTreeItems<T>(treeData: Record<string, T[]>, repoKey: string): { open: T[]; closed: T[] } {
+  return {
+    open: treeData[`open:${repoKey}`] ?? [],
+    closed: treeData[`closed:${repoKey}`] ?? [],
+  }
+}
+
 function RepoHeader({
   org,
   repo,
@@ -551,8 +558,7 @@ function RepoIssuesSection({
   /* v8 ignore start */
   const isSelected = selectedItem === issuesViewId && !isExpanded
   /* v8 ignore stop */
-  const openIssues = repoIssueTreeData[`open:${repoKey}`] ?? []
-  const closedIssues = repoIssueTreeData[`closed:${repoKey}`] ?? []
+  const { open: openIssues, closed: closedIssues } = resolveTreeItems(repoIssueTreeData, repoKey)
 
   return (
     <>
@@ -878,8 +884,7 @@ function RepoPullRequestsSection({
   /* v8 ignore start */
   const isSelected = selectedItem === prsViewId && !isExpanded
   /* v8 ignore stop */
-  const openPrs = repoPrTreeData[`open:${repoKey}`] ?? []
-  const closedPrs = repoPrTreeData[`closed:${repoKey}`] ?? []
+  const { open: openPrs, closed: closedPrs } = resolveTreeItems(repoPrTreeData, repoKey)
 
   return (
     <>

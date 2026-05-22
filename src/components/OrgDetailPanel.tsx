@@ -310,6 +310,10 @@ function formatBudgetAmount(budgetAmount: number | null | undefined): string {
   return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
 }
 
+function resolveBudgetSpent(budgetState: CopilotBudgetState): number {
+  return budgetState?.data?.spent ?? 0
+}
+
 function OrgBudgetBand({
   budgetState,
   quotaOverage,
@@ -325,7 +329,7 @@ function OrgBudgetBand({
       </div>
       <div>
         <span className="org-detail-budget-label">Spent</span>
-        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+        <strong>{formatCurrency(resolveBudgetSpent(budgetState))}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">My Share</span>
@@ -490,6 +494,18 @@ function OrgLeadersSection({
   )
 }
 
+function resolveMemberDisplay(
+  member: OrgMember,
+  contributor: OrgContributor | null
+): { displayName: string; metaPrefix: string; commitLabel: string } {
+  const displayName = member.name ? `${member.name} (${member.login})` : member.login
+  const metaPrefix = member.name ? `@${member.login} · ` : ''
+  const commitLabel = contributor
+    ? ` · ${contributor.commits} commits today`
+    : ' · no commits today'
+  return { displayName, metaPrefix, commitLabel }
+}
+
 function OrgMemberSpotlightSection({
   selectedMember,
   selectedContributor,
@@ -501,6 +517,11 @@ function OrgMemberSpotlightSection({
   selectedConfiguredAccount: GitHubAccount | null
   selectedMemberQuotaState: CopilotQuotaState | null
 }) {
+  const { displayName, metaPrefix, commitLabel } = resolveMemberDisplay(
+    selectedMember,
+    selectedContributor
+  )
+
   return (
     <section className="org-detail-section org-detail-member-spotlight">
       <div className="org-detail-section-header">
@@ -511,17 +532,11 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">
-            {selectedMember.name
-              ? `${selectedMember.name} (${selectedMember.login})`
-              : selectedMember.login}
-          </div>
+          <div className="org-detail-member-name">{displayName}</div>
           <div className="org-detail-member-meta">
-            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
+            {metaPrefix}
             {selectedMember.type}
-            {selectedContributor
-              ? ` · ${selectedContributor.commits} commits today`
-              : ' · no commits today'}
+            {commitLabel}
           </div>
         </div>
         <button
@@ -699,6 +714,23 @@ function handleCopilotCatchError(
 }
 /* v8 ignore stop */
 
+function shouldSkipCopilotFetch(
+  copilotCacheKey: string,
+  copilotTaskName: string,
+  forceRefresh: boolean,
+  dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+): boolean {
+  const cached = getCachedCopilotData(copilotCacheKey)
+  /* v8 ignore start */
+  if (cached && !forceRefresh) {
+    dispatchCopilot({ type: 'hydrate-cache', usage: cached })
+    return true
+    /* v8 ignore stop */
+  }
+  const queue = getTaskQueue('github')
+  return queue.hasTaskWithName(copilotTaskName)
+}
+
 function useOrgCopilotData({
   org,
   enqueue,
@@ -747,16 +779,7 @@ function useOrgCopilotData({
         /* v8 ignore stop */
       }
 
-      const queue = getTaskQueue('github')
-      const cached = getCachedCopilotData(copilotCacheKey)
-      /* v8 ignore start */
-      if (cached && !forceRefresh) {
-        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(copilotTaskName)) {
+      if (shouldSkipCopilotFetch(copilotCacheKey, copilotTaskName, forceRefresh, dispatchCopilot)) {
         return
       }
 

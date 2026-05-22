@@ -285,6 +285,20 @@ function resolveAssigneeCount(item: any): number {
   return item.assignees?.length || 0
 }
 
+/** Extract nullable date fields from a search-result PR item. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchDates(item: any): {
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    created: item.created_at ? new Date(item.created_at) : null,
+    updatedAt: item.updated_at || null,
+    date: item.closed_at || null,
+  }
+}
+
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -301,10 +315,14 @@ function buildSearchPRFields(item: any): {
     author: user.login || 'unknown',
     authorAvatarUrl: user.avatar_url,
     assigneeCount: resolveAssigneeCount(item),
-    created: item.created_at ? new Date(item.created_at) : null,
-    updatedAt: item.updated_at || null,
-    date: item.closed_at || null,
+    ...resolveSearchDates(item),
   }
+}
+
+function parseOwnerRepoFromPRUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
+  if (!match?.[1] || !match?.[2]) return null
+  return { owner: match[1], repo: match[2] }
 }
 
 /** Map a GitHub search item to a PullRequest (with temp metadata fields). */
@@ -314,15 +332,12 @@ function mapSearchItemToPullRequest(
   orgAvatarUrl: string | null,
   org: string
 ): (PullRequest & { _owner: string; _repo: string; _prNumber: number }) | null {
-  const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
-  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
-
-  const owner: string = urlMatch[1]
-  const repo: string = urlMatch[2]
+  const parsed = parseOwnerRepoFromPRUrl(item.html_url)
+  if (!parsed) return null
 
   return {
     source: 'GitHub' as const,
-    repository: repo,
+    repository: parsed.repo,
     id: item.number,
     title: item.title,
     ...buildSearchPRFields(item),
@@ -337,8 +352,8 @@ function mapSearchItemToPullRequest(
     threadsUnaddressed: null,
     orgAvatarUrl: orgAvatarUrl ?? undefined,
     org,
-    _owner: owner,
-    _repo: repo,
+    _owner: parsed.owner,
+    _repo: parsed.repo,
     _prNumber: item.number,
   }
 }
@@ -489,6 +504,15 @@ async function executeSingleSearchQuery(
   return prs
 }
 
+function logSearchQueryError(error: unknown, query: string): void {
+  const errorMsg = getErrorMessage(error)
+  if (!errorMsg.includes('404')) {
+    console.warn(`Search query failed: ${query}`, error)
+  } else {
+    console.debug(`No search results (404) for: ${query}`)
+  }
+}
+
 /** Execute PR search queries and collect unique results. */
 async function executeSearchQueries(
   _config: PRConfig['github'],
@@ -509,12 +533,7 @@ async function executeSearchQueries(
         }
       }
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      if (!errorMsg.includes('404')) {
-        console.warn(`Search query failed: ${query}`, error)
-      } else {
-        console.debug(`No search results (404) for: ${query}`)
-      }
+      logSearchQueryError(error, query)
     }
   }
   return allPrs
@@ -588,6 +607,13 @@ function filterPRsByMode(prs: PullRequest[], mode: PRSearchMode): PullRequest[] 
   })
 }
 
+function computeMergedAfter(mode: PRSearchMode, recentlyMergedDays: number): string | undefined {
+  if (mode !== 'recently-merged') return undefined
+  const d = new Date()
+  d.setDate(d.getDate() - recentlyMergedDays)
+  return d.toISOString().split('T')[0]
+}
+
 async function fetchPRsForAccount(
   config: PRConfig['github'],
   recentlyMergedDays: number,
@@ -599,14 +625,7 @@ async function fetchPRsForAccount(
   if (!octokit) return []
 
   const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
-
-  // Compute mergedAfter date for recently-merged mode
-  let mergedAfter: string | undefined
-  if (mode === 'recently-merged') {
-    const mergedAfterDate = new Date()
-    mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
-    mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-  }
+  const mergedAfter = computeMergedAfter(mode, recentlyMergedDays)
 
   const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
   const allPrs = await executeSearchQueries(config, octokit, queries, org)
@@ -648,8 +667,9 @@ async function fetchPRsForAccount(
 
       pr.approvalCount = approvalCount
       pr.iApproved = iApproved
-      pr.headBranch = prData.data.head?.ref || ''
-      pr.baseBranch = prData.data.base?.ref || ''
+      const refs = extractBranchRefs(prData.data.head || {}, prData.data.base || {})
+      pr.headBranch = refs.headBranch
+      pr.baseBranch = refs.baseBranch
     } catch (error: unknown) {
       console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
     }
@@ -671,6 +691,32 @@ async function fetchPRsForAccount(
     }),
     mode
   )
+}
+
+function logPRFetchError(error: unknown, username: string, org: string): string {
+  const errorMsg = getErrorMessage(error)
+  if (!errorMsg.includes('404')) {
+    console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
+  } else {
+    console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
+  }
+  return errorMsg
+}
+
+function deduplicatePRs(allPrs: PullRequest[], mode: PRSearchMode): PullRequest[] {
+  if (mode === 'recently-merged') {
+    allPrs.sort((a, b) => {
+      const dateA = a.date ? new Date(a.date).getTime() : 0
+      const dateB = b.date ? new Date(b.date).getTime() : 0
+      return dateB - dateA
+    })
+  }
+  const seenUrls = new Set<string>()
+  return allPrs.filter(pr => {
+    if (seenUrls.has(pr.url)) return false
+    seenUrls.add(pr.url)
+    return true
+  })
 }
 
 /**
@@ -730,14 +776,7 @@ async function fetchPRs(
       console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
       accountReport(i, 'done', { prsFound: prs.length })
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
-      if (!errorMsg.includes('404')) {
-        console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
-      } else {
-        console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
-      }
-      accountReport(i, 'error', { error: errorMsg })
+      accountReport(i, 'error', { error: logPRFetchError(error, username, org) })
       continue
     }
   }
@@ -749,24 +788,7 @@ async function fetchPRs(
     )
   }
 
-  // Sort recently-merged PRs by merge date (newest first) after combining all accounts
-  if (mode === 'recently-merged') {
-    allPrs.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateB - dateA // Descending (newest first)
-    })
-  }
-
-  // Deduplicate across accounts — the same PR can appear from multiple accounts
-  const seenUrls = new Set<string>()
-  const dedupedPrs = allPrs.filter(pr => {
-    if (seenUrls.has(pr.url)) return false
-    seenUrls.add(pr.url)
-    return true
-  })
-
-  return dedupedPrs
+  return deduplicatePRs(allPrs, mode)
 }
 /* v8 ignore stop */
 
@@ -806,6 +828,12 @@ export async function fetchNeedANudge(
   return fetchPRs(config, recentlyMergedDays, 'need-a-nudge', onProgress)
 }
 
+function resolveViewerLogin(
+  viewer: { data?: { login?: string } } | null
+): string | null {
+  return viewer?.data?.login?.toLowerCase() || null
+}
+
 /** Fetch open pull requests for a specific repository. */
 /* v8 ignore start -- repo PR listing; requires real API */
 export async function fetchRepoPRs(
@@ -827,7 +855,7 @@ export async function fetchRepoPRs(
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+  const viewerLogin = resolveViewerLogin(viewer)
 
   const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
 

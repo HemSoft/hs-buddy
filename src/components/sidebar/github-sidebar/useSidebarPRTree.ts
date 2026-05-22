@@ -28,10 +28,15 @@ function initPrTreeData(): Record<string, PullRequest[]> {
 
 /** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
 /* v8 ignore start */
-function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
+function getParsedOwnerRepo(pr: PullRequest): { owner?: string; repo?: string } {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
+  return { owner: parsed?.owner, repo: parsed?.repo }
+}
+
+function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
+  const { owner: parsedOwner, repo: parsedRepo } = getParsedOwnerRepo(pr)
+  const owner = pr.org || parsedOwner
+  const repo = pr.repository || parsedRepo
   if (!owner || !repo) return null
   return { owner, repo }
 }

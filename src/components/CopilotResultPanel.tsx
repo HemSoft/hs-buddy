@@ -40,17 +40,14 @@ function isNonEmptyString(val: unknown): val is string {
   return typeof val === 'string' && val.length > 0
 }
 
+function isValidPRNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isInteger(val) && val > 0
+}
+
 function extractPRMetadata(metadata: Record<string, unknown> | null) {
   if (!metadata) return null
   const { org, repo, prNumber } = metadata
-  if (
-    !isNonEmptyString(org) ||
-    !isNonEmptyString(repo) ||
-    typeof prNumber !== 'number' ||
-    !Number.isInteger(prNumber) ||
-    prNumber <= 0
-  )
-    return null
+  if (!isNonEmptyString(org) || !isNonEmptyString(repo) || !isValidPRNumber(prNumber)) return null
   return { org, repo, prNumber }
 }
 

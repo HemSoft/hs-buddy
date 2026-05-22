@@ -57,18 +57,19 @@ export function getPollenColor(index: number): string {
 
 const COORD_TOLERANCE = 0.01 // ~1km
 
+function isLocationChanged(cached: PollenCache, lat: number, lon: number): boolean {
+  return (
+    Math.abs(cached.location.latitude - lat) > COORD_TOLERANCE ||
+    Math.abs(cached.location.longitude - lon) > COORD_TOLERANCE
+  )
+}
+
 function readPollenCache(lat: number, lon: number): PollenData | null {
   const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
   if (!cached) return null
   if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return null
   if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return null
-  // Invalidate if location changed
-  if (
-    Math.abs(cached.location.latitude - lat) > COORD_TOLERANCE ||
-    Math.abs(cached.location.longitude - lon) > COORD_TOLERANCE
-  ) {
-    return null
-  }
+  if (isLocationChanged(cached, lat, lon)) return null
   return cached.data
 }
 

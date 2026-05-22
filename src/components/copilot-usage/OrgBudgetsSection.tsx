@@ -71,6 +71,7 @@ function BudgetProjectionView({
 
   const overBudget =
     effectiveBudget !== null ? Math.max(0, budgetProjection.projectedSpend - effectiveBudget) : null
+  const showOverage = overBudget !== null && overBudget > 0
 
   return (
     <div className="usage-projection">
@@ -91,7 +92,7 @@ function BudgetProjectionView({
           </span>
           <span className="usage-projection-label">Per Day</span>
         </div>
-        {overBudget !== null && overBudget > 0 && (
+        {showOverage && (
           <div className="usage-projection-stat usage-projection-overage">
             <span className="usage-projection-value">{formatCurrency(overBudget)}</span>
             <span className="usage-projection-label">Over Budget</span>
@@ -125,6 +126,9 @@ function BudgetCardBody({
   metrics: BudgetCardMetrics
 }) {
   const { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor } = metrics
+  const showMyShareBar = mySharePct !== null && mySharePct > 0
+  const showMyShareLabel = myShare > 0 && !d.useQuotaOverage
+  const spentLabel = d.useQuotaOverage ? 'overage' : 'spent'
 
   return (
     <>
@@ -133,7 +137,7 @@ function BudgetCardBody({
           className="usage-budget-bar-fill"
           style={{ width: `${pct ?? 0}%`, background: barColor }}
         />
-        {mySharePct !== null && mySharePct > 0 && (
+        {showMyShareBar && (
           <div
             className="usage-budget-bar-myshare"
             style={{ width: `${mySharePct}%` }}
@@ -143,9 +147,9 @@ function BudgetCardBody({
       </div>
       <div className="usage-budget-amounts">
         <span className="usage-budget-spent" style={{ color: barColor }}>
-          {formatCurrency(displaySpent)} {d.useQuotaOverage ? 'overage' : 'spent'}
+          {formatCurrency(displaySpent)} {spentLabel}
         </span>
-        {myShare > 0 && !d.useQuotaOverage && (
+        {showMyShareLabel && (
           <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
         )}
         <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />

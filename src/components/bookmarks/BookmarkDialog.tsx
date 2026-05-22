@@ -64,20 +64,26 @@ type BookmarkDialogAction =
   | { type: 'ai:start' }
   | { type: 'ai:finish'; description?: string; tagsInput?: string }
 
-function deriveBookmarkFields(
-  bookmark: BookmarkInput,
+function emptyBookmarkFields(
   initialUrl?: string,
   initialTitle?: string
 ): { url: string; title: string; description: string; category: string; tagsInput: string } {
-  if (!bookmark) {
-    return {
-      url: initialUrl ?? '',
-      title: initialTitle ?? '',
-      description: '',
-      category: '',
-      tagsInput: '',
-    }
+  return {
+    url: initialUrl ?? '',
+    title: initialTitle ?? '',
+    description: '',
+    category: '',
+    tagsInput: '',
   }
+}
+
+function filledBookmarkFields(bookmark: NonNullable<BookmarkInput>): {
+  url: string
+  title: string
+  description: string
+  category: string
+  tagsInput: string
+} {
   return {
     url: bookmark.url,
     title: bookmark.title,
@@ -85,6 +91,15 @@ function deriveBookmarkFields(
     category: bookmark.category,
     tagsInput: bookmark.tags?.join(', ') ?? '',
   }
+}
+
+function deriveBookmarkFields(
+  bookmark: BookmarkInput,
+  initialUrl?: string,
+  initialTitle?: string
+): { url: string; title: string; description: string; category: string; tagsInput: string } {
+  if (!bookmark) return emptyBookmarkFields(initialUrl, initialTitle)
+  return filledBookmarkFields(bookmark)
 }
 
 function createInitialState(

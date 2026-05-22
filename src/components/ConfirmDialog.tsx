@@ -16,6 +16,36 @@ function confirmBtnClassName(variant: 'default' | 'danger'): string {
   return `confirm-dialog-btn ${variant === 'danger' ? 'confirm-dialog-btn-danger' : 'confirm-dialog-btn-confirm'}`
 }
 
+function ConfirmDialogBody({
+  message,
+  description,
+  variant,
+}: {
+  message: string
+  description?: string
+  variant: 'default' | 'danger'
+}) {
+  return (
+    <div className="confirm-dialog-body">
+      {variant === 'danger' && (
+        <div className="confirm-dialog-icon">
+          <AlertTriangle size={20} />
+        </div>
+      )}
+      <div className="confirm-dialog-text">
+        <p id="confirm-dialog-title" className="confirm-dialog-message">
+          {message}
+        </p>
+        {description && (
+          <p id="confirm-dialog-desc" className="confirm-dialog-description">
+            {description}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ConfirmDialog({
   message,
   description,
@@ -52,23 +82,7 @@ export function ConfirmDialog({
         aria-labelledby="confirm-dialog-title"
         aria-describedby={description ? 'confirm-dialog-desc' : undefined}
       >
-        <div className="confirm-dialog-body">
-          {variant === 'danger' && (
-            <div className="confirm-dialog-icon">
-              <AlertTriangle size={20} />
-            </div>
-          )}
-          <div className="confirm-dialog-text">
-            <p id="confirm-dialog-title" className="confirm-dialog-message">
-              {message}
-            </p>
-            {description && (
-              <p id="confirm-dialog-desc" className="confirm-dialog-description">
-                {description}
-              </p>
-            )}
-          </div>
-        </div>
+        <ConfirmDialogBody message={message} description={description} variant={variant} />
         <div className="confirm-dialog-actions">
           <button className="confirm-dialog-btn confirm-dialog-btn-cancel" onClick={onCancel}>
             {cancelLabel}

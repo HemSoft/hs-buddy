@@ -104,13 +104,15 @@ function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOver
   }
 }
 
+function getCachedData<T>(key: string): T | null {
+  return dataCache.get<T>(key)?.data ?? null
+}
+
 function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(
-    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
-  )
+  const cachedOverview = normalizeOverview(getCachedData<OrgOverviewResult>(`org-overview:${org}`))
   if (cachedOverview) return cachedOverview
 
-  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  const cachedRepos = getCachedData<OrgRepoResult>(`org-repos:${org}`)
   if (!cachedRepos) return null
 
   return buildMetricsFromRepos(org, cachedRepos)
@@ -668,7 +670,7 @@ function handleCopilotSuccess(
 }
 
 function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
-  return dataCache.get<OrgCopilotUsageData>(cacheKey)?.data ?? null
+  return getCachedData<OrgCopilotUsageData>(cacheKey)
 }
 
 /** Handle copilot fetch result: dispatch success or error. */

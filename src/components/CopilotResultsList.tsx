@@ -34,6 +34,23 @@ function PromptResultLabel({
   return <span className="result-prompt-text">{label}</span>
 }
 
+function PROpenButton({ metadata }: { metadata: Record<string, unknown> | null }) {
+  const prUrl = metadata?.prUrl as string | undefined
+  if (!prUrl) return null
+  return (
+    <button
+      className="result-action-btn"
+      onClick={e => {
+        e.stopPropagation()
+        window.shell.openExternal(prUrl)
+      }}
+      title="Open PR"
+    >
+      <ExternalLink size={12} />
+    </button>
+  )
+}
+
 function CopilotResultRow({
   r,
   onOpenResult,
@@ -59,18 +76,7 @@ function CopilotResultRow({
       <td className="result-duration-cell">{r.duration ? formatDuration(r.duration) : '—'}</td>
       <td className="result-date-cell">{formatDateCompact(r.createdAt)}</td>
       <td className="result-actions-cell">
-        {r.category === 'pr-review' && !!metadata?.prUrl && (
-          <button
-            className="result-action-btn"
-            onClick={e => {
-              e.stopPropagation()
-              window.shell.openExternal(metadata.prUrl as string)
-            }}
-            title="Open PR"
-          >
-            <ExternalLink size={12} />
-          </button>
-        )}
+        {r.category === 'pr-review' && <PROpenButton metadata={metadata} />}
         <button
           className="result-action-btn danger"
           onClick={e => onDelete(e, r._id)}

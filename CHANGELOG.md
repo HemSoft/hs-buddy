@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplisticate batch 14 — more function compressions
 - Simplisticate batch 24 — compress TerminalPanel, useCopilotReviewMonitor, useAIReviewMonitor, BookmarkDialog
 - Simplisticate batch 25 — compress usePRThreadsPanel, TempoWorklogEditor, TerminalPane
+- Compress batch 26 — SettingsCopilot, users, PullRequestDetailPanel
 
 ### Added
 

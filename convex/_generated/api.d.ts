@@ -30,6 +30,7 @@ import type * as schedules from "../schedules.js";
 import type * as sessionDigests from "../sessionDigests.js";
 import type * as settings from "../settings.js";
 import type * as terminalPrompts from "../terminalPrompts.js";
+import type * as terminalWorkspaces from "../terminalWorkspaces.js";
 
 import type {
   ApiFromModules,
@@ -60,6 +61,7 @@ declare const fullApi: ApiFromModules<{
   sessionDigests: typeof sessionDigests;
   settings: typeof settings;
   terminalPrompts: typeof terminalPrompts;
+  terminalWorkspaces: typeof terminalWorkspaces;
 }>;
 
 /**

@@ -46,39 +46,30 @@ export function getPollenLabel(index: number): PollenLevel {
   return POLLEN_LABELS[clamped]
 }
 
-const POLLEN_COLORS = [
-  'var(--text-muted)', // 0: none
-  '#4caf50', // 1: green
-  '#8bc34a', // 2: light green
-  '#ffc107', // 3: amber
-  '#ff9800', // 4: orange
-  '#f44336', // 5: red
-]
-
 export function getPollenColor(index: number): string {
-  const clamped = Math.max(0, Math.min(5, Math.round(index)))
-  return POLLEN_COLORS[clamped]
+  if (index <= 0) return 'var(--text-muted)'
+  if (index <= 1) return '#4caf50' // green
+  if (index <= 2) return '#8bc34a' // light green
+  if (index <= 3) return '#ffc107' // amber
+  if (index <= 4) return '#ff9800' // orange
+  return '#f44336' // red
 }
 
 const COORD_TOLERANCE = 0.01 // ~1km
 
-function isCacheLocationValid(cached: PollenCache, lat: number, lon: number): boolean {
+function isPollenCacheValid(cached: PollenCache, lat: number, lon: number): boolean {
+  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return false
+  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return false
   return (
     Math.abs(cached.location.latitude - lat) <= COORD_TOLERANCE &&
     Math.abs(cached.location.longitude - lon) <= COORD_TOLERANCE
   )
 }
 
-function isUsablePollenCache(cached: PollenCache, lat: number, lon: number): boolean {
-  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return false
-  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return false
-  return isCacheLocationValid(cached, lat, lon)
-}
-
 function readPollenCache(lat: number, lon: number): PollenData | null {
   const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
-  if (!cached || !isUsablePollenCache(cached, lat, lon)) return null
-  return cached.data
+  if (!cached) return null
+  return isPollenCacheValid(cached, lat, lon) ? cached.data : null
 }
 
 function writePollenCache(data: PollenData, lat: number, lon: number): void {
@@ -100,39 +91,20 @@ interface PollenFetchResult {
   error?: string
 }
 
-function handlePollenResult(
+function resolvePollenState(
   result: PollenFetchResult,
-  latitude: number,
-  longitude: number
+  prev: PollenState,
+  lat: number,
+  lon: number
 ): PollenState {
   if (result.success && result.data) {
-    writePollenCache(result.data, latitude, longitude)
+    writePollenCache(result.data, lat, lon)
     return { data: result.data, loading: false, error: null }
   }
-  if (result.error === 'no-api-key') return { data: null, loading: false, error: null }
-  return { data: null, loading: false, error: result.error ?? 'Pollen fetch failed' }
-}
-
-function applyCachedPollenData(
-  cached: PollenData | null,
-  setState: (state: PollenState) => void
-): boolean {
-  if (!cached) {
-    return false
+  if (result.error === 'no-api-key') {
+    return { data: null, loading: false, error: null }
   }
-
-  setState({ data: cached, loading: false, error: null })
-  return true
-}
-
-function setPollenStateIfMounted(
-  mountedRef: { current: boolean },
-  nextState: PollenState,
-  setState: (state: PollenState) => void
-) {
-  if (mountedRef.current) {
-    setState(nextState)
-  }
+  return { data: prev.data, loading: false, error: result.error ?? 'Pollen fetch failed' }
 }
 
 /**
@@ -157,7 +129,8 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
     const { latitude, longitude } = location
 
     const cached = readPollenCache(latitude, longitude)
-    if (applyCachedPollenData(cached, setState)) {
+    if (cached) {
+      setState({ data: cached, loading: false, error: null })
       return
     }
 
@@ -170,9 +143,11 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       })) as PollenFetchResult
 
       if (!mountedRef.current) return
-      setState(prev => ({ ...prev, ...handlePollenResult(result, latitude, longitude) }))
+      setState(prev => resolvePollenState(result, prev, latitude, longitude))
     } catch (_: unknown) {
-      setPollenStateIfMounted(mountedRef, { data: null, loading: false, error: null }, setState)
+      if (mountedRef.current) {
+        setState({ data: null, loading: false, error: null })
+      }
     }
   }, [location])
 

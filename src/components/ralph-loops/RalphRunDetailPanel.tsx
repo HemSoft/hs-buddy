@@ -130,40 +130,6 @@ function StatsGrid({ stats }: { stats: RalphRunStats }) {
   )
 }
 
-function resolveRunConfigValue(value: string | null | undefined, fallback: string): string {
-  return value || fallback
-}
-
-function getIterationProgress(
-  run: RalphRunInfo
-): { current: number; total: number; label: string } | null {
-  const totalIterations = run.totalIterations
-  if (totalIterations == null || totalIterations <= 0) return null
-  return {
-    current: run.currentIteration,
-    total: totalIterations,
-    label: 'Iteration',
-  }
-}
-
-function ProgressFooter({
-  phase,
-  duration,
-  exitCode,
-}: {
-  phase: string
-  duration: string
-  exitCode: number | null
-}) {
-  return (
-    <div className="ralph-run-progress-meta ralph-run-progress-footer">
-      <span>{phase}</span>
-      <span>{duration}</span>
-      {exitCode != null ? <span>Exit: {exitCode}</span> : null}
-    </div>
-  )
-}
-
 function ProgressSection({ run }: { run: RalphRunInfo }) {
   const [, setTick] = useState(0)
 
@@ -173,11 +139,11 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
     return () => clearInterval(timer)
   }, [run.status])
 
-  const model = resolveRunConfigValue(run.config.model, 'default')
-  const branch = resolveRunConfigValue(run.config.branch, '(auto)')
+  const model = run.config.model || 'default'
+  const branch = run.config.branch || '(auto)'
   const phase = PHASE_LABELS[run.phase]
   const duration = formatDuration(run.startedAt, run.completedAt)
-  const progress = getIterationProgress(run)
+  const stats = run.stats
 
   return (
     <div className="ralph-run-detail-card">
@@ -190,16 +156,24 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
           Branch: <strong>{branch}</strong>
         </span>
       </div>
-      {progress ? (
-        <ProgressBar current={progress.current} total={progress.total} label={progress.label} />
-      ) : null}
-      <StatsGrid stats={run.stats} />
-      <ProgressFooter phase={phase} duration={duration} exitCode={run.exitCode} />
+      {run.totalIterations != null && run.totalIterations > 0 && (
+        <ProgressBar
+          current={run.currentIteration}
+          total={run.totalIterations}
+          label={`Iteration`}
+        />
+      )}
+      <StatsGrid stats={stats} />
+      <div className="ralph-run-progress-meta ralph-run-progress-footer">
+        <span>{phase}</span>
+        <span>{duration}</span>
+        {run.exitCode != null && <span>Exit: {run.exitCode}</span>}
+      </div>
     </div>
   )
 }
 
-const LOG_LINE_CLASSIFIERS: Array<[RegExp, string]> = [
+const LOG_LINE_PATTERNS: ReadonlyArray<[RegExp, string]> = [
   [/^={2,}/, 'log-header'],
   [/^[═─]{3,}/, 'log-separator'],
   [/^\s+Round \d+/i, 'log-section'],
@@ -211,7 +185,10 @@ const LOG_LINE_CLASSIFIERS: Array<[RegExp, string]> = [
 ]
 
 function classifyLogLine(line: string): string {
-  return LOG_LINE_CLASSIFIERS.find(([re]) => re.test(line))?.[1] ?? ''
+  for (const [pattern, cls] of LOG_LINE_PATTERNS) {
+    if (pattern.test(line)) return cls
+  }
+  return ''
 }
 
 function LogViewer({ run }: { run: RalphRunInfo }) {
@@ -248,79 +225,6 @@ function LogViewer({ run }: { run: RalphRunInfo }) {
   )
 }
 
-function resolveRunLoadError(error: unknown): string {
-  return error instanceof Error ? error.message : 'Failed to load run'
-}
-
-function updateRunStateIfMounted(
-  mountedRef: React.RefObject<boolean>,
-  result: RalphRunInfo | null,
-  setRun: React.Dispatch<React.SetStateAction<RalphRunInfo | null>>,
-  setError: React.Dispatch<React.SetStateAction<string | null>>
-): void {
-  if (!mountedRef.current) return
-  setRun(result)
-  if (!result) {
-    setError('Run not found')
-  }
-}
-
-function updateRunErrorIfMounted(
-  mountedRef: React.RefObject<boolean>,
-  error: unknown,
-  setError: React.Dispatch<React.SetStateAction<string | null>>
-): void {
-  if (!mountedRef.current) return
-  setError(resolveRunLoadError(error))
-}
-
-function finishRunLoadingIfMounted(
-  mountedRef: React.RefObject<boolean>,
-  setLoading: React.Dispatch<React.SetStateAction<boolean>>
-): void {
-  if (mountedRef.current) {
-    setLoading(false)
-  }
-}
-
-function RunLoadingState() {
-  return (
-    <div className="ralph-run-detail">
-      <div className="ralph-run-detail-loading">
-        <Loader2 size={18} className="ralph-spin" />
-        Loading run…
-      </div>
-    </div>
-  )
-}
-
-function RunErrorState({ error, runId }: { error: string | null; runId: string }) {
-  return (
-    <div className="ralph-run-detail">
-      <div className="ralph-run-detail-empty">
-        <AlertCircle size={32} />
-        <span>{error}</span>
-        <span className="ralph-run-detail-runid">{runId}</span>
-      </div>
-    </div>
-  )
-}
-
-function RunDetailContent({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) => void }) {
-  return (
-    <div className="ralph-run-detail">
-      <RunHeader run={run} onStop={onStop} />
-      <ProgressSection run={run} />
-      {run.error ? <div className="ralph-run-detail-error">{run.error}</div> : null}
-      <LogViewer run={run} />
-    </div>
-  )
-}
-
-function shouldShowRunError(error: string | null, run: RalphRunInfo | null): boolean {
-  return Boolean(error) || !run
-}
-
 export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   const [run, setRun] = useState<RalphRunInfo | null>(null)
   const [loading, setLoading] = useState(true)
@@ -330,11 +234,14 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   const fetchRun = useCallback(async () => {
     try {
       const result = await window.ralph.getStatus(runId)
-      updateRunStateIfMounted(mountedRef, result, setRun, setError)
+      if (!mountedRef.current) return
+      setRun(result)
+      if (!result) setError('Run not found')
     } catch (err: unknown) {
-      updateRunErrorIfMounted(mountedRef, err, setError)
+      if (!mountedRef.current) return
+      setError(err instanceof Error ? err.message : 'Failed to load run')
     } finally {
-      finishRunLoadingIfMounted(mountedRef, setLoading)
+      if (mountedRef.current) setLoading(false)
     }
   }, [runId])
 
@@ -377,12 +284,37 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   )
 
   if (loading) {
-    return <RunLoadingState />
+    return (
+      <div className="ralph-run-detail">
+        <div className="ralph-run-detail-loading">
+          <Loader2 size={18} className="ralph-spin" />
+          Loading run…
+        </div>
+      </div>
+    )
   }
 
-  if (shouldShowRunError(error, run)) {
-    return <RunErrorState error={error} runId={runId} />
+  if (error || !run) {
+    return (
+      <div className="ralph-run-detail">
+        <div className="ralph-run-detail-empty">
+          <AlertCircle size={32} />
+          <span>{error}</span>
+          <span className="ralph-run-detail-runid">{runId}</span>
+        </div>
+      </div>
+    )
   }
 
-  return <RunDetailContent run={run!} onStop={handleStop} />
+  return (
+    <div className="ralph-run-detail">
+      <RunHeader run={run} onStop={handleStop} />
+
+      <ProgressSection run={run} />
+
+      {run.error && <div className="ralph-run-detail-error">{run.error}</div>}
+
+      <LogViewer run={run} />
+    </div>
+  )
 }

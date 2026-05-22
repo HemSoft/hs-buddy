@@ -19,6 +19,12 @@ function computeOverageRequests(premium: { overage_count: number; remaining: num
   return Math.max(overageByCount, overageByRemaining)
 }
 
+function resolveQuotaProjection(
+  state: AccountQuotaState
+): ReturnType<typeof computeProjection> | null {
+  const premium = getPremiumInteractions(state)
+  const quotaData = state.data
+  if (!premium || !quotaData) return null
   return computeProjection(premium, quotaData.quota_reset_date_utc)
 }
 

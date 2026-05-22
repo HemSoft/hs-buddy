@@ -32,6 +32,9 @@ function isActiveRalphRun(status: RalphRunStatus): boolean {
   return status === 'pending' || status === 'running'
 }
 
+function formatDuration(startedAt: number, completedAt: number | null): string {
+  const end = completedAt ?? Date.now()
+  const ms = end - startedAt
   const mins = Math.floor(ms / 60_000)
   if (mins < 60) return `${mins}m`
   const hrs = Math.floor(mins / 60)

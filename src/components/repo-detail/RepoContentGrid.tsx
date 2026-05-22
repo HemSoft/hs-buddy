@@ -13,8 +13,20 @@ interface LanguageEntry {
   percentage: number
 }
 
+function calculateLanguagePercentage(bytes: number, totalBytes: number): number {
+  return totalBytes > 0 ? (bytes / totalBytes) * 100 : 0
+}
+
 function hasLanguageEntries(entries: LanguageEntry[]): boolean {
   return entries.length > 0
+}
+
+function hasTopContributors(detail: RepoDetail): boolean {
+  return detail.topContributors.length > 0
+}
+
+function formatContributorName(contributor: RepoDetail['topContributors'][number]): string {
+  return contributor.name ? `${contributor.name} (${contributor.login})` : contributor.login
 }
 
 export function RepoContentGrid({ detail }: RepoContentGridProps) {
@@ -24,7 +36,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
     .map(([lang, bytes]) => ({
       lang,
       bytes,
-      percentage: totalBytes > 0 ? (bytes / totalBytes) * 100 : 0,
+      percentage: calculateLanguagePercentage(bytes, totalBytes),
     }))
 
   return (
@@ -67,7 +79,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
       )}
 
       {/* Contributors Card */}
-      {detail.topContributors.length > 0 && (
+      {hasTopContributors(detail) && (
         <div className="repo-detail-card">
           <div className="repo-detail-card-header">
             <Users size={16} />

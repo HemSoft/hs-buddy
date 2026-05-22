@@ -46,6 +46,10 @@ function handleExpandableFileKeyDown(
   }
 }
 
+function getExpandableFileCardClassName(isExpanded: boolean): string {
+  return `repo-detail-card repo-commit-file-card ${isExpanded ? 'repo-commit-file-card-expanded' : 'repo-commit-file-card-collapsed'}`
+}
+
 export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps) {
   const { has: isFileExpanded, toggle: toggleFile, reset: resetExpanded } = useToggleSet()
 
@@ -62,7 +66,7 @@ export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps)
       {files.map(file => (
         <div
           key={file.filename}
-          className={`repo-detail-card repo-commit-file-card ${isFileExpanded(file.filename) ? 'repo-commit-file-card-expanded' : 'repo-commit-file-card-collapsed'}`}
+          className={getExpandableFileCardClassName(isFileExpanded(file.filename))}
         >
           <div
             className="repo-commit-file-header repo-commit-file-toggle"

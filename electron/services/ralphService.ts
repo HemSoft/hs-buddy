@@ -144,23 +144,23 @@ function getLeadingCommentLines(content: string): string[] {
   return leadingComments
 }
 
+function extractTitleDescription(titleLine: string): string | undefined {
+  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
+  return titleMatch?.[1]?.trim() || undefined
+}
+
 function extractDescriptionFromScript(filePath: string): string | undefined {
   const content = readScriptContent(filePath)
-  if (!content) {
-    return undefined
-  }
+  if (!content) return undefined
 
   const leadingComments = getLeadingCommentLines(content)
-
   const titleLine = leadingComments[0]
   if (!titleLine) return undefined
-  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
-  const titleDescription = titleMatch?.[1]?.trim()
-  if (titleDescription) {
-    return titleDescription
-  }
 
-  const fallbackComments = titleMatch ? leadingComments.slice(1) : leadingComments
+  const titleDescription = extractTitleDescription(titleLine)
+  if (titleDescription) return titleDescription
+
+  const fallbackComments = leadingComments.slice(1)
   return fallbackComments.find(
     line => line.length > 0 && !line.toLowerCase().startsWith('version:')
   )
@@ -220,6 +220,13 @@ function validateModelConfig(model: string): string | null {
   return null
 }
 
+function validateScriptRequirements(config: RalphLaunchConfig): string | null {
+  if (config.scriptType === 'ralph-pr' && !config.prNumber) {
+    return 'PR number is required for ralph-pr script'
+  }
+  return null
+}
+
 function validateOptionsConfig(config: RalphLaunchConfig): string | null {
   if (!VALID_SCRIPT_TYPES.has(config.scriptType)) {
     return `Invalid scriptType: ${config.scriptType}`
@@ -230,23 +237,28 @@ function validateOptionsConfig(config: RalphLaunchConfig): string | null {
   if (config.model && validateModelConfig(config.model)) {
     return validateModelConfig(config.model)
   }
-  if (config.scriptType === 'ralph-pr' && !config.prNumber) {
-    return 'PR number is required for ralph-pr script'
-  }
-  return validateTimingConfig(config)
+  return validateScriptRequirements(config) ?? validateTimingConfig(config)
+}
+
+function validateRange(
+  value: number | undefined,
+  min: number,
+  max: number,
+  name: string
+): string | null {
+  if (value === undefined) return null
+  if (value < min || value > max) return `${name} must be between ${min} and ${max}`
+  return null
 }
 
 function validateTimingConfig(config: RalphLaunchConfig): string | null {
-  if (config.iterations !== undefined && (config.iterations < 1 || config.iterations > 100)) {
-    return 'iterations must be between 1 and 100'
-  }
-  if (config.repeats !== undefined && (config.repeats < 1 || config.repeats > 50)) {
-    return 'repeats must be between 1 and 50'
-  }
-  if (config.workUntil && !/^\d{2}:\d{2}$/.test(config.workUntil)) {
-    return 'workUntil must be HH:mm format'
-  }
-  return null
+  return (
+    validateRange(config.iterations, 1, 100, 'iterations') ??
+    validateRange(config.repeats, 1, 50, 'repeats') ??
+    (config.workUntil && !/^\d{2}:\d{2}$/.test(config.workUntil)
+      ? 'workUntil must be HH:mm format'
+      : null)
+  )
 }
 
 function validateLaunchConfig(config: RalphLaunchConfig): string | null {
@@ -255,20 +267,31 @@ function validateLaunchConfig(config: RalphLaunchConfig): string | null {
 
 // ── Process Spawning ────────────────────────────────────────────
 
+const SCRIPT_TYPE_FILES: Record<string, string> = {
+  ralph: 'ralph.ps1',
+  'ralph-pr': 'ralph-pr.ps1',
+  'ralph-issues': 'ralph-issues.ps1',
+}
+
+function resolveTemplateScriptPath(scriptsDir: string, config: RalphLaunchConfig): string {
+  const vendoredPath = join(scriptsDir, 'scripts', config.templateScript!)
+  if (existsSync(vendoredPath)) return vendoredPath
+  const repoPath = join(config.repoPath, 'scripts', config.templateScript!)
+  if (existsSync(repoPath)) return repoPath
+  throw new Error(`Template script not found: ${config.templateScript}`)
+}
+
 function resolveScriptPath(config: RalphLaunchConfig): string {
   const scriptsDir = getScriptsDir()
-  if (config.scriptType === 'ralph') return join(scriptsDir, 'ralph.ps1')
-  if (config.scriptType === 'ralph-pr') return join(scriptsDir, 'ralph-pr.ps1')
-  if (config.scriptType === 'ralph-issues') return join(scriptsDir, 'ralph-issues.ps1')
-  // Template scripts: check vendored scripts/ dir first, then repo's scripts/ dir
-  if (config.templateScript) {
-    const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
-    if (existsSync(vendoredPath)) return vendoredPath
-    const repoPath = join(config.repoPath, 'scripts', config.templateScript)
-    if (existsSync(repoPath)) return repoPath
-    throw new Error(`Template script not found: ${config.templateScript}`)
-  }
+  const builtinFile = SCRIPT_TYPE_FILES[config.scriptType]
+  if (builtinFile) return join(scriptsDir, builtinFile)
+  if (config.templateScript) return resolveTemplateScriptPath(scriptsDir, config)
   throw new Error('Cannot resolve script path')
+}
+
+function collectAllAgents(config: RalphLaunchConfig): string[] {
+  const devAgentArr = config.devAgent ? [config.devAgent] : []
+  return [...devAgentArr, ...(config.agents ?? [])]
 }
 
 // ralph-pr uses separate -DevAgent param; ralph.ps1 mixes dev into -Agents
@@ -277,7 +300,7 @@ function appendAgentArgs(args: string[], config: RalphLaunchConfig): void {
     if (config.devAgent) args.push('-DevAgent', config.devAgent)
     if (config.agents?.length) args.push('-Agents', config.agents.join(','))
   } else {
-    const allAgents = [...(config.devAgent ? [config.devAgent] : []), ...(config.agents ?? [])]
+    const allAgents = collectAllAgents(config)
     if (allAgents.length) args.push('-Agents', allAgents.join(','))
   }
 }
@@ -294,16 +317,20 @@ function resolvePromptArg(prompt: string): string {
   return prompt
 }
 
-function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
+function appendStringArgs(args: string[], config: RalphLaunchConfig): void {
   if (config.model) args.push('-Model', config.model)
   if (config.provider) args.push('-Provider', config.provider)
-  appendAgentArgs(args, config)
-  if (config.iterations) args.push('-Max', String(config.iterations))
   if (config.workUntil) args.push('-WorkUntil', config.workUntil)
   if (config.branch) args.push('-Branch', config.branch)
+  if (config.labels) args.push('-Labels', config.labels)
+}
+
+function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
+  appendStringArgs(args, config)
+  appendAgentArgs(args, config)
+  if (config.iterations) args.push('-Max', String(config.iterations))
   if (config.prompt) args.push('-Prompt', resolvePromptArg(config.prompt))
   if (config.prNumber) args.push('-PRNumber', String(config.prNumber))
-  if (config.labels) args.push('-Labels', config.labels)
   if (config.dryRun) args.push('-DryRun')
 }
 
@@ -567,6 +594,23 @@ function parseOutputLine(runId: string, line: string): void {
 
 // ── Run Management ──────────────────────────────────────────────
 
+function killProcess(proc: { pid?: number; kill: (signal: string) => void }): void {
+  if (process.platform === 'win32' && proc.pid) {
+    execSync(`taskkill /T /F /PID ${proc.pid}`, { timeout: KILL_TIMEOUT_MS })
+  } else {
+    proc.kill('SIGTERM')
+  }
+}
+
+function markRunStopped(run: RalphRunInfo, status: 'cancelled' | 'failed', error?: string): void {
+  run.status = status
+  run.phase = 'failed'
+  run.updatedAt = Date.now()
+  run.completedAt = Date.now()
+  if (error) run.error = error
+  emitStatusChange(run)
+}
+
 export function stopLoop(runId: string): RalphStopResult {
   const proc = activeProcesses.get(runId)
   const run = activeRuns.get(runId)
@@ -577,28 +621,14 @@ export function stopLoop(runId: string): RalphStopResult {
   }
 
   try {
-    // Windows: kill the entire process tree
-    if (process.platform === 'win32' && proc.pid) {
-      execSync(`taskkill /T /F /PID ${proc.pid}`, { timeout: KILL_TIMEOUT_MS })
-    } else {
-      proc.kill('SIGTERM')
-    }
-
-    run.status = 'cancelled'
-    run.phase = 'failed'
-    run.updatedAt = Date.now()
-    run.completedAt = Date.now()
+    killProcess(proc)
+    markRunStopped(run, 'cancelled')
     activeProcesses.delete(runId)
-    emitStatusChange(run)
-
     return { success: true }
   } catch (err: unknown) {
-    run.status = 'failed'
-    run.phase = 'failed'
-    run.updatedAt = Date.now()
-    run.error = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
-    emitStatusChange(run)
-    return { success: false, error: run.error }
+    const msg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
+    markRunStopped(run, 'failed', msg)
+    return { success: false, error: msg }
   }
 }
 

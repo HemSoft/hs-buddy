@@ -233,6 +233,14 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 }
 /* v8 ignore stop */
 
+function resolveNodeDate(node: ViewerPRNode): string | null {
+  return node.closedAt || node.mergedAt || null
+}
+
+function parseOptionalDate(dateStr: string | null | undefined): Date | null {
+  return dateStr ? new Date(dateStr) : null
+}
+
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */
 function mapGraphQLNodeToPullRequest(
@@ -251,9 +259,9 @@ function mapGraphQLNodeToPullRequest(
     author,
     authorAvatarUrl,
     assigneeCount: node.assignees.totalCount,
-    created: node.createdAt ? new Date(node.createdAt) : null,
+    created: parseOptionalDate(node.createdAt),
     updatedAt: node.updatedAt || null,
-    date: node.closedAt || node.mergedAt || null,
+    date: resolveNodeDate(node),
     url: node.url,
     state: node.state.toLowerCase(),
     approvalCount: 0,
@@ -553,6 +561,34 @@ async function fetchPRsViaGraphQLFallback(
   return result
 }
 
+function computeMergedAfter(mode: PRSearchMode, recentlyMergedDays: number): string | undefined {
+  if (mode !== 'recently-merged') return undefined
+  const mergedAfterDate = new Date()
+  mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
+  return mergedAfterDate.toISOString().split('T')[0]
+}
+
+async function tryGraphQLFallback(
+  config: PRConfig['github'],
+  username: string,
+  org: string,
+  orgAvatarUrl: string | null,
+  allPrs: (PullRequest & { _owner: string; _repo: string; _prNumber: number })[]
+): Promise<void> {
+  console.debug(`[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`)
+  try {
+    const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
+    if (fallbackPrs.length > 0) {
+      console.info(
+        `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
+      )
+      allPrs.push(...fallbackPrs)
+    }
+  } catch (error: unknown) {
+    console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
+  }
+}
+
 async function fetchPRsForAccount(
   config: PRConfig['github'],
   recentlyMergedDays: number,
@@ -564,35 +600,12 @@ async function fetchPRsForAccount(
   if (!octokit) return []
 
   const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
-
-  // Compute mergedAfter date for recently-merged mode
-  let mergedAfter: string | undefined
-  if (mode === 'recently-merged') {
-    const mergedAfterDate = new Date()
-    mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
-    mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-  }
-
+  const mergedAfter = computeMergedAfter(mode, recentlyMergedDays)
   const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
   const allPrs = await executeSearchQueries(config, octokit, queries, org)
 
-  // Fallback: when search returns 0 results for my-prs, try GraphQL viewer.pullRequests
-  // which bypasses the search index (resilient to GitHub Search API outages)
   if (allPrs.length === 0 && mode === 'my-prs') {
-    console.debug(
-      `[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`
-    )
-    try {
-      const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
-      if (fallbackPrs.length > 0) {
-        console.info(
-          `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
-        )
-        allPrs.push(...fallbackPrs)
-      }
-    } catch (error: unknown) {
-      console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
-    }
+    await tryGraphQLFallback(config, username, org, orgAvatarUrl, allPrs)
   }
 
   // Batch fetch reviews in parallel (with concurrency limit)

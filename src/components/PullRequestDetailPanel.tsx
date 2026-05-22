@@ -123,6 +123,23 @@ function ApproveButton({
   )
 }
 
+function getNudgeButtonTitle(
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error',
+  nudgeError: string | null
+): string {
+  if (nudgeState === 'sent') return 'Nudge sent!'
+  if (nudgeState === 'error')
+    return `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
+  return 'Nudge author via Slack'
+}
+
+function getNudgeButtonClass(nudgeState: 'idle' | 'sending' | 'sent' | 'error'): string {
+  const base = 'pr-detail-refresh-btn'
+  if (nudgeState === 'sent') return `${base} pr-detail-nudge-sent`
+  if (nudgeState === 'error') return `${base} pr-detail-nudge-error`
+  return base
+}
+
 function NudgeButton({
   nudgeState,
   nudgeError,
@@ -134,15 +151,9 @@ function NudgeButton({
 }) {
   return (
     <button
-      className={`pr-detail-refresh-btn${nudgeState === 'sent' ? ' pr-detail-nudge-sent' : ''}${nudgeState === 'error' ? ' pr-detail-nudge-error' : ''}`}
+      className={getNudgeButtonClass(nudgeState)}
       onClick={onNudge}
-      title={
-        nudgeState === 'sent'
-          ? 'Nudge sent!'
-          : nudgeState === 'error'
-            ? `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
-            : 'Nudge author via Slack'
-      }
+      title={getNudgeButtonTitle(nudgeState, nudgeError)}
       disabled={nudgeState === 'sending' || nudgeState === 'sent'}
     >
       {nudgeState === 'sending' ? (
@@ -634,6 +645,97 @@ function resolveLabelsAndIssue(
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
+function useNudgeAuthor(pr: PRDetailInfo) {
+  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [nudgeError, setNudgeError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setNudgeState('idle')
+    setNudgeError(null)
+  }, [pr.id, pr.repository, pr.url])
+
+  const handleNudgeAuthor = useCallback(async () => {
+    /* v8 ignore start -- button is disabled in sending/sent states */
+    if (nudgeState === 'sending' || nudgeState === 'sent') return
+    /* v8 ignore stop */
+    setNudgeState('sending')
+    setNudgeError(null)
+    try {
+      const result = await window.slack.nudgeAuthor({
+        githubLogin: pr.author,
+        prTitle: pr.title,
+        prUrl: pr.url,
+      })
+      if (result.success) {
+        setNudgeState('sent')
+      } else {
+        console.warn('[Nudge] Failed:', result.error)
+        setNudgeError(result.error || 'Unknown error')
+        setNudgeState('error')
+        setTimeout(() => setNudgeState('idle'), 5000)
+      }
+    } catch (err: unknown) {
+      console.error('[Nudge] Error:', err)
+      setNudgeError(String(err))
+      setNudgeState('error')
+      setTimeout(() => setNudgeState('idle'), 5000)
+    }
+  }, [nudgeState, pr.author, pr.title, pr.url])
+
+  const dismissNudge = useCallback(() => {
+    setNudgeState('idle')
+    setNudgeError(null)
+  }, [])
+
+  return { nudgeState, nudgeError, handleNudgeAuthor, dismissNudge }
+}
+
+function PRBanners({
+  copilotReviewBanner,
+  codeRabbitReviewBanner,
+  nudgeState,
+  nudgeError,
+  prAuthor,
+  onDismissCopilot,
+  onDismissCodeRabbit,
+  onDismissNudge,
+}: {
+  copilotReviewBanner: { completedAt: string } | null
+  codeRabbitReviewBanner: { completedAt: string } | null
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  nudgeError: string | null
+  prAuthor: string
+  onDismissCopilot: () => void
+  onDismissCodeRabbit: () => void
+  onDismissNudge: () => void
+}) {
+  return (
+    <>
+      {copilotReviewBanner && (
+        <CopilotReviewBanner
+          completedAt={copilotReviewBanner.completedAt}
+          onDismiss={onDismissCopilot}
+        />
+      )}
+      {codeRabbitReviewBanner && (
+        <AIReviewBanner
+          providerName={codeRabbitProvider.name}
+          completedAt={codeRabbitReviewBanner.completedAt}
+          onDismiss={onDismissCodeRabbit}
+        />
+      )}
+      {(nudgeState === 'sent' || nudgeState === 'error') && (
+        <NudgeBanner
+          state={nudgeState}
+          error={nudgeError}
+          author={prAuthor}
+          onDismiss={onDismissNudge}
+        />
+      )}
+    </>
+  )
+}
+
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const { pr } = props
   const section = props.section ?? null
@@ -679,15 +781,21 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     [codeRabbitReviewState, handleRequestCodeRabbitReview]
   )
 
+  const initialBranches = useMemo(
+    () =>
+      pr.headBranch && pr.baseBranch
+        ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch }
+        : null,
+    [pr.headBranch, pr.baseBranch]
+  )
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
-    pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
+    initialBranches
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
   const [isApproving, setIsApproving] = useState(false)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
-  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
-  const [nudgeError, setNudgeError] = useState<string | null>(null)
+  const { nudgeState, nudgeError, handleNudgeAuthor, dismissNudge } = useNudgeAuthor(pr)
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
@@ -699,16 +807,13 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   useEffect(() => {
     setHistoryUpdatedAt(null)
     setLinkedIssues([])
-    setNudgeState('idle')
-    setNudgeError(null)
   }, [pr.id, pr.repository, pr.url])
 
   const fetchBranches = useCallback(async () => {
-    if (pr.headBranch && pr.baseBranch) {
-      setBranches({ headBranch: pr.headBranch, baseBranch: pr.baseBranch })
+    if (initialBranches) {
+      setBranches(initialBranches)
       return
     }
-
     if (!ownerRepo) {
       setBranches(null)
       return
@@ -731,7 +836,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     } catch (_: unknown) {
       setBranches(null)
     }
-  }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
+  }, [accounts, ownerRepo, pr.id, pr.repository, initialBranches])
 
   useEffect(() => {
     fetchBranches()
@@ -777,34 +882,6 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     }
   }, [accounts, ownerRepo, pr.id, pr.repository, youApproved, isApproving])
 
-  const handleNudgeAuthor = useCallback(async () => {
-    /* v8 ignore start -- button is disabled in sending/sent states */
-    if (nudgeState === 'sending' || nudgeState === 'sent') return
-    /* v8 ignore stop */
-    setNudgeState('sending')
-    setNudgeError(null)
-    try {
-      const result = await window.slack.nudgeAuthor({
-        githubLogin: pr.author,
-        prTitle: pr.title,
-        prUrl: pr.url,
-      })
-      if (result.success) {
-        setNudgeState('sent')
-      } else {
-        console.warn('[Nudge] Failed:', result.error)
-        setNudgeError(result.error || 'Unknown error')
-        setNudgeState('error')
-        setTimeout(() => setNudgeState('idle'), 5000)
-      }
-    } catch (err: unknown) {
-      console.error('[Nudge] Error:', err)
-      setNudgeError(String(err))
-      setNudgeState('error')
-      setTimeout(() => setNudgeState('idle'), 5000)
-    }
-  }, [nudgeState, pr.author, pr.title, pr.url])
-
   return (
     <div className="pr-detail-container">
       <PRDetailHeader
@@ -839,38 +916,22 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
       />
 
       <div className="pr-detail-body">
-        {copilotReviewBanner && (
-          <CopilotReviewBanner
-            completedAt={copilotReviewBanner.completedAt}
-            onDismiss={() => {
-              setCopilotReviewBanner(null)
-              clearPendingReview(pr.url)
-            }}
-          />
-        )}
-
-        {codeRabbitReviewBanner && (
-          <AIReviewBanner
-            providerName={codeRabbitProvider.name}
-            completedAt={codeRabbitReviewBanner.completedAt}
-            onDismiss={() => {
-              setCodeRabbitReviewBanner(null)
-              clearPendingAIReview(codeRabbitProvider.id, pr.url)
-            }}
-          />
-        )}
-
-        {(nudgeState === 'sent' || nudgeState === 'error') && (
-          <NudgeBanner
-            state={nudgeState}
-            error={nudgeError}
-            author={pr.author}
-            onDismiss={() => {
-              setNudgeState('idle')
-              setNudgeError(null)
-            }}
-          />
-        )}
+        <PRBanners
+          copilotReviewBanner={copilotReviewBanner}
+          codeRabbitReviewBanner={codeRabbitReviewBanner}
+          nudgeState={nudgeState}
+          nudgeError={nudgeError}
+          prAuthor={pr.author}
+          onDismissCopilot={() => {
+            setCopilotReviewBanner(null)
+            clearPendingReview(pr.url)
+          }}
+          onDismissCodeRabbit={() => {
+            setCodeRabbitReviewBanner(null)
+            clearPendingAIReview(codeRabbitProvider.id, pr.url)
+          }}
+          onDismissNudge={dismissNudge}
+        />
 
         {sectionLabel && (
           <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />

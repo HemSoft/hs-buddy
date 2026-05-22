@@ -546,6 +546,24 @@ function buildReviewerSummaries(
 
 /** Paginate review threads with extended fields (isOutdated + comment count) for PR history. */
 /* v8 ignore start -- GraphQL pagination; requires real API with >100 review threads */
+function buildReviewThreadsPageQuery(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  cursor: string
+): string {
+  return `query {
+      repository(owner: "${owner}", name: "${repo}") {
+        pullRequest(number: ${prNumber}) {
+          reviewThreads(first: 100, after: "${cursor}") {
+            pageInfo { hasNextPage endCursor }
+            nodes { isResolved isOutdated comments { totalCount } }
+          }
+        }
+      }
+    }`
+}
+
 async function paginateDetailedReviewThreads(
   owner: string,
   repo: string,
@@ -559,16 +577,6 @@ async function paginateDetailedReviewThreads(
   const allNodes = [...(firstPage.nodes || [])]
   let { hasNextPage, endCursor } = firstPage.pageInfo
   while (hasNextPage && endCursor) {
-    const pageQuery = `query {
-      repository(owner: "${owner}", name: "${repo}") {
-        pullRequest(number: ${prNumber}) {
-          reviewThreads(first: 100, after: "${endCursor}") {
-            pageInfo { hasNextPage endCursor }
-            nodes { isResolved isOutdated comments { totalCount } }
-          }
-        }
-      }
-    }`
     const pageResult = await graphql<{
       repository: {
         pullRequest: {
@@ -582,7 +590,9 @@ async function paginateDetailedReviewThreads(
           }
         } | null
       } | null
-    }>(pageQuery, { headers: { authorization: `token ${token}` } })
+    }>(buildReviewThreadsPageQuery(owner, repo, prNumber, endCursor), {
+      headers: { authorization: `token ${token}` },
+    })
     const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
     if (!pageThreads) break
     allNodes.push(...(pageThreads.nodes || []))

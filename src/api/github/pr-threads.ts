@@ -31,6 +31,24 @@ export function groupPrsByOwner<T extends { _owner: string }>(prs: T[]): Map<str
 /* v8 ignore start -- GraphQL thread counting; requires real API */
 
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
+function buildSimpleThreadsPageQuery(
+  owner: string,
+  repo: string,
+  prNumber: number,
+  cursor: string
+): string {
+  return `query {
+        repository(owner: "${owner}", name: "${repo}") {
+          pullRequest(number: ${prNumber}) {
+            reviewThreads(first: 100, after: "${cursor}") {
+              pageInfo { hasNextPage endCursor }
+              nodes { isResolved }
+            }
+          }
+        }
+      }`
+}
+
 async function paginateReviewThreads(
   owner: string,
   repo: string,
@@ -45,16 +63,6 @@ async function paginateReviewThreads(
   let { hasNextPage, endCursor } = firstPage.pageInfo
 
   while (hasNextPage && endCursor) {
-    const pageQuery = `query {
-        repository(owner: "${owner}", name: "${repo}") {
-          pullRequest(number: ${prNumber}) {
-            reviewThreads(first: 100, after: "${endCursor}") {
-              pageInfo { hasNextPage endCursor }
-              nodes { isResolved }
-            }
-          }
-        }
-      }`
     const pageResult = await graphql<{
       repository: {
         pullRequest: {
@@ -64,7 +72,9 @@ async function paginateReviewThreads(
           }
         } | null
       } | null
-    }>(pageQuery, { headers: { authorization: `token ${token}` } })
+    }>(buildSimpleThreadsPageQuery(owner, repo, prNumber, endCursor), {
+      headers: { authorization: `token ${token}` },
+    })
     const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
     if (!pageThreads) break
     allNodes.push(...(pageThreads.nodes || []))

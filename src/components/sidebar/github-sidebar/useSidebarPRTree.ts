@@ -37,6 +37,22 @@ function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | 
 }
 /* v8 ignore stop */
 
+function buildPRKey(pr: PullRequest): string {
+  return `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
+}
+
+function canApprovePR(
+  pr: PullRequest,
+  approvingKeys: Set<string>
+): { owner: string; repo: string; prKey: string } | null {
+  if (pr.iApproved) return null
+  const resolved = resolvePROwnerRepo(pr)
+  if (!resolved) return null
+  const prKey = buildPRKey(pr)
+  if (approvingKeys.has(prKey)) return null
+  return { ...resolved, prKey }
+}
+
 interface UseSidebarPRTreeOptions {
   accounts: GitHubAccount[]
   enqueueRef: React.MutableRefObject<
@@ -145,18 +161,17 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
   }
 
   const applyApproveToTree = useCallback((target: PullRequest) => {
+    const isPRMatch = (item: PullRequest) =>
+      item.id === target.id &&
+      item.repository === target.repository &&
+      (item.org ?? '') === (target.org ?? '') &&
+      item.source === target.source
+
     setPrTreeData(prev => {
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
         next[groupId] = items.map(item => {
-          if (
-            item.id !== target.id ||
-            item.repository !== target.repository ||
-            (item.org ?? '') !== (target.org ?? '') ||
-            item.source !== target.source ||
-            item.iApproved
-          )
-            return item
+          if (!isPRMatch(item) || item.iApproved) return item
           return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
         })
       }
@@ -166,14 +181,9 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
 
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
-      if (pr.iApproved) return
-      const resolved = resolvePROwnerRepo(pr)
-      /* v8 ignore start */
-      if (!resolved) return
-      /* v8 ignore stop */
-      const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
-      if (approvingPrKeys.has(prKey)) return
+      const approval = canApprovePR(pr, approvingPrKeys)
+      if (!approval) return
+      const { owner, repo, prKey } = approval
       setApprovingPrKeys(prev => new Set(prev).add(prKey))
       try {
         await enqueueRef.current(

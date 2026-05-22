@@ -91,6 +91,17 @@ interface PollenFetchResult {
   error?: string
 }
 
+function resolvePollenState(result: PollenFetchResult, lat: number, lon: number): PollenState {
+  if (result.success && result.data) {
+    writePollenCache(result.data, lat, lon)
+    return { data: result.data, loading: false, error: null }
+  }
+  if (result.error === 'no-api-key') {
+    return { data: null, loading: false, error: null }
+  }
+  return { data: null, loading: false, error: result.error ?? 'Pollen fetch failed' }
+}
+
 /**
  * Hook that fetches pollen data from Google Pollen API via the main process.
  * Requires a Google Cloud API key configured in Settings → Weather.
@@ -112,7 +123,6 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
     const { latitude, longitude } = location
 
-    // Check cache first
     const cached = readPollenCache(latitude, longitude)
     if (cached) {
       setState({ data: cached, loading: false, error: null })
@@ -128,22 +138,8 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       })) as PollenFetchResult
 
       if (!mountedRef.current) return
-
-      if (result.success && result.data) {
-        writePollenCache(result.data, latitude, longitude)
-        setState({ data: result.data, loading: false, error: null })
-      } else if (result.error === 'no-api-key') {
-        // No API key → silent no-op (not an error state)
-        setState({ data: null, loading: false, error: null })
-      } else {
-        setState(prev => ({
-          data: prev.data,
-          loading: false,
-          error: result.error ?? 'Pollen fetch failed',
-        }))
-      }
+      setState(resolvePollenState(result, latitude, longitude))
     } catch (_: unknown) {
-      // IPC unavailable (test env, non-Electron) → silent no-op
       if (mountedRef.current) {
         setState({ data: null, loading: false, error: null })
       }

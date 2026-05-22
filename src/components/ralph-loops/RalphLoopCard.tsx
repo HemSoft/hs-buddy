@@ -79,14 +79,32 @@ function CardFooter({
   )
 }
 
+function computeProgress(run: RalphRunInfo): number | null {
+  if (run.totalIterations == null || run.totalIterations <= 0) return null
+  return Math.round((run.currentIteration / run.totalIterations) * 100)
+}
+
+function isRunActive(status: RalphRunStatus): boolean {
+  return status === 'running' || status === 'pending'
+}
+
+function ProgressBar({ run, isActive }: { run: RalphRunInfo; isActive: boolean }) {
+  const progress = computeProgress(run)
+  if (!isActive || progress === null) return null
+  return (
+    <div className="ralph-progress-bar">
+      <div className="ralph-progress-fill" style={{ width: `${progress}%` }} />
+      <span className="ralph-progress-label">
+        {run.currentIteration}/{run.totalIterations}
+      </span>
+    </div>
+  )
+}
+
 export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
   const statusCfg = STATUS_CONFIG[run.status]
   const StatusIcon = statusCfg.icon
-  const isActive = run.status === 'running' || run.status === 'pending'
-  const progress =
-    run.totalIterations != null && run.totalIterations > 0
-      ? Math.round((run.currentIteration / run.totalIterations) * 100)
-      : null
+  const isActive = isRunActive(run.status)
 
   return (
     <div className={`ralph-loop-card ${statusCfg.className}`}>
@@ -103,16 +121,7 @@ export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
 
       <div className="ralph-card-body">
         <CardMeta run={run} />
-
-        {isActive && progress !== null && (
-          <div className="ralph-progress-bar">
-            <div className="ralph-progress-fill" style={{ width: `${progress}%` }} />
-            <span className="ralph-progress-label">
-              {run.currentIteration}/{run.totalIterations}
-            </span>
-          </div>
-        )}
-
+        <ProgressBar run={run} isActive={isActive} />
         <CardFooter run={run} isActive={isActive} onStop={onStop} />
       </div>
     </div>

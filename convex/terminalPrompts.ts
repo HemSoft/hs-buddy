@@ -16,31 +16,31 @@ function validatePromptFields(fields: { title?: string; content?: string }) {
   }
 }
 
-function comparePrompts(
-  a: {
-    lastUsedAt?: number
-    updatedAt: number
-    title: string
-    sortOrder?: number
-  },
-  b: {
-    lastUsedAt?: number
-    updatedAt: number
-    title: string
-    sortOrder?: number
+interface PromptSortFields {
+  lastUsedAt?: number
+  updatedAt: number
+  title: string
+  sortOrder?: number
+}
+
+function getSortKey(p: PromptSortFields) {
+  return {
+    lastUsed: p.lastUsedAt ?? 0,
+    sortOrder: p.sortOrder ?? Number.MAX_SAFE_INTEGER,
+    updatedAt: p.updatedAt,
+    title: p.title,
   }
-) {
-  const lastUsedDiff = (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0)
-  if (lastUsedDiff !== 0) return lastUsedDiff
+}
 
-  const sortOrderDiff =
-    (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
-  if (sortOrderDiff !== 0) return sortOrderDiff
-
-  const updatedAtDiff = b.updatedAt - a.updatedAt
-  if (updatedAtDiff !== 0) return updatedAtDiff
-
-  return a.title.localeCompare(b.title)
+function comparePrompts(a: PromptSortFields, b: PromptSortFields) {
+  const ak = getSortKey(a)
+  const bk = getSortKey(b)
+  return (
+    bk.lastUsed - ak.lastUsed ||
+    ak.sortOrder - bk.sortOrder ||
+    bk.updatedAt - ak.updatedAt ||
+    ak.title.localeCompare(bk.title)
+  )
 }
 
 export const list = query({

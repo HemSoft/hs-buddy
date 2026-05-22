@@ -16,18 +16,18 @@ const getEnv = createEnvResolver(
   cmd => execSync(cmd, { encoding: 'utf8', timeout: 5000 })
 )
 
+const TOKEN_ENV_KEYS = ['SLACK_BOT_TOKEN', 'SLACK_TOKEN', 'SLACK_RAE_BOT_USER_OAUTH_TOKEN'] as const
+
+function resolveTokenFromEnv(): string | undefined {
+  for (const key of TOKEN_ENV_KEYS) {
+    const value = getEnv(key) || process.env[key]
+    if (value) return value
+  }
+  return undefined
+}
+
 function getBotToken(): string {
-  // Check in priority order: explicit override, then generic SLACK_TOKEN (has full scopes),
-  // then Relias Assistant token (lacks users:read.email).
-  // Uses createEnvResolver which checks Machine scope + process.env on Windows.
-  const token =
-    getEnv('SLACK_BOT_TOKEN') ||
-    getEnv('SLACK_TOKEN') ||
-    getEnv('SLACK_RAE_BOT_USER_OAUTH_TOKEN') ||
-    // Direct process.env fallback in case Machine-scope PowerShell lookup fails
-    process.env.SLACK_BOT_TOKEN ||
-    process.env.SLACK_TOKEN ||
-    process.env.SLACK_RAE_BOT_USER_OAUTH_TOKEN
+  const token = resolveTokenFromEnv()
   if (!token) {
     throw new Error(
       'No Slack bot token found. Set SLACK_BOT_TOKEN or SLACK_TOKEN as an environment variable.'
@@ -105,52 +105,51 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
   return { success: true }
 }
 
-/**
- * Resolve a GitHub login to a Slack user ID.
- * Strategy: GitHub profile email → Slack lookupByEmail.
- * Results are cached in memory.
- */
-async function resolveGitHubToSlack(githubLogin: string): Promise<string | null> {
-  // Check cache first
-  const cached = slackIdCache.get(githubLogin.toLowerCase())
-  if (cached) return cached
-
-  // Get email from GitHub profile via gh CLI
-  let email: string | null = null
+async function resolveEmailFromGitHub(githubLogin: string): Promise<string | null> {
   try {
     const result = execSync(`gh api /users/${encodeURIComponent(githubLogin)} --jq .email`, {
       encoding: 'utf8',
       timeout: 10000,
     }).trim()
     if (result && result !== 'null' && result.includes('@')) {
-      email = result
+      return result
     }
   } catch (_: unknown) {
     // gh CLI not available or user not found
   }
+  return null
+}
 
-  // If no public email, try the org-specific email pattern
-  // Many orgs use firstname.lastname@company.com — but we can't infer that reliably
-  // For Relias, the pattern is typically the GitHub username + @relias.com or @reliaslearning.com
-  if (!email) {
-    // Try common corporate patterns
-    const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
-    for (const candidate of patterns) {
-      const slackId = await lookupSlackUserByEmail(candidate)
-      if (slackId) {
-        slackIdCache.set(githubLogin.toLowerCase(), slackId)
-        return slackId
-      }
-    }
-    return null
+async function resolveViaEmailPatterns(githubLogin: string): Promise<string | null> {
+  const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
+  for (const candidate of patterns) {
+    const slackId = await lookupSlackUserByEmail(candidate)
+    if (slackId) return slackId
   }
+  return null
+}
 
-  // Resolve email to Slack user
-  const slackId = await lookupSlackUserByEmail(email)
-  if (slackId) {
-    slackIdCache.set(githubLogin.toLowerCase(), slackId)
-  }
+function cacheAndReturn(githubLogin: string, slackId: string | null): string | null {
+  if (slackId) slackIdCache.set(githubLogin.toLowerCase(), slackId)
   return slackId
+}
+
+/**
+ * Resolve a GitHub login to a Slack user ID.
+ * Strategy: GitHub profile email → Slack lookupByEmail.
+ * Results are cached in memory.
+ */
+async function resolveGitHubToSlack(githubLogin: string): Promise<string | null> {
+  const cached = slackIdCache.get(githubLogin.toLowerCase())
+  if (cached) return cached
+
+  const email = await resolveEmailFromGitHub(githubLogin)
+
+  if (!email) {
+    return cacheAndReturn(githubLogin, await resolveViaEmailPatterns(githubLogin))
+  }
+
+  return cacheAndReturn(githubLogin, await lookupSlackUserByEmail(email))
 }
 
 /**

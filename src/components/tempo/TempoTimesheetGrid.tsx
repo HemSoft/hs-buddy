@@ -67,6 +67,40 @@ interface DayColumn {
   holidayName?: string
 }
 
+function GridLoading() {
+  return (
+    <div className="tempo-grid-loading">
+      <div className="tempo-grid-skeleton" />
+      <div className="tempo-grid-skeleton" />
+      <div className="tempo-grid-skeleton" />
+    </div>
+  )
+}
+
+function GridEmpty({
+  onCopyFromPreviousMonth,
+  loadingTemplates,
+}: {
+  onCopyFromPreviousMonth?: (() => void) | null
+  loadingTemplates?: boolean
+}) {
+  return (
+    <div className="tempo-empty">
+      <p>No worklogs this month. Click a cell or use Quick Log to get started.</p>
+      {onCopyFromPreviousMonth && (
+        <button
+          className="tempo-copy-from-prev-btn"
+          onClick={onCopyFromPreviousMonth}
+          disabled={loadingTemplates}
+        >
+          {loadingTemplates ? <Loader2 size={14} className="spinning" /> : <Copy size={14} />}
+          <span>{loadingTemplates ? 'Loading…' : 'Copy entries from last month'}</span>
+        </button>
+      )}
+    </div>
+  )
+}
+
 function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
   const parts = ['tempo-grid-total-cell']
   if (col.isWeekend) parts.push('weekend')
@@ -216,30 +250,15 @@ export function TempoTimesheetGrid({
   }, [])
 
   if (loading && issueSummaries.length === 0) {
-    return (
-      <div className="tempo-grid-loading">
-        <div className="tempo-grid-skeleton" />
-        <div className="tempo-grid-skeleton" />
-        <div className="tempo-grid-skeleton" />
-      </div>
-    )
+    return <GridLoading />
   }
 
   if (!loading && issueSummaries.length === 0) {
     return (
-      <div className="tempo-empty">
-        <p>No worklogs this month. Click a cell or use Quick Log to get started.</p>
-        {onCopyFromPreviousMonth && (
-          <button
-            className="tempo-copy-from-prev-btn"
-            onClick={onCopyFromPreviousMonth}
-            disabled={loadingTemplates}
-          >
-            {loadingTemplates ? <Loader2 size={14} className="spinning" /> : <Copy size={14} />}
-            <span>{loadingTemplates ? 'Loading…' : 'Copy entries from last month'}</span>
-          </button>
-        )}
-      </div>
+      <GridEmpty
+        onCopyFromPreviousMonth={onCopyFromPreviousMonth}
+        loadingTemplates={loadingTemplates}
+      />
     )
   }
 

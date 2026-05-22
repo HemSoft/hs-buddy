@@ -76,20 +76,14 @@ interface RateLimitSnapshot {
   used: number
 }
 
-function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(
-    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
-  )
-  if (cachedOverview) {
-    return cachedOverview
-  }
-
-  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
-  if (!cachedRepos) {
-    return null
-  }
-
+function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOverviewResult {
   const repos = cachedRepos.repos
+  const pushDates = repos
+    .map(repo => repo.pushedAt)
+    .filter((value): value is string => Boolean(value))
+    /* v8 ignore start */
+    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())
+  /* v8 ignore stop */
   return {
     authenticatedAs: cachedRepos.authenticatedAs,
     isUserNamespace: cachedRepos.isUserNamespace,
@@ -104,16 +98,22 @@ function buildSeedOverview(org: string): OrgOverviewResult | null {
       totalForks: sumBy(repos, repo => repo.forksCount),
       activeReposToday: 0,
       commitsToday: 0,
-      lastPushAt:
-        repos
-          .map(repo => repo.pushedAt)
-          .filter((value): value is string => Boolean(value))
-          /* v8 ignore start */
-          .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null,
-      /* v8 ignore stop */
+      lastPushAt: pushDates[0] ?? null,
       topContributorsToday: [],
     },
   }
+}
+
+function buildSeedOverview(org: string): OrgOverviewResult | null {
+  const cachedOverview = normalizeOverview(
+    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
+  )
+  if (cachedOverview) return cachedOverview
+
+  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  if (!cachedRepos) return null
+
+  return buildMetricsFromRepos(org, cachedRepos)
 }
 
 function navigateToOrgUser(org: string, login: string) {

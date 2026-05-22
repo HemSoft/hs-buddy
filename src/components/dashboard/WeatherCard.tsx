@@ -162,6 +162,17 @@ function SpeciesGroup({
   )
 }
 
+function buildTypeGroups(species: PollenSpecies[]) {
+  const types = [
+    { type: 'TREE', label: 'Trees' },
+    { type: 'GRASS', label: 'Grasses' },
+    { type: 'WEED', label: 'Weeds' },
+  ] as const
+  return types
+    .map(({ type, label }) => ({ type, label, items: species.filter(s => s.type === type) }))
+    .filter(g => g.items.length > 0)
+}
+
 function PollenSpeciesDetail({
   species,
   healthRecommendations,
@@ -177,16 +188,7 @@ function PollenSpeciesDetail({
 
   if (!hasDetail && healthRecommendations.length === 0) return null
 
-  const typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }> = []
-  const types = [
-    { type: 'TREE', label: 'Trees' },
-    { type: 'GRASS', label: 'Grasses' },
-    { type: 'WEED', label: 'Weeds' },
-  ]
-  for (const { type, label } of types) {
-    const items = species.filter(s => s.type === type)
-    if (items.length > 0) typeGroups.push({ type, label, items })
-  }
+  const typeGroups = buildTypeGroups(species)
 
   return (
     <div className="pollen-detail">

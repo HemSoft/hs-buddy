@@ -3,12 +3,11 @@ import { RefreshCw, Key, ExternalLink, CheckCircle, AlertCircle } from 'lucide-r
 import { IPC_INVOKE } from '../../ipc/contracts'
 import './SettingsShared.css'
 
-export function SettingsWeather() {
+function useWeatherApiKey() {
   const [apiKey, setApiKey] = useState('')
   const [savedKey, setSavedKey] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [showKey, setShowKey] = useState(false)
 
   useEffect(() => {
     window.ipcRenderer
@@ -47,6 +46,64 @@ export function SettingsWeather() {
       setSaving(false)
     }
   }
+
+  return { apiKey, setApiKey, savedKey, loading, saving, handleSave, handleClear }
+}
+
+function ApiKeyStatusRow({ isConfigured }: { isConfigured: boolean }) {
+  if (isConfigured) {
+    return (
+      <div className="settings-status-row">
+        <CheckCircle size={14} className="settings-status-icon-ok" />
+        <span className="settings-status-text">
+          Configured — pollen data will appear in your weather card.
+        </span>
+      </div>
+    )
+  }
+  return (
+    <div className="settings-status-row">
+      <AlertCircle size={14} className="settings-status-icon-muted" />
+      <span className="settings-status-text settings-status-muted">
+        Not configured — add an API key to see pollen data.
+      </span>
+    </div>
+  )
+}
+
+function SaveButton({
+  saving,
+  isDirty,
+  apiKey,
+  onSave,
+}: {
+  saving: boolean
+  isDirty: boolean
+  apiKey: string
+  onSave: () => void
+}) {
+  return (
+    <button
+      className="settings-btn settings-btn-primary"
+      onClick={onSave}
+      disabled={saving || !isDirty || !apiKey.trim()}
+    >
+      {saving ? (
+        <>
+          <RefreshCw className="spin" size={14} />
+          Saving…
+        </>
+      ) : (
+        'Save Key'
+      )}
+    </button>
+  )
+}
+
+export function SettingsWeather() {
+  const { apiKey, setApiKey, savedKey, loading, saving, handleSave, handleClear } =
+    useWeatherApiKey()
+  const [showKey, setShowKey] = useState(false)
 
   const isDirty = apiKey.trim() !== savedKey
   const isConfigured = savedKey.length > 0
@@ -109,20 +166,7 @@ export function SettingsWeather() {
           </div>
 
           <div className="button-group">
-            <button
-              className="settings-btn settings-btn-primary"
-              onClick={handleSave}
-              disabled={saving || !isDirty || !apiKey.trim()}
-            >
-              {saving ? (
-                <>
-                  <RefreshCw className="spin" size={14} />
-                  Saving…
-                </>
-              ) : (
-                'Save Key'
-              )}
-            </button>
+            <SaveButton saving={saving} isDirty={isDirty} apiKey={apiKey} onSave={handleSave} />
             {isConfigured && (
               <button
                 className="settings-btn settings-btn-secondary"
@@ -134,23 +178,7 @@ export function SettingsWeather() {
             )}
           </div>
 
-          <div className="settings-status-row">
-            {isConfigured ? (
-              <>
-                <CheckCircle size={14} className="settings-status-icon-ok" />
-                <span className="settings-status-text">
-                  Configured — pollen data will appear in your weather card.
-                </span>
-              </>
-            ) : (
-              <>
-                <AlertCircle size={14} className="settings-status-icon-muted" />
-                <span className="settings-status-text settings-status-muted">
-                  Not configured — add an API key to see pollen data.
-                </span>
-              </>
-            )}
-          </div>
+          <ApiKeyStatusRow isConfigured={isConfigured} />
 
           <div className="info-box">
             <p>

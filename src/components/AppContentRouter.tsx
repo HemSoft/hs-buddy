@@ -354,6 +354,17 @@ const prefixRoutes: PrefixRouteEntry[] = [
   { prefix: 'pr-detail:', render: slug => renderPRDetailRoute(slug) },
 ]
 
+function matchPrefixRoute(activeViewId: string, ctx: PrefixRouteContext): JSX.Element | null {
+  for (const route of prefixRoutes) {
+    if (activeViewId.startsWith(route.prefix)) {
+      const slug = activeViewId.slice(route.prefix.length)
+      const result = route.render(slug, ctx)
+      if (result) return result
+    }
+  }
+  return null
+}
+
 export function AppContentRouter({
   activeViewId,
   prCounts,
@@ -386,13 +397,8 @@ export function AppContentRouter({
   if (exact) return exact
 
   const ctx: PrefixRouteContext = { activeViewId, onNavigate, onOpenTab, onCloseView }
-  for (const route of prefixRoutes) {
-    if (activeViewId.startsWith(route.prefix)) {
-      const slug = activeViewId.slice(route.prefix.length)
-      const result = route.render(slug, ctx)
-      if (result) return result
-    }
-  }
+  const prefixMatch = matchPrefixRoute(activeViewId, ctx)
+  if (prefixMatch) return prefixMatch
 
   return (
     <div className="content-placeholder">

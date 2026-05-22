@@ -3,7 +3,7 @@ import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 import { configManager } from '../config'
 
-export interface PollenSpecies {
+interface PollenSpecies {
   code: string
   displayName: string
   index: number
@@ -12,7 +12,7 @@ export interface PollenSpecies {
   type: 'TREE' | 'GRASS' | 'WEED'
 }
 
-export interface PollenData {
+interface PollenData {
   tree: number
   grass: number
   weed: number
@@ -20,7 +20,7 @@ export interface PollenData {
   healthRecommendations: string[]
 }
 
-export interface PollenFetchResult {
+interface PollenFetchResult {
   success: boolean
   data?: PollenData
   error?: string
@@ -54,10 +54,7 @@ interface GoogleForecastResponse {
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
-function parsePollenTypes(
-  types: GooglePollenTypeInfo[],
-  result: PollenData
-): void {
+function parsePollenTypes(types: GooglePollenTypeInfo[], result: PollenData): void {
   const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
   for (const t of types) {
     const key = codeToKey[t.code ?? '']
@@ -114,19 +111,16 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
-async function fetchPollenData(
-  location: { latitude: number; longitude: number }
-): Promise<PollenFetchResult> {
+async function fetchPollenData(location: {
+  latitude: number
+  longitude: number
+}): Promise<PollenFetchResult> {
   const apiKey = configManager.getUiValue('pollenApiKey') as string
   if (!apiKey) {
     return { success: false, error: 'no-api-key' }
   }
 
-  if (
-    !location ||
-    !Number.isFinite(location.latitude) ||
-    !Number.isFinite(location.longitude)
-  ) {
+  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
     return { success: false, error: 'Invalid location' }
   }
 

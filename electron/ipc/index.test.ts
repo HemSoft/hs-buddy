@@ -26,6 +26,7 @@ vi.mock('./terminalHandlers', () => ({ registerTerminalHandlers: vi.fn() }))
 vi.mock('./filesystemHandlers', () => ({ registerFilesystemHandlers: vi.fn() }))
 vi.mock('./ralphHandlers', () => ({ registerRalphHandlers: vi.fn() }))
 vi.mock('./slackHandlers', () => ({ registerSlackHandlers: vi.fn() }))
+vi.mock('./pollenHandlers', () => ({ registerPollenHandlers: vi.fn() }))
 
 import { registerAllHandlers } from './index'
 import { instrumentIpcHandlers } from './instrumentIpc'

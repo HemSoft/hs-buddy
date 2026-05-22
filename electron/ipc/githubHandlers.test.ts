@@ -920,4 +920,159 @@ describe('githubHandlers', () => {
       warnSpy.mockRestore()
     })
   })
+
+  describe('github:get-copilot-seats', () => {
+    it('returns paginated seat data', async () => {
+      const seatPayload = {
+        total_seats: 2,
+        seats: [
+          {
+            assignee: { login: 'user1', avatar_url: '', type: 'User' },
+            last_activity_at: '2026-05-01T00:00:00Z',
+            last_activity_editor: 'vscode',
+            created_at: '2026-01-01T00:00:00Z',
+            plan_type: 'business',
+          },
+          {
+            assignee: { login: 'user2', avatar_url: '', type: 'User' },
+            last_activity_at: null,
+            last_activity_editor: null,
+            created_at: '2026-02-01T00:00:00Z',
+            plan_type: 'business',
+          },
+        ],
+      }
+      mockExecAsync.mockResolvedValueOnce({ stdout: JSON.stringify(seatPayload), stderr: '' })
+
+      const handler = handlers.get('github:get-copilot-seats')!
+      const result = await handler({}, 'test-org')
+
+      expect(result.success).toBe(true)
+      expect(result.data.totalSeats).toBe(2)
+      expect(result.data.fetchedSeats).toBe(2)
+      expect(result.data.seats).toHaveLength(2)
+    })
+
+    it('paginates when first page has 100 seats and more remain', async () => {
+      const makeSeat = (login: string) => ({
+        assignee: { login, avatar_url: '', type: 'User' },
+        last_activity_at: null,
+        last_activity_editor: null,
+        created_at: '2026-01-01T00:00:00Z',
+        plan_type: 'business',
+      })
+
+      const page1Seats = Array.from({ length: 100 }, (_, i) => makeSeat(`user${i}`))
+      const page2Seats = [makeSeat('user100')]
+
+      mockExecAsync
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ total_seats: 101, seats: page1Seats }),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ total_seats: 101, seats: page2Seats }),
+          stderr: '',
+        })
+
+      const handler = handlers.get('github:get-copilot-seats')!
+      const result = await handler({}, 'test-org')
+
+      expect(result.success).toBe(true)
+      expect(result.data.totalSeats).toBe(101)
+      expect(result.data.fetchedSeats).toBe(101)
+      expect(mockExecAsync).toHaveBeenCalledTimes(2)
+    })
+
+    it('returns empty seats on 404 error', async () => {
+      const { isNotFoundError } = await import('../../src/utils/billingParsers')
+      vi.mocked(isNotFoundError).mockReturnValueOnce(true)
+      mockExecAsync.mockRejectedValueOnce(new Error('HTTP 404'))
+
+      const handler = handlers.get('github:get-copilot-seats')!
+      const result = await handler({}, 'test-org')
+
+      expect(result.success).toBe(true)
+      expect(result.data).toEqual({ totalSeats: 0, fetchedSeats: 0, seats: [] })
+    })
+
+    it('returns error on non-404 failure', async () => {
+      mockExecAsync.mockRejectedValueOnce(new Error('Server error'))
+
+      const handler = handlers.get('github:get-copilot-seats')!
+      const result = await handler({}, 'test-org')
+
+      expect(result.success).toBe(false)
+      expect(result.error).toBe('Server error')
+    })
+  })
+
+  describe('github:get-batch-monthly-requests', () => {
+    it('returns monthly totals with skipDayProbing', async () => {
+      const { sumGrossRequests } = await import('../../src/utils/billingParsers')
+      vi.mocked(sumGrossRequests).mockReturnValue(10)
+
+      mockExecAsync.mockResolvedValue({
+        stdout: JSON.stringify({ usageItems: [{ model: 'gpt-4', grossQuantity: 10 }] }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, ['alice', 'bob'], undefined, true)
+
+      expect(result.success).toBe(true)
+      expect(result.data.alice).toEqual({ requests: 10, lastActiveDate: null })
+      expect(result.data.bob).toEqual({ requests: 10, lastActiveDate: null })
+    })
+
+    it('probes backwards for last active date when not skipping', async () => {
+      const { sumGrossRequests } = await import('../../src/utils/billingParsers')
+
+      // Phase 1: monthly totals — user has requests
+      vi.mocked(sumGrossRequests)
+        .mockReturnValueOnce(5) // alice monthly
+        .mockReturnValueOnce(3) // alice today probe
+
+      mockExecAsync.mockResolvedValue({
+        stdout: JSON.stringify({ usageItems: [{ model: 'gpt-4', grossQuantity: 5 }] }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, ['alice'], undefined, false)
+
+      expect(result.success).toBe(true)
+      expect(result.data.alice.requests).toBe(5)
+      expect(result.data.alice.lastActiveDate).toBeTruthy()
+    })
+
+    it('handles empty logins array', async () => {
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, [], undefined, true)
+
+      expect(result.success).toBe(true)
+      expect(result.data).toEqual({})
+    })
+
+    it('skips failed logins in batch and continues', async () => {
+      const { sumGrossRequests } = await import('../../src/utils/billingParsers')
+      vi.mocked(sumGrossRequests).mockReturnValue(7)
+
+      // First call succeeds, second rejects
+      mockExecAsync
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems: [] }),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(new Error('rate limit'))
+
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, ['alice', 'bob'], undefined, true)
+
+      expect(result.success).toBe(true)
+      // alice succeeds, bob rejected so not in results
+      expect(result.data.alice).toBeDefined()
+      expect(result.data.bob).toBeUndefined()
+    })
+  })
 })

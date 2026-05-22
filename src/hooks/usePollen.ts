@@ -39,7 +39,7 @@ const POLLEN_CACHE_TTL_MS = 2 * 60 * 60 * 1000 // 2 hours
 /** Pollen index labels (Google UPI 0-5 scale) */
 export const POLLEN_LABELS = ['None', 'Very Low', 'Low', 'Medium', 'High', 'Very High'] as const
 
-export type PollenLevel = (typeof POLLEN_LABELS)[number]
+type PollenLevel = (typeof POLLEN_LABELS)[number]
 
 export function getPollenLabel(index: number): PollenLevel {
   const clamped = Math.max(0, Math.min(5, Math.round(index)))

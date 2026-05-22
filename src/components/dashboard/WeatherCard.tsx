@@ -138,7 +138,16 @@ function SpeciesRow({ species }: { species: PollenSpecies }) {
   )
 }
 
-function SpeciesGroup({ type, label, species }: { type: string; label: string; species: PollenSpecies[] }) {
+function SpeciesGroup({
+  type,
+  label,
+  species,
+}: {
+  type: string
+  label: string
+  species: PollenSpecies[]
+}) {
+  /* v8 ignore next -- defensive fallback; all callers pass known types */
   const Icon = POLLEN_TYPE_ICONS[type] ?? Flower2
   return (
     <div className="pollen-species-group">
@@ -153,7 +162,13 @@ function SpeciesGroup({ type, label, species }: { type: string; label: string; s
   )
 }
 
-function PollenSpeciesDetail({ species, healthRecommendations }: { species: PollenSpecies[]; healthRecommendations: string[] }) {
+function PollenSpeciesDetail({
+  species,
+  healthRecommendations,
+}: {
+  species: PollenSpecies[]
+  healthRecommendations: string[]
+}) {
   const [expanded, setExpanded] = useState(false)
 
   const inSeasonSpecies = species.filter(s => s.inSeason)

@@ -15,6 +15,7 @@ import {
   type BillingUsageItem,
   type ParsedBillingUsage,
   type CopilotUsageMetrics,
+  type PremiumUsageItem,
   isNotFoundError,
   extractPremiumUsageItems,
   sumGrossRequests,
@@ -356,7 +357,7 @@ async function resolveBudgetData(
 }
 
 interface RawCopilotSeat {
-  assignee?: { login: string }
+  assignee?: { login: string; name?: string | null }
   plan_type?: string
   last_activity_at?: string | null
   last_activity_editor?: string | null
@@ -371,11 +372,89 @@ function toNullableString(val: string | null | undefined): string | null {
 function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
   return {
     login: seat.assignee?.login ?? fallbackLogin,
+    displayName: toNullableString(seat.assignee?.name),
     planType: toNullableString(seat.plan_type),
     lastActivityAt: toNullableString(seat.last_activity_at),
     lastActivityEditor: toNullableString(seat.last_activity_editor),
     createdAt: toNullableString(seat.created_at),
     pendingCancellation: toNullableString(seat.pending_cancellation_date),
+  }
+}
+
+type BatchResult = Record<string, { requests: number; lastActiveDate: string | null }>
+
+const BATCH_CONCURRENCY = 10
+
+async function fetchMonthlyTotals(
+  logins: string[],
+  year: number,
+  month: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<BatchResult> {
+  const results: BatchResult = {}
+  for (let i = 0; i < logins.length; i += BATCH_CONCURRENCY) {
+    const batch = logins.slice(i, i + BATCH_CONCURRENCY)
+    const settled = await Promise.allSettled(
+      batch.map(async login => {
+        const encoded = encodeURIComponent(login)
+        const { stdout } = await execAsync(
+          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        )
+        const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+        return { login, requests: sumGrossRequests(data.usageItems ?? []) }
+      })
+    )
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        results[result.value.login] = { requests: result.value.requests, lastActiveDate: null }
+      }
+    }
+  }
+  return results
+}
+
+async function probeDayActivity(
+  results: BatchResult,
+  year: number,
+  month: number,
+  today: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<void> {
+  let remaining = Object.entries(results)
+    .filter(([, v]) => v.requests > 0)
+    .map(([login]) => login)
+
+  const MAX_LOOKBACK = Math.min(today, 14)
+
+  for (let offset = 0; offset < MAX_LOOKBACK && remaining.length > 0; offset++) {
+    const day = today - offset
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    const foundThisDay: string[] = []
+
+    for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
+      const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
+      const settled = await Promise.allSettled(
+        batch.map(async login => {
+          const encoded = encodeURIComponent(login)
+          const { stdout } = await execAsync(
+            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+          )
+          const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+          return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
+        })
+      )
+
+      for (const result of settled) {
+        if (result.status === 'fulfilled' && result.value.dayRequests > 0) {
+          results[result.value.login].lastActiveDate = dateStr
+          foundThisDay.push(result.value.login)
+        }
+      }
+    }
+
+    remaining = remaining.filter(l => !foundThisDay.includes(l))
   }
 }
 
@@ -589,6 +668,76 @@ export function registerGitHubHandlers(): void {
           `Failed to get user premium requests for '${memberLogin}' in '${org}':`,
           errorMessage
         )
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
+
+  // Get all Copilot seat assignments for an org (paginated)
+  ipcMain.handle(
+    IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
+    async (_event, org: string, username?: string) => {
+      try {
+        const execEnv = await getTokenEnv(username)
+        const seats: ReturnType<typeof mapCopilotSeatData>[] = []
+        let page = 1
+        const maxPages = 10
+        let totalSeats = 0
+
+        while (page <= maxPages) {
+          const { stdout } = await execAsync(
+            `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+            { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+          )
+          const data = JSON.parse(stdout.trim()) as {
+            total_seats: number
+            seats: RawCopilotSeat[]
+          }
+
+          totalSeats = data.total_seats
+          seats.push(...data.seats.map(s => mapCopilotSeatData(s, s.assignee?.login ?? 'unknown')))
+
+          if (seats.length >= totalSeats || data.seats.length < 100) break
+          page++
+        }
+
+        return {
+          success: true,
+          data: { totalSeats, fetchedSeats: seats.length, seats },
+        }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        if (isNotFoundError(error)) {
+          return { success: true, data: { totalSeats: 0, fetchedSeats: 0, seats: [] } }
+        }
+        console.error(`Failed to get Copilot seats for org '${org}':`, errorMessage)
+        return { success: false, error: errorMessage }
+      }
+    }
+  )
+
+  // Batch-fetch monthly premium request counts and last active dates for multiple users.
+  ipcMain.handle(
+    IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
+    async (_event, logins: string[], username?: string, skipDayProbing?: boolean) => {
+      try {
+        const execEnv = await getTokenEnv(username)
+        const now = new Date()
+        const year = now.getUTCFullYear()
+        const month = now.getUTCMonth() + 1
+        const today = now.getUTCDate()
+
+        const results = await fetchMonthlyTotals(logins, year, month, execEnv)
+
+        if (skipDayProbing) {
+          return { success: true, data: results }
+        }
+
+        await probeDayActivity(results, year, month, today, execEnv)
+        return { success: true, data: results }
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error)
+        console.error('Failed to batch-fetch monthly requests:', errorMessage)
         return { success: false, error: errorMessage }
       }
     }

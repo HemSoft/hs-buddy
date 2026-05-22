@@ -48,6 +48,8 @@ export const IPC_INVOKE = {
   GITHUB_GET_COPILOT_BUDGET: 'github:get-copilot-budget',
   GITHUB_GET_COPILOT_MEMBER_USAGE: 'github:get-copilot-member-usage',
   GITHUB_GET_USER_PREMIUM_REQUESTS: 'github:get-user-premium-requests',
+  GITHUB_GET_COPILOT_SEATS: 'github:get-copilot-seats',
+  GITHUB_GET_BATCH_MONTHLY_REQUESTS: 'github:get-batch-monthly-requests',
   GITHUB_SWITCH_ACCOUNT: 'github:switch-account',
   GITHUB_COLLECT_COPILOT_SNAPSHOTS: 'github:collect-copilot-snapshots',
 

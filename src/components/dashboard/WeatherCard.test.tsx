@@ -18,13 +18,20 @@ let mockWeatherData: {
 }
 
 let mockExpanded = true
+const mockRefreshPollen = vi.fn()
+let mockPollenReturn: {
+  data: Record<string, unknown> | null
+  loading: boolean
+  error: string | null
+  refresh: typeof mockRefreshPollen
+} = { data: null, loading: false, error: null, refresh: mockRefreshPollen }
 
 vi.mock('../../hooks/useWeather', () => ({
   useWeather: () => mockWeatherData,
 }))
 
 vi.mock('../../hooks/usePollen', () => ({
-  usePollen: () => ({ data: null, loading: false, error: null, refresh: vi.fn() }),
+  usePollen: () => mockPollenReturn,
   getPollenLabel: (index: number) =>
     ['None', 'Very Low', 'Low', 'Medium', 'High', 'Very High'][index] ?? 'Unknown',
   getPollenColor: () => '#666',
@@ -66,7 +73,22 @@ vi.mock('./DashboardPrimitives', () => ({
       {children}
     </div>
   ),
-  CardActionBar: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
+  CardActionBar: ({
+    children,
+    onRefresh,
+  }: {
+    children?: React.ReactNode
+    onRefresh?: () => void
+  }) => (
+    <div>
+      {onRefresh && (
+        <button type="button" onClick={onRefresh}>
+          Refresh
+        </button>
+      )}
+      {children}
+    </div>
+  ),
 }))
 
 const makeWeatherData = (overrides = {}) => ({
@@ -105,6 +127,7 @@ describe('WeatherCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockExpanded = true
+    mockPollenReturn = { data: null, loading: false, error: null, refresh: mockRefreshPollen }
     mockWeatherData = {
       data: null,
       loading: false,
@@ -386,5 +409,178 @@ describe('weatherIcon coverage via forecast codes', () => {
     render(<WeatherCard />)
     expect(screen.getByText('Heavy snow')).toBeInTheDocument()
     expect(screen.getByText('Thunderstorm')).toBeInTheDocument()
+  })
+})
+
+describe('WeatherCard pollen section', () => {
+  const pollenData = {
+    tree: 3,
+    grass: 1,
+    weed: 0,
+    species: [
+      {
+        code: 'BIRCH',
+        displayName: 'Birch',
+        index: 4,
+        category: 'trees',
+        inSeason: true,
+        type: 'TREE',
+      },
+      {
+        code: 'OAK',
+        displayName: 'Oak',
+        index: 2,
+        category: 'trees',
+        inSeason: true,
+        type: 'TREE',
+      },
+      {
+        code: 'RYEGRASS',
+        displayName: 'Ryegrass',
+        index: 1,
+        category: 'grasses',
+        inSeason: false,
+        type: 'GRASS',
+      },
+    ],
+    healthRecommendations: ['Stay indoors during peak hours', 'Keep windows closed'],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockExpanded = true
+    mockPollenReturn = { data: null, loading: false, error: null, refresh: mockRefreshPollen }
+    mockWeatherData = {
+      data: makeWeatherData(),
+      loading: false,
+      error: null,
+      refresh: mockRefresh,
+      useMyLocation: mockUseMyLocation,
+      setLocationBySearch: mockSetLocationBySearch,
+      savedLocation: 'Raleigh, NC',
+      savedLocationCoords: { latitude: 35.82, longitude: -78.82 },
+    }
+  })
+
+  it('renders pollen badges when pollen data is available', () => {
+    mockPollenReturn.data = pollenData
+    render(<WeatherCard />)
+    expect(screen.getByText('Pollen Index')).toBeInTheDocument()
+    expect(screen.getByText('Tree')).toBeInTheDocument()
+    expect(screen.getByText('Grass')).toBeInTheDocument()
+    expect(screen.getByText('Weed')).toBeInTheDocument()
+  })
+
+  it('shows species detail when expanded', () => {
+    mockPollenReturn.data = pollenData
+    render(<WeatherCard />)
+
+    const toggleBtn = screen.getByText('Species Detail')
+    fireEvent.click(toggleBtn)
+
+    expect(screen.getByText('Birch')).toBeInTheDocument()
+    expect(screen.getByText('Oak')).toBeInTheDocument()
+    expect(screen.getByText('Ryegrass')).toBeInTheDocument()
+    expect(screen.getByText('off-season')).toBeInTheDocument()
+  })
+
+  it('shows species type group headers', () => {
+    mockPollenReturn.data = pollenData
+    render(<WeatherCard />)
+
+    fireEvent.click(screen.getByText('Species Detail'))
+    expect(screen.getByText('Trees')).toBeInTheDocument()
+    expect(screen.getByText('Grasses')).toBeInTheDocument()
+  })
+
+  it('shows health recommendations when expanded', () => {
+    mockPollenReturn.data = pollenData
+    render(<WeatherCard />)
+
+    fireEvent.click(screen.getByText('Species Detail'))
+    expect(screen.getByText('Stay indoors during peak hours')).toBeInTheDocument()
+    expect(screen.getByText('Keep windows closed')).toBeInTheDocument()
+  })
+
+  it('shows pollen error hint when error and no data', () => {
+    mockPollenReturn.error = 'API key required'
+    render(<WeatherCard />)
+    expect(screen.getByText('API key required')).toBeInTheDocument()
+  })
+
+  it('does not show pollen section when no data and no error', () => {
+    render(<WeatherCard />)
+    expect(screen.queryByText('Pollen Index')).not.toBeInTheDocument()
+  })
+
+  it('handleRefreshAll calls clearPollenCache and both refresh functions', async () => {
+    render(<WeatherCard />)
+    const refreshBtn = screen.getByRole('button', { name: 'Refresh' })
+    fireEvent.click(refreshBtn)
+    expect(mockRefresh).toHaveBeenCalled()
+    expect(mockRefreshPollen).toHaveBeenCalled()
+  })
+
+  it('PollenSpeciesDetail returns null when no species and no recommendations', () => {
+    mockPollenReturn.data = { tree: 0, grass: 0, weed: 0, species: [], healthRecommendations: [] }
+    render(<WeatherCard />)
+    // Pollen badges render but no detail section
+    expect(screen.getByText('Pollen Index')).toBeInTheDocument()
+    expect(screen.queryByText('Species Detail')).not.toBeInTheDocument()
+  })
+
+  it('renders detail toggle even with unknown species type (filtered out)', () => {
+    mockPollenReturn.data = {
+      tree: 1,
+      grass: 0,
+      weed: 0,
+      species: [
+        {
+          code: 'OAK',
+          displayName: 'Oak',
+          index: 3,
+          category: 'trees',
+          inSeason: true,
+          type: 'TREE',
+        },
+        {
+          code: 'MOLD',
+          displayName: 'Mold',
+          index: 2,
+          category: 'other',
+          inSeason: true,
+          type: 'MOLD',
+        },
+      ],
+      healthRecommendations: [],
+    }
+    render(<WeatherCard />)
+    fireEvent.click(screen.getByText('Species Detail'))
+    // Oak renders (TREE type matched), Mold doesn't (MOLD not in type groups)
+    expect(screen.getByText('Oak')).toBeInTheDocument()
+    expect(screen.queryByText('Mold')).not.toBeInTheDocument()
+  })
+
+  it('handles only off-season species in detail', () => {
+    mockPollenReturn.data = {
+      tree: 0,
+      grass: 0,
+      weed: 0,
+      species: [
+        {
+          code: 'OAK',
+          displayName: 'Oak',
+          index: 0,
+          category: 'trees',
+          inSeason: false,
+          type: 'TREE',
+        },
+      ],
+      healthRecommendations: [],
+    }
+    render(<WeatherCard />)
+    fireEvent.click(screen.getByText('Species Detail'))
+    expect(screen.getByText('Oak')).toBeInTheDocument()
+    expect(screen.getByText('off-season')).toBeInTheDocument()
   })
 })

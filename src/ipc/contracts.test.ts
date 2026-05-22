@@ -125,7 +125,7 @@ describe('IPC Contract Registry', () => {
     it('has the expected number of invoke channels', () => {
       // If this fails, a channel was added or removed without updating contracts.
       // Update the contract AND this count when adding new IPC handlers.
-      expect(ALL_INVOKE_CHANNELS.length).toBe(128)
+      expect(ALL_INVOKE_CHANNELS.length).toBe(130)
     })
 
     it('has the expected number of send channels', () => {
@@ -166,7 +166,7 @@ describe('IPC Contract Registry', () => {
       expect(githubChannels).toContain('github:get-user-premium-requests')
       expect(githubChannels).toContain('github:switch-account')
       expect(githubChannels).toContain('github:collect-copilot-snapshots')
-      expect(githubChannels.length).toBe(9)
+      expect(githubChannels.length).toBe(11)
     })
 
     it('terminal domain has all expected invoke channels', () => {

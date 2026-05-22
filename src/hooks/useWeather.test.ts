@@ -445,13 +445,17 @@ describe('useWeather', () => {
 
   it('fetch error does not update state when signal is aborted', async () => {
     let rejectFetch!: (err: Error) => void
-    mockFetch.mockReturnValueOnce(
-      new Promise((_, reject) => {
-        rejectFetch = reject
-      })
-    )
+    const fetchPromise = new Promise((_, reject) => {
+      rejectFetch = reject
+    })
+    // Attach a no-op catch so the raw promise doesn't trigger unhandled rejection
+    fetchPromise.catch(() => {})
+    mockFetch.mockReturnValueOnce(fetchPromise)
 
-    const { unmount } = renderHook(() => useWeather())
+    const { result, unmount } = renderHook(() => useWeather())
+
+    // Wait for hydration to complete and refresh() to be called (enters loading)
+    await waitFor(() => expect(result.current.loading).toBe(true))
 
     // Unmount aborts the signal
     unmount()
@@ -459,7 +463,6 @@ describe('useWeather', () => {
     // Reject after unmount — catch block should skip state update
     await act(async () => {
       rejectFetch(new Error('Network gone'))
-      // Give the microtask queue time to process the rejection
       await new Promise(r => setTimeout(r, 0))
     })
   })
@@ -832,6 +835,61 @@ describe('useWeather', () => {
         expect(result.current.savedLocation).toBe('New York, NY')
       })
     })
+  })
+
+  it('successful fetch does not update state when signal is aborted', async () => {
+    let resolveFetch!: (v: unknown) => void
+    const fetchPromise = new Promise(resolve => {
+      resolveFetch = resolve
+    })
+    mockFetch.mockReturnValueOnce(fetchPromise)
+
+    const { result, unmount } = renderHook(() => useWeather())
+
+    // Wait for the effect to fire (hydration) and enter loading
+    await waitFor(() => expect(result.current.loading).toBe(true))
+
+    // Unmount aborts the signal
+    unmount()
+
+    // Resolve after unmount — .then() should skip state update
+    await act(async () => {
+      resolveFetch(makeApiResponse())
+      await new Promise(r => setTimeout(r, 0))
+    })
+  })
+
+  it('skips refresh when valid cache exists at hydration', async () => {
+    // Set up valid cache
+    const weatherData = {
+      temperature: 68,
+      temperatureUnit: '°F',
+      weatherCode: 2,
+      description: 'Partly cloudy',
+      humidity: 50,
+      windSpeed: 5,
+      high: 72,
+      low: 52,
+      locationName: 'Raleigh, NC',
+      forecast: [],
+    }
+    localStorage.setItem(
+      'weather:cache',
+      JSON.stringify({ data: weatherData, timestamp: Date.now(), version: 2 })
+    )
+
+    mockFetch.mockClear()
+
+    const { result } = renderHook(() => useWeather())
+
+    // Wait for hydration to complete (loadLocationFromStore resolves)
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 50))
+    })
+
+    expect(result.current.data?.temperature).toBe(68)
+    // No fetch call since cache existed when hydration completed
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 })
 

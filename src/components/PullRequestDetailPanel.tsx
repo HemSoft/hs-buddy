@@ -824,7 +824,7 @@ function resolveRalphReviewRepoPath(
 ): string {
   const repoRoot = accounts.find(account => account.org === org)?.repoRoot
 
-  return repoRoot ? `${repoRoot}\${repository}` : ''
+  return repoRoot ? `${repoRoot}\\${repository}` : ''
 }
 
 function launchRalphReviewForPullRequest(

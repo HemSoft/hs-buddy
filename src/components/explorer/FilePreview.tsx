@@ -69,6 +69,31 @@ function toShikiLang(lang: string): BundledLanguage {
   return (LANG_MAP[lang] ?? lang) as BundledLanguage
 }
 
+function getFilePreviewLineCount(data: FileData | null): number {
+  if (!data || !data.content) return 0
+  return data.content.split('\\n').length
+}
+
+function FilePreviewHeader({
+  filePath,
+  data,
+  lineCount,
+}: {
+  filePath: string
+  data: FileData
+  lineCount: number
+}) {
+  return (
+    <div className="file-preview-header">
+      <FileText size={14} />
+      <span className="file-preview-filename">{getFileName(filePath)}</span>
+      <span className="file-preview-meta">
+        {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} · {formatFileSize(data.size)}
+      </span>
+    </div>
+  )
+}
+
 export function FilePreview({ filePath }: FilePreviewProps) {
   const [state, dispatch] = useReducer(filePreviewReducer, {
     data: null,
@@ -168,10 +193,7 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     contentRef.current.innerHTML = highlightedHtml
   }, [highlightedHtml])
 
-  const lineCount = useMemo(() => {
-    if (!data?.content) return 0
-    return data.content.split('\n').length
-  }, [data?.content])
+  const lineCount = useMemo(() => getFilePreviewLineCount(data), [data])
 
   // Calculate gutter width based on line count digits
   const gutterWidth = useMemo(() => {
@@ -223,14 +245,7 @@ export function FilePreview({ filePath }: FilePreviewProps) {
 
   return (
     <div className="file-preview">
-      <div className="file-preview-header">
-        <FileText size={14} />
-        <span className="file-preview-filename">{getFileName(filePath)}</span>
-        <span className="file-preview-meta">
-          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} ·{' '}
-          {formatFileSize(data.size)}
-        </span>
-      </div>
+      <FilePreviewHeader filePath={filePath} data={data} lineCount={lineCount} />
       <div
         ref={contentRef}
         className="file-preview-content shiki-container"

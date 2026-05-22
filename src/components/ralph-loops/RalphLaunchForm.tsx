@@ -570,15 +570,12 @@ export function RalphLaunchForm({
 
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
-    if (!model || !provider || !providers || !models) return
-    if (isModelIncompatible(model, provider, providers, models)) setModel('')
+    if (shouldResetSelectedModel(model, provider, providers, models)) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(() => {
     if (!models) return []
-    const supported = provider
-      ? providers?.providers?.[provider]?.supportedModelProviders
-      : undefined
+    const supported = getSupportedModelProviders(provider, providers)
     const filteredModels = Object.entries(models.models)
       .filter(([, m]) => !supported || supported.includes(m.provider))
       .map(([key, m]) => ({
@@ -693,9 +690,10 @@ export function RalphLaunchForm({
       dryRun,
       autoApprove,
     })
-    const result = await onLaunch?.(config)
-    if (result && !result.success) {
-      setError(result.error ?? 'Launch failed')
+    const result = await launchRalphConfig(onLaunch, config)
+    const launchError = resolveLaunchError(result)
+    if (launchError) {
+      setError(launchError)
     }
     setLaunching(false)
   }

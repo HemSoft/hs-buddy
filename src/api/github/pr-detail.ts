@@ -685,6 +685,36 @@ export async function fetchPRFilesChanged(
   }
 }
 
+function requirePullRequestData<T>(
+  pullRequest: T | null | undefined,
+  owner: string,
+  repo: string,
+  pullNumber: number
+): T {
+  if (!pullRequest) {
+    throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
+  }
+  return pullRequest
+}
+
+function countDetailedThreadComments(threads: DetailedThreadNode[]): number {
+  return threads.reduce((count, thread) => count + (thread.comments?.totalCount || 0), 0)
+}
+
+function mapLinkedIssues(
+  nodes: Array<{ number: number; title: string; url: string }> | null | undefined
+): PRLinkedIssue[] {
+  return (nodes ?? []).map(node => ({
+    number: node.number,
+    title: node.title,
+    url: node.url,
+  }))
+}
+
+function resolvePRHistoryBody(body: string | null | undefined): string {
+  return body || ''
+}
+
 /* v8 ignore start -- API response null-guards throughout PR detail data mapping */
 export async function fetchPRHistory(
   config: PRConfig['github'],
@@ -713,23 +743,16 @@ export async function fetchPRHistory(
   const threadsOutdated = threads.filter(thread => thread.isOutdated).length
   const threadsAddressed = threads.filter(thread => thread.isResolved).length
   const threadsUnaddressed = Math.max(0, pr.reviewThreads.totalCount - threadsAddressed)
-  const reviewCommentCount = threads.reduce(
-    (count, thread) => count + (thread.comments?.totalCount || 0),
-    0
-  )
+  const reviewCommentCount = countDetailedThreadComments(threads)
   const issueCommentCount = pr.comments.totalCount
   const reviewers = buildReviewerSummaries(pr)
   const timeline = buildPRTimeline(pr, pullNumber)
-  const linkedIssues: PRLinkedIssue[] = (pr.closingIssuesReferences?.nodes || []).map(n => ({
-    number: n.number,
-    title: n.title,
-    url: n.url,
-  }))
+  const linkedIssues = mapLinkedIssues(pr.closingIssuesReferences?.nodes)
   return {
     createdAt: pr.createdAt,
     updatedAt: pr.updatedAt,
     mergedAt: pr.mergedAt,
-    body: pr.body || '',
+    body: resolvePRHistoryBody(pr.body),
     commitCount: pr.commits.totalCount,
     issueCommentCount,
     reviewCommentCount,
@@ -817,6 +840,75 @@ export async function fetchPRChecks(
 }
 /* v8 ignore stop */
 
+function mapThreadComments(nodes: CommentNode[] | null | undefined): PRReviewComment[] {
+  return (nodes ?? []).map(comment => mapReviewCommentFields(comment, mapReactionGroups))
+}
+
+function mapReviewThreadNode(node: {
+  id: string
+  isResolved: boolean
+  isOutdated: boolean
+  path: string | null
+  line: number | null
+  startLine: number | null
+  diffSide: string | null
+  comments: { nodes: CommentNode[] }
+}): PRReviewThread {
+  return {
+    id: node.id,
+    isResolved: node.isResolved,
+    isOutdated: node.isOutdated,
+    path: node.path,
+    line: node.line,
+    startLine: node.startLine,
+    diffSide: node.diffSide,
+    comments: mapThreadComments(node.comments.nodes),
+  }
+}
+
+function mapReviewThreads(
+  nodes:
+    | Array<{
+        id: string
+        isResolved: boolean
+        isOutdated: boolean
+        path: string | null
+        line: number | null
+        startLine: number | null
+        diffSide: string | null
+        comments: { nodes: CommentNode[] }
+      }>
+    | null
+    | undefined
+): PRReviewThread[] {
+  return (nodes ?? []).map(mapReviewThreadNode)
+}
+
+function mapIssueComments(nodes: IssueCommentNode[] | null | undefined): PRReviewComment[] {
+  return (nodes ?? []).map(comment => mapReviewCommentFields(comment, mapReactionGroups))
+}
+
+function hasReviewContent(review: ReviewNode): boolean {
+  return Boolean(review.submittedAt) && Boolean(review.body)
+}
+
+function mapReviewSummary(review: ReviewNode): PRReviewSummary {
+  return {
+    id: review.id,
+    state: review.state,
+    ...resolveCommentAuthor(review.author),
+    body: review.body || '',
+    bodyHtml: review.bodyHTML || null,
+    createdAt: review.submittedAt!,
+    updatedAt: review.updatedAt,
+    url: review.url,
+  }
+}
+
+function mapReviewSummaries(nodes: ReviewNode[] | null | undefined): PRReviewSummary[] {
+  return (nodes ?? []).filter(hasReviewContent).map(mapReviewSummary)
+}
+
 /* v8 ignore start -- GraphQL PR thread/comment response null-guards */
 export async function fetchPRThreads(
   config: PRConfig['github'],
@@ -854,35 +946,10 @@ export async function fetchPRThreads(
     number: pullNumber,
     headers: { authorization: `token ${token}` },
   })
-  const pr = result.repository?.pullRequest
-  if (!pr) {
-    throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
-  }
-  const threads: PRReviewThread[] = (pr.reviewThreads.nodes || []).map(t => ({
-    id: t.id,
-    isResolved: t.isResolved,
-    isOutdated: t.isOutdated,
-    path: t.path,
-    line: t.line,
-    startLine: t.startLine,
-    diffSide: t.diffSide,
-    comments: (t.comments.nodes || []).map(c => mapReviewCommentFields(c, mapReactionGroups)),
-  }))
-  const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c =>
-    mapReviewCommentFields(c, mapReactionGroups)
-  )
-  const reviews: PRReviewSummary[] = (pr.reviews.nodes || [])
-    .filter(r => r.submittedAt && r.body)
-    .map(r => ({
-      id: r.id,
-      state: r.state,
-      ...resolveCommentAuthor(r.author),
-      body: r.body || '',
-      bodyHtml: r.bodyHTML || null,
-      createdAt: r.submittedAt!,
-      updatedAt: r.updatedAt,
-      url: r.url,
-    }))
+  const pr = requirePullRequestData(result.repository?.pullRequest, owner, repo, pullNumber)
+  const threads = mapReviewThreads(pr.reviewThreads.nodes)
+  const issueComments = mapIssueComments(pr.comments.nodes)
+  const reviews = mapReviewSummaries(pr.reviews.nodes)
   return { threads, issueComments, reviews }
 }
 /* v8 ignore stop */

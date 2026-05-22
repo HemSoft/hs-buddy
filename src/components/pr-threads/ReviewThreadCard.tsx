@@ -126,6 +126,33 @@ function ThreadReplyForm({
   )
 }
 
+function getResolveActionConfig(thread: PRReviewThread, resolving: boolean) {
+  if (resolving) {
+    return {
+      icon: <Loader2 size={13} className="spin" />,
+      className: 'resolve',
+      title: 'Resolve conversation',
+      label: 'Resolve conversation',
+    }
+  }
+
+  if (thread.isResolved) {
+    return {
+      icon: <RotateCcw size={13} />,
+      className: 'unresolve',
+      title: 'Unresolve conversation',
+      label: 'Unresolve',
+    }
+  }
+
+  return {
+    icon: <Check size={13} />,
+    className: 'resolve',
+    title: 'Resolve conversation',
+    label: 'Resolve conversation',
+  }
+}
+
 function ThreadActionRow({
   thread,
   resolving,
@@ -137,13 +164,7 @@ function ThreadActionRow({
   dispatch: React.Dispatch<ThreadAction>
   handleResolveToggle: () => void
 }) {
-  const resolveIcon = resolving ? (
-    <Loader2 size={13} className="spin" />
-  ) : thread.isResolved ? (
-    <RotateCcw size={13} />
-  ) : (
-    <Check size={13} />
-  )
+  const resolveAction = getResolveActionConfig(thread, resolving)
 
   return (
     <div className="thread-action-row">
@@ -152,13 +173,13 @@ function ThreadActionRow({
         Reply
       </button>
       <button
-        className={`thread-resolve-btn ${thread.isResolved ? 'unresolve' : 'resolve'}`}
+        className={`thread-resolve-btn ${resolveAction.className}`}
         onClick={handleResolveToggle}
         disabled={resolving}
-        title={thread.isResolved ? 'Unresolve conversation' : 'Resolve conversation'}
+        title={resolveAction.title}
       >
-        {resolveIcon}
-        {thread.isResolved ? 'Unresolve' : 'Resolve conversation'}
+        {resolveAction.icon}
+        {resolveAction.label}
       </button>
     </div>
   )
@@ -208,6 +229,126 @@ function useThreadDerivedState(thread: PRReviewThread) {
   const diffHunk = firstComment?.diffHunk
   const statusClass = thread.isResolved ? 'resolved' : thread.isOutdated ? 'outdated' : 'active'
   return { firstComment, remainingComments, diffHunk, statusClass }
+}
+
+function ThreadComments({
+  firstComment,
+  remainingComments,
+  onReactToComment,
+}: {
+  firstComment: PRReviewComment | undefined
+  remainingComments: PRReviewComment[]
+  onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
+}) {
+  return (
+    <div className="review-thread-comments">
+      {firstComment ? <CommentCard comment={firstComment} isFirst onReact={onReactToComment} /> : null}
+      {remainingComments.map(c => (
+        <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
+      ))}
+    </div>
+  )
+}
+
+function ThreadActionArea({
+  replying,
+  replyText,
+  sending,
+  textareaRef,
+  dispatch,
+  handleSendReply,
+  thread,
+  resolving,
+  handleResolveToggle,
+}: {
+  replying: boolean
+  replyText: string
+  sending: boolean
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  dispatch: React.Dispatch<ThreadAction>
+  handleSendReply: () => void
+  thread: PRReviewThread
+  resolving: boolean
+  handleResolveToggle: () => void
+}) {
+  return (
+    <div className="review-thread-actions">
+      {replying ? (
+        <ThreadReplyForm
+          replyText={replyText}
+          sending={sending}
+          textareaRef={textareaRef}
+          dispatch={dispatch}
+          handleSendReply={handleSendReply}
+        />
+      ) : (
+        <ThreadActionRow
+          thread={thread}
+          resolving={resolving}
+          dispatch={dispatch}
+          handleResolveToggle={handleResolveToggle}
+        />
+      )}
+    </div>
+  )
+}
+
+function ReviewThreadBody({
+  expanded,
+  diffHunk,
+  firstComment,
+  remainingComments,
+  onReactToComment,
+  replying,
+  replyText,
+  sending,
+  textareaRef,
+  dispatch,
+  handleSendReply,
+  thread,
+  resolving,
+  handleResolveToggle,
+}: {
+  expanded: boolean
+  diffHunk: string | undefined
+  firstComment: PRReviewComment | undefined
+  remainingComments: PRReviewComment[]
+  onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
+  replying: boolean
+  replyText: string
+  sending: boolean
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  dispatch: React.Dispatch<ThreadAction>
+  handleSendReply: () => void
+  thread: PRReviewThread
+  resolving: boolean
+  handleResolveToggle: () => void
+}) {
+  if (!expanded) {
+    return null
+  }
+
+  return (
+    <div className="review-thread-body">
+      {diffHunk ? <DiffHunk hunk={diffHunk} /> : null}
+      <ThreadComments
+        firstComment={firstComment}
+        remainingComments={remainingComments}
+        onReactToComment={onReactToComment}
+      />
+      <ThreadActionArea
+        replying={replying}
+        replyText={replyText}
+        sending={sending}
+        textareaRef={textareaRef}
+        dispatch={dispatch}
+        handleSendReply={handleSendReply}
+        thread={thread}
+        resolving={resolving}
+        handleResolveToggle={handleResolveToggle}
+      />
+    </div>
+  )
 }
 
 export function ReviewThreadCard({
@@ -321,37 +462,22 @@ export function ReviewThreadCard({
         <ThreadHeaderBadges thread={thread} />
       </div>
 
-      {expanded && (
-        <div className="review-thread-body">
-          {diffHunk && <DiffHunk hunk={diffHunk} />}
-          <div className="review-thread-comments">
-            {firstComment && (
-              <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
-            )}
-            {remainingComments.map(c => (
-              <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
-            ))}
-          </div>
-          <div className="review-thread-actions">
-            {replying ? (
-              <ThreadReplyForm
-                replyText={replyText}
-                sending={sending}
-                textareaRef={textareaRef}
-                dispatch={dispatch}
-                handleSendReply={handleSendReply}
-              />
-            ) : (
-              <ThreadActionRow
-                thread={thread}
-                resolving={resolving}
-                dispatch={dispatch}
-                handleResolveToggle={handleResolveToggle}
-              />
-            )}
-          </div>
-        </div>
-      )}
+      <ReviewThreadBody
+        expanded={expanded}
+        diffHunk={diffHunk}
+        firstComment={firstComment}
+        remainingComments={remainingComments}
+        onReactToComment={onReactToComment}
+        replying={replying}
+        replyText={replyText}
+        sending={sending}
+        textareaRef={textareaRef}
+        dispatch={dispatch}
+        handleSendReply={handleSendReply}
+        thread={thread}
+        resolving={resolving}
+        handleResolveToggle={handleResolveToggle}
+      />
     </div>
   )
 }

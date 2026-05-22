@@ -15,6 +15,37 @@ interface BudgetMatch {
   prevent_further_usage: boolean
 }
 
+function isBudgetEntityMatch(entity: string, filterLower: string): boolean {
+  return entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
+}
+
+function matchesBudgetEntityFilter(budget: BudgetItem, entityFilter?: string): boolean {
+  if (!entityFilter) {
+    return true
+  }
+  const entity = budget.budget_entity_name?.toLowerCase() ?? ''
+  if (entity === '') {
+    return false
+  }
+  return isBudgetEntityMatch(entity, entityFilter.toLowerCase())
+}
+
+function getCopilotBudgetCandidates(budgets: BudgetItem[], entityFilter?: string): BudgetItem[] {
+  return budgets.filter(budget => matchesBudgetEntityFilter(budget, entityFilter))
+}
+
+function getBudgetSku(budget: BudgetItem): string {
+  return budget.budget_product_sku?.toLowerCase() ?? ''
+}
+
+function getBudgetPageBudgets(data: BudgetPageResponse): BudgetItem[] {
+  return data.budgets ?? []
+}
+
+function hasNextBudgetPage(data: BudgetPageResponse): boolean {
+  return data.has_next_page === true
+}
+
 /**
  * Find a Copilot-related budget from a list of budget items.
  * Prefers "premium" SKU over generic "copilot" SKU.
@@ -25,20 +56,10 @@ export function findCopilotBudget(
   budgets: BudgetItem[],
   entityFilter?: string
 ): BudgetItem | undefined {
-  const candidates = entityFilter
-    ? budgets.filter(b => {
-        const entity = b.budget_entity_name?.toLowerCase() ?? ''
-        if (entity === '') return false
-        const filterLower = entityFilter.toLowerCase()
-        return (
-          entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
-        )
-      })
-    : budgets
-  const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
+  const candidates = getCopilotBudgetCandidates(budgets, entityFilter)
   return (
-    candidates.find(b => sku(b).includes('premium')) ??
-    candidates.find(b => sku(b).includes('copilot'))
+    candidates.find(budget => getBudgetSku(budget).includes('premium')) ??
+    candidates.find(budget => getBudgetSku(budget).includes('copilot'))
   )
 }
 
@@ -58,14 +79,14 @@ export async function findBudgetAcrossPages(
   let hasNext = true
   while (hasNext && page <= maxPages) {
     const data = await fetchPage(page)
-    const match = findCopilotBudget(data.budgets ?? [], org)
+    const match = findCopilotBudget(getBudgetPageBudgets(data), org)
     if (match) {
       return {
         budget_amount: match.budget_amount,
         prevent_further_usage: match.prevent_further_usage,
       }
     }
-    hasNext = data.has_next_page === true
+    hasNext = hasNextBudgetPage(data)
     page++
   }
   return null

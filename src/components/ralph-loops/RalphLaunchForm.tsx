@@ -172,6 +172,36 @@ function buildLaunchConfig(opts: LaunchFormValues): RalphLaunchConfig {
   }
 }
 
+function shouldResetModelForProvider(params: {
+  model: string
+  provider: string
+  providers: RalphProvidersConfig | null | undefined
+  models: RalphModelsConfig | null | undefined
+}): boolean {
+  const { model, provider, providers, models } = params
+  if (!model || !provider || !providers || !models) {
+    return false
+  }
+  return isCurrentModelIncompatible(model, provider, providers, models)
+}
+
+async function launchLoop(
+  onLaunch: RalphLaunchFormProps['onLaunch'],
+  config: RalphLaunchConfig
+): Promise<RalphLaunchResult | undefined> {
+  if (!onLaunch) {
+    return undefined
+  }
+  return onLaunch(config)
+}
+
+function getLaunchFailure(result: RalphLaunchResult | undefined): string | null {
+  if (!result || result.success) {
+    return null
+  }
+  return result.error ?? 'Launch failed'
+}
+
 /* ── Extracted form sub-components ────────────────────────────── */
 
 function ScriptSpecificFields({
@@ -562,8 +592,7 @@ export function RalphLaunchForm({
 
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
-    if (!model || !provider || !providers || !models) return
-    if (isCurrentModelIncompatible(model, provider, providers, models)) setModel('')
+    if (shouldResetModelForProvider({ model, provider, providers, models })) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(() => {
@@ -669,9 +698,10 @@ export function RalphLaunchForm({
       dryRun,
       autoApprove,
     })
-    const result = await onLaunch?.(config)
-    if (result && !result.success) {
-      setError(result.error ?? 'Launch failed')
+    const result = await launchLoop(onLaunch, config)
+    const launchFailure = getLaunchFailure(result)
+    if (launchFailure) {
+      setError(launchFailure)
     }
     setLaunching(false)
   }

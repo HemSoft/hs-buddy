@@ -49,11 +49,24 @@ export type Bookmark = {
   updatedAt: number
 }
 
-function matchesSearchQuery(b: Bookmark, q: string): boolean {
-  if (b.title.toLowerCase().includes(q)) return true
-  if (b.url.toLowerCase().includes(q)) return true
-  if (b.description?.toLowerCase().includes(q)) return true
-  return b.tags?.some(t => t.toLowerCase().includes(q)) ?? false
+function matchesLowerText(value: string | undefined, query: string): boolean {
+  return value?.toLowerCase().includes(query) ?? false
+}
+
+function matchesBookmarkTextFields(bookmark: Bookmark, query: string): boolean {
+  return [bookmark.title, bookmark.url, bookmark.description].some(value =>
+    matchesLowerText(value, query)
+  )
+}
+
+function matchesBookmarkTags(tags: string[] | undefined, query: string): boolean {
+  if (!tags) return false
+  return tags.some(tag => tag.toLowerCase().includes(query))
+}
+
+function matchesSearchQuery(bookmark: Bookmark, query: string): boolean {
+  if (matchesBookmarkTextFields(bookmark, query)) return true
+  return matchesBookmarkTags(bookmark.tags, query)
 }
 
 interface BookmarkListState {

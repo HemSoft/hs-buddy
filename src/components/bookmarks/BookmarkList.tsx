@@ -15,60 +15,87 @@ interface BookmarkCardProps {
   onDelete: (bookmark: Bookmark) => void
 }
 
+function handleBookmarkCardKeyDown(
+  e: React.KeyboardEvent<HTMLDivElement>,
+  bookmark: Bookmark,
+  onOpen: (bookmark: Bookmark) => void
+) {
+  if (e.target !== e.currentTarget) return
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  onOpen(bookmark)
+}
+
+function getBookmarkCategoryLabel(category: string): string | undefined {
+  return category.includes('/') ? category.split('/').pop() : category
+}
+
+function BookmarkCardIcon({ faviconUrl }: { faviconUrl?: string }) {
+  return (
+    <div className="bookmark-card-icon">
+      {faviconUrl && (
+        <img
+          src={faviconUrl}
+          alt=""
+          width={20}
+          height={20}
+          className="bookmark-favicon"
+          onError={e => {
+            e.currentTarget.style.display = 'none'
+            const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
+            /* v8 ignore start */
+            if (sibling) sibling.style.display = 'block'
+            /* v8 ignore stop */
+          }}
+        />
+      )}
+      <Globe size={20} style={{ display: faviconUrl ? 'none' : undefined }} />
+    </div>
+  )
+}
+
+function BookmarkDescription({ description }: { description?: string }) {
+  if (!description) return null
+  return <div className="bookmark-card-desc">{description}</div>
+}
+
+function BookmarkTags({ tags }: { tags?: string[] }) {
+  if (!tags?.length) return null
+  return tags.map(tag => (
+    <span key={tag} className="bookmark-card-tag">
+      <Tag size={10} />
+      {tag}
+    </span>
+  ))
+}
+
+function BookmarkMeta({ bookmark }: { bookmark: Bookmark }) {
+  return (
+    <div className="bookmark-card-meta">
+      <span className="bookmark-card-category" title={bookmark.category}>
+        <FolderOpen size={12} />
+        {getBookmarkCategoryLabel(bookmark.category)}
+      </span>
+      <BookmarkTags tags={bookmark.tags} />
+    </div>
+  )
+}
+
 function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: BookmarkCardProps) {
   return (
     <div
       className="bookmark-card"
       onClick={() => onOpen(bookmark)}
-      onKeyDown={e => {
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen(bookmark)
-        }
-      }}
+      onKeyDown={e => handleBookmarkCardKeyDown(e, bookmark, onOpen)}
       role="button"
       tabIndex={0}
     >
-      <div className="bookmark-card-icon">
-        {bookmark.faviconUrl && (
-          <img
-            src={bookmark.faviconUrl}
-            alt=""
-            width={20}
-            height={20}
-            className="bookmark-favicon"
-            onError={e => {
-              e.currentTarget.style.display = 'none'
-              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-              /* v8 ignore start */
-              if (sibling) sibling.style.display = 'block'
-              /* v8 ignore stop */
-            }}
-          />
-        )}
-        <Globe size={20} style={{ display: bookmark.faviconUrl ? 'none' : undefined }} />
-      </div>
+      <BookmarkCardIcon faviconUrl={bookmark.faviconUrl} />
       <div className="bookmark-card-content">
         <div className="bookmark-card-title">{bookmark.title}</div>
         <div className="bookmark-card-url">{bookmark.url}</div>
-        {bookmark.description && <div className="bookmark-card-desc">{bookmark.description}</div>}
-        <div className="bookmark-card-meta">
-          <span className="bookmark-card-category" title={bookmark.category}>
-            <FolderOpen size={12} />
-            {bookmark.category.includes('/')
-              ? bookmark.category.split('/').pop()
-              : bookmark.category}
-          </span>
-          {bookmark.tags &&
-            bookmark.tags.length > 0 &&
-            bookmark.tags.map(tag => (
-              <span key={tag} className="bookmark-card-tag">
-                <Tag size={10} />
-                {tag}
-              </span>
-            ))}
-        </div>
+        <BookmarkDescription description={bookmark.description} />
+        <BookmarkMeta bookmark={bookmark} />
       </div>
       <div className="bookmark-card-actions">
         <button
@@ -244,6 +271,67 @@ interface BookmarkListProps {
   onOpenTab?: (viewId: string) => void
 }
 
+function resolveOptionalDialogText(value: string | null): string | undefined {
+  return value ?? undefined
+}
+
+function getDeleteDescription(deleteError: string | null): string {
+  return deleteError ?? 'This bookmark will be permanently removed.'
+}
+
+function BookmarkEditorDialog({
+  dialogOpen,
+  editingBookmark,
+  categories,
+  droppedUrl,
+  droppedTitle,
+  dispatch,
+}: {
+  dialogOpen: boolean
+  editingBookmark: Bookmark | null
+  categories: string[]
+  droppedUrl: string | null
+  droppedTitle: string | null
+  dispatch: BookmarkDispatch
+}) {
+  if (!dialogOpen) return null
+
+  return (
+    <BookmarkDialog
+      bookmark={editingBookmark}
+      categories={categories}
+      initialUrl={resolveOptionalDialogText(droppedUrl)}
+      initialTitle={resolveOptionalDialogText(droppedTitle)}
+      onClose={() => dispatch({ type: 'close-dialog' })}
+    />
+  )
+}
+
+function BookmarkDeleteDialog({
+  deleteTarget,
+  deleteError,
+  dispatch,
+  handleDelete,
+}: {
+  deleteTarget: Bookmark | null
+  deleteError: string | null
+  dispatch: BookmarkDispatch
+  handleDelete: () => void
+}) {
+  if (!deleteTarget) return null
+
+  return (
+    <ConfirmDialog
+      message={`Delete "${deleteTarget.title}"?`}
+      description={getDeleteDescription(deleteError)}
+      confirmLabel="Delete"
+      variant="danger"
+      onConfirm={handleDelete}
+      onCancel={() => dispatch({ type: 'clear-delete' })}
+    />
+  )
+}
+
 function BookmarkDialogs({
   dialogOpen,
   editingBookmark,
@@ -267,25 +355,20 @@ function BookmarkDialogs({
 }) {
   return (
     <>
-      {dialogOpen && (
-        <BookmarkDialog
-          bookmark={editingBookmark}
-          categories={categories}
-          initialUrl={droppedUrl ?? undefined}
-          initialTitle={droppedTitle ?? undefined}
-          onClose={() => dispatch({ type: 'close-dialog' })}
-        />
-      )}
-      {deleteTarget && (
-        <ConfirmDialog
-          message={`Delete "${deleteTarget.title}"?`}
-          description={deleteError ?? 'This bookmark will be permanently removed.'}
-          confirmLabel="Delete"
-          variant="danger"
-          onConfirm={handleDelete}
-          onCancel={() => dispatch({ type: 'clear-delete' })}
-        />
-      )}
+      <BookmarkEditorDialog
+        dialogOpen={dialogOpen}
+        editingBookmark={editingBookmark}
+        categories={categories}
+        droppedUrl={droppedUrl}
+        droppedTitle={droppedTitle}
+        dispatch={dispatch}
+      />
+      <BookmarkDeleteDialog
+        deleteTarget={deleteTarget}
+        deleteError={deleteError}
+        dispatch={dispatch}
+        handleDelete={handleDelete}
+      />
     </>
   )
 }

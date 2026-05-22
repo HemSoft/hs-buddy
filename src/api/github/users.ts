@@ -164,6 +164,29 @@ async function countRepoCommitsInternal(
   return total
 }
 
+function extractCommitActivityDate(item: Record<string, unknown>): string | undefined {
+  const commit = item.commit as
+    | { committer?: { date?: string }; author?: { date?: string } }
+    | undefined
+  return commit?.committer?.date ?? commit?.author?.date
+}
+
+function getFetchedRepoSlims(repoSource: { repos?: OrgRepoSlim[] } | null | undefined): OrgRepoSlim[] {
+  return repoSource?.repos ?? []
+}
+
+function getFetchedUserProfile(
+  userProfile: { user?: Parameters<typeof extractUserBasicInfo>[0] } | null | undefined
+): Parameters<typeof extractUserBasicInfo>[0] {
+  return userProfile?.user
+}
+
+function getFetchedOrgRole(
+  orgMembership: { data?: { role?: string | null } } | null | undefined
+): string | null {
+  return orgMembership?.data?.role ?? null
+}
+
 async function searchActivityDatesInternal(
   octokit: Octokit,
   org: string,
@@ -204,12 +227,7 @@ async function searchActivityDatesInternal(
       opts => octokit.search.commits(opts),
       `org:${org} author:${login} committer-date:>=${since}`,
       'committer-date',
-      (item: Record<string, unknown>) => {
-        const commit = item.commit as
-          | { committer?: { date?: string }; author?: { date?: string } }
-          | undefined
-        return commit?.committer?.date ?? commit?.author?.date
-      }
+      extractCommitActivityDate
     ).catch(() => [] as string[]),
     paginateSearch(
       opts => octokit.search.issuesAndPullRequests(opts),
@@ -435,7 +453,7 @@ export async function fetchUserActivity(
         startOfDayIso
       )
 
-      const recentlyPushedRepos = (repoSource?.repos ?? []).filter(
+      const recentlyPushedRepos = getFetchedRepoSlims(repoSource).filter(
         repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
       )
 
@@ -464,11 +482,11 @@ export async function fetchUserActivity(
         }
       })
 
-      const userObj = userProfile?.user
+      const userObj = getFetchedUserProfile(userProfile)
       return {
         ...extractUserBasicInfo(userObj),
         ...extractUserStatusInfo(userObj),
-        orgRole: orgMembership?.data?.role ?? null,
+        orgRole: getFetchedOrgRole(orgMembership),
         teams: userTeams,
         recentPRsAuthored,
         recentPRsReviewed: reviewed.data.items.map(mapSearchItemToUserPR),

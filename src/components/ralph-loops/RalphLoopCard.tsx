@@ -95,32 +95,52 @@ function ProgressBar({ run, progress }: { run: RalphRunInfo; progress: number })
   )
 }
 
-export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
+function isActiveRun(run: RalphRunInfo): boolean {
+  return run.status === 'running' || run.status === 'pending'
+}
+
+function CardHeaderSection({ run }: { run: RalphRunInfo }) {
   const statusCfg = STATUS_CONFIG[run.status]
   const StatusIcon = statusCfg.icon
-  const isActive = run.status === 'running' || run.status === 'pending'
+
+  return (
+    <div className="ralph-card-header">
+      <div className="ralph-card-repo">
+        <span className="ralph-card-repo-name">{repoName(run.config.repoPath)}</span>
+        {run.config.branch && <span className="ralph-card-branch">{run.config.branch}</span>}
+      </div>
+      <div className="ralph-card-status">
+        <StatusIcon size={14} className={run.status === 'running' ? 'ralph-spin' : ''} />
+        <span>{statusCfg.label}</span>
+      </div>
+    </div>
+  )
+}
+
+function CardBodySection({ run, isActive, progress, onStop }: {
+  run: RalphRunInfo
+  isActive: boolean
+  progress: number | null
+  onStop: (runId: string) => void
+}) {
+  return (
+    <div className="ralph-card-body">
+      <CardMeta run={run} />
+      {isActive && progress !== null && <ProgressBar run={run} progress={progress} />}
+      <CardFooter run={run} isActive={isActive} onStop={onStop} />
+    </div>
+  )
+}
+
+export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
+  const statusCfg = STATUS_CONFIG[run.status]
+  const isActive = isActiveRun(run)
   const progress = computeProgress(run)
 
   return (
     <div className={`ralph-loop-card ${statusCfg.className}`}>
-      <div className="ralph-card-header">
-        <div className="ralph-card-repo">
-          <span className="ralph-card-repo-name">{repoName(run.config.repoPath)}</span>
-          {run.config.branch && <span className="ralph-card-branch">{run.config.branch}</span>}
-        </div>
-        <div className="ralph-card-status">
-          <StatusIcon size={14} className={run.status === 'running' ? 'ralph-spin' : ''} />
-          <span>{statusCfg.label}</span>
-        </div>
-      </div>
-
-      <div className="ralph-card-body">
-        <CardMeta run={run} />
-
-        {isActive && progress !== null && <ProgressBar run={run} progress={progress} />}
-
-        <CardFooter run={run} isActive={isActive} onStop={onStop} />
-      </div>
+      <CardHeaderSection run={run} />
+      <CardBodySection run={run} isActive={isActive} progress={progress} onStop={onStop} />
     </div>
   )
 }

@@ -172,6 +172,16 @@ function StatusContextRow({
   )
 }
 
+function ChecksEmptyNotice({ totalCount }: { totalCount: number }) {
+  if (totalCount !== 0) return null
+  return (
+    <div className="pr-checks-empty-state">
+      <AlertCircle size={28} />
+      <p>No checks or commit statuses were reported for this pull request.</p>
+    </div>
+  )
+}
+
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
   const {
     data: checks,
@@ -235,12 +245,7 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
         </button>
       </div>
 
-      {checks.totalCount === 0 && (
-        <div className="pr-checks-empty-state">
-          <AlertCircle size={28} />
-          <p>No checks or commit statuses were reported for this pull request.</p>
-        </div>
-      )}
+      <ChecksEmptyNotice totalCount={checks.totalCount} />
 
       <div className="pr-checks-section">
         <div className="pr-checks-section-title">Check Runs</div>

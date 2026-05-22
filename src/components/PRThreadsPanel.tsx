@@ -388,13 +388,12 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
 
   const timeline = useMemo(() => {
     if (!data) return []
-    const visibleThreads =
-      filter === 'all'
-        ? filteredThreads.filter(t => !t.isResolved || showResolved)
-        : filteredThreads
-    // When filtering by thread status, only show threads — comments/reviews are not thread-specific
-    const comments = filter === 'all' ? data.issueComments : []
-    const reviews = filter === 'all' ? data.reviews : []
+    const isAllFilter = filter === 'all'
+    const visibleThreads = isAllFilter
+      ? filteredThreads.filter(t => !t.isResolved || showResolved)
+      : filteredThreads
+    const comments = isAllFilter ? data.issueComments : []
+    const reviews = isAllFilter ? data.reviews : []
     return buildTimeline(visibleThreads, comments, reviews)
   }, [data, filter, filteredThreads, showResolved])
 
@@ -434,16 +433,15 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     )
   }
 
+  const hasNoData = loading && !data
   return (
     <div className="pr-threads-container">
-      {latestReview && (
-        <AIReviewBanner
-          latestReview={latestReview}
-          needsRefresh={needsRefresh}
-          openLatestReview={openLatestReview}
-          requestReReview={requestReReview}
-        />
-      )}
+      <AIReviewBannerSection
+        latestReview={latestReview}
+        needsRefresh={needsRefresh}
+        openLatestReview={openLatestReview}
+        requestReReview={requestReReview}
+      />
 
       <ThreadsTimelineHeader
         threads={data.threads}

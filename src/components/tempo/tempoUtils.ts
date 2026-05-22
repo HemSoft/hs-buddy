@@ -10,6 +10,10 @@ export function nextStartTime(worklogs: TempoWorklog[]): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+function isInvalidWorklogHours(hours: number): boolean {
+  return isNaN(hours) || hours <= 0 || hours > 24
+}
+
 export function validateWorklogFields(
   issueKey: string,
   hours: string,
@@ -17,7 +21,7 @@ export function validateWorklogFields(
 ): string | null {
   if (!issueKey.trim()) return 'Issue key is required'
   const h = parseFloat(hours)
-  if (isNaN(h) || h <= 0 || h > 24) return 'Hours must be between 0 and 24'
+  if (isInvalidWorklogHours(h)) return 'Hours must be between 0 and 24'
   if (!date) return 'Date is required'
   return null
 }

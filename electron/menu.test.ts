@@ -19,6 +19,21 @@ import { dialog } from 'electron'
 import { saveZoomLevel } from './zoom'
 import { buildMenu, registerKeyboardShortcuts } from './menu'
 
+type ShortcutDefinition = { key: string; ctrlOrCmd?: boolean; shift?: boolean }
+type ShortcutInput = { key: string; control?: boolean; meta?: boolean; shift?: boolean }
+
+function matchesCtrlOrCmd(shortcut: ShortcutDefinition, input: ShortcutInput) {
+  return Boolean(shortcut.ctrlOrCmd) === Boolean(input.control || input.meta)
+}
+
+function matchesShift(shortcut: ShortcutDefinition, input: ShortcutInput) {
+  return Boolean(shortcut.shift) === Boolean(input.shift)
+}
+
+function matchesShortcutInput(shortcut: ShortcutDefinition, input: ShortcutInput) {
+  return matchesCtrlOrCmd(shortcut, input) && matchesShift(shortcut, input) && input.key === shortcut.key
+}
+
 describe('menu', () => {
   const mockWin = {
     webContents: {
@@ -246,14 +261,9 @@ describe('menu', () => {
     beforeEach(() => {
       // Use real matching logic so the correct SHORTCUT action fires
       mockMatchesShortcut.mockImplementation((...args: unknown[]) => {
-        const shortcut = args[0] as { key: string; ctrlOrCmd?: boolean; shift?: boolean }
-        const input = args[1] as { key: string; control?: boolean; meta?: boolean; shift?: boolean }
-        const ctrlOrCmd = input.control || input.meta
-        if (shortcut.ctrlOrCmd && !ctrlOrCmd) return false
-        if (!shortcut.ctrlOrCmd && ctrlOrCmd) return false
-        if (shortcut.shift && !input.shift) return false
-        if (!shortcut.shift && input.shift) return false
-        return input.key === shortcut.key
+        const shortcut = args[0] as ShortcutDefinition
+        const input = args[1] as ShortcutInput
+        return matchesShortcutInput(shortcut, input)
       })
 
       registerKeyboardShortcuts(mockWin)

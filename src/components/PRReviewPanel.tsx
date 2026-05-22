@@ -18,6 +18,20 @@ interface PRReviewPanelProps {
   onClose?: () => void
 }
 
+function PRReviewCloseButton({ onClose }: { onClose?: () => void }) {
+  if (!onClose) return null
+  return (
+    <button className="pr-review-close-btn" onClick={onClose} title="Close">
+      <X size={16} />
+    </button>
+  )
+}
+
+function PRReviewError({ error }: { error: string | null }) {
+  if (!error) return null
+  return <div className="pr-review-error">{error}</div>
+}
+
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
   const {
     account,
@@ -54,11 +68,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           <Sparkles size={18} />
           <h2>PR Review</h2>
         </div>
-        {onClose && (
-          <button className="pr-review-close-btn" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        )}
+        <PRReviewCloseButton onClose={onClose} />
       </div>
 
       <PRInfoCard
@@ -121,8 +131,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         onSaveAsDefault={handleSaveAsDefault}
       />
 
-      {/* Error */}
-      {error && <div className="pr-review-error">{error}</div>}
+      <PRReviewError error={error} />
 
       {/* Action Buttons */}
       <div className="pr-review-actions">

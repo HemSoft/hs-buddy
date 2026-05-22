@@ -114,7 +114,8 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
 
     const handleBeforeInput = (event: Event) => {
       const input = (event as Event & { input?: WebviewInput }).input
-      if (!input || input.type !== 'keyDown') return
+      if (!input) return
+      if (input.type !== 'keyDown') return
       const ctrlOrCmd = input.control || input.meta
       if (!ctrlOrCmd) return
       const eventName = WEBVIEW_SHORTCUTS[input.key]

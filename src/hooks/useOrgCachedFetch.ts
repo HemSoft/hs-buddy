@@ -38,6 +38,55 @@ function resolveLoadPhase(hasData: boolean): LoadPhase {
   return hasData ? 'refreshing' : 'loading'
 }
 
+function applyResolvedOrgCache<T>(
+  cached: T | null,
+  setData: (data: T | null) => void,
+  setError: (error: string | null) => void,
+  setPhase: (phase: LoadPhase) => void
+): boolean {
+  if (cached == null) {
+    return false
+  }
+
+  setData(cached)
+  setError(null)
+  setPhase('ready')
+  return true
+}
+
+function isStaleOrgFetch(activeCacheKey: string, cacheKeyRef: { current: string }): boolean {
+  return cacheKeyRef.current !== activeCacheKey
+}
+
+function applyOrgFetchResult<T>(
+  activeCacheKey: string,
+  cacheKeyRef: { current: string },
+  normalize: (data: T | null) => T | null,
+  result: T,
+  setData: (data: T | null) => void,
+  setPhase: (phase: LoadPhase) => void
+) {
+  if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return
+
+  const normalized = normalize(result)
+  startTransition(() => {
+    setData(normalized)
+    setPhase('ready')
+  })
+  dataCache.set(activeCacheKey, normalized)
+}
+
+function handleOrgFetchErrorIfCurrent(
+  error: unknown,
+  activeCacheKey: string,
+  cacheKeyRef: { current: string },
+  setPhase: (phase: LoadPhase) => void,
+  setError: (error: string | null) => void
+) {
+  if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return
+  handleOrgFetchError(error, setPhase, setError)
+}
+
 // ---------------------------------------------------------------------------
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
@@ -125,10 +174,7 @@ export function useOrgCachedFetch<T>({
       const queue = getTaskQueue('github')
       const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
       /* v8 ignore start */
-      if (cached != null) {
-        setData(cached)
-        setError(null)
-        setPhase('ready')
+      if (applyResolvedOrgCache(cached, setData, setError, setPhase)) {
         return
         /* v8 ignore stop */
       }
@@ -150,22 +196,16 @@ export function useOrgCachedFetch<T>({
           { name: taskName, priority: -1 }
         )
 
-        // Discard stale response if cacheKey changed while fetch was in flight
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-
-        const normalized = normalizeRef.current(result)
-        startTransition(() => {
-          setData(normalized)
-          setPhase('ready')
-        })
-        dataCache.set(activeCacheKey, normalized)
+        applyOrgFetchResult(
+          activeCacheKey,
+          cacheKeyRef,
+          normalizeRef.current,
+          result,
+          setData,
+          setPhase
+        )
       } catch (fetchError: unknown) {
-        /* v8 ignore start */
-        if (cacheKeyRef.current !== activeCacheKey) return
-        /* v8 ignore stop */
-        handleOrgFetchError(fetchError, setPhase, setError)
+        handleOrgFetchErrorIfCurrent(fetchError, activeCacheKey, cacheKeyRef, setPhase, setError)
       }
     },
     [taskName, org]

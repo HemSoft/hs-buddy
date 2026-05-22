@@ -313,6 +313,20 @@ export function mapRawEventToUserEvent(
   }
 }
 
+function hasOrgPushEventRepo(
+  repo: { name?: string } | undefined,
+  orgPrefix: string
+): boolean {
+  return repo?.name?.startsWith(orgPrefix) === true
+}
+
+function isEventOnOrAfterStartOfDay(
+  evt: Record<string, unknown>,
+  startOfDayIso: string
+): boolean {
+  return typeof evt.created_at === 'string' && evt.created_at >= startOfDayIso
+}
+
 function isOrgPushEvent(
   evt: Record<string, unknown>,
   orgPrefix: string,
@@ -321,9 +335,8 @@ function isOrgPushEvent(
   const repo = evt.repo as { name?: string } | undefined
   return (
     evt.type === 'PushEvent' &&
-    repo?.name?.startsWith(orgPrefix) === true &&
-    typeof evt.created_at === 'string' &&
-    evt.created_at >= startOfDayIso
+    hasOrgPushEventRepo(repo, orgPrefix) &&
+    isEventOnOrAfterStartOfDay(evt, startOfDayIso)
   )
 }
 

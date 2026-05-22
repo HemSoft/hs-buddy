@@ -7,6 +7,46 @@ import {
 } from '../../types/sflStatus'
 import { getOctokitForOwner } from './shared'
 
+function buildLatestWorkflowRun(latestRun: {
+  status?: string | null
+  conclusion?: string | null
+  created_at: string
+  html_url: string
+} | null): SFLWorkflowInfo['latestRun'] {
+  if (!latestRun) return null
+  return {
+    status: latestRun.status ?? 'unknown',
+    conclusion: latestRun.conclusion ?? null,
+    createdAt: latestRun.created_at,
+    url: latestRun.html_url,
+  }
+}
+
+async function fetchWorkflowInfo(
+  octokit: Awaited<ReturnType<typeof getOctokitForOwner>>,
+  owner: string,
+  repo: string,
+  workflow: { id: number; name: string; state: string }
+): Promise<SFLWorkflowInfo> {
+  try {
+    const runsResponse = await octokit.actions.listWorkflowRuns({
+      owner,
+      repo,
+      workflow_id: workflow.id,
+      per_page: 1,
+    })
+    const latestRun = runsResponse.data.workflow_runs[0] ?? null
+    return {
+      id: workflow.id,
+      name: workflow.name,
+      state: workflow.state,
+      latestRun: buildLatestWorkflowRun(latestRun),
+    }
+  } catch (_: unknown) {
+    return { id: workflow.id, name: workflow.name, state: workflow.state, latestRun: null }
+  }
+}
+
 export async function fetchSFLStatus(
   config: PRConfig['github'],
   owner: string,
@@ -31,32 +71,7 @@ export async function fetchSFLStatus(
 
   // Fetch latest run for each SFL workflow in parallel
   const workflowInfos: SFLWorkflowInfo[] = await Promise.all(
-    sflWorkflows.map(async (w): Promise<SFLWorkflowInfo> => {
-      try {
-        const runsResponse = await octokit.actions.listWorkflowRuns({
-          owner,
-          repo,
-          workflow_id: w.id,
-          per_page: 1,
-        })
-        const latestRun = runsResponse.data.workflow_runs[0] ?? null
-        return {
-          id: w.id,
-          name: w.name,
-          state: w.state,
-          latestRun: latestRun
-            ? {
-                status: latestRun.status ?? 'unknown',
-                conclusion: latestRun.conclusion ?? null,
-                createdAt: latestRun.created_at,
-                url: latestRun.html_url,
-              }
-            : null,
-        }
-      } catch (_: unknown) {
-        return { id: w.id, name: w.name, state: w.state, latestRun: null }
-      }
-    })
+    sflWorkflows.map(w => fetchWorkflowInfo(octokit, owner, repo, w))
   )
 
   return {

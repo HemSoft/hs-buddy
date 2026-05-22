@@ -29,21 +29,35 @@ type MockHandlers = Partial<
     ReturnType<typeof vi.fn>
   >
 >
+type ResolvedHandlers = Required<MockHandlers>
 
-function renderMenu(issueOverrides: Partial<RepoIssue> = {}, handlers: MockHandlers = {}) {
-  const props = {
+function createHandlers(handlers: MockHandlers = {}): ResolvedHandlers {
+  return {
+    onStartRalphLoop: vi.fn(),
+    onViewDetails: vi.fn(),
+    onCopyLink: vi.fn(),
+    onOpenOnGitHub: vi.fn(),
+    onClose: vi.fn(),
+    ...handlers,
+  }
+}
+
+function createMenuProps(
+  issueOverrides: Partial<RepoIssue> = {},
+  handlers: MockHandlers = {}
+): IssueContextMenuProps {
+  return {
     x: 100,
     y: 200,
     issue: makeIssue(issueOverrides),
     owner: 'test-org',
     repo: 'test-repo',
-    onStartRalphLoop: handlers.onStartRalphLoop ?? vi.fn(),
-    onViewDetails: handlers.onViewDetails ?? vi.fn(),
-    onCopyLink: handlers.onCopyLink ?? vi.fn(),
-    onOpenOnGitHub: handlers.onOpenOnGitHub ?? vi.fn(),
-    onClose: handlers.onClose ?? vi.fn(),
+    ...createHandlers(handlers),
   }
-  return render(<IssueContextMenu {...(props as IssueContextMenuProps)} />)
+}
+
+function renderMenu(issueOverrides: Partial<RepoIssue> = {}, handlers: MockHandlers = {}) {
+  return render(<IssueContextMenu {...createMenuProps(issueOverrides, handlers)} />)
 }
 
 describe('IssueContextMenu', () => {

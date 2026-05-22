@@ -87,10 +87,7 @@ const PR_LIST_SUMMARIES: Record<string, string> = {
   'pr-recently-merged': 'Recently Merged PRs',
 }
 
-function resolveViewContext(activeViewId: string): AssistantContext {
-  const staticView = STATIC_VIEWS[activeViewId]
-  if (staticView) return { ...staticView, viewId: activeViewId }
-
+function resolveDefinedViewContext(activeViewId: string): AssistantContext | null {
   for (const view of VIEW_DEFINITIONS) {
     if (activeViewId.startsWith(view.prefix)) {
       const parts = activeViewId.slice(view.prefix.length).split('/')
@@ -102,14 +99,34 @@ function resolveViewContext(activeViewId: string): AssistantContext {
       }
     }
   }
+  return null
+}
 
-  if (activeViewId.startsWith('pr-')) {
-    return {
-      viewType: 'pr-list',
-      viewId: activeViewId,
-      summary: PR_LIST_SUMMARIES[activeViewId] ?? 'Pull Requests',
-      metadata: {},
-    }
+function resolvePRListViewContext(activeViewId: string): AssistantContext | null {
+  if (!activeViewId.startsWith('pr-')) {
+    return null
+  }
+
+  return {
+    viewType: 'pr-list',
+    viewId: activeViewId,
+    summary: PR_LIST_SUMMARIES[activeViewId] ?? 'Pull Requests',
+    metadata: {},
+  }
+}
+
+function resolveViewContext(activeViewId: string): AssistantContext {
+  const staticView = STATIC_VIEWS[activeViewId]
+  if (staticView) return { ...staticView, viewId: activeViewId }
+
+  const definedView = resolveDefinedViewContext(activeViewId)
+  if (definedView) {
+    return definedView
+  }
+
+  const prListView = resolvePRListViewContext(activeViewId)
+  if (prListView) {
+    return prListView
   }
 
   return {

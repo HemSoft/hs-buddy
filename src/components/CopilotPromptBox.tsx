@@ -231,18 +231,15 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       }
 
       // Find the first org that matches a configured account
-      for (const org of orgs) {
-        const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
-        if (acct) {
-          if (localAccount !== acct.username) {
-            autoDetectedRef.current = true
-            setState(previousState => ({
-              ...previousState,
-              localAccount: acct.username,
-            }))
-          }
-          return
-        }
+      const matchedAcct = orgs
+        .map(org => githubAccounts.find(a => a.org.toLowerCase() === org))
+        .find(Boolean)
+      if (matchedAcct && localAccount !== matchedAcct.username) {
+        autoDetectedRef.current = true
+        setState(previousState => ({
+          ...previousState,
+          localAccount: matchedAcct.username,
+        }))
       }
     },
     [githubAccounts, ghAccount, localAccount]
@@ -273,18 +270,11 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       })
 
       if (result.success && result.resultId) {
-        setState(previousState => ({
-          ...previousState,
-          prompt: '',
-          error: null,
-        }))
-        // Open the result tab
+        setState(previousState => ({ ...previousState, prompt: '', error: null }))
         onOpenResult?.(result.resultId)
       } else {
-        setState(previousState => ({
-          ...previousState,
-          error: result.error ?? 'Unknown error',
-        }))
+        const errorMsg = result.error ?? 'Unknown error'
+        setState(previousState => ({ ...previousState, error: errorMsg }))
       }
     } catch (err: unknown) {
       setState(previousState => ({

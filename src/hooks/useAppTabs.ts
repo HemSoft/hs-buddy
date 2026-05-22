@@ -35,21 +35,41 @@ interface TabState {
 
 export const DASHBOARD_VIEW_ID = 'dashboard'
 
+function shouldSelectNeighborAfterClose(
+  previousState: TabState,
+  tabId: string,
+  nextTabs: Tab[]
+): boolean {
+  return previousState.activeTabId === tabId && nextTabs.length > 0
+}
+
+function resolveClosedTabSuccessorId(
+  previousState: TabState,
+  tabId: string,
+  nextTabs: Tab[]
+): string | null {
+  const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
+  const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
+  /* v8 ignore start */
+  return nextTabs[Math.max(0, nextActiveIndex)]?.id || null
+  /* v8 ignore stop */
+}
+
+function resolveRemainingActiveTabId(nextTabs: Tab[], activeTabId: string | null): string | null {
+  /* v8 ignore start */
+  return nextTabs.length === 0 ? null : activeTabId
+  /* v8 ignore stop */
+}
+
 function resolveActiveTabAfterClose(
   previousState: TabState,
   tabId: string,
   nextTabs: Tab[]
 ): string | null {
-  if (previousState.activeTabId === tabId && nextTabs.length > 0) {
-    const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
-    const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-    /* v8 ignore start */
-    return nextTabs[Math.max(0, nextActiveIndex)]?.id || null
-    /* v8 ignore stop */
+  if (shouldSelectNeighborAfterClose(previousState, tabId, nextTabs)) {
+    return resolveClosedTabSuccessorId(previousState, tabId, nextTabs)
   }
-  /* v8 ignore start */
-  return nextTabs.length === 0 ? null : previousState.activeTabId
-  /* v8 ignore stop */
+  return resolveRemainingActiveTabId(nextTabs, previousState.activeTabId)
 }
 
 export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {

@@ -82,6 +82,28 @@ function computeCacheAges(modes: readonly string[]): { oldestAge: number; latest
   return { oldestAge, latestRefresh }
 }
 
+function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
+  const queue = getTaskQueue('github')
+  const running = queue.runningCount
+  const pending = queue.pendingCount
+  const activeTasks = running + pending
+  const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
+  const { oldestAge, latestRefresh } = computeCacheAges(PR_MODES)
+  const remaining = Math.max(0, intervalMs - oldestAge)
+  const remainingSecs = Math.ceil(remaining / 1000)
+  const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
+
+  return {
+    phase,
+    activeLabel,
+    activeTasks,
+    nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
+    nextRefreshLabel: phase === 'syncing' ? null : formatSecondsCountdown(remainingSecs),
+    lastRefreshedAt: latestRefresh || null,
+    lastRefreshedLabel: latestRefresh ? formatDistanceToNow(latestRefresh) : null,
+  }
+}
+
 export function useBackgroundStatus(): BackgroundStatus {
   const { refreshInterval } = usePRSettings()
   const [status, setStatus] = useState<BackgroundStatus>({
@@ -98,28 +120,7 @@ export function useBackgroundStatus(): BackgroundStatus {
     const intervalMs = refreshInterval * MS_PER_MINUTE
 
     const compute = () => {
-      const queue = getTaskQueue('github')
-      const running = queue.runningCount
-      const pending = queue.pendingCount
-      const activeTasks = running + pending
-
-      const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
-      const { oldestAge, latestRefresh } = computeCacheAges(PR_MODES)
-
-      const remaining = Math.max(0, intervalMs - oldestAge)
-      const remainingSecs = Math.ceil(remaining / 1000)
-
-      const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
-
-      setStatus({
-        phase,
-        activeLabel,
-        activeTasks,
-        nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
-        nextRefreshLabel: phase === 'syncing' ? null : formatSecondsCountdown(remainingSecs),
-        lastRefreshedAt: latestRefresh || null,
-        lastRefreshedLabel: latestRefresh ? formatDistanceToNow(latestRefresh) : null,
-      })
+      setStatus(buildBackgroundStatus(intervalMs))
     }
 
     compute()

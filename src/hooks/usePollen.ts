@@ -69,12 +69,15 @@ function isCacheLocationValid(cached: PollenCache, lat: number, lon: number): bo
   )
 }
 
+function isUsablePollenCache(cached: PollenCache, lat: number, lon: number): boolean {
+  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return false
+  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return false
+  return isCacheLocationValid(cached, lat, lon)
+}
+
 function readPollenCache(lat: number, lon: number): PollenData | null {
   const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
-  if (!cached) return null
-  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return null
-  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return null
-  if (!isCacheLocationValid(cached, lat, lon)) return null
+  if (!cached || !isUsablePollenCache(cached, lat, lon)) return null
   return cached.data
 }
 
@@ -110,6 +113,28 @@ function handlePollenResult(
   return { data: null, loading: false, error: result.error ?? 'Pollen fetch failed' }
 }
 
+function applyCachedPollenData(
+  cached: PollenData | null,
+  setState: (state: PollenState) => void
+): boolean {
+  if (!cached) {
+    return false
+  }
+
+  setState({ data: cached, loading: false, error: null })
+  return true
+}
+
+function setPollenStateIfMounted(
+  mountedRef: { current: boolean },
+  nextState: PollenState,
+  setState: React.Dispatch<React.SetStateAction<PollenState>>
+) {
+  if (mountedRef.current) {
+    setState(nextState)
+  }
+}
+
 /**
  * Hook that fetches pollen data from Google Pollen API via the main process.
  * Requires a Google Cloud API key configured in Settings → Weather.
@@ -132,8 +157,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
     const { latitude, longitude } = location
 
     const cached = readPollenCache(latitude, longitude)
-    if (cached) {
-      setState({ data: cached, loading: false, error: null })
+    if (applyCachedPollenData(cached, setState)) {
       return
     }
 
@@ -148,9 +172,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       if (!mountedRef.current) return
       setState(prev => ({ ...prev, ...handlePollenResult(result, latitude, longitude) }))
     } catch (_: unknown) {
-      if (mountedRef.current) {
-        setState({ data: null, loading: false, error: null })
-      }
+      setPollenStateIfMounted(mountedRef, { data: null, loading: false, error: null }, setState)
     }
   }, [location])
 

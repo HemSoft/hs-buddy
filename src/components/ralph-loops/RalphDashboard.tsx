@@ -38,13 +38,17 @@ interface DashboardState {
   issueLaunchData: IssueLaunchData | null
 }
 
+function resetKeyPart(value: number | null | undefined): string {
+  return value == null ? '' : String(value)
+}
+
 function buildResetKey(baseKey: number, state: DashboardState): string {
   return [
     baseKey,
     state.viewMode,
-    state.selectedScript ?? '',
-    state.prLaunchData?.prNumber ?? '',
-    state.issueLaunchData?.issueNumber ?? '',
+    state.selectedScript || '',
+    resetKeyPart(state.prLaunchData?.prNumber),
+    resetKeyPart(state.issueLaunchData?.issueNumber),
   ].join('|')
 }
 
@@ -58,15 +62,19 @@ type DashboardAction =
     }
   | { type: 'setError'; error: string | null }
 
+function toNullable<T>(value: T | undefined): T | null {
+  return value === undefined ? null : value
+}
+
 function reducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
     case 'setView':
       return {
         ...state,
         viewMode: action.mode,
-        selectedScript: action.script ?? null,
-        prLaunchData: action.prLaunchData ?? null,
-        issueLaunchData: action.issueLaunchData ?? null,
+        selectedScript: toNullable(action.script),
+        prLaunchData: toNullable(action.prLaunchData),
+        issueLaunchData: toNullable(action.issueLaunchData),
       }
     case 'setError':
       return { ...state, error: action.error }

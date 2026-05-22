@@ -71,6 +71,14 @@ function relocateToSavedDisplay(
   )
 }
 
+function hasUnresolvedWindowPosition(x: number | undefined, y: number | undefined): boolean {
+  return x === undefined || y === undefined
+}
+
+function shouldRelocateToSavedDisplay(targetDisplayId: number, savedDisplayId: number): boolean {
+  return targetDisplayId !== savedDisplayId
+}
+
 /**
  * Pure decision tree for resolving window bounds across displays.
  *
@@ -90,7 +98,7 @@ export function resolveWindowBounds(
 ): WindowBounds {
   const { x, y, width, height } = state
 
-  if (x === undefined || y === undefined) return { x, y, width, height }
+  if (hasUnresolvedWindowPosition(x, y)) return { x, y, width, height }
 
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo
@@ -104,7 +112,7 @@ export function resolveWindowBounds(
     return centerOnDisplay(width, height, primaryWorkArea)
   }
 
-  if (targetDisplay.id !== savedDisplayId) {
+  if (shouldRelocateToSavedDisplay(targetDisplay.id, savedDisplayId)) {
     return relocateToSavedDisplay(
       x,
       y,

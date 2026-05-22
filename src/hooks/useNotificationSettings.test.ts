@@ -10,6 +10,19 @@ Object.defineProperty(window, 'ipcRenderer', {
   configurable: true,
 })
 
+const defaultInvokeResponses = {
+  'config:get-notification-sound-enabled': false,
+  'config:get-notification-sound-path': '',
+  'config:set-notification-sound-enabled': { success: true },
+  'config:set-notification-sound-path': { success: true },
+  'config:pick-audio-file': { success: true, filePath: 'C:\sounds\ding.mp3' },
+} satisfies Record<string, unknown>
+
+function createInvokeMock(overrides: Record<string, unknown> = {}) {
+  const responses = { ...defaultInvokeResponses, ...overrides }
+  return (channel: string) => Promise.resolve(responses[channel] ?? null)
+}
+
 describe('useNotificationSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()

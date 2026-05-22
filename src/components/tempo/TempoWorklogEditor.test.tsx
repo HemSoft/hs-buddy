@@ -19,24 +19,29 @@ const existingWorklog: TempoWorklog = {
   accountName: 'Operations',
 }
 
+function createEditorHandlers(props: Partial<ComponentProps<typeof TempoWorklogEditor>>) {
+  return {
+    onSave: props.onSave ?? vi.fn().mockResolvedValue(undefined),
+    onCancel: props.onCancel ?? vi.fn(),
+  }
+}
+
+function buildEditorProps(props: Partial<ComponentProps<typeof TempoWorklogEditor>>) {
+  return {
+    worklog: null,
+    defaultDate: '2026-03-18',
+    existingWorklogs: [],
+    ...props,
+    ...createEditorHandlers(props),
+  }
+}
+
 function mountEditor(props: Partial<ComponentProps<typeof TempoWorklogEditor>> = {}) {
-  const onSave = props.onSave ?? vi.fn().mockResolvedValue(undefined)
-  const onCancel = props.onCancel ?? vi.fn()
+  const editorProps = buildEditorProps(props)
 
-  render(
-    <TempoWorklogEditor
-      worklog={props.worklog ?? null}
-      defaultDate={props.defaultDate ?? '2026-03-18'}
-      defaultIssueKey={props.defaultIssueKey}
-      defaultAccountKey={props.defaultAccountKey}
-      defaultDescription={props.defaultDescription}
-      existingWorklogs={props.existingWorklogs ?? []}
-      onSave={onSave}
-      onCancel={onCancel}
-    />
-  )
+  render(<TempoWorklogEditor {...editorProps} />)
 
-  return { onSave, onCancel }
+  return { onSave: editorProps.onSave, onCancel: editorProps.onCancel }
 }
 
 async function flushPromises() {

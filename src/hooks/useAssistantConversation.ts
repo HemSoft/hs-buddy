@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
 import type { AssistantMessage, AssistantContext } from '../types/assistant'
 import { serializeContext } from './useAssistantContext'
 import { getErrorMessage } from '../utils/errorUtils'
@@ -7,6 +7,46 @@ import { IPC_INVOKE } from '../ipc/contracts'
 let messageIdCounter = 0
 function nextId(): string {
   return `msg-${Date.now()}-${++messageIdCounter}`
+}
+
+function shouldSkipMessageSend(trimmed: string, isStreaming: boolean): boolean {
+  return !trimmed || isStreaming
+}
+
+function buildConversationHistory(messages: AssistantMessage[]) {
+  return messages.map(message => ({
+    role: message.role,
+    content: message.content,
+  }))
+}
+
+function buildChatRequest(
+  message: string,
+  context: AssistantContext,
+  history: Array<{ role: AssistantMessage['role']; content: string }>,
+  model?: string
+) {
+  const request = {
+    message,
+    context: serializeContext(context),
+    conversationHistory: history,
+  }
+  if (model) {
+    return { ...request, model }
+  }
+  return request
+}
+
+function resolveAssistantResponse(response: string | null | undefined): string {
+  return response || '*No response received.*'
+}
+
+function updateAssistantMessage(
+  setMessages: Dispatch<SetStateAction<AssistantMessage[]>>,
+  messageId: string,
+  content: string
+) {
+  setMessages(prev => prev.map(message => (message.id === messageId ? { ...message, content } : message)))
 }
 
 /**
@@ -21,7 +61,7 @@ export function useAssistantConversation(context: AssistantContext) {
   const sendMessage = useCallback(
     async (text: string, model?: string) => {
       const trimmed = text.trim()
-      if (!trimmed || isStreaming) return
+      if (shouldSkipMessageSend(trimmed, isStreaming)) return
 
       const userMessage: AssistantMessage = {
         id: nextId(),
@@ -43,39 +83,20 @@ export function useAssistantConversation(context: AssistantContext) {
       abortRef.current = false
 
       try {
-        const systemPrompt = serializeContext(context)
-
-        // Build conversation history for multi-turn
-        const history = messages.map(m => ({
-          role: m.role,
-          content: m.content,
-        }))
-
-        const response = await window.ipcRenderer.invoke(IPC_INVOKE.COPILOT_CHAT_SEND, {
-          message: trimmed,
-          context: systemPrompt,
-          conversationHistory: history,
-          ...(model ? { model } : {}),
-        })
+        const response = await window.ipcRenderer.invoke(
+          IPC_INVOKE.COPILOT_CHAT_SEND,
+          buildChatRequest(trimmed, context, buildConversationHistory(messages), model)
+        )
 
         if (abortRef.current) return
-
-        // Update the assistant message with the response
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMessage.id
-              ? { ...m, content: response || '*No response received.*' }
-              : m
-          )
+        updateAssistantMessage(
+          setMessages,
+          assistantMessage.id,
+          resolveAssistantResponse(response as string | null | undefined)
         )
       } catch (err: unknown) {
         if (abortRef.current) return
-        const errorMsg = getErrorMessage(err)
-        setMessages(prev =>
-          prev.map(m =>
-            m.id === assistantMessage.id ? { ...m, content: `⚠️ Error: ${errorMsg}` } : m
-          )
-        )
+        updateAssistantMessage(setMessages, assistantMessage.id, `⚠️ Error: ${getErrorMessage(err)}`)
       } finally {
         setIsStreaming(false)
       }

@@ -7,15 +7,20 @@ const mockInitSettings = vi.fn()
 let mockExistingAccounts: Array<Record<string, unknown>> | undefined
 let mockExistingSettings: Record<string, unknown> | undefined
 
+function refNameIncludes(ref: unknown, value: string) {
+  const name = (ref as { name?: string } | undefined)?.name
+  return String(name ?? '').includes(value) || String(ref).includes(value)
+}
+
 vi.mock('convex/react', () => ({
-  useMutation: (ref: { name: string }) => {
-    if (ref?.name?.includes?.('bulkImport') || String(ref).includes('bulkImport')) {
+  useMutation: (ref: unknown) => {
+    if (refNameIncludes(ref, 'bulkImport')) {
       return mockBulkImportAccounts
     }
     return mockInitSettings
   },
-  useQuery: (ref: { name: string }) => {
-    if (ref?.name?.includes?.('list') || String(ref).includes('list')) {
+  useQuery: (ref: unknown) => {
+    if (refNameIncludes(ref, 'list')) {
       return mockExistingAccounts
     }
     return mockExistingSettings

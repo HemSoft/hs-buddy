@@ -19,6 +19,34 @@ function computeOverageRequests(premium: { overage_count: number; remaining: num
   return Math.max(overageByCount, overageByRemaining)
 }
 
+function computeAggregateProjections(quotas: Record<string, AccountQuotaState>) {
+  let projectedTotal = 0
+  let projectedOverageCost = 0
+  let hasAny = false
+
+  for (const state of Object.values(quotas)) {
+    const premium = getPremiumInteractions(state)
+    if (!premium || !state.data) {
+      continue
+    }
+
+    const projection = computeProjection(premium, state.data.quota_reset_date_utc)
+    if (!projection) {
+      continue
+    }
+
+    hasAny = true
+    projectedTotal += projection.projectedTotal
+    projectedOverageCost += projection.projectedOverageCost
+  }
+
+  if (!hasAny) {
+    return null
+  }
+
+  return { projectedTotal, projectedOverageCost }
+}
+
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
@@ -176,35 +204,7 @@ export function useCopilotUsage() {
     [quotas]
   )
 
-  const aggregateProjections = useMemo(() => {
-    let projectedTotal = 0
-    let projectedOverageCost = 0
-    let hasAny = false
-
-    for (const state of Object.values(quotas)) {
-      const premium = getPremiumInteractions(state)
-      if (!premium || !state.data) {
-        continue
-      }
-
-      const projection = computeProjection(premium, state.data.quota_reset_date_utc)
-      /* v8 ignore start */
-      if (!projection) {
-        continue
-      }
-      /* v8 ignore stop */
-
-      hasAny = true
-      projectedTotal += projection.projectedTotal
-      projectedOverageCost += projection.projectedOverageCost
-    }
-
-    if (!hasAny) {
-      return null
-    }
-
-    return { projectedTotal, projectedOverageCost }
-  }, [quotas])
+  const aggregateProjections = useMemo(() => computeAggregateProjections(quotas), [quotas])
 
   return {
     accounts,

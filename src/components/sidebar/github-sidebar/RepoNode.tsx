@@ -679,6 +679,18 @@ interface RepoPullRequestsSectionProps {
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function renderOpenPRCountBadge(isLoading: boolean, isCountLoading: boolean, counts?: RepoCounts) {
+  if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
+  if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
+  return null
+}
+
+function renderClosedPRCountBadge(isLoading: boolean, closedCount: number) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
+  return null
+}
+
 function PRStateCountBadge({
   isOpen,
   isLoading,
@@ -693,13 +705,9 @@ function PRStateCountBadge({
   closedCount: number
 }) {
   if (isOpen) {
-    if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
-    return null
+    return renderOpenPRCountBadge(isLoading, isCountLoading, counts)
   }
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
-  return null
+  return renderClosedPRCountBadge(isLoading, closedCount)
 }
 
 function PRStateGroupContent({

@@ -59,6 +59,79 @@ function getValidCachedOrgRepos(org: string): OrgRepoResult | null {
   return null
 }
 
+function toContributorMap(overview: OrgOverviewResult): Record<string, number> {
+  return Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
+}
+
+function applyOrgContributorCounts(
+  setter: React.Dispatch<React.SetStateAction<Record<string, Record<string, number>>>>,
+  org: string,
+  overview: OrgOverviewResult
+) {
+  setter(prev => ({
+    ...prev,
+    [org]: toContributorMap(overview),
+  }))
+}
+
+function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
+  if (forceRefresh) return null
+  const cached = dataCache.get<OrgOverviewResult>(`org-overview:${org}`)
+  return cached?.data ?? null
+}
+
+async function fetchOrgOverviewData(
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  enqueue: (
+    fn: (signal?: AbortSignal) => Promise<unknown>,
+    meta: { name: string; priority?: number }
+  ) => Promise<unknown>,
+  org: string
+): Promise<OrgOverviewResult> {
+  return (await enqueue(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return await client.fetchOrgOverview(org)
+    },
+    { name: `org-overview-${org}`, priority: -1 }
+  )) as OrgOverviewResult
+}
+
+type RepoBookmarkRecord = {
+  _id: string
+  owner?: string | null
+  repo?: string | null
+}
+
+function findRepoBookmark(
+  bookmarks: RepoBookmarkRecord[] | null | undefined,
+  org: string,
+  repoName: string
+): RepoBookmarkRecord | null {
+  return (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+}
+
+async function removeRepoBookmarkByValues(
+  bookmarks: RepoBookmarkRecord[] | null | undefined,
+  org: string,
+  repoName: string,
+  removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
+): Promise<void> {
+  const bookmark = findRepoBookmark(bookmarks, org, repoName)
+  if (!bookmark) return
+  await removeBookmark({ id: bookmark._id })
+}
+
+function recordBookmarkInsert(
+  result: { inserted?: boolean } | null | undefined,
+  incrementStat: ReturnType<typeof useBuddyStatsMutations>['increment']
+): void {
+  if (result?.inserted) {
+    incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
+  }
+}
+
 /** Iterate stale cache entries, parse each key, and invoke a callback for those that are stale. */
 function forEachStaleEntry<T>(
   fetchedRef: React.MutableRefObject<Set<string>>,
@@ -535,32 +608,16 @@ export function useGitHubSidebarData() {
   const fetchOrgOverview = useCallback(
     async (org: string, forceRefresh = false) => {
       const cacheKey = `org-overview:${org}`
-      const cached = dataCache.get<OrgOverviewResult>(cacheKey)
+      const cached = getCachedOrgOverview(org, forceRefresh)
 
-      const toContributorMap = (overview: OrgOverviewResult) =>
-        Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
-
-      if (cached?.data && !forceRefresh) {
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(cached.data),
-        }))
+      if (cached) {
+        applyOrgContributorCounts(setOrgContributorCounts, org, cached)
         return
       }
 
       try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
-          },
-          { name: `org-overview-${org}`, priority: -1 }
-        )
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(result),
-        }))
+        const result = await fetchOrgOverviewData(accounts, enqueueRef.current, org)
+        applyOrgContributorCounts(setOrgContributorCounts, org, result)
         dataCache.set(cacheKey, result)
       } catch (error: unknown) {
         /* v8 ignore start */
@@ -658,14 +715,7 @@ export function useGitHubSidebarData() {
     async (org: string, repoName: string, repoUrl: string) => {
       const key = `${org}/${repoName}`
       if (bookmarkedRepoKeys.has(key)) {
-        /* v8 ignore start */
-        const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-        /* v8 ignore stop */
-        /* v8 ignore start */
-        if (bookmark) {
-          /* v8 ignore stop */
-          await removeBookmark({ id: bookmark._id })
-        }
+        await removeRepoBookmarkByValues(bookmarks, org, repoName, removeBookmark)
         return
       }
       const result = await createBookmark({
@@ -675,11 +725,7 @@ export function useGitHubSidebarData() {
         url: repoUrl,
         description: '',
       })
-      /* v8 ignore start */
-      if (result?.inserted) {
-        /* v8 ignore stop */
-        incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
-      }
+      recordBookmarkInsert(result, incrementStat)
     },
     [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
   )

@@ -34,6 +34,38 @@ export function buildPowershellEnvCommand(name: string): string {
 /** Dependency-injected shell executor for resolveEnvVar. */
 type ExecSyncFn = (command: string) => string
 
+function getCachedEnvValue(name: string, cache: Map<string, string>): string | undefined {
+  return cache.has(name) ? cache.get(name) : undefined
+}
+
+function cacheResolvedEnvValue(
+  name: string,
+  value: string | undefined,
+  cache: Map<string, string>
+): string | undefined {
+  if (!value) {
+    return undefined
+  }
+  cache.set(name, value)
+  return value
+}
+
+function resolveWindowsMachineScopeValue(
+  name: string,
+  platform: string,
+  allowedNames: Set<string>,
+  execSyncFn: ExecSyncFn
+): string | undefined {
+  if (!shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
+    return undefined
+  }
+  try {
+    return execSyncFn(buildPowershellEnvCommand(name)).trim() || undefined
+  } catch (_: unknown) {
+    return undefined
+  }
+}
+
 /**
  * Resolve an environment variable with optional Windows Machine-scope lookup.
  *
@@ -48,26 +80,17 @@ export function resolveEnvVar(
   env: Record<string, string | undefined>,
   execSyncFn: ExecSyncFn
 ): string | undefined {
-  if (cache.has(name)) return cache.get(name)
-
-  if (shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
-    try {
-      const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
-      if (val) {
-        cache.set(name, val)
-        return val
-      }
-    } catch (_: unknown) {
-      /* fall through to process.env */
-    }
+  const cachedValue = getCachedEnvValue(name, cache)
+  if (cachedValue !== undefined) {
+    return cachedValue
   }
 
-  const val = env[name]
-  if (val) {
-    cache.set(name, val)
-    return val
+  const machineValue = resolveWindowsMachineScopeValue(name, platform, allowedNames, execSyncFn)
+  if (machineValue !== undefined) {
+    return cacheResolvedEnvValue(name, machineValue, cache)
   }
-  return undefined
+
+  return cacheResolvedEnvValue(name, env[name], cache)
 }
 
 /**

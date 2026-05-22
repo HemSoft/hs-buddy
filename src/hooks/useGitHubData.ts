@@ -46,6 +46,45 @@ function tryServeFromCache<T>(
   return false
 }
 
+function shouldServeGitHubDataFromCache<T>(
+  forceRefresh: boolean,
+  cacheKey: string,
+  setData: (d: T) => void,
+  setLoading: (v: boolean) => void,
+  setError: (v: string | null) => void
+): boolean {
+  if (forceRefresh) {
+    return false
+  }
+  return tryServeFromCache(cacheKey, setData, setLoading, setError)
+}
+
+function isActiveGitHubRequest(requestId: number, requestIdRef: { current: number }): boolean {
+  return requestId === requestIdRef.current
+}
+
+function storeGitHubDataResult<T>(
+  requestId: number,
+  requestIdRef: { current: number },
+  cacheKey: string,
+  result: T,
+  setData: (data: T) => void
+): void {
+  if (!isActiveGitHubRequest(requestId, requestIdRef)) return
+  setData(result)
+  dataCache.set(cacheKey, result)
+}
+
+function finishGitHubLoading(
+  requestId: number,
+  requestIdRef: { current: number },
+  setLoading: (value: boolean) => void
+): void {
+  if (isActiveGitHubRequest(requestId, requestIdRef)) {
+    setLoading(false)
+  }
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -110,7 +149,7 @@ export function useGitHubData<T>({
       // Stale-request protection: only the latest request writes state
       const requestId = ++requestIdRef.current
 
-      if (!forceRefresh && tryServeFromCache<T>(cacheKey, setData, setLoading, setError)) {
+      if (shouldServeGitHubDataFromCache(forceRefresh, cacheKey, setData, setLoading, setError)) {
         return
       }
 
@@ -127,17 +166,11 @@ export function useGitHubData<T>({
           { name: taskName }
         )
 
-        // Guard: discard results from stale requests
-        if (requestId !== requestIdRef.current) return
-
-        setData(result)
-        dataCache.set(cacheKey, result)
+        storeGitHubDataResult(requestId, requestIdRef, cacheKey, result, setData)
       } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false)
-        }
+        finishGitHubLoading(requestId, requestIdRef, setLoading)
       }
     },
     [accounts, cacheKey, taskName, enqueueRef, fetchFnRef]

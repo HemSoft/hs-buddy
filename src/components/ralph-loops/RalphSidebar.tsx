@@ -146,19 +146,56 @@ function ScriptItem({
   )
 }
 
+function buildDefaultRunName(run: RalphRunInfo, repo: string): string {
+  return `${repo} · ${run.runId.slice(0, 6)}`
+}
+
+function buildPullRequestRunName(run: RalphRunInfo, repo: string): string {
+  if (run.config.prNumber == null) {
+    return buildDefaultRunName(run, repo)
+  }
+  return `${repo} #${run.config.prNumber}`
+}
+
+function buildTemplateRunName(run: RalphRunInfo, repo: string): string {
+  if (!run.config.templateScript) {
+    return buildDefaultRunName(run, repo)
+  }
+  const tpl = run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
+  return `${repo} · ${tpl}`
+}
+
+const RUN_NAME_BUILDERS: Partial<Record<RalphRunInfo['config']['scriptType'], (run: RalphRunInfo, repo: string) => string>> = {
+  'ralph-pr': buildPullRequestRunName,
+  'ralph-issues': (_run, repo) => `${repo} · issues`,
+  template: buildTemplateRunName,
+}
+
 function runDisplayName(run: RalphRunInfo): string {
   const repo = repoName(run.config.repoPath)
-  if (run.config.scriptType === 'ralph-pr' && run.config.prNumber) {
-    return `${repo} #${run.config.prNumber}`
+  const builder = RUN_NAME_BUILDERS[run.config.scriptType]
+  if (builder) {
+    return builder(run, repo)
   }
-  if (run.config.scriptType === 'ralph-issues') {
-    return `${repo} · issues`
+  return buildDefaultRunName(run, repo)
+}
+
+function isActiveRun(run: RalphRunInfo): boolean {
+  return run.status === 'running' || run.status === 'pending'
+}
+
+function activeRunDetail(run: RalphRunInfo): string {
+  if (run.totalIterations) {
+    return `${run.currentIteration}/${run.totalIterations}`
   }
-  if (run.config.scriptType === 'template' && run.config.templateScript) {
-    const tpl = run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
-    return `${repo} · ${tpl}`
+  return run.phase
+}
+
+function runDetail(run: RalphRunInfo): string {
+  if (isActiveRun(run)) {
+    return activeRunDetail(run)
   }
-  return `${repo} · ${run.runId.slice(0, 6)}`
+  return timeAgo(run.completedAt ?? run.updatedAt)
 }
 
 /* ── Run item (for Runs section) ─────────────────────────────── */
@@ -173,12 +210,6 @@ function RunItem({
   onClick: () => void
 }) {
   const Icon = RUN_STATUS_ICON[run.status]
-  const active = run.status === 'running' || run.status === 'pending'
-  const detail = active
-    ? run.totalIterations
-      ? `${run.currentIteration}/${run.totalIterations}`
-      : run.phase
-    : timeAgo(run.completedAt ?? run.updatedAt)
 
   return (
     <div
@@ -193,7 +224,7 @@ function RunItem({
     >
       <Icon size={12} className={run.status === 'running' ? 'ralph-spin' : ''} />
       <span className="ralph-sidebar-run-label">{runDisplayName(run)}</span>
-      <span className="ralph-sidebar-run-detail">{detail}</span>
+      <span className="ralph-sidebar-run-detail">{runDetail(run)}</span>
     </div>
   )
 }

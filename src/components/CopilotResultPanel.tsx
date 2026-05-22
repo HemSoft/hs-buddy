@@ -241,6 +241,14 @@ function PublishButtonIcon({ publishing }: { publishing: boolean }) {
   return <MessageSquareShare size={14} />
 }
 
+function isPublishDisabled(publishing: boolean, published: boolean): boolean {
+  return publishing || published
+}
+
+function getPublishTitle(published: boolean): string {
+  return published ? 'Published to PR' : 'Publish review as PR comment'
+}
+
 function PublishButton({
   canPublish,
   published,
@@ -257,8 +265,8 @@ function PublishButton({
     <button
       className={`copilot-action-btn${published ? ' success' : ''}`}
       onClick={onPublish}
-      disabled={publishing || published}
-      title={published ? 'Published to PR' : 'Publish review as PR comment'}
+      disabled={isPublishDisabled(publishing, published)}
+      title={getPublishTitle(published)}
     >
       <PublishButtonIcon publishing={publishing} />
       {published && <span className="copied-badge">✓</span>}

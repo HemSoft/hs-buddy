@@ -81,6 +81,15 @@ function makeActivity(overrides: Partial<UserActivitySummary> = {}): UserActivit
   }
 }
 
+function getActivityName(state: ActivityState) {
+  return state.activity?.name
+}
+
+function getDisplayTitle(state: ActivityState, memberLogin: string) {
+  const name = getActivityName(state)
+  return name ? `${name} (${memberLogin})` : memberLogin
+}
+
 /* ── activityReducer tests ─────────────────────────────────────── */
 describe('activityReducer', () => {
   const aliceActivity = makeActivity({
@@ -236,7 +245,7 @@ describe('User switching scenario (reducer-level)', () => {
     // 3. Alice data arrives
     const alice = makeActivity({ name: 'Alice Smith', openPRCount: 7 })
     state = activityReducer(state, { type: 'FETCH_SUCCESS', payload: alice })
-    expect(state.activity?.name).toBe('Alice Smith')
+    expect(getActivityName(state)).toBe('Alice Smith')
     expect(state.phase).toBe('ready')
 
     // 4. User clicks Bob → FETCH_START for Bob
@@ -248,19 +257,15 @@ describe('User switching scenario (reducer-level)', () => {
 
     // Simulated hero render: should show "bob", not "Alice Smith (bob)"
     const memberLogin = 'bob'
-    const displayTitle = state.activity?.name
-      ? `${state.activity.name} (${memberLogin})`
-      : memberLogin
+    const displayTitle = getDisplayTitle(state, memberLogin)
     expect(displayTitle).toBe('bob')
 
     // 5. Bob data arrives
     const bob = makeActivity({ name: 'Bob Jones', openPRCount: 3 })
     state = activityReducer(state, { type: 'FETCH_SUCCESS', payload: bob })
-    expect(state.activity?.name).toBe('Bob Jones')
+    expect(getActivityName(state)).toBe('Bob Jones')
 
-    const finalTitle = state.activity?.name
-      ? `${state.activity.name} (${memberLogin})`
-      : memberLogin
+    const finalTitle = getDisplayTitle(state, memberLogin)
     expect(finalTitle).toBe('Bob Jones (bob)')
   })
 

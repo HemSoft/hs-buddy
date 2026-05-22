@@ -128,6 +128,35 @@ function persistWatchlist(symbols: string[]): void {
     })
 }
 
+function areWatchlistsEqual(left: string[], right: string[]): boolean {
+  return left.length === right.length && left.every((symbol, index) => symbol === right[index])
+}
+
+function applyHydratedWatchlist(
+  raw: unknown,
+  cancelled: boolean,
+  mutatedRef: { current: boolean },
+  watchlistRef: { current: string[] },
+  setWatchlistState: (symbols: string[]) => void,
+  refresh: (symbols?: string[]) => Promise<void>
+) {
+  if (cancelled || mutatedRef.current) return
+
+  const sanitized = sanitizeWatchlist(raw)
+  if (sanitized === null) return
+
+  const current = watchlistRef.current
+  if (areWatchlistsEqual(sanitized, current)) return
+
+  writeWatchlist(sanitized)
+  watchlistRef.current = sanitized
+  setWatchlistState(sanitized)
+  safeRemoveItem(CACHE_KEY)
+  refresh(sanitized).catch(() => {
+    /* error already handled in state */
+  })
+}
+
 export function useFinance() {
   const [watchlist, setWatchlistState] = useState<string[]>(readWatchlist)
 
@@ -224,22 +253,14 @@ export function useFinance() {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST)
       .then((raw: unknown) => {
-        if (cancelled || mutatedRef.current) return
-        const sanitized = sanitizeWatchlist(raw)
-        if (sanitized === null) return
-        const current = watchlistRef.current
-        // Skip update if values match to avoid unnecessary refresh
-        if (sanitized.length === current.length && sanitized.every((s, i) => s === current[i])) {
-          return
-        }
-        writeWatchlist(sanitized)
-        watchlistRef.current = sanitized
-        setWatchlistState(sanitized)
-        // Re-fetch quotes against the authoritative list
-        safeRemoveItem(CACHE_KEY)
-        refresh(sanitized).catch(() => {
-          /* error already handled in state */
-        })
+        applyHydratedWatchlist(
+          raw,
+          cancelled,
+          mutatedRef,
+          watchlistRef,
+          setWatchlistState,
+          refresh
+        )
       })
       .catch((err: unknown) => {
         console.warn('[useFinance] Failed to load watchlist from config store:', err)

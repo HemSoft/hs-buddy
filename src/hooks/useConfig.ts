@@ -142,6 +142,51 @@ function shouldInitializeAccounts(
   )
 }
 
+function buildAccountsContentKey(
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+): string {
+  return JSON.stringify(
+    resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(account => [
+      account.username,
+      account.org,
+      account.repoRoot,
+    ])
+  )
+}
+
+function syncAccountsRef(
+  prevKeyRef: { current: string },
+  accountsRef: { current: GitHubAccount[] },
+  contentKey: string,
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+) {
+  if (prevKeyRef.current !== contentKey) {
+    prevKeyRef.current = contentKey
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
+    return
+  }
+
+  if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
+  }
+}
+
+function computeAccountsLoading(convexConnected: boolean, fallbackLoaded: boolean): boolean {
+  return !convexConnected && !fallbackLoaded
+}
+
 function resolvePRFallback(config: AppConfig) {
   if (!config.pr)
     return {
@@ -211,31 +256,21 @@ export function useGitHubAccounts() {
   const convexConnected = convexAccounts !== undefined
 
   // Build content key for comparison (include repoRoot so edits trigger refresh)
-  const contentKey =
-    convexConnected && convexAccounts
-      ? JSON.stringify(convexAccounts.map(a => [a.username, a.org, a.repoRoot]))
-      : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org, a.repoRoot]))
+  const contentKey = buildAccountsContentKey(convexAccounts, electronStoreAccounts, convexConnected)
 
   // Use ref to track previous key and accounts
   const prevKeyRef = useRef(contentKey)
   const accountsRef = useRef<GitHubAccount[]>([])
 
   // Only update accounts if content actually changed
-  if (prevKeyRef.current !== contentKey) {
-    prevKeyRef.current = contentKey
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  } else if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
-    // Initialize on first valid data
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  }
+  syncAccountsRef(
+    prevKeyRef,
+    accountsRef,
+    contentKey,
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
 
   const accounts = accountsRef.current
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]

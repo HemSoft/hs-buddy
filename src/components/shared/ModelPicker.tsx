@@ -151,6 +151,81 @@ function ModelPickerRefreshButton({
   )
 }
 
+function ModelPickerLoadingState({ className }: { className: string }) {
+  return (
+    <div className={className}>
+      <div style={SELECT_STATUS_STYLE}>
+        <Loader2 size={16} className="spin" />
+        Fetching available models...
+      </div>
+    </div>
+  )
+}
+
+function ModelPickerErrorState({
+  className,
+  modelsError,
+}: {
+  className: string
+  modelsError: string
+}) {
+  return (
+    <div className={className}>
+      <div className="form-error" style={{ marginBottom: '8px' }}>
+        Failed to fetch models: {modelsError}
+      </div>
+    </div>
+  )
+}
+
+function ModelPickerSelectControl({
+  value,
+  enabledModels,
+  disabledModels,
+  disabled,
+  handleChange,
+  id,
+}: {
+  value: string
+  enabledModels: SdkModel[]
+  disabledModels: SdkModel[]
+  disabled: boolean
+  handleChange: (v: string) => void
+  id?: string
+}) {
+  return (
+    <div className="select-control" style={{ flex: 1 }}>
+      <select
+        id={id}
+        value={value}
+        onChange={e => handleChange(e.target.value)}
+        className="settings-select"
+        disabled={disabled}
+      >
+        {enabledModels.length > 0 && (
+          <optgroup label="Available Models">
+            {enabledModels.map(m => (
+              <option key={m.id} value={m.id}>
+                {m.name}
+                {billingLabel(m.billingMultiplier)}
+              </option>
+            ))}
+          </optgroup>
+        )}
+        {disabledModels.length > 0 && (
+          <optgroup label="Disabled by Policy">
+            {disabledModels.map(m => (
+              <option key={m.id} value={m.id} disabled>
+                {m.name} (disabled)
+              </option>
+            ))}
+          </optgroup>
+        )}
+      </select>
+    </div>
+  )
+}
+
 function ModelPickerSelectVariant({
   value,
   enabledModels,
@@ -178,27 +253,8 @@ function ModelPickerSelectVariant({
   className: string
   id?: string
 }) {
-  if (modelsLoading) {
-    return (
-      <div className={className}>
-        <div style={SELECT_STATUS_STYLE}>
-          <Loader2 size={16} className="spin" />
-          Fetching available models...
-        </div>
-      </div>
-    )
-  }
-
-  if (modelsError) {
-    return (
-      <div className={className}>
-        <div className="form-error" style={{ marginBottom: '8px' }}>
-          Failed to fetch models: {modelsError}
-        </div>
-      </div>
-    )
-  }
-
+  if (modelsLoading) return <ModelPickerLoadingState className={className} />
+  if (modelsError) return <ModelPickerErrorState className={className} modelsError={modelsError} />
   if (enabledModels.length === 0 && disabledModels.length === 0) {
     return (
       <ModelPickerNoModels
@@ -213,35 +269,14 @@ function ModelPickerSelectVariant({
   return (
     <div className={className}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div className="select-control" style={{ flex: 1 }}>
-          <select
-            id={id}
-            value={value}
-            onChange={e => handleChange(e.target.value)}
-            className="settings-select"
-            disabled={disabled}
-          >
-            {enabledModels.length > 0 && (
-              <optgroup label="Available Models">
-                {enabledModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {billingLabel(m.billingMultiplier)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {disabledModels.length > 0 && (
-              <optgroup label="Disabled by Policy">
-                {disabledModels.map(m => (
-                  <option key={m.id} value={m.id} disabled>
-                    {m.name} (disabled)
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-        </div>
+        <ModelPickerSelectControl
+          value={value}
+          enabledModels={enabledModels}
+          disabledModels={disabledModels}
+          disabled={disabled}
+          handleChange={handleChange}
+          id={id}
+        />
         <ModelPickerRefreshButton
           showRefresh={showRefresh}
           fetchModels={fetchModels}

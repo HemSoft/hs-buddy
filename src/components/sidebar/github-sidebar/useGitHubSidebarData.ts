@@ -535,16 +535,16 @@ export function useGitHubSidebarData() {
   const fetchOrgOverview = useCallback(
     async (org: string, forceRefresh = false) => {
       const cacheKey = `org-overview:${org}`
-      const cached = dataCache.get<OrgOverviewResult>(cacheKey)
+      const cached = forceRefresh ? null : dataCache.get<OrgOverviewResult>(cacheKey)?.data ?? null
+      const applyOverview = (overview: OrgOverviewResult) => {
+        const contributorCounts = Object.fromEntries(
+          overview.metrics.topContributorsToday.map(c => [c.login, c.commits])
+        )
+        setOrgContributorCounts(prev => ({ ...prev, [org]: contributorCounts }))
+      }
 
-      const toContributorMap = (overview: OrgOverviewResult) =>
-        Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
-
-      if (cached?.data && !forceRefresh) {
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(cached.data),
-        }))
+      if (cached) {
+        applyOverview(cached)
         return
       }
 
@@ -557,10 +557,7 @@ export function useGitHubSidebarData() {
           },
           { name: `org-overview-${org}`, priority: -1 }
         )
-        setOrgContributorCounts(prev => ({
-          ...prev,
-          [org]: toContributorMap(result),
-        }))
+        applyOverview(result)
         dataCache.set(cacheKey, result)
       } catch (error: unknown) {
         /* v8 ignore start */

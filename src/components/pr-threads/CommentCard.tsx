@@ -96,6 +96,32 @@ function getCommentRelativeTime(comment: PRReviewComment): string {
   return formatDistanceToNow(timestamp)
 }
 
+function isReactionActive(reaction: PRReviewComment['reactions'][number] | undefined): boolean {
+  return reaction?.viewerHasReacted ?? false
+}
+
+function getReactionCount(reaction: PRReviewComment['reactions'][number] | undefined): number {
+  return reaction?.count ?? 0
+}
+
+function buildReactionButtonClassName(active: boolean): string {
+  return `thread-comment-reaction ${active ? 'active' : ''}`
+}
+
+function handleReactionButtonClick(
+  e: React.MouseEvent<HTMLButtonElement>,
+  content: PRCommentReactionContent,
+  onReact: (content: PRCommentReactionContent) => void
+) {
+  e.preventDefault()
+  onReact(content)
+}
+
+function ReactionCount({ count }: { count: number }) {
+  if (count <= 0) return null
+  return <span className="thread-comment-reaction-count">{count}</span>
+}
+
 function CommentReactionButton({
   option,
   reaction,
@@ -107,21 +133,18 @@ function CommentReactionButton({
   reacting: boolean
   onReact: (content: PRCommentReactionContent) => void
 }) {
-  const active = reaction?.viewerHasReacted || false
-  const count = reaction?.count || 0
+  const active = isReactionActive(reaction)
+  const count = getReactionCount(reaction)
 
   return (
     <button
-      className={`thread-comment-reaction ${active ? 'active' : ''}`}
-      onClick={e => {
-        e.preventDefault()
-        onReact(option.content)
-      }}
+      className={buildReactionButtonClassName(active)}
+      onClick={e => handleReactionButtonClick(e, option.content, onReact)}
       disabled={reacting}
       title={option.label}
     >
       <span>{option.emoji}</span>
-      {count > 0 && <span className="thread-comment-reaction-count">{count}</span>}
+      <ReactionCount count={count} />
     </button>
   )
 }

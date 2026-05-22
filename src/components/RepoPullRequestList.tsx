@@ -129,6 +129,64 @@ function PRTableView({
   )
 }
 
+function PRLabels({ labels }: { labels: RepoPullRequest['labels'] }) {
+  if (labels.length === 0) return null
+  return (
+    <div className="repo-pr-labels">
+      {labels.map(label => (
+        <span key={label.name} className="repo-pr-label" style={getLabelStyle(label.color)}>
+          {label.name}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function PRCardItem({
+  pr,
+  handlePRClick,
+}: {
+  pr: RepoPullRequest
+  handlePRClick: (pr: RepoPullRequest) => void
+}) {
+  return (
+    <button
+      type="button"
+      className={`repo-pr-item${pr.draft ? ' repo-pr-item--draft' : ''}`}
+      onClick={() => handlePRClick(pr)}
+    >
+      <div className="repo-pr-header">
+        <div className="repo-pr-title-row">
+          <GitPullRequest size={16} className="repo-pr-icon" />
+          <span className="repo-pr-title">{pr.title}</span>
+          {pr.draft && <span className="repo-pr-draft-badge">Draft</span>}
+          <ExternalLink size={14} className="external-link-icon" />
+        </div>
+        <PRLabels labels={pr.labels} />
+      </div>
+      <div className="repo-pr-branch-flow">
+        <GitBranch size={12} />
+        <span>
+          into <strong>{pr.baseBranch}</strong> from <strong>{pr.headBranch}</strong>
+        </span>
+      </div>
+      <div className="repo-pr-meta">
+        <span className="repo-pr-number">#{pr.number}</span>
+        <span className="repo-pr-author">
+          {pr.authorAvatarUrl && <img src={pr.authorAvatarUrl} alt={pr.author} className="repo-pr-avatar" />}
+          {pr.author}
+        </span>
+        <span className="repo-pr-date">
+          <Clock size={12} />
+          {formatDistanceToNow(pr.createdAt)}
+        </span>
+        <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
+        <PRApprovalsCell pr={pr} classPrefix="repo-pr-approvals" />
+      </div>
+    </button>
+  )
+}
+
 function PRCardView({
   prs,
   handlePRClick,
@@ -139,55 +197,7 @@ function PRCardView({
   return (
     <div className="repo-prs-list">
       {prs.map(pr => (
-        <button
-          key={pr.number}
-          type="button"
-          className={`repo-pr-item${pr.draft ? ' repo-pr-item--draft' : ''}`}
-          onClick={() => handlePRClick(pr)}
-        >
-          <div className="repo-pr-header">
-            <div className="repo-pr-title-row">
-              <GitPullRequest size={16} className="repo-pr-icon" />
-              <span className="repo-pr-title">{pr.title}</span>
-              {pr.draft && <span className="repo-pr-draft-badge">Draft</span>}
-              <ExternalLink size={14} className="external-link-icon" />
-            </div>
-            {pr.labels.length > 0 && (
-              <div className="repo-pr-labels">
-                {pr.labels.map(label => (
-                  <span
-                    key={label.name}
-                    className="repo-pr-label"
-                    style={getLabelStyle(label.color)}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="repo-pr-branch-flow">
-            <GitBranch size={12} />
-            <span>
-              into <strong>{pr.baseBranch}</strong> from <strong>{pr.headBranch}</strong>
-            </span>
-          </div>
-          <div className="repo-pr-meta">
-            <span className="repo-pr-number">#{pr.number}</span>
-            <span className="repo-pr-author">
-              {pr.authorAvatarUrl && (
-                <img src={pr.authorAvatarUrl} alt={pr.author} className="repo-pr-avatar" />
-              )}
-              {pr.author}
-            </span>
-            <span className="repo-pr-date">
-              <Clock size={12} />
-              {formatDistanceToNow(pr.createdAt)}
-            </span>
-            <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
-            <PRApprovalsCell pr={pr} classPrefix="repo-pr-approvals" />
-          </div>
-        </button>
+        <PRCardItem key={pr.number} pr={pr} handlePRClick={handlePRClick} />
       ))}
     </div>
   )
@@ -243,6 +253,18 @@ function RepoPRListHeader({
   )
 }
 
+function openRepoPullRequest(
+  pr: RepoPullRequest,
+  owner: string,
+  onOpenPR?: (viewId: string) => void
+) {
+  if (onOpenPR) {
+    onOpenPR(mapToPRDetailId(pr, owner))
+    return
+  }
+  window.shell?.openExternal(pr.url)
+}
+
 function RepoPRListBody({
   prs,
   loading,
@@ -291,11 +313,7 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
 
   const handlePRClick = useCallback(
     (pr: RepoPullRequest) => {
-      if (onOpenPR) {
-        onOpenPR(mapToPRDetailId(pr, owner))
-      } else {
-        window.shell?.openExternal(pr.url)
-      }
+      openRepoPullRequest(pr, owner, onOpenPR)
     },
     [onOpenPR, owner]
   )

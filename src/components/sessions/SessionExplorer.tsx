@@ -124,6 +124,27 @@ function SessionListItem({
   )
 }
 
+function WorkspaceSectionBody({
+  dateGroups,
+  onSelect,
+}: {
+  dateGroups: DateGroup[]
+  onSelect: (filePath: string) => void
+}) {
+  return (
+    <div className="session-workspace-body">
+      {dateGroups.map(dg => (
+        <div key={dg.label} className="session-date-group">
+          <div className="session-date-group-label">{dg.label}</div>
+          {dg.items.map(s => (
+            <SessionListItem key={s.filePath} session={s} onSelect={onSelect} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function WorkspaceSection({
   group,
   onSelect,
@@ -143,18 +164,7 @@ function WorkspaceSection({
         <span className="session-workspace-name">{group.name}</span>
         <span className="session-workspace-count">{group.sessionCount}</span>
       </button>
-      {expanded && (
-        <div className="session-workspace-body">
-          {group.dateGroups.map(dg => (
-            <div key={dg.label} className="session-date-group">
-              <div className="session-date-group-label">{dg.label}</div>
-              {dg.items.map(s => (
-                <SessionListItem key={s.filePath} session={s} onSelect={onSelect} />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
+      {expanded && <WorkspaceSectionBody dateGroups={group.dateGroups} onSelect={onSelect} />}
     </div>
   )
 }
@@ -165,6 +175,79 @@ function shouldShowEmptyState(
   error: string | null
 ): boolean {
   return sessions.length === 0 && !isLoading && !error
+}
+
+function SessionExplorerStats({
+  sessions,
+  totalCount,
+  workspaceCount,
+  totalSize,
+}: {
+  sessions: SessionSummary[]
+  totalCount: number
+  workspaceCount: number
+  totalSize: number
+}) {
+  if (sessions.length === 0) return null
+  return (
+    <div className="session-stats-row">
+      <div className="session-stat-card">
+        <div className="session-stat-label">Sessions</div>
+        <div className="session-stat-value">{totalCount}</div>
+      </div>
+      <div className="session-stat-card">
+        <div className="session-stat-label">
+          <FolderOpen size={12} /> Projects
+        </div>
+        <div className="session-stat-value">{workspaceCount}</div>
+      </div>
+      <div className="session-stat-card">
+        <div className="session-stat-label">
+          <HardDrive size={12} /> Total Size
+        </div>
+        <div className="session-stat-value">{formatSize(totalSize)}</div>
+      </div>
+    </div>
+  )
+}
+
+function SessionExplorerWorkspaceList({
+  sessions,
+  isLoading,
+  error,
+  workspaceGroups,
+  expandedHashes,
+  onSelectSession,
+  onToggleWorkspace,
+}: {
+  sessions: SessionSummary[]
+  isLoading: boolean
+  error: string | null
+  workspaceGroups: WorkspaceGroup[]
+  expandedHashes: ReadonlySet<string>
+  onSelectSession: (filePath: string) => void
+  onToggleWorkspace: (hash: string) => void
+}) {
+  return (
+    <div className="session-list">
+      {shouldShowEmptyState(sessions, isLoading, error) && (
+        <div className="session-empty">
+          <Database size={24} className="session-empty-icon" />
+          <p>No Copilot sessions found.</p>
+          <p>Click Scan to search VS Code workspace storage.</p>
+        </div>
+      )}
+      {workspaceGroups.map(group => (
+        <WorkspaceSection
+          key={group.hash}
+          group={group}
+          onSelect={onSelectSession}
+          expanded={expandedHashes.has(group.hash)}
+          onToggle={() => onToggleWorkspace(group.hash)}
+        />
+      ))}
+    </div>
+  )
 }
 
 interface SessionExplorerProps {
@@ -233,45 +316,22 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
 
       {error && <div className="session-error">{error}</div>}
 
-      {sessions.length > 0 && (
-        <div className="session-stats-row">
-          <div className="session-stat-card">
-            <div className="session-stat-label">Sessions</div>
-            <div className="session-stat-value">{totalCount}</div>
-          </div>
-          <div className="session-stat-card">
-            <div className="session-stat-label">
-              <FolderOpen size={12} /> Projects
-            </div>
-            <div className="session-stat-value">{workspaceGroups.length}</div>
-          </div>
-          <div className="session-stat-card">
-            <div className="session-stat-label">
-              <HardDrive size={12} /> Total Size
-            </div>
-            <div className="session-stat-value">{formatSize(totalSize)}</div>
-          </div>
-        </div>
-      )}
+      <SessionExplorerStats
+        sessions={sessions}
+        totalCount={totalCount}
+        workspaceCount={workspaceGroups.length}
+        totalSize={totalSize}
+      />
 
-      <div className="session-list">
-        {shouldShowEmptyState(sessions, isLoading, error) && (
-          <div className="session-empty">
-            <Database size={24} className="session-empty-icon" />
-            <p>No Copilot sessions found.</p>
-            <p>Click Scan to search VS Code workspace storage.</p>
-          </div>
-        )}
-        {workspaceGroups.map(group => (
-          <WorkspaceSection
-            key={group.hash}
-            group={group}
-            onSelect={onSelectSession}
-            expanded={expandedHashes.has(group.hash)}
-            onToggle={() => toggleWorkspace(group.hash)}
-          />
-        ))}
-      </div>
+      <SessionExplorerWorkspaceList
+        sessions={sessions}
+        isLoading={isLoading}
+        error={error}
+        workspaceGroups={workspaceGroups}
+        expandedHashes={expandedHashes}
+        onSelectSession={onSelectSession}
+        onToggleWorkspace={toggleWorkspace}
+      />
     </div>
   )
 }

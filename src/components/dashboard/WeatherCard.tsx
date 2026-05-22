@@ -306,6 +306,40 @@ function WeatherSearchBar({
   )
 }
 
+function WeatherExpandedLoading() {
+  return (
+    <div className="weather-loading">
+      <RefreshCw size={16} className="spin" />
+      <span>Fetching weather…</span>
+    </div>
+  )
+}
+
+function WeatherExpandedError({ error }: { error: string }) {
+  return (
+    <div className="weather-error">
+      <span>{error}</span>
+    </div>
+  )
+}
+
+function WeatherExpandedData({
+  data,
+  pollen,
+  pollenError,
+}: {
+  data: NonNullable<ReturnType<typeof useWeather>['data']>
+  pollen: PollenData | null
+  pollenError: string | null
+}) {
+  return (
+    <>
+      <WeatherCurrentSection data={data} />
+      <PollenArea pollen={pollen} error={pollenError} />
+    </>
+  )
+}
+
 function WeatherExpandedSections({
   data,
   loading,
@@ -321,21 +355,9 @@ function WeatherExpandedSections({
 }) {
   return (
     <>
-      {loading && !data && (
-        <div className="weather-loading">
-          <RefreshCw size={16} className="spin" />
-          <span>Fetching weather…</span>
-        </div>
-      )}
-
-      {error && !data && (
-        <div className="weather-error">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {data && <WeatherCurrentSection data={data} />}
-      {data && <PollenArea pollen={pollen} error={pollenError} />}
+      {loading && !data && <WeatherExpandedLoading />}
+      {error && !data && <WeatherExpandedError error={error} />}
+      {data && <WeatherExpandedData data={data} pollen={pollen} pollenError={pollenError} />}
     </>
   )
 }

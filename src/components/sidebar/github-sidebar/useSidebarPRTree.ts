@@ -36,15 +36,67 @@ function initPrTreeData(): Record<string, PullRequest[]> {
 }
 
 /** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
+function resolvePrOwner(pr: PullRequest, parsed: ReturnType<typeof parseOwnerRepoFromUrl>): string | null {
+  return pr.org ?? parsed?.owner ?? null
+}
+
+function resolvePrRepo(pr: PullRequest, parsed: ReturnType<typeof parseOwnerRepoFromUrl>): string | null {
+  return pr.repository || parsed?.repo || null
+}
+
 /* v8 ignore start */
 function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
+  const owner = resolvePrOwner(pr, parsed)
+  const repo = resolvePrRepo(pr, parsed)
   if (!owner || !repo) return null
   return { owner, repo }
 }
 /* v8 ignore stop */
+
+function buildSidebarPrKey(pr: PullRequest): string {
+  return `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
+}
+
+function shouldSkipSidebarPrApproval(
+  pr: PullRequest,
+  resolved: { owner: string; repo: string } | null,
+  approvingPrKeys: ReadonlySet<string>,
+  prKey: string
+): boolean {
+  return pr.iApproved || !resolved || approvingPrKeys.has(prKey)
+}
+
+function setSidebarPrApprovalState(
+  setter: React.Dispatch<React.SetStateAction<Set<string>>>,
+  prKey: string,
+  approving: boolean
+) {
+  setter(prev => {
+    const next = new Set(prev)
+    if (approving) next.add(prKey)
+    else next.delete(prKey)
+    return next
+  })
+}
+
+async function approveSidebarPrRequest(
+  accounts: GitHubAccount[],
+  enqueue: UseSidebarPRTreeOptions['enqueueRef']['current'],
+  owner: string,
+  repo: string,
+  prNumber: number
+) {
+  await enqueue(
+    async signal => {
+      /* v8 ignore next */
+      if (signal) throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      await client.approvePullRequest(owner, repo, prNumber)
+    },
+    { name: `approve-sidebar-pr-${owner}-${repo}-${prNumber}` }
+  )
+}
 
 interface UseSidebarPRTreeOptions {
   accounts: GitHubAccount[]
@@ -168,25 +220,13 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
 
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
-      if (pr.iApproved) return
       const resolved = resolvePROwnerRepo(pr)
-      /* v8 ignore start */
-      if (!resolved) return
-      /* v8 ignore stop */
+      const prKey = buildSidebarPrKey(pr)
+      if (shouldSkipSidebarPrApproval(pr, resolved, approvingPrKeys, prKey)) return
       const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
-      if (approvingPrKeys.has(prKey)) return
-      setApprovingPrKeys(prev => new Set(prev).add(prKey))
+      setSidebarPrApprovalState(setApprovingPrKeys, prKey, true)
       try {
-        await enqueueRef.current(
-          async signal => {
-            /* v8 ignore next */
-            if (signal) throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            await client.approvePullRequest(owner, repo, pr.id)
-          },
-          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
-        )
+        await approveSidebarPrRequest(accounts, enqueueRef.current, owner, repo, pr.id)
         applyApproveToTree(pr)
       } catch (error: unknown) {
         /* v8 ignore start */
@@ -194,11 +234,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
         /* v8 ignore stop */
         console.error('Failed to approve PR from sidebar:', error)
       } finally {
-        setApprovingPrKeys(prev => {
-          const next = new Set(prev)
-          next.delete(prKey)
-          return next
-        })
+        setSidebarPrApprovalState(setApprovingPrKeys, prKey, false)
       }
     },
     [accounts, approvingPrKeys, applyApproveToTree, enqueueRef]

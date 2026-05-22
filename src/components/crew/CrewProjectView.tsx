@@ -280,6 +280,26 @@ function SessionErrorBanner({ status }: SessionErrorBannerProps) {
   )
 }
 
+async function sendCopilotMessage(
+  project: CrewProject, session: CrewSession, trimmedMessage: string,
+  appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
+): Promise<void> {
+  const conversationHistory = session.conversationHistory.map(m => ({ role: m.role, content: m.content }))
+  try {
+    const response = await window.copilot.chatSend({ message: trimmedMessage, context: `Project: ${project.githubSlug} at ${project.localPath}`, conversationHistory })
+    const responseContent = typeof response === 'string' ? response : response?.content ?? 'No response received.'
+    const assistantMsg: CrewChatMessage = { role: 'assistant', content: responseContent, timestamp: Date.now() }
+    await window.crew.addMessage(project.id, assistantMsg)
+    await window.crew.updateSessionStatus(project.id, 'idle')
+    appendFn(assistantMsg, 'idle')
+  } catch (err: unknown) {
+    const errorMsg: CrewChatMessage = { role: 'assistant', content: `Error: ${getErrorMessage(err)}`, timestamp: Date.now() }
+    await window.crew.addMessage(project.id, errorMsg)
+    await window.crew.updateSessionStatus(project.id, 'error')
+    appendFn(errorMsg, 'error')
+  }
+}
+
 export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   const [project, setProject] = useState<CrewProject | null>(null)
   const [session, setSession] = useState<CrewSession | null>(null)
@@ -291,112 +311,40 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     const projects: CrewProject[] = await window.crew.listProjects()
     const p = projects.find(pr => pr.id === projectId) ?? null
     setProject(p)
-    if (p) {
-      const s = await window.crew.getSession(p.id)
-      setSession(s)
-    }
+    if (p) { const s = await window.crew.getSession(p.id); setSession(s) }
   }, [projectId])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [session?.conversationHistory.length])
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [session?.conversationHistory.length])
+  const appendMessageToSession = (msg: CrewChatMessage, status: CrewSession['status']) => {
+    setSession(prev => prev ? { ...prev, status, conversationHistory: [...prev.conversationHistory, msg], updatedAt: Date.now() } : prev)
+  }
 
   const handleStartSession = async () => {
     /* v8 ignore start */
     if (!project) return
     /* v8 ignore stop */
-    const s = await window.crew.createSession(project.id)
-    setSession(s)
-  }
-
-  const appendMessageToSession = (msg: CrewChatMessage, status: CrewSession['status']) => {
-    setSession(prev =>
-      prev
-        ? {
-            ...prev,
-            status,
-            conversationHistory: [...prev.conversationHistory, msg],
-            updatedAt: Date.now(),
-          }
-        : prev
-    )
-  }
-
-  const sendCopilotMessage = async (
-    project: CrewProject,
-    session: CrewSession,
-    trimmedMessage: string,
-    appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
-  ) => {
-    const conversationHistory = session.conversationHistory.map(m => ({
-      role: m.role,
-      content: m.content,
-    }))
-
-    try {
-      const response = await window.copilot.chatSend({
-        message: trimmedMessage,
-        context: `Project: ${project.githubSlug} at ${project.localPath}`,
-        conversationHistory,
-      })
-      const responseContent = typeof response === 'string' ? response : response?.content ?? 'No response received.'
-
-      const assistantMsg: CrewChatMessage = {
-        role: 'assistant',
-        content: responseContent,
-        timestamp: Date.now(),
-      }
-
-      await window.crew.addMessage(project.id, assistantMsg)
-      await window.crew.updateSessionStatus(project.id, 'idle')
-      appendFn(assistantMsg, 'idle')
-    } catch (err: unknown) {
-      const errorMsg: CrewChatMessage = {
-        role: 'assistant',
-        content: `Error: ${getErrorMessage(err)}`,
-        timestamp: Date.now(),
-      }
-      await window.crew.addMessage(project.id, errorMsg)
-      await window.crew.updateSessionStatus(project.id, 'error')
-      appendFn(errorMsg, 'error')
-    }
+    const s = await window.crew.createSession(project.id); setSession(s)
   }
 
   const handleSendMessage = async () => {
     if (!project || !session || !message.trim() || sending) return
-
     const trimmedMessage = message.trim()
-
-    const userMsg: CrewChatMessage = {
-      role: 'user',
-      content: trimmedMessage,
-      timestamp: Date.now(),
-    }
-
-    setSending(true)
-    setMessage('')
-    appendMessageToSession(userMsg, 'active')
-
+    const userMsg: CrewChatMessage = { role: 'user', content: trimmedMessage, timestamp: Date.now() }
+    setSending(true); setMessage(''); appendMessageToSession(userMsg, 'active')
     try {
       await window.crew.addMessage(project.id, userMsg)
       await window.crew.updateSessionStatus(project.id, 'active')
-
       await sendCopilotMessage(project, session, trimmedMessage, appendMessageToSession)
-    } finally {
-      setSending(false)
-    }
+    } finally { setSending(false) }
   }
 
   const handleClearSession = async () => {
     /* v8 ignore start */
     if (!project) return
     /* v8 ignore stop */
-    await window.crew.clearSession(project.id)
-    setSession(null)
+    await window.crew.clearSession(project.id); setSession(null)
   }
 
   const handleKeepFile = async (filePath: string) => {
@@ -404,26 +352,18 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     if (!project || !session) return
     /* v8 ignore stop */
     const updated = session.changedFiles.filter(f => f.filePath !== filePath)
-    await window.crew.updateChangedFiles(project.id, updated)
-    await loadData()
+    await window.crew.updateChangedFiles(project.id, updated); await loadData()
   }
 
   const handleUndoFile = async (filePath: string) => {
     /* v8 ignore start */
     if (!project || !session) return
     /* v8 ignore stop */
-    await window.crew.undoFile(project.id, filePath)
-    await loadData()
+    await window.crew.undoFile(project.id, filePath); await loadData()
   }
 
   if (!project) {
-    return (
-      <div className="content-placeholder">
-        <div className="content-body">
-          <p>Project not found.</p>
-        </div>
-      </div>
-    )
+    return (<div className="content-placeholder"><div className="content-body"><p>Project not found.</p></div></div>)
   }
 
   return (
@@ -434,23 +374,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
           <SessionStarter onStartSession={handleStartSession} />
         ) : (
           <>
-            <ConversationHistory
-              conversationHistory={session.conversationHistory}
-              sending={sending}
-              chatEndRef={chatEndRef}
-            />
-            <ChangedFilesPanel
-              changedFiles={session.changedFiles}
-              onKeepFile={handleKeepFile}
-              onUndoFile={handleUndoFile}
-            />
-            <MessageComposer
-              message={message}
-              sending={sending}
-              onMessageChange={setMessage}
-              onSendMessage={handleSendMessage}
-              onClearSession={handleClearSession}
-            />
+            <ConversationHistory conversationHistory={session.conversationHistory} sending={sending} chatEndRef={chatEndRef} />
+            <ChangedFilesPanel changedFiles={session.changedFiles} onKeepFile={handleKeepFile} onUndoFile={handleUndoFile} />
+            <MessageComposer message={message} sending={sending} onMessageChange={setMessage} onSendMessage={handleSendMessage} onClearSession={handleClearSession} />
             <SessionErrorBanner status={session.status} />
           </>
         )}

@@ -94,27 +94,21 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
   const { increment: incrementStat } = useBuddyStatsMutations()
-
   const [account, setAccount] = useState('')
   const [model, setModel] = useState(configuredModel || 'claude-sonnet-4.5')
   const [savedDefaultTemplate, setSavedDefaultTemplate] = useState('')
   const [savingDefault, setSavingDefault] = useState(false)
-
   const getDefaultPrompt = useCallback(() => {
     if (prInfo.initialPrompt) return prInfo.initialPrompt
-    if (savedDefaultTemplate.trim()) {
-      return resolvePromptTemplate(savedDefaultTemplate, prInfo.prUrl)
-    }
+    if (savedDefaultTemplate.trim()) return resolvePromptTemplate(savedDefaultTemplate, prInfo.prUrl)
     return DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
   }, [prInfo.initialPrompt, prInfo.prUrl, savedDefaultTemplate])
-
   const [prompt, setPrompt] = useState(() => getDefaultPrompt())
   const [promptExpanded, setPromptExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scheduled, setScheduled] = useState(false)
   const [scheduleDelay, setScheduleDelay] = useState(5)
-
   const initializedRef = useRef(false)
   const loadedDefaultRef = useRef(false)
 
@@ -123,72 +117,38 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
     if (initializedRef.current) return
     /* v8 ignore stop */
     initializedRef.current = true
-    const matchedAccount = githubAccounts.find(
-      a => a.org.toLowerCase() === prInfo.org.toLowerCase()
-    )
-    if (matchedAccount) {
-      setAccount(matchedAccount.username)
-    } else if (configuredAccount) {
-      setAccount(configuredAccount)
-    }
-    if (configuredModel) {
-      setModel(configuredModel)
-    }
+    const matchedAccount = githubAccounts.find(a => a.org.toLowerCase() === prInfo.org.toLowerCase())
+    if (matchedAccount) setAccount(matchedAccount.username)
+    else if (configuredAccount) setAccount(configuredAccount)
+    if (configuredModel) setModel(configuredModel)
   }, [githubAccounts, prInfo.org, configuredAccount, configuredModel])
 
   useEffect(() => {
     if (loadedDefaultRef.current || prInfo.initialPrompt) return
     loadedDefaultRef.current = true
     const fallbackPrompt = DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
-    window.ipcRenderer
-      .invoke(IPC_INVOKE.CONFIG_GET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE)
-      .then((template: string) => {
-        const normalized = (template || '').trim()
-        if (!normalized) return
-        setSavedDefaultTemplate(normalized)
-        setPrompt(current => {
-          if (current !== fallbackPrompt) return current
-          return resolvePromptTemplate(normalized, prInfo.prUrl)
-        })
-      })
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE)
+      .then((template: string) => { const normalized = (template || '').trim(); if (!normalized) return; setSavedDefaultTemplate(normalized); setPrompt(current => current !== fallbackPrompt ? current : resolvePromptTemplate(normalized, prInfo.prUrl)) })
       /* v8 ignore start */
-      .catch(() => {
-        /* v8 ignore stop */
-        // Non-blocking: use built-in default if config fetch fails
-      })
+      .catch(() => { /* v8 ignore stop */ })
   }, [prInfo.initialPrompt, prInfo.prUrl])
 
-  const buildReviewSnapshot = useCallback(async () => {
-    return fetchReviewSnapshot(prInfo, githubAccounts)
-  }, [githubAccounts, prInfo])
-
+  const buildReviewSnapshot = useCallback(async () => fetchReviewSnapshot(prInfo, githubAccounts), [githubAccounts, prInfo])
   const handleRunNow = useCallback(async () => {
     if (submitting) return
-    setSubmitting(true)
-    setError(null)
+    setSubmitting(true); setError(null)
     try {
       /* v8 ignore start */
       incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
       /* v8 ignore stop */
       const snapshot = await buildReviewSnapshot()
-      const result = await window.copilot.execute({
-        prompt,
-        category: 'pr-review',
-        model,
-        metadata: buildReviewMetadata(prInfo, account, snapshot),
-      })
+      const result = await window.copilot.execute({ prompt, category: 'pr-review', model, metadata: buildReviewMetadata(prInfo, account, snapshot) })
       handleReviewResult(result, setError, onSubmitted)
-    } catch (err: unknown) {
-      setError(getErrorMessage(err))
-    } finally {
-      setSubmitting(false)
-    }
+    } catch (err: unknown) { setError(getErrorMessage(err)) } finally { setSubmitting(false) }
   }, [prompt, model, account, prInfo, submitting, incrementStat, onSubmitted, buildReviewSnapshot])
-
   const handleSchedule = useCallback(async () => {
     if (submitting) return
-    setSubmitting(true)
-    setError(null)
+    setSubmitting(true); setError(null)
     try {
       const delayMs = scheduleDelay * 60 * 1000
       const snapshot = await buildReviewSnapshot()
@@ -197,85 +157,26 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
           /* v8 ignore start */
           incrementStat({ field: 'copilotPrReviews' }).catch(() => {})
           /* v8 ignore stop */
-          const result = await window.copilot.execute({
-            prompt,
-            category: 'pr-review',
-            model,
-            metadata: buildReviewMetadata(prInfo, account, snapshot, {
-              scheduledAt: Date.now(),
-            }),
-          })
+          const result = await window.copilot.execute({ prompt, category: 'pr-review', model, metadata: buildReviewMetadata(prInfo, account, snapshot, { scheduledAt: Date.now() }) })
           /* v8 ignore start */
-          if (result.success && result.resultId) {
-            /* v8 ignore stop */
-            window.dispatchEvent(
-              new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
-            )
-          }
-        } catch (err: unknown) {
-          console.error('Scheduled PR review failed:', err)
-        }
+          if (result.success && result.resultId) { /* v8 ignore stop */ window.dispatchEvent(new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })) }
+        } catch (err: unknown) { console.error('Scheduled PR review failed:', err) }
       }, delayMs)
       setScheduled(true)
-    } catch (err: unknown) {
-      /* v8 ignore start */
-      setError(getErrorMessage(err))
-      /* v8 ignore stop */
-    } finally {
-      setSubmitting(false)
-    }
-  }, [
-    prompt,
-    model,
-    account,
-    prInfo,
-    scheduleDelay,
-    submitting,
-    incrementStat,
-    buildReviewSnapshot,
-  ])
+    } catch (err: unknown) { /* v8 ignore start */ setError(getErrorMessage(err)) /* v8 ignore stop */ } finally { setSubmitting(false) }
+  }, [prompt, model, account, prInfo, scheduleDelay, submitting, incrementStat, buildReviewSnapshot])
 
-  const handleResetPrompt = useCallback(() => {
-    setPrompt(getDefaultPrompt())
-  }, [getDefaultPrompt])
-
+  const handleResetPrompt = useCallback(() => { setPrompt(getDefaultPrompt()) }, [getDefaultPrompt])
   const handleSaveAsDefault = useCallback(async () => {
     const trimmed = prompt.trim()
     if (!trimmed || savingDefault) return
-    setSavingDefault(true)
-    setError(null)
-    try {
-      const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN)
-      await window.ipcRenderer.invoke(
-        IPC_INVOKE.CONFIG_SET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE,
-        template
-      )
-      setSavedDefaultTemplate(template)
-    } catch (err: unknown) {
-      setError(getErrorMessage(err))
-    } finally {
-      setSavingDefault(false)
-    }
+    setSavingDefault(true); setError(null)
+    try { const template = trimmed.split(prInfo.prUrl).join(PR_URL_TOKEN); await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE, template); setSavedDefaultTemplate(template) } catch (err: unknown) { setError(getErrorMessage(err)) } finally { setSavingDefault(false) }
   }, [prompt, prInfo.prUrl, savingDefault])
 
   return {
-    account,
-    setAccount,
-    model,
-    setModel,
-    prompt,
-    setPrompt,
-    promptExpanded,
-    setPromptExpanded,
-    submitting,
-    error,
-    scheduled,
-    scheduleDelay,
-    setScheduleDelay,
-    savingDefault,
-    handleRunNow,
-    handleSchedule,
-    handleResetPrompt,
-    handleSaveAsDefault,
+    account, setAccount, model, setModel, prompt, setPrompt, promptExpanded, setPromptExpanded,
+    submitting, error, scheduled, scheduleDelay, setScheduleDelay, savingDefault,
+    handleRunNow, handleSchedule, handleResetPrompt, handleSaveAsDefault,
   }
 }

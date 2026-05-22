@@ -281,114 +281,50 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
   const { runs } = useRalphLoops()
   const { active: activeRuns, recent: recentRuns } = useMemo(() => partitionRuns(runs), [runs])
 
-  // Auto-expand Runs section when runs exist
   useEffect(() => {
     if (activeRuns.length > 0 || recentRuns.length > 0) expanded.add('runs')
   }, [activeRuns.length, recentRuns.length, expanded])
 
-  useEffect(() => {
-    window.ralph
-      .listTemplates()
-      .then(result => {
-        if (Array.isArray(result)) setTemplates(result)
-      })
-      .catch(() => {})
-  }, [])
+  useEffect(() => { window.ralph.listTemplates().then(r => { if (Array.isArray(r)) setTemplates(r) }).catch(() => {}) }, [])
 
   const selectScript = (id: string) => {
     setActiveScript(id)
     window.dispatchEvent(new CustomEvent('ralph:select-script', { detail: id }))
     onItemSelect('ralph-dashboard')
   }
+  const goToDashboard = () => { setActiveScript(null); onItemSelect('ralph-dashboard') }
+  const dashClass = `ralph-sidebar-item ${selectedItem === 'ralph-dashboard' && !activeScript ? 'selected' : ''}`
 
   return (
     <div className="sidebar-panel">
-      <div className="sidebar-panel-header">
-        <h2>RALPH LOOPS</h2>
-      </div>
+      <div className="sidebar-panel-header"><h2>RALPH LOOPS</h2></div>
       <div className="sidebar-panel-content">
-        {/* Dashboard */}
-        <div
-          className={`ralph-sidebar-item ${selectedItem === 'ralph-dashboard' && !activeScript ? 'selected' : ''}`}
-          role="button"
-          tabIndex={0}
-          onClick={() => {
-            setActiveScript(null)
-            onItemSelect('ralph-dashboard')
-          }}
-          onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setActiveScript(null)
-              onItemSelect('ralph-dashboard')
-            }
-          }}
-        >
-          <LayoutGrid size={14} />
-          <span>Dashboard</span>
+        <div className={dashClass} role="button" tabIndex={0} onClick={goToDashboard}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') goToDashboard() }}>
+          <LayoutGrid size={14} /><span>Dashboard</span>
         </div>
-
-        {/* Core Scripts */}
-        <SidebarSection
-          id="core"
-          icon={<Terminal size={16} />}
-          label="Core Scripts"
-          expanded={expanded.has('core')}
-          onToggle={expanded.toggle}
-        >
+        <SidebarSection id="core" icon={<Terminal size={16} />} label="Core Scripts"
+          expanded={expanded.has('core')} onToggle={expanded.toggle}>
           {CORE_SCRIPTS.map(s => (
-            <ScriptItem
-              key={s.id}
-              id={s.id}
-              label={s.label}
-              icon={<Play size={12} />}
-              selected={activeScript === s.id}
-              desc={s.desc}
-              onSelect={selectScript}
-            />
+            <ScriptItem key={s.id} id={s.id} label={s.label} icon={<Play size={12} />}
+              selected={activeScript === s.id} desc={s.desc} onSelect={selectScript} />
           ))}
         </SidebarSection>
-
-        {/* Templates */}
-        <SidebarSection
-          id="scripts"
-          icon={<FileCode2 size={16} />}
-          label="Templates"
-          badge={templates.length}
-          expanded={expanded.has('scripts')}
-          onToggle={expanded.toggle}
-        >
+        <SidebarSection id="scripts" icon={<FileCode2 size={16} />} label="Templates"
+          badge={templates.length} expanded={expanded.has('scripts')} onToggle={expanded.toggle}>
           {templates.length === 0 ? (
             <div className="ralph-sidebar-empty">No templates found</div>
           ) : (
             templates.map(t => (
-              <ScriptItem
-                key={t.filename}
-                id={t.filename}
-                label={t.name}
-                icon={<FileCode2 size={12} />}
-                selected={activeScript === t.filename}
-                desc={t.filename}
-                onSelect={selectScript}
-              />
+              <ScriptItem key={t.filename} id={t.filename} label={t.name} icon={<FileCode2 size={12} />}
+                selected={activeScript === t.filename} desc={t.filename} onSelect={selectScript} />
             ))
           )}
         </SidebarSection>
-
-        {/* Runs */}
-        <SidebarSection
-          id="runs"
-          icon={<Activity size={16} />}
-          label="Runs"
-          badge={activeRuns.length}
-          expanded={expanded.has('runs')}
-          onToggle={expanded.toggle}
-        >
-          <RunsList
-            activeRuns={activeRuns}
-            recentRuns={recentRuns}
-            selectedItem={selectedItem}
-            onItemSelect={onItemSelect}
-          />
+        <SidebarSection id="runs" icon={<Activity size={16} />} label="Runs"
+          badge={activeRuns.length} expanded={expanded.has('runs')} onToggle={expanded.toggle}>
+          <RunsList activeRuns={activeRuns} recentRuns={recentRuns}
+            selectedItem={selectedItem} onItemSelect={onItemSelect} />
         </SidebarSection>
       </div>
     </div>

@@ -352,11 +352,7 @@ function ReviewThreadBody({
 }
 
 export function ReviewThreadCard({
-  thread,
-  pr,
-  onReplyAdded,
-  onResolveToggled,
-  onReactToComment,
+  thread, pr, onReplyAdded, onResolveToggled, onReactToComment,
 }: {
   thread: PRReviewThread
   pr: PRDetailInfo
@@ -365,95 +361,56 @@ export function ReviewThreadCard({
   onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
 }) {
   const [state, dispatch] = useReducer(threadReducer, {
-    expanded: !thread.isResolved && !thread.isOutdated,
-    replying: false,
-    replyText: '',
-    sending: false,
-    resolving: false,
+    expanded: !thread.isResolved && !thread.isOutdated, replying: false,
+    replyText: '', sending: false, resolving: false,
   })
   const { expanded, replying, replyText, sending, resolving } = state
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-
   const { firstComment, remainingComments, diffHunk, statusClass } = useThreadDerivedState(thread)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
 
   const handleSendReply = useCallback(async () => {
     if (!replyText.trim() || !ownerRepo || sending) return
-
     dispatch({ type: 'start_sending' })
     try {
-      const newComment = await enqueue(
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.replyToReviewThread(
-            ownerRepo.owner,
-            pr.id,
-            thread.id,
-            replyText.trim()
-          )
-        },
-        { name: `reply-thread-${thread.id}` }
-      )
+      const newComment = await enqueue(async signal => {
+        throwIfAborted(signal)
+        return await new GitHubClient({ accounts }, 7).replyToReviewThread(ownerRepo.owner, pr.id, thread.id, replyText.trim())
+      }, { name: `reply-thread-${thread.id}` })
       onReplyAdded(thread.id, newComment)
       dispatch({ type: 'finish_sending' })
-    } catch (err: unknown) {
-      console.error('Failed to reply:', err)
-      dispatch({ type: 'send_failed' })
-    }
+    } catch (err: unknown) { console.error('Failed to reply:', err); dispatch({ type: 'send_failed' }) }
   }, [replyText, ownerRepo, sending, enqueue, accounts, pr.id, thread.id, onReplyAdded])
 
   const handleResolveToggle = useCallback(async () => {
     /* v8 ignore start */
     if (!ownerRepo || resolving) return
     /* v8 ignore stop */
-
     dispatch({ type: 'start_resolving' })
     try {
-      await enqueue(
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          if (thread.isResolved) {
-            await client.unresolveReviewThread(ownerRepo.owner, thread.id)
-          } else {
-            await client.resolveReviewThread(ownerRepo.owner, thread.id)
-          }
-        },
-        { name: `resolve-thread-${thread.id}` }
-      )
+      await enqueue(async signal => {
+        throwIfAborted(signal)
+        const client = new GitHubClient({ accounts }, 7)
+        if (thread.isResolved) { await client.unresolveReviewThread(ownerRepo.owner, thread.id) }
+        else { await client.resolveReviewThread(ownerRepo.owner, thread.id) }
+      }, { name: `resolve-thread-${thread.id}` })
       onResolveToggled(thread.id, !thread.isResolved)
-    } catch (err: unknown) {
-      console.error('Failed to toggle resolve:', err)
-    } finally {
-      dispatch({ type: 'done_resolving' })
-    }
+    } catch (err: unknown) { console.error('Failed to toggle resolve:', err) }
+    finally { dispatch({ type: 'done_resolving' }) }
   }, [ownerRepo, resolving, enqueue, accounts, thread.id, thread.isResolved, onResolveToggled])
 
   const handleHeaderKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      dispatch({ type: 'toggle_expand' })
-    }
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dispatch({ type: 'toggle_expand' }) }
   }, [])
 
-  useEffect(() => {
-    if (replying && textareaRef.current) {
-      textareaRef.current.focus()
-    }
-  }, [replying])
+  useEffect(() => { if (replying && textareaRef.current) textareaRef.current.focus() }, [replying])
 
   return (
     <div className={`review-thread ${statusClass}`}>
-      <div
-        className="review-thread-header"
-        role="button"
-        tabIndex={0}
-        onClick={() => dispatch({ type: 'toggle_expand' })}
-        onKeyDown={handleHeaderKeyDown}
-      >
+      <div className="review-thread-header" role="button" tabIndex={0}
+        onClick={() => dispatch({ type: 'toggle_expand' })} onKeyDown={handleHeaderKeyDown}>
         <span className="review-thread-chevron">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </span>
@@ -461,23 +418,12 @@ export function ReviewThreadCard({
         <ThreadPathGroup thread={thread} />
         <ThreadHeaderBadges thread={thread} />
       </div>
-
-      <ReviewThreadBody
-        expanded={expanded}
-        diffHunk={diffHunk ?? undefined}
-        firstComment={firstComment}
-        remainingComments={remainingComments}
-        onReactToComment={onReactToComment}
-        replying={replying}
-        replyText={replyText}
-        sending={sending}
-        textareaRef={textareaRef}
-        dispatch={dispatch}
-        handleSendReply={handleSendReply}
-        thread={thread}
-        resolving={resolving}
-        handleResolveToggle={handleResolveToggle}
-      />
+      <ReviewThreadBody expanded={expanded} diffHunk={diffHunk ?? undefined}
+        firstComment={firstComment} remainingComments={remainingComments}
+        onReactToComment={onReactToComment} replying={replying} replyText={replyText}
+        sending={sending} textareaRef={textareaRef} dispatch={dispatch}
+        handleSendReply={handleSendReply} thread={thread}
+        resolving={resolving} handleResolveToggle={handleResolveToggle} />
     </div>
   )
 }

@@ -341,19 +341,7 @@ function DropdownMenuContent({
 }
 
 export function InlineDropdown(rawProps: InlineDropdownProps) {
-  const {
-    value,
-    options,
-    onChange,
-    icon,
-    placeholder,
-    disabled,
-    title,
-    className,
-    align,
-    openUpward,
-    'aria-label': ariaLabel,
-  } = resolveProps(rawProps)
+  const { value, options, onChange, icon, placeholder, disabled, title, className, align, openUpward, 'aria-label': ariaLabel } = resolveProps(rawProps)
   const [isOpen, setIsOpen] = useState(false)
   const [focusIndex, setFocusIndex] = useState(-1)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -363,105 +351,50 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
   const selectedOption = options.find(o => o.value === value)
   const displayLabel = resolveDisplayLabel(selectedOption, placeholder)
 
-  // Close on click outside
   useEffect(() => {
     if (!isOpen) return
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setIsOpen(false)
-      }
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) { setIsOpen(false) }
     }
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  // Scroll focused item into view
   useEffect(() => {
     if (isOpen && focusIndex >= 0 && menuRef.current) {
-      const items = menuRef.current.querySelectorAll('.idropdown-item')
-      items[focusIndex]?.scrollIntoView({ block: 'nearest' })
+      menuRef.current.querySelectorAll('.idropdown-item')[focusIndex]?.scrollIntoView({ block: 'nearest' })
     }
   }, [focusIndex, isOpen])
 
   const enabledOptions = options.filter(o => !o.disabled)
-
   const handleToggle = useCallback(() => {
     /* v8 ignore start -- button's disabled HTML attr prevents onClick from firing */
     if (disabled) return
     /* v8 ignore stop */
     setIsOpen(prev => {
-      if (!prev) {
-        // Opening — set focus to current value
-        const idx = enabledOptions.findIndex(o => o.value === value)
-        setFocusIndex(idx >= 0 ? idx : 0)
-      }
+      if (!prev) { setFocusIndex(Math.max(0, enabledOptions.findIndex(o => o.value === value))) }
       return !prev
     })
   }, [disabled, enabledOptions, value])
-
-  const handleSelect = useCallback(
-    (optValue: string) => {
-      onChange(optValue)
-      setIsOpen(false)
-    },
-    [onChange]
-  )
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      handleDropdownKeyDown(e, {
-        disabled,
-        isOpen,
-        focusIndex,
-        enabledOptions,
-        handleSelect,
-        handleToggle,
-        setFocusIndex,
-        setIsOpen,
-      })
-    },
-    [disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle]
-  )
+  const handleSelect = useCallback((optValue: string) => { onChange(optValue); setIsOpen(false) }, [onChange])
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    handleDropdownKeyDown(e, { disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle, setFocusIndex, setIsOpen })
+  }, [disabled, isOpen, focusIndex, enabledOptions, handleSelect, handleToggle])
 
   const attrs = resolveContainerAttrs(isOpen, disabled, className, listboxId)
 
   return (
-    <div
-      ref={containerRef}
-      className={attrs.className}
-      title={title}
-      tabIndex={attrs.tabIndex}
-      role="combobox"
-      aria-label={resolveComboboxLabel(ariaLabel, title)}
-      aria-expanded={isOpen}
-      aria-controls={attrs.ariaControls}
-      onKeyDown={handleKeyDown}
-    >
-      <button
-        type="button"
-        className="idropdown-trigger"
-        onClick={handleToggle}
-        disabled={disabled}
-        tabIndex={-1}
-      >
+    <div ref={containerRef} className={attrs.className} title={title} tabIndex={attrs.tabIndex}
+      role="combobox" aria-label={resolveComboboxLabel(ariaLabel, title)}
+      aria-expanded={isOpen} aria-controls={attrs.ariaControls} onKeyDown={handleKeyDown}>
+      <button type="button" className="idropdown-trigger" onClick={handleToggle} disabled={disabled} tabIndex={-1}>
         <DropdownTriggerIcon icon={icon} />
         <span className="idropdown-label">{displayLabel}</span>
         <ChevronDown size={10} className={attrs.chevronClassName} />
       </button>
-
-      <DropdownMenuContent
-        isOpen={isOpen}
-        menuRef={menuRef}
-        listboxId={listboxId}
-        options={options}
-        enabledOptions={enabledOptions}
-        value={value}
-        focusIndex={focusIndex}
-        align={align}
-        openUpward={openUpward}
-        handleSelect={handleSelect}
-        setFocusIndex={setFocusIndex}
-      />
+      <DropdownMenuContent isOpen={isOpen} menuRef={menuRef} listboxId={listboxId}
+        options={options} enabledOptions={enabledOptions} value={value} focusIndex={focusIndex}
+        align={align} openUpward={openUpward} handleSelect={handleSelect} setFocusIndex={setFocusIndex} />
     </div>
   )
 }

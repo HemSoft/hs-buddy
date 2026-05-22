@@ -72,38 +72,16 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const [published, setPublished] = useState(false)
   const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) {
-        clearTimeout(copiedTimerRef.current)
-      }
-    }
-  }, [])
+  useEffect(() => { return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current) } }, [])
 
   if (result === undefined) {
-    return (
-      <div className="copilot-result-panel">
-        <div className="copilot-result-loading">
-          <Loader2 size={32} className="spin" />
-          <p>Loading result...</p>
-        </div>
-      </div>
-    )
+    return <div className="copilot-result-panel"><div className="copilot-result-loading"><Loader2 size={32} className="spin" /><p>Loading result...</p></div></div>
   }
-
   if (result === null) {
-    return (
-      <div className="copilot-result-panel">
-        <div className="copilot-result-error">
-          <XCircle size={32} />
-          <p>Result not found</p>
-        </div>
-      </div>
-    )
+    return <div className="copilot-result-panel"><div className="copilot-result-error"><XCircle size={32} /><p>Result not found</p></div></div>
   }
 
   const metadata = result.metadata as Record<string, unknown> | null
-
   const handleCopy = async () => {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
@@ -112,68 +90,32 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
   }
-
   const handleRetry = async () => {
-    try {
-      await window.copilot.execute({
-        prompt: result.prompt,
-        category: result.category ?? undefined,
-        metadata: result.metadata ?? undefined,
-      })
-    } catch (err: unknown) {
-      console.error('Failed to retry prompt:', err)
-    }
+    try { await window.copilot.execute({ prompt: result.prompt, category: result.category ?? undefined, metadata: result.metadata ?? undefined }) }
+    catch (err: unknown) { console.error('Failed to retry prompt:', err) }
   }
-
   const handlePublishToPR = async () => {
     if (!result.result || publishing) return
     const prMeta = extractPRMetadata(metadata)
     if (!prMeta) return
-
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      const body = buildPublishBody(result.result, result.model)
-      await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
+      await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, buildPublishBody(result.result, result.model))
       setPublished(true)
-    } catch (err: unknown) {
-      console.error('Failed to publish review to PR:', err)
-    } finally {
-      setPublishing(false)
-    }
+    } catch (err: unknown) { console.error('Failed to publish review to PR:', err) }
+    finally { setPublishing(false) }
   }
-
-  const canPublish = canPublishToPR(result, metadata)
 
   return (
     <div className="copilot-result-panel">
-      <ResultHeader
-        result={result}
-        metadata={metadata}
-        canPublish={canPublish}
-        copied={copied}
-        publishing={publishing}
-        published={published}
-        onCopy={handleCopy}
-        onRetry={handleRetry}
-        onPublish={handlePublishToPR}
-        onDelete={() => remove({ id: result._id })}
-      />
-
-      {/* Prompt */}
-      <div className="copilot-result-prompt">
-        <span className="prompt-label">Prompt</span>
-        <p>{result.prompt}</p>
-      </div>
-
-      {/* Content */}
-      <ResultContent
-        contentRef={contentRef}
-        status={result.status}
-        resultText={result.result}
-        error={result.error}
-        onRetry={handleRetry}
-      />
+      <ResultHeader result={result} metadata={metadata} canPublish={canPublishToPR(result, metadata)}
+        copied={copied} publishing={publishing} published={published}
+        onCopy={handleCopy} onRetry={handleRetry} onPublish={handlePublishToPR}
+        onDelete={() => remove({ id: result._id })} />
+      <div className="copilot-result-prompt"><span className="prompt-label">Prompt</span><p>{result.prompt}</p></div>
+      <ResultContent contentRef={contentRef} status={result.status}
+        resultText={result.result} error={result.error} onRetry={handleRetry} />
     </div>
   )
 }

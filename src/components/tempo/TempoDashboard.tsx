@@ -507,11 +507,7 @@ function applyPreviousMonthTemplateResult(
 }
 
 export function TempoDashboard() {
-  const [state, dispatch] = useReducer(
-    tempoDashboardReducer,
-    undefined,
-    createInitialDashboardState
-  )
+  const [state, dispatch] = useReducer(tempoDashboardReducer, undefined, createInitialDashboardState)
   const todayKey = formatDateKey(new Date())
   const monthLabel = formatMonthLabel(state.viewMonth)
   const copyMonthRef = useRef('')
@@ -525,7 +521,6 @@ export function TempoDashboard() {
 
   const { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay } =
     useTempoDashboardHandlers(state, dispatch, month, holidays, actions, todayKey)
-
   const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
     computeDashboardDerived(state, month, today, todayKey)
 
@@ -534,96 +529,45 @@ export function TempoDashboard() {
     const m = state.viewMonth.getMonth()
     const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`
     copyMonthRef.current = monthKey
-
     dispatch({ type: 'setLoadingTemplates', loading: true })
-    const prevDate = new Date(y, m - 1, 1)
-    const { from, to } = getMonthRange(prevDate)
+    const { from, to } = getMonthRange(new Date(y, m - 1, 1))
     const result = await window.tempo.getWeek(from, to)
-
     if (copyMonthRef.current !== monthKey) return
-
     applyPreviousMonthTemplateResult(result, dispatch)
   }, [state.viewMonth])
 
-  // Merge real issue summaries with templates (templates hidden if real data exists for that key)
   const mergedIssueSummaries = useMemo(() => {
     if (state.templateIssues.length === 0) return month.issueSummaries
     const realKeys = new Set(month.issueSummaries.map(s => s.issueKey))
-    const templates = state.templateIssues.filter(t => !realKeys.has(t.issueKey))
-    return [...month.issueSummaries, ...templates]
+    return [...month.issueSummaries, ...state.templateIssues.filter(t => !realKeys.has(t.issueKey))]
   }, [month.issueSummaries, state.templateIssues])
 
   return (
     <div className="tempo-dashboard">
-      <TempoDashboardHeader
-        monthLabel={monthLabel}
-        viewMode={state.viewMode}
-        monthLoading={month.loading}
-        todayKey={todayKey}
-        onPreviousMonth={prevMonth}
-        onCurrentMonth={goToCurrentMonth}
-        onNextMonth={nextMonth}
-        onSetViewMode={viewMode => dispatch({ type: 'setViewMode', viewMode })}
-        onAddWorklog={handleAddForDate}
-        onRefresh={refreshAll}
-      />
-
-      <TempoSummaryCards
-        todayHours={todayHours}
-        monthHours={month.totalHours}
-        monthTarget={monthTarget}
-        isCurrentMonth={isCurrentMonth}
-        viewMonth={state.viewMonth}
-        worklogs={month.worklogs}
-        capexMap={capexMap}
-      />
-
-      {activeError && (
-        <TempoDashboardErrorBanner
-          error={activeError}
-          canRetry={Boolean(month.error)}
-          onRetry={refreshAll}
-          onDismiss={() => dispatch({ type: 'setActionError', error: null })}
-        />
-      )}
-
+      <TempoDashboardHeader monthLabel={monthLabel} viewMode={state.viewMode} monthLoading={month.loading}
+        todayKey={todayKey} onPreviousMonth={prevMonth} onCurrentMonth={goToCurrentMonth}
+        onNextMonth={nextMonth} onSetViewMode={viewMode => dispatch({ type: 'setViewMode', viewMode })}
+        onAddWorklog={handleAddForDate} onRefresh={refreshAll} />
+      <TempoSummaryCards todayHours={todayHours} monthHours={month.totalHours} monthTarget={monthTarget}
+        isCurrentMonth={isCurrentMonth} viewMonth={state.viewMonth} worklogs={month.worklogs} capexMap={capexMap} />
+      {activeError && <TempoDashboardErrorBanner error={activeError} canRetry={Boolean(month.error)}
+        onRetry={refreshAll} onDismiss={() => dispatch({ type: 'setActionError', error: null })} />}
       {state.viewMode === 'grid' ? (
-        <TempoTimesheetGrid
-          issueSummaries={mergedIssueSummaries}
-          worklogs={month.worklogs}
-          totalHours={month.totalHours}
-          monthDate={state.viewMonth}
-          holidays={holidays}
-          loading={month.loading}
-          loadingTemplates={state.loadingTemplates}
-          capexMap={capexMap}
-          onCellClick={handleAddForDate}
-          onWorklogEdit={handleEdit}
-          onWorklogDelete={handleDelete}
-          onCopyToToday={handleCopyToDay}
-          onCopyFromPreviousMonth={handleCopyFromPreviousMonth}
-        />
+        <TempoTimesheetGrid issueSummaries={mergedIssueSummaries} worklogs={month.worklogs}
+          totalHours={month.totalHours} monthDate={state.viewMonth} holidays={holidays}
+          loading={month.loading} loadingTemplates={state.loadingTemplates} capexMap={capexMap}
+          onCellClick={handleAddForDate} onWorklogEdit={handleEdit} onWorklogDelete={handleDelete}
+          onCopyToToday={handleCopyToDay} onCopyFromPreviousMonth={handleCopyFromPreviousMonth} />
       ) : (
-        <TempoTimelineView
-          worklogs={month.worklogs}
-          loading={month.loading}
-          monthLabel={monthLabel}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+        <TempoTimelineView worklogs={month.worklogs} loading={month.loading}
+          monthLabel={monthLabel} onEdit={handleEdit} onDelete={handleDelete} />
       )}
-
       {state.editorOpen && (
-        <TempoWorklogEditor
-          worklog={state.editingWorklog}
-          defaultDate={editorDefaults.defaultDate}
-          defaultIssueKey={editorDefaults.defaultIssueKey}
-          defaultAccountKey={editorDefaults.defaultAccountKey}
+        <TempoWorklogEditor worklog={state.editingWorklog} defaultDate={editorDefaults.defaultDate}
+          defaultIssueKey={editorDefaults.defaultIssueKey} defaultAccountKey={editorDefaults.defaultAccountKey}
           defaultDescription={editorDefaults.defaultDescription}
           existingWorklogs={month.worklogs.filter(w => w.date === activeEditorDate)}
-          onSave={handleEditorSave}
-          onCancel={() => dispatch({ type: 'closeEditor' })}
-        />
+          onSave={handleEditorSave} onCancel={() => dispatch({ type: 'closeEditor' })} />
       )}
     </div>
   )

@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce CRAP scores batch 3 - extract helpers
 - Batch 4 — reduce complexity in prs, OrgDetailPanel, userHelpers, useTerminalPanel
 - Batch 5 — reduce complexity in useConfig, CopilotResultPanel, useTerminalPanel, RepoNode
+- Batch 6 - reduce complexity in TerminalPane, usePRListData, pr-detail, RepoNode, PullRequestDetailPanel, BookmarksSidebar, ralphService, BookmarkDialog, UserDetailPanel, OrgBudgetsSection, AutomationSidebarSection
 
 ### Added
 

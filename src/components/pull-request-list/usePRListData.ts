@@ -124,6 +124,47 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
   })
 }
 
+function resolveOrgName(pr: PullRequest): string {
+  return pr.org || ''
+}
+
+function updateApprovedCache(mode: PRSearchMode, pr: PullRequest): void {
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (cached?.data) {
+    dataCache.set(mode, markApproved(cached.data, pr))
+  }
+}
+
+function shouldUseFreshCache(
+  mode: PRSearchMode,
+  refreshInterval: number,
+  isForceRefresh: boolean
+): PullRequest[] | null {
+  if (isForceRefresh) return null
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (!cached) return null
+  const intervalMs = refreshInterval * MS_PER_MINUTE
+  const timeSinceLastFetch = Date.now() - cached.fetchedAt
+  if (timeSinceLastFetch < intervalMs) return cached.data
+  return null
+}
+
+function finalizeFetchState(
+  currentFetchId: number,
+  fetchIdRef: { current: number },
+  setLoading: (v: boolean) => void,
+  setRefreshing: (v: boolean) => void,
+  fetchInProgressRef: { current: boolean }
+): void {
+  /* v8 ignore start */
+  if (currentFetchId === fetchIdRef.current) {
+    /* v8 ignore stop */
+    setLoading(false)
+    setRefreshing(false)
+    fetchInProgressRef.current = false
+  }
+}
+
 export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {
   const cachedEntry = dataCache.get<PullRequest[]>(mode)
   const [prs, setPrs] = useState<PullRequest[]>(cachedEntry?.data || [])
@@ -221,7 +262,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
     const { pr } = contextMenu
-    const org = pr.org || ''
+    const org = resolveOrgName(pr)
     const repoName = pr.repository
     const key = `${org}/${repoName}`
     if (bookmarkedRepoKeys.has(key)) {
@@ -324,10 +365,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
           { name: `approve-pr-${pr.repository}-${pr.id}` }
         )
         setPrs(prev => markApproved(prev, pr))
-        const cached = dataCache.get<PullRequest[]>(mode)
-        if (cached?.data) {
-          dataCache.set(mode, markApproved(cached.data, pr))
-        }
+        updateApprovedCache(mode, pr)
       } catch (error: unknown) {
         console.error('Failed to approve PR:', error)
       } finally {
@@ -368,17 +406,14 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       return
       /* v8 ignore stop */
     }
-    const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
-    if (cached && !isForceRefresh) {
-      const intervalMs = refreshInterval * MS_PER_MINUTE
-      const timeSinceLastFetch = Date.now() - cached.fetchedAt
-      if (timeSinceLastFetch < intervalMs) {
-        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
-        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
-        return
-      }
+    const freshData = shouldUseFreshCache(mode, refreshInterval, isForceRefresh)
+    if (freshData) {
+      console.log(`Using cached PRs for ${mode}`)
+      applyCachedPRs(freshData, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
+      return
     }
+    const cached = dataCache.get<PullRequest[]>(mode)
     fetchInProgressRef.current = true
     const currentFetchId = ++fetchIdRef.current
     const fetchPRs = async () => {
@@ -445,13 +480,13 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       } catch (err: unknown) {
         handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
       } finally {
-        /* v8 ignore start */
-        if (currentFetchId === fetchIdRef.current) {
-          /* v8 ignore stop */
-          setLoading(false)
-          setRefreshing(false)
-          fetchInProgressRef.current = false
-        }
+        finalizeFetchState(
+          currentFetchId,
+          fetchIdRef,
+          setLoading,
+          setRefreshing,
+          fetchInProgressRef
+        )
       }
     }
     fetchPRs()

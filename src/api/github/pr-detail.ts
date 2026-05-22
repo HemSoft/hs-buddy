@@ -396,10 +396,16 @@ function buildCommentTimelineEvents(
   }))
 }
 
+function getAuthorLogin(
+  author: { user: { login: string } | null; name: string | null } | null
+): string | undefined {
+  return author?.user?.login
+}
+
 function resolveCommitAuthor(
   author: { user: { login: string } | null; name: string | null } | null
 ): string {
-  return author?.user?.login || author?.name || 'unknown'
+  return getAuthorLogin(author) || author?.name || 'unknown'
 }
 
 function buildCommitTimelineEvents(
@@ -657,6 +663,28 @@ export async function fetchPRFilesChanged(
   }
 }
 
+function resolveLinkedIssues(
+  refs: { nodes?: Array<{ number: number; title: string; url: string }> } | null | undefined
+): PRLinkedIssue[] {
+  return (refs?.nodes || []).map(n => ({
+    number: n.number,
+    title: n.title,
+    url: n.url,
+  }))
+}
+
+function resolveBodyText(body: string | null | undefined): string {
+  return body || ''
+}
+
+function resolveHeadSha(head: { sha?: string | null } | null | undefined): string {
+  return head?.sha || ''
+}
+
+function safeNodes<T>(nodes: T[] | null | undefined): T[] {
+  return nodes || []
+}
+
 /* v8 ignore start -- API response null-guards throughout PR detail data mapping */
 export async function fetchPRHistory(
   config: PRConfig['github'],
@@ -692,16 +720,12 @@ export async function fetchPRHistory(
   const issueCommentCount = pr.comments.totalCount
   const reviewers = buildReviewerSummaries(pr)
   const timeline = buildPRTimeline(pr, pullNumber)
-  const linkedIssues: PRLinkedIssue[] = (pr.closingIssuesReferences?.nodes || []).map(n => ({
-    number: n.number,
-    title: n.title,
-    url: n.url,
-  }))
+  const linkedIssues = resolveLinkedIssues(pr.closingIssuesReferences)
   return {
     createdAt: pr.createdAt,
     updatedAt: pr.updatedAt,
     mergedAt: pr.mergedAt,
-    body: pr.body || '',
+    body: resolveBodyText(pr.body),
     commitCount: pr.commits.totalCount,
     issueCommentCount,
     reviewCommentCount,
@@ -724,7 +748,7 @@ export async function fetchPRBody(
 ): Promise<string> {
   const octokit = await getOctokitForOwner(config, owner)
   const { data } = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
-  return data.body || ''
+  return resolveBodyText(data.body)
 }
 
 export async function fetchPRChecks(
@@ -735,7 +759,7 @@ export async function fetchPRChecks(
 ): Promise<PRChecksSummary> {
   const octokit = await getOctokitForOwner(config, owner)
   const pullResponse = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
-  const headSha = pullResponse.data.head?.sha || ''
+  const headSha = resolveHeadSha(pullResponse.data.head)
   if (!headSha) {
     throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
   }
@@ -743,12 +767,12 @@ export async function fetchPRChecks(
     octokit.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
     octokit.repos.getCombinedStatusForRef({ owner, repo, ref: headSha, per_page: 100 }),
   ])
-  const checkRuns: PRCheckRunSummary[] = (checkRunsResponse.data.check_runs || []).map(
+  const checkRuns: PRCheckRunSummary[] = safeNodes(checkRunsResponse.data.check_runs).map(
     mapCheckRunToSummary
   )
-  const statusContexts: PRStatusContextSummary[] = (combinedStatusResponse.data.statuses || []).map(
-    mapStatusContextToSummary
-  )
+  const statusContexts: PRStatusContextSummary[] = safeNodes(
+    combinedStatusResponse.data.statuses
+  ).map(mapStatusContextToSummary)
 
   const {
     total: totalCount,
@@ -819,7 +843,7 @@ export async function fetchPRThreads(
   if (!pr) {
     throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
   }
-  const threads: PRReviewThread[] = (pr.reviewThreads.nodes || []).map(t => ({
+  const threads: PRReviewThread[] = safeNodes(pr.reviewThreads.nodes).map(t => ({
     id: t.id,
     isResolved: t.isResolved,
     isOutdated: t.isOutdated,
@@ -829,10 +853,10 @@ export async function fetchPRThreads(
     diffSide: t.diffSide,
     comments: (t.comments.nodes || []).map(c => mapReviewCommentFields(c, mapReactionGroups)),
   }))
-  const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c =>
+  const issueComments: PRReviewComment[] = safeNodes(pr.comments.nodes).map(c =>
     mapReviewCommentFields(c, mapReactionGroups)
   )
-  const reviews: PRReviewSummary[] = (pr.reviews.nodes || [])
+  const reviews: PRReviewSummary[] = safeNodes(pr.reviews.nodes)
     .filter(r => r.submittedAt && r.body)
     .map(r => ({
       id: r.id,

@@ -377,6 +377,10 @@ function IssueListItems({
   )
 }
 
+function isAnyLoading(isLoading: boolean, isCountLoading: boolean): boolean {
+  return isLoading || isCountLoading
+}
+
 function IssueStateCountBadge({
   isOpen,
   isLoading,
@@ -389,7 +393,7 @@ function IssueStateCountBadge({
   counts?: RepoCounts
 }) {
   if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
+    if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
     if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
     return null
   }
@@ -540,6 +544,10 @@ function SectionCountBadge({ isCountLoading, count }: { isCountLoading: boolean;
   return null
 }
 
+function getTreeItems<T>(data: Record<string, T[]>, key: string): T[] {
+  return data[key] || []
+}
+
 function RepoIssuesSection({
   org,
   repoName,
@@ -622,7 +630,7 @@ function RepoIssuesSection({
               isLoading={isOpenIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[openIssuesKey] || []}
+              issues={getTreeItems(repoIssueTreeData, openIssuesKey)}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -637,7 +645,7 @@ function RepoIssuesSection({
               isLoading={isClosedIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[closedIssuesKey] || []}
+              issues={getTreeItems(repoIssueTreeData, closedIssuesKey)}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -685,7 +693,7 @@ function PRStateCountBadge({
   closedCount: number
 }) {
   if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
+    if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
     if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
     return null
   }
@@ -957,7 +965,7 @@ function RepoPullRequestsSection({
               isLoading={isOpenPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[openPrsKey] || []}
+              prs={getTreeItems(repoPrTreeData, openPrsKey)}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -975,7 +983,7 @@ function RepoPullRequestsSection({
               isLoading={isClosedPRsLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              prs={repoPrTreeData[closedPrsKey] || []}
+              prs={getTreeItems(repoPrTreeData, closedPrsKey)}
               expandedPRNodes={expandedPRNodes}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
@@ -1277,6 +1285,10 @@ function RepoRalphSection({
   )
 }
 
+function prNodeStatePrefix(closed: boolean): string {
+  return closed ? 'closed' : 'open'
+}
+
 function renderPRNode(
   pr: PullRequest,
   repoKey: string,
@@ -1293,7 +1305,7 @@ function renderPRNode(
 
   return (
     <div
-      key={`${closed ? 'closed' : 'open'}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
+      key={`${prNodeStatePrefix(closed)}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
       className="sidebar-pr-group sidebar-pr-children"
     >
       <div

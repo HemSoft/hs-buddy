@@ -18,6 +18,11 @@ interface BudgetCardMetrics {
   barColor: string
 }
 
+interface BudgetUsageAmounts {
+  displaySpent: number
+  myShare: number
+}
+
 function resolveEffectiveBudget(d: NonNullable<OrgBudgetState['data']>): number | null {
   return d.budgetAmount ?? null
 }
@@ -26,16 +31,34 @@ function clampPct(value: number, budget: number): number {
   return Math.min((value / budget) * 100, 100)
 }
 
+function resolveBudgetUsageAmounts(
+  d: NonNullable<OrgBudgetState['data']>,
+  quotaOverage: number
+): BudgetUsageAmounts {
+  const spent = d.spent ?? 0
+
+  if (d.useQuotaOverage) {
+    return { displaySpent: quotaOverage, myShare: 0 }
+  }
+
+  return { displaySpent: spent, myShare: quotaOverage }
+}
+
+function resolveMySharePct(myShare: number, effectiveBudget: number, pct: number): number | null {
+  if (myShare <= 0) return null
+
+  return Math.min((myShare / effectiveBudget) * 100, pct)
+}
+
 function computeBudgetCardMetrics(
   d: NonNullable<OrgBudgetState['data']>,
   quotaOverage: number
 ): BudgetCardMetrics {
   const effectiveBudget = resolveEffectiveBudget(d)
-  const displaySpent = d.useQuotaOverage ? quotaOverage : (d.spent ?? 0)
-  const myShare = d.useQuotaOverage ? 0 : quotaOverage
+  const { displaySpent, myShare } = resolveBudgetUsageAmounts(d, quotaOverage)
   const barValue = Math.max(displaySpent, myShare)
 
-  if (!effectiveBudget) {
+  if (effectiveBudget === null || effectiveBudget === 0) {
     return {
       effectiveBudget,
       displaySpent,
@@ -47,9 +70,36 @@ function computeBudgetCardMetrics(
   }
 
   const pct = clampPct(barValue, effectiveBudget)
-  const mySharePct = myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct) : null
+  const mySharePct = resolveMySharePct(myShare, effectiveBudget, pct)
   const barColor = getQuotaColor(pct)
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
+}
+
+function canRenderBudgetProjection(d: NonNullable<OrgBudgetState['data']>): boolean {
+  if (d.useQuotaOverage) return false
+
+  return !d.spentUnavailable
+}
+
+function resolveBudgetProjection(d: NonNullable<OrgBudgetState['data']>) {
+  return computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
+}
+
+function resolveOverBudget(effectiveBudget: number | null, projectedSpend: number): number | null {
+  if (effectiveBudget === null) return null
+
+  return Math.max(0, projectedSpend - effectiveBudget)
+}
+
+function BudgetProjectionOverage({ overBudget }: { overBudget: number | null }) {
+  if (overBudget === null || overBudget <= 0) return null
+
+  return (
+    <div className="usage-projection-stat usage-projection-overage">
+      <span className="usage-projection-value">{formatCurrency(overBudget)}</span>
+      <span className="usage-projection-label">Over Budget</span>
+    </div>
+  )
 }
 
 function BudgetProjectionView({
@@ -59,18 +109,12 @@ function BudgetProjectionView({
   d: NonNullable<OrgBudgetState['data']>
   effectiveBudget: number | null
 }) {
-  if (d.useQuotaOverage || d.spentUnavailable) return null
+  if (!canRenderBudgetProjection(d)) return null
 
-  const budgetProjection = computeBudgetProjection(
-    d.spent,
-    d.billingYear,
-    d.billingMonth,
-    d.fetchedAt
-  )
+  const budgetProjection = resolveBudgetProjection(d)
   if (!budgetProjection) return null
 
-  const overBudget =
-    effectiveBudget !== null ? Math.max(0, budgetProjection.projectedSpend - effectiveBudget) : null
+  const overBudget = resolveOverBudget(effectiveBudget, budgetProjection.projectedSpend)
 
   return (
     <div className="usage-projection">
@@ -91,12 +135,7 @@ function BudgetProjectionView({
           </span>
           <span className="usage-projection-label">Per Day</span>
         </div>
-        {overBudget !== null && overBudget > 0 && (
-          <div className="usage-projection-stat usage-projection-overage">
-            <span className="usage-projection-value">{formatCurrency(overBudget)}</span>
-            <span className="usage-projection-label">Over Budget</span>
-          </div>
-        )}
+        <BudgetProjectionOverage overBudget={overBudget} />
       </div>
     </div>
   )
@@ -112,8 +151,63 @@ function BudgetLimitLabel({
   if (effectiveBudget !== null) {
     return <span className="usage-budget-limit">of {formatCurrency(effectiveBudget)}</span>
   }
+
   return (
     <span className="usage-budget-limit">{useQuotaOverage ? 'from quota' : 'no budget set'}</span>
+  )
+}
+
+function resolveBudgetBarWidth(pct: number | null): string {
+  return `${pct ?? 0}%`
+}
+
+function resolveSpentLabel(useQuotaOverage: boolean): string {
+  return useQuotaOverage ? 'overage' : 'spent'
+}
+
+function BudgetMyShareBar({ mySharePct, myShare }: { mySharePct: number | null; myShare: number }) {
+  if (mySharePct === null || mySharePct <= 0) return null
+
+  return (
+    <div
+      className="usage-budget-bar-myshare"
+      style={{ width: `${mySharePct}%` }}
+      title={`My share: ${formatCurrency(myShare)}`}
+    />
+  )
+}
+
+function BudgetMyShareLabel({
+  myShare,
+  useQuotaOverage,
+}: {
+  myShare: number
+  useQuotaOverage: boolean
+}) {
+  if (myShare <= 0 || useQuotaOverage) return null
+
+  return <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
+}
+
+function BudgetCardFooter({
+  billingYear,
+  billingMonth,
+  fetchedAt,
+}: {
+  billingYear: number
+  billingMonth: number
+  fetchedAt: number
+}) {
+  return (
+    <div className="usage-budget-footer">
+      <span className="usage-budget-period">
+        {new Date(billingYear, billingMonth - 1).toLocaleDateString(undefined, {
+          month: 'short',
+          year: 'numeric',
+        })}
+      </span>
+      <span className="usage-fetched-at">{formatTime(fetchedAt)}</span>
+    </div>
   )
 }
 
@@ -131,36 +225,24 @@ function BudgetCardBody({
       <div className="usage-budget-bar-track">
         <div
           className="usage-budget-bar-fill"
-          style={{ width: `${pct ?? 0}%`, background: barColor }}
+          style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
         />
-        {mySharePct !== null && mySharePct > 0 && (
-          <div
-            className="usage-budget-bar-myshare"
-            style={{ width: `${mySharePct}%` }}
-            title={`My share: ${formatCurrency(myShare)}`}
-          />
-        )}
+        <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
       </div>
       <div className="usage-budget-amounts">
         <span className="usage-budget-spent" style={{ color: barColor }}>
-          {formatCurrency(displaySpent)} {d.useQuotaOverage ? 'overage' : 'spent'}
+          {formatCurrency(displaySpent)} {resolveSpentLabel(d.useQuotaOverage)}
         </span>
-        {myShare > 0 && !d.useQuotaOverage && (
-          <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
-        )}
+        <BudgetMyShareLabel myShare={myShare} useQuotaOverage={d.useQuotaOverage} />
         <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />
       </div>
 
       <BudgetProjectionView d={d} effectiveBudget={effectiveBudget} />
-      <div className="usage-budget-footer">
-        <span className="usage-budget-period">
-          {new Date(d.billingYear, d.billingMonth - 1).toLocaleDateString(undefined, {
-            month: 'short',
-            year: 'numeric',
-          })}
-        </span>
-        <span className="usage-fetched-at">{formatTime(d.fetchedAt)}</span>
-      </div>
+      <BudgetCardFooter
+        billingYear={d.billingYear}
+        billingMonth={d.billingMonth}
+        fetchedAt={d.fetchedAt}
+      />
     </>
   )
 }
@@ -201,6 +283,39 @@ function BudgetCardError({ error }: { error: string }) {
 
 const BUDGET_CARD_DEFAULTS: OrgBudgetState = { data: null, loading: false, error: null }
 
+function resolveBudgetCardState(state: OrgBudgetState): OrgBudgetState {
+  return { ...BUDGET_CARD_DEFAULTS, ...state }
+}
+
+function resolvePreventFurtherUsage(data: OrgBudgetState['data']): boolean | undefined {
+  return data?.preventFurtherUsage
+}
+
+function BudgetCardErrorContent({
+  error,
+  data,
+}: {
+  error: string | null
+  data: OrgBudgetState['data']
+}) {
+  if (!error || data) return null
+
+  return <BudgetCardError error={error} />
+}
+
+function BudgetCardMetricsContent({
+  data,
+  quotaOverage,
+}: {
+  data: OrgBudgetState['data']
+  quotaOverage: number
+}) {
+  if (!data) return null
+
+  const metrics = computeBudgetCardMetrics(data, quotaOverage)
+  return <BudgetCardBody d={data} metrics={metrics} />
+}
+
 function BudgetCard({
   org,
   state,
@@ -210,16 +325,14 @@ function BudgetCard({
   state: OrgBudgetState
   quotaOverage: number
 }) {
-  const { data: d, loading, error } = { ...BUDGET_CARD_DEFAULTS, ...state }
-  const metrics = d ? computeBudgetCardMetrics(d, quotaOverage) : null
+  const { data: d, loading, error } = resolveBudgetCardState(state)
+  const preventFurtherUsage = resolvePreventFurtherUsage(d)
 
   return (
     <div className="usage-budget-card">
-      <BudgetCardHeader org={org} loading={loading} preventFurtherUsage={d?.preventFurtherUsage} />
-
-      {error && !d && <BudgetCardError error={error} />}
-
-      {metrics && <BudgetCardBody d={d!} metrics={metrics} />}
+      <BudgetCardHeader org={org} loading={loading} preventFurtherUsage={preventFurtherUsage} />
+      <BudgetCardErrorContent error={error} data={d} />
+      <BudgetCardMetricsContent data={d} quotaOverage={quotaOverage} />
     </div>
   )
 }

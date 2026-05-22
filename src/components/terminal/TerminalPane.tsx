@@ -34,6 +34,31 @@ function resolveSpawnDimensions(dims: { cols?: number; rows?: number } | undefin
   }
 }
 
+function applyReattachData(
+  term: Terminal,
+  result: { buffer?: string; cursor?: number; alive?: boolean }
+) {
+  if (result.buffer) term.write(result.buffer)
+  if (result.cursor != null) return result.cursor
+  return 0
+}
+
+function isDimensionChanged(
+  d: { cols: number; rows: number },
+  last: { cols: number; rows: number } | null
+): boolean {
+  if (!last) return true
+  return last.cols !== d.cols || last.rows !== d.rows
+}
+
+function getSpawnErrorMessage(error: string | undefined): string {
+  return error || 'Unknown error'
+}
+
+function notifyCwdChange(cwd: string | undefined, cb: ((newCwd: string) => void) | undefined) {
+  if (cwd) cb?.(cwd)
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -158,8 +183,8 @@ export function TerminalPane({
         return
       }
 
-      if (result.buffer) term.write(result.buffer)
-      if (result.cursor != null) attachCursorRef.current = result.cursor
+      const cursor = applyReattachData(term, result)
+      if (cursor) attachCursorRef.current = cursor
       if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
     }
 
@@ -207,14 +232,14 @@ export function TerminalPane({
 
       if (!result.success || !result.sessionId) {
         term.writeln(
-          `\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`
+          `\r\n\x1b[31mFailed to spawn terminal: ${getSpawnErrorMessage(result.error)}\x1b[0m`
         )
         return
       }
 
       sessionIdRef.current = result.sessionId
       setSessionId(viewKey, result.sessionId)
-      if (result.cwd) onCwdChange?.(result.cwd)
+      notifyCwdChange(result.cwd, onCwdChange)
 
       await applyAttachBuffer(term, result.sessionId)
     }
@@ -224,11 +249,9 @@ export function TerminalPane({
       /* v8 ignore start */
       if (!active) return
       /* v8 ignore stop */
-      if (attachResult.success && attachResult.buffer) {
-        term.write(attachResult.buffer)
-      }
-      if (attachResult.success && attachResult.cursor != null) {
-        attachCursorRef.current = attachResult.cursor
+      if (attachResult.success) {
+        const cursor = applyReattachData(term, attachResult)
+        if (cursor) attachCursorRef.current = cursor
       }
     }
 
@@ -297,8 +320,7 @@ export function TerminalPane({
       if (!d) return
       if (!d.cols || !d.rows) return
       /* v8 ignore stop */
-      const last = lastResizeRef.current
-      if (last && last.cols === d.cols && last.rows === d.rows) return
+      if (!isDimensionChanged({ cols: d.cols, rows: d.rows }, lastResizeRef.current)) return
       lastResizeRef.current = { cols: d.cols, rows: d.rows }
       window.terminal.resize(sid, d.cols, d.rows)
     }

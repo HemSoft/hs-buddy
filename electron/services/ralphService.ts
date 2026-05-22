@@ -144,6 +144,34 @@ function getLeadingCommentLines(content: string): string[] {
   return leadingComments
 }
 
+type TitleDescriptionInfo = {
+  description?: string
+  hasTitleMatch: boolean
+}
+
+function parseTitleDescription(titleLine: string): TitleDescriptionInfo {
+  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
+  if (!titleMatch) return { hasTitleMatch: false }
+
+  const rawDescription = titleMatch[1]
+  if (!rawDescription) return { hasTitleMatch: true }
+
+  const description = rawDescription.trim()
+  return description ? { description, hasTitleMatch: true } : { hasTitleMatch: true }
+}
+
+function getFallbackDescriptionComments(
+  leadingComments: string[],
+  hasTitleMatch: boolean
+): string[] {
+  if (!hasTitleMatch) return leadingComments
+  return leadingComments.slice(1)
+}
+
+function isDescriptionFallbackLine(line: string): boolean {
+  return line.length > 0 && !line.toLowerCase().startsWith('version:')
+}
+
 function extractDescriptionFromScript(filePath: string): string | undefined {
   const content = readScriptContent(filePath)
   if (!content) {
@@ -151,18 +179,16 @@ function extractDescriptionFromScript(filePath: string): string | undefined {
   }
 
   const leadingComments = getLeadingCommentLines(content)
-
   const titleLine = leadingComments[0]
   if (!titleLine) return undefined
-  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
-  const titleDescription = titleMatch?.[1]?.trim()
-  if (titleDescription) {
-    return titleDescription
+
+  const titleDescription = parseTitleDescription(titleLine)
+  if (titleDescription.description) {
+    return titleDescription.description
   }
 
-  const fallbackComments = titleMatch ? leadingComments.slice(1) : leadingComments
-  return fallbackComments.find(
-    line => line.length > 0 && !line.toLowerCase().startsWith('version:')
+  return getFallbackDescriptionComments(leadingComments, titleDescription.hasTitleMatch).find(
+    isDescriptionFallbackLine
   )
 }
 
@@ -227,13 +253,22 @@ function validateScriptType(config: RalphLaunchConfig): string | null {
   return null
 }
 
+function validateProviderConfig(provider: RalphLaunchConfig['provider']): string | null {
+  if (!provider) return null
+  if (!VALID_PROVIDERS.has(provider)) return `Invalid provider: ${provider}`
+  return null
+}
+
+function validateSelectedModel(model: RalphLaunchConfig['model']): string | null {
+  if (!model) return null
+  return validateModelConfig(model)
+}
+
 function validateOptionsConfig(config: RalphLaunchConfig): string | null {
   return (
     validateScriptType(config) ??
-    (config.provider && !VALID_PROVIDERS.has(config.provider)
-      ? `Invalid provider: ${config.provider}`
-      : null) ??
-    (config.model ? validateModelConfig(config.model) : null) ??
+    validateProviderConfig(config.provider) ??
+    validateSelectedModel(config.model) ??
     validateTimingConfig(config)
   )
 }
@@ -368,34 +403,33 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
   return args
 }
 
-export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
-  const validationError = validateLaunchConfig(config)
-  if (validationError) return { success: false, error: validationError }
+function getErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
 
-  const runId = randomUUID()
+type ScriptPathResult =
+  | { ok: true; scriptPath: string }
+  | { ok: false; error: string }
 
-  let scriptPath: string
+function resolveLaunchScriptPath(config: RalphLaunchConfig): ScriptPathResult {
   try {
-    scriptPath = resolveScriptPath(config)
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) }
+    return { ok: true, scriptPath: resolveScriptPath(config) }
+  } catch (error: unknown) {
+    return { ok: false, error: getErrorMessage(error) }
   }
+}
 
-  const args = buildArgs(config, scriptPath)
-
-  const proc = spawn('pwsh', args, {
-    cwd: config.repoPath,
-    shell: false,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
-  })
-
-  const run: RalphRunInfo = {
+function createRunInfo(
+  runId: string,
+  config: RalphLaunchConfig,
+  pid: number | undefined
+): RalphRunInfo {
+  return {
     runId,
     config,
     status: 'running',
     phase: 'initializing',
-    pid: proc.pid ?? null,
+    pid: pid ?? null,
     currentIteration: 0,
     totalIterations: config.iterations ?? null,
     startedAt: Date.now(),
@@ -415,6 +449,25 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
       totalPremium: 0,
     },
   }
+}
+
+export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
+  const validationError = validateLaunchConfig(config)
+  if (validationError) return { success: false, error: validationError }
+
+  const resolvedScript = resolveLaunchScriptPath(config)
+  if (!resolvedScript.ok) return { success: false, error: resolvedScript.error }
+
+  const runId = randomUUID()
+  const args = buildArgs(config, resolvedScript.scriptPath)
+  const proc = spawn('pwsh', args, {
+    cwd: config.repoPath,
+    shell: false,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env },
+  })
+
+  const run = createRunInfo(runId, config, proc.pid)
 
   activeRuns.set(runId, run)
   activeProcesses.set(runId, proc)
@@ -607,24 +660,37 @@ function markRunStopped(run: RalphRunInfo, status: 'cancelled' | 'failed', error
   emitStatusChange(run)
 }
 
-export function stopLoop(runId: string): RalphStopResult {
-  const proc = activeProcesses.get(runId)
-  const run = activeRuns.get(runId)
+type ActiveLoopResult =
+  | { ok: true; run: RalphRunInfo; proc: ChildProcess }
+  | { ok: false; error: string }
 
-  if (!run) return { success: false, error: `Run not found: ${runId}` }
+function resolveActiveLoop(runId: string): ActiveLoopResult {
+  const run = activeRuns.get(runId)
+  if (!run) return { ok: false, error: `Run not found: ${runId}` }
+
+  const proc = activeProcesses.get(runId)
   if (!proc || run.status !== 'running') {
-    return { success: false, error: `Run ${runId} is not running (status: ${run.status})` }
+    return { ok: false, error: `Run ${runId} is not running (status: ${run.status})` }
+  }
+
+  return { ok: true, run, proc }
+}
+
+export function stopLoop(runId: string): RalphStopResult {
+  const activeLoop = resolveActiveLoop(runId)
+  if (!activeLoop.ok) {
+    return { success: false, error: activeLoop.error }
   }
 
   try {
-    killProcess(proc)
+    killProcess(activeLoop.proc)
     activeProcesses.delete(runId)
-    markRunStopped(run, 'cancelled')
+    markRunStopped(activeLoop.run, 'cancelled')
     return { success: true }
-  } catch (err: unknown) {
-    const msg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
-    markRunStopped(run, 'failed', msg)
-    return { success: false, error: msg }
+  } catch (error: unknown) {
+    const message = `Failed to stop: ${getErrorMessage(error)}`
+    markRunStopped(activeLoop.run, 'failed', message)
+    return { success: false, error: message }
   }
 }
 

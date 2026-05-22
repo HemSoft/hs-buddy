@@ -64,6 +64,14 @@ type BookmarkDialogAction =
   | { type: 'ai:start' }
   | { type: 'ai:finish'; description?: string; tagsInput?: string }
 
+function resolveOptionalText(value: string | undefined): string {
+  return value ?? ''
+}
+
+function resolveTagsInput(tags: string[] | undefined): string {
+  return tags?.join(', ') ?? ''
+}
+
 function deriveBookmarkFields(
   bookmark: BookmarkInput,
   initialUrl?: string,
@@ -71,8 +79,8 @@ function deriveBookmarkFields(
 ): { url: string; title: string; description: string; category: string; tagsInput: string } {
   if (!bookmark) {
     return {
-      url: initialUrl ?? '',
-      title: initialTitle ?? '',
+      url: resolveOptionalText(initialUrl),
+      title: resolveOptionalText(initialTitle),
       description: '',
       category: '',
       tagsInput: '',
@@ -81,9 +89,9 @@ function deriveBookmarkFields(
   return {
     url: bookmark.url,
     title: bookmark.title,
-    description: bookmark.description ?? '',
+    description: resolveOptionalText(bookmark.description),
     category: bookmark.category,
-    tagsInput: bookmark.tags?.join(', ') ?? '',
+    tagsInput: resolveTagsInput(bookmark.tags),
   }
 }
 
@@ -330,6 +338,28 @@ function BookmarkCategoryField({
   )
 }
 
+function getTitlePlaceholder(fetchingTitle: boolean): string {
+  return fetchingTitle ? 'Fetching page title…' : 'My Bookmark'
+}
+
+function getDescriptionPlaceholder(aiSuggesting: boolean): string {
+  return aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
+}
+
+function getTagsPlaceholder(aiSuggesting: boolean): string {
+  return aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'
+}
+
+function BookmarkFetchingTitleHint({ fetchingTitle }: { fetchingTitle: boolean }) {
+  if (!fetchingTitle) return null
+  return <span className="bookmark-fetching-hint"> (fetching…)</span>
+}
+
+function BookmarkAiSuggestingHint({ aiSuggesting }: { aiSuggesting: boolean }) {
+  if (!aiSuggesting) return null
+  return <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>
+}
+
 function BookmarkFormFields({
   state,
   isEdit,
@@ -360,7 +390,7 @@ function BookmarkFormFields({
       <label className="bookmark-dialog-label">
         <span>
           Title <span className="bookmark-required">*</span>
-          {state.fetchingTitle && <span className="bookmark-fetching-hint"> (fetching…)</span>}
+          <BookmarkFetchingTitleHint fetchingTitle={state.fetchingTitle} />
         </span>
         <input
           ref={setTitleInputRef}
@@ -371,14 +401,14 @@ function BookmarkFormFields({
             dispatch({ type: 'setTitle', value: e.target.value })
             userEditedTitle.current = true
           }}
-          placeholder={state.fetchingTitle ? 'Fetching page title…' : 'My Bookmark'}
+          placeholder={getTitlePlaceholder(state.fetchingTitle)}
         />
       </label>
 
       <label className="bookmark-dialog-label">
         <span>
           Description
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+          <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
         </span>
         <textarea
           className="bookmark-dialog-textarea"
@@ -387,9 +417,7 @@ function BookmarkFormFields({
             dispatch({ type: 'setDescription', value: e.target.value })
             userEditedDescription.current = true
           }}
-          placeholder={
-            state.aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
-          }
+          placeholder={getDescriptionPlaceholder(state.aiSuggesting)}
           rows={2}
         />
       </label>
@@ -404,7 +432,7 @@ function BookmarkFormFields({
       <label className="bookmark-dialog-label">
         <span>
           Tags
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+          <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
         </span>
         <input
           type="text"
@@ -414,7 +442,7 @@ function BookmarkFormFields({
             dispatch({ type: 'setTagsInput', value: e.target.value })
             userEditedTags.current = true
           }}
-          placeholder={state.aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'}
+          placeholder={getTagsPlaceholder(state.aiSuggesting)}
         />
         <span className="bookmark-dialog-hint">Comma-separated</span>
       </label>
@@ -497,14 +525,28 @@ function resolveCategory(state: BookmarkDialogState): string {
   return (state.useNewCategory ? state.newCategory : state.category).trim()
 }
 
+function validateRequiredBookmarkFields(
+  trimmedUrl: string,
+  trimmedTitle: string,
+  resolvedCategory: string
+): string | null {
+  if (!trimmedUrl) return 'URL is required'
+  if (!trimmedTitle) return 'Title is required'
+  if (!resolvedCategory) return 'Category is required'
+  return null
+}
+
 function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const trimmedUrl = state.url.trim()
   const trimmedTitle = state.title.trim()
   const resolvedCategory = resolveCategory(state)
+  const requiredFieldError = validateRequiredBookmarkFields(
+    trimmedUrl,
+    trimmedTitle,
+    resolvedCategory
+  )
 
-  if (!trimmedUrl) return 'URL is required'
-  if (!trimmedTitle) return 'Title is required'
-  if (!resolvedCategory) return 'Category is required'
+  if (requiredFieldError) return requiredFieldError
 
   const urlError = validateUrlProtocol(trimmedUrl)
   if (urlError) return urlError
@@ -522,15 +564,33 @@ function stripMarkdownCodeBlocks(text: string): string {
     .trim()
 }
 
+function shouldUseDescription(
+  description: string | undefined,
+  userEditedDescription: boolean
+): description is string {
+  return Boolean(description) && !userEditedDescription
+}
+
+function shouldUseTags(tags: string[] | undefined, userEditedTags: boolean): tags is string[] {
+  return Array.isArray(tags) && tags.length > 0 && !userEditedTags
+}
+
 function pickUneditedFields(
   parsed: { description?: string; tags?: string[] },
   userEditedDescription: boolean,
   userEditedTags: boolean
 ): { description?: string; tagsInput?: string } {
-  return {
-    ...(parsed.description && !userEditedDescription && { description: parsed.description }),
-    ...(parsed.tags?.length && !userEditedTags && { tagsInput: parsed.tags.join(', ') }),
+  const next: { description?: string; tagsInput?: string } = {}
+
+  if (shouldUseDescription(parsed.description, userEditedDescription)) {
+    next.description = parsed.description
   }
+
+  if (shouldUseTags(parsed.tags, userEditedTags)) {
+    next.tagsInput = parsed.tags.join(', ')
+  }
+
+  return next
 }
 
 function parseAIResponse(

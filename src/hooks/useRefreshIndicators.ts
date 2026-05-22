@@ -41,6 +41,40 @@ function extractDataSourceKey(taskName: string): string {
   return taskName
 }
 
+function buildActiveRefreshIndicators(running: string[]): RefreshIndicators {
+  const next: RefreshIndicators = {}
+
+  for (const name of running) {
+    const key = extractDataSourceKey(name)
+    next[key] = 'active'
+  }
+
+  return next
+}
+
+function applyPendingRefreshIndicators(next: RefreshIndicators, pending: string[]): void {
+  for (const name of pending) {
+    const key = extractDataSourceKey(name)
+    if (!next[key]) {
+      next[key] = 'pending'
+    }
+  }
+}
+
+function buildRefreshIndicators(
+  running: string[],
+  pending: string[],
+  previous: RefreshIndicators
+): RefreshIndicators {
+  if (running.length === 0 && pending.length === 0) {
+    return Object.keys(previous).length === 0 ? previous : {}
+  }
+
+  const next = buildActiveRefreshIndicators(running)
+  applyPendingRefreshIndicators(next, pending)
+  return next
+}
+
 /**
  * Returns a map of data-source keys to their current refresh state.
  * Polls every 200ms while mounted.
@@ -53,27 +87,7 @@ export function useRefreshIndicators(): RefreshIndicators {
       const queue = getTaskQueue('github')
       const running = queue.getRunningTaskNames()
       const pending = queue.getPendingTaskNames()
-
-      if (running.length === 0 && pending.length === 0) {
-        setIndicators(prev => (Object.keys(prev).length === 0 ? prev : {}))
-        return
-      }
-
-      const next: RefreshIndicators = {}
-
-      for (const name of running) {
-        const key = extractDataSourceKey(name)
-        next[key] = 'active'
-      }
-
-      for (const name of pending) {
-        const key = extractDataSourceKey(name)
-        if (!next[key]) {
-          next[key] = 'pending'
-        }
-      }
-
-      setIndicators(next)
+      setIndicators(prev => buildRefreshIndicators(running, pending, prev))
     }
 
     compute()

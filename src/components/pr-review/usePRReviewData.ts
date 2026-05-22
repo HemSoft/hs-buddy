@@ -57,6 +57,39 @@ function handleReviewResult(
 const resolvePromptTemplate = (template: string, prUrl: string) =>
   template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
 
+function canBuildReviewSnapshot(prInfo: PRReviewInfo): boolean {
+  return Boolean(prInfo.org) && Boolean(prInfo.repo) && Boolean(prInfo.prNumber)
+}
+
+async function fetchReviewSnapshot(
+  prInfo: PRReviewInfo,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+): Promise<ReviewSnapshot> {
+  if (!canBuildReviewSnapshot(prInfo)) {
+    return undefined
+  }
+
+  try {
+    const { org, repo, prNumber } = prInfo
+    const client = new GitHubClient({ accounts }, 7)
+    const [branches, history] = await Promise.all([
+      client.fetchPRBranches(org, repo, prNumber),
+      client.fetchPRHistory(org, repo, prNumber),
+    ])
+    const reviewedHeadSha = branches.headSha ? branches.headSha : undefined
+    return {
+      reviewedHeadSha,
+      reviewedThreadStats: {
+        total: history.threadsTotal,
+        unresolved: history.threadsUnaddressed,
+        outdated: history.threadsOutdated,
+      },
+    }
+  } catch (_: unknown) {
+    return undefined
+  }
+}
+
 export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: string) => void) {
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
@@ -126,31 +159,8 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   }, [prInfo.initialPrompt, prInfo.prUrl])
 
   const buildReviewSnapshot = useCallback(async () => {
-    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
-      return undefined
-    }
-    try {
-      const client = new GitHubClient({ accounts: githubAccounts }, 7)
-      const [branches, history] = await Promise.all([
-        client.fetchPRBranches(prInfo.org, prInfo.repo, prInfo.prNumber),
-        client.fetchPRHistory(prInfo.org, prInfo.repo, prInfo.prNumber),
-      ])
-      /* v8 ignore start */
-      return {
-        /* v8 ignore stop */
-        /* v8 ignore start */
-        reviewedHeadSha: branches.headSha || undefined,
-        /* v8 ignore stop */
-        reviewedThreadStats: {
-          total: history.threadsTotal,
-          unresolved: history.threadsUnaddressed,
-          outdated: history.threadsOutdated,
-        },
-      }
-    } catch (_: unknown) {
-      return undefined
-    }
-  }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
+    return fetchReviewSnapshot(prInfo, githubAccounts)
+  }, [githubAccounts, prInfo])
 
   const handleRunNow = useCallback(async () => {
     if (submitting) return

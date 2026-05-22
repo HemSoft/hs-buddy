@@ -21,23 +21,20 @@ function makeIssue(overrides: Partial<RepoIssue> = {}): RepoIssue {
 }
 
 type MockHandlers = Partial<
-  Record<
-    keyof Pick<
-      IssueContextMenuProps,
-      'onStartRalphLoop' | 'onViewDetails' | 'onCopyLink' | 'onOpenOnGitHub' | 'onClose'
-    >,
-    ReturnType<typeof vi.fn>
+  Pick<
+    IssueContextMenuProps,
+    'onStartRalphLoop' | 'onViewDetails' | 'onCopyLink' | 'onOpenOnGitHub' | 'onClose'
   >
 >
 type ResolvedHandlers = Required<MockHandlers>
 
 function createHandlers(handlers: MockHandlers = {}): ResolvedHandlers {
   return {
-    onStartRalphLoop: vi.fn(),
-    onViewDetails: vi.fn(),
-    onCopyLink: vi.fn(),
-    onOpenOnGitHub: vi.fn(),
-    onClose: vi.fn(),
+    onStartRalphLoop: vi.fn(() => {}),
+    onViewDetails: vi.fn(() => {}),
+    onCopyLink: vi.fn(() => {}),
+    onOpenOnGitHub: vi.fn(() => {}),
+    onClose: vi.fn(() => {}),
     ...handlers,
   }
 }

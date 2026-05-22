@@ -203,12 +203,7 @@ async function persistPrompt(
   await updatePrompt({ id: editorState.id, title, content })
 }
 
-async function pastePromptToActiveTerminal(
-  activeTabId: string | null,
-  prompt: TerminalPrompt,
-  markUsed: TerminalPromptMutations['markUsed'],
-  onClose: () => void
-) {
+function ensureActiveTerminalReady(activeTabId: string | null, prompt: TerminalPrompt) {
   /* v8 ignore next -- the use button is disabled whenever no active tab is available */
   if (!activeTabId) {
     throw new Error('Open a terminal tab to use a prompt.')
@@ -221,7 +216,15 @@ async function pastePromptToActiveTerminal(
   if (!pasteIntoTerminal(activeTabId, prompt.content)) {
     throw new Error('The active terminal is still connecting. Try again in a moment.')
   }
+}
 
+async function pastePromptToActiveTerminal(
+  activeTabId: string | null,
+  prompt: TerminalPrompt,
+  markUsed: TerminalPromptMutations['markUsed'],
+  onClose: () => void
+) {
+  ensureActiveTerminalReady(activeTabId, prompt)
   await markUsed({ id: prompt._id })
 
   try {
@@ -234,6 +237,31 @@ async function pastePromptToActiveTerminal(
   }
 }
 
+function isPromptLibraryOwnerTarget(
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  rootRef: RefObject<HTMLDivElement | null>,
+  target: Node
+): boolean {
+  return Boolean(ownerRef?.current?.contains(target) || rootRef.current?.contains(target))
+}
+
+function shouldDismissPromptLibrary(
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  rootRef: RefObject<HTMLDivElement | null>,
+  target: Node
+): boolean {
+  /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
+  if (!rootRef.current) {
+    return false
+  }
+
+  if (isPromptLibraryOwnerTarget(ownerRef, rootRef, target)) {
+    return false
+  }
+
+  return true
+}
+
 function usePromptLibraryDismiss(
   ownerRef: RefObject<HTMLElement | null> | undefined,
   rootRef: RefObject<HTMLDivElement | null>,
@@ -242,16 +270,9 @@ function usePromptLibraryDismiss(
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
       const target = event.target as Node
-      /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
-      if (!rootRef.current) {
-        return
+      if (shouldDismissPromptLibrary(ownerRef, rootRef, target)) {
+        onClose()
       }
-
-      if (ownerRef?.current?.contains(target) || rootRef.current.contains(target)) {
-        return
-      }
-
-      onClose()
     }
 
     document.addEventListener('mousedown', handleMouseDown)

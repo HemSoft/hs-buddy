@@ -28,6 +28,23 @@ const workers: Record<string, Worker> = {
   skill: skillWorker,
 }
 
+function hasNoSnapshotAccounts(
+  accounts: Array<{ username: string; org: string }> | undefined
+): boolean {
+  return !accounts || accounts.length === 0
+}
+
+function updateSnapshotCounts(
+  ok: boolean,
+  counts: { succeeded: number; failed: number }
+): void {
+  if (ok) {
+    counts.succeeded++
+    return
+  }
+  counts.failed++
+}
+
 class Dispatcher {
   private client: ConvexHttpClient
   private timer: ReturnType<typeof setInterval> | null = null
@@ -198,7 +215,7 @@ class Dispatcher {
     input?: { accounts?: Array<{ username: string; org: string }> }
   }): Promise<void> {
     const accounts = run.input?.accounts as Array<{ username: string; org: string }> | undefined
-    if (!accounts || accounts.length === 0) {
+    if (hasNoSnapshotAccounts(accounts)) {
       await this.client.mutation(api.runs.fail, {
         id: run._id,
         error: 'No accounts provided for snapshot collection',
@@ -207,17 +224,15 @@ class Dispatcher {
     }
 
     const start = Date.now()
-    let succeeded = 0
-    let failed = 0
+    const counts = { succeeded: 0, failed: 0 }
 
-    for (const { username, org } of accounts) {
+    for (const { username, org } of accounts!) {
       const ok = await this.collectAccountSnapshot(username, org)
-      if (ok) succeeded++
-      else failed++
+      updateSnapshotCounts(ok, counts)
     }
 
     const duration = Date.now() - start
-    const output = buildSnapshotCollectionOutput(succeeded, failed)
+    const output = buildSnapshotCollectionOutput(counts.succeeded, counts.failed)
     console.log(`[Dispatcher] ${output.stdout} in ${duration}ms`)
 
     await this.client.mutation(api.runs.complete, {

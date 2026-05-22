@@ -94,6 +94,71 @@ function validateJobForm(
   return null
 }
 
+interface SourceFieldSetters extends ConfigSetters {
+  setName: (v: string) => void
+  setDescription: (v: string) => void
+  setWorkerType: (v: 'exec' | 'ai' | 'skill') => void
+}
+
+function getOptionalDescription(description?: string): string {
+  return description || ''
+}
+
+function populateJobFormFromSource(
+  source: UseJobEditorFormSource,
+  duplicateFrom: UseJobEditorFormSource | undefined,
+  setters: SourceFieldSetters
+): void {
+  setters.setName(duplicateFrom ? `${source.name} (Copy)` : source.name)
+  setters.setDescription(getOptionalDescription(source.description))
+  setters.setWorkerType(source.workerType)
+  loadSourceConfig(source.config, setters)
+}
+
+async function persistJobChanges({
+  isEditing,
+  jobId,
+  name,
+  description,
+  workerType,
+  config,
+  create,
+  update,
+  incrementStat,
+}: {
+  isEditing: boolean
+  jobId: string | undefined
+  name: string
+  description: string
+  workerType: 'exec' | 'ai' | 'skill'
+  config: JobConfig
+  create: ReturnType<typeof useJobMutations>['create']
+  update: ReturnType<typeof useJobMutations>['update']
+  incrementStat: ReturnType<typeof useBuddyStatsMutations>['increment']
+}) {
+  const trimmedDescription = description.trim() || undefined
+  if (isEditing && jobId) {
+    await update({
+      id: jobId as JobId,
+      name: name.trim(),
+      description: trimmedDescription,
+      workerType,
+      config,
+    })
+    return
+  }
+
+  await create({
+    name: name.trim(),
+    description: trimmedDescription,
+    workerType,
+    config,
+  })
+  /* v8 ignore start */
+  incrementStat({ field: 'jobsCreated' }).catch(() => {})
+  /* v8 ignore stop */
+}
+
 export function useJobEditorForm(
   jobId: string | undefined,
   duplicateFrom: UseJobEditorFormSource | undefined,
@@ -140,27 +205,23 @@ export function useJobEditorForm(
 
   useEffect(() => {
     const source = existingJob || duplicateFrom
-    if (source) {
-      setName(duplicateFrom ? `${source.name} (Copy)` : source.name)
-      setDescription(source.description || '')
-      setWorkerType(source.workerType)
-      /* v8 ignore start */
-      if (source.config) {
-        /* v8 ignore stop */
-        loadSourceConfig(source.config, {
-          setCommand,
-          setCwd,
-          setTimeout,
-          setShell,
-          setPrompt,
-          setModel,
-          setTargetRepo,
-          setSkillName,
-          setSkillAction,
-          setSkillParams,
-        })
-      }
-    }
+    if (!source) return
+
+    populateJobFormFromSource(source, duplicateFrom, {
+      setName,
+      setDescription,
+      setWorkerType,
+      setCommand,
+      setCwd,
+      setTimeout,
+      setShell,
+      setPrompt,
+      setModel,
+      setTargetRepo,
+      setSkillName,
+      setSkillAction,
+      setSkillParams,
+    })
   }, [existingJob, duplicateFrom])
 
   const buildExecJobConfig = (): JobConfig => ({
@@ -217,30 +278,21 @@ export function useJobEditorForm(
       setError(validationError)
       return
     }
-    const trimmedDesc = description.trim() || undefined
     setError(null)
     setSaving(true)
     try {
       const config = buildConfig()
-      if (isEditing && jobId) {
-        await update({
-          id: jobId as JobId,
-          name: name.trim(),
-          description: trimmedDesc,
-          workerType,
-          config,
-        })
-      } else {
-        await create({
-          name: name.trim(),
-          description: trimmedDesc,
-          workerType,
-          config,
-        })
-        /* v8 ignore start */
-        incrementStat({ field: 'jobsCreated' }).catch(() => {})
-        /* v8 ignore stop */
-      }
+      await persistJobChanges({
+        isEditing,
+        jobId,
+        name,
+        description,
+        workerType,
+        config,
+        create,
+        update,
+        incrementStat,
+      })
       onSaved?.()
       onClose()
     } catch (err: unknown) {

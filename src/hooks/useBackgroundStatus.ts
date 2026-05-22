@@ -82,6 +82,36 @@ function computeCacheAges(modes: readonly string[]): { oldestAge: number; latest
   return { oldestAge, latestRefresh }
 }
 
+function resolveNextRefreshStatus(
+  phase: SyncPhase,
+  intervalMs: number,
+  oldestAge: number
+): Pick<BackgroundStatus, 'nextRefreshSecs' | 'nextRefreshLabel'> {
+  if (phase === 'syncing') {
+    return { nextRefreshSecs: null, nextRefreshLabel: null }
+  }
+
+  const remaining = Math.max(0, intervalMs - oldestAge)
+  const nextRefreshSecs = Math.ceil(remaining / 1000)
+  return {
+    nextRefreshSecs,
+    nextRefreshLabel: formatSecondsCountdown(nextRefreshSecs),
+  }
+}
+
+function resolveLastRefreshStatus(
+  latestRefresh: number
+): Pick<BackgroundStatus, 'lastRefreshedAt' | 'lastRefreshedLabel'> {
+  if (!latestRefresh) {
+    return { lastRefreshedAt: null, lastRefreshedLabel: null }
+  }
+
+  return {
+    lastRefreshedAt: latestRefresh,
+    lastRefreshedLabel: formatDistanceToNow(latestRefresh),
+  }
+}
+
 function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
   const queue = getTaskQueue('github')
   const running = queue.runningCount
@@ -89,18 +119,14 @@ function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
   const activeTasks = running + pending
   const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
   const { oldestAge, latestRefresh } = computeCacheAges(PR_MODES)
-  const remaining = Math.max(0, intervalMs - oldestAge)
-  const remainingSecs = Math.ceil(remaining / 1000)
   const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
 
   return {
     phase,
     activeLabel,
     activeTasks,
-    nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
-    nextRefreshLabel: phase === 'syncing' ? null : formatSecondsCountdown(remainingSecs),
-    lastRefreshedAt: latestRefresh || null,
-    lastRefreshedLabel: latestRefresh ? formatDistanceToNow(latestRefresh) : null,
+    ...resolveNextRefreshStatus(phase, intervalMs, oldestAge),
+    ...resolveLastRefreshStatus(latestRefresh),
   }
 }
 

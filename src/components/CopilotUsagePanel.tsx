@@ -1,5 +1,6 @@
 import { AlertCircle } from 'lucide-react'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
+import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
@@ -14,7 +15,7 @@ function resolveProjection(aggregateProjections: { projectedTotal?: number; proj
 
 function AccountsGrid({ accounts, quotas }: {
   accounts: { username: string; org?: string }[]
-  quotas: Record<string, unknown>
+  quotas: Record<string, AccountQuotaState>
 }) {
   if (accounts.length === 0) {
     return (

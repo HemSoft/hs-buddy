@@ -21,6 +21,33 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError } from '../utils/errorUtils'
 
+async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
+  switch (mode) {
+    case 'needs-review':
+      return await client.fetchNeedsReview()
+    case 'recently-merged':
+      return await client.fetchRecentlyMerged()
+    case 'need-a-nudge':
+      return await client.fetchNeedANudge()
+    case 'my-prs':
+    default:
+      return await client.fetchMyPRs()
+  }
+}
+
+function sortPrefetchPRs(mode: string, prs: PullRequest[]): void {
+  if (mode === 'recently-merged') {
+    return
+  }
+
+  prs.sort((a, b) => {
+    if (a.repository !== b.repository) {
+      return a.repository.localeCompare(b.repository)
+    }
+    return a.id - b.id
+  })
+}
+
 /**
  * Hook that prefetches all PR data in the background on app startup
  * and auto-refreshes on the configured interval.
@@ -99,32 +126,8 @@ export function usePrefetch(): void {
       for (const mode of PR_MODES) {
         const taskName = `${label.toLowerCase()}-${mode}`
         enqueueIfStale(mode, taskName, async (_signal, client) => {
-          let prs: PullRequest[]
-          switch (mode) {
-            case 'needs-review':
-              prs = await client.fetchNeedsReview()
-              break
-            case 'recently-merged':
-              prs = await client.fetchRecentlyMerged()
-              break
-            case 'need-a-nudge':
-              prs = await client.fetchNeedANudge()
-              break
-            case 'my-prs':
-            default:
-              prs = await client.fetchMyPRs()
-              break
-          }
-
-          if (mode !== 'recently-merged') {
-            prs.sort((a, b) => {
-              if (a.repository !== b.repository) {
-                return a.repository.localeCompare(b.repository)
-              }
-              return a.id - b.id
-            })
-          }
-
+          const prs = await fetchPrefetchPRs(client, mode)
+          sortPrefetchPRs(mode, prs)
           dataCache.set(mode, prs)
           console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
         })

@@ -166,6 +166,12 @@ export function TerminalPane({
 
     const dims = fitAddon.proposeDimensions()
 
+    function applyExistingSessionResult(term: Terminal, result: Awaited<ReturnType<typeof window.terminal.attach>>) {
+      const cursor = applyReattachData(term, result)
+      if (cursor) attachCursorRef.current = cursor
+      if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+    }
+
     async function handleExistingSession(term: Terminal, existingSessionId: string) {
       sessionIdRef.current = existingSessionId
       const result = await window.terminal.attach(existingSessionId)
@@ -183,9 +189,7 @@ export function TerminalPane({
         return
       }
 
-      const cursor = applyReattachData(term, result)
-      if (cursor) attachCursorRef.current = cursor
-      if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+      applyExistingSessionResult(term, result)
     }
 
     async function initSession() {

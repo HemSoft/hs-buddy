@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import type { Id } from '../../../../convex/_generated/dataModel'
 import { useGitHubAccounts, usePRSettings } from '../../../hooks/useConfig'
 import {
   useRepoBookmarks,
@@ -90,7 +91,9 @@ async function fetchOrgOverviewData(
 ): Promise<OrgOverviewResult> {
   return (await enqueue(
     async signal => {
-      throwIfAborted(signal)
+      if (signal) {
+        throwIfAborted(signal)
+      }
       const client = new GitHubClient({ accounts }, 7)
       return await client.fetchOrgOverview(org)
     },
@@ -99,7 +102,7 @@ async function fetchOrgOverviewData(
 }
 
 type RepoBookmarkRecord = {
-  _id: string
+  _id: Id<'repoBookmarks'>
   owner?: string | null
   repo?: string | null
 }

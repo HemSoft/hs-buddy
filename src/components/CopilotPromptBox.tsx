@@ -234,7 +234,8 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       const matchedAcct = orgs
         .map(org => githubAccounts.find(a => a.org.toLowerCase() === org))
         .find(Boolean)
-      if (matchedAcct && localAccount !== matchedAcct.username) {
+      if (!matchedAcct) return
+      if (localAccount !== matchedAcct.username) {
         autoDetectedRef.current = true
         setState(previousState => ({
           ...previousState,
@@ -251,9 +252,20 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     return () => clearTimeout(timer)
   }, [prompt, resolveAccountFromPrompt])
 
+  const handleSubmitResult = (result: { success?: boolean; resultId?: string; error?: string }) => {
+    if (result.success && result.resultId) {
+      setState(previousState => ({ ...previousState, prompt: '', error: null }))
+      onOpenResult?.(result.resultId)
+    } else {
+      const errorMsg = result.error ?? 'Unknown error'
+      setState(previousState => ({ ...previousState, error: errorMsg }))
+    }
+  }
+
   const handleSubmit = async () => {
     const trimmed = prompt.trim()
-    if (!trimmed || submitting) return
+    if (!trimmed) return
+    if (submitting) return
 
     setState(previousState => ({
       ...previousState,
@@ -269,13 +281,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         metadata: buildCopilotMetadata(localAccount),
       })
 
-      if (result.success && result.resultId) {
-        setState(previousState => ({ ...previousState, prompt: '', error: null }))
-        onOpenResult?.(result.resultId)
-      } else {
-        const errorMsg = result.error ?? 'Unknown error'
-        setState(previousState => ({ ...previousState, error: errorMsg }))
-      }
+      handleSubmitResult(result)
     } catch (err: unknown) {
       setState(previousState => ({
         ...previousState,

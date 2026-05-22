@@ -108,18 +108,25 @@ async function persistLocationToStore(loc: GeoLocation): Promise<void> {
   }
 }
 
+function isGeoLocation(value: unknown): value is GeoLocation {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const candidate = value as Partial<GeoLocation>
+  return (
+    Number.isFinite(candidate.latitude) &&
+    Number.isFinite(candidate.longitude) &&
+    typeof candidate.name === 'string'
+  )
+}
+
 /** Load saved location from electron-store. Returns null when unavailable. */
 async function loadLocationFromStore(): Promise<GeoLocation | null> {
   try {
     const loc = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_WEATHER_LOCATION)
-    if (
-      loc &&
-      typeof loc === 'object' &&
-      Number.isFinite(loc.latitude) &&
-      Number.isFinite(loc.longitude) &&
-      typeof loc.name === 'string'
-    ) {
-      return loc as GeoLocation
+    if (isGeoLocation(loc)) {
+      return loc
     }
   } catch (_: unknown) {
     // electron-store unavailable; fall back to localStorage
@@ -150,19 +157,36 @@ function buildLocationName(city: string, state: string, fallback: string): strin
   return fallback
 }
 
+function resolveReverseGeocodeName(
+  result: { address?: { city?: string; town?: string; village?: string; state?: string } },
+  fallback: string
+): string | null {
+  const city = extractCity(result.address)
+  const state = result.address?.state ?? ''
+  if (!city) {
+    return null
+  }
+  return buildLocationName(city, state, fallback)
+}
+
 async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
   try {
     const resp = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
       { headers: { 'User-Agent': 'hs-buddy/1.0' } }
     )
-    if (resp.ok) {
-      const json = (await resp.json()) as {
+    if (!resp.ok) {
+      return
+    }
+
+    const resolvedName = resolveReverseGeocodeName(
+      (await resp.json()) as {
         address?: { city?: string; town?: string; village?: string; state?: string }
-      }
-      const city = extractCity(json.address)
-      const st = json.address?.state ?? ''
-      if (city) loc.name = buildLocationName(city, st, loc.name)
+      },
+      loc.name
+    )
+    if (resolvedName) {
+      loc.name = resolvedName
     }
   } catch (_: unknown) {
     // Use coordinate-based name as fallback

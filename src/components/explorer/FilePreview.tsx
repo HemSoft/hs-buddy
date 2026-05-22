@@ -69,6 +69,106 @@ function toShikiLang(lang: string): BundledLanguage {
   return (LANG_MAP[lang] ?? lang) as BundledLanguage
 }
 
+function loadPreviewData(filePath: string, dispatch: React.Dispatch<FilePreviewAction>) {
+  if (!filePath) {
+    return undefined
+  }
+
+  let cancelled = false
+  window.filesystem
+    .readFile(filePath)
+    .then(result => {
+      if (!cancelled) dispatch({ type: 'load-success', data: result })
+    })
+    .catch(() => {
+      /* v8 ignore start */
+      if (!cancelled) dispatch({ type: 'load-error' })
+      /* v8 ignore stop */
+    })
+
+  return () => {
+    cancelled = true
+  }
+}
+
+function highlightPreviewData(
+  data: FileData | null,
+  dispatch: React.Dispatch<FilePreviewAction>
+) {
+  if (!data?.content || data.error) {
+    return undefined
+  }
+  /* v8 ignore start */
+  if (data.content === '') {
+    dispatch({ type: 'set-highlight', html: '' })
+    return undefined
+    /* v8 ignore stop */
+  }
+
+  const content = data.content
+  const language = data.language
+  let cancelled = false
+
+  codeToHtml(content, {
+    lang: toShikiLang(language),
+    theme: 'dark-plus',
+  })
+    .then(html => {
+      if (!cancelled && html.includes('class="shiki')) dispatch({ type: 'set-highlight', html })
+    })
+    .catch(() => {
+      /* v8 ignore start */
+      if (!cancelled) {
+        /* v8 ignore stop */
+        codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
+          .then(html => {
+            if (!cancelled && html.includes('class="shiki')) dispatch({ type: 'set-highlight', html })
+          })
+          .catch(() => {
+            /* v8 ignore start */
+            if (!cancelled) dispatch({ type: 'set-highlight', html: '' })
+            /* v8 ignore stop */
+          })
+      }
+    })
+
+  return () => {
+    cancelled = true
+  }
+}
+
+function applyHighlightedContent(
+  contentRef: React.RefObject<HTMLDivElement | null>,
+  highlightedHtml: string
+): void {
+  if (!contentRef.current) return
+  /* v8 ignore start */
+  if (highlightedHtml && !highlightedHtml.includes('class="shiki')) {
+    contentRef.current.innerHTML = ''
+    return
+    /* v8 ignore stop */
+  }
+  contentRef.current.innerHTML = highlightedHtml
+}
+
+function getContentLineCount(content: string | undefined): number {
+  if (!content) return 0
+  return content.split('\n').length
+}
+
+function getLineLabel(lineCount: number): string {
+  return lineCount === 1 ? 'line' : 'lines'
+}
+
+function resetPreviewForPath(
+  filePath: string,
+  dispatch: React.Dispatch<FilePreviewAction>
+): void {
+  if (filePath) {
+    dispatch({ type: 'load-start' })
+  }
+}
+
 export function FilePreview({ filePath }: FilePreviewProps) {
   const [state, dispatch] = useReducer(filePreviewReducer, {
     data: null,
@@ -84,71 +184,14 @@ export function FilePreview({ filePath }: FilePreviewProps) {
   // Guard against falsy filePath to avoid getting stuck in loading state, since the
   // readFile effect below bails out when filePath is empty.
   useLayoutEffect(() => {
-    if (!filePath) return
-    dispatch({ type: 'load-start' })
+    resetPreviewForPath(filePath, dispatch)
   }, [filePath])
 
   // Load the file
-  useEffect(() => {
-    if (!filePath) return
-
-    let cancelled = false
-    window.filesystem
-      .readFile(filePath)
-      .then(result => {
-        if (!cancelled) dispatch({ type: 'load-success', data: result })
-      })
-      .catch(() => {
-        /* v8 ignore start */
-        if (!cancelled) dispatch({ type: 'load-error' })
-        /* v8 ignore stop */
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [filePath])
+  useEffect(() => loadPreviewData(filePath, dispatch), [filePath])
 
   // Highlight with Shiki once content is loaded
-  useEffect(() => {
-    if (!data?.content || data.error) return
-    /* v8 ignore start */
-    if (data.content === '') {
-      dispatch({ type: 'set-highlight', html: '' })
-      return
-      /* v8 ignore stop */
-    }
-
-    const content = data.content
-    const language = data.language
-    let cancelled = false
-
-    codeToHtml(content, {
-      lang: toShikiLang(language),
-      theme: 'dark-plus',
-    })
-      .then(html => {
-        if (!cancelled && html.includes('class="shiki')) dispatch({ type: 'set-highlight', html })
-      })
-      .catch(() => {
-        /* v8 ignore start */
-        if (!cancelled) {
-          /* v8 ignore stop */
-          codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
-            .then(html => {
-              if (!cancelled && html.includes('class="shiki'))
-                dispatch({ type: 'set-highlight', html })
-            })
-            .catch(() => {
-              /* v8 ignore start */
-              if (!cancelled) dispatch({ type: 'set-highlight', html: '' })
-              /* v8 ignore stop */
-            })
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [data])
+  useEffect(() => highlightPreviewData(data, dispatch), [data])
 
   // Trust model: highlightedHtml is populated exclusively by Shiki's codeToHtml()
   // in the effect above — never from user input or remote sources. This is enforced
@@ -158,20 +201,10 @@ export function FilePreview({ filePath }: FilePreviewProps) {
   // substring. If a real XSS concern arises (e.g. untrusted file sources), replace
   // this with DOMPurify or Trusted Types.
   useLayoutEffect(() => {
-    if (!contentRef.current) return
-    /* v8 ignore start */
-    if (highlightedHtml && !highlightedHtml.includes('class="shiki')) {
-      contentRef.current.innerHTML = ''
-      return
-      /* v8 ignore stop */
-    }
-    contentRef.current.innerHTML = highlightedHtml
+    applyHighlightedContent(contentRef, highlightedHtml)
   }, [highlightedHtml])
 
-  const lineCount = useMemo(() => {
-    if (!data?.content) return 0
-    return data.content.split('\n').length
-  }, [data?.content])
+  const lineCount = useMemo(() => getContentLineCount(data?.content), [data?.content])
 
   // Calculate gutter width based on line count digits
   const gutterWidth = useMemo(() => {
@@ -221,14 +254,15 @@ export function FilePreview({ filePath }: FilePreviewProps) {
     )
   }
 
+  const lineLabel = getLineLabel(lineCount)
+
   return (
     <div className="file-preview">
       <div className="file-preview-header">
         <FileText size={14} />
         <span className="file-preview-filename">{getFileName(filePath)}</span>
         <span className="file-preview-meta">
-          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} ·{' '}
-          {formatFileSize(data.size)}
+          {data.language} · {lineCount} {lineLabel} · {formatFileSize(data.size)}
         </span>
       </div>
       <div

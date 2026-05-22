@@ -64,6 +64,17 @@ async function lookupSlackUserByEmail(email: string): Promise<string | null> {
   return data.user.id
 }
 
+function buildSlackActionFailure(action: string, error: string | undefined): SlackNudgeResult {
+  return { success: false, error: `Failed to ${action}: ${error || 'unknown'}` }
+}
+
+function getSlackChannelId(data: { ok: boolean; channel?: { id: string } }): string | null {
+  if (!data.ok || !data.channel) {
+    return null
+  }
+  return data.channel.id
+}
+
 /**
  * Open a DM conversation with a Slack user and send a nudge message.
  */
@@ -79,8 +90,9 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     channel?: { id: string }
     error?: string
   }
-  if (!openData.ok || !openData.channel) {
-    return { success: false, error: `Failed to open DM: ${openData.error || 'unknown'}` }
+  const channelId = getSlackChannelId(openData)
+  if (!channelId) {
+    return buildSlackActionFailure('open DM', openData.error)
   }
 
   // Send the nudge message
@@ -88,14 +100,14 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({
-      channel: openData.channel.id,
+      channel: channelId,
       text: message,
       unfurl_links: true,
     }),
   })
   const msgData = (await msgRes.json()) as { ok: boolean; error?: string }
   if (!msgData.ok) {
-    return { success: false, error: `Failed to send message: ${msgData.error || 'unknown'}` }
+    return buildSlackActionFailure('send message', msgData.error)
   }
 
   return { success: true }

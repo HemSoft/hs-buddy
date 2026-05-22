@@ -1,24 +1,40 @@
 import { useEffect, type RefObject } from 'react'
 
-function resolveExternalMarkdownHref(
+function resolveMarkdownAnchor(
   target: EventTarget | null,
   container: HTMLElement
-): string | null {
+): HTMLAnchorElement | null {
   if (!(target instanceof HTMLElement)) {
     return null
   }
 
   const anchor = target.closest('a')
-  if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
+  if (!(anchor instanceof HTMLAnchorElement)) {
     return null
   }
 
+  return container.contains(anchor) ? anchor : null
+}
+
+function readExternalMarkdownHref(anchor: HTMLAnchorElement): string | null {
   const href = anchor.getAttribute('href')?.trim()
-  if (!href || !/^(https?:|mailto:)/i.test(href)) {
+  if (!href) {
     return null
   }
 
-  return href
+  return /^(https?:|mailto:)/i.test(href) ? href : null
+}
+
+function resolveExternalMarkdownHref(
+  target: EventTarget | null,
+  container: HTMLElement
+): string | null {
+  const anchor = resolveMarkdownAnchor(target, container)
+  if (!anchor) {
+    return null
+  }
+
+  return readExternalMarkdownHref(anchor)
 }
 
 export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | null>) {

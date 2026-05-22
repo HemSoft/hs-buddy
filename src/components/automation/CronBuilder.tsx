@@ -63,16 +63,7 @@ function describeCronSchedule(
   /* v8 ignore stop */
 }
 
-function CronOptions({
-  frequency,
-  minute,
-  dayOfMonth,
-  selectedDays,
-  hourSelect,
-  minuteSelect,
-  toggleDay,
-  updateCron,
-}: {
+interface CronOptionsProps {
   frequency: string
   minute: number
   dayOfMonth: number
@@ -81,95 +72,98 @@ function CronOptions({
   minuteSelect: React.ReactNode
   toggleDay: (day: number) => void
   updateCron: (patch: Partial<CronState>) => void
+}
+
+function TimeCronOptions({
+  hourSelect,
+  minuteSelect,
+}: {
+  hourSelect: React.ReactNode
+  minuteSelect: React.ReactNode
 }) {
-  if (frequency === 'hourly') {
-    return (
+  return (
+    <div className="cron-option">
+      <span className="option-label">At</span>
+      {hourSelect}
+      <span className="option-separator">:</span>
+      {minuteSelect}
+    </div>
+  )
+}
+
+function DailyCronOptions({ hourSelect, minuteSelect }: CronOptionsProps) {
+  return <TimeCronOptions hourSelect={hourSelect} minuteSelect={minuteSelect} />
+}
+
+function HourlyCronOptions({ minute, updateCron }: CronOptionsProps) {
+  return (
+    <div className="cron-option">
+      <span className="option-label">At minute</span>
+      <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+        {Array.from({ length: 60 }, (_, min) => (
+          <option key={min} value={min}>
+            {min.toString().padStart(2, '0')}
+          </option>
+        ))}
+      </select>
+      <span className="option-suffix">of every hour</span>
+    </div>
+  )
+}
+
+function WeeklyCronOptions({ selectedDays, toggleDay, hourSelect, minuteSelect }: CronOptionsProps) {
+  return (
+    <>
       <div className="cron-option">
-        <span className="option-label">At minute</span>
-        <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
-          {Array.from({ length: 60 }, (_, min) => (
-            <option key={min} value={min}>
-              {min.toString().padStart(2, '0')}
+        <span className="option-label">On</span>
+        <div className="day-selector">
+          {DAYS_OF_WEEK.map(day => (
+            <button
+              key={day.value}
+              type="button"
+              className={`day-btn ${selectedDays.includes(day.value) ? 'active' : ''}`}
+              onClick={() => toggleDay(day.value)}
+              title={day.label}
+            >
+              {day.short}
+            </button>
+          ))}
+        </div>
+      </div>
+      <TimeCronOptions hourSelect={hourSelect} minuteSelect={minuteSelect} />
+    </>
+  )
+}
+
+function MonthlyCronOptions({ dayOfMonth, updateCron, hourSelect, minuteSelect }: CronOptionsProps) {
+  return (
+    <>
+      <div className="cron-option">
+        <span className="option-label">On day</span>
+        <select value={dayOfMonth} onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}>
+          {Array.from({ length: 31 }, (_, day) => (
+            <option key={day + 1} value={day + 1}>
+              {day + 1}
             </option>
           ))}
         </select>
-        <span className="option-suffix">of every hour</span>
+        <span className="option-suffix">of every month</span>
       </div>
-    )
-  }
+      <TimeCronOptions hourSelect={hourSelect} minuteSelect={minuteSelect} />
+    </>
+  )
+}
 
-  if (frequency === 'daily') {
-    return (
-      <div className="cron-option">
-        <span className="option-label">At</span>
-        {hourSelect}
-        <span className="option-separator">:</span>
-        {minuteSelect}
-      </div>
-    )
-  }
+const CRON_OPTION_RENDERERS: Record<string, (props: CronOptionsProps) => React.ReactNode> = {
+  hourly: props => <HourlyCronOptions {...props} />,
+  daily: props => <DailyCronOptions {...props} />,
+  weekly: props => <WeeklyCronOptions {...props} />,
+  monthly: props => <MonthlyCronOptions {...props} />,
+}
 
-  if (frequency === 'weekly') {
-    return (
-      <>
-        <div className="cron-option">
-          <span className="option-label">On</span>
-          <div className="day-selector">
-            {DAYS_OF_WEEK.map(day => (
-              <button
-                key={day.value}
-                type="button"
-                className={`day-btn ${selectedDays.includes(day.value) ? 'active' : ''}`}
-                onClick={() => toggleDay(day.value)}
-                title={day.label}
-              >
-                {day.short}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="cron-option">
-          <span className="option-label">At</span>
-          {hourSelect}
-          <span className="option-separator">:</span>
-          {minuteSelect}
-        </div>
-      </>
-    )
-  }
-
-  if (frequency === 'monthly') {
-    return (
-      <>
-        <div className="cron-option">
-          <span className="option-label">On day</span>
-          <select
-            value={dayOfMonth}
-            onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
-          >
-            {Array.from({ length: 31 }, (_, day) => (
-              <option key={day + 1} value={day + 1}>
-                {day + 1}
-              </option>
-            ))}
-          </select>
-          <span className="option-suffix">of every month</span>
-        </div>
-        <div className="cron-option">
-          <span className="option-label">At</span>
-          {hourSelect}
-          <span className="option-separator">:</span>
-          {minuteSelect}
-        </div>
-      </>
-    )
-  }
-
-  if (frequency === 'custom') {
-    return null // handled separately in CronBuilder
-  }
-
-  return null
+function CronOptions(props: CronOptionsProps) {
+  const render = CRON_OPTION_RENDERERS[props.frequency]
+  return render ? render(props) : null
 }
 
 function freqBtnClass(current: string, target: string): string {

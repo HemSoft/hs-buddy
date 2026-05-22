@@ -63,6 +63,49 @@ function isFreshCopilotReview(
   return review.user?.login === 'copilot-pull-request-reviewer[bot]' && review.id > baselineReviewId
 }
 
+function isCopilotMonitorStale(
+  monitorSessionRef: { current: number },
+  sessionId: number
+): boolean {
+  return monitorSessionRef.current !== sessionId
+}
+
+function handleCopilotPollLimitExceeded(
+  sessionId: number,
+  monitorPrUrl: string,
+  monitorSessionRef: { current: number },
+  clearCopilotReviewTimers: () => void,
+  setCopilotReviewState: (state: CopilotReviewState) => void
+) {
+  clearCopilotReviewTimers()
+  clearPendingReview(monitorPrUrl)
+  if (monitorSessionRef.current === sessionId) {
+    setCopilotReviewState('idle')
+  }
+}
+
+function didAbortCopilotPoll(error: unknown): boolean {
+  if (isAbortError(error)) return true
+  console.debug('Copilot review poll failed:', error)
+  return false
+}
+
+async function shouldContinueCopilotPolling(
+  findFreshCopilotReview: () => Promise<unknown>,
+  onFreshReview: () => void
+): Promise<boolean> {
+  try {
+    const freshCopilotReview = await findFreshCopilotReview()
+    if (freshCopilotReview) {
+      onFreshReview()
+      return false
+    }
+  } catch (error: unknown) {
+    if (didAbortCopilotPoll(error)) return false
+  }
+  return true
+}
+
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 function playReviewCompleteSound() {
   void (
@@ -211,28 +254,25 @@ export function useCopilotReviewMonitor({
 
       const pollOnce = async () => {
         /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
+        if (isCopilotMonitorStale(monitorSessionRef, sessionId)) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
-          clearCopilotReviewTimers()
-          clearPendingReview(monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
-          /* v8 ignore stop */
+          handleCopilotPollLimitExceeded(
+            sessionId,
+            monitorPrUrl,
+            monitorSessionRef,
+            clearCopilotReviewTimers,
+            setCopilotReviewState
+          )
           return
         }
-        try {
-          const freshCopilotReview = await findFreshCopilotReview()
-          if (freshCopilotReview) {
+        if (
+          !(await shouldContinueCopilotPolling(findFreshCopilotReview, () =>
             finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-            return
-          }
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug('Copilot review poll failed:', pollErr)
+          ))
+        ) {
+          return
         }
         scheduleNextPoll()
       }

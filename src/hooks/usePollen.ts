@@ -128,7 +128,7 @@ function applyCachedPollenData(
 function setPollenStateIfMounted(
   mountedRef: { current: boolean },
   nextState: PollenState,
-  setState: React.Dispatch<React.SetStateAction<PollenState>>
+  setState: (state: PollenState) => void
 ) {
   if (mountedRef.current) {
     setState(nextState)

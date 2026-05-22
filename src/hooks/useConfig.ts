@@ -275,7 +275,7 @@ export function useGitHubAccounts() {
   const accounts = accountsRef.current
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
 
-  const loading = !convexConnected && !fallbackLoaded
+  const loading = computeAccountsLoading(convexConnected, fallbackLoaded)
 
   const findAccount = (username: string, org: string) => {
     if (!convexAccounts) return undefined

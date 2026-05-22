@@ -22,6 +22,30 @@ function isPollFailed(result: PollResult | undefined): boolean {
   return result?.status === 'failed'
 }
 
+function isAIReviewMonitorStale(monitorSessionRef: { current: number }, sessionId: number): boolean {
+  return monitorSessionRef.current !== sessionId
+}
+
+function didAbortAIReviewPoll(providerName: string, error: unknown): boolean {
+  if (isAbortError(error)) return true
+  console.debug(`${providerName} review poll failed:`, error)
+  return false
+}
+
+async function shouldContinueAIReviewPolling(
+  doPoll: () => Promise<PollResult | undefined>,
+  handlePollResult: (result: PollResult | undefined) => 'stop' | 'continue',
+  providerName: string
+): Promise<boolean> {
+  try {
+    const result = await doPoll()
+    return handlePollResult(result) !== 'stop'
+  } catch (error: unknown) {
+    if (didAbortAIReviewPoll(providerName, error)) return false
+  }
+  return true
+}
+
 interface PendingReview {
   providerId: string
   prUrl: string
@@ -247,21 +271,15 @@ export function useAIReviewMonitor({
 
       const pollOnce = async () => {
         /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
+        if (isAIReviewMonitorStale(monitorSessionRef, sessionId)) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > maxPolls) {
           handleMaxPollsExceeded()
           return
         }
-        try {
-          const result = await doPoll()
-          if (handlePollResult(result) === 'stop') return
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug(`${provider.name} review poll failed:`, pollErr)
+        if (!(await shouldContinueAIReviewPolling(doPoll, handlePollResult, provider.name))) {
+          return
         }
         scheduleNextPoll()
       }

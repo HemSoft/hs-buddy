@@ -94,6 +94,21 @@ async function fetchPageContent(url: string): Promise<string> {
   throw new Error('Too many redirects')
 }
 
+function resolveInAppBrowserTitle(title: string | undefined, hostname: string): string {
+  return title ?? hostname
+}
+
+function resolveInAppBrowserIconPath(): string {
+  return path.join(__dirname, '..', '..', 'public', process.platform === 'win32' ? 'icon.ico' : 'icon.png')
+}
+
+function throwIfUnexpectedLoadError(loadError: unknown): void {
+  const msg = getErrorMessage(loadError)
+  if (!msg.includes('ERR_ABORTED')) {
+    throw loadError
+  }
+}
+
 export function registerShellHandlers(): void {
   // Open external links in default browser
   ipcMain.handle(IPC_INVOKE.SHELL_OPEN_EXTERNAL, async (_event, url: string) => {
@@ -127,14 +142,8 @@ export function registerShellHandlers(): void {
           height: 800,
           minWidth: 600,
           minHeight: 400,
-          title: title ?? parsed.hostname,
-          icon: path.join(
-            __dirname,
-            '..',
-            '..',
-            'public',
-            process.platform === 'win32' ? 'icon.ico' : 'icon.png'
-          ),
+          title: resolveInAppBrowserTitle(title, parsed.hostname),
+          icon: resolveInAppBrowserIconPath(),
           webPreferences: {
             contextIsolation: true,
             nodeIntegration: false,
@@ -207,10 +216,7 @@ export function registerShellHandlers(): void {
           // When will-redirect intercepts a redirect, it calls preventDefault()
           // which aborts the original loadURL() promise with ERR_ABORTED.
           // This is expected — guardedNavigate() is handling the redirect target.
-          const msg = getErrorMessage(loadError)
-          if (!msg.includes('ERR_ABORTED')) {
-            throw loadError
-          }
+          throwIfUnexpectedLoadError(loadError)
         }
         recordWindowOpen(parsed.hostname)
         return { success: true }

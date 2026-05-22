@@ -44,6 +44,46 @@ function comparePrompts(a: SortablePrompt, b: SortablePrompt) {
   return a.title.localeCompare(b.title)
 }
 
+function applyPromptTitlePatch(
+  patch: { title?: string; content?: string; sortOrder?: number; updatedAt?: number },
+  title: string | undefined
+): void {
+  if (title !== undefined) {
+    patch.title = title.trim()
+  }
+}
+
+function applyPromptContentPatch(
+  patch: { title?: string; content?: string; sortOrder?: number; updatedAt?: number },
+  content: string | undefined
+): void {
+  if (content !== undefined) {
+    patch.content = normalizeContent(content)
+  }
+}
+
+function applyPromptSortOrderPatch(
+  patch: { title?: string; content?: string; sortOrder?: number; updatedAt?: number },
+  sortOrder: number | undefined
+): void {
+  if (sortOrder !== undefined) {
+    patch.sortOrder = sortOrder
+  }
+}
+
+function buildPromptPatch(args: { title?: string; content?: string; sortOrder?: number }) {
+  const patch: {
+    title?: string
+    content?: string
+    sortOrder?: number
+    updatedAt?: number
+  } = {}
+  applyPromptTitlePatch(patch, args.title)
+  applyPromptContentPatch(patch, args.content)
+  applyPromptSortOrderPatch(patch, args.sortOrder)
+  return patch
+}
+
 export const list = query({
   args: {},
   handler: async ctx => {
@@ -90,17 +130,7 @@ export const update = mutation({
 
     validatePromptFields(args)
 
-    const patch: {
-      title?: string
-      content?: string
-      sortOrder?: number
-      updatedAt?: number
-    } = {}
-
-    if (args.title !== undefined) patch.title = args.title.trim()
-    if (args.content !== undefined) patch.content = normalizeContent(args.content)
-    if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder
-
+    const patch = buildPromptPatch(args)
     if (Object.keys(patch).length === 0) {
       return args.id
     }

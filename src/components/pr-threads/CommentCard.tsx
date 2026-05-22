@@ -87,7 +87,9 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
 }
 
 function getCommentTimestamp(comment: PRReviewComment): number {
-  return comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+  const updatedAt = Date.parse(comment.updatedAt)
+  const createdAt = Date.parse(comment.createdAt)
+  return updatedAt > createdAt ? updatedAt : createdAt
 }
 
 function CommentAvatar({ comment }: { comment: PRReviewComment }) {

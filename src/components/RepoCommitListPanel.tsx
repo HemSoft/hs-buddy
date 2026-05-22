@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { useCallback } from 'react'
 import { GitCommit, ExternalLink, RefreshCw } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
@@ -75,6 +76,23 @@ function CommitListBody({
   )
 }
 
+function renderCommitListLoadState(
+  loading: boolean,
+  error: string | null,
+  commits: RepoCommit[],
+  refresh: () => void,
+  owner: string,
+  repo: string
+): JSX.Element | null {
+  if (loading && commits.length === 0) {
+    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error && commits.length === 0) {
+    return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitListPanelProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoCommit[]>({
     cacheKey: `repo-commits:${owner}/${repo}`,
@@ -87,20 +105,15 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
     (commit: RepoCommit) => {
       if (onOpenCommit) {
         onOpenCommit(commit.sha)
-        return
+      } else {
+        window.shell?.openExternal(commit.url)
       }
-      window.shell?.openExternal(commit.url)
     },
     [onOpenCommit]
   )
 
-  if (loading && commits.length === 0) {
-    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
-  }
-
-  if (error && commits.length === 0) {
-    return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />
-  }
+  const loadState = renderCommitListLoadState(loading, error, commits, refresh, owner, repo)
+  if (loadState) return loadState
 
   return (
     <div className="repo-commits-container">

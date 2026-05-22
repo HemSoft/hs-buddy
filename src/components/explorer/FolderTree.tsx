@@ -271,6 +271,49 @@ function getTypeIcon(isDir: boolean, expanded: boolean) {
   return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
 }
 
+function activateTreeNode(
+  isDir: boolean,
+  path: string,
+  onToggle: (path: string) => void,
+  onFileClick: (path: string) => void
+) {
+  if (isDir) {
+    onToggle(path)
+    return
+  }
+  onFileClick(path)
+}
+
+function TreeNodeChildren({
+  isDir,
+  node,
+  depth,
+  onToggle,
+  onFileClick,
+  selectedFile,
+}: {
+  isDir: boolean
+  node: TreeNode
+  depth: number
+  onToggle: (path: string) => void
+  onFileClick: (path: string) => void
+  selectedFile?: string
+}) {
+  if (!isDir || !node.expanded || !node.children) {
+    return null
+  }
+
+  return (
+    <TreeNodeList
+      nodes={node.children}
+      depth={depth + 1}
+      onToggle={onToggle}
+      onFileClick={onFileClick}
+      selectedFile={selectedFile}
+    />
+  )
+}
+
 function TreeNodeItem({
   node,
   depth,
@@ -288,11 +331,7 @@ function TreeNodeItem({
   const isSelected = selectedFile === node.path
 
   const activate = useCallback(() => {
-    if (isDir) {
-      onToggle(node.path)
-    } else {
-      onFileClick(node.path)
-    }
+    activateTreeNode(isDir, node.path, onToggle, onFileClick)
   }, [isDir, node.path, onToggle, onFileClick])
 
   const handleClick = useCallback(
@@ -334,15 +373,14 @@ function TreeNodeItem({
           {node.name}
         </span>
       </div>
-      {isDir && node.expanded && node.children && (
-        <TreeNodeList
-          nodes={node.children}
-          depth={depth + 1}
-          onToggle={onToggle}
-          onFileClick={onFileClick}
-          selectedFile={selectedFile}
-        />
-      )}
+      <TreeNodeChildren
+        isDir={isDir}
+        node={node}
+        depth={depth}
+        onToggle={onToggle}
+        onFileClick={onFileClick}
+        selectedFile={selectedFile}
+      />
     </li>
   )
 }

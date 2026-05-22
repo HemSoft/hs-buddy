@@ -164,11 +164,23 @@ async function countRepoCommitsInternal(
   return total
 }
 
+function getCommitterDate(
+  commit: { committer?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.committer?.date
+}
+
+function getAuthorDate(
+  commit: { author?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.author?.date
+}
+
 function extractCommitActivityDate(item: Record<string, unknown>): string | undefined {
   const commit = item.commit as
     | { committer?: { date?: string }; author?: { date?: string } }
     | undefined
-  return commit?.committer?.date ?? commit?.author?.date
+  return getCommitterDate(commit) ?? getAuthorDate(commit)
 }
 
 function getFetchedRepoSlims(repoSource: { repos?: OrgRepoSlim[] } | null | undefined): OrgRepoSlim[] {
@@ -176,8 +188,8 @@ function getFetchedRepoSlims(repoSource: { repos?: OrgRepoSlim[] } | null | unde
 }
 
 function getFetchedUserProfile(
-  userProfile: { user?: Parameters<typeof extractUserBasicInfo>[0] } | null | undefined
-): Parameters<typeof extractUserBasicInfo>[0] {
+  userProfile: { user?: Parameters<typeof extractUserBasicInfo>[0] & Parameters<typeof extractUserStatusInfo>[0] } | null | undefined
+): (Parameters<typeof extractUserBasicInfo>[0] & Parameters<typeof extractUserStatusInfo>[0]) | null | undefined {
   return userProfile?.user
 }
 

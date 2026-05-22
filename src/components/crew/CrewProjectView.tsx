@@ -332,20 +332,18 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     trimmedMessage: string,
     appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
   ) => {
+    const conversationHistory = session.conversationHistory.map(m => ({
+      role: m.role,
+      content: m.content,
+    }))
+
     try {
       const response = await window.copilot.chatSend({
         message: trimmedMessage,
         context: `Project: ${project.githubSlug} at ${project.localPath}`,
-        conversationHistory:
-          /* v8 ignore start */
-          session.conversationHistory.map(m => ({
-            /* v8 ignore stop */
-            role: m.role,
-            content: m.content,
-          })) ?? [],
+        conversationHistory,
       })
-      const responseContent =
-        typeof response === 'string' ? response : (response?.content ?? 'No response received.')
+      const responseContent = typeof response === 'string' ? response : response?.content ?? 'No response received.'
 
       const assistantMsg: CrewChatMessage = {
         role: 'assistant',

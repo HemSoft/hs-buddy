@@ -359,6 +359,91 @@ function PRCommentForm({
   )
 }
 
+function AIReviewBannerSection({
+  latestReview,
+  needsRefresh,
+  openLatestReview,
+  requestReReview,
+}: {
+  latestReview: ReturnType<typeof usePRThreadsPanel>['latestReview']
+  needsRefresh: boolean
+  openLatestReview: () => void
+  requestReReview: () => void
+}) {
+  if (!latestReview) return null
+  return (
+    <AIReviewBanner
+      latestReview={latestReview}
+      needsRefresh={needsRefresh}
+      openLatestReview={openLatestReview}
+      requestReReview={requestReReview}
+    />
+  )
+}
+
+function ThreadsTimelineBody({
+  timeline,
+  dateGroups,
+  pr,
+  handleReplyAdded,
+  handleResolveToggled,
+  handleReactToComment,
+}: {
+  timeline: TimelineEntry[]
+  dateGroups: Map<string, TimelineEntry[]>
+  pr: PRDetailInfo
+  handleReplyAdded: ReturnType<typeof usePRThreadsPanel>['handleReplyAdded']
+  handleResolveToggled: ReturnType<typeof usePRThreadsPanel>['handleResolveToggled']
+  handleReactToComment: ReturnType<typeof usePRThreadsPanel>['handleReactToComment']
+}) {
+  if (timeline.length === 0) {
+    return (
+      <div className="pr-threads-empty-state">
+        <MessageCircle size={32} />
+        <p>No conversations yet</p>
+      </div>
+    )
+  }
+  return (
+    <div className="pr-timeline">
+      {[...dateGroups.entries()].map(([dateLabel, entries]) => (
+        <details key={dateLabel} className="pr-timeline-date-group" open>
+          <summary className="pr-timeline-date-header">
+            <div className="pr-timeline-date-line" />
+            <span className="pr-timeline-date-label">{dateLabel}</span>
+            <div className="pr-timeline-date-line" />
+          </summary>
+          <div className="pr-timeline-entries">
+            {entries.map(entry => (
+              <div key={`${entry.type}-${entry.data.id}`} className="pr-timeline-entry">
+                <div className="pr-timeline-rail">
+                  <div className={`pr-timeline-dot pr-timeline-dot-${entry.type}`} />
+                  <div className="pr-timeline-connector" />
+                </div>
+                <div className="pr-timeline-content">
+                  <div className="pr-timeline-meta">
+                    <span className="pr-timeline-time">{formatTimeLabel(entry.timestamp)}</span>
+                    <span className="pr-timeline-type-badge">
+                      {entry.type === 'thread' ? 'review thread' : entry.type}
+                    </span>
+                  </div>
+                  <TimelineEntryContent
+                    entry={entry}
+                    pr={pr}
+                    handleReplyAdded={handleReplyAdded}
+                    handleResolveToggled={handleResolveToggled}
+                    handleReactToComment={handleReactToComment}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  )
+}
+
 export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const {
@@ -433,7 +518,6 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     )
   }
 
-  const hasNoData = loading && !data
   return (
     <div className="pr-threads-container">
       <AIReviewBannerSection
@@ -453,50 +537,14 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
         setShowResolved={setShowResolved}
       />
 
-      {/* Chronological timeline */}
-      {timeline.length > 0 ? (
-        <div className="pr-timeline">
-          {[...dateGroups.entries()].map(([dateLabel, entries]) => (
-            <details key={dateLabel} className="pr-timeline-date-group" open>
-              <summary className="pr-timeline-date-header">
-                <div className="pr-timeline-date-line" />
-                <span className="pr-timeline-date-label">{dateLabel}</span>
-                <div className="pr-timeline-date-line" />
-              </summary>
-              <div className="pr-timeline-entries">
-                {entries.map(entry => (
-                  <div key={`${entry.type}-${entry.data.id}`} className="pr-timeline-entry">
-                    <div className="pr-timeline-rail">
-                      <div className={`pr-timeline-dot pr-timeline-dot-${entry.type}`} />
-                      <div className="pr-timeline-connector" />
-                    </div>
-                    <div className="pr-timeline-content">
-                      <div className="pr-timeline-meta">
-                        <span className="pr-timeline-time">{formatTimeLabel(entry.timestamp)}</span>
-                        <span className="pr-timeline-type-badge">
-                          {entry.type === 'thread' ? 'review thread' : entry.type}
-                        </span>
-                      </div>
-                      <TimelineEntryContent
-                        entry={entry}
-                        pr={pr}
-                        handleReplyAdded={handleReplyAdded}
-                        handleResolveToggled={handleResolveToggled}
-                        handleReactToComment={handleReactToComment}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </details>
-          ))}
-        </div>
-      ) : (
-        <div className="pr-threads-empty-state">
-          <MessageCircle size={32} />
-          <p>No conversations yet</p>
-        </div>
-      )}
+      <ThreadsTimelineBody
+        timeline={timeline}
+        dateGroups={dateGroups}
+        pr={pr}
+        handleReplyAdded={handleReplyAdded}
+        handleResolveToggled={handleResolveToggled}
+        handleReactToComment={handleReactToComment}
+      />
 
       <PRCommentForm
         commentTextareaRef={commentTextareaRef}

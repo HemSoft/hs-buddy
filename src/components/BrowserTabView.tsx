@@ -112,12 +112,15 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       F4: () => 'app:tab-close',
     }
 
+    function isCtrlOrCmd(input: WebviewInput): boolean {
+      return input.control || input.meta
+    }
+
     const handleBeforeInput = (event: Event) => {
       const input = (event as Event & { input?: WebviewInput }).input
       if (!input) return
       if (input.type !== 'keyDown') return
-      const ctrlOrCmd = input.control || input.meta
-      if (!ctrlOrCmd) return
+      if (!isCtrlOrCmd(input)) return
       const eventName = WEBVIEW_SHORTCUTS[input.key]
       if (!eventName) return
       event.preventDefault()

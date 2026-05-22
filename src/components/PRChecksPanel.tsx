@@ -182,6 +182,29 @@ function ChecksEmptyNotice({ totalCount }: { totalCount: number }) {
   )
 }
 
+function ChecksSection<T>({
+  title,
+  emptyText,
+  items,
+  renderItem,
+}: {
+  title: string
+  emptyText: string
+  items: T[]
+  renderItem: (item: T) => React.JSX.Element
+}) {
+  return (
+    <div className="pr-checks-section">
+      <div className="pr-checks-section-title">{title}</div>
+      {items.length === 0 ? (
+        <div className="pr-checks-empty">{emptyText}</div>
+      ) : (
+        <div className="pr-checks-list">{items.map(renderItem)}</div>
+      )}
+    </div>
+  )
+}
+
 export function PRChecksPanel({ pr }: PRChecksPanelProps) {
   const {
     data: checks,
@@ -247,31 +270,19 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
 
       <ChecksEmptyNotice totalCount={checks.totalCount} />
 
-      <div className="pr-checks-section">
-        <div className="pr-checks-section-title">Check Runs</div>
-        {checks.checkRuns.length === 0 ? (
-          <div className="pr-checks-empty">No GitHub check runs</div>
-        ) : (
-          <div className="pr-checks-list">
-            {checks.checkRuns.map(run => (
-              <CheckRunRow key={run.id} run={run} />
-            ))}
-          </div>
-        )}
-      </div>
+      <ChecksSection
+        title="Check Runs"
+        emptyText="No GitHub check runs"
+        items={checks.checkRuns}
+        renderItem={run => <CheckRunRow key={run.id} run={run} />}
+      />
 
-      <div className="pr-checks-section">
-        <div className="pr-checks-section-title">Commit Statuses</div>
-        {checks.statusContexts.length === 0 ? (
-          <div className="pr-checks-empty">No legacy commit status contexts</div>
-        ) : (
-          <div className="pr-checks-list">
-            {checks.statusContexts.map(ctx => (
-              <StatusContextRow key={ctx.id} statusContext={ctx} />
-            ))}
-          </div>
-        )}
-      </div>
+      <ChecksSection
+        title="Commit Statuses"
+        emptyText="No legacy commit status contexts"
+        items={checks.statusContexts}
+        renderItem={ctx => <StatusContextRow key={ctx.id} statusContext={ctx} />}
+      />
     </div>
   )
 }

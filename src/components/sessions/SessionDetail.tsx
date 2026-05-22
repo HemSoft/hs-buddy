@@ -198,6 +198,40 @@ function SessionRequestTimeline({
   )
 }
 
+function getSessionTitle(session: {
+  title?: string | null
+  sessionId: string
+}): string {
+  return session.title || `Session ${session.sessionId.slice(0, 8)}`
+}
+
+function applyDigestResult(
+  targetPath: string,
+  currentPath: string,
+  result: SessionDigest,
+  setDigest: React.Dispatch<React.SetStateAction<SessionDigest | null>>
+) {
+  if (targetPath === currentPath) {
+    setDigest(result)
+  }
+}
+
+function SessionToolsSection({ toolsUsed }: { toolsUsed: string[] }) {
+  if (toolsUsed.length === 0) return null
+  return (
+    <div className="session-tools-section">
+      <h3>Tools Used</h3>
+      <div className="session-tools-list">
+        {toolsUsed.map(tool => (
+          <span key={tool} className="session-tool-badge">
+            {tool}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
   const [digest, setDigest] = useState<SessionDigest | null>(null)
@@ -214,11 +248,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
     try {
       const result = await window.copilotSessions.computeDigest(filePath)
       // Guard against stale result if user navigated away during computation
-      /* v8 ignore start */
-      if (targetPath === filePath) {
-        /* v8 ignore stop */
-        setDigest(result)
-      }
+      applyDigestResult(targetPath, filePath, result, setDigest)
     } catch (err: unknown) {
       console.error('Failed to compute digest:', err)
     } finally {
@@ -256,9 +286,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         <ArrowLeft size={14} /> Back to Sessions
       </button>
 
-      <h2 className="session-detail-title">
-        {session.title || `Session ${session.sessionId.slice(0, 8)}`}
-      </h2>
+      <h2 className="session-detail-title">{getSessionTitle(session)}</h2>
       <SessionSubtitle session={session} />
 
       <SessionMetaGrid
@@ -275,20 +303,8 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
         onComputeDigest={computeDigest}
       />
 
-      {session.toolsUsed.length > 0 && (
-        <div className="session-tools-section">
-          <h3>Tools Used</h3>
-          <div className="session-tools-list">
-            {session.toolsUsed.map(tool => (
-              <span key={tool} className="session-tool-badge">
-                {tool}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {session.results.length > 0 && <SessionRequestTimeline requestItems={requestItems} />}
+      <SessionToolsSection toolsUsed={session.toolsUsed} />
+      <SessionRequestTimeline requestItems={requestItems} />
     </div>
   )
 }

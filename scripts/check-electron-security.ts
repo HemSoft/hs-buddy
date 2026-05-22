@@ -254,6 +254,24 @@ function findMatchingClose(content: string, startIdx: number): number {
   return content.length - 1
 }
 
+function blockContainsInsecureSetting(block: string, setting: InsecureSettingDef): boolean {
+  return setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)
+}
+
+function recordBlockFinding(
+  rel: string,
+  lineNum: number,
+  setting: InsecureSettingDef
+): void {
+  findings.push({
+    file: rel,
+    line: lineNum,
+    severity: setting.severity ?? 'high',
+    rule: setting.rule,
+    message: setting.message,
+  })
+}
+
 /**
  * Multi-line BrowserWindow config check.
  *
@@ -280,14 +298,8 @@ function checkBrowserWindowBlocks(filePath: string): void {
     const lineNum = content.slice(0, match.index).split('\n').length
 
     for (const setting of insecureSettings) {
-      if (setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)) {
-        findings.push({
-          file: rel,
-          line: lineNum,
-          severity: setting.severity ?? 'high',
-          rule: setting.rule,
-          message: setting.message,
-        })
+      if (blockContainsInsecureSetting(block, setting)) {
+        recordBlockFinding(rel, lineNum, setting)
       }
     }
   }

@@ -89,6 +89,22 @@ function RemainingCardBody({
   )
 }
 
+function RemainingCardIcon({ isMonthComplete }: { isMonthComplete: boolean }) {
+  return <>{isMonthComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}</>
+}
+
+function RemainingCardBadge({ hasMissingBadge }: { hasMissingBadge: boolean }) {
+  if (!hasMissingBadge) {
+    return null
+  }
+
+  return (
+    <div className="tempo-card-badge-missing">
+      <XCircle size={14} />
+    </div>
+  )
+}
+
 function RemainingCard({
   isMonthComplete,
   remaining,
@@ -106,7 +122,7 @@ function RemainingCard({
   return (
     <div className={cardClass}>
       <div className="tempo-card-icon">
-        {isMonthComplete ? <CheckCircle2 size={18} /> : <Target size={18} />}
+        <RemainingCardIcon isMonthComplete={isMonthComplete} />
       </div>
       <div className="tempo-card-body">
         <RemainingCardBody
@@ -115,11 +131,7 @@ function RemainingCard({
           showMissing={showMissing}
         />
       </div>
-      {hasMissingBadge && (
-        <div className="tempo-card-badge-missing">
-          <XCircle size={14} />
-        </div>
-      )}
+      <RemainingCardBadge hasMissingBadge={hasMissingBadge} />
     </div>
   )
 }

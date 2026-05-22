@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from 'lucide-react'
+import type { JSX } from 'react'
 import { useEffect } from 'react'
 import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
@@ -206,6 +207,33 @@ function GenericSidebarSection({
   )
 }
 
+function renderSectionSidebar(
+  section: string,
+  onItemSelect: (id: string) => void,
+  selectedItem: string | null,
+  counts: Record<string, number>,
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+): JSX.Element | null {
+  if (section === 'github') {
+    return (
+      <GitHubSidebar
+        onItemSelect={onItemSelect}
+        selectedItem={selectedItem}
+        counts={counts}
+        badgeProgress={badgeProgress}
+      />
+    )
+  }
+  if (section === 'copilot') {
+    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+  const SimpleSidebar = SIMPLE_SIDEBARS[section]
+  if (SimpleSidebar) {
+    return <SimpleSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
+  }
+  return null
+}
+
 export function SidebarPanel({
   section,
   onItemSelect,
@@ -232,24 +260,8 @@ export function SidebarPanel({
 
   if (!data) return null
 
-  if (section === 'github') {
-    return (
-      <GitHubSidebar
-        onItemSelect={onItemSelect}
-        selectedItem={selectedItem}
-        counts={counts}
-        badgeProgress={badgeProgress}
-      />
-    )
-  }
-  if (section === 'copilot') {
-    return <CopilotSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
-
-  const SimpleSidebar = SIMPLE_SIDEBARS[section]
-  if (SimpleSidebar) {
-    return <SimpleSidebar onItemSelect={onItemSelect} selectedItem={selectedItem} />
-  }
+  const specialSidebar = renderSectionSidebar(section, onItemSelect, selectedItem, counts, badgeProgress)
+  if (specialSidebar) return specialSidebar
 
   return (
     <GenericSidebarSection

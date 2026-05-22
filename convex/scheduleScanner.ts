@@ -80,6 +80,18 @@ async function processSchedule(
   return { runCreated: true, scheduleUpdated: true }
 }
 
+function accumulateScanResult(
+  totals: { runsCreated: number; schedulesUpdated: number },
+  result: { runCreated: boolean; scheduleUpdated: boolean }
+): void {
+  if (result.runCreated) totals.runsCreated++
+  if (result.scheduleUpdated) totals.schedulesUpdated++
+}
+
+function hasScanChanges(runsCreated: number, schedulesUpdated: number): boolean {
+  return runsCreated > 0 || schedulesUpdated > 0
+}
+
 /**
  * Main scan and dispatch function.
  *
@@ -93,8 +105,7 @@ export const scanAndDispatch = internalMutation({
   args: {},
   handler: async ctx => {
     const now = Date.now()
-    let runsCreated = 0
-    let schedulesUpdated = 0
+    const totals = { runsCreated: 0, schedulesUpdated: 0 }
 
     // Get all enabled schedules
     const enabledSchedules = await ctx.db
@@ -104,20 +115,19 @@ export const scanAndDispatch = internalMutation({
 
     for (const schedule of enabledSchedules) {
       const result = await processSchedule(ctx, schedule, now)
-      if (result.runCreated) runsCreated++
-      if (result.scheduleUpdated) schedulesUpdated++
+      accumulateScanResult(totals, result)
     }
 
     // Log summary for debugging
-    if (runsCreated > 0 || schedulesUpdated > 0) {
+    if (hasScanChanges(totals.runsCreated, totals.schedulesUpdated)) {
       console.log(
-        `Schedule scan complete: ${runsCreated} runs created, ${schedulesUpdated} schedules updated`
+        `Schedule scan complete: ${totals.runsCreated} runs created, ${totals.schedulesUpdated} schedules updated`
       )
     }
 
     return {
-      runsCreated,
-      schedulesUpdated,
+      runsCreated: totals.runsCreated,
+      schedulesUpdated: totals.schedulesUpdated,
       scannedAt: now,
     }
   },

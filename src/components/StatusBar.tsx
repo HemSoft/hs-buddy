@@ -112,6 +112,54 @@ function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: Backgrou
   )
 }
 
+function GitHubAccountItem({
+  activeGitHubAccount,
+  onNavigate,
+}: {
+  activeGitHubAccount?: string | null
+  onNavigate?: (viewId: string) => void
+}) {
+  if (!activeGitHubAccount) return null
+  return (
+    <>
+      <div className="status-divider" />
+      <StatusBarItem
+        icon={User}
+        text={`@${activeGitHubAccount}`}
+        tooltip="View Account Settings"
+        onClick={() => onNavigate?.('settings-accounts')}
+        className="status-item-github-account"
+      />
+    </>
+  )
+}
+
+function BackgroundSyncSection({
+  backgroundStatus,
+}: {
+  backgroundStatus?: BackgroundStatus
+}) {
+  if (!backgroundStatus) return null
+  return (
+    <>
+      <div className="status-divider" />
+      <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
+    </>
+  )
+}
+
+function CopilotStatusItem({ assistantActive }: { assistantActive?: boolean }) {
+  if (!assistantActive) return null
+  return (
+    <StatusBarItem
+      icon={Sparkles}
+      text="Copilot"
+      tooltip="Copilot Assistant active"
+      className="status-item-copilot"
+    />
+  )
+}
+
 export function StatusBar({
   prCount = 0,
   scheduleCount = 0,
@@ -166,40 +214,12 @@ export function StatusBar({
           onClick={() => onNavigate?.('automation-runs')}
         />
 
-        {activeGitHubAccount && (
-          <>
-            <div className="status-divider" />
-            <StatusBarItem
-              icon={User}
-              text={`@${activeGitHubAccount}`}
-              tooltip="View Account Settings"
-              onClick={() => onNavigate?.('settings-accounts')}
-              className="status-item-github-account"
-            />
-          </>
-        )}
-
-        {/* Background Sync Status */}
-        {backgroundStatus && (
-          <>
-            <div className="status-divider" />
-            <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
-          </>
-        )}
+        <GitHubAccountItem activeGitHubAccount={activeGitHubAccount} onNavigate={onNavigate} />
+        <BackgroundSyncSection backgroundStatus={backgroundStatus} />
       </div>
 
       <div className="status-bar-center">
-        {/* Copilot Assistant indicator */}
-        {assistantActive && (
-          <StatusBarItem
-            icon={Sparkles}
-            text="Copilot"
-            tooltip="Copilot Assistant active"
-            className="status-item-copilot"
-          />
-        )}
-
-        {/* Buddy branding */}
+        <CopilotStatusItem assistantActive={assistantActive} />
         <StatusBarItem icon={Bot} text="Buddy" tooltip="hs-buddy" className="status-item-brand" />
       </div>
 

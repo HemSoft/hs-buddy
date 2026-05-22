@@ -80,6 +80,111 @@ function WorkerTypeSelector({
   )
 }
 
+function JobEditorError({ error }: { error: string | null }) {
+  if (!error) return null
+  return (
+    <div className="job-editor-error">
+      <AlertCircle size={16} />
+      <span>{error}</span>
+    </div>
+  )
+}
+
+function JobConfigFields({
+  workerType,
+  command,
+  shell,
+  timeout,
+  cwd,
+  setCommand,
+  setShell,
+  setTimeout,
+  setCwd,
+  prompt,
+  ghAccount,
+  model,
+  targetRepo,
+  setPrompt,
+  setGhAccount,
+  setModel,
+  setTargetRepo,
+  skillName,
+  skillAction,
+  skillParams,
+  setSkillName,
+  setSkillAction,
+  setSkillParams,
+}: {
+  workerType: 'exec' | 'ai' | 'skill'
+  command: string
+  shell: 'powershell' | 'bash' | 'cmd'
+  timeout: number
+  cwd: string
+  setCommand: (value: string) => void
+  setShell: (value: 'powershell' | 'bash' | 'cmd') => void
+  setTimeout: (value: number) => void
+  setCwd: (value: string) => void
+  prompt: string
+  ghAccount: string
+  model: string
+  targetRepo: string
+  setPrompt: (value: string) => void
+  setGhAccount: (value: string) => void
+  setModel: (value: string) => void
+  setTargetRepo: (value: string) => void
+  skillName: string
+  skillAction: string
+  skillParams: string
+  setSkillName: (value: string) => void
+  setSkillAction: (value: string) => void
+  setSkillParams: (value: string) => void
+}) {
+  switch (workerType) {
+    case 'exec':
+      return (
+        <ExecConfigSection
+          command={command}
+          shell={shell}
+          timeout={timeout}
+          cwd={cwd}
+          onCommandChange={setCommand}
+          onShellChange={setShell}
+          onTimeoutChange={setTimeout}
+          onCwdChange={setCwd}
+        />
+      )
+    case 'ai':
+      return (
+        <AiConfigSection
+          prompt={prompt}
+          ghAccount={ghAccount}
+          model={model}
+          targetRepo={targetRepo}
+          onPromptChange={setPrompt}
+          onGhAccountChange={setGhAccount}
+          onModelChange={setModel}
+          onTargetRepoChange={setTargetRepo}
+        />
+      )
+    case 'skill':
+      return (
+        <SkillConfigSection
+          skillName={skillName}
+          skillAction={skillAction}
+          skillParams={skillParams}
+          onSkillNameChange={setSkillName}
+          onSkillActionChange={setSkillAction}
+          onSkillParamsChange={setSkillParams}
+        />
+      )
+  }
+}
+
+function getSaveJobLabel(saving: boolean, isEditing: boolean): string {
+  if (saving) return 'Saving...'
+  return isEditing ? 'Update Job' : 'Create Job'
+}
+
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
   const workerTypeLabelId = useId()
   const {
@@ -117,42 +222,8 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
     handleSave,
   } = useJobEditorForm(jobId, duplicateFrom, onSaved, onClose)
 
-  const renderExecConfig = () => (
-    <ExecConfigSection
-      command={command}
-      shell={shell}
-      timeout={timeout}
-      cwd={cwd}
-      onCommandChange={setCommand}
-      onShellChange={setShell}
-      onTimeoutChange={setTimeout}
-      onCwdChange={setCwd}
-    />
-  )
-
-  const renderAiConfig = () => (
-    <AiConfigSection
-      prompt={prompt}
-      ghAccount={ghAccount}
-      model={model}
-      targetRepo={targetRepo}
-      onPromptChange={setPrompt}
-      onGhAccountChange={setGhAccount}
-      onModelChange={setModel}
-      onTargetRepoChange={setTargetRepo}
-    />
-  )
-
-  const renderSkillConfig = () => (
-    <SkillConfigSection
-      skillName={skillName}
-      skillAction={skillAction}
-      skillParams={skillParams}
-      onSkillNameChange={setSkillName}
-      onSkillActionChange={setSkillAction}
-      onSkillParamsChange={setSkillParams}
-    />
-  )
+  const editorTitle = getEditorTitle(isEditing, duplicateFrom)
+  const saveLabel = getSaveJobLabel(saving, isEditing)
 
   return (
     <div className="job-editor-overlay">
@@ -160,7 +231,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
         <div className="job-editor-header">
           <div className="job-editor-title">
             <Package size={20} />
-            <h2>{getEditorTitle(isEditing, duplicateFrom)}</h2>
+            <h2>{editorTitle}</h2>
           </div>
           <button className="btn-close" onClick={onClose} title="Close">
             <X size={18} />
@@ -168,12 +239,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
         </div>
 
         <div className="job-editor-content">
-          {error && (
-            <div className="job-editor-error">
-              <AlertCircle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
+          <JobEditorError error={error} />
 
           <div className="form-group">
             <label htmlFor="job-name">Name *</label>
@@ -206,9 +272,31 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
 
           <div className="form-divider" />
 
-          {workerType === 'exec' && renderExecConfig()}
-          {workerType === 'ai' && renderAiConfig()}
-          {workerType === 'skill' && renderSkillConfig()}
+          <JobConfigFields
+            workerType={workerType}
+            command={command}
+            shell={shell}
+            timeout={timeout}
+            cwd={cwd}
+            setCommand={setCommand}
+            setShell={setShell}
+            setTimeout={setTimeout}
+            setCwd={setCwd}
+            prompt={prompt}
+            ghAccount={ghAccount}
+            model={model}
+            targetRepo={targetRepo}
+            setPrompt={setPrompt}
+            setGhAccount={setGhAccount}
+            setModel={setModel}
+            setTargetRepo={setTargetRepo}
+            skillName={skillName}
+            skillAction={skillAction}
+            skillParams={skillParams}
+            setSkillName={setSkillName}
+            setSkillAction={setSkillAction}
+            setSkillParams={setSkillParams}
+          />
         </div>
 
         <div className="job-editor-footer">
@@ -217,7 +305,7 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
             <Save size={16} />
-            {saving ? 'Saving...' : isEditing ? 'Update Job' : 'Create Job'}
+            {saveLabel}
           </button>
         </div>
       </div>

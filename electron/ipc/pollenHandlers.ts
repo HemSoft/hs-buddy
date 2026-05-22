@@ -163,6 +163,13 @@ function buildPollenUrl(apiKey: string, location: { latitude: number; longitude:
   )
 }
 
+function buildPollenSuccessResult(data: PollenData | null): PollenFetchResult {
+  if (!data) {
+    return { success: false, error: 'No pollen data available for this location' }
+  }
+  return { success: true, data }
+}
+
 async function fetchPollenData(location: {
   latitude: number
   longitude: number
@@ -186,9 +193,7 @@ async function fetchPollenData(location: {
 
     const json = (await res.json()) as GoogleForecastResponse
     const data = parseGooglePollenResponse(json)
-    return data
-      ? { success: true, data }
-      : { success: false, error: 'No pollen data available for this location' }
+    return buildPollenSuccessResult(data)
   } catch (err: unknown) {
     return { success: false, error: getErrorMessageWithFallback(err, 'Pollen fetch failed') }
   }

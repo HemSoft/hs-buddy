@@ -71,12 +71,21 @@ function relocateToSavedDisplay(
   )
 }
 
-function hasUnresolvedWindowPosition(x: number | undefined, y: number | undefined): boolean {
-  return x === undefined || y === undefined
+function hasResolvedWindowPosition(
+  state: WindowBounds
+): state is WindowBounds & { x: number; y: number } {
+  return state.x !== undefined && state.y !== undefined
 }
 
 function shouldRelocateToSavedDisplay(targetDisplayId: number, savedDisplayId: number): boolean {
   return targetDisplayId !== savedDisplayId
+}
+
+function resolveWindowPosition(state: WindowBounds): { x: number; y: number } {
+  return {
+    x: state.x ?? 0,
+    y: state.y ?? 0,
+  }
 }
 
 /**
@@ -96,10 +105,12 @@ export function resolveWindowBounds(
     getMatchingDisplay: (bounds: Rectangle) => DisplayInfo
   }
 ): WindowBounds {
-  const { x, y, width, height } = state
+  if (!hasResolvedWindowPosition(state)) {
+    return state
+  }
 
-  if (hasUnresolvedWindowPosition(x, y)) return { x, y, width, height }
-
+  const { width, height } = state
+  const { x, y } = resolveWindowPosition(state)
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo
 

@@ -15,6 +15,70 @@ import { applyReactionToResult } from '../utils/reactions'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 
+function resolvePRThreadsOwner(
+  prOrg: string | undefined,
+  ownerRepo: { owner: string; repo: string } | null
+): string | undefined {
+  return prOrg ?? ownerRepo?.owner
+}
+
+function getThreadList(data: PRThreadsResult | null) {
+  return data?.threads ?? []
+}
+
+function getReviewedThreadStats(
+  latestReview: ReturnType<typeof useLatestPRReviewRun>
+): { unresolved: number; outdated: number } | null {
+  return latestReview?.reviewedThreadStats ?? null
+}
+
+function getReviewedHeadSha(latestReview: ReturnType<typeof useLatestPRReviewRun>): string | null {
+  return latestReview?.reviewedHeadSha ?? null
+}
+
+function isLatestThreadsRequest(requestId: number, latestThreadsRequestRef: { current: number }): boolean {
+  return requestId === latestThreadsRequestRef.current
+}
+
+async function fetchPRThreadsResult(
+  ownerRepo: { owner: string; repo: string } | null,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  pr: Pick<PRDetailInfo, 'id' | 'repository'>
+): Promise<PRThreadsResult> {
+  if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
+
+  return await enqueueRef.current(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
+    },
+    { name: `pr-threads-${pr.repository}-${pr.id}` }
+  )
+}
+
+function setPRThreadsErrorIfCurrent(
+  requestId: number,
+  latestThreadsRequestRef: { current: number },
+  error: unknown,
+  setError: (error: string | null) => void
+): void {
+  if (isAbortError(error)) return
+  if (!isLatestThreadsRequest(requestId, latestThreadsRequestRef)) return
+  setError(getErrorMessage(error))
+}
+
+function finishPRThreadsLoading(
+  requestId: number,
+  latestThreadsRequestRef: { current: number },
+  setLoading: (loading: boolean) => void
+): void {
+  if (isLatestThreadsRequest(requestId, latestThreadsRequestRef)) {
+    setLoading(false)
+  }
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -22,7 +86,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const latestThreadsRequestRef = useRef(0)
   const headShaRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = pr.org || ownerRepo?.owner
+  const owner = resolvePRThreadsOwner(pr.org, ownerRepo)
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -72,42 +136,16 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     setLoading(true)
     setError(null)
     try {
-      if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
-
-      const result = await enqueueRef.current(
-        /* v8 ignore start */
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
-          /* v8 ignore stop */
-        },
-        { name: `pr-threads-${pr.repository}-${pr.id}` }
-      )
-
-      if (requestId !== latestThreadsRequestRef.current) {
-        return
+      const result = await fetchPRThreadsResult(ownerRepo, enqueueRef, accounts, pr)
+      if (isLatestThreadsRequest(requestId, latestThreadsRequestRef)) {
+        setData(result)
       }
-
-      setData(result)
-      /* v8 ignore start */
     } catch (err: unknown) {
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      if (isAbortError(err)) return
-      /* v8 ignore stop */
-
-      if (requestId !== latestThreadsRequestRef.current) {
-        return
-      }
-
-      setError(getErrorMessage(err))
+      setPRThreadsErrorIfCurrent(requestId, latestThreadsRequestRef, err, setError)
     } finally {
-      if (requestId === latestThreadsRequestRef.current) {
-        setLoading(false)
-      }
+      finishPRThreadsLoading(requestId, latestThreadsRequestRef, setLoading)
     }
-  }, [accounts, pr.id, pr.repository, ownerRepo, enqueueRef])
+  }, [accounts, pr, ownerRepo, enqueueRef])
 
   useEffect(() => {
     fetchThreads()
@@ -197,34 +235,32 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     [accounts, ownerRepo, pr.repository, pr.id, enqueueRef]
   )
 
-  const threads = data?.threads
-  const activeThreads = useMemo(() => threads?.filter(t => !t.isResolved) ?? [], [threads])
-  const resolvedThreads = useMemo(() => threads?.filter(t => t.isResolved) ?? [], [threads])
-  const outdatedThreads = useMemo(() => threads?.filter(t => t.isOutdated) ?? [], [threads])
+  const threads = getThreadList(data)
+  const reviewedThreadStats = getReviewedThreadStats(latestReview)
+  const reviewedHeadSha = getReviewedHeadSha(latestReview)
+  const activeThreads = useMemo(() => threads.filter(t => !t.isResolved), [threads])
+  const resolvedThreads = useMemo(() => threads.filter(t => t.isResolved), [threads])
+  const outdatedThreads = useMemo(() => threads.filter(t => t.isOutdated), [threads])
 
   const threadSnapshotChanged = useMemo(
     () =>
-      !!latestReview?.reviewedThreadStats &&
-      (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
-        latestReview.reviewedThreadStats.outdated !== outdatedThreads.length),
-    [latestReview?.reviewedThreadStats, activeThreads.length, outdatedThreads.length]
+      !!reviewedThreadStats &&
+      (reviewedThreadStats.unresolved !== activeThreads.length ||
+        reviewedThreadStats.outdated !== outdatedThreads.length),
+    [reviewedThreadStats, activeThreads.length, outdatedThreads.length]
   )
   const needsRefresh = useMemo(
-    () =>
-      (!!latestReview?.reviewedHeadSha &&
-        !!currentHeadSha &&
-        latestReview.reviewedHeadSha !== currentHeadSha) ||
-      threadSnapshotChanged,
-    [latestReview?.reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
+    () => (!!reviewedHeadSha && !!currentHeadSha && reviewedHeadSha !== currentHeadSha) || threadSnapshotChanged,
+    [reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
   )
 
   const filteredThreads = useMemo(
     () =>
-      threads?.filter(t => {
+      threads.filter(t => {
         if (filter === 'active') return !t.isResolved
         if (filter === 'resolved') return t.isResolved
         return true
-      }) ?? [],
+      }),
     [threads, filter]
   )
 

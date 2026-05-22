@@ -464,7 +464,7 @@ export function ReviewThreadCard({
 
       <ReviewThreadBody
         expanded={expanded}
-        diffHunk={diffHunk}
+        diffHunk={diffHunk ?? undefined}
         firstComment={firstComment}
         remainingComments={remainingComments}
         onReactToComment={onReactToComment}

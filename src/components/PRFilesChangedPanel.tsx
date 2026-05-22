@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { FileCode2, RefreshCw } from 'lucide-react'
 import type { PRFilesChangedSummary } from '../api/github'
 import { usePRPanelData } from '../hooks/usePRPanelData'

@@ -50,19 +50,19 @@ export function orgCopilotReducer(
   state: OrgCopilotState,
   action: OrgCopilotAction
 ): OrgCopilotState {
-  switch (action.type) {
-    case 'reset-for-user-namespace':
-      return { usage: null, phase: 'loading', error: null }
-    case 'hydrate-cache':
-    case 'success':
-      return { usage: action.usage, phase: 'ready', error: null }
-    case 'start-loading':
-      return { ...state, phase: resolveLoadingPhase(action.hasUsage), error: null }
-    case 'error':
-      return { ...state, phase: 'error', error: action.error }
-    default:
-      return state
+  if (action.type === 'reset-for-user-namespace') {
+    return { usage: null, phase: 'loading', error: null }
   }
+  if (action.type === 'hydrate-cache' || action.type === 'success') {
+    return { usage: action.usage, phase: 'ready', error: null }
+  }
+  if (action.type === 'start-loading') {
+    return { ...state, phase: resolveLoadingPhase(action.hasUsage), error: null }
+  }
+  if (action.type === 'error') {
+    return { ...state, phase: 'error', error: action.error }
+  }
+  return state
 }
 
 const METRIC_DEFAULTS: Partial<OrgOverviewResult['metrics']> = {

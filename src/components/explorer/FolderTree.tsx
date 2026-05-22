@@ -271,6 +271,31 @@ function getTypeIcon(isDir: boolean, expanded: boolean) {
   return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
 }
 
+function getTreeNodeAriaExpanded(node: TreeNode): boolean | undefined {
+  return node.type === 'directory' ? node.expanded : undefined
+}
+
+function renderTreeNodeChildren(
+  node: TreeNode,
+  depth: number,
+  onToggle: (path: string) => void,
+  onFileClick: (path: string) => void,
+  selectedFile?: string
+) {
+  if (!(node.type === 'directory' && node.expanded && node.children)) {
+    return null
+  }
+  return (
+    <TreeNodeList
+      nodes={node.children}
+      depth={depth + 1}
+      onToggle={onToggle}
+      onFileClick={onFileClick}
+      selectedFile={selectedFile}
+    />
+  )
+}
+
 function TreeNodeItem({
   node,
   depth,
@@ -319,7 +344,7 @@ function TreeNodeItem({
       className="folder-tree-node"
       role="treeitem"
       aria-selected={isSelected}
-      aria-expanded={isDir ? node.expanded : undefined}
+      aria-expanded={getTreeNodeAriaExpanded(node)}
       tabIndex={0}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
@@ -334,15 +359,7 @@ function TreeNodeItem({
           {node.name}
         </span>
       </div>
-      {isDir && node.expanded && node.children && (
-        <TreeNodeList
-          nodes={node.children}
-          depth={depth + 1}
-          onToggle={onToggle}
-          onFileClick={onFileClick}
-          selectedFile={selectedFile}
-        />
-      )}
+      {renderTreeNodeChildren(node, depth, onToggle, onFileClick, selectedFile)}
     </li>
   )
 }

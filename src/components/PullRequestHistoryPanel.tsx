@@ -313,6 +313,28 @@ function handleHistoryFetchError(
   setError(getErrorMessage(err))
 }
 
+function applyHistoryResult(
+  requestId: number,
+  latestRef: { current: number },
+  result: PRHistorySummary,
+  setHistory: (value: PRHistorySummary) => void,
+  onLoaded?: (history: PRHistorySummary) => void
+): void {
+  if (requestId !== latestRef.current) return
+  setHistory(result)
+  onLoaded?.(result)
+}
+
+function finishHistoryRequest(
+  requestId: number,
+  latestRef: { current: number },
+  setLoading: (value: boolean) => void
+): void {
+  if (requestId === latestRef.current) {
+    setLoading(false)
+  }
+}
+
 function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySummary) => void) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -344,16 +366,11 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
         { name: `pr-history-${pr.repository}-${pr.id}` }
       )
 
-      if (requestId !== latestRequestRef.current) return
-
-      setHistory(result)
-      onLoaded?.(result)
+      applyHistoryResult(requestId, latestRequestRef, result, setHistory, onLoaded)
     } catch (err: unknown) {
       handleHistoryFetchError(err, requestId, latestRequestRef, setError)
     } finally {
-      if (requestId === latestRequestRef.current) {
-        setLoading(false)
-      }
+      finishHistoryRequest(requestId, latestRequestRef, setLoading)
     }
   }, [accounts, pr.id, pr.repository, pr.url, onLoaded, enqueueRef])
 

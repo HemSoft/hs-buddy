@@ -729,10 +729,7 @@ export async function fetchPRHistory(
     number: pullNumber,
     headers: { authorization: `token ${token}` },
   })
-  const pr = result.repository?.pullRequest
-  if (!pr) {
-    throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
-  }
+  const pr = requirePullRequestData(result.repository?.pullRequest, owner, repo, pullNumber)
   const threads = await paginateDetailedReviewThreads(
     owner,
     repo,

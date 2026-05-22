@@ -15,6 +15,19 @@ interface PRContextMenuProps {
   onClose: () => void
 }
 
+function getPRContextMenuState(pr: PullRequest, isBookmarked: boolean) {
+  const hasUnresolved = (pr.threadsUnaddressed ?? 0) > 0
+  return {
+    hasUnresolved,
+    addressLabel: hasUnresolved
+      ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
+      : 'No Unresolved Comments',
+    approveLabel: pr.iApproved ? 'Already Approved' : 'Approve',
+    bookmarkLabel: isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`,
+    bookmarkFill: isBookmarked ? 'currentColor' : 'none',
+  }
+}
+
 export function PRContextMenu({
   x,
   y,
@@ -30,7 +43,7 @@ export function PRContextMenu({
 }: PRContextMenuProps) {
   const repoKey = `${pr.org}/${pr.repository}`
   const isBookmarked = bookmarkedRepoKeys.has(repoKey)
-  const hasUnresolved = (pr.threadsUnaddressed ?? 0) > 0
+  const menuState = getPRContextMenuState(pr, isBookmarked)
 
   return (
     <>
@@ -44,23 +57,21 @@ export function PRContextMenu({
           <RotateCw size={14} />
           Request Copilot Review
         </button>
-        <button onClick={onAddressComments} disabled={!hasUnresolved}>
+        <button onClick={onAddressComments} disabled={!menuState.hasUnresolved}>
           <MessageSquareWarning size={14} />
-          {hasUnresolved
-            ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
-            : 'No Unresolved Comments'}
+          {menuState.addressLabel}
         </button>
         <button onClick={onApprove} disabled={!!pr.iApproved}>
           <ThumbsUp size={14} />
-          {pr.iApproved ? 'Already Approved' : 'Approve'}
+          {menuState.approveLabel}
         </button>
         <button onClick={onCopyLink}>
           <Copy size={14} />
           Copy Link
         </button>
         <button onClick={onBookmark}>
-          <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
-          {isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`}
+          <Star size={14} fill={menuState.bookmarkFill} />
+          {menuState.bookmarkLabel}
         </button>
       </div>
     </>

@@ -6,9 +6,21 @@ function addTextSegment(segments: CommentSegment[], raw: string): void {
   if (trimmed) segments.push({ type: 'text', content: trimmed })
 }
 
+function normalizeCommentBody(body: string | null | undefined): string {
+  return body ?? ''
+}
+
+function addCommentFallback(segments: CommentSegment[], safeBody: string): void {
+  /* v8 ignore start -- defensive fallback; unreachable because addTextSegment always captures non-empty text */
+  if (segments.length === 0 && safeBody.trim()) {
+    segments.push({ type: 'text', content: safeBody })
+  }
+  /* v8 ignore stop */
+}
+
 export function parseCommentBody(body: string | null | undefined): CommentSegment[] {
   const segments: CommentSegment[] = []
-  const safeBody = body ?? ''
+  const safeBody = normalizeCommentBody(body)
   const regex = /```suggestion\s*\n([\s\S]*?)```/g
   let lastIndex = 0
   let match: RegExpExecArray | null
@@ -20,12 +32,7 @@ export function parseCommentBody(body: string | null | undefined): CommentSegmen
   }
 
   addTextSegment(segments, safeBody.slice(lastIndex))
-
-  /* v8 ignore start -- defensive fallback; unreachable because addTextSegment always captures non-empty text */
-  if (segments.length === 0 && safeBody.trim()) {
-    segments.push({ type: 'text', content: safeBody })
-  }
-  /* v8 ignore stop */
+  addCommentFallback(segments, safeBody)
 
   return segments
 }

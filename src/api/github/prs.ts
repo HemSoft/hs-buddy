@@ -181,12 +181,27 @@ function isNewerReview(
   return !existing || (submittedAt || '') > (existing.submittedAt || '')
 }
 
+function resolveOptionalList<T>(items: T[] | undefined): T[] {
+  return items ?? []
+}
+
+function resolveLogin(user: { login?: string } | null | undefined): string | undefined {
+  return user?.login
+}
+
+function buildRequestedReviewerEntry(reviewer: {
+  avatarUrl?: string | null
+  name?: string | null
+}): { avatarUrl: string | null; name: string | null } {
+  return { avatarUrl: reviewer.avatarUrl || null, name: reviewer.name || null }
+}
+
 export function buildLatestReviewsMap(
   reviews: ReviewNodeForMap[] | undefined
 ): Map<string, ReviewEntryForMap> {
   const map = new Map<string, ReviewEntryForMap>()
-  for (const review of reviews ?? []) {
-    const login = review.author?.login
+  for (const review of resolveOptionalList(reviews)) {
+    const login = resolveLogin(review.author)
     if (!login) continue
     if (isNewerReview(review.submittedAt, map.get(login))) {
       map.set(login, buildReviewEntry(review))
@@ -208,10 +223,10 @@ export function buildRequestedReviewersMap(
   reviewRequests: ReviewRequestNode[] | undefined
 ): Map<string, { avatarUrl: string | null; name: string | null }> {
   const map = new Map<string, { avatarUrl: string | null; name: string | null }>()
-  for (const req of reviewRequests ?? []) {
+  for (const req of resolveOptionalList(reviewRequests)) {
     if (isUserReviewer(req.requestedReviewer)) {
-      const r = req.requestedReviewer
-      map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
+      const reviewer = req.requestedReviewer
+      map.set(reviewer.login, buildRequestedReviewerEntry(reviewer))
     }
   }
   return map

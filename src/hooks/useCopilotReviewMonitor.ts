@@ -209,50 +209,45 @@ export function useCopilotReviewMonitor({
         monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
       }
 
+      const resetMonitorToIdle = () => {
+        clearCopilotReviewTimers()
+        clearPendingReview(monitorPrUrl)
+        /* v8 ignore next */
+        if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
+      }
+
+      const pollForFreshReview = async () => {
+        try {
+          const freshCopilotReview = await findFreshCopilotReview()
+          if (freshCopilotReview) {
+            finishCopilotReviewMonitor(sessionId, monitorPrUrl)
+            return true
+          }
+        } catch (pollErr: unknown) {
+          /* v8 ignore start */
+          if (isAbortError(pollErr)) return true
+          /* v8 ignore stop */
+          console.debug('Copilot review poll failed:', pollErr)
+        }
+        return false
+      }
+
       const pollOnce = async () => {
         /* v8 ignore start */
         if (monitorSessionRef.current !== sessionId) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
-          clearCopilotReviewTimers()
-          clearPendingReview(monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
-          /* v8 ignore stop */
+          resetMonitorToIdle()
           return
         }
-        try {
-          const freshCopilotReview = await findFreshCopilotReview()
-          if (freshCopilotReview) {
-            finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-            return
-          }
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug('Copilot review poll failed:', pollErr)
-        }
+        if (await pollForFreshReview()) return
         scheduleNextPoll()
       }
 
       if (runImmediately) {
         void (async () => {
-          try {
-            const freshCopilotReview = await findFreshCopilotReview()
-            if (freshCopilotReview) {
-              finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-              return
-            }
-            /* v8 ignore start */
-          } catch (pollErr: unknown) {
-            /* v8 ignore stop */
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug('Copilot review poll failed:', pollErr)
-          }
+          if (await pollForFreshReview()) return
           scheduleNextPoll()
         })()
         return

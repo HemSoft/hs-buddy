@@ -51,10 +51,14 @@ export function parseModelMetadata(sm: Record<string, unknown>): SessionModelInf
 
 // ─── Init data extraction ────────────────────────────────
 
-export function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
-  const sm = (v.inputState as Record<string, unknown>)?.selectedModel as
+function extractSelectedModel(v: Record<string, unknown>): Record<string, unknown> | undefined {
+  return (v.inputState as Record<string, unknown>)?.selectedModel as
     | Record<string, unknown>
     | undefined
+}
+
+export function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
+  const sm = extractSelectedModel(v)
   return {
     sessionId: (v.sessionId as string) ?? '',
     creationDate: (v.creationDate as number) ?? 0,
@@ -302,6 +306,10 @@ function processUpdateLine(keyPath: string[], line: string, state: SessionParseS
   }
 }
 
+function isRequestsSnapshot(kind: number, keyPath: string[]): boolean {
+  return kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests'
+}
+
 /** Process a single JSONL line for session parsing. Pure state-machine dispatcher. */
 export function processSessionLine(
   kind: number,
@@ -313,7 +321,7 @@ export function processSessionLine(
     processInitLine(line, state)
   } else if (kind === 1) {
     processUpdateLine(keyPath, line, state)
-  } else if (kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests') {
+  } else if (isRequestsSnapshot(kind, keyPath)) {
     handleRequestsSnapshot(line, state.prompts)
   }
 }

@@ -152,20 +152,29 @@ function buildLocationName(city: string, state: string, fallback: string): strin
   return fallback
 }
 
+function resolveReverseGeocodeName(
+  json: { address?: { city?: string; town?: string; village?: string; state?: string } },
+  fallbackName: string
+): string | null {
+  const city = extractCity(json.address)
+  if (!city) return null
+  const state = json.address ? (json.address.state ?? '') : ''
+  return buildLocationName(city, state, fallbackName)
+}
+
 async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
   try {
     const resp = await fetch(
       `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
       { headers: { 'User-Agent': 'hs-buddy/1.0' } }
     )
-    if (resp.ok) {
-      const json = (await resp.json()) as {
-        address?: { city?: string; town?: string; village?: string; state?: string }
-      }
-      const city = extractCity(json.address)
-      const st = json.address?.state ?? ''
-      if (city) loc.name = buildLocationName(city, st, loc.name)
+    if (!resp.ok) return
+    const json = (await resp.json()) as {
+      address?: { city?: string; town?: string; village?: string; state?: string }
     }
+    const locationName = resolveReverseGeocodeName(json, loc.name)
+    if (!locationName) return
+    loc.name = locationName
   } catch (_: unknown) {
     // Use coordinate-based name as fallback
   }

@@ -424,6 +424,50 @@ export function buildTemplateFromWorklogs(worklogs: TempoWorklog[]): {
   return { issues, prefills }
 }
 
+type PreviousMonthResult = Awaited<ReturnType<typeof window.tempo.getWeek>>
+
+function getPreviousMonthTemplateWorklogs(result: PreviousMonthResult): TempoWorklog[] | null {
+  if (!result.success || !result.data) {
+    return null
+  }
+
+  return result.data.worklogs.length > 0 ? result.data.worklogs : null
+}
+
+function resolvePreviousMonthLoadError(result: PreviousMonthResult): string {
+  return result.error || 'Failed to load previous month data.'
+}
+
+function applyPreviousMonthTemplateResult(
+  dispatch: (action: TempoDashboardAction) => void,
+  copyMonthRef: { current: string },
+  monthKey: string,
+  result: PreviousMonthResult
+) {
+  if (copyMonthRef.current !== monthKey) return
+
+  const worklogs = getPreviousMonthTemplateWorklogs(result)
+  if (worklogs) {
+    const { issues, prefills } = buildTemplateFromWorklogs(worklogs)
+    dispatch({ type: 'setTemplateIssues', issues, prefills })
+    return
+  }
+
+  dispatch({ type: 'setLoadingTemplates', loading: false })
+  if (result.success) {
+    dispatch({
+      type: 'setActionError',
+      error: 'No entries found in the previous month.',
+    })
+    return
+  }
+
+  dispatch({
+    type: 'setActionError',
+    error: resolvePreviousMonthLoadError(result),
+  })
+}
+
 function resolveEditorDefaults(state: TempoDashboardState, todayKey: string) {
   return {
     defaultDate: state.editorDate || todayKey,
@@ -487,24 +531,7 @@ export function TempoDashboard() {
     const { from, to } = getMonthRange(prevDate)
     const result = await window.tempo.getWeek(from, to)
 
-    if (copyMonthRef.current !== monthKey) return
-
-    if (result.success && result.data && result.data.worklogs.length > 0) {
-      const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
-      dispatch({ type: 'setTemplateIssues', issues, prefills })
-    } else if (result.success) {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: 'No entries found in the previous month.',
-      })
-    } else {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: result.error || 'Failed to load previous month data.',
-      })
-    }
+    applyPreviousMonthTemplateResult(dispatch, copyMonthRef, monthKey, result)
   }, [state.viewMonth])
 
   // Merge real issue summaries with templates (templates hidden if real data exists for that key)

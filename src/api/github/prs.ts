@@ -664,6 +664,124 @@ async function fetchPRsForAccount(
     })
 }
 
+type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
+type GitHubPRAccount = PRConfig['github']['accounts'][number]
+type AccountFetchResult = { prs: PullRequest[]; authenticationError: boolean }
+
+function reportAccountProgress(
+  report: ProgressCallback,
+  totalAccounts: number,
+  account: GitHubPRAccount,
+  index: number,
+  status: PRProgressStatus,
+  extra?: { prsFound?: number; error?: string }
+) {
+  report({
+    currentAccount: index + 1,
+    totalAccounts,
+    accountName: account.username,
+    org: account.org,
+    status,
+    ...extra,
+  })
+}
+
+function logPRFetchStart(account: GitHubPRAccount, mode: PRSearchMode) {
+  console.debug(
+    `Checking GitHub account '${account.username}' for org '${account.org}' (mode: ${mode})...`
+  )
+}
+
+function logPRFetchError(account: GitHubPRAccount, errorMsg: string) {
+  if (!errorMsg.includes('404')) {
+    console.warn(`⚠️  Error fetching PRs for ${account.username} in ${account.org}:`, errorMsg)
+    return
+  }
+
+  console.debug(`ℹ️  No access or org not found for ${account.username} in ${account.org}`)
+}
+
+async function fetchConfiguredAccountPRs({
+  config,
+  recentlyMergedDays,
+  mode,
+  account,
+  index,
+  totalAccounts,
+  report,
+}: {
+  config: PRConfig['github']
+  recentlyMergedDays: number
+  mode: PRSearchMode
+  account: GitHubPRAccount
+  index: number
+  totalAccounts: number
+  report: ProgressCallback
+}): Promise<AccountFetchResult> {
+  logPRFetchStart(account, mode)
+  reportAccountProgress(report, totalAccounts, account, index, 'authenticating')
+
+  const octokit = await getOctokit(account.username)
+  if (!octokit) {
+    console.warn(`⚠️  Skipping account '${account.username}' - no GitHub CLI authentication found`)
+    reportAccountProgress(report, totalAccounts, account, index, 'error', {
+      error: 'No GitHub CLI authentication found',
+    })
+    return { prs: [], authenticationError: true }
+  }
+
+  reportAccountProgress(report, totalAccounts, account, index, 'fetching')
+
+  try {
+    const prs = await fetchPRsForAccount(
+      config,
+      recentlyMergedDays,
+      account.username,
+      account.org,
+      mode
+    )
+    console.debug(`✓ Found ${prs.length} PRs for ${account.username} in ${account.org}`)
+    reportAccountProgress(report, totalAccounts, account, index, 'done', { prsFound: prs.length })
+    return { prs, authenticationError: false }
+  } catch (error: unknown) {
+    const errorMsg = getErrorMessage(error)
+    logPRFetchError(account, errorMsg)
+    reportAccountProgress(report, totalAccounts, account, index, 'error', { error: errorMsg })
+    return { prs: [], authenticationError: false }
+  }
+}
+
+function throwIfAllAccountsUnauthenticated(authenticationErrors: number, totalAccounts: number) {
+  if (authenticationErrors !== totalAccounts) return
+
+  throw new Error(
+    'GitHub CLI authentication not available for any configured account. Please run: gh auth login'
+  )
+}
+
+function sortRecentlyMergedPRs(mode: PRSearchMode, prs: PullRequest[]) {
+  if (mode !== 'recently-merged') return prs
+
+  return [...prs].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0
+    const dateB = b.date ? new Date(b.date).getTime() : 0
+    return dateB - dateA
+  })
+}
+
+function dedupePRsByUrl(prs: PullRequest[]) {
+  const seenUrls = new Set<string>()
+  return prs.filter(pr => {
+    if (seenUrls.has(pr.url)) return false
+    seenUrls.add(pr.url)
+    return true
+  })
+}
+
+function finalizeFetchedPRs(mode: PRSearchMode, prs: PullRequest[]) {
+  return dedupePRsByUrl(sortRecentlyMergedPRs(mode, prs))
+}
+
 /**
  * Core fetch method with mode support — orchestrates multi-account PR fetching.
  */
@@ -679,85 +797,22 @@ async function fetchPRs(
   const totalAccounts = config.accounts.length
   const report: ProgressCallback = ensureCallback(onProgress)
 
-  type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
-  const accountReport = (
-    index: number,
-    status: PRProgressStatus,
-    extra?: { prsFound?: number; error?: string }
-  ) => {
-    const { username, org } = config.accounts[index]
-    report({
-      currentAccount: index + 1,
+  for (const [index, account] of config.accounts.entries()) {
+    const result = await fetchConfiguredAccountPRs({
+      config,
+      recentlyMergedDays,
+      mode,
+      account,
+      index,
       totalAccounts,
-      accountName: username,
-      org,
-      status,
-      ...extra,
+      report,
     })
+    allPrs.push(...result.prs)
+    if (result.authenticationError) authenticationErrors++
   }
 
-  // Process each configured GitHub account with its own token
-  for (let i = 0; i < config.accounts.length; i++) {
-    const { username, org } = config.accounts[i]
-
-    console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
-    accountReport(i, 'authenticating')
-
-    // Get Octokit instance for this specific account
-    const octokit = await getOctokit(username)
-    if (!octokit) {
-      console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)
-      accountReport(i, 'error', { error: 'No GitHub CLI authentication found' })
-      authenticationErrors++
-      continue
-    }
-
-    accountReport(i, 'fetching')
-
-    try {
-      const prs = await fetchPRsForAccount(config, recentlyMergedDays, username, org, mode)
-      allPrs.push(...prs)
-
-      console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
-      accountReport(i, 'done', { prsFound: prs.length })
-    } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
-      if (!errorMsg.includes('404')) {
-        console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
-      } else {
-        console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
-      }
-      accountReport(i, 'error', { error: errorMsg })
-      continue
-    }
-  }
-
-  // If all accounts failed due to auth, throw error
-  if (authenticationErrors === config.accounts.length) {
-    throw new Error(
-      'GitHub CLI authentication not available for any configured account. Please run: gh auth login'
-    )
-  }
-
-  // Sort recently-merged PRs by merge date (newest first) after combining all accounts
-  if (mode === 'recently-merged') {
-    allPrs.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateB - dateA // Descending (newest first)
-    })
-  }
-
-  // Deduplicate across accounts — the same PR can appear from multiple accounts
-  const seenUrls = new Set<string>()
-  const dedupedPrs = allPrs.filter(pr => {
-    if (seenUrls.has(pr.url)) return false
-    seenUrls.add(pr.url)
-    return true
-  })
-
-  return dedupedPrs
+  throwIfAllAccountsUnauthenticated(authenticationErrors, totalAccounts)
+  return finalizeFetchedPRs(mode, allPrs)
 }
 /* v8 ignore stop */
 
@@ -797,15 +852,16 @@ export async function fetchNeedANudge(
   return fetchPRs(config, recentlyMergedDays, 'need-a-nudge', onProgress)
 }
 
-/** Fetch open pull requests for a specific repository. */
-/* v8 ignore start -- repo PR listing; requires real API */
-export async function fetchRepoPRs(
-  config: PRConfig['github'],
+function resolveRepoPRState(state?: 'open' | 'closed') {
+  return state || 'open'
+}
+
+async function listRepoPRs(
+  octokit: Octokit,
   owner: string,
   repo: string,
-  state: 'open' | 'closed' = 'open'
-): Promise<RepoPullRequest[]> {
-  const octokit = await getOctokitForOwner(config, owner)
+  state: 'open' | 'closed'
+) {
   const [response, viewer] = await Promise.all([
     octokit.pulls.list({
       owner,
@@ -818,37 +874,80 @@ export async function fetchRepoPRs(
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+  return {
+    response,
+    viewerLogin: viewer?.data?.login?.toLowerCase() || null,
+  }
+}
 
-  const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
+async function updateRepoPRReviewState(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  pr: RepoPullRequest,
+  viewerLogin: string | null
+) {
+  try {
+    const reviewsData = await octokit.pulls.listReviews({
+      owner,
+      repo,
+      pull_number: pr.number,
+      per_page: 100,
+    })
+    const { approvalCount, iApproved } = countApprovals(reviewsData.data, viewerLogin)
+    pr.approvalCount = approvalCount
+    pr.iApproved = iApproved
+    const latestByUser = buildLatestReviewByUser(reviewsData.data)
+    pr.changesRequestedCount = Array.from(latestByUser.values()).filter(
+      ({ state }) => state === 'CHANGES_REQUESTED'
+    ).length
+  } catch (error: unknown) {
+    console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
+  }
+}
 
-  await batchProcess(prs, async pr => {
-    try {
-      const reviewsData = await octokit.pulls.listReviews({
-        owner,
-        repo,
-        pull_number: pr.number,
-        per_page: 100,
-      })
-      const { approvalCount, iApproved } = countApprovals(reviewsData.data, viewerLogin)
-      pr.approvalCount = approvalCount
-      pr.iApproved = iApproved
-      const latestByUser = buildLatestReviewByUser(reviewsData.data)
-      pr.changesRequestedCount = Array.from(latestByUser.values()).filter(
-        ({ state }) => state === 'CHANGES_REQUESTED'
-      ).length
-    } catch (error: unknown) {
-      console.debug(`Failed to fetch review state for ${owner}/${repo}#${pr.number}:`, error)
-    }
-  })
+async function enrichRepoPRs(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  prs: RepoPullRequest[],
+  viewerLogin: string | null
+) {
+  await batchProcess(prs, pr => updateRepoPRReviewState(octokit, owner, repo, pr, viewerLogin))
+}
 
-  // Batch-fetch unresolved thread counts via GraphQL (single query for same repo)
+async function fetchRepoThreadStatsSafely(
+  config: PRConfig['github'],
+  owner: string,
+  repo: string,
+  prs: RepoPullRequest[]
+) {
   try {
     await fetchUnresolvedThreadCounts(config, owner, repo, prs)
   } catch (error: unknown) {
     console.debug(`Failed to fetch thread stats for ${owner}/${repo}:`, error)
   }
+}
 
+/** Fetch open pull requests for a specific repository. */
+/* v8 ignore start -- repo PR listing; requires real API */
+export async function fetchRepoPRs(
+  config: PRConfig['github'],
+  owner: string,
+  repo: string,
+  state?: 'open' | 'closed'
+): Promise<RepoPullRequest[]> {
+  const octokit = await getOctokitForOwner(config, owner)
+  const { response, viewerLogin } = await listRepoPRs(
+    octokit,
+    owner,
+    repo,
+    resolveRepoPRState(state)
+  )
+  const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
+
+  await enrichRepoPRs(octokit, owner, repo, prs, viewerLogin)
+  await fetchRepoThreadStatsSafely(config, owner, repo, prs)
   return prs
 }
 /* v8 ignore stop */

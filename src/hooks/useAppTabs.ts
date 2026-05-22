@@ -35,21 +35,32 @@ interface TabState {
 
 export const DASHBOARD_VIEW_ID = 'dashboard'
 
+function hasRemainingTabs(tabs: Tab[]): boolean {
+  return tabs.length > 0
+}
+
+function resolveSuccessorTabId(previousTabs: Tab[], nextTabs: Tab[], tabId: string): string | null {
+  const closedIndex = previousTabs.findIndex(tab => tab.id === tabId)
+  const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
+  const nextActiveTab = nextTabs[Math.max(0, nextActiveIndex)]
+  return nextActiveTab ? nextActiveTab.id : null
+}
+
+function resolveExistingActiveTabId(activeTabId: string | null, nextTabs: Tab[]): string | null {
+  if (!hasRemainingTabs(nextTabs)) return null
+  return activeTabId
+}
+
 function resolveActiveTabAfterClose(
   previousState: TabState,
   tabId: string,
   nextTabs: Tab[]
 ): string | null {
-  if (previousState.activeTabId === tabId && nextTabs.length > 0) {
-    const closedIndex = previousState.tabs.findIndex(tab => tab.id === tabId)
-    const nextActiveIndex = Math.min(closedIndex, nextTabs.length - 1)
-    /* v8 ignore start */
-    return nextTabs[Math.max(0, nextActiveIndex)]?.id || null
-    /* v8 ignore stop */
+  if (previousState.activeTabId !== tabId) {
+    return resolveExistingActiveTabId(previousState.activeTabId, nextTabs)
   }
-  /* v8 ignore start */
-  return nextTabs.length === 0 ? null : previousState.activeTabId
-  /* v8 ignore stop */
+  if (!hasRemainingTabs(nextTabs)) return null
+  return resolveSuccessorTabId(previousState.tabs, nextTabs, tabId)
 }
 
 export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {

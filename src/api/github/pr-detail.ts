@@ -732,6 +732,20 @@ export async function fetchPRBody(
   return data.body || ''
 }
 
+function resolvePullRequestHeadSha(
+  pull: { head?: { sha?: string | null } | null },
+  pullNumber: number,
+  owner: string,
+  repo: string
+): string {
+  const headSha = pull.head?.sha
+  if (headSha) {
+    return headSha
+  }
+
+  throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
+}
+
 export async function fetchPRChecks(
   config: PRConfig['github'],
   owner: string,
@@ -740,10 +754,7 @@ export async function fetchPRChecks(
 ): Promise<PRChecksSummary> {
   const octokit = await getOctokitForOwner(config, owner)
   const pullResponse = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
-  const headSha = pullResponse.data.head?.sha || ''
-  if (!headSha) {
-    throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
-  }
+  const headSha = resolvePullRequestHeadSha(pullResponse.data, pullNumber, owner, repo)
   const [checkRunsResponse, combinedStatusResponse] = await Promise.all([
     octokit.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
     octokit.repos.getCombinedStatusForRef({ owner, repo, ref: headSha, per_page: 100 }),

@@ -21,19 +21,23 @@ interface BudgetMatch {
  * When entityFilter is provided, only budgets whose entity name
  * fuzzy-matches the filter are considered.
  */
+function normalizeEntityName(b: BudgetItem): string {
+  return b.budget_entity_name?.toLowerCase() ?? ''
+}
+
+function matchesEntityFilter(b: BudgetItem, entityFilter: string): boolean {
+  const entity = normalizeEntityName(b)
+  if (entity === '') return false
+  const filterLower = entityFilter.toLowerCase()
+  return entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
+}
+
 export function findCopilotBudget(
   budgets: BudgetItem[],
   entityFilter?: string
 ): BudgetItem | undefined {
   const candidates = entityFilter
-    ? budgets.filter(b => {
-        const entity = b.budget_entity_name?.toLowerCase() ?? ''
-        if (entity === '') return false
-        const filterLower = entityFilter.toLowerCase()
-        return (
-          entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
-        )
-      })
+    ? budgets.filter(b => matchesEntityFilter(b, entityFilter))
     : budgets
   const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
   return (
@@ -49,6 +53,17 @@ export function findCopilotBudget(
  *
  * Returns the matching budget or null if not found.
  */
+function toBudgetMatch(match: BudgetItem): BudgetMatch {
+  return {
+    budget_amount: match.budget_amount,
+    prevent_further_usage: match.prevent_further_usage,
+  }
+}
+
+function hasMorePages(hasNext: boolean, page: number, maxPages: number): boolean {
+  return hasNext && page <= maxPages
+}
+
 export async function findBudgetAcrossPages(
   fetchPage: (page: number) => Promise<BudgetPageResponse>,
   org: string,
@@ -56,15 +71,11 @@ export async function findBudgetAcrossPages(
 ): Promise<BudgetMatch | null> {
   let page = 1
   let hasNext = true
-  while (hasNext && page <= maxPages) {
+  while (hasMorePages(hasNext, page, maxPages)) {
     const data = await fetchPage(page)
-    const match = findCopilotBudget(data.budgets ?? [], org)
-    if (match) {
-      return {
-        budget_amount: match.budget_amount,
-        prevent_further_usage: match.prevent_further_usage,
-      }
-    }
+    const budgets = data.budgets ?? []
+    const match = findCopilotBudget(budgets, org)
+    if (match) return toBudgetMatch(match)
     hasNext = data.has_next_page === true
     page++
   }

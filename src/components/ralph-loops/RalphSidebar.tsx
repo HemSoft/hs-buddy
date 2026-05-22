@@ -161,6 +161,21 @@ function runDisplayName(run: RalphRunInfo): string {
   return `${repo} · ${run.runId.slice(0, 6)}`
 }
 
+function getRunDetail(run: RalphRunInfo): string {
+  const active = run.status === 'running' || run.status === 'pending'
+  if (!active) {
+    return timeAgo(run.completedAt ?? run.updatedAt)
+  }
+
+  return run.totalIterations ? `${run.currentIteration}/${run.totalIterations}` : run.phase
+}
+
+function handleRunItemKeyDown(event: { key: string }, onClick: () => void) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    onClick()
+  }
+}
+
 /* ── Run item (for Runs section) ─────────────────────────────── */
 
 function RunItem({
@@ -173,12 +188,7 @@ function RunItem({
   onClick: () => void
 }) {
   const Icon = RUN_STATUS_ICON[run.status]
-  const active = run.status === 'running' || run.status === 'pending'
-  const detail = active
-    ? run.totalIterations
-      ? `${run.currentIteration}/${run.totalIterations}`
-      : run.phase
-    : timeAgo(run.completedAt ?? run.updatedAt)
+  const detail = getRunDetail(run)
 
   return (
     <div
@@ -186,9 +196,7 @@ function RunItem({
       role="button"
       tabIndex={0}
       onClick={onClick}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') onClick()
-      }}
+      onKeyDown={event => handleRunItemKeyDown(event, onClick)}
       title={`${run.config.scriptType} — ${run.status}`}
     >
       <Icon size={12} className={run.status === 'running' ? 'ralph-spin' : ''} />

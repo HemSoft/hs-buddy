@@ -57,6 +57,20 @@ function handleReviewResult(
 const resolvePromptTemplate = (template: string, prUrl: string) =>
   template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
 
+function getReviewSnapshotRequest(
+  prInfo: PRReviewInfo
+): { org: string; repo: string; prNumber: number } | null {
+  if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
+    return null
+  }
+
+  return {
+    org: prInfo.org,
+    repo: prInfo.repo,
+    prNumber: prInfo.prNumber,
+  }
+}
+
 export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: string) => void) {
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
@@ -126,14 +140,16 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   }, [prInfo.initialPrompt, prInfo.prUrl])
 
   const buildReviewSnapshot = useCallback(async () => {
-    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
+    const request = getReviewSnapshotRequest(prInfo)
+    if (!request) {
       return undefined
     }
+
     try {
       const client = new GitHubClient({ accounts: githubAccounts }, 7)
       const [branches, history] = await Promise.all([
-        client.fetchPRBranches(prInfo.org, prInfo.repo, prInfo.prNumber),
-        client.fetchPRHistory(prInfo.org, prInfo.repo, prInfo.prNumber),
+        client.fetchPRBranches(request.org, request.repo, request.prNumber),
+        client.fetchPRHistory(request.org, request.repo, request.prNumber),
       ])
       /* v8 ignore start */
       return {
@@ -150,7 +166,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
     } catch (_: unknown) {
       return undefined
     }
-  }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
+  }, [githubAccounts, prInfo])
 
   const handleRunNow = useCallback(async () => {
     if (submitting) return

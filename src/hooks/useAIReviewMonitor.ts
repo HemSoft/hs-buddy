@@ -62,6 +62,11 @@ export function clearPendingAIReview(providerId: string, prUrl: string) {
   }
 }
 
+function getPollStatus(result: PollResult | undefined): PollResult['status'] | null {
+  if (!result) return null
+  return result.status
+}
+
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 /* v8 ignore start — audio playback requires native IPC not available in unit tests */
 function playReviewCompleteSound() {
@@ -215,11 +220,12 @@ export function useAIReviewMonitor({
       }
 
       const handlePollResult = (result: PollResult | undefined): 'stop' | 'continue' => {
-        if (result?.status === 'completed') {
+        const status = getPollStatus(result)
+        if (status === 'completed') {
           finishMonitor(sessionId, monitorPrUrl)
           return 'stop'
         }
-        if (result?.status === 'failed') {
+        if (status === 'failed') {
           clearTimers()
           clearPendingAIReview(provider.id, monitorPrUrl)
           /* v8 ignore next */
@@ -229,42 +235,42 @@ export function useAIReviewMonitor({
         return 'continue'
       }
 
+      const resetMonitorToIdle = () => {
+        clearTimers()
+        clearPendingAIReview(provider.id, monitorPrUrl)
+        /* v8 ignore next */
+        if (monitorSessionRef.current === sessionId) setReviewState('idle')
+      }
+
+      const pollForResult = async () => {
+        try {
+          const result = await doPoll()
+          return handlePollResult(result) === 'stop'
+        } catch (pollErr: unknown) {
+          /* v8 ignore start */
+          if (isAbortError(pollErr)) return true
+          /* v8 ignore stop */
+          console.debug(`${provider.name} review poll failed:`, pollErr)
+          return false
+        }
+      }
+
       const pollOnce = async () => {
         /* v8 ignore start */
         if (monitorSessionRef.current !== sessionId) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > maxPolls) {
-          clearTimers()
-          clearPendingAIReview(provider.id, monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setReviewState('idle')
-          /* v8 ignore stop */
+          resetMonitorToIdle()
           return
         }
-        try {
-          const result = await doPoll()
-          if (handlePollResult(result) === 'stop') return
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug(`${provider.name} review poll failed:`, pollErr)
-        }
+        if (await pollForResult()) return
         scheduleNextPoll()
       }
 
       if (runImmediately) {
         void (async () => {
-          try {
-            const result = await doPoll()
-            if (handlePollResult(result) === 'stop') return
-          } catch (pollErr: unknown) {
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug(`${provider.name} review poll failed:`, pollErr)
-          }
+          if (await pollForResult()) return
           scheduleNextPoll()
         })()
         return

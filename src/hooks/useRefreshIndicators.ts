@@ -41,6 +41,24 @@ function extractDataSourceKey(taskName: string): string {
   return taskName
 }
 
+function hasNoQueuedTasks(running: string[], pending: string[]): boolean {
+  return running.length === 0 && pending.length === 0
+}
+
+function applyRefreshStates(
+  next: RefreshIndicators,
+  taskNames: string[],
+  state: RefreshState,
+  overwrite: boolean
+) {
+  for (const name of taskNames) {
+    const key = extractDataSourceKey(name)
+    if (overwrite || !next[key]) {
+      next[key] = state
+    }
+  }
+}
+
 /**
  * Returns a map of data-source keys to their current refresh state.
  * Polls every 200ms while mounted.
@@ -54,25 +72,14 @@ export function useRefreshIndicators(): RefreshIndicators {
       const running = queue.getRunningTaskNames()
       const pending = queue.getPendingTaskNames()
 
-      if (running.length === 0 && pending.length === 0) {
+      if (hasNoQueuedTasks(running, pending)) {
         setIndicators(prev => (Object.keys(prev).length === 0 ? prev : {}))
         return
       }
 
       const next: RefreshIndicators = {}
-
-      for (const name of running) {
-        const key = extractDataSourceKey(name)
-        next[key] = 'active'
-      }
-
-      for (const name of pending) {
-        const key = extractDataSourceKey(name)
-        if (!next[key]) {
-          next[key] = 'pending'
-        }
-      }
-
+      applyRefreshStates(next, running, 'active', true)
+      applyRefreshStates(next, pending, 'pending', false)
       setIndicators(next)
     }
 

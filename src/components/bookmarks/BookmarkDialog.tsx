@@ -345,6 +345,106 @@ function BookmarkCategoryField({
   )
 }
 
+function BookmarkTitleFetchingHint({ fetchingTitle }: { fetchingTitle: boolean }) {
+  if (!fetchingTitle) return null
+  return <span className="bookmark-fetching-hint"> (fetching…)</span>
+}
+
+function BookmarkAISuggestingHint({ aiSuggesting }: { aiSuggesting: boolean }) {
+  if (!aiSuggesting) return null
+  return <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>
+}
+
+function bookmarkTitlePlaceholder(fetchingTitle: boolean) {
+  return fetchingTitle ? 'Fetching page title…' : 'My Bookmark'
+}
+
+function bookmarkDescriptionPlaceholder(aiSuggesting: boolean) {
+  return aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
+}
+
+function bookmarkTagsPlaceholder(aiSuggesting: boolean) {
+  return aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'
+}
+
+function BookmarkTitleField({
+  state,
+  dispatch,
+  setTitleInputRef,
+  userEditedTitle,
+}: Pick<BookmarkFormFieldsProps, 'state' | 'dispatch' | 'setTitleInputRef' | 'userEditedTitle'>) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Title <span className="bookmark-required">*</span>
+        <BookmarkTitleFetchingHint fetchingTitle={state.fetchingTitle} />
+      </span>
+      <input
+        ref={setTitleInputRef}
+        type="text"
+        className="bookmark-dialog-input"
+        value={state.title}
+        onChange={e => {
+          dispatch({ type: 'setTitle', value: e.target.value })
+          userEditedTitle.current = true
+        }}
+        placeholder={bookmarkTitlePlaceholder(state.fetchingTitle)}
+      />
+    </label>
+  )
+}
+
+function BookmarkDescriptionField({
+  state,
+  dispatch,
+  userEditedDescription,
+}: Pick<BookmarkFormFieldsProps, 'state' | 'dispatch' | 'userEditedDescription'>) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Description
+        <BookmarkAISuggestingHint aiSuggesting={state.aiSuggesting} />
+      </span>
+      <textarea
+        className="bookmark-dialog-textarea"
+        value={state.description}
+        onChange={e => {
+          dispatch({ type: 'setDescription', value: e.target.value })
+          userEditedDescription.current = true
+        }}
+        placeholder={bookmarkDescriptionPlaceholder(state.aiSuggesting)}
+        rows={2}
+      />
+    </label>
+  )
+}
+
+function BookmarkTagsField({
+  state,
+  dispatch,
+  userEditedTags,
+}: Pick<BookmarkFormFieldsProps, 'state' | 'dispatch' | 'userEditedTags'>) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Tags
+        <BookmarkAISuggestingHint aiSuggesting={state.aiSuggesting} />
+      </span>
+      <input
+        type="text"
+        className="bookmark-dialog-input"
+        value={state.tagsInput}
+        onChange={e => {
+          dispatch({ type: 'setTagsInput', value: e.target.value })
+          userEditedTags.current = true
+        }}
+        placeholder={bookmarkTagsPlaceholder(state.aiSuggesting)}
+      />
+      <span className="bookmark-dialog-hint">Comma-separated</span>
+    </label>
+  )
+}
+
 function BookmarkFormFields({
   state,
   isEdit,
@@ -372,42 +472,18 @@ function BookmarkFormFields({
         />
       </label>
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Title <span className="bookmark-required">*</span>
-          {state.fetchingTitle && <span className="bookmark-fetching-hint"> (fetching…)</span>}
-        </span>
-        <input
-          ref={setTitleInputRef}
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.title}
-          onChange={e => {
-            dispatch({ type: 'setTitle', value: e.target.value })
-            userEditedTitle.current = true
-          }}
-          placeholder={state.fetchingTitle ? 'Fetching page title…' : 'My Bookmark'}
-        />
-      </label>
+      <BookmarkTitleField
+        state={state}
+        dispatch={dispatch}
+        setTitleInputRef={setTitleInputRef}
+        userEditedTitle={userEditedTitle}
+      />
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Description
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
-        </span>
-        <textarea
-          className="bookmark-dialog-textarea"
-          value={state.description}
-          onChange={e => {
-            dispatch({ type: 'setDescription', value: e.target.value })
-            userEditedDescription.current = true
-          }}
-          placeholder={
-            state.aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
-          }
-          rows={2}
-        />
-      </label>
+      <BookmarkDescriptionField
+        state={state}
+        dispatch={dispatch}
+        userEditedDescription={userEditedDescription}
+      />
 
       <BookmarkCategoryField
         state={state}
@@ -416,23 +492,7 @@ function BookmarkFormFields({
         dispatch={dispatch}
       />
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Tags
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
-        </span>
-        <input
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.tagsInput}
-          onChange={e => {
-            dispatch({ type: 'setTagsInput', value: e.target.value })
-            userEditedTags.current = true
-          }}
-          placeholder={state.aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'}
-        />
-        <span className="bookmark-dialog-hint">Comma-separated</span>
-      </label>
+      <BookmarkTagsField state={state} dispatch={dispatch} userEditedTags={userEditedTags} />
     </>
   )
 }

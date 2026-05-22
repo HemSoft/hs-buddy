@@ -60,6 +60,73 @@ interface PRListTableViewProps {
   handleContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function PRTableRowStatus({ pr }: { pr: PullRequest }) {
+  if (pr.threadsUnaddressed == null) return null
+  if (pr.threadsUnaddressed === 0) {
+    return <CircleCheck size={14} className="list-view-comments-clear" />
+  }
+  return (
+    <span className="list-view-comments-unresolved">
+      <MessageSquare size={12} />
+      {pr.threadsUnaddressed}
+    </span>
+  )
+}
+
+function PRTableRow({
+  pr,
+  onOpenPR,
+  handleContextMenu,
+}: {
+  pr: PullRequest
+  onOpenPR?: (viewId: string) => void
+  handleContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+}) {
+  return (
+    <tr
+      key={`${pr.source}-${pr.id}-${pr.repository}`}
+      onClick={() =>
+        onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+      }
+      onContextMenu={e => handleContextMenu(e, pr)}
+    >
+      <td className="col-status">
+        <PRStateIcon state={pr.state} />
+      </td>
+      <td className="col-title">
+        <span className="col-number">#{pr.id}</span> {pr.title}
+      </td>
+      <td className="col-author">
+        {pr.authorAvatarUrl && (
+          <img
+            src={pr.authorAvatarUrl}
+            alt={pr.author}
+            className="list-view-avatar"
+            width={18}
+            height={18}
+          />
+        )}
+        {pr.author}
+      </td>
+      <td className="col-number">{pr.repository}</td>
+      <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
+      <td>
+        <PRTableRowStatus pr={pr} />
+      </td>
+      <td>
+        {pr.approvalCount > 0 && (
+          <span
+            className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
+          >
+            <ThumbsUp size={12} />
+            {pr.approvalCount}
+          </span>
+        )}
+      </td>
+    </tr>
+  )
+}
+
 function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewProps) {
   return (
     <div className="pr-list" style={{ display: 'block', padding: '0' }}>
@@ -77,56 +144,12 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
         </thead>
         <tbody>
           {prs.map(pr => (
-            <tr
+            <PRTableRow
               key={`${pr.source}-${pr.id}-${pr.repository}`}
-              onClick={() =>
-                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
-              }
-              onContextMenu={e => handleContextMenu(e, pr)}
-            >
-              <td className="col-status">
-                <PRStateIcon state={pr.state} />
-              </td>
-              <td className="col-title">
-                <span className="col-number">#{pr.id}</span> {pr.title}
-              </td>
-              <td className="col-author">
-                {pr.authorAvatarUrl && (
-                  <img
-                    src={pr.authorAvatarUrl}
-                    alt={pr.author}
-                    className="list-view-avatar"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {pr.author}
-              </td>
-              <td className="col-number">{pr.repository}</td>
-              <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
-              <td>
-                {pr.threadsUnaddressed != null ? (
-                  pr.threadsUnaddressed === 0 ? (
-                    <CircleCheck size={14} className="list-view-comments-clear" />
-                  ) : (
-                    <span className="list-view-comments-unresolved">
-                      <MessageSquare size={12} />
-                      {pr.threadsUnaddressed}
-                    </span>
-                  )
-                ) : null}
-              </td>
-              <td>
-                {pr.approvalCount > 0 && (
-                  <span
-                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
-                  >
-                    <ThumbsUp size={12} />
-                    {pr.approvalCount}
-                  </span>
-                )}
-              </td>
-            </tr>
+              pr={pr}
+              onOpenPR={onOpenPR}
+              handleContextMenu={handleContextMenu}
+            />
           ))}
         </tbody>
       </table>

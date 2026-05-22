@@ -40,6 +40,26 @@ type ExecSyncFn = (command: string) => string
  * Pure function: all I/O and platform dependencies are injected.
  * Returns the resolved value (from Machine scope, then env), or undefined.
  */
+function tryWindowsMachineScope(
+  name: string,
+  cache: Map<string, string>,
+  platform: string,
+  allowedNames: Set<string>,
+  execSyncFn: ExecSyncFn
+): string | undefined {
+  if (!shouldCheckWindowsMachineScope(platform, name, allowedNames)) return undefined
+  try {
+    const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
+    if (val) {
+      cache.set(name, val)
+      return val
+    }
+  } catch (_: unknown) {
+    /* fall through */
+  }
+  return undefined
+}
+
 export function resolveEnvVar(
   name: string,
   cache: Map<string, string>,
@@ -50,17 +70,8 @@ export function resolveEnvVar(
 ): string | undefined {
   if (cache.has(name)) return cache.get(name)
 
-  if (shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
-    try {
-      const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
-      if (val) {
-        cache.set(name, val)
-        return val
-      }
-    } catch (_: unknown) {
-      /* fall through to process.env */
-    }
-  }
+  const machineVal = tryWindowsMachineScope(name, cache, platform, allowedNames, execSyncFn)
+  if (machineVal) return machineVal
 
   const val = env[name]
   if (val) {

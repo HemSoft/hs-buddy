@@ -12,6 +12,42 @@ function readLocal(storageKey: string): ViewMode | null {
   return null
 }
 
+function hasSeededViewMode(convexMode: ViewMode | undefined): convexMode is ViewMode {
+  return convexMode === 'card' || convexMode === 'list'
+}
+
+function syncLocalViewMode(
+  local: ViewMode | null,
+  convexMode: ViewMode,
+  key: string,
+  updateViewMode: (args: { pageKey: string; mode: ViewMode }) => unknown
+): boolean {
+  if (!local) return false
+  if (local !== convexMode) {
+    updateViewMode({ pageKey: key, mode: local })
+  }
+  return true
+}
+
+function syncSeededViewMode(
+  seededKeyRef: { current: string | null },
+  key: string,
+  convexMode: ViewMode | undefined,
+  storageKey: string,
+  updateViewMode: (args: { pageKey: string; mode: ViewMode }) => unknown,
+  setModeState: (mode: ViewMode) => void
+) {
+  if (seededKeyRef.current === key) return
+  if (!hasSeededViewMode(convexMode)) return
+  seededKeyRef.current = key
+
+  const local = readLocal(storageKey)
+  if (syncLocalViewMode(local, convexMode, key, updateViewMode)) return
+
+  setModeState(convexMode)
+  safeSetItem(storageKey, convexMode)
+}
+
 /**
  * Persists a card/list view preference per page key.
  *
@@ -32,22 +68,7 @@ export function useViewMode(key: string, defaultMode: ViewMode = 'card') {
   const convexMode = settings?.viewModes?.[key]
   const seededKeyRef = useRef<string | null>(null)
   useEffect(() => {
-    if (seededKeyRef.current === key) return
-    if (convexMode !== 'card' && convexMode !== 'list') return
-    seededKeyRef.current = key
-
-    const local = readLocal(storageKey)
-    if (local) {
-      // localStorage already has a value — push to Convex if stale
-      if (local !== convexMode) {
-        updateViewMode({ pageKey: key, mode: local })
-      }
-      return
-    }
-
-    // No localStorage value — accept Convex value as seed
-    setModeState(convexMode)
-    safeSetItem(storageKey, convexMode)
+    syncSeededViewMode(seededKeyRef, key, convexMode, storageKey, updateViewMode, setModeState)
   }, [convexMode, storageKey, key, updateViewMode])
 
   const setMode = useCallback(

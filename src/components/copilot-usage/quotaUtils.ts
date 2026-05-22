@@ -95,6 +95,14 @@ interface BudgetProjection {
   dailySpendRate: number
 }
 
+function resolveBudgetProjectionAsOfMs(asOfMs?: number): number {
+  return asOfMs ?? Date.now()
+}
+
+function isWithinBudgetPeriod(asOfMs: number, periodStart: Date, periodEnd: Date): boolean {
+  return asOfMs >= periodStart.getTime() && asOfMs < periodEnd.getTime()
+}
+
 /**
  * Projects org-level budget spending to month-end based on elapsed billing period.
  * Returns null when the billing period hasn't started, has already ended,
@@ -104,17 +112,18 @@ export function computeBudgetProjection(
   spent: number,
   billingYear: number,
   billingMonth: number,
-  asOfMs: number = Date.now()
+  asOfMs?: number
 ): BudgetProjection | null {
   if (spent <= 0) return null
 
   const periodStart = new Date(Date.UTC(billingYear, billingMonth - 1, 1))
   const periodEnd = new Date(Date.UTC(billingYear, billingMonth, 1))
+  const currentAsOfMs = resolveBudgetProjectionAsOfMs(asOfMs)
 
-  if (asOfMs < periodStart.getTime() || asOfMs >= periodEnd.getTime()) return null
+  if (!isWithinBudgetPeriod(currentAsOfMs, periodStart, periodEnd)) return null
 
   const totalMs = periodEnd.getTime() - periodStart.getTime()
-  const elapsedMs = asOfMs - periodStart.getTime()
+  const elapsedMs = currentAsOfMs - periodStart.getTime()
 
   if (elapsedMs < 1000) return null
 

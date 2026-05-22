@@ -21,6 +21,33 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError } from '../utils/errorUtils'
 
+async function fetchPullRequestsForMode(
+  client: GitHubClient,
+  mode: string
+): Promise<PullRequest[]> {
+  switch (mode) {
+    case 'needs-review':
+      return client.fetchNeedsReview()
+    case 'recently-merged':
+      return client.fetchRecentlyMerged()
+    case 'need-a-nudge':
+      return client.fetchNeedANudge()
+    case 'my-prs':
+    default:
+      return client.fetchMyPRs()
+  }
+}
+
+function sortPullRequestsForMode(mode: string, prs: PullRequest[]) {
+  if (mode === 'recently-merged') return
+  prs.sort((a, b) => {
+    if (a.repository !== b.repository) {
+      return a.repository.localeCompare(b.repository)
+    }
+    return a.id - b.id
+  })
+}
+
 /**
  * Hook that prefetches all PR data in the background on app startup
  * and auto-refreshes on the configured interval.
@@ -99,32 +126,8 @@ export function usePrefetch(): void {
       for (const mode of PR_MODES) {
         const taskName = `${label.toLowerCase()}-${mode}`
         enqueueIfStale(mode, taskName, async (_signal, client) => {
-          let prs: PullRequest[]
-          switch (mode) {
-            case 'needs-review':
-              prs = await client.fetchNeedsReview()
-              break
-            case 'recently-merged':
-              prs = await client.fetchRecentlyMerged()
-              break
-            case 'need-a-nudge':
-              prs = await client.fetchNeedANudge()
-              break
-            case 'my-prs':
-            default:
-              prs = await client.fetchMyPRs()
-              break
-          }
-
-          if (mode !== 'recently-merged') {
-            prs.sort((a, b) => {
-              if (a.repository !== b.repository) {
-                return a.repository.localeCompare(b.repository)
-              }
-              return a.id - b.id
-            })
-          }
-
+          const prs = await fetchPullRequestsForMode(client, mode)
+          sortPullRequestsForMode(mode, prs)
           dataCache.set(mode, prs)
           console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
         })

@@ -38,6 +38,10 @@ function resolveLoadPhase(hasData: boolean): LoadPhase {
   return hasData ? 'refreshing' : 'loading'
 }
 
+function resolveForceRefresh(forceRefresh?: boolean): boolean {
+  return forceRefresh ?? false
+}
+
 // ---------------------------------------------------------------------------
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
@@ -120,10 +124,14 @@ export function useOrgCachedFetch<T>({
   }, [accounts])
 
   const doFetch = useCallback(
-    async (forceRefresh = false) => {
+    async (forceRefresh?: boolean) => {
       const activeCacheKey = cacheKeyRef.current
       const queue = getTaskQueue('github')
-      const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
+      const cached = resolveCachedData<T>(
+        activeCacheKey,
+        normalizeRef.current,
+        resolveForceRefresh(forceRefresh)
+      )
       /* v8 ignore start */
       if (cached != null) {
         setData(cached)

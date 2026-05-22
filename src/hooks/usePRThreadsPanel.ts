@@ -15,6 +15,17 @@ import { applyReactionToResult } from '../utils/reactions'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 
+function handleThreadFetchError(
+  error: unknown,
+  requestId: number,
+  currentRequestId: number,
+  setError: (error: string | null) => void
+) {
+  if (isAbortError(error)) return
+  if (requestId !== currentRequestId) return
+  setError(getErrorMessage(error))
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -93,15 +104,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       /* v8 ignore start */
     } catch (err: unknown) {
       /* v8 ignore stop */
-      /* v8 ignore start */
-      if (isAbortError(err)) return
-      /* v8 ignore stop */
-
-      if (requestId !== latestThreadsRequestRef.current) {
-        return
-      }
-
-      setError(getErrorMessage(err))
+      handleThreadFetchError(err, requestId, latestThreadsRequestRef.current, setError)
     } finally {
       if (requestId === latestThreadsRequestRef.current) {
         setLoading(false)

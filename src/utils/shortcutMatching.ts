@@ -17,10 +17,13 @@ interface ShortcutEntry {
   shift?: boolean
 }
 
+function hasCtrlOrCmd(input: KeyInput): boolean {
+  return !!input.control || !!input.meta
+}
+
 /** Returns true when the keyboard input matches the shortcut definition. */
 export function matchesShortcut(entry: ShortcutEntry, input: KeyInput): boolean {
-  const ctrlOrCmd = input.control || input.meta
-  if (entry.ctrlOrCmd && !ctrlOrCmd) return false
+  if (entry.ctrlOrCmd && !hasCtrlOrCmd(input)) return false
   if (entry.shift && !input.shift) return false
   return input.key === entry.key
 }

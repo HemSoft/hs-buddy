@@ -230,6 +230,29 @@ function ResultHeader({
   )
 }
 
+function getPublishButtonProps(published: boolean, publishing: boolean) {
+  return {
+    className: `copilot-action-btn${published ? ' success' : ''}`,
+    disabled: publishing || published,
+    title: published ? 'Published to PR' : 'Publish review as PR comment',
+  }
+}
+
+function PublishButtonContent({
+  published,
+  publishing,
+}: {
+  published: boolean
+  publishing: boolean
+}) {
+  return (
+    <>
+      {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+      {published ? <span className="copied-badge">✓</span> : null}
+    </>
+  )
+}
+
 function PublishButton({
   canPublish,
   published,
@@ -242,15 +265,10 @@ function PublishButton({
   onPublish: () => void
 }) {
   if (!canPublish) return null
+  const buttonProps = getPublishButtonProps(published, publishing)
   return (
-    <button
-      className={`copilot-action-btn${published ? ' success' : ''}`}
-      onClick={onPublish}
-      disabled={publishing || published}
-      title={published ? 'Published to PR' : 'Publish review as PR comment'}
-    >
-      {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
-      {published && <span className="copied-badge">✓</span>}
+    <button {...buttonProps} onClick={onPublish}>
+      <PublishButtonContent published={published} publishing={publishing} />
     </button>
   )
 }

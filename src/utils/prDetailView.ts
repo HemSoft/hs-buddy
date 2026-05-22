@@ -37,6 +37,23 @@ interface PRDetailRoute {
   section: PRDetailSection | null
 }
 
+function buildPRTimingFields(
+  pr: PullRequest
+): Pick<PRDetailInfo, 'created' | 'updatedAt' | 'date'> {
+  return {
+    created: toIsoOrNull(pr.created),
+    updatedAt: pr.updatedAt || null,
+    date: pr.date,
+  }
+}
+
+function buildPRBranchFields(pr: PullRequest): Pick<PRDetailInfo, 'headBranch' | 'baseBranch'> {
+  return {
+    headBranch: pr.headBranch || '',
+    baseBranch: pr.baseBranch || '',
+  }
+}
+
 function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
   return {
     source: pr.source,
@@ -50,11 +67,8 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     approvalCount: pr.approvalCount,
     assigneeCount: pr.assigneeCount,
     iApproved: pr.iApproved,
-    created: toIsoOrNull(pr.created),
-    updatedAt: pr.updatedAt || null,
-    headBranch: pr.headBranch || '',
-    baseBranch: pr.baseBranch || '',
-    date: pr.date,
+    ...buildPRTimingFields(pr),
+    ...buildPRBranchFields(pr),
     orgAvatarUrl: pr.orgAvatarUrl,
     org: pr.org,
     threadsTotal: pr.threadsTotal ?? null,

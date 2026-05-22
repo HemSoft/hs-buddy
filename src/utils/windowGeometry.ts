@@ -78,6 +78,10 @@ function relocateToSavedDisplay(
  * The caller provides display snapshots; this function returns the
  * corrected bounds with no side-effects.
  */
+function hasPosition(x: number | undefined, y: number | undefined): x is number {
+  return x !== undefined && y !== undefined
+}
+
 export function resolveWindowBounds(
   state: WindowBounds,
   screenInfo: {
@@ -90,7 +94,7 @@ export function resolveWindowBounds(
 ): WindowBounds {
   const { x, y, width, height } = state
 
-  if (x === undefined || y === undefined) return { x, y, width, height }
+  if (!hasPosition(x, y)) return { x, y, width, height }
 
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo

@@ -2,6 +2,12 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import './TabBar.css'
 
+function clampToViewport(x: number, y: number, rect: DOMRect): { x: number; y: number } {
+  const clampedX = rect.right > window.innerWidth ? window.innerWidth - rect.width - 4 : x
+  const clampedY = rect.bottom > window.innerHeight ? window.innerHeight - rect.height - 4 : y
+  return { x: clampedX, y: clampedY }
+}
+
 export interface Tab {
   id: string
   label: string
@@ -57,21 +63,10 @@ export function TabBar({
     if (!contextMenu || !menuRef.current) return
     const menu = menuRef.current
     const rect = menu.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
 
-    let adjustedX = contextMenu.x
-    let adjustedY = contextMenu.y
-
-    if (rect.right > viewportWidth) {
-      adjustedX = viewportWidth - rect.width - 4
-    }
-    if (rect.bottom > viewportHeight) {
-      adjustedY = viewportHeight - rect.height - 4
-    }
-
-    if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
-      setContextMenu(prev => prev && { ...prev, x: adjustedX, y: adjustedY })
+    const adjusted = clampToViewport(contextMenu.x, contextMenu.y, rect)
+    if (adjusted.x !== contextMenu.x || adjusted.y !== contextMenu.y) {
+      setContextMenu(prev => prev && { ...prev, x: adjusted.x, y: adjusted.y })
     }
   }, [contextMenu])
 

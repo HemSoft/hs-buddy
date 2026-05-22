@@ -15,6 +15,63 @@ interface BookmarkCardProps {
   onDelete: (bookmark: Bookmark) => void
 }
 
+function BookmarkFavicon({ faviconUrl }: { faviconUrl?: string | null }) {
+  if (!faviconUrl) return <Globe size={20} />
+
+  return (
+    <>
+      <img
+        src={faviconUrl}
+        alt=""
+        width={20}
+        height={20}
+        className="bookmark-favicon"
+        onError={e => {
+          e.currentTarget.style.display = 'none'
+          const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
+          /* v8 ignore start */
+          if (sibling) sibling.style.display = 'block'
+          /* v8 ignore stop */
+        }}
+      />
+      <Globe size={20} style={{ display: 'none' }} />
+    </>
+  )
+}
+
+function BookmarkDescription({ description }: { description?: string }) {
+  if (!description) return null
+  return <div className="bookmark-card-desc">{description}</div>
+}
+
+function bookmarkCategoryLabel(category: string) {
+  return category.includes('/') ? category.split('/').pop() : category
+}
+
+function BookmarkCategoryBadge({ category }: { category: string }) {
+  return (
+    <span className="bookmark-card-category" title={category}>
+      <FolderOpen size={12} />
+      {bookmarkCategoryLabel(category)}
+    </span>
+  )
+}
+
+function BookmarkTagList({ tags }: { tags?: string[] }) {
+  if (!tags || tags.length === 0) return null
+
+  return (
+    <>
+      {tags.map(tag => (
+        <span key={tag} className="bookmark-card-tag">
+          <Tag size={10} />
+          {tag}
+        </span>
+      ))}
+    </>
+  )
+}
+
 function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: BookmarkCardProps) {
   return (
     <div
@@ -31,43 +88,15 @@ function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: Bo
       tabIndex={0}
     >
       <div className="bookmark-card-icon">
-        {bookmark.faviconUrl && (
-          <img
-            src={bookmark.faviconUrl}
-            alt=""
-            width={20}
-            height={20}
-            className="bookmark-favicon"
-            onError={e => {
-              e.currentTarget.style.display = 'none'
-              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-              /* v8 ignore start */
-              if (sibling) sibling.style.display = 'block'
-              /* v8 ignore stop */
-            }}
-          />
-        )}
-        <Globe size={20} style={{ display: bookmark.faviconUrl ? 'none' : undefined }} />
+        <BookmarkFavicon faviconUrl={bookmark.faviconUrl} />
       </div>
       <div className="bookmark-card-content">
         <div className="bookmark-card-title">{bookmark.title}</div>
         <div className="bookmark-card-url">{bookmark.url}</div>
-        {bookmark.description && <div className="bookmark-card-desc">{bookmark.description}</div>}
+        <BookmarkDescription description={bookmark.description} />
         <div className="bookmark-card-meta">
-          <span className="bookmark-card-category" title={bookmark.category}>
-            <FolderOpen size={12} />
-            {bookmark.category.includes('/')
-              ? bookmark.category.split('/').pop()
-              : bookmark.category}
-          </span>
-          {bookmark.tags &&
-            bookmark.tags.length > 0 &&
-            bookmark.tags.map(tag => (
-              <span key={tag} className="bookmark-card-tag">
-                <Tag size={10} />
-                {tag}
-              </span>
-            ))}
+          <BookmarkCategoryBadge category={bookmark.category} />
+          <BookmarkTagList tags={bookmark.tags} />
         </div>
       </div>
       <div className="bookmark-card-actions">

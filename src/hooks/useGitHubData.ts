@@ -25,6 +25,24 @@ function handleFetchError(
   setError(getErrorMessage(err))
 }
 
+function applyCachedGitHubData<T>(
+  cacheKey: string,
+  forceRefresh: boolean,
+  setData: (data: T | null) => void,
+  setLoading: (loading: boolean) => void,
+  setError: (error: string | null) => void
+): boolean {
+  if (forceRefresh) return false
+
+  const cached = dataCache.get<T>(cacheKey)
+  if (cached === null) return false
+
+  setData(cached.data)
+  setLoading(false)
+  setError(null)
+  return true
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -89,14 +107,8 @@ export function useGitHubData<T>({
       // Stale-request protection: only the latest request writes state
       const requestId = ++requestIdRef.current
 
-      if (!forceRefresh) {
-        const cached = dataCache.get<T>(cacheKey)
-        if (cached !== null) {
-          setData(cached.data)
-          setLoading(false)
-          setError(null)
-          return
-        }
+      if (applyCachedGitHubData(cacheKey, forceRefresh, setData, setLoading, setError)) {
+        return
       }
 
       setLoading(true)

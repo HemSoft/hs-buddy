@@ -104,6 +104,32 @@ function getAddProjectState(isAdding: boolean) {
   }
 }
 
+type AddProjectResult = Awaited<ReturnType<typeof window.crew.addProject>>
+
+function getAddProjectError(result: AddProjectResult): string | null {
+  if (!result.error || result.error === 'Cancelled') {
+    return null
+  }
+
+  return result.error
+}
+
+async function applyAddProjectResult(
+  result: AddProjectResult,
+  loadProjects: () => Promise<void>,
+  onItemSelect: (itemId: string) => void
+): Promise<string | null> {
+  if (result.success) {
+    await loadProjects()
+    if (result.project) {
+      onItemSelect(`crew-project:${result.project.id}`)
+    }
+    return null
+  }
+
+  return getAddProjectError(result)
+}
+
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   const [state, dispatch] = useReducer(crewSidebarReducer, undefined, createInitialState)
   const { expandedSections, projects, sessions, addProjectError, isAddingProject } = state
@@ -137,20 +163,9 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
 
     try {
       const result = await window.crew.addProject()
-      if (result.success) {
-        await loadProjects()
-        /* v8 ignore start */
-        if (result.project) {
-          /* v8 ignore stop */
-          onItemSelect(`crew-project:${result.project.id}`)
-        }
-        return
-      }
-
-      /* v8 ignore start */
-      if (result.error && result.error !== 'Cancelled') {
-        /* v8 ignore stop */
-        dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
+      const addProjectError = await applyAddProjectResult(result, loadProjects, onItemSelect)
+      if (addProjectError) {
+        dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: addProjectError })
       }
     } catch (error: unknown) {
       dispatch({

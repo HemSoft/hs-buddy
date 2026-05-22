@@ -59,6 +59,35 @@ function repoName(repoPath: string): string {
   return parts[parts.length - 1] || repoPath
 }
 
+function applyFetchedRun(
+  isMounted: boolean,
+  result: RalphRunInfo | null,
+  setRun: (value: RalphRunInfo | null) => void,
+  setError: (value: string | null) => void
+) {
+  if (!isMounted) return
+  setRun(result)
+  if (!result) setError('Run not found')
+}
+
+function resolveRunLoadError(error: unknown): string {
+  return error instanceof Error ? error.message : 'Failed to load run'
+}
+
+function applyRunLoadError(
+  isMounted: boolean,
+  error: unknown,
+  setError: (value: string | null) => void
+) {
+  if (!isMounted) return
+  setError(resolveRunLoadError(error))
+}
+
+function finishRunLoad(isMounted: boolean, setLoading: (value: boolean) => void) {
+  if (!isMounted) return
+  setLoading(false)
+}
+
 function RunHeader({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) => void }) {
   const cfg = STATUS_CONFIG[run.status]
   const StatusIcon = cfg.icon
@@ -231,14 +260,11 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   const fetchRun = useCallback(async () => {
     try {
       const result = await window.ralph.getStatus(runId)
-      if (!mountedRef.current) return
-      setRun(result)
-      if (!result) setError('Run not found')
+      applyFetchedRun(mountedRef.current, result, setRun, setError)
     } catch (err: unknown) {
-      if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load run')
+      applyRunLoadError(mountedRef.current, err, setError)
     } finally {
-      if (mountedRef.current) setLoading(false)
+      finishRunLoad(mountedRef.current, setLoading)
     }
   }, [runId])
 

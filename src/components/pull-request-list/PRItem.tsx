@@ -87,6 +87,40 @@ function PRApproveButton({
   )
 }
 
+function PRApprovedIcon({ approved }: { approved: boolean }) {
+  if (!approved) return null
+  return <Check size={14} className="approved-icon" />
+}
+
+function approvalTargetLabel(assigneeCount: number) {
+  return assigneeCount > 0 ? assigneeCount : '?'
+}
+
+function getPRFooterDate(pr: PullRequest, mode: string) {
+  if (mode === 'recently-merged') return pr.date || pr.created || Date.now()
+  return pr.created || Date.now()
+}
+
+function PRApprovalSummary({ pr }: { pr: PullRequest }) {
+  return (
+    <div className="pr-approvals">
+      <PRApprovedIcon approved={pr.iApproved} />
+      <span>
+        {pr.approvalCount}/{approvalTargetLabel(pr.assigneeCount)} approvals
+      </span>
+    </div>
+  )
+}
+
+function PRItemDate({ pr, mode }: { pr: PullRequest; mode: string }) {
+  return (
+    <div className="pr-date">
+      <Clock size={14} />
+      <span>{formatDistanceToNow(getPRFooterDate(pr, mode))}</span>
+    </div>
+  )
+}
+
 function PRItemFooter({
   pr,
   mode,
@@ -100,24 +134,10 @@ function PRItemFooter({
 }) {
   return (
     <div className="pr-item-footer">
-      <div className="pr-approvals">
-        {pr.iApproved && <Check size={14} className="approved-icon" />}
-        <span>
-          {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'} approvals
-        </span>
-      </div>
+      <PRApprovalSummary pr={pr} />
       <PRThreadStatus pr={pr} />
       <PRApproveButton pr={pr} isApproving={isApproving} onApprove={onApprove} />
-      <div className="pr-date">
-        <Clock size={14} />
-        <span>
-          {formatDistanceToNow(
-            mode === 'recently-merged'
-              ? pr.date || pr.created || Date.now()
-              : pr.created || Date.now()
-          )}
-        </span>
-      </div>
+      <PRItemDate pr={pr} mode={mode} />
     </div>
   )
 }

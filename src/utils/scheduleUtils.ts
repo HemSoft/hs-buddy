@@ -18,15 +18,20 @@ interface ExistingSchedule {
   enabled: boolean
 }
 
+function fieldChanged<T>(updated: T | undefined, existing: T): boolean {
+  return updated !== undefined && updated !== existing
+}
+
 /** Check if timing-relevant schedule fields changed. */
 export function hasScheduleTimingChanged(
   updates: ScheduleUpdates,
   existing: ExistingSchedule
 ): boolean {
-  const cronChanged = updates.cron !== undefined && updates.cron !== existing.cron
-  const timezoneChanged = updates.timezone !== undefined && updates.timezone !== existing.timezone
-  const enabledChanged = updates.enabled !== undefined && updates.enabled !== existing.enabled
-  return cronChanged || timezoneChanged || enabledChanged
+  return (
+    fieldChanged(updates.cron, existing.cron) ||
+    fieldChanged(updates.timezone, existing.timezone) ||
+    fieldChanged(updates.enabled, existing.enabled)
+  )
 }
 
 /** Merge update values over existing schedule state, applying defaults. */

@@ -60,6 +60,11 @@ const MAX_OSC_BUFFER = 512
  * call. This is the full buffer state machine extracted from
  * electron/ipc/terminalHandlers.ts `processOsc7()`.
  */
+function normalizeOsc7Path(rawPath: string): string {
+  const normalizedPath = /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
+  return decodeURIComponent(normalizedPath)
+}
+
 export function processOsc7Buffer(
   prevBuffer: string,
   chunk: string
@@ -85,10 +90,7 @@ export function processOsc7Buffer(
   const remainingBuffer = buffer.slice(lastMatch.index + lastMatch[0].length)
 
   try {
-    const rawPath = lastMatch[1]
-    // On Windows, file:///C:/... yields /C:/...; strip the leading slash to get C:/...
-    const normalizedPath = /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
-    const cwd = decodeURIComponent(normalizedPath)
+    const cwd = normalizeOsc7Path(lastMatch[1])
     return { cwd, remainingBuffer }
   } catch (_: unknown) {
     return { cwd: null, remainingBuffer }
@@ -99,6 +101,19 @@ export function processOsc7Buffer(
  * Build PTY spawn options from the given config.
  * Accepts platform as a parameter for testability.
  */
+function buildTerminalEnv(
+  env: Record<string, string | undefined>
+): Record<string, string | undefined> {
+  return {
+    ...env,
+    COLORTERM: 'truecolor',
+    TERM_PROGRAM: 'hs-buddy',
+    COLORFGBG: '15;0',
+    WT_SESSION: env.WT_SESSION || 'b916bc1b-75a7-4c9a-8a38-6e8d06032505',
+    WT_PROFILE_ID: env.WT_PROFILE_ID || '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}',
+  }
+}
+
 export function buildPtySpawnOptions(
   opts: { cols?: number; rows?: number },
   cwd: string,
@@ -110,14 +125,7 @@ export function buildPtySpawnOptions(
     cols: opts.cols || 120,
     rows: opts.rows || 30,
     cwd,
-    env: {
-      ...env,
-      COLORTERM: 'truecolor',
-      TERM_PROGRAM: 'hs-buddy',
-      COLORFGBG: '15;0',
-      WT_SESSION: env.WT_SESSION || 'b916bc1b-75a7-4c9a-8a38-6e8d06032505',
-      WT_PROFILE_ID: env.WT_PROFILE_ID || '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}',
-    },
+    env: buildTerminalEnv(env),
     ...(platform === 'win32' ? { useConpty: true } : {}),
   }
 }
@@ -126,6 +134,21 @@ export function buildPtySpawnOptions(
  * Probe clone roots and org candidates to find a local repo directory.
  * Accepts a predicate for filesystem checks to keep this function pure.
  */
+function findInRoot(
+  root: string,
+  orgCandidates: string[],
+  repo: string,
+  isValidDir: (dir: string) => boolean
+): string | null {
+  for (const org of orgCandidates) {
+    const candidate = path.join(root, org, repo)
+    if (isValidDir(candidate)) return candidate
+  }
+  const directCandidate = path.join(root, repo)
+  if (isValidDir(directCandidate)) return directCandidate
+  return null
+}
+
 export function findRepoPath(
   cloneRoots: string[],
   orgCandidates: string[],
@@ -134,14 +157,8 @@ export function findRepoPath(
 ): string | null {
   for (const root of cloneRoots) {
     if (!isValidDir(root)) continue
-
-    for (const org of orgCandidates) {
-      const candidate = path.join(root, org, repo)
-      if (isValidDir(candidate)) return candidate
-    }
-
-    const directCandidate = path.join(root, repo)
-    if (isValidDir(directCandidate)) return directCandidate
+    const found = findInRoot(root, orgCandidates, repo, isValidDir)
+    if (found) return found
   }
 
   return null

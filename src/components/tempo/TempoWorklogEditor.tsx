@@ -1,4 +1,4 @@
-import { useEffect, useId, useReducer, useRef } from 'react'
+import { useCallback, useEffect, useId, useReducer, useRef } from 'react'
 import type { TempoWorklog, CreateWorklogPayload, TempoAccount } from '../../types/tempo'
 import { nextStartTime, validateWorklogFields } from './tempoUtils'
 import { X } from 'lucide-react'
@@ -140,8 +140,211 @@ function submitLabel(saving: boolean, isEdit: boolean) {
   return isEdit ? 'Update' : 'Create'
 }
 
-function getAccountOptions(projectAccounts: TempoAccount[], accounts: TempoAccount[]) {
+type TempoProjectAccount = TempoWorklogEditorState['projectAccounts'][number]
+
+function getAccountOptions(projectAccounts: TempoProjectAccount[], accounts: TempoAccount[]) {
   return projectAccounts.length > 0 ? projectAccounts : accounts
+}
+
+function hasInitialAccountSelection(worklog: TempoWorklog | null, defaultAccountKey?: string) {
+  return Boolean(worklog?.accountKey || defaultAccountKey)
+}
+
+function resolveProjectKey(issueKey: string) {
+  const key = issueKey.trim().toUpperCase()
+  const projectKey = key.split('-')[0]
+  if (!projectKey || !key.includes('-')) return null
+  return projectKey
+}
+
+function applyProjectAccounts(
+  projectAccounts: TempoProjectAccount[],
+  dispatch: React.Dispatch<TempoWorklogEditorAction>,
+  userPickedAccountRef: React.MutableRefObject<boolean>
+) {
+  dispatch({ type: 'setProjectAccounts', projectAccounts })
+  if (userPickedAccountRef.current) return
+
+  const defaultAccount = projectAccounts.find(account => account.isDefault)
+  if (defaultAccount) {
+    dispatch({ type: 'setAccountKey', value: defaultAccount.key })
+  }
+}
+
+function useTempoAccountData({
+  issueKey,
+  isEdit,
+  dispatch,
+  userPickedAccountRef,
+  debounceRef,
+  requestVersionRef,
+}: {
+  issueKey: string
+  isEdit: boolean
+  dispatch: React.Dispatch<TempoWorklogEditorAction>
+  userPickedAccountRef: React.MutableRefObject<boolean>
+  debounceRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>
+  requestVersionRef: React.MutableRefObject<number>
+}) {
+  useEffect(() => {
+    window.tempo.getAccounts().then(res => {
+      if (res.data) dispatch({ type: 'setAccounts', accounts: res.data })
+    })
+  }, [dispatch])
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    const projectKey = resolveProjectKey(issueKey)
+    if (!projectKey) {
+      dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
+      return
+    }
+
+    userPickedAccountRef.current = false
+    const version = ++requestVersionRef.current
+    debounceRef.current = setTimeout(() => {
+      dispatch({ type: 'setAccountsLoading', value: true })
+      window.tempo.getProjectAccounts(projectKey).then(res => {
+        if (requestVersionRef.current !== version) return
+        dispatch({ type: 'setAccountsLoading', value: false })
+        if (res.data) applyProjectAccounts(res.data, dispatch, userPickedAccountRef)
+      })
+    }, 400)
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+    }
+  }, [debounceRef, dispatch, issueKey, requestVersionRef, userPickedAccountRef])
+
+  useEffect(() => {
+    if (!isEdit) return
+
+    const projectKey = resolveProjectKey(issueKey)
+    if (!projectKey) return
+
+    window.tempo.getProjectAccounts(projectKey).then(res => {
+      if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
+    })
+  }, [dispatch, isEdit, issueKey])
+}
+
+function useTempoEditorEscapeShortcut(saving: boolean, onCancel: () => void) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !saving) onCancel()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel, saving])
+}
+
+function resolveStartTime(worklog: TempoWorklog | null, existingWorklogs: TempoWorklog[]) {
+  return worklog?.startTime || nextStartTime(existingWorklogs)
+}
+
+function optionalAccountKey(accountKey: string) {
+  return accountKey || undefined
+}
+
+function createSubmitPayload(
+  state: TempoWorklogEditorState,
+  worklog: TempoWorklog | null,
+  existingWorklogs: TempoWorklog[]
+): CreateWorklogPayload {
+  return {
+    issueKey: state.issueKey.trim().toUpperCase(),
+    hours: parseFloat(state.hours),
+    date: state.date,
+    startTime: resolveStartTime(worklog, existingWorklogs),
+    description: state.description,
+    accountKey: optionalAccountKey(state.accountKey),
+  }
+}
+
+function useTempoSubmitHandler({
+  state,
+  worklog,
+  existingWorklogs,
+  onSave,
+  dispatch,
+}: {
+  state: TempoWorklogEditorState
+  worklog: TempoWorklog | null
+  existingWorklogs: TempoWorklog[]
+  onSave: (payload: CreateWorklogPayload) => Promise<void>
+  dispatch: React.Dispatch<TempoWorklogEditorAction>
+}) {
+  return useCallback(
+    async (e: React.FormEvent) => {
+      e.preventDefault()
+      const error = validateWorklogFields(state.issueKey, state.hours, state.date)
+      if (error) {
+        dispatch({ type: 'submit:error', value: error })
+        return
+      }
+
+      dispatch({ type: 'submit:start' })
+      try {
+        await onSave(createSubmitPayload(state, worklog, existingWorklogs))
+      } catch (err: unknown) {
+        dispatch({ type: 'submit:error', value: String(err) })
+        return
+      }
+      dispatch({ type: 'submit:finish' })
+    },
+    [dispatch, existingWorklogs, onSave, state, worklog]
+  )
+}
+
+function resolveBackdropClickHandler(saving: boolean, onCancel: () => void) {
+  return saving ? undefined : onCancel
+}
+
+function editorTitle(isEdit: boolean) {
+  return isEdit ? 'Edit Worklog' : 'Log Time'
+}
+
+function accountLabel(accountsLoading: boolean) {
+  return accountsLoading ? 'Account (loading…)' : 'Account'
+}
+
+function TempoAccountField({
+  accountId,
+  state,
+  dispatch,
+  userPickedAccountRef,
+}: {
+  accountId: string
+  state: TempoWorklogEditorState
+  dispatch: React.Dispatch<TempoWorklogEditorAction>
+  userPickedAccountRef: React.MutableRefObject<boolean>
+}) {
+  return (
+    <div className="tempo-editor-row">
+      <label htmlFor={accountId}>{accountLabel(state.accountsLoading)}</label>
+      <select
+        id={accountId}
+        value={state.accountKey}
+        onChange={e => {
+          userPickedAccountRef.current = true
+          dispatch({ type: 'setAccountKey', value: e.target.value })
+        }}
+      >
+        <option value="">— select account —</option>
+        {getAccountOptions(state.projectAccounts, state.accounts).map(account => (
+          <option key={account.key} value={account.key}>
+            {account.name} ({account.key})
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+function TempoEditorError({ error }: { error: string | null }) {
+  if (!error) return null
+  return <div className="tempo-editor-error">{error}</div>
 }
 
 export function TempoWorklogEditor({
@@ -172,105 +375,31 @@ export function TempoWorklogEditor({
   const accountId = useId()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestVersionRef = useRef(0)
-  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey || defaultAccountKey))
+  const userPickedAccountRef = useRef(hasInitialAccountSelection(worklog, defaultAccountKey))
+  const handleSubmit = useTempoSubmitHandler({
+    state,
+    worklog,
+    existingWorklogs,
+    onSave,
+    dispatch,
+  })
 
-  // Fetch all accounts on mount
-  useEffect(() => {
-    window.tempo.getAccounts().then(res => {
-      if (res.data) dispatch({ type: 'setAccounts', accounts: res.data })
-    })
-  }, [])
-
-  // Fetch project-specific account links when issue key changes (debounced)
-  useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    const key = state.issueKey.trim().toUpperCase()
-    const projectKey = key.split('-')[0]
-    if (!projectKey || !key.includes('-')) {
-      dispatch({ type: 'setProjectAccounts', projectAccounts: [] })
-      return
-    }
-    userPickedAccountRef.current = false
-    const version = ++requestVersionRef.current
-    debounceRef.current = setTimeout(() => {
-      dispatch({ type: 'setAccountsLoading', value: true })
-      window.tempo.getProjectAccounts(projectKey).then(res => {
-        if (requestVersionRef.current !== version) return // stale response
-        dispatch({ type: 'setAccountsLoading', value: false })
-        if (res.data) {
-          dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
-          // Auto-select default only if user hasn't manually picked
-          /* v8 ignore start */
-          if (!userPickedAccountRef.current) {
-            /* v8 ignore stop */
-            const defaultAccount = res.data.find(a => a.isDefault)
-            if (defaultAccount) {
-              dispatch({ type: 'setAccountKey', value: defaultAccount.key })
-            }
-          }
-        }
-      })
-    }, 400)
-    return () => {
-      /* v8 ignore start */
-      if (debounceRef.current) clearTimeout(debounceRef.current)
-      /* v8 ignore stop */
-    }
-  }, [state.issueKey])
-
-  // For edit mode, fetch project accounts on mount
-  useEffect(() => {
-    if (!isEdit) return
-    const key = state.issueKey.trim().toUpperCase()
-    const projectKey = key.split('-')[0]
-    /* v8 ignore start */
-    if (!projectKey || !key.includes('-')) return
-    /* v8 ignore stop */
-    window.tempo.getProjectAccounts(projectKey).then(res => {
-      if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
-    })
-  }, [isEdit]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !state.saving) onCancel()
-    }
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [onCancel, state.saving])
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    const error = validateWorklogFields(state.issueKey, state.hours, state.date)
-    if (error) {
-      dispatch({ type: 'submit:error', value: error })
-      return
-    }
-
-    dispatch({ type: 'submit:start' })
-    try {
-      const startTime = worklog?.startTime || nextStartTime(existingWorklogs)
-      await onSave({
-        issueKey: state.issueKey.trim().toUpperCase(),
-        hours: parseFloat(state.hours),
-        date: state.date,
-        startTime,
-        description: state.description,
-        accountKey: state.accountKey || undefined,
-      })
-    } catch (err: unknown) {
-      dispatch({ type: 'submit:error', value: String(err) })
-      return
-    }
-    dispatch({ type: 'submit:finish' })
-  }
+  useTempoAccountData({
+    issueKey: state.issueKey,
+    isEdit,
+    dispatch,
+    userPickedAccountRef,
+    debounceRef,
+    requestVersionRef,
+  })
+  useTempoEditorEscapeShortcut(state.saving, onCancel)
 
   return (
     <div className="tempo-editor-overlay">
       <button
         type="button"
         className="tempo-editor-backdrop"
-        onClick={state.saving ? undefined : onCancel}
+        onClick={resolveBackdropClickHandler(state.saving, onCancel)}
         aria-label="Close worklog editor"
       />
       <div
@@ -280,7 +409,7 @@ export function TempoWorklogEditor({
         aria-labelledby="tempo-editor-title"
       >
         <div className="tempo-editor-header">
-          <h3 id="tempo-editor-title">{isEdit ? 'Edit Worklog' : 'Log Time'}</h3>
+          <h3 id="tempo-editor-title">{editorTitle(isEdit)}</h3>
           <button
             type="button"
             className="tempo-editor-close"
@@ -335,25 +464,13 @@ export function TempoWorklogEditor({
               placeholder="Working on issue..."
             />
           </div>
-          <div className="tempo-editor-row">
-            <label htmlFor={accountId}>Account{state.accountsLoading ? ' (loading…)' : ''}</label>
-            <select
-              id={accountId}
-              value={state.accountKey}
-              onChange={e => {
-                userPickedAccountRef.current = true
-                dispatch({ type: 'setAccountKey', value: e.target.value })
-              }}
-            >
-              <option value="">— select account —</option>
-              {getAccountOptions(state.projectAccounts, state.accounts).map(a => (
-                <option key={a.key} value={a.key}>
-                  {a.name} ({a.key})
-                </option>
-              ))}
-            </select>
-          </div>
-          {state.error && <div className="tempo-editor-error">{state.error}</div>}
+          <TempoAccountField
+            accountId={accountId}
+            state={state}
+            dispatch={dispatch}
+            userPickedAccountRef={userPickedAccountRef}
+          />
+          <TempoEditorError error={state.error} />
           <div className="tempo-editor-actions">
             <button type="button" onClick={onCancel} className="tempo-btn-secondary">
               Cancel

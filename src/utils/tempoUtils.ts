@@ -78,15 +78,22 @@ export function buildCreateWorklogBody(
   }
 }
 
+function applyWorklogTimingFields(
+  body: Record<string, unknown>,
+  payload: UpdateWorklogPayload
+): void {
+  if (payload.hours !== undefined) body.timeSpentSeconds = Math.round(payload.hours * 3600)
+  if (payload.date) body.startDate = payload.date
+  if (payload.startTime) body.startTime = `${payload.startTime}:00`
+}
+
 /** Build the JSON body for an update-worklog PUT request. */
 export function buildUpdateWorklogBody(
   accountId: string,
   payload: UpdateWorklogPayload
 ): Record<string, unknown> {
   const body: Record<string, unknown> = { authorAccountId: accountId }
-  if (payload.hours !== undefined) body.timeSpentSeconds = Math.round(payload.hours * 3600)
-  if (payload.date) body.startDate = payload.date
-  if (payload.startTime) body.startTime = `${payload.startTime}:00`
+  applyWorklogTimingFields(body, payload)
   if (payload.description !== undefined) body.description = payload.description
   if (payload.accountKey) body.attributes = [{ key: '_Account_', value: payload.accountKey }]
   return body

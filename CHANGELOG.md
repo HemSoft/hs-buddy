@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract helpers from borderline-size components and hooks
 - Extract sub-components and compress handlers in UI layer
 - Simplisticate batch 13 — compress functions under 80-line threshold
+- Simplisticate batch 14 — more function compressions
 
 ### Added
 

@@ -447,28 +447,11 @@ function ThreadsTimelineBody({
 export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
   const commentTextareaRef = useRef<HTMLTextAreaElement>(null)
   const {
-    loading,
-    error,
-    data,
-    filter,
-    setFilter,
-    showResolved,
-    setShowResolved,
-    commentText,
-    setCommentText,
-    sendingComment,
-    latestReview,
-    needsRefresh,
-    activeThreads,
-    resolvedThreads,
-    filteredThreads,
-    fetchThreads,
-    handleReplyAdded,
-    handleResolveToggled,
-    handleAddComment,
-    handleReactToComment,
-    openLatestReview,
-    requestReReview,
+    loading, error, data, filter, setFilter, showResolved, setShowResolved,
+    commentText, setCommentText, sendingComment, latestReview, needsRefresh,
+    activeThreads, resolvedThreads, filteredThreads, fetchThreads,
+    handleReplyAdded, handleResolveToggled, handleAddComment, handleReactToComment,
+    openLatestReview, requestReReview,
   } = usePRThreadsPanel(pr)
 
   const timeline = useMemo(() => {
@@ -477,82 +460,39 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
     const visibleThreads = isAllFilter
       ? filteredThreads.filter(t => !t.isResolved || showResolved)
       : filteredThreads
-    const comments = isAllFilter ? data.issueComments : []
-    const reviews = isAllFilter ? data.reviews : []
-    return buildTimeline(visibleThreads, comments, reviews)
+    return buildTimeline(visibleThreads, isAllFilter ? data.issueComments : [], isAllFilter ? data.reviews : [])
   }, [data, filter, filteredThreads, showResolved])
 
   const dateGroups = useMemo(() => groupByDate(timeline), [timeline])
 
   if (loading && !data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
+    return <div className="pr-threads-loading"><Loader2 size={24} className="spin" /><p>Loading conversations…</p></div>
   }
-
   if (error) {
     return (
       <div className="pr-threads-error">
         <p>Failed to load conversations</p>
-        <p className="pr-threads-error-detail">
-          {/* v8 ignore start */}
-          {error}
-          {/* v8 ignore stop */}
-        </p>
-        <button className="pr-threads-retry" onClick={fetchThreads}>
-          Retry
-        </button>
+        <p className="pr-threads-error-detail">{/* v8 ignore start */}{error}{/* v8 ignore stop */}</p>
+        <button className="pr-threads-retry" onClick={fetchThreads}>Retry</button>
       </div>
     )
   }
-
   if (!data) {
-    return (
-      <div className="pr-threads-loading">
-        <Loader2 size={24} className="spin" />
-        <p>Loading conversations…</p>
-      </div>
-    )
+    return <div className="pr-threads-loading"><Loader2 size={24} className="spin" /><p>Loading conversations…</p></div>
   }
 
   return (
     <div className="pr-threads-container">
-      <AIReviewBannerSection
-        latestReview={latestReview}
-        needsRefresh={needsRefresh}
-        openLatestReview={openLatestReview}
-        requestReReview={requestReReview}
-      />
-
-      <ThreadsTimelineHeader
-        threads={data.threads}
-        filter={filter}
-        setFilter={setFilter}
-        activeThreads={activeThreads}
-        resolvedThreads={resolvedThreads}
-        showResolved={showResolved}
-        setShowResolved={setShowResolved}
-      />
-
-      <ThreadsTimelineBody
-        timeline={timeline}
-        dateGroups={dateGroups}
-        pr={pr}
-        handleReplyAdded={handleReplyAdded}
-        handleResolveToggled={handleResolveToggled}
-        handleReactToComment={handleReactToComment}
-      />
-
-      <PRCommentForm
-        commentTextareaRef={commentTextareaRef}
-        commentText={commentText}
-        setCommentText={setCommentText}
-        sendingComment={sendingComment}
-        handleAddComment={handleAddComment}
-      />
+      <AIReviewBannerSection latestReview={latestReview} needsRefresh={needsRefresh}
+        openLatestReview={openLatestReview} requestReReview={requestReReview} />
+      <ThreadsTimelineHeader threads={data.threads} filter={filter} setFilter={setFilter}
+        activeThreads={activeThreads} resolvedThreads={resolvedThreads}
+        showResolved={showResolved} setShowResolved={setShowResolved} />
+      <ThreadsTimelineBody timeline={timeline} dateGroups={dateGroups} pr={pr}
+        handleReplyAdded={handleReplyAdded} handleResolveToggled={handleResolveToggled}
+        handleReactToComment={handleReactToComment} />
+      <PRCommentForm commentTextareaRef={commentTextareaRef} commentText={commentText}
+        setCommentText={setCommentText} sendingComment={sendingComment} handleAddComment={handleAddComment} />
     </div>
   )
 }

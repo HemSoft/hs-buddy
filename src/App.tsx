@@ -105,46 +105,9 @@ function AppLoadingState() {
   )
 }
 
-function AppMainContent({
-  tabs,
-  activeTabId,
-  setActiveTabId,
-  closeTab,
-  closeOtherTabs,
-  closeTabsToRight,
-  closeAllTabs,
-  onPanelResize,
-  activeViewId,
-  prCounts,
-  handleItemSelect,
-  handleSectionSelect,
-  openTab,
-  closeView,
-  handlePRCountChange,
-  terminalOpen,
-  panelHeight,
-  terminalTabs,
-  activeTerminalTabId,
-  selectTerminalTab,
-  closeTerminalTab,
-  handleAddTerminalTab,
-  renameTerminalTab,
-  setTerminalTabColor,
-  reorderTerminalTabs,
-  updateTabCwd,
-  handleOpenFolderView,
-}: Pick<
+type AppMainContentProps = Pick<
   ReturnType<typeof useAppTabs>,
-  | 'tabs'
-  | 'activeTabId'
-  | 'setActiveTabId'
-  | 'closeTab'
-  | 'closeOtherTabs'
-  | 'closeTabsToRight'
-  | 'closeAllTabs'
-  | 'openTab'
-  | 'closeView'
-  | 'activeViewId'
+  'tabs' | 'activeTabId' | 'setActiveTabId' | 'closeTab' | 'closeOtherTabs' | 'closeTabsToRight' | 'closeAllTabs' | 'openTab' | 'closeView' | 'activeViewId'
 > & {
   onPanelResize: (sizes: number[]) => void
   prCounts: Record<string, number>
@@ -163,7 +126,16 @@ function AppMainContent({
   reorderTerminalTabs: ReturnType<typeof useTerminalPanel>['reorderTerminalTabs']
   updateTabCwd: ReturnType<typeof useTerminalPanel>['updateTabCwd']
   handleOpenFolderView: (cwd: string) => void
-}) {
+}
+
+function AppMainContent({
+  tabs, activeTabId, setActiveTabId, closeTab, closeOtherTabs, closeTabsToRight,
+  closeAllTabs, onPanelResize, activeViewId, prCounts, handleItemSelect,
+  handleSectionSelect, openTab, closeView, handlePRCountChange, terminalOpen,
+  panelHeight, terminalTabs, activeTerminalTabId, selectTerminalTab,
+  closeTerminalTab, handleAddTerminalTab, renameTerminalTab, setTerminalTabColor,
+  reorderTerminalTabs, updateTabCwd, handleOpenFolderView,
+}: AppMainContentProps) {
   return (
     <div className="main-content-wrapper">
       <TabBar

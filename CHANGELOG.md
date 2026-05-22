@@ -68,6 +68,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve CRAP scores for terminalHandlers and githubHandlers
 - Reduce CRAP scores below 30 for all critical methods
 - Reduce cyclomatic complexity across 5 files to improve CRAP scores
+- Extract helpers to reduce CRAP scores in utils and hooks
 
 ### Added
 

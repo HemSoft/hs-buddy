@@ -63,31 +63,17 @@ function processUpcomingResult(
   return { groups: buildDayGroups(data, overdueTasks, days), error: null }
 }
 
-function applyUpcomingResultIfMounted(
+function applyUpcomingResult(
   result: { success: boolean; error?: string; data?: Record<string, TodoistTask[]> },
   days: number,
-  mountedRef: { current: boolean },
   setDayGroups: (groups: DayGroup[]) => void,
   setError: (error: string | null) => void
 ): void {
-  if (!mountedRef.current) return
-
   const processed = processUpcomingResult(result, days)
   if (processed.error) {
     setError(processed.error)
-    return
-  }
-
-  setDayGroups(processed.groups)
-}
-
-function setTodoistErrorIfMounted(
-  error: unknown,
-  mountedRef: { current: boolean },
-  setError: (error: string | null) => void
-): void {
-  if (mountedRef.current) {
-    setError(getUserFacingErrorMessage(error, 'Failed to fetch tasks'))
+  } else {
+    setDayGroups(processed.groups)
   }
 }
 
@@ -102,9 +88,12 @@ export function useTodoistUpcoming(days: number = 7) {
     setError(null)
     try {
       const result = await window.todoist.getUpcoming(days)
-      applyUpcomingResultIfMounted(result, days, mountedRef, setDayGroups, setError)
+      if (!mountedRef.current) return
+      applyUpcomingResult(result, days, setDayGroups, setError)
     } catch (err: unknown) {
-      setTodoistErrorIfMounted(err, mountedRef, setError)
+      if (mountedRef.current) {
+        setError(getUserFacingErrorMessage(err, 'Failed to fetch tasks'))
+      }
     } finally {
       if (mountedRef.current) setIsLoading(false)
     }

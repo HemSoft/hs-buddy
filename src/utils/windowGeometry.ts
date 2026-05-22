@@ -71,21 +71,8 @@ function relocateToSavedDisplay(
   )
 }
 
-function hasResolvedWindowPosition(
-  state: WindowBounds
-): state is WindowBounds & { x: number; y: number } {
+function hasDefinedPosition(state: WindowBounds): state is WindowBounds & { x: number; y: number } {
   return state.x !== undefined && state.y !== undefined
-}
-
-function shouldRelocateToSavedDisplay(targetDisplayId: number, savedDisplayId: number): boolean {
-  return targetDisplayId !== savedDisplayId
-}
-
-function resolveWindowPosition(state: WindowBounds & { x: number; y: number }): {
-  x: number
-  y: number
-} {
-  return { x: state.x, y: state.y }
 }
 
 /**
@@ -105,12 +92,11 @@ export function resolveWindowBounds(
     getMatchingDisplay: (bounds: Rectangle) => DisplayInfo
   }
 ): WindowBounds {
-  if (!hasResolvedWindowPosition(state)) {
-    return state
-  }
-
   const { width, height } = state
-  const { x, y } = resolveWindowPosition(state)
+
+  if (!hasDefinedPosition(state)) return { x: state.x, y: state.y, width, height }
+
+  const { x, y } = state
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo
 
@@ -123,7 +109,7 @@ export function resolveWindowBounds(
     return centerOnDisplay(width, height, primaryWorkArea)
   }
 
-  if (shouldRelocateToSavedDisplay(targetDisplay.id, savedDisplayId)) {
+  if (targetDisplay.id !== savedDisplayId) {
     return relocateToSavedDisplay(
       x,
       y,

@@ -51,26 +51,19 @@ export function parseModelMetadata(sm: Record<string, unknown>): SessionModelInf
 
 // ─── Init data extraction ────────────────────────────────
 
-function getSelectedModel(v: Record<string, unknown>): Record<string, unknown> | undefined {
-  return (v.inputState as Record<string, unknown>)?.selectedModel as
-    | Record<string, unknown>
-    | undefined
-}
-
-function parseSelectedModelMetadata(
-  selectedModel: Record<string, unknown> | undefined
-): SessionModelInfo | null {
-  const metadata = selectedModel?.metadata as Record<string, unknown> | undefined
-  if (!metadata) return null
-  return parseModelMetadata(metadata)
+function extractSelectedModel(v: Record<string, unknown>): Record<string, unknown> | undefined {
+  const inputState = v.inputState as Record<string, unknown> | undefined
+  if (!inputState) return undefined
+  return inputState.selectedModel as Record<string, unknown> | undefined
 }
 
 export function extractInitFromValue(v: Record<string, unknown>): SessionInitData {
-  const selectedModel = getSelectedModel(v)
+  const sm = extractSelectedModel(v)
+  const metadata = sm?.metadata as Record<string, unknown> | undefined
   return {
     sessionId: (v.sessionId as string) ?? '',
     creationDate: (v.creationDate as number) ?? 0,
-    model: parseSelectedModelMetadata(selectedModel),
+    model: metadata ? parseModelMetadata(metadata) : null,
   }
 }
 
@@ -314,15 +307,7 @@ function processUpdateLine(keyPath: string[], line: string, state: SessionParseS
   }
 }
 
-function isInitLineKind(kind: number): boolean {
-  return kind === 0
-}
-
-function isUpdateLineKind(kind: number): boolean {
-  return kind === 1
-}
-
-function isRequestsSnapshotLine(kind: number, keyPath: string[]): boolean {
+function isRequestsSnapshot(kind: number, keyPath: string[]): boolean {
   return kind === 2 && keyPath.length === 1 && keyPath[0] === 'requests'
 }
 
@@ -333,17 +318,11 @@ export function processSessionLine(
   line: string,
   state: SessionParseState
 ): void {
-  if (isInitLineKind(kind)) {
+  if (kind === 0) {
     processInitLine(line, state)
-    return
-  }
-
-  if (isUpdateLineKind(kind)) {
+  } else if (kind === 1) {
     processUpdateLine(keyPath, line, state)
-    return
-  }
-
-  if (isRequestsSnapshotLine(kind, keyPath)) {
+  } else if (isRequestsSnapshot(kind, keyPath)) {
     handleRequestsSnapshot(line, state.prompts)
   }
 }

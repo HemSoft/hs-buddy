@@ -18,8 +18,9 @@ interface ExistingSchedule {
   enabled: boolean
 }
 
-function hasDefinedScheduleChange<T>(updatedValue: T | undefined, existingValue: T): boolean {
-  return updatedValue !== undefined && updatedValue !== existingValue
+/** Returns true when a field has been updated to a different value. */
+function fieldChanged<T>(updated: T | undefined, existing: T): boolean {
+  return updated !== undefined && updated !== existing
 }
 
 /** Check if timing-relevant schedule fields changed. */
@@ -28,9 +29,9 @@ export function hasScheduleTimingChanged(
   existing: ExistingSchedule
 ): boolean {
   return (
-    hasDefinedScheduleChange(updates.cron, existing.cron) ||
-    hasDefinedScheduleChange(updates.timezone, existing.timezone) ||
-    hasDefinedScheduleChange(updates.enabled, existing.enabled)
+    fieldChanged(updates.cron, existing.cron) ||
+    fieldChanged(updates.timezone, existing.timezone) ||
+    fieldChanged(updates.enabled, existing.enabled)
   )
 }
 

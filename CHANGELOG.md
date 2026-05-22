@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persist weather location across app restarts via electron-store
 - Surface pollen API errors instead of silently hiding
 - Resolve knip, test-electron crash, and coverage failures
+- OrgDetailReducer unknown action fallback + RepoContentGrid refinement
 
 ### Changed
 

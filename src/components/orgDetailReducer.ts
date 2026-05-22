@@ -76,7 +76,8 @@ const ORG_COPILOT_ACTION_REDUCERS = {
 }
 
 function reduceOrgCopilotState(state: OrgCopilotState, action: OrgCopilotAction): OrgCopilotState {
-  return ORG_COPILOT_ACTION_REDUCERS[action.type](state, action as never)
+  const handler = ORG_COPILOT_ACTION_REDUCERS[action.type]
+  return handler ? handler(state, action as never) : state
 }
 
 export function orgCopilotReducer(

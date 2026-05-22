@@ -29,6 +29,26 @@ function formatContributorName(contributor: RepoDetail['topContributors'][number
   return contributor.name ? `${contributor.name} (${contributor.login})` : contributor.login
 }
 
+function hasRepoLicense(detail: RepoDetail): boolean {
+  return Boolean(detail.license)
+}
+
+function LastPushInfo({ pushedAt }: { pushedAt: RepoDetail['pushedAt'] }) {
+  if (!pushedAt) {
+    return null
+  }
+
+  return (
+    <div className="repo-info-item">
+      <span className="repo-info-label">Last Push</span>
+      <span className="repo-info-value">
+        {formatDate(pushedAt)}
+        <span className="repo-info-relative">{formatDistanceToNow(pushedAt)}</span>
+      </span>
+    </div>
+  )
+}
+
 export function RepoContentGrid({ detail }: RepoContentGridProps) {
   const totalBytes = Object.values(detail.languages).reduce((a, b) => a + b, 0)
   const languageEntries: LanguageEntry[] = Object.entries(detail.languages)
@@ -131,15 +151,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
               <span className="repo-info-relative">{formatDistanceToNow(detail.updatedAt)}</span>
             </span>
           </div>
-          {detail.pushedAt && (
-            <div className="repo-info-item">
-              <span className="repo-info-label">Last Push</span>
-              <span className="repo-info-value">
-                {formatDate(detail.pushedAt)}
-                <span className="repo-info-relative">{formatDistanceToNow(detail.pushedAt)}</span>
-              </span>
-            </div>
-          )}
+          <LastPushInfo pushedAt={detail.pushedAt} />
           <div className="repo-info-item">
             <span className="repo-info-label">Size</span>
             <span className="repo-info-value">{formatSize(detail.sizeKB)}</span>
@@ -148,7 +160,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
             <span className="repo-info-label">Default Branch</span>
             <span className="repo-info-value">{detail.defaultBranch}</span>
           </div>
-          {detail.license && (
+          {hasRepoLicense(detail) && (
             <div className="repo-info-item">
               <span className="repo-info-label">License</span>
               <span className="repo-info-value">{detail.license}</span>

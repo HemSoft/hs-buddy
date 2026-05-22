@@ -49,6 +49,45 @@ function applyCachedGitHubData<T>(
   return true
 }
 
+function computeNextCacheState<T>(
+  cacheKey: string | null,
+  cache: typeof dataCache
+): { data: T | null; loading: boolean } {
+  const next = cacheKey === null ? null : cache.get<T>(cacheKey)
+  return {
+    data: next === null ? null : next.data,
+    loading: cacheKey !== null && next === null,
+  }
+}
+
+function startGitHubDataRequest<T>(
+  cacheKey: string | null,
+  forceRefresh: boolean,
+  requestIdRef: { current: number },
+  setData: (data: T) => void,
+  setLoading: (loading: boolean) => void,
+  setError: (error: string | null) => void
+): { requestId: number; cacheKey: string } | null {
+  if (cacheKey === null) return null
+  const requestId = ++requestIdRef.current
+  if (applyCachedGitHubData(cacheKey, forceRefresh, setData, setLoading, setError)) {
+    return null
+  }
+  return { requestId, cacheKey }
+}
+
+function applyFetchedGitHubData<T>(
+  requestId: number,
+  currentRequestId: number,
+  cacheKey: string,
+  result: T,
+  setData: (data: T) => void
+): void {
+  if (shouldIgnoreGitHubDataRequest(requestId, currentRequestId)) return
+  setData(result)
+  dataCache.set(cacheKey, result)
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -99,22 +138,26 @@ export function useGitHubData<T>({
       prevKeyRef.current = cacheKey
       // Invalidate any in-flight request from the previous cacheKey
       requestIdRef.current += 1
-      const next = cacheKey ? dataCache.get<T>(cacheKey) : null
-      setData(next?.data ?? null)
-      setLoading(cacheKey !== null && !next)
+      const nextState = computeNextCacheState<T>(cacheKey, dataCache)
+      setData(nextState.data)
+      setLoading(nextState.loading)
       setError(null)
     }
   }, [cacheKey])
 
   const doFetch = useCallback(
     async (forceRefresh: boolean) => {
-      if (cacheKey === null) return
+      const request = startGitHubDataRequest(
+        cacheKey,
+        forceRefresh,
+        requestIdRef,
+        setData,
+        setLoading,
+        setError
+      )
+      if (request === null) return
 
-      const requestId = ++requestIdRef.current
-
-      if (applyCachedGitHubData(cacheKey, forceRefresh, setData, setLoading, setError)) {
-        return
-      }
+      const { requestId, cacheKey: fetchCacheKey } = request
 
       setLoading(true)
       setError(null)
@@ -129,10 +172,7 @@ export function useGitHubData<T>({
           { name: taskName }
         )
 
-        if (shouldIgnoreGitHubDataRequest(requestId, requestIdRef.current)) return
-
-        setData(result)
-        dataCache.set(cacheKey, result)
+        applyFetchedGitHubData(requestId, requestIdRef.current, fetchCacheKey, result, setData)
       } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {

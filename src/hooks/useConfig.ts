@@ -142,6 +142,23 @@ function shouldInitializeAccounts(
   )
 }
 
+function resolveCurrentAccounts(
+  prevKey: string,
+  contentKey: string,
+  currentAccounts: GitHubAccount[],
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+): GitHubAccount[] | null {
+  if (prevKey !== contentKey) {
+    return resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected)
+  }
+  if (shouldInitializeAccounts(currentAccounts, electronStoreAccounts, convexAccounts)) {
+    return resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected)
+  }
+  return null
+}
+
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const { create, update, remove } = useGitHubAccountMutations()
@@ -171,22 +188,18 @@ export function useGitHubAccounts() {
   // Use ref to track previous key and accounts
   const prevKeyRef = useRef(contentKey)
   const accountsRef = useRef<GitHubAccount[]>([])
+  const nextAccounts = resolveCurrentAccounts(
+    prevKeyRef.current,
+    contentKey,
+    accountsRef.current,
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
 
-  // Only update accounts if content actually changed
-  if (prevKeyRef.current !== contentKey) {
+  if (nextAccounts !== null) {
     prevKeyRef.current = contentKey
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  } else if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
-    // Initialize on first valid data
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
+    accountsRef.current = nextAccounts
   }
 
   const accounts = accountsRef.current
@@ -332,6 +345,24 @@ function resolveCopilotFallback(config: AppConfig) {
   }
 }
 
+function buildCopilotSettingsResult(
+  currentSettings: { ghAccount?: string; model?: string; premiumModel?: string },
+  loading: boolean,
+  setGhAccount: (account: string) => Promise<void>,
+  setModel: (model: string) => Promise<void>,
+  setPremiumModel: (premiumModel: string) => Promise<void>
+) {
+  return {
+    ghAccount: currentSettings.ghAccount ?? '',
+    model: currentSettings.model ?? 'claude-sonnet-4.5',
+    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
+    loading,
+    setGhAccount,
+    setModel,
+    setPremiumModel,
+  }
+}
+
 /**
  * Hook for Copilot-specific settings
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
@@ -357,15 +388,13 @@ export function useCopilotSettings() {
     await updateCopilot({ premiumModel })
   }
 
-  return {
-    ghAccount: currentSettings.ghAccount ?? '',
-    model: currentSettings.model ?? 'claude-sonnet-4.5',
-    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
+  return buildCopilotSettingsResult(
+    currentSettings,
     loading,
     setGhAccount,
     setModel,
-    setPremiumModel,
-  }
+    setPremiumModel
+  )
 }
 
 /**

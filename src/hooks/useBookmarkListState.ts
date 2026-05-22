@@ -128,24 +128,55 @@ function handleDeleteAction(
   }
 }
 
+type FilterAction = Extract<
+  BookmarkListAction,
+  { type: 'set-search' | 'set-category' | 'set-tag' | 'clear-filters' | 'set-drag-over' }
+>
+
+const FILTER_HANDLERS: Partial<
+  Record<
+    FilterAction['type'],
+    (state: BookmarkListState, action: FilterAction) => BookmarkListState
+  >
+> = {
+  'set-search': (state, action) => ({
+    ...state,
+    searchQuery: (action as Extract<BookmarkListAction, { type: 'set-search' }>).query,
+  }),
+  'set-category': (state, action) => ({
+    ...state,
+    selectedCategory: (action as Extract<BookmarkListAction, { type: 'set-category' }>).category,
+  }),
+  'set-tag': (state, action) => ({
+    ...state,
+    selectedTag: (action as Extract<BookmarkListAction, { type: 'set-tag' }>).tag,
+  }),
+  'clear-filters': state => ({ ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }),
+  'set-drag-over': (state, action) => ({
+    ...state,
+    dragOver: (action as Extract<BookmarkListAction, { type: 'set-drag-over' }>).active,
+  }),
+}
+
 function handleFilterAction(
   state: BookmarkListState,
   action: BookmarkListAction
 ): BookmarkListState | null {
-  switch (action.type) {
-    case 'set-search':
-      return { ...state, searchQuery: action.query }
-    case 'set-category':
-      return { ...state, selectedCategory: action.category }
-    case 'set-tag':
-      return { ...state, selectedTag: action.tag }
-    case 'clear-filters':
-      return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
-    case 'set-drag-over':
-      return { ...state, dragOver: action.active }
-    default:
-      return null
-  }
+  const handler = FILTER_HANDLERS[action.type as FilterAction['type']]
+  return handler?.(state, action as FilterAction) ?? null
+}
+
+function getBookmarkSearchFields(bookmark: Bookmark): string[] {
+  return [bookmark.title, bookmark.url, bookmark.description ?? '', ...(bookmark.tags ?? [])]
+}
+
+function filterBookmarksBySearch(bookmarks: Bookmark[], query: string): Bookmark[] {
+  if (!query.trim()) return bookmarks
+
+  const normalizedQuery = query.toLowerCase()
+  return bookmarks.filter(bookmark =>
+    getBookmarkSearchFields(bookmark).some(value => value.toLowerCase().includes(normalizedQuery))
+  )
 }
 
 function bookmarkListReducer(
@@ -201,16 +232,7 @@ export function useBookmarkListState(filterCategory?: string) {
     if (state.selectedTag) {
       result = result.filter(b => b.tags?.includes(state.selectedTag))
     }
-    if (state.searchQuery.trim()) {
-      const q = state.searchQuery.toLowerCase()
-      result = result.filter(
-        b =>
-          b.title.toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q) ||
-          b.description?.toLowerCase().includes(q) ||
-          b.tags?.some(t => t.toLowerCase().includes(q))
-      )
-    }
+    result = filterBookmarksBySearch(result, state.searchQuery)
 
     result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)
     return result

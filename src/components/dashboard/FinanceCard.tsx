@@ -69,6 +69,10 @@ function QuoteRow({ quote, onRemove }: { quote: QuoteData; onRemove?: (symbol: s
   )
 }
 
+function shouldShowEmptyFinanceState(loading: boolean, hasQuotes: boolean): boolean {
+  return !loading && !hasQuotes
+}
+
 function FinanceStatusMessage({
   loading,
   error,
@@ -93,7 +97,7 @@ function FinanceStatusMessage({
       </div>
     )
   }
-  if (!loading && !hasQuotes) {
+  if (shouldShowEmptyFinanceState(loading, hasQuotes)) {
     return (
       <div className="weather-error">
         <span>No market data available. Try refreshing.</span>
@@ -176,6 +180,73 @@ function FinanceExpandedContent({
   )
 }
 
+function FinanceCollapsedSummary({ quotes }: { quotes: QuoteData[] }) {
+  const topQuotes = quotes.slice(0, 3)
+
+  return (
+    <div className="finance-collapsed-summary">
+      {topQuotes.map(q => {
+        /* v8 ignore start */
+        const qChange = q.change ?? 0
+        const qPct = q.changePercent ?? 0
+        /* v8 ignore stop */
+        const positive = qChange >= 0
+        return (
+          <div key={q.symbol} className="finance-collapsed-item">
+            <span className="finance-collapsed-symbol">{q.name}</span>
+            <span
+              className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
+            >
+              {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function FinanceCardContent({
+  expanded,
+  quotes,
+  loading,
+  error,
+  addInput,
+  onAddInputChange,
+  onAdd,
+  onRemove,
+  autoRefresh,
+}: {
+  expanded: boolean
+  quotes: QuoteData[]
+  loading: boolean
+  error: string | null
+  addInput: string
+  onAddInputChange: (value: string) => void
+  onAdd: () => void
+  onRemove: (symbol: string) => void
+  autoRefresh: ReturnType<typeof useAutoRefresh>
+}) {
+  return (
+    <>
+      {!expanded && quotes.length > 0 && <FinanceCollapsedSummary quotes={quotes} />}
+
+      {expanded && (
+        <FinanceExpandedContent
+          quotes={quotes}
+          loading={loading}
+          error={error}
+          addInput={addInput}
+          onAddInputChange={onAddInputChange}
+          onAdd={onAdd}
+          onRemove={onRemove}
+          autoRefresh={autoRefresh}
+        />
+      )}
+    </>
+  )
+}
+
 export function FinanceCard() {
   const { quotes, loading, error, watchlist, refresh, addSymbol, removeSymbol, lastFetchedAt } =
     useFinance()
@@ -198,9 +269,6 @@ export function FinanceCard() {
     }
   }
 
-  // Build a quick summary for collapsed view
-  const topQuotes = quotes.slice(0, 3)
-
   return (
     <section className="welcome-section welcome-section-finance" aria-label="Finance overview">
       <CardHeader expanded={expanded} onToggle={toggle}>
@@ -211,42 +279,17 @@ export function FinanceCard() {
         />
       </CardHeader>
 
-      {/* Collapsed summary */}
-      {!expanded && quotes.length > 0 && (
-        <div className="finance-collapsed-summary">
-          {topQuotes.map(q => {
-            /* v8 ignore start */
-            const qChange = q.change ?? 0
-            const qPct = q.changePercent ?? 0
-            /* v8 ignore stop */
-            const positive = qChange >= 0
-            return (
-              <div key={q.symbol} className="finance-collapsed-item">
-                <span className="finance-collapsed-symbol">{q.name}</span>
-                <span
-                  className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
-                >
-                  {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Expanded content */}
-      {expanded && (
-        <FinanceExpandedContent
-          quotes={quotes}
-          loading={loading}
-          error={error}
-          addInput={addInput}
-          onAddInputChange={setAddInput}
-          onAdd={handleAdd}
-          onRemove={removeSymbol}
-          autoRefresh={autoRefresh}
-        />
-      )}
+      <FinanceCardContent
+        expanded={expanded}
+        quotes={quotes}
+        loading={loading}
+        error={error}
+        addInput={addInput}
+        onAddInputChange={setAddInput}
+        onAdd={handleAdd}
+        onRemove={removeSymbol}
+        autoRefresh={autoRefresh}
+      />
     </section>
   )
 }

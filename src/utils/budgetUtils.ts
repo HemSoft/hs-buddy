@@ -15,6 +15,16 @@ interface BudgetMatch {
   prevent_further_usage: boolean
 }
 
+const DEFAULT_MAX_BUDGET_PAGES = 10
+
+function matchesEntityFilter(entityName: string | undefined, filter: string): boolean {
+  const entity = typeof entityName === 'string' ? entityName.toLowerCase() : ''
+  if (entity === '') return false
+
+  const filterLower = filter.toLowerCase()
+  return entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
+}
+
 /**
  * Find a Copilot-related budget from a list of budget items.
  * Prefers "premium" SKU over generic "copilot" SKU.
@@ -26,14 +36,7 @@ export function findCopilotBudget(
   entityFilter?: string
 ): BudgetItem | undefined {
   const candidates = entityFilter
-    ? budgets.filter(b => {
-        const entity = b.budget_entity_name?.toLowerCase() ?? ''
-        if (entity === '') return false
-        const filterLower = entityFilter.toLowerCase()
-        return (
-          entity === filterLower || filterLower.includes(entity) || entity.includes(filterLower)
-        )
-      })
+    ? budgets.filter(b => matchesEntityFilter(b.budget_entity_name, entityFilter))
     : budgets
   const sku = (b: BudgetItem) => b.budget_product_sku?.toLowerCase() ?? ''
   return (
@@ -42,17 +45,10 @@ export function findCopilotBudget(
   )
 }
 
-/**
- * Search through paginated budget responses for a Copilot budget
- * matching the given org. Calls fetchPage(pageNumber) for each page
- * until the budget is found or all pages are exhausted.
- *
- * Returns the matching budget or null if not found.
- */
-export async function findBudgetAcrossPages(
+async function findBudgetAcrossPagesWithLimit(
   fetchPage: (page: number) => Promise<BudgetPageResponse>,
   org: string,
-  maxPages = 10
+  maxPages: number
 ): Promise<BudgetMatch | null> {
   let page = 1
   let hasNext = true
@@ -69,4 +65,19 @@ export async function findBudgetAcrossPages(
     page++
   }
   return null
+}
+
+/**
+ * Search through paginated budget responses for a Copilot budget
+ * matching the given org. Calls fetchPage(pageNumber) for each page
+ * until the budget is found or all pages are exhausted.
+ *
+ * Returns the matching budget or null if not found.
+ */
+export function findBudgetAcrossPages(
+  fetchPage: (page: number) => Promise<BudgetPageResponse>,
+  org: string,
+  maxPages?: number
+): Promise<BudgetMatch | null> {
+  return findBudgetAcrossPagesWithLimit(fetchPage, org, maxPages ?? DEFAULT_MAX_BUDGET_PAGES)
 }

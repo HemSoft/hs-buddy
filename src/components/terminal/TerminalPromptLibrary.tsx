@@ -203,6 +203,10 @@ async function persistPrompt(
   await updatePrompt({ id: editorState.id, title, content })
 }
 
+function isTerminalReady(tabId: string): boolean {
+  return getSessionId(tabId) !== undefined && hasTerminalPasteHandler(tabId)
+}
+
 async function pastePromptToActiveTerminal(
   activeTabId: string | null,
   prompt: TerminalPrompt,
@@ -214,7 +218,7 @@ async function pastePromptToActiveTerminal(
     throw new Error('Open a terminal tab to use a prompt.')
   }
 
-  if (getSessionId(activeTabId) === undefined || !hasTerminalPasteHandler(activeTabId)) {
+  if (!isTerminalReady(activeTabId)) {
     throw new Error('The active terminal is still connecting. Try again in a moment.')
   }
 
@@ -234,6 +238,14 @@ async function pastePromptToActiveTerminal(
   }
 }
 
+function isClickInsideLibrary(
+  target: Node,
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  root: HTMLDivElement
+): boolean {
+  return ownerRef?.current?.contains(target) || root.contains(target)
+}
+
 function usePromptLibraryDismiss(
   ownerRef: RefObject<HTMLElement | null> | undefined,
   rootRef: RefObject<HTMLDivElement | null>,
@@ -247,7 +259,7 @@ function usePromptLibraryDismiss(
         return
       }
 
-      if (ownerRef?.current?.contains(target) || rootRef.current.contains(target)) {
+      if (isClickInsideLibrary(target, ownerRef, rootRef.current)) {
         return
       }
 

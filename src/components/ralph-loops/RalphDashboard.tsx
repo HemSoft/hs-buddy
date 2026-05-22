@@ -48,16 +48,23 @@ type DashboardAction =
     }
   | { type: 'setError'; error: string | null }
 
+function handleSetView(
+  state: DashboardState,
+  action: Extract<DashboardAction, { type: 'setView' }>
+): DashboardState {
+  return {
+    ...state,
+    viewMode: action.mode,
+    selectedScript: action.script ?? null,
+    prLaunchData: action.prLaunchData ?? null,
+    issueLaunchData: action.issueLaunchData ?? null,
+  }
+}
+
 function reducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
     case 'setView':
-      return {
-        ...state,
-        viewMode: action.mode,
-        selectedScript: action.script ?? null,
-        prLaunchData: action.prLaunchData ?? null,
-        issueLaunchData: action.issueLaunchData ?? null,
-      }
+      return handleSetView(state, action)
     case 'setError':
       return { ...state, error: action.error }
   }
@@ -107,14 +114,20 @@ interface RalphDashboardProps {
   onOpenTab?: (viewId: string) => void
 }
 
-function buildResetKey(state: DashboardState, renderErrorResetKey: number): string {
+function getResetValue(value: number | string | null | undefined): string {
+  return `${value ?? ''}`
+}
+
+function getResetValues(state: DashboardState): [string, string, string] {
   return [
-    renderErrorResetKey,
-    state.viewMode,
-    state.selectedScript ?? '',
-    state.prLaunchData?.prNumber ?? '',
-    state.issueLaunchData?.issueNumber ?? '',
-  ].join('|')
+    getResetValue(state.selectedScript),
+    getResetValue(state.prLaunchData?.prNumber),
+    getResetValue(state.issueLaunchData?.issueNumber),
+  ]
+}
+
+function buildResetKey(state: DashboardState, renderErrorResetKey: number): string {
+  return [renderErrorResetKey, state.viewMode, ...getResetValues(state)].join('|')
 }
 
 export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {

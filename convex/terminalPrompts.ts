@@ -16,6 +16,14 @@ function validatePromptFields(fields: { title?: string; content?: string }) {
   }
 }
 
+function resolveLastUsed(p: { lastUsedAt?: number }): number {
+  return p.lastUsedAt ?? 0
+}
+
+function resolveSortOrder(p: { sortOrder?: number }): number {
+  return p.sortOrder ?? Number.MAX_SAFE_INTEGER
+}
+
 function comparePrompts(
   a: {
     lastUsedAt?: number
@@ -30,11 +38,10 @@ function comparePrompts(
     sortOrder?: number
   }
 ) {
-  const lastUsedDiff = (b.lastUsedAt ?? 0) - (a.lastUsedAt ?? 0)
+  const lastUsedDiff = resolveLastUsed(b) - resolveLastUsed(a)
   if (lastUsedDiff !== 0) return lastUsedDiff
 
-  const sortOrderDiff =
-    (a.sortOrder ?? Number.MAX_SAFE_INTEGER) - (b.sortOrder ?? Number.MAX_SAFE_INTEGER)
+  const sortOrderDiff = resolveSortOrder(a) - resolveSortOrder(b)
   if (sortOrderDiff !== 0) return sortOrderDiff
 
   const updatedAtDiff = b.updatedAt - a.updatedAt

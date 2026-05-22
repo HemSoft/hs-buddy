@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce CRAP scores via complexity extraction
 - Reduce CRAP scores - extract helpers from RepoNode, ConfirmDialog, CopilotResultPanel, TempoDashboard
 - Reduce CRAP scores - batch 3
+- Reduce CRAP scores - batch 4 (complexity 7-10)
 
 ### Added
 

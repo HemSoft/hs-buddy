@@ -40,6 +40,23 @@ const ENABLED = process.env.PERF_STARTUP === '1'
 /** Structured sentinel emitted to stdout for machine-readable parsing. */
 export const STARTUP_SENTINEL = '::PERF_STARTUP_REPORT::'
 
+function resolveTarget(targetMs: number | undefined): number {
+  const DEFAULT_TARGET_MS = 3000
+  if (targetMs !== undefined) return targetMs
+  const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
+  return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
+}
+
+function logPhases(report: StartupReport): void {
+  for (const mark of report.marks) {
+    console.log(`  ${mark.name.padEnd(20)} ${mark.elapsedFromStartMs.toFixed(0)}ms`)
+  }
+  console.log('─'.repeat(50))
+  for (const [phase, duration] of Object.entries(report.phases)) {
+    console.log(`  ${phase}: ${duration.toFixed(0)}ms`)
+  }
+}
+
 export class StartupTimer {
   private readonly processStartMs: number
   private readonly marks: TimingMark[] = []
@@ -98,20 +115,11 @@ export class StartupTimer {
     if (!report) return
     this.reported = true
 
-    const DEFAULT_TARGET_MS = 3000
-    const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
-    const target =
-      targetMs ?? (Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS)
+    const target = resolveTarget(targetMs)
 
     console.log('\n⏱️  Startup Performance Report')
     console.log('─'.repeat(50))
-    for (const mark of report.marks) {
-      console.log(`  ${mark.name.padEnd(20)} ${mark.elapsedFromStartMs.toFixed(0)}ms`)
-    }
-    console.log('─'.repeat(50))
-    for (const [phase, duration] of Object.entries(report.phases)) {
-      console.log(`  ${phase}: ${duration.toFixed(0)}ms`)
-    }
+    logPhases(report)
     console.log('─'.repeat(50))
     console.log(`  Total: ${report.totalStartupMs.toFixed(0)}ms`)
 

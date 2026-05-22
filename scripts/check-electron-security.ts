@@ -165,30 +165,44 @@ function isCommentLine(line: string): boolean {
   return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')
 }
 
+function resolveRuleContext(
+  rule: (typeof securityRules)[number],
+  lines: string[],
+  i: number
+): string | null {
+  if (!rule.contextCheck) return null
+  const size = rule.contextSize ?? 5
+  return lines.slice(Math.max(0, i - size), i + size).join('\n')
+}
+
+function checkRuleAgainstLine(
+  rule: (typeof securityRules)[number],
+  line: string,
+  lines: string[],
+  i: number,
+  rel: string
+): void {
+  if (!rule.pattern.test(line)) return
+  if (rule.skipComments && isCommentLine(line)) return
+  const context = resolveRuleContext(rule, lines, i)
+  if (context !== null && !rule.contextCheck!(context)) return
+  findings.push({
+    file: rel,
+    line: i + 1,
+    severity: rule.severity,
+    rule: rule.rule,
+    message: rule.message,
+  })
+}
+
 function checkFile(filePath: string): void {
   const content = readFileSync(filePath, 'utf-8')
   const lines = content.split('\n')
   const rel = relative(process.cwd(), filePath)
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    const lineNum = i + 1
-
     for (const rule of securityRules) {
-      if (!rule.pattern.test(line)) continue
-      if (rule.skipComments && isCommentLine(line)) continue
-      if (rule.contextCheck) {
-        const size = rule.contextSize ?? 5
-        const context = lines.slice(Math.max(0, i - size), i + size).join('\n')
-        if (!rule.contextCheck(context)) continue
-      }
-      findings.push({
-        file: rel,
-        line: lineNum,
-        severity: rule.severity,
-        rule: rule.rule,
-        message: rule.message,
-      })
+      checkRuleAgainstLine(rule, lines[i], lines, i, rel)
     }
   }
 }
@@ -230,12 +244,20 @@ const insecureSettings: InsecureSettingDef[] = [
 ]
 
 /** Find the end index of a balanced brace/paren block starting from startIdx. */
+function isOpenBrace(ch: string): boolean {
+  return ch === '(' || ch === '{'
+}
+
+function isCloseBrace(ch: string): boolean {
+  return ch === ')' || ch === '}'
+}
+
 function findMatchingClose(content: string, startIdx: number): number {
   let depth = 1
   let endIdx = startIdx
   for (let i = startIdx; i < content.length && depth > 0; i++) {
-    if (content[i] === '(' || content[i] === '{') depth++
-    else if (content[i] === ')' || content[i] === '}') depth--
+    if (isOpenBrace(content[i])) depth++
+    else if (isCloseBrace(content[i])) depth--
     endIdx = i
   }
   return endIdx

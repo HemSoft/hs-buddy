@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react'
 import { useGitHubAccounts } from './useConfig'
 import {
   OVERAGE_COST_PER_REQUEST,
@@ -91,6 +91,65 @@ function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): 
   })
 }
 
+type QuotaSetter = Dispatch<SetStateAction<Record<string, AccountQuotaState>>>
+type BudgetSetter = Dispatch<SetStateAction<Record<string, OrgBudgetState>>>
+
+async function doFetchQuota(username: string, setQuotas: QuotaSetter): Promise<void> {
+  setQuotas(prev => ({
+    ...prev,
+    [username]: {
+      data: prev[username]?.data ?? null,
+      loading: true,
+      error: null,
+      fetchedAt: prev[username]?.fetchedAt ?? null,
+    },
+  }))
+
+  try {
+    const result = await window.github.getCopilotQuota(username)
+    setQuotas(prev => ({
+      ...prev,
+      [username]:
+        result.success && result.data
+          ? { data: result.data, loading: false, error: null, fetchedAt: Date.now() }
+          : {
+              data: null,
+              loading: false,
+              error: result.error || 'Unknown error',
+              fetchedAt: null,
+            },
+    }))
+  } catch (error: unknown) {
+    setQuotas(prev => ({
+      ...prev,
+      [username]: { data: null, loading: false, error: getErrorMessage(error), fetchedAt: null },
+    }))
+  }
+}
+
+async function doFetchBudget(org: string, username: string | undefined, setOrgBudgets: BudgetSetter): Promise<void> {
+  setOrgBudgets(prev => ({
+    ...prev,
+    [org]: { data: prev[org]?.data ?? null, loading: true, error: null },
+  }))
+
+  try {
+    const result = await window.github.getCopilotBudget(org, username)
+    setOrgBudgets(prev => ({
+      ...prev,
+      [org]:
+        result.success && result.data
+          ? { data: result.data, loading: false, error: null }
+          : { data: null, loading: false, error: result.error || 'Unknown error' },
+    }))
+  } catch (error: unknown) {
+    setOrgBudgets(prev => ({
+      ...prev,
+      [org]: { data: null, loading: false, error: getErrorMessage(error) },
+    }))
+  }
+}
+
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
@@ -106,61 +165,15 @@ export function useCopilotUsage() {
     return map
   }, [accounts])
 
-  const fetchQuota = useCallback(async (username: string) => {
-    setQuotas(prev => ({
-      ...prev,
-      [username]: {
-        data: prev[username]?.data ?? null,
-        loading: true,
-        error: null,
-        fetchedAt: prev[username]?.fetchedAt ?? null,
-      },
-    }))
+  const fetchQuota = useCallback(
+    async (username: string) => doFetchQuota(username, setQuotas),
+    []
+  )
 
-    try {
-      const result = await window.github.getCopilotQuota(username)
-      setQuotas(prev => ({
-        ...prev,
-        [username]:
-          result.success && result.data
-            ? { data: result.data, loading: false, error: null, fetchedAt: Date.now() }
-            : {
-                data: null,
-                loading: false,
-                error: result.error || 'Unknown error',
-                fetchedAt: null,
-              },
-      }))
-    } catch (error: unknown) {
-      setQuotas(prev => ({
-        ...prev,
-        [username]: { data: null, loading: false, error: getErrorMessage(error), fetchedAt: null },
-      }))
-    }
-  }, [])
-
-  const fetchBudget = useCallback(async (org: string, username?: string) => {
-    setOrgBudgets(prev => ({
-      ...prev,
-      [org]: { data: prev[org]?.data ?? null, loading: true, error: null },
-    }))
-
-    try {
-      const result = await window.github.getCopilotBudget(org, username)
-      setOrgBudgets(prev => ({
-        ...prev,
-        [org]:
-          result.success && result.data
-            ? { data: result.data, loading: false, error: null }
-            : { data: null, loading: false, error: result.error || 'Unknown error' },
-      }))
-    } catch (error: unknown) {
-      setOrgBudgets(prev => ({
-        ...prev,
-        [org]: { data: null, loading: false, error: getErrorMessage(error) },
-      }))
-    }
-  }, [])
+  const fetchBudget = useCallback(
+    async (org: string, username?: string) => doFetchBudget(org, username, setOrgBudgets),
+    []
+  )
 
   const accountUsernamesKey = useMemo(
     () => accounts.map(account => account.username).join(','),

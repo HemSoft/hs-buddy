@@ -278,23 +278,10 @@ export function useCopilotReviewMonitor({
       }
 
       if (runImmediately) {
-        void (async () => {
-          try {
-            const freshCopilotReview = await findFreshCopilotReview()
-            if (freshCopilotReview) {
-              finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-              return
-            }
-            /* v8 ignore start */
-          } catch (pollErr: unknown) {
-            /* v8 ignore stop */
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug('Copilot review poll failed:', pollErr)
-          }
-          scheduleNextPoll()
-        })()
+        void shouldContinueCopilotPolling(
+          findFreshCopilotReview,
+          () => finishCopilotReviewMonitor(sessionId, monitorPrUrl)
+        ).then(cont => { if (cont) scheduleNextPoll() })
         return
       }
 

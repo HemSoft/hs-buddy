@@ -285,18 +285,9 @@ export function useAIReviewMonitor({
       }
 
       if (runImmediately) {
-        void (async () => {
-          try {
-            const result = await doPoll()
-            if (handlePollResult(result) === 'stop') return
-          } catch (pollErr: unknown) {
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug(`${provider.name} review poll failed:`, pollErr)
-          }
-          scheduleNextPoll()
-        })()
+        void shouldContinueAIReviewPolling(doPoll, handlePollResult, provider.name).then(
+          cont => { if (cont) scheduleNextPoll() }
+        )
         return
       }
 

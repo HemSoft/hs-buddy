@@ -139,6 +139,90 @@ function handleDropdownKeyDown(
     })
 }
 
+function resolveEnabledIndex(enabledIndexMap: Map<string, number>, value: string): number {
+  return enabledIndexMap.get(value) ?? -1
+}
+
+function handleMenuItemFocus(
+  isDisabled: boolean | undefined,
+  enabledIdx: number,
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+): void {
+  if (!isDisabled && enabledIdx >= 0) setFocusIndex(enabledIdx)
+}
+
+function handleMenuItemKeyDown(
+  e: React.KeyboardEvent,
+  isDisabled: boolean | undefined,
+  optValue: string,
+  handleSelect: (v: string) => void
+): void {
+  if (isDisabled) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    handleSelect(optValue)
+  }
+}
+
+function DropdownMenuItem({
+  opt,
+  enabledIdx,
+  value,
+  focusIndex,
+  handleSelect,
+  setFocusIndex,
+}: {
+  opt: DropdownOption
+  enabledIdx: number
+  value: string
+  focusIndex: number
+  handleSelect: (v: string) => void
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+}) {
+  const isFocused = enabledIdx >= 0 && enabledIdx === focusIndex
+
+  return (
+    <div
+      className={buildItemClassName(opt.value, value, opt.disabled, isFocused)}
+      role="option"
+      aria-selected={opt.value === value}
+      aria-disabled={opt.disabled}
+      tabIndex={resolveItemTabIndex(opt.disabled, isFocused)}
+      onClick={() => {
+        if (!opt.disabled) handleSelect(opt.value)
+      }}
+      onKeyDown={e => handleMenuItemKeyDown(e, opt.disabled, opt.value, handleSelect)}
+      onMouseEnter={() => handleMenuItemFocus(opt.disabled, enabledIdx, setFocusIndex)}
+      onFocus={() => handleMenuItemFocus(opt.disabled, enabledIdx, setFocusIndex)}
+    >
+      <span className="idropdown-item-check">{opt.value === value && <Check size={12} />}</span>
+      <span className="idropdown-item-label">{opt.label}</span>
+      {opt.hint && <span className="idropdown-item-hint">{opt.hint}</span>}
+    </div>
+  )
+}
+
+function renderDropdownMenuItem(
+  opt: DropdownOption,
+  enabledIndexMap: Map<string, number>,
+  value: string,
+  focusIndex: number,
+  handleSelect: (v: string) => void,
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+) {
+  return (
+    <DropdownMenuItem
+      key={opt.value}
+      opt={opt}
+      enabledIdx={resolveEnabledIndex(enabledIndexMap, opt.value)}
+      value={value}
+      focusIndex={focusIndex}
+      handleSelect={handleSelect}
+      setFocusIndex={setFocusIndex}
+    />
+  )
+}
+
 function DropdownMenu({
   menuRef,
   listboxId,
@@ -174,42 +258,9 @@ function DropdownMenu({
       className={`idropdown-menu ${align === 'right' ? 'idropdown-menu-right' : ''} ${openUpward ? 'idropdown-menu-up' : ''}`}
       role="listbox"
     >
-      {options.map(opt => {
-        const enabledIdx = enabledIndexMap.get(opt.value) ?? -1
-        const isFocused = enabledIdx >= 0 && enabledIdx === focusIndex
-        return (
-          <div
-            key={opt.value}
-            className={buildItemClassName(opt.value, value, opt.disabled, isFocused)}
-            role="option"
-            aria-selected={opt.value === value}
-            aria-disabled={opt.disabled}
-            tabIndex={resolveItemTabIndex(opt.disabled, isFocused)}
-            onClick={() => {
-              if (!opt.disabled) handleSelect(opt.value)
-            }}
-            onKeyDown={e => {
-              if (opt.disabled) return
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                handleSelect(opt.value)
-              }
-            }}
-            onMouseEnter={() => {
-              if (!opt.disabled && enabledIdx >= 0) setFocusIndex(enabledIdx)
-            }}
-            onFocus={() => {
-              if (!opt.disabled && enabledIdx >= 0) setFocusIndex(enabledIdx)
-            }}
-          >
-            <span className="idropdown-item-check">
-              {opt.value === value && <Check size={12} />}
-            </span>
-            <span className="idropdown-item-label">{opt.label}</span>
-            {opt.hint && <span className="idropdown-item-hint">{opt.hint}</span>}
-          </div>
-        )
-      })}
+      {options.map(opt =>
+        renderDropdownMenuItem(opt, enabledIndexMap, value, focusIndex, handleSelect, setFocusIndex)
+      )}
     </div>
   )
 }

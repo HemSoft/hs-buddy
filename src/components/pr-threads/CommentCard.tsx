@@ -86,6 +86,70 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
   )
 }
 
+function getCommentTimestamp(comment: PRReviewComment): string {
+  const timestamp = comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+  return new Date(timestamp).toLocaleString()
+}
+
+function getCommentRelativeTime(comment: PRReviewComment): string {
+  const timestamp = comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
+  return formatDistanceToNow(timestamp)
+}
+
+function CommentReactionButton({
+  option,
+  reaction,
+  reacting,
+  onReact,
+}: {
+  option: (typeof REACTION_OPTIONS)[number]
+  reaction: PRReviewComment['reactions'][number] | undefined
+  reacting: boolean
+  onReact: (content: PRCommentReactionContent) => void
+}) {
+  const active = reaction?.viewerHasReacted || false
+  const count = reaction?.count || 0
+
+  return (
+    <button
+      className={`thread-comment-reaction ${active ? 'active' : ''}`}
+      onClick={e => {
+        e.preventDefault()
+        onReact(option.content)
+      }}
+      disabled={reacting}
+      title={option.label}
+    >
+      <span>{option.emoji}</span>
+      {count > 0 && <span className="thread-comment-reaction-count">{count}</span>}
+    </button>
+  )
+}
+
+function CommentReactions({
+  comment,
+  reacting,
+  onReact,
+}: {
+  comment: PRReviewComment
+  reacting: PRCommentReactionContent | null
+  onReact: (content: PRCommentReactionContent) => void
+}) {
+  return (
+    <div className="thread-comment-reactions">
+      {REACTION_OPTIONS.map(option => (
+        <CommentReactionButton
+          key={option.content}
+          option={option}
+          reaction={comment.reactions.find(r => r.content === option.content)}
+          reacting={reacting !== null}
+          onReact={onReact}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function CommentCard({
   comment,
   isFirst,
@@ -135,45 +199,14 @@ export function CommentCard({
         </div>
         <div className="thread-comment-header">
           <span className="thread-comment-username">{comment.author}</span>
-          <span
-            className="thread-comment-time"
-            title={new Date(
-              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
-            ).toLocaleString()}
-          >
-            {formatDistanceToNow(
-              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
-            )}
+          <span className="thread-comment-time" title={getCommentTimestamp(comment)}>
+            {getCommentRelativeTime(comment)}
           </span>
         </div>
       </summary>
       <div className="thread-comment-collapsible-body">
         <CommentBody body={comment.body} bodyHtml={comment.bodyHtml} />
-        {onReact && (
-          <div className="thread-comment-reactions">
-            {REACTION_OPTIONS.map(option => {
-              const reaction = comment.reactions.find(r => r.content === option.content)
-              const active = reaction?.viewerHasReacted || false
-              const count = reaction?.count || 0
-
-              return (
-                <button
-                  key={option.content}
-                  className={`thread-comment-reaction ${active ? 'active' : ''}`}
-                  onClick={e => {
-                    e.preventDefault()
-                    handleReact(option.content)
-                  }}
-                  disabled={reacting !== null}
-                  title={option.label}
-                >
-                  <span>{option.emoji}</span>
-                  {count > 0 && <span className="thread-comment-reaction-count">{count}</span>}
-                </button>
-              )
-            })}
-          </div>
-        )}
+        {onReact && <CommentReactions comment={comment} reacting={reacting} onReact={handleReact} />}
       </div>
     </details>
   )

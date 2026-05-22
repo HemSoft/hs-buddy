@@ -414,6 +414,37 @@ async function fetchMonthlyTotals(
   return results
 }
 
+async function probeLoginBatches(
+  remaining: string[],
+  year: number,
+  month: number,
+  day: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ login: string; dayRequests: number }[]> {
+  const found: { login: string; dayRequests: number }[] = []
+  for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
+    const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
+    const settled = await Promise.allSettled(
+      batch.map(async login => {
+        const encoded = encodeURIComponent(login)
+        const { stdout } = await execAsync(
+          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        )
+        const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+        return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
+      })
+    )
+
+    for (const result of settled) {
+      if (result.status === 'fulfilled' && result.value.dayRequests > 0) {
+        found.push(result.value)
+      }
+    }
+  }
+  return found
+}
+
 async function probeDayActivity(
   results: BatchResult,
   year: number,
@@ -430,31 +461,14 @@ async function probeDayActivity(
   for (let offset = 0; offset < MAX_LOOKBACK && remaining.length > 0; offset++) {
     const day = today - offset
     const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const foundThisDay: string[] = []
 
-    for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
-      const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
-      const settled = await Promise.allSettled(
-        batch.map(async login => {
-          const encoded = encodeURIComponent(login)
-          const { stdout } = await execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          )
-          const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
-          return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
-        })
-      )
-
-      for (const result of settled) {
-        if (result.status === 'fulfilled' && result.value.dayRequests > 0) {
-          results[result.value.login].lastActiveDate = dateStr
-          foundThisDay.push(result.value.login)
-        }
-      }
+    const found = await probeLoginBatches(remaining, year, month, day, execEnv)
+    for (const { login } of found) {
+      results[login].lastActiveDate = dateStr
     }
 
-    remaining = remaining.filter(l => !foundThisDay.includes(l))
+    const foundLogins = new Set(found.map(f => f.login))
+    remaining = remaining.filter(l => !foundLogins.has(l))
   }
 }
 

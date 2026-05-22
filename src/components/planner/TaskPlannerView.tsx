@@ -301,10 +301,63 @@ function TodayTaskList({
 
 const PLANNER_DEFAULTS = { mode: 'upcoming' as PlannerMode }
 
+function resolvePlannerViewConfig(mode: PlannerMode): { days: number; heading: string } {
+  if (mode === 'today') return { days: 1, heading: 'Today' }
+  return { days: 7, heading: 'Upcoming' }
+}
+
+function resolvePlannerErrorMessage(error: string | null, actionError: string | null): string | null {
+  return error || actionError
+}
+
+function resolveSpinnerClassName(isLoading: boolean): string {
+  return isLoading ? 'spinning' : ''
+}
+
+function TaskPlannerBody({
+  mode,
+  dayGroups,
+  completingIds,
+  projectMap,
+  onComplete,
+  onCreate,
+}: {
+  mode: PlannerMode
+  dayGroups: DayGroup[]
+  completingIds: Set<string>
+  projectMap: Map<string, TodoistProject>
+  onComplete: (id: string) => void
+  onCreate: (content: string, date: string) => void
+}) {
+  if (mode === 'today' && dayGroups.length > 0) {
+    return (
+      <TodayTaskList
+        tasks={dayGroups[0]!.tasks}
+        completingIds={completingIds}
+        projectMap={projectMap}
+        onComplete={onComplete}
+      />
+    )
+  }
+
+  return (
+    <>
+      {dayGroups.map(group => (
+        <DaySection
+          key={group.date}
+          group={{ ...group, tasks: group.tasks.filter(t => !completingIds.has(t.id)) }}
+          projectMap={projectMap}
+          onComplete={onComplete}
+          onCreate={onCreate}
+        />
+      ))}
+    </>
+  )
+}
+
 export function TaskPlannerView(props: { mode?: PlannerMode }) {
   const { mode } = { ...PLANNER_DEFAULTS, ...props }
-  const { days, heading } =
-    mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
+  const { days, heading } = resolvePlannerViewConfig(mode)
   const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
   const { projects, load: loadProjects } = useTodoistProjects()
   const { complete, create } = useTaskActions(refresh)
@@ -331,8 +384,8 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
 
   const totalTasks = dayGroups.reduce((n, g) => n + g.tasks.length, 0)
 
-  const errorMessage = error || actionError
-  const spinnerClass = isLoading ? 'spinning' : ''
+  const errorMessage = resolvePlannerErrorMessage(error, actionError)
+  const spinnerClass = resolveSpinnerClassName(isLoading)
 
   return (
     <div className="planner-view">
@@ -360,24 +413,14 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
       )}
 
       <div className="planner-day-list">
-        {mode === 'today' && dayGroups.length > 0 ? (
-          <TodayTaskList
-            tasks={dayGroups[0].tasks}
-            completingIds={completingIds}
-            projectMap={projectMap}
-            onComplete={handleComplete}
-          />
-        ) : (
-          dayGroups.map(group => (
-            <DaySection
-              key={group.date}
-              group={{ ...group, tasks: group.tasks.filter(t => !completingIds.has(t.id)) }}
-              projectMap={projectMap}
-              onComplete={handleComplete}
-              onCreate={handleCreate}
-            />
-          ))
-        )}
+        <TaskPlannerBody
+          mode={mode}
+          dayGroups={dayGroups}
+          completingIds={completingIds}
+          projectMap={projectMap}
+          onComplete={handleComplete}
+          onCreate={handleCreate}
+        />
       </div>
     </div>
   )

@@ -11,6 +11,10 @@ import {
 import type { RalphRunInfo, RalphRunStatus, RalphRunPhase, RalphRunStats } from '../../types/ralph'
 import './RalphRunDetailPanel.css'
 
+function getUserFacingMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Failed to load run'
+}
+
 interface RalphRunDetailPanelProps {
   runId: string
 }
@@ -236,7 +240,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
       if (!result) setError('Run not found')
     } catch (err: unknown) {
       if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load run')
+      setError(getUserFacingMessage(err))
     } finally {
       if (mountedRef.current) setLoading(false)
     }

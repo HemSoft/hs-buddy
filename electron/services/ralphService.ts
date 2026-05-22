@@ -144,6 +144,11 @@ function getLeadingCommentLines(content: string): string[] {
   return leadingComments
 }
 
+function extractTitleDescription(titleLine: string): string | undefined {
+  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
+  return titleMatch?.[1]?.trim() || undefined
+}
+
 function extractDescriptionFromScript(filePath: string): string | undefined {
   const content = readScriptContent(filePath)
   if (!content) {
@@ -154,13 +159,13 @@ function extractDescriptionFromScript(filePath: string): string | undefined {
 
   const titleLine = leadingComments[0]
   if (!titleLine) return undefined
-  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
-  const titleDescription = titleMatch?.[1]?.trim()
+  const titleDescription = extractTitleDescription(titleLine)
   if (titleDescription) {
     return titleDescription
   }
 
-  const fallbackComments = titleMatch ? leadingComments.slice(1) : leadingComments
+  const hasTitle = /^.+?\s+[-—]\s*/.test(titleLine)
+  const fallbackComments = hasTitle ? leadingComments.slice(1) : leadingComments
   return fallbackComments.find(
     line => line.length > 0 && !line.toLowerCase().startsWith('version:')
   )
@@ -252,12 +257,16 @@ const RANGE_RULES: ReadonlyArray<RangeRule> = [
   { key: 'repeats', min: 1, max: 50, msg: 'repeats must be between 1 and 50' },
 ]
 
+function isInvalidTimeFormat(value: string | undefined): boolean {
+  return !!value && !/^\d{2}:\d{2}$/.test(value)
+}
+
 function validateTimingConfig(config: RalphLaunchConfig): string | null {
   for (const { key, min, max, msg } of RANGE_RULES) {
     const val = config[key] as number | undefined
     if (val !== undefined && (val < min || val > max)) return msg
   }
-  if (config.workUntil && !/^\d{2}:\d{2}$/.test(config.workUntil)) {
+  if (isInvalidTimeFormat(config.workUntil)) {
     return 'workUntil must be HH:mm format'
   }
   return null

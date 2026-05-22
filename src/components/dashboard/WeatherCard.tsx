@@ -306,6 +306,40 @@ function WeatherSearchBar({
   )
 }
 
+function WeatherExpandedSections({
+  data,
+  loading,
+  error,
+  pollen,
+  pollenError,
+}: {
+  data: ReturnType<typeof useWeather>['data']
+  loading: boolean
+  error: string | null
+  pollen: PollenData | null
+  pollenError: string | null
+}) {
+  return (
+    <>
+      {loading && !data && (
+        <div className="weather-loading">
+          <RefreshCw size={16} className="spin" />
+          <span>Fetching weather…</span>
+        </div>
+      )}
+
+      {error && !data && (
+        <div className="weather-error">
+          <span>{error}</span>
+        </div>
+      )}
+
+      {data && <WeatherCurrentSection data={data} />}
+      {data && <PollenArea pollen={pollen} error={pollenError} />}
+    </>
+  )
+}
+
 function WeatherExpandedContent({
   data,
   loading,
@@ -338,22 +372,13 @@ function WeatherExpandedContent({
         disabled={loading}
       />
 
-      {loading && !data && (
-        <div className="weather-loading">
-          <RefreshCw size={16} className="spin" />
-          <span>Fetching weather…</span>
-        </div>
-      )}
-
-      {error && !data && (
-        <div className="weather-error">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {data && <WeatherCurrentSection data={data} />}
-
-      {data && <PollenArea pollen={pollen} error={pollenError} />}
+      <WeatherExpandedSections
+        data={data}
+        loading={loading}
+        error={error}
+        pollen={pollen}
+        pollenError={pollenError}
+      />
 
       <CardActionBar
         onRefresh={autoRefresh.refresh}

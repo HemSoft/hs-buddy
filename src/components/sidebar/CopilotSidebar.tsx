@@ -201,12 +201,16 @@ function RecentResultsSection({
   )
 }
 
+function computeTotalActive(activeCount: { pending?: number; running?: number } | undefined): number {
+  return (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
+}
+
 export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarProps) {
   const { has: isExpanded, toggle: toggleSection } = useToggleSet(['copilot-prompt'])
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
 
-  const totalActive = (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
+  const totalActive = computeTotalActive(activeCount)
 
   return (
     <div className="sidebar-panel">

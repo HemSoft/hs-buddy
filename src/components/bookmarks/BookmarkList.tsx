@@ -15,93 +15,147 @@ interface BookmarkCardProps {
   onDelete: (bookmark: Bookmark) => void
 }
 
+function handleBookmarkCardKeyDown(
+  e: React.KeyboardEvent<HTMLDivElement>,
+  onOpen: () => void
+): void {
+  if (e.target !== e.currentTarget) return
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault()
+    onOpen()
+  }
+}
+
+function handleBookmarkFaviconError(e: React.SyntheticEvent<HTMLImageElement>): void {
+  e.currentTarget.style.display = 'none'
+  const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
+  /* v8 ignore start */
+  if (sibling) sibling.style.display = 'block'
+  /* v8 ignore stop */
+}
+
+function getBookmarkCategoryLabel(category: string): string {
+  return category.includes('/') ? (category.split('/').pop() ?? category) : category
+}
+
+function BookmarkCardIcon({ faviconUrl }: { faviconUrl?: string }) {
+  return (
+    <div className="bookmark-card-icon">
+      {faviconUrl && (
+        <img
+          src={faviconUrl}
+          alt=""
+          width={20}
+          height={20}
+          className="bookmark-favicon"
+          onError={handleBookmarkFaviconError}
+        />
+      )}
+      <Globe size={20} style={{ display: faviconUrl ? 'none' : undefined }} />
+    </div>
+  )
+}
+
+function BookmarkCardMeta({
+  category,
+  description,
+  tags,
+}: {
+  category: string
+  description?: string
+  tags?: string[]
+}) {
+  const categoryLabel = getBookmarkCategoryLabel(category)
+  const visibleTags = tags ?? []
+
+  return (
+    <>
+      {description && <div className="bookmark-card-desc">{description}</div>}
+      <div className="bookmark-card-meta">
+        <span className="bookmark-card-category" title={category}>
+          <FolderOpen size={12} />
+          {categoryLabel}
+        </span>
+        {visibleTags.map(tag => (
+          <span key={tag} className="bookmark-card-tag">
+            <Tag size={10} />
+            {tag}
+          </span>
+        ))}
+      </div>
+    </>
+  )
+}
+
+function BookmarkCardActions({
+  bookmark,
+  onOpenExternal,
+  onEdit,
+  onDelete,
+}: Pick<BookmarkCardProps, 'bookmark' | 'onOpenExternal' | 'onEdit' | 'onDelete'>) {
+  return (
+    <div className="bookmark-card-actions">
+      <button
+        className="bookmark-action-btn"
+        onClick={e => {
+          e.stopPropagation()
+          onOpenExternal(bookmark)
+        }}
+        title="Open in external browser"
+      >
+        <ExternalLink size={14} />
+      </button>
+      <button
+        className="bookmark-action-btn"
+        onClick={e => {
+          e.stopPropagation()
+          onEdit(bookmark)
+        }}
+        title="Edit"
+      >
+        <Pencil size={14} />
+      </button>
+      <button
+        className="bookmark-action-btn bookmark-action-danger"
+        onClick={e => {
+          e.stopPropagation()
+          onDelete(bookmark)
+        }}
+        title="Delete"
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  )
+}
+
 function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: BookmarkCardProps) {
+  const openBookmark = () => onOpen(bookmark)
+
   return (
     <div
       className="bookmark-card"
-      onClick={() => onOpen(bookmark)}
-      onKeyDown={e => {
-        if (e.target !== e.currentTarget) return
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen(bookmark)
-        }
-      }}
+      onClick={openBookmark}
+      onKeyDown={e => handleBookmarkCardKeyDown(e, openBookmark)}
       role="button"
       tabIndex={0}
     >
-      <div className="bookmark-card-icon">
-        {bookmark.faviconUrl && (
-          <img
-            src={bookmark.faviconUrl}
-            alt=""
-            width={20}
-            height={20}
-            className="bookmark-favicon"
-            onError={e => {
-              e.currentTarget.style.display = 'none'
-              const sibling = e.currentTarget.nextElementSibling as HTMLElement | null
-              /* v8 ignore start */
-              if (sibling) sibling.style.display = 'block'
-              /* v8 ignore stop */
-            }}
-          />
-        )}
-        <Globe size={20} style={{ display: bookmark.faviconUrl ? 'none' : undefined }} />
-      </div>
+      <BookmarkCardIcon faviconUrl={bookmark.faviconUrl} />
       <div className="bookmark-card-content">
         <div className="bookmark-card-title">{bookmark.title}</div>
         <div className="bookmark-card-url">{bookmark.url}</div>
-        {bookmark.description && <div className="bookmark-card-desc">{bookmark.description}</div>}
-        <div className="bookmark-card-meta">
-          <span className="bookmark-card-category" title={bookmark.category}>
-            <FolderOpen size={12} />
-            {bookmark.category.includes('/')
-              ? bookmark.category.split('/').pop()
-              : bookmark.category}
-          </span>
-          {bookmark.tags &&
-            bookmark.tags.length > 0 &&
-            bookmark.tags.map(tag => (
-              <span key={tag} className="bookmark-card-tag">
-                <Tag size={10} />
-                {tag}
-              </span>
-            ))}
-        </div>
+        <BookmarkCardMeta
+          category={bookmark.category}
+          description={bookmark.description}
+          tags={bookmark.tags}
+        />
       </div>
-      <div className="bookmark-card-actions">
-        <button
-          className="bookmark-action-btn"
-          onClick={e => {
-            e.stopPropagation()
-            onOpenExternal(bookmark)
-          }}
-          title="Open in external browser"
-        >
-          <ExternalLink size={14} />
-        </button>
-        <button
-          className="bookmark-action-btn"
-          onClick={e => {
-            e.stopPropagation()
-            onEdit(bookmark)
-          }}
-          title="Edit"
-        >
-          <Pencil size={14} />
-        </button>
-        <button
-          className="bookmark-action-btn bookmark-action-danger"
-          onClick={e => {
-            e.stopPropagation()
-            onDelete(bookmark)
-          }}
-          title="Delete"
-        >
-          <Trash2 size={14} />
-        </button>
-      </div>
+      <BookmarkCardActions
+        bookmark={bookmark}
+        onOpenExternal={onOpenExternal}
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
     </div>
   )
 }

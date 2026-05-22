@@ -60,6 +60,27 @@ export function settingsReducer(state: SettingsState, action: SettingsAction): S
   return handler(state, action)
 }
 
+function SettingsCopilotSummary({ localAccount, localModel }: { localAccount: string; localModel: string }) {
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h3>
+          <Sparkles size={16} />
+          Current Configuration
+        </h3>
+      </div>
+      <div className="info-box">
+        <p>
+          <strong>Account:</strong> {localAccount || 'Active CLI account'}
+        </p>
+        <p>
+          <strong>Model:</strong> <code>{localModel}</code>
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
 
@@ -290,22 +311,7 @@ export function SettingsCopilot() {
         </div>
 
         {/* Current Configuration Summary */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Sparkles size={16} />
-              Current Configuration
-            </h3>
-          </div>
-          <div className="info-box">
-            <p>
-              <strong>Account:</strong> {localAccount || 'Active CLI account'}
-            </p>
-            <p>
-              <strong>Model:</strong> <code>{localModel}</code>
-            </p>
-          </div>
-        </div>
+        <SettingsCopilotSummary localAccount={localAccount} localModel={localModel} />
       </div>
     </div>
   )

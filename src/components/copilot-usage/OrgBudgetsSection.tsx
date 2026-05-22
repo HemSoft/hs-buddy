@@ -52,6 +52,29 @@ function computeBudgetCardMetrics(
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
 }
 
+function shouldShowBudgetProjection(d: NonNullable<OrgBudgetState['data']>): boolean {
+  return !d.useQuotaOverage && !d.spentUnavailable
+}
+
+function resolveProjectedOverBudget(
+  effectiveBudget: number | null,
+  projectedSpend: number
+): number | null {
+  if (effectiveBudget === null) return null
+  return Math.max(0, projectedSpend - effectiveBudget)
+}
+
+function BudgetProjectionOverage({ overBudget }: { overBudget: number | null }) {
+  if (overBudget === null || overBudget <= 0) return null
+
+  return (
+    <div className="usage-projection-stat usage-projection-overage">
+      <span className="usage-projection-value">{formatCurrency(overBudget)}</span>
+      <span className="usage-projection-label">Over Budget</span>
+    </div>
+  )
+}
+
 function BudgetProjectionView({
   d,
   effectiveBudget,
@@ -59,7 +82,7 @@ function BudgetProjectionView({
   d: NonNullable<OrgBudgetState['data']>
   effectiveBudget: number | null
 }) {
-  if (d.useQuotaOverage || d.spentUnavailable) return null
+  if (!shouldShowBudgetProjection(d)) return null
 
   const budgetProjection = computeBudgetProjection(
     d.spent,
@@ -69,8 +92,7 @@ function BudgetProjectionView({
   )
   if (!budgetProjection) return null
 
-  const overBudget =
-    effectiveBudget !== null ? Math.max(0, budgetProjection.projectedSpend - effectiveBudget) : null
+  const overBudget = resolveProjectedOverBudget(effectiveBudget, budgetProjection.projectedSpend)
 
   return (
     <div className="usage-projection">
@@ -91,12 +113,7 @@ function BudgetProjectionView({
           </span>
           <span className="usage-projection-label">Per Day</span>
         </div>
-        {overBudget !== null && overBudget > 0 && (
-          <div className="usage-projection-stat usage-projection-overage">
-            <span className="usage-projection-value">{formatCurrency(overBudget)}</span>
-            <span className="usage-projection-label">Over Budget</span>
-          </div>
-        )}
+        <BudgetProjectionOverage overBudget={overBudget} />
       </div>
     </div>
   )
@@ -117,6 +134,50 @@ function BudgetLimitLabel({
   )
 }
 
+function BudgetMyShareBar({
+  mySharePct,
+  myShare,
+}: {
+  mySharePct: number | null
+  myShare: number
+}) {
+  if (mySharePct === null || mySharePct <= 0) return null
+
+  return (
+    <div
+      className="usage-budget-bar-myshare"
+      style={{ width: `${mySharePct}%` }}
+      title={`My share: ${formatCurrency(myShare)}`}
+    />
+  )
+}
+
+function BudgetSpentSummary({
+  displaySpent,
+  myShare,
+  barColor,
+  useQuotaOverage,
+  effectiveBudget,
+}: {
+  displaySpent: number
+  myShare: number
+  barColor: string
+  useQuotaOverage?: boolean
+  effectiveBudget: number | null
+}) {
+  return (
+    <div className="usage-budget-amounts">
+      <span className="usage-budget-spent" style={{ color: barColor }}>
+        {formatCurrency(displaySpent)} {useQuotaOverage ? 'overage' : 'spent'}
+      </span>
+      {myShare > 0 && !useQuotaOverage && (
+        <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
+      )}
+      <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={useQuotaOverage} />
+    </div>
+  )
+}
+
 function BudgetCardBody({
   d,
   metrics,
@@ -133,23 +194,15 @@ function BudgetCardBody({
           className="usage-budget-bar-fill"
           style={{ width: `${pct ?? 0}%`, background: barColor }}
         />
-        {mySharePct !== null && mySharePct > 0 && (
-          <div
-            className="usage-budget-bar-myshare"
-            style={{ width: `${mySharePct}%` }}
-            title={`My share: ${formatCurrency(myShare)}`}
-          />
-        )}
+        <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
       </div>
-      <div className="usage-budget-amounts">
-        <span className="usage-budget-spent" style={{ color: barColor }}>
-          {formatCurrency(displaySpent)} {d.useQuotaOverage ? 'overage' : 'spent'}
-        </span>
-        {myShare > 0 && !d.useQuotaOverage && (
-          <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
-        )}
-        <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />
-      </div>
+      <BudgetSpentSummary
+        displaySpent={displaySpent}
+        myShare={myShare}
+        barColor={barColor}
+        useQuotaOverage={d.useQuotaOverage}
+        effectiveBudget={effectiveBudget}
+      />
 
       <BudgetProjectionView d={d} effectiveBudget={effectiveBudget} />
       <div className="usage-budget-footer">

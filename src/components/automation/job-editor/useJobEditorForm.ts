@@ -47,6 +47,18 @@ interface ConfigSetters {
   setSkillParams: (v: string) => void
 }
 
+interface PersistJobParams {
+  create: ReturnType<typeof useJobMutations>['create']
+  update: ReturnType<typeof useJobMutations>['update']
+  incrementStat: ReturnType<typeof useBuddyStatsMutations>['increment']
+  isEditing: boolean
+  jobId: string | undefined
+  name: string
+  description: string | undefined
+  workerType: 'exec' | 'ai' | 'skill'
+  config: JobConfig
+}
+
 function loadExecConfig(config: JobConfig, setters: ConfigSetters): void {
   if (config.command) setters.setCommand(config.command)
   if (config.cwd) setters.setCwd(config.cwd)
@@ -92,6 +104,46 @@ function validateJobForm(
   const rule = WORKER_VALIDATIONS[workerType]
   if (rule && !fields[rule.field]?.trim()) return rule.message
   return null
+}
+
+function resolveOptionalText(value: string): string | undefined {
+  return value.trim() || undefined
+}
+
+async function persistJob({
+  create,
+  update,
+  incrementStat,
+  isEditing,
+  jobId,
+  name,
+  description,
+  workerType,
+  config,
+}: PersistJobParams): Promise<void> {
+  const payload = {
+    name: name.trim(),
+    description,
+    workerType,
+    config,
+  }
+
+  if (isEditing && jobId) {
+    await update({
+      id: jobId as JobId,
+      ...payload,
+    })
+    return
+  }
+
+  await create(payload)
+  /* v8 ignore start */
+  incrementStat({ field: 'jobsCreated' }).catch(() => {})
+  /* v8 ignore stop */
+}
+
+function runOnSaved(onSaved: (() => void) | undefined): void {
+  if (onSaved) onSaved()
 }
 
 export function useJobEditorForm(
@@ -217,31 +269,23 @@ export function useJobEditorForm(
       setError(validationError)
       return
     }
-    const trimmedDesc = description.trim() || undefined
+
+    const trimmedDesc = resolveOptionalText(description)
     setError(null)
     setSaving(true)
     try {
-      const config = buildConfig()
-      if (isEditing && jobId) {
-        await update({
-          id: jobId as JobId,
-          name: name.trim(),
-          description: trimmedDesc,
-          workerType,
-          config,
-        })
-      } else {
-        await create({
-          name: name.trim(),
-          description: trimmedDesc,
-          workerType,
-          config,
-        })
-        /* v8 ignore start */
-        incrementStat({ field: 'jobsCreated' }).catch(() => {})
-        /* v8 ignore stop */
-      }
-      onSaved?.()
+      await persistJob({
+        create,
+        update,
+        incrementStat,
+        isEditing,
+        jobId,
+        name,
+        description: trimmedDesc,
+        workerType,
+        config: buildConfig(),
+      })
+      runOnSaved(onSaved)
       onClose()
     } catch (err: unknown) {
       setError(getUserFacingErrorMessage(err, 'Failed to save job'))

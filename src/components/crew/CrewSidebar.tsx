@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronRight, FolderGit2, Plus, Trash2, Circle } from 'lucide-react'
 import { useEffect, useCallback, useReducer } from 'react'
-import type { CrewProject, CrewSession } from '../../types/crew'
+import type { CrewAddProjectResult, CrewProject, CrewSession } from '../../types/crew'
 import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import './Crew.css'
 
@@ -104,6 +104,34 @@ function getAddProjectState(isAdding: boolean) {
   }
 }
 
+function selectAddedProject(
+  project: CrewProject | undefined,
+  onItemSelect: (itemId: string) => void
+): void {
+  if (project) onItemSelect(`crew-project:${project.id}`)
+}
+
+function shouldShowAddProjectError(error: string | undefined): error is string {
+  return !!error && error !== 'Cancelled'
+}
+
+async function processAddProjectResult(
+  result: CrewAddProjectResult,
+  loadProjects: () => Promise<void>,
+  onItemSelect: (itemId: string) => void,
+  dispatch: React.Dispatch<CrewSidebarAction>
+): Promise<void> {
+  if (result.success) {
+    await loadProjects()
+    selectAddedProject(result.project, onItemSelect)
+    return
+  }
+
+  if (shouldShowAddProjectError(result.error)) {
+    dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
+  }
+}
+
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   const [state, dispatch] = useReducer(crewSidebarReducer, undefined, createInitialState)
   const { expandedSections, projects, sessions, addProjectError, isAddingProject } = state
@@ -137,21 +165,7 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
 
     try {
       const result = await window.crew.addProject()
-      if (result.success) {
-        await loadProjects()
-        /* v8 ignore start */
-        if (result.project) {
-          /* v8 ignore stop */
-          onItemSelect(`crew-project:${result.project.id}`)
-        }
-        return
-      }
-
-      /* v8 ignore start */
-      if (result.error && result.error !== 'Cancelled') {
-        /* v8 ignore stop */
-        dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
-      }
+      await processAddProjectResult(result, loadProjects, onItemSelect, dispatch)
     } catch (error: unknown) {
       dispatch({
         type: 'SET_ADD_PROJECT_ERROR',

@@ -508,26 +508,28 @@ function renderSeatGuard(
   loading: boolean,
   error: string | null
 ): React.ReactNode | null {
-  if (loading && data === undefined) {
-    return (
-      <div className="ud-premium-loading">
-        <Loader2 size={16} className="spin" />
-        <span>Loading Copilot seat info…</span>
-      </div>
-    )
-  }
-  if (error && data === undefined) {
-    return (
-      <div className="ud-premium-error">
-        <AlertCircle size={14} />
-        <SeatErrorMessage error={error} />
-      </div>
-    )
+  if (data === undefined) {
+    if (loading) {
+      return (
+        <div className="ud-premium-loading">
+          <Loader2 size={16} className="spin" />
+          <span>Loading Copilot seat info…</span>
+        </div>
+      )
+    }
+    if (error) {
+      return (
+        <div className="ud-premium-error">
+          <AlertCircle size={14} />
+          <SeatErrorMessage error={error} />
+        </div>
+      )
+    }
+    return <></>
   }
   if (data === null) {
     return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
   }
-  if (data === undefined) return <></>
   return null
 }
 

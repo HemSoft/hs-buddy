@@ -163,6 +163,14 @@ function runDisplayName(run: RalphRunInfo): string {
 
 /* ── Run item (for Runs section) ─────────────────────────────── */
 
+function resolveRunDetail(run: RalphRunInfo): string {
+  const active = run.status === 'running' || run.status === 'pending'
+  if (!active) return timeAgo(run.completedAt ?? run.updatedAt)
+  return run.totalIterations
+    ? `${run.currentIteration}/${run.totalIterations}`
+    : run.phase
+}
+
 function RunItem({
   run,
   selected,
@@ -173,12 +181,7 @@ function RunItem({
   onClick: () => void
 }) {
   const Icon = RUN_STATUS_ICON[run.status]
-  const active = run.status === 'running' || run.status === 'pending'
-  const detail = active
-    ? run.totalIterations
-      ? `${run.currentIteration}/${run.totalIterations}`
-      : run.phase
-    : timeAgo(run.completedAt ?? run.updatedAt)
+  const detail = resolveRunDetail(run)
 
   return (
     <div

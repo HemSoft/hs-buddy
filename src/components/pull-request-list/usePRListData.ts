@@ -14,6 +14,22 @@ import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 
+function shouldUseCachedPRs(
+  mode: string,
+  isForceRefresh: boolean,
+  refreshInterval: number
+): PullRequest[] | null {
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (!cached || isForceRefresh) return null
+  const intervalMs = refreshInterval * MS_PER_MINUTE
+  const timeSinceLastFetch = Date.now() - cached.fetchedAt
+  if (timeSinceLastFetch < intervalMs) {
+    console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
+    return cached.data
+  }
+  return null
+}
+
 function applyCachedPRs(
   data: PullRequest[],
   setPrs: (prs: PullRequest[]) => void,
@@ -368,19 +384,15 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       return
       /* v8 ignore stop */
     }
-    const cached = dataCache.get<PullRequest[]>(mode)
     const isForceRefresh = forceRefresh > 0
-    if (cached && !isForceRefresh) {
-      const intervalMs = refreshInterval * MS_PER_MINUTE
-      const timeSinceLastFetch = Date.now() - cached.fetchedAt
-      if (timeSinceLastFetch < intervalMs) {
-        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
-        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
-        return
-      }
+    const cachedData = shouldUseCachedPRs(mode, isForceRefresh, refreshInterval)
+    if (cachedData) {
+      applyCachedPRs(cachedData, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
+      return
     }
     fetchInProgressRef.current = true
     const currentFetchId = ++fetchIdRef.current
+    const cached = dataCache.get<PullRequest[]>(mode)
     const fetchPRs = async () => {
       /* v8 ignore start */
       const hasExistingData = hasExistingPRData(prs, cached)

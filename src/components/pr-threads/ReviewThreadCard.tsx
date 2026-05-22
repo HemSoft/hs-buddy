@@ -210,6 +210,68 @@ function useThreadDerivedState(thread: PRReviewThread) {
   return { firstComment, remainingComments, diffHunk, statusClass }
 }
 
+function ThreadExpandedBody({
+  diffHunk,
+  firstComment,
+  remainingComments,
+  replying,
+  replyText,
+  sending,
+  textareaRef,
+  dispatch,
+  handleSendReply,
+  thread,
+  resolving,
+  handleResolveToggle,
+  onReactToComment,
+}: {
+  diffHunk: string | null | undefined
+  firstComment: PRReviewComment | undefined
+  remainingComments: PRReviewComment[]
+  replying: boolean
+  replyText: string
+  sending: boolean
+  textareaRef: React.RefObject<HTMLTextAreaElement | null>
+  dispatch: React.Dispatch<ThreadAction>
+  handleSendReply: () => Promise<void>
+  thread: PRReviewThread
+  resolving: boolean
+  handleResolveToggle: () => Promise<void>
+  onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
+}) {
+  return (
+    <div className="review-thread-body">
+      {diffHunk && <DiffHunk hunk={diffHunk} />}
+      <div className="review-thread-comments">
+        {firstComment && (
+          <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
+        )}
+        {remainingComments.map(c => (
+          <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
+        ))}
+      </div>
+      <div className="review-thread-actions">
+        {replying ? (
+          <ThreadReplyForm
+            replyText={replyText}
+            sending={sending}
+            textareaRef={textareaRef}
+            dispatch={dispatch}
+            handleSendReply={handleSendReply}
+          />
+        ) : (
+          <ThreadActionRow
+            thread={thread}
+            resolving={resolving}
+            dispatch={dispatch}
+            handleResolveToggle={handleResolveToggle}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function ReviewThreadCard({
   thread,
   pr,
@@ -322,35 +384,21 @@ export function ReviewThreadCard({
       </div>
 
       {expanded && (
-        <div className="review-thread-body">
-          {diffHunk && <DiffHunk hunk={diffHunk} />}
-          <div className="review-thread-comments">
-            {firstComment && (
-              <CommentCard comment={firstComment} isFirst onReact={onReactToComment} />
-            )}
-            {remainingComments.map(c => (
-              <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
-            ))}
-          </div>
-          <div className="review-thread-actions">
-            {replying ? (
-              <ThreadReplyForm
-                replyText={replyText}
-                sending={sending}
-                textareaRef={textareaRef}
-                dispatch={dispatch}
-                handleSendReply={handleSendReply}
-              />
-            ) : (
-              <ThreadActionRow
-                thread={thread}
-                resolving={resolving}
-                dispatch={dispatch}
-                handleResolveToggle={handleResolveToggle}
-              />
-            )}
-          </div>
-        </div>
+        <ThreadExpandedBody
+          diffHunk={diffHunk}
+          firstComment={firstComment}
+          remainingComments={remainingComments}
+          replying={replying}
+          replyText={replyText}
+          sending={sending}
+          textareaRef={textareaRef}
+          dispatch={dispatch}
+          handleSendReply={handleSendReply}
+          thread={thread}
+          resolving={resolving}
+          handleResolveToggle={handleResolveToggle}
+          onReactToComment={onReactToComment}
+        />
       )}
     </div>
   )

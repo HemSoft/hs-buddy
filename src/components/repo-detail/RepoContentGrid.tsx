@@ -13,6 +13,10 @@ interface LanguageEntry {
   percentage: number
 }
 
+function hasLanguageEntries(entries: LanguageEntry[]): boolean {
+  return entries.length > 0
+}
+
 export function RepoContentGrid({ detail }: RepoContentGridProps) {
   const totalBytes = Object.values(detail.languages).reduce((a, b) => a + b, 0)
   const languageEntries: LanguageEntry[] = Object.entries(detail.languages)
@@ -26,7 +30,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
   return (
     <div className="repo-detail-grid">
       {/* Languages Card */}
-      {languageEntries.length > 0 && (
+      {hasLanguageEntries(languageEntries) && (
         <div className="repo-detail-card">
           <div className="repo-detail-card-header">
             <Code2 size={16} />

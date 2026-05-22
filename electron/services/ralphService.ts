@@ -261,10 +261,14 @@ function isInvalidTimeFormat(value: string | undefined): boolean {
   return !!value && !/^\d{2}:\d{2}$/.test(value)
 }
 
+function isOutOfRange(value: number | undefined, min: number, max: number): boolean {
+  return value !== undefined && (value < min || value > max)
+}
+
 function validateTimingConfig(config: RalphLaunchConfig): string | null {
   for (const { key, min, max, msg } of RANGE_RULES) {
     const val = config[key] as number | undefined
-    if (val !== undefined && (val < min || val > max)) return msg
+    if (isOutOfRange(val, min, max)) return msg
   }
   if (isInvalidTimeFormat(config.workUntil)) {
     return 'workUntil must be HH:mm format'
@@ -302,15 +306,20 @@ function buildCombinedAgents(config: RalphLaunchConfig): string[] {
   return [...(config.devAgent ? [config.devAgent] : []), ...(config.agents ?? [])]
 }
 
+function appendRalphPrAgentArgs(args: string[], config: RalphLaunchConfig): void {
+  if (config.devAgent) args.push('-DevAgent', config.devAgent)
+  if (config.agents?.length) args.push('-Agents', config.agents.join(','))
+}
+
 // ralph-pr uses separate -DevAgent param; ralph.ps1 mixes dev into -Agents
 function appendAgentArgs(args: string[], config: RalphLaunchConfig): void {
   if (config.scriptType === 'ralph-pr') {
-    if (config.devAgent) args.push('-DevAgent', config.devAgent)
-    if (config.agents?.length) args.push('-Agents', config.agents.join(','))
-  } else {
-    const allAgents = buildCombinedAgents(config)
-    if (allAgents.length) args.push('-Agents', allAgents.join(','))
+    appendRalphPrAgentArgs(args, config)
+    return
   }
+
+  const allAgents = buildCombinedAgents(config)
+  if (allAgents.length) args.push('-Agents', allAgents.join(','))
 }
 
 // Write multi-line or long prompts to a temp file to avoid Windows
@@ -341,10 +350,14 @@ const OPTIONAL_ARGS: ReadonlyArray<OptionalArgRule> = [
   { key: 'labels', flag: '-Labels' },
 ]
 
+function resolveOptionalArgValue(val: unknown, transform?: (v: unknown) => string): string {
+  return transform ? transform(val) : (val as string)
+}
+
 function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
   for (const { key, flag, transform } of OPTIONAL_ARGS) {
     const val = config[key]
-    if (val) args.push(flag, transform ? transform(val) : (val as string))
+    if (val) args.push(flag, resolveOptionalArgValue(val, transform))
   }
   appendAgentArgs(args, config)
   if (config.prompt) args.push('-Prompt', resolvePromptArg(config.prompt))
@@ -388,18 +401,29 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
   return args
 }
 
+function resolveUnknownError(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
+function resolveScriptPathResult(config: RalphLaunchConfig): { scriptPath: string } | { error: string } {
+  try {
+    return { scriptPath: resolveScriptPath(config) }
+  } catch (err: unknown) {
+    return { error: resolveUnknownError(err) }
+  }
+}
+
 export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   const validationError = validateLaunchConfig(config)
   if (validationError) return { success: false, error: validationError }
 
   const runId = randomUUID()
-
-  let scriptPath: string
-  try {
-    scriptPath = resolveScriptPath(config)
-  } catch (err: unknown) {
-    return { success: false, error: err instanceof Error ? err.message : String(err) }
+  const scriptPathResult = resolveScriptPathResult(config)
+  if ('error' in scriptPathResult) {
+    return { success: false, error: scriptPathResult.error }
   }
+
+  const { scriptPath } = scriptPathResult
 
   const args = buildArgs(config, scriptPath)
 
@@ -658,7 +682,7 @@ export function stopLoop(runId: string): RalphStopResult {
     finalizeRun(run, 'cancelled')
     return { success: true }
   } catch (err: unknown) {
-    const msg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
+    const msg = `Failed to stop: ${resolveUnknownError(err)}`
     finalizeRun(run, 'failed', msg)
     return { success: false, error: msg }
   }

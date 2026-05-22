@@ -134,6 +134,42 @@ function StatsGrid({ stats }: { stats: RalphRunStats }) {
   )
 }
 
+function resolveIterationTotal(totalIterations: RalphRunInfo['totalIterations']): number | null {
+  return totalIterations != null && totalIterations > 0 ? totalIterations : null
+}
+
+function hasRunLoadFailure(error: string | null, run: RalphRunInfo | null): boolean {
+  return !!error || !run
+}
+
+function resolveRunStatus(run: RalphRunInfo | null): RalphRunInfo['status'] | undefined {
+  return run?.status
+}
+
+function applyFetchedRunResult(
+  mounted: boolean,
+  result: RalphRunInfo | null,
+  setRun: (run: RalphRunInfo | null) => void,
+  setError: (error: string | null) => void
+): void {
+  if (!mounted) return
+  setRun(result)
+  if (!result) setError('Run not found')
+}
+
+function applyFetchRunError(
+  mounted: boolean,
+  err: unknown,
+  setError: (error: string | null) => void
+): void {
+  if (!mounted) return
+  setError(getUserFacingMessage(err))
+}
+
+function finishFetchRun(mounted: boolean, setLoading: (loading: boolean) => void): void {
+  if (mounted) setLoading(false)
+}
+
 function ProgressSection({ run }: { run: RalphRunInfo }) {
   const [, setTick] = useState(0)
 
@@ -148,6 +184,7 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
   const phase = PHASE_LABELS[run.phase]
   const duration = formatDuration(run.startedAt, run.completedAt)
   const stats = run.stats
+  const iterationTotal = resolveIterationTotal(run.totalIterations)
 
   return (
     <div className="ralph-run-detail-card">
@@ -160,12 +197,8 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
           Branch: <strong>{branch}</strong>
         </span>
       </div>
-      {run.totalIterations != null && run.totalIterations > 0 && (
-        <ProgressBar
-          current={run.currentIteration}
-          total={run.totalIterations}
-          label={`Iteration`}
-        />
+      {iterationTotal !== null && (
+        <ProgressBar current={run.currentIteration} total={iterationTotal} label={`Iteration`} />
       )}
       <StatsGrid stats={stats} />
       <div className="ralph-run-progress-meta ralph-run-progress-footer">
@@ -231,18 +264,16 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const runStatus = resolveRunStatus(run)
 
   const fetchRun = useCallback(async () => {
     try {
       const result = await window.ralph.getStatus(runId)
-      if (!mountedRef.current) return
-      setRun(result)
-      if (!result) setError('Run not found')
+      applyFetchedRunResult(mountedRef.current, result, setRun, setError)
     } catch (err: unknown) {
-      if (!mountedRef.current) return
-      setError(getUserFacingMessage(err))
+      applyFetchRunError(mountedRef.current, err, setError)
     } finally {
-      if (mountedRef.current) setLoading(false)
+      finishFetchRun(mountedRef.current, setLoading)
     }
   }, [runId])
 
@@ -267,10 +298,10 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   }, [runId])
 
   useEffect(() => {
-    if (!run || !isActive(run.status)) return
+    if (!run || !runStatus || !isActive(runStatus)) return
     const timer = setInterval(fetchRun, LOG_POLL_MS)
     return () => clearInterval(timer)
-  }, [run?.status, fetchRun]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runStatus, fetchRun]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStop = useCallback(
     async (id: string) => {
@@ -295,7 +326,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     )
   }
 
-  if (error || !run) {
+  if (hasRunLoadFailure(error, run)) {
     return (
       <div className="ralph-run-detail">
         <div className="ralph-run-detail-empty">
@@ -306,6 +337,8 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
       </div>
     )
   }
+
+  if (!run) return null
 
   return (
     <div className="ralph-run-detail">

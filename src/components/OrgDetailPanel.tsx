@@ -339,6 +339,14 @@ function OrgBudgetBand({
   )
 }
 
+function resolveCopilotHeaderTimestamp(
+  isUserNamespace: boolean,
+  copilotFetchedAt?: number,
+  personalQuotaFetchedAt?: number
+): number | undefined {
+  return isUserNamespace ? personalQuotaFetchedAt : copilotFetchedAt
+}
+
 function CopilotSectionHeader({
   isUserNamespace,
   copilotFetchedAt,
@@ -348,19 +356,20 @@ function CopilotSectionHeader({
   copilotFetchedAt?: number
   personalQuotaFetchedAt?: number
 }) {
+  const headerTimestamp = resolveCopilotHeaderTimestamp(
+    isUserNamespace,
+    copilotFetchedAt,
+    personalQuotaFetchedAt
+  )
+
   return (
     <div className="org-detail-section-header">
       <h3>
         <Sparkles size={15} />
         {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
       </h3>
-      {/* v8 ignore start */}
-      {!isUserNamespace && copilotFetchedAt && (
-        /* v8 ignore stop */
-        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
-      )}
-      {isUserNamespace && personalQuotaFetchedAt ? (
-        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
+      {headerTimestamp ? (
+        <span className="org-detail-fetched-at">{formatTime(headerTimestamp)}</span>
       ) : null}
     </div>
   )
@@ -391,6 +400,13 @@ function getHeaderTimestamps(
     copilotFetchedAt: copilotUsage?.fetchedAt,
     personalQuotaFetchedAt: personalQuotaSummary?.fetchedAt,
   }
+}
+
+function shouldRenderPersonalQuotaGrid(
+  shouldShowPersonalQuotaPulse: boolean,
+  personalQuotaSummary: PersonalQuotaSummary | null
+): personalQuotaSummary is PersonalQuotaSummary {
+  return shouldShowPersonalQuotaPulse && !!personalQuotaSummary
 }
 
 function OrgCopilotSection({
@@ -428,7 +444,7 @@ function OrgCopilotSection({
         personalQuotaFetchedAt={personalQuotaFetchedAt}
       />
       <div className="org-detail-copilot-grid">
-        {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
+        {shouldRenderPersonalQuotaGrid(shouldShowPersonalQuotaPulse, personalQuotaSummary) ? (
           <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
         ) : (
           <OrgCopilotGrid copilotUsage={copilotUsage} />
@@ -1242,6 +1258,18 @@ function RosterFilterBar({
   )
 }
 
+function resolveMemberRosterContent(
+  member: OrgMember,
+  contributor: OrgContributor | undefined,
+  isConfigured: boolean
+): { name: string; meta: string } {
+  const name = member.name ? `${member.name} (${member.login})` : member.login
+  const prefix = member.name ? `@${member.login} · ` : ''
+  const activity = contributor ? `${contributor.commits} today` : 'idle today'
+  const configured = isConfigured ? ' · configured' : ''
+  return { name, meta: `${prefix}${activity}${configured}` }
+}
+
 function MemberRosterItem({
   member,
   org,
@@ -1255,19 +1283,15 @@ function MemberRosterItem({
   contributor: OrgContributor | undefined
   isConfigured: boolean
 }) {
+  const { name, meta } = resolveMemberRosterContent(member, contributor, isConfigured)
+
   return (
     <button
       className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
       onClick={() => navigateToOrgUser(org, member.login)}
     >
-      <span className="org-detail-roster-name">
-        {member.name ? `${member.name} (${member.login})` : member.login}
-      </span>
-      <span className="org-detail-roster-meta">
-        {member.name ? `@${member.login} · ` : ''}
-        {contributor ? `${contributor.commits} today` : 'idle today'}
-        {isConfigured ? ' · configured' : ''}
-      </span>
+      <span className="org-detail-roster-name">{name}</span>
+      <span className="org-detail-roster-meta">{meta}</span>
     </button>
   )
 }
@@ -1334,6 +1358,16 @@ function MemberRosterSection({
   )
 }
 
+function renderOrgDetailErrorBanner(
+  label: string,
+  message: string | null,
+  phase: LoadPhase,
+  onRetry: () => void
+) {
+  if (!message || phase !== 'error') return null
+  return <InlineErrorBanner label={label} message={message} onRetry={onRetry} />
+}
+
 function OrgDetailAlerts({
   isUpdating,
   membersError,
@@ -1359,22 +1393,21 @@ function OrgDetailAlerts({
           </span>
         </div>
       )}
-      {membersError && liveMembersPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
-      {copilotError && liveCopilotPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
+      {renderOrgDetailErrorBanner('Members', membersError, liveMembersPhase, onRetry)}
+      {renderOrgDetailErrorBanner('Copilot', copilotError, liveCopilotPhase, onRetry)}
     </>
   )
 }
 
 function getHighlightedLogin(member: { login: string } | undefined | null): string | null {
   return member?.login ?? null
+}
+
+function shouldShowOverviewError(
+  overviewError: string | null,
+  overview: OrgOverviewResult | null
+): boolean {
+  return !!overviewError && !overview
 }
 
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
@@ -1471,7 +1504,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     return <OrgDetailSkeleton org={org} />
   }
 
-  if (overviewError && !overview) {
+  if (shouldShowOverviewError(overviewError, overview)) {
     return (
       <div className="org-detail-error">
         <AlertCircle size={32} />

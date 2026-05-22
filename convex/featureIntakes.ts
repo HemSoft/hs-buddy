@@ -120,6 +120,10 @@ function buildExternalDuplicateResult(existing: {
 type IntakeSource = 'jira' | 'github-issue' | 'manual' | 'other'
 type RiskLabel = 'risk:trivial' | 'risk:low' | 'risk:medium' | 'risk:high' | 'risk:critical'
 
+function resolveIntakeStatus(existingByCanonical: unknown): 'duplicate' | 'draft' {
+  return existingByCanonical ? 'duplicate' : 'draft'
+}
+
 async function insertAndResolve(
   ctx: MutationCtx,
   normalizedArgs: {
@@ -169,7 +173,7 @@ async function insertAndResolve(
   })
 
   const now = Date.now()
-  const status = existingByCanonical ? 'duplicate' : 'draft'
+  const status = resolveIntakeStatus(existingByCanonical)
 
   const intakeId = await ctx.db.insert('featureIntakes', {
     source,

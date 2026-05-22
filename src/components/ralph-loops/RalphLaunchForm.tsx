@@ -12,15 +12,20 @@ import type {
   RalphTemplateInfo,
 } from '../../types/ralph'
 
+function resolveSupportedModelProviders(
+  provider: string,
+  providers: RalphProvidersConfig | null | undefined
+): string[] | undefined {
+  return provider ? providers?.providers?.[provider]?.supportedModelProviders : undefined
+}
+
 function buildModelOptions(
   models: RalphModelsConfig | null,
   provider: string,
   providers: RalphProvidersConfig | null | undefined
 ): Array<{ value: string; label: string }> {
   if (!models) return []
-  const supported = provider
-    ? providers?.providers?.[provider]?.supportedModelProviders
-    : undefined
+  const supported = resolveSupportedModelProviders(provider, providers)
   const filteredModels = Object.entries(models.models)
     .filter(([, m]) => !supported || supported.includes(m.provider))
     .map(([key, m]) => ({ value: key, label: `${m.label} (${m.reasoningEffort})` }))
@@ -104,6 +109,22 @@ function isModelIncompatible(
   const resolvedKey = models.aliases[model] ?? model
   const entry = models.models[resolvedKey]
   return !!entry && !supported.includes(entry.provider)
+}
+
+function shouldResetModel(
+  model: string,
+  provider: string,
+  providers: RalphProvidersConfig | null | undefined,
+  models: RalphModelsConfig | null
+): boolean {
+  if (!model || !provider || !providers || !models) return false
+  return isModelIncompatible(model, provider, providers, models)
+}
+
+function isFailedLaunchResult(
+  result: RalphLaunchResult | null | undefined
+): result is RalphLaunchResult & { success: false } {
+  return !!result && !result.success
 }
 
 function buildProviderModelGroup(
@@ -589,8 +610,7 @@ export function RalphLaunchForm({
 
   // Reset model when provider changes and current model is incompatible
   useEffect(() => {
-    if (!model || !provider || !providers || !models) return
-    if (isModelIncompatible(model, provider, providers, models)) setModel('')
+    if (shouldResetModel(model, provider, providers, models)) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(
@@ -689,7 +709,7 @@ export function RalphLaunchForm({
       autoApprove,
     })
     const result = await onLaunch?.(config)
-    if (result && !result.success) {
+    if (isFailedLaunchResult(result)) {
       setError(result.error ?? 'Launch failed')
     }
     setLaunching(false)

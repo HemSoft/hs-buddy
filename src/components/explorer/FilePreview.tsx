@@ -69,6 +69,10 @@ function toShikiLang(lang: string): BundledLanguage {
   return (LANG_MAP[lang] ?? lang) as BundledLanguage
 }
 
+function getLineLabel(lineCount: number): string {
+  return lineCount === 1 ? 'line' : 'lines'
+}
+
 export function FilePreview({ filePath }: FilePreviewProps) {
   const [state, dispatch] = useReducer(filePreviewReducer, {
     data: null,
@@ -227,7 +231,7 @@ export function FilePreview({ filePath }: FilePreviewProps) {
         <FileText size={14} />
         <span className="file-preview-filename">{getFileName(filePath)}</span>
         <span className="file-preview-meta">
-          {data.language} · {lineCount} {lineCount === 1 ? 'line' : 'lines'} ·{' '}
+          {data.language} · {lineCount} {getLineLabel(lineCount)} ·{' '}
           {formatFileSize(data.size)}
         </span>
       </div>

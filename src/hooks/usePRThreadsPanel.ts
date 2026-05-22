@@ -40,6 +40,13 @@ function finalizePRThreadsRequest(
   }
 }
 
+function resolvePRThreadsOwner(
+  pr: PRDetailInfo,
+  ownerRepo: ReturnType<typeof parseOwnerRepoFromUrl>
+): string | undefined {
+  return pr.org || ownerRepo?.owner
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -47,7 +54,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const latestThreadsRequestRef = useRef(0)
   const headShaRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = pr.org || ownerRepo?.owner
+  const owner = resolvePRThreadsOwner(pr, ownerRepo)
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

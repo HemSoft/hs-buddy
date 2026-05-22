@@ -181,12 +181,16 @@ function isNewerReview(
   return !existing || (submittedAt || '') > (existing.submittedAt || '')
 }
 
+function resolveGraphQLReviewLogin(review: ReviewNodeForMap): string | undefined {
+  return review.author?.login
+}
+
 export function buildLatestReviewsMap(
   reviews: ReviewNodeForMap[] | undefined
 ): Map<string, ReviewEntryForMap> {
   const map = new Map<string, ReviewEntryForMap>()
   for (const review of reviews ?? []) {
-    const login = review.author?.login
+    const login = resolveGraphQLReviewLogin(review)
     if (!login) continue
     if (isNewerReview(review.submittedAt, map.get(login))) {
       map.set(login, buildReviewEntry(review))
@@ -204,6 +208,13 @@ function isUserReviewer(
   return r.__typename === 'User' && 'login' in r && 'avatarUrl' in r
 }
 
+function buildRequestedReviewerEntry(reviewer: {
+  avatarUrl?: string | null
+  name?: string | null
+}): { avatarUrl: string | null; name: string | null } {
+  return { avatarUrl: reviewer.avatarUrl || null, name: reviewer.name || null }
+}
+
 export function buildRequestedReviewersMap(
   reviewRequests: ReviewRequestNode[] | undefined
 ): Map<string, { avatarUrl: string | null; name: string | null }> {
@@ -211,7 +222,7 @@ export function buildRequestedReviewersMap(
   for (const req of reviewRequests ?? []) {
     if (isUserReviewer(req.requestedReviewer)) {
       const r = req.requestedReviewer
-      map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
+      map.set(r.login, buildRequestedReviewerEntry(r))
     }
   }
   return map
@@ -381,6 +392,12 @@ function extractBranchRefs(
   return { headBranch: head.ref || '', baseBranch: base.ref || '', headSha: head.sha || '' }
 }
 
+function resolveRestReviewLogin(review: {
+  user?: { login?: string } | null
+}): string | undefined {
+  return review.user?.login
+}
+
 /** Build the latest-review-by-user map from a list of REST reviews. */
 function buildLatestReviewByUser(
   reviews: Array<{
@@ -391,7 +408,7 @@ function buildLatestReviewByUser(
 ): Map<string, { state: string; submittedAt: string }> {
   const map = new Map<string, { state: string; submittedAt: string }>()
   for (const review of reviews) {
-    const login = review.user?.login
+    const login = resolveRestReviewLogin(review)
     if (!login) continue
     const submittedAt = review.submitted_at || ''
     if (isNewerReview(submittedAt, map.get(login))) {
@@ -543,6 +560,13 @@ async function executeSearchQueries(
  * Fallback: fetch the viewer's open PRs via GraphQL `viewer.pullRequests`
  * when the GitHub Search API is degraded.
  */
+function resolveNextGraphQLCursor(pageInfo: {
+  hasNextPage: boolean
+  endCursor: string | null
+}): string | null {
+  return pageInfo.hasNextPage ? pageInfo.endCursor : null
+}
+
 async function fetchPRsViaGraphQLFallback(
   _config: PRConfig['github'],
   username: string,
@@ -573,7 +597,7 @@ async function fetchPRsViaGraphQLFallback(
     }
 
     hasNextPage = page.pageInfo.hasNextPage
-    cursor = hasNextPage ? page.pageInfo.endCursor : null
+    cursor = resolveNextGraphQLCursor(page.pageInfo)
   }
 
   return result

@@ -21,6 +21,17 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError } from '../utils/errorUtils'
 
+function sortPrefetchedPRs(mode: string, prs: PullRequest[]): void {
+  if (mode !== 'recently-merged') {
+    prs.sort((a, b) => {
+      if (a.repository !== b.repository) {
+        return a.repository.localeCompare(b.repository)
+      }
+      return a.id - b.id
+    })
+  }
+}
+
 /**
  * Hook that prefetches all PR data in the background on app startup
  * and auto-refreshes on the configured interval.
@@ -116,14 +127,7 @@ export function usePrefetch(): void {
               break
           }
 
-          if (mode !== 'recently-merged') {
-            prs.sort((a, b) => {
-              if (a.repository !== b.repository) {
-                return a.repository.localeCompare(b.repository)
-              }
-              return a.id - b.id
-            })
-          }
+          sortPrefetchedPRs(mode, prs)
 
           dataCache.set(mode, prs)
           console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)

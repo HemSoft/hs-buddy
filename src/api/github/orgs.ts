@@ -101,6 +101,10 @@ const ORG_REPO_NUM_DEFAULTS = { stargazers_count: 0, forks_count: 0, archived: f
 
 // ─── Helper functions ─────────────────────────────────────────────────
 
+function resolveDefaultBranch(defaultBranch: string | undefined | null): string {
+  return defaultBranch || 'main'
+}
+
 /** Map a repo entry from Octokit response to OrgRepo. */
 /* v8 ignore start -- API response null-guards in org repo mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -111,7 +115,7 @@ function mapRawRepoToOrgRepo(repo: any): OrgRepo {
     fullName: repo.full_name,
     description: repo.description ?? null,
     url: repo.html_url,
-    defaultBranch: repo.default_branch || 'main',
+    defaultBranch: resolveDefaultBranch(repo.default_branch),
     language: repo.language ?? null,
     stargazersCount: d.stargazers_count,
     forksCount: d.forks_count,

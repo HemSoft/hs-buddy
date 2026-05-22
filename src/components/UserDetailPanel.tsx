@@ -115,6 +115,21 @@ function formatHeroSubtitle(
   return `${prefix}${commitLabel}`
 }
 
+function HeroStatusEmoji({
+  statusEmoji,
+  statusMessage,
+}: {
+  statusEmoji?: string | null
+  statusMessage?: string | null
+}) {
+  if (!statusEmoji) return null
+  return (
+    <span className="ud-status-emoji" title={statusMessage ?? undefined}>
+      {statusEmoji}
+    </span>
+  )
+}
+
 function UserDetailHero({
   activity,
   activityPhase,
@@ -143,11 +158,10 @@ function UserDetailHero({
         </span>
         <h2 className="ud-hero-title">
           {formatDisplayName(activity, memberLogin)}
-          {activity?.statusEmoji && (
-            <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
-              {activity.statusEmoji}
-            </span>
-          )}
+          <HeroStatusEmoji
+            statusEmoji={activity?.statusEmoji}
+            statusMessage={activity?.statusMessage}
+          />
         </h2>
         <p className="ud-hero-subtitle">
           {formatHeroSubtitle(memberLogin, activity?.name, commitsToday)}
@@ -285,6 +299,15 @@ function UserMetricsGrid({
   )
 }
 
+function hasContributionData(
+  activity: UserActivitySummary | null
+): activity is UserActivitySummary & {
+  contributionWeeks: NonNullable<UserActivitySummary['contributionWeeks']>
+  totalContributions: NonNullable<UserActivitySummary['totalContributions']>
+} {
+  return !!activity?.contributionWeeks && activity.totalContributions != null
+}
+
 function UserContributionSection({
   activity,
   activityPhase,
@@ -292,11 +315,7 @@ function UserContributionSection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (
-    activityPhase === 'ready' &&
-    activity?.contributionWeeks &&
-    activity.totalContributions != null
-  ) {
+  if (activityPhase === 'ready' && hasContributionData(activity)) {
     return (
       <section className="ud-section">
         <h3 className="ud-section-title">
@@ -410,6 +429,13 @@ function isActivityEmpty(
   return activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0
 }
 
+function shouldHideActivitySection(
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error',
+  activity: UserActivitySummary | null
+): boolean {
+  return activityPhase !== 'loading' && isActivityEmpty(activityPhase, activity)
+}
+
 function UserActivitySection({
   activity,
   activityPhase,
@@ -417,7 +443,7 @@ function UserActivitySection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (activityPhase !== 'loading' && isActivityEmpty(activityPhase, activity)) {
+  if (shouldHideActivitySection(activityPhase, activity)) {
     return null
   }
 

@@ -4,15 +4,22 @@ import { api } from '../../convex/_generated/api'
 import { IPC_INVOKE } from '../ipc/contracts'
 import type { AppConfig } from '../types/config'
 
+function shouldSkipAccountMigration<T>(
+  configAccounts: T[] | undefined,
+  existingAccounts: { length: number } | undefined
+): boolean {
+  return !configAccounts || configAccounts.length === 0 || !existingAccounts || existingAccounts.length > 0
+}
+
 async function migrateAccounts<T>(
   configAccounts: T[] | undefined,
   existingAccounts: { length: number } | undefined,
   bulkImport: (args: { accounts: T[] }) => Promise<{ length: number }>
 ): Promise<void> {
-  if (!configAccounts || configAccounts.length === 0) return
-  if (!existingAccounts || existingAccounts.length > 0) return
+  if (shouldSkipAccountMigration(configAccounts, existingAccounts)) return
+  const accounts = configAccounts ?? []
   console.log('[Migration] Importing GitHub accounts from electron-store...')
-  const imported = await bulkImport({ accounts: configAccounts })
+  const imported = await bulkImport({ accounts })
   if (imported.length > 0) {
     console.log(`[Migration] Imported ${imported.length} GitHub accounts to Convex`)
   }

@@ -49,6 +49,15 @@ function SidebarNavItem({
   )
 }
 
+function getRecentResultLabel(
+  result: NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+): string {
+  if (result.category === 'pr-review') {
+    return `PR Review: ${((result.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
+  }
+  return result.prompt.length > 40 ? result.prompt.slice(0, 40) + '...' : result.prompt
+}
+
 function RecentResultItem({
   result,
   selectedItem,
@@ -59,12 +68,7 @@ function RecentResultItem({
   onItemSelect: (itemId: string) => void
 }) {
   const viewId = `copilot-result:${result._id}`
-  const label =
-    result.category === 'pr-review'
-      ? `PR Review: ${((result.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
-      : result.prompt.length > 40
-        ? result.prompt.slice(0, 40) + '...'
-        : result.prompt
+  const label = getRecentResultLabel(result)
 
   return (
     <div

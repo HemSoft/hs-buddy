@@ -89,6 +89,10 @@ function RemainingCardBody({
   )
 }
 
+function getRemainingCardClassName(isMonthComplete: boolean): string {
+  return `tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`
+}
+
 function RemainingCard({
   isMonthComplete,
   remaining,
@@ -101,7 +105,7 @@ function RemainingCard({
   monthTarget: number
 }) {
   const showMissing = isPastMonth && monthTarget > 0
-  const cardClass = `tempo-card ${isMonthComplete ? 'tempo-card-complete' : 'tempo-card-remaining'}`
+  const cardClass = getRemainingCardClassName(isMonthComplete)
   const hasMissingBadge = showMissing && !isMonthComplete
   return (
     <div className={cardClass}>

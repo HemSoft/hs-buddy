@@ -12,6 +12,10 @@ function readLocal(storageKey: string): ViewMode | null {
   return null
 }
 
+function isPersistedViewMode(value: string | null | undefined): value is ViewMode {
+  return value === 'card' || value === 'list'
+}
+
 /**
  * Persists a card/list view preference per page key.
  *
@@ -33,7 +37,7 @@ export function useViewMode(key: string, defaultMode: ViewMode = 'card') {
   const seededKeyRef = useRef<string | null>(null)
   useEffect(() => {
     if (seededKeyRef.current === key) return
-    if (convexMode !== 'card' && convexMode !== 'list') return
+    if (!isPersistedViewMode(convexMode)) return
     seededKeyRef.current = key
 
     const local = readLocal(storageKey)

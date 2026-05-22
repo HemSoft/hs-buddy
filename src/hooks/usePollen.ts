@@ -124,6 +124,15 @@ function applyPollenResult(
   }))
 }
 
+function resetPollenStateIfMounted(
+  isMounted: boolean,
+  setState: React.Dispatch<React.SetStateAction<PollenState>>
+): void {
+  if (isMounted) {
+    setState({ data: null, loading: false, error: null })
+  }
+}
+
 /**
  * Hook that fetches pollen data from Google Pollen API via the main process.
  * Requires a Google Cloud API key configured in Settings → Weather.
@@ -164,9 +173,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       applyPollenResult(result, latitude, longitude, setState)
     } catch (_: unknown) {
       // IPC unavailable (test env, non-Electron) → silent no-op
-      if (mountedRef.current) {
-        setState({ data: null, loading: false, error: null })
-      }
+      resetPollenStateIfMounted(mountedRef.current, setState)
     }
   }, [location])
 

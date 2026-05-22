@@ -115,6 +115,10 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
+function resolvePublishedReviewBody(resultText: string, model: string | null | undefined): string {
+  return `## 🤖 AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy — ${model || 'AI'} review*`
+}
+
   const handlePublishToPR = async () => {
     if (!result.result || publishing) return
     const prMeta = extractPRMetadata(metadata)
@@ -123,7 +127,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
+      const body = resolvePublishedReviewBody(result.result, result.model)
       await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
       setPublished(true)
     } catch (err: unknown) {
@@ -168,6 +172,16 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   )
 }
 
+function resolveResultHeaderTitle(
+  result: NonNullable<ReturnType<typeof useCopilotResult>>,
+  metadata: Record<string, unknown> | null
+): string {
+  if (result.category === 'pr-review' && metadata?.prTitle) {
+    return `PR Review: ${metadata.prTitle as string}`
+  }
+  return 'Copilot Result'
+}
+
 function ResultHeader({
   result,
   metadata,
@@ -191,16 +205,14 @@ function ResultHeader({
   onPublish: () => void
   onDelete: () => void
 }) {
+  const title = resolveResultHeaderTitle(result, metadata)
+
   return (
     <div className="copilot-result-header">
       <div className="copilot-result-header-left">
         <Sparkles size={20} className="copilot-header-icon" />
         <div className="copilot-result-title-info">
-          <h2>
-            {result.category === 'pr-review' && metadata?.prTitle
-              ? `PR Review: ${metadata.prTitle as string}`
-              : 'Copilot Result'}
-          </h2>
+          <h2>{title}</h2>
           <div className="copilot-result-meta">
             <span className="copilot-result-status">
               {getStatusIcon(result.status, 16, 'status')}
@@ -366,6 +378,24 @@ function FailedContent({ error, onRetry }: { error?: string | null; onRetry: () 
   )
 }
 
+function renderCompletedResult(resultText: string | null | undefined): React.ReactNode {
+  if (!resultText) return null
+  return <MarkdownContent source={resultText} className="copilot-result-markdown" />
+}
+
+function renderResultStatusContent(
+  status: string,
+  resultText: string | null | undefined,
+  error: string | null | undefined,
+  onRetry: () => void
+): React.ReactNode {
+  if (status === 'pending') return <PendingContent />
+  if (status === 'running') return <RunningContent />
+  if (status === 'completed') return renderCompletedResult(resultText)
+  if (status === 'failed') return <FailedContent error={error} onRetry={onRetry} />
+  return null
+}
+
 function ResultContent({
   contentRef,
   status,
@@ -379,14 +409,5 @@ function ResultContent({
   error?: string | null
   onRetry: () => void
 }) {
-  return (
-    <div ref={contentRef} className="copilot-result-content">
-      {status === 'pending' && <PendingContent />}
-      {status === 'running' && <RunningContent />}
-      {status === 'completed' && resultText && (
-        <MarkdownContent source={resultText} className="copilot-result-markdown" />
-      )}
-      {status === 'failed' && <FailedContent error={error} onRetry={onRetry} />}
-    </div>
-  )
+  return <div ref={contentRef} className="copilot-result-content">{renderResultStatusContent(status, resultText, error, onRetry)}</div>
 }

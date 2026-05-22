@@ -53,13 +53,17 @@ const CREATE_INITIAL_DEFAULTS = {
   defaultDescription: '',
 }
 
+function resolveWorklogAccountKey(worklog: TempoWorklog | null) {
+  return worklog?.accountKey
+}
+
 function getWorklogRaw(worklog: TempoWorklog | null) {
   return {
     issueKey: worklog?.issueKey,
     hours: worklog?.hours,
     date: worklog?.date,
     description: worklog?.description,
-    accountKey: worklog?.accountKey,
+    accountKey: resolveWorklogAccountKey(worklog),
   }
 }
 

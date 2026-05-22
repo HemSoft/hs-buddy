@@ -80,6 +80,10 @@ async function processSchedule(
   return { runCreated: true, scheduleUpdated: true }
 }
 
+function shouldLogScanSummary(runsCreated: number, schedulesUpdated: number): boolean {
+  return runsCreated > 0 || schedulesUpdated > 0
+}
+
 /**
  * Main scan and dispatch function.
  *
@@ -109,7 +113,7 @@ export const scanAndDispatch = internalMutation({
     }
 
     // Log summary for debugging
-    if (runsCreated > 0 || schedulesUpdated > 0) {
+    if (shouldLogScanSummary(runsCreated, schedulesUpdated)) {
       console.log(
         `Schedule scan complete: ${runsCreated} runs created, ${schedulesUpdated} schedules updated`
       )

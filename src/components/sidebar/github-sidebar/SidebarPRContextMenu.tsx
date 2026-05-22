@@ -20,6 +20,10 @@ function getApproveLabel(iApproved: boolean, isApproving: boolean): string {
   return isApproving ? 'Approving…' : 'Approve'
 }
 
+function getSidebarBookmarkRepoKey(pr: PullRequest): string {
+  return `${pr.org || ''}/${pr.repository}`
+}
+
 export function SidebarPRContextMenu({
   pr,
   x,
@@ -35,7 +39,7 @@ export function SidebarPRContextMenu({
 }: SidebarPRContextMenuProps) {
   const prKey = `${pr.source}-${pr.repository}-${pr.id}`
   const isApproving = approvingPrKeys.has(prKey)
-  const isBookmarked = bookmarkedRepoKeys.has(`${pr.org || ''}/${pr.repository}`)
+  const isBookmarked = bookmarkedRepoKeys.has(getSidebarBookmarkRepoKey(pr))
 
   return (
     <>

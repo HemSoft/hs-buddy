@@ -26,6 +26,48 @@ interface UpdateTimesDisplayProps {
   getProgressColor: (progress: number) => string
 }
 
+function renderPullRequestContextMenu({
+  contextMenu,
+  bookmarkedRepoKeys,
+  handleAIReview,
+  handleRequestCopilotReview,
+  handleAddressComments,
+  handleApproveFromMenu,
+  handleCopyLink,
+  handleBookmarkRepo,
+  closeContextMenu,
+}: {
+  contextMenu: {
+    x: number
+    y: number
+    pr: PullRequest
+  } | null
+  bookmarkedRepoKeys: Set<string>
+  handleAIReview: () => void
+  handleRequestCopilotReview: () => void
+  handleAddressComments: () => void
+  handleApproveFromMenu: () => void
+  handleCopyLink: () => void
+  handleBookmarkRepo: () => void
+  closeContextMenu: () => void
+}) {
+  return contextMenu ? (
+    <PRContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      pr={contextMenu.pr}
+      bookmarkedRepoKeys={bookmarkedRepoKeys}
+      onAIReview={handleAIReview}
+      onRequestCopilotReview={handleRequestCopilotReview}
+      onAddressComments={handleAddressComments}
+      onApprove={handleApproveFromMenu}
+      onCopyLink={handleCopyLink}
+      onBookmark={handleBookmarkRepo}
+      onClose={closeContextMenu}
+    />
+  ) : null
+}
+
 function UpdateTimesDisplay({
   lastUpdated,
   nextUpdate,
@@ -453,21 +495,17 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
           ))}
         </div>
       )}
-      {contextMenu && (
-        <PRContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          pr={contextMenu.pr}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          onAIReview={handleAIReview}
-          onRequestCopilotReview={handleRequestCopilotReview}
-          onAddressComments={handleAddressComments}
-          onApprove={handleApproveFromMenu}
-          onCopyLink={handleCopyLink}
-          onBookmark={handleBookmarkRepo}
-          onClose={closeContextMenu}
-        />
-      )}
+      {renderPullRequestContextMenu({
+        contextMenu,
+        bookmarkedRepoKeys,
+        handleAIReview,
+        handleRequestCopilotReview,
+        handleAddressComments,
+        handleApproveFromMenu,
+        handleCopyLink,
+        handleBookmarkRepo,
+        closeContextMenu,
+      })}
     </div>
   )
 }

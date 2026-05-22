@@ -35,6 +35,10 @@ interface TabState {
 
 export const DASHBOARD_VIEW_ID = 'dashboard'
 
+function resolveFallbackActiveTabId(nextTabs: Tab[], activeTabId: string | null): string | null {
+  return nextTabs.length === 0 ? null : activeTabId
+}
+
 function resolveActiveTabAfterClose(
   previousState: TabState,
   tabId: string,
@@ -48,7 +52,7 @@ function resolveActiveTabAfterClose(
     /* v8 ignore stop */
   }
   /* v8 ignore start */
-  return nextTabs.length === 0 ? null : previousState.activeTabId
+  return resolveFallbackActiveTabId(nextTabs, previousState.activeTabId)
   /* v8 ignore stop */
 }
 

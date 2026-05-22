@@ -37,6 +37,10 @@ interface PRDetailRoute {
   section: PRDetailSection | null
 }
 
+function withEmptyString(value: string | undefined): string {
+  return value || ''
+}
+
 function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
   return {
     source: pr.source,
@@ -52,8 +56,8 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     iApproved: pr.iApproved,
     created: toIsoOrNull(pr.created),
     updatedAt: pr.updatedAt || null,
-    headBranch: pr.headBranch || '',
-    baseBranch: pr.baseBranch || '',
+    headBranch: withEmptyString(pr.headBranch),
+    baseBranch: withEmptyString(pr.baseBranch),
     date: pr.date,
     orgAvatarUrl: pr.orgAvatarUrl,
     org: pr.org,

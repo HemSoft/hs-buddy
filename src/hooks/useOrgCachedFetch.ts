@@ -62,6 +62,24 @@ function shouldIgnoreOrgResponse(currentCacheKey: string, activeCacheKey: string
   return currentCacheKey !== activeCacheKey
 }
 
+function applyOrgFetchSuccess<T>(
+  result: T,
+  activeCacheKey: string,
+  currentCacheKey: string,
+  normalize: (data: T | null) => T | null,
+  setData: (data: T | null) => void,
+  setPhase: (phase: LoadPhase) => void
+): void {
+  if (shouldIgnoreOrgResponse(currentCacheKey, activeCacheKey)) return
+
+  const normalized = normalize(result)
+  startTransition(() => {
+    setData(normalized)
+    setPhase('ready')
+  })
+  dataCache.set(activeCacheKey, normalized)
+}
+
 // ---------------------------------------------------------------------------
 // Generic cached-fetch hook — shared by useOrgOverviewData & useOrgMembersData
 // ---------------------------------------------------------------------------
@@ -173,15 +191,15 @@ export function useOrgCachedFetch<T>({
         )
 
         /* v8 ignore start */
-        if (shouldIgnoreOrgResponse(cacheKeyRef.current, activeCacheKey)) return
+        applyOrgFetchSuccess(
+          result,
+          activeCacheKey,
+          cacheKeyRef.current,
+          normalizeRef.current,
+          setData,
+          setPhase
+        )
         /* v8 ignore stop */
-
-        const normalized = normalizeRef.current(result)
-        startTransition(() => {
-          setData(normalized)
-          setPhase('ready')
-        })
-        dataCache.set(activeCacheKey, normalized)
       } catch (fetchError: unknown) {
         /* v8 ignore start */
         if (shouldIgnoreOrgResponse(cacheKeyRef.current, activeCacheKey)) return

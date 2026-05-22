@@ -18,6 +18,14 @@ interface AppErrorBoundaryState {
   message: string
 }
 
+function resolveBoundaryMessage(error: unknown): string {
+  return error instanceof Error
+    ? error.message || 'Unknown render error'
+    : typeof error === 'string' && error.length > 0
+      ? error
+      : 'Unknown render error'
+}
+
 export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorBoundaryState> {
   state: AppErrorBoundaryState = {
     error: null,
@@ -27,12 +35,7 @@ export class AppErrorBoundary extends Component<AppErrorBoundaryProps, AppErrorB
 
   static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
     const normalizedError = error instanceof Error ? error : null
-    const message =
-      error instanceof Error
-        ? error.message || 'Unknown render error'
-        : typeof error === 'string' && error.length > 0
-          ? error
-          : 'Unknown render error'
+    const message = resolveBoundaryMessage(error)
     return {
       error: normalizedError,
       hasError: true,

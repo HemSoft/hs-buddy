@@ -144,6 +144,29 @@ function getScheduleDefaults(schedule: Schedule, now: number) {
   return { timezone, startFrom }
 }
 
+async function handleMissedPolicy(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  startFrom: number,
+  timezone: string
+): Promise<{ runsCreated: number; action: string }> {
+  switch (schedule.missedPolicy) {
+    case 'skip':
+      return handleSkipPolicy(client, schedule, now)
+    case 'catchup':
+      return handleCatchupPolicy(client, schedule, now, startFrom, timezone)
+    case 'last':
+      return handleLastPolicy(client, schedule, now, startFrom, timezone)
+    default:
+      return { runsCreated: 0, action: 'unknown-policy' }
+  }
+}
+
+function resolveOfflineSyncUrl(convexUrl?: string): string {
+  return convexUrl ?? CONVEX_URL
+}
+
 /**
  * Process a single schedule's missed runs based on its missedPolicy.
  */
@@ -157,17 +180,7 @@ async function processSchedule(
   }
 
   const { timezone, startFrom } = getScheduleDefaults(schedule, now)
-
-  switch (schedule.missedPolicy) {
-    case 'skip':
-      return handleSkipPolicy(client, schedule, now)
-    case 'catchup':
-      return handleCatchupPolicy(client, schedule, now, startFrom, timezone)
-    case 'last':
-      return handleLastPolicy(client, schedule, now, startFrom, timezone)
-    default:
-      return { runsCreated: 0, action: 'unknown-policy' }
-  }
+  return handleMissedPolicy(client, schedule, now, startFrom, timezone)
 }
 
 /**
@@ -177,7 +190,7 @@ async function processSchedule(
  * schedule's missedPolicy, creates appropriate runs, and advances nextRunAt.
  */
 export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncResult> {
-  const client = new ConvexHttpClient(convexUrl ?? CONVEX_URL)
+  const client = new ConvexHttpClient(resolveOfflineSyncUrl(convexUrl))
   const now = Date.now()
   const result = createOfflineSyncResult()
 

@@ -20,6 +20,10 @@ function basename(filePath: string): string {
   return filePath.replace(/^.*[\\/]/, '')
 }
 
+function NotificationToggleIcon({ enabled }: { enabled: boolean }) {
+  return enabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />
+}
+
 export function SettingsNotifications() {
   const { enabled, soundPath, loading, setEnabled, setSoundPath, pickSoundFile } =
     useNotificationSettings()
@@ -149,7 +153,7 @@ export function SettingsNotifications() {
               onClick={handleToggle}
               aria-pressed={enabled}
             >
-              {enabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+              <NotificationToggleIcon enabled={enabled} />
             </button>
           </div>
         </div>

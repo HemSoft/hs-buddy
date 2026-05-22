@@ -13,6 +13,14 @@ interface ScheduleDetailPanelProps {
   scheduleId: string
 }
 
+function renderScheduleEditor(
+  editorOpen: boolean,
+  scheduleId: string,
+  setEditorOpen: (open: boolean) => void
+) {
+  return editorOpen ? <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} /> : null
+}
+
 function formatTimeString(hour: string, minute: string): string {
   return `${hour.padStart(2, '0')}:${minute.padStart(2, '0')}`
 }
@@ -298,11 +306,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   return (
     <>
       <div className="schedule-detail">
-        {editorOpen && (
-          /* v8 ignore start */
-          <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
-          /* v8 ignore stop */
-        )}
+        {renderScheduleEditor(editorOpen, scheduleId, setEditorOpen)}
 
         <div className="schedule-detail-header">
           <div className="schedule-detail-title-row">

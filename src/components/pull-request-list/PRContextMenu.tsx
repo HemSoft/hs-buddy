@@ -15,6 +15,15 @@ interface PRContextMenuProps {
   onClose: () => void
 }
 
+function getAddressCommentsLabel(
+  hasUnresolved: boolean,
+  threadsUnaddressed: number | null | undefined
+): string {
+  return hasUnresolved
+    ? `Address Unresolved Comments (${threadsUnaddressed})`
+    : 'No Unresolved Comments'
+}
+
 export function PRContextMenu({
   x,
   y,
@@ -46,9 +55,7 @@ export function PRContextMenu({
         </button>
         <button onClick={onAddressComments} disabled={!hasUnresolved}>
           <MessageSquareWarning size={14} />
-          {hasUnresolved
-            ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
-            : 'No Unresolved Comments'}
+          {getAddressCommentsLabel(hasUnresolved, pr.threadsUnaddressed)}
         </button>
         <button onClick={onApprove} disabled={!!pr.iApproved}>
           <ThumbsUp size={14} />

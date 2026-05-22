@@ -396,10 +396,20 @@ function buildCommentTimelineEvents(
   }))
 }
 
+function resolveNamedCommitAuthor(
+  author: { user: { login: string } | null; name: string | null } | null
+): string | null {
+  if (!author) return null
+  if (author.user?.login) return author.user.login
+  return author.name
+}
+
 function resolveCommitAuthor(
   author: { user: { login: string } | null; name: string | null } | null
 ): string {
-  return author?.user?.login || author?.name || 'unknown'
+  const namedAuthor = resolveNamedCommitAuthor(author)
+  if (!namedAuthor) return 'unknown'
+  return namedAuthor
 }
 
 function buildCommitTimelineEvents(
@@ -528,6 +538,10 @@ function buildPRTimeline(
 }
 /* v8 ignore stop */
 
+function resolveGraphQlNodes<T>(nodes: T[] | null | undefined): T[] {
+  return nodes ?? []
+}
+
 /* v8 ignore start -- GraphQL response null-guards in reviewer data mapping */
 function buildReviewerSummaries(
   pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>
@@ -541,6 +555,16 @@ function buildReviewerSummaries(
   return Array.from(reviewerLogins).map(login =>
     buildReviewerSummary(login, latestReviewsByUser.get(login), requestedReviewers.get(login))
   )
+}
+
+function resolveLinkedIssues(
+  pr: NonNullable<NonNullable<PRHistoryGraphQLResponse['repository']>['pullRequest']>
+): PRLinkedIssue[] {
+  return resolveGraphQlNodes(pr.closingIssuesReferences?.nodes).map(n => ({
+    number: n.number,
+    title: n.title,
+    url: n.url,
+  }))
 }
 /* v8 ignore stop */
 
@@ -580,6 +604,10 @@ async function fetchDetailedThreadPage(
   return pageResult.repository?.pullRequest?.reviewThreads ?? null
 }
 
+function shouldPaginateThreads(hasNextPage: boolean, endCursor: string | null): endCursor is string {
+  return hasNextPage && !!endCursor
+}
+
 async function paginateDetailedReviewThreads(
   owner: string,
   repo: string,
@@ -590,12 +618,12 @@ async function paginateDetailedReviewThreads(
   },
   token: string
 ): Promise<Array<{ isResolved: boolean; isOutdated: boolean; comments: { totalCount: number } }>> {
-  const allNodes = [...(firstPage.nodes || [])]
+  const allNodes = [...resolveGraphQlNodes(firstPage.nodes)]
   let { hasNextPage, endCursor } = firstPage.pageInfo
-  while (hasNextPage && endCursor) {
+  while (shouldPaginateThreads(hasNextPage, endCursor)) {
     const pageThreads = await fetchDetailedThreadPage(owner, repo, prNumber, endCursor, token)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes || []))
+    allNodes.push(...resolveGraphQlNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }
@@ -679,11 +707,7 @@ export async function fetchPRHistory(
   const issueCommentCount = pr.comments.totalCount
   const reviewers = buildReviewerSummaries(pr)
   const timeline = buildPRTimeline(pr, pullNumber)
-  const linkedIssues: PRLinkedIssue[] = (pr.closingIssuesReferences?.nodes || []).map(n => ({
-    number: n.number,
-    title: n.title,
-    url: n.url,
-  }))
+  const linkedIssues = resolveLinkedIssues(pr)
   return {
     createdAt: pr.createdAt,
     updatedAt: pr.updatedAt,
@@ -714,6 +738,10 @@ export async function fetchPRBody(
   return data.body || ''
 }
 
+function resolveHeadSha(head: { sha?: string } | null | undefined): string {
+  return head?.sha || ''
+}
+
 export async function fetchPRChecks(
   config: PRConfig['github'],
   owner: string,
@@ -722,7 +750,7 @@ export async function fetchPRChecks(
 ): Promise<PRChecksSummary> {
   const octokit = await getOctokitForOwner(config, owner)
   const pullResponse = await octokit.pulls.get({ owner, repo, pull_number: pullNumber })
-  const headSha = pullResponse.data.head?.sha || ''
+  const headSha = resolveHeadSha(pullResponse.data.head)
   if (!headSha) {
     throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
   }
@@ -806,7 +834,7 @@ export async function fetchPRThreads(
   if (!pr) {
     throw new Error(`PR #${pullNumber} not found in ${owner}/${repo}`)
   }
-  const threads: PRReviewThread[] = (pr.reviewThreads.nodes || []).map(t => ({
+  const threads: PRReviewThread[] = resolveGraphQlNodes(pr.reviewThreads.nodes).map(t => ({
     id: t.id,
     isResolved: t.isResolved,
     isOutdated: t.isOutdated,
@@ -814,12 +842,14 @@ export async function fetchPRThreads(
     line: t.line,
     startLine: t.startLine,
     diffSide: t.diffSide,
-    comments: (t.comments.nodes || []).map(c => mapReviewCommentFields(c, mapReactionGroups)),
+    comments: resolveGraphQlNodes(t.comments.nodes).map(c =>
+      mapReviewCommentFields(c, mapReactionGroups)
+    ),
   }))
-  const issueComments: PRReviewComment[] = (pr.comments.nodes || []).map(c =>
+  const issueComments: PRReviewComment[] = resolveGraphQlNodes(pr.comments.nodes).map(c =>
     mapReviewCommentFields(c, mapReactionGroups)
   )
-  const reviews: PRReviewSummary[] = (pr.reviews.nodes || [])
+  const reviews: PRReviewSummary[] = resolveGraphQlNodes(pr.reviews.nodes)
     .filter(r => r.submittedAt && r.body)
     .map(r => ({
       id: r.id,

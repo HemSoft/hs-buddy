@@ -63,6 +63,13 @@ function processUpcomingResult(
   return { groups: buildDayGroups(data, overdueTasks, days), error: null }
 }
 
+function finalizeTodoistLoad(
+  isMounted: boolean,
+  setIsLoading: (loading: boolean) => void
+): void {
+  if (isMounted) setIsLoading(false)
+}
+
 export function useTodoistUpcoming(days: number = 7) {
   const [dayGroups, setDayGroups] = useState<DayGroup[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -86,7 +93,7 @@ export function useTodoistUpcoming(days: number = 7) {
         setError(getUserFacingErrorMessage(err, 'Failed to fetch tasks'))
       }
     } finally {
-      if (mountedRef.current) setIsLoading(false)
+      finalizeTodoistLoad(mountedRef.current, setIsLoading)
     }
   }, [days, mountedRef])
 

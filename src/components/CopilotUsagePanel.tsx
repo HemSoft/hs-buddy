@@ -5,6 +5,15 @@ import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
 import './CopilotUsagePanel.css'
 
+function resolveProjectedUsage(
+  aggregateProjections: ReturnType<typeof useCopilotUsage>['aggregateProjections']
+) {
+  return {
+    projectedTotal: aggregateProjections?.projectedTotal ?? null,
+    projectedOverageCost: aggregateProjections?.projectedOverageCost ?? null,
+  }
+}
+
 export function CopilotUsagePanel() {
   const {
     accounts,
@@ -17,14 +26,15 @@ export function CopilotUsagePanel() {
     aggregateProjections,
     orgOverageFromQuotas,
   } = useCopilotUsage()
+  const { projectedTotal, projectedOverageCost } = resolveProjectedUsage(aggregateProjections)
 
   return (
     <div className="copilot-usage-panel">
       <UsageHeader
         totalUsed={aggregateTotals.totalUsed}
         totalOverageCost={aggregateTotals.totalOverageCost}
-        projectedTotal={aggregateProjections?.projectedTotal ?? null}
-        projectedOverageCost={aggregateProjections?.projectedOverageCost ?? null}
+        projectedTotal={projectedTotal}
+        projectedOverageCost={projectedOverageCost}
         anyLoading={anyLoading}
         onRefreshAll={refreshAll}
       />

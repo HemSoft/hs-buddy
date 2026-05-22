@@ -95,6 +95,10 @@ interface BudgetProjection {
   dailySpendRate: number
 }
 
+function isOutsideBillingPeriod(asOfMs: number, periodStart: Date, periodEnd: Date): boolean {
+  return asOfMs < periodStart.getTime() || asOfMs >= periodEnd.getTime()
+}
+
 /**
  * Projects org-level budget spending to month-end based on elapsed billing period.
  * Returns null when the billing period hasn't started, has already ended,
@@ -111,7 +115,7 @@ export function computeBudgetProjection(
   const periodStart = new Date(Date.UTC(billingYear, billingMonth - 1, 1))
   const periodEnd = new Date(Date.UTC(billingYear, billingMonth, 1))
 
-  if (asOfMs < periodStart.getTime() || asOfMs >= periodEnd.getTime()) return null
+  if (isOutsideBillingPeriod(asOfMs, periodStart, periodEnd)) return null
 
   const totalMs = periodEnd.getTime() - periodStart.getTime()
   const elapsedMs = asOfMs - periodStart.getTime()

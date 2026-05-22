@@ -19,6 +19,9 @@ function computeOverageRequests(premium: { overage_count: number; remaining: num
   return Math.max(overageByCount, overageByRemaining)
 }
 
+  return computeProjection(premium, quotaData.quota_reset_date_utc)
+}
+
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
@@ -182,12 +185,7 @@ export function useCopilotUsage() {
     let hasAny = false
 
     for (const state of Object.values(quotas)) {
-      const premium = getPremiumInteractions(state)
-      if (!premium || !state.data) {
-        continue
-      }
-
-      const projection = computeProjection(premium, state.data.quota_reset_date_utc)
+      const projection = resolveQuotaProjection(state)
       /* v8 ignore start */
       if (!projection) {
         continue

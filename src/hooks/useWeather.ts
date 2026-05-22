@@ -157,6 +157,10 @@ function buildLocationName(city: string, state: string, fallback: string): strin
   return fallback
 }
 
+function getReverseGeocodedState(address?: { state?: string }): string {
+  return address?.state ?? ''
+}
+
 async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
   try {
     const resp = await fetch(
@@ -168,7 +172,7 @@ async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
         address?: { city?: string; town?: string; village?: string; state?: string }
       }
       const city = extractCity(json.address)
-      const st = json.address?.state ?? ''
+      const st = getReverseGeocodedState(json.address)
       if (city) loc.name = buildLocationName(city, st, loc.name)
     }
   } catch (_: unknown) {

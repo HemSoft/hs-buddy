@@ -26,6 +26,16 @@ function clampPct(value: number, budget: number): number {
   return Math.min((value / budget) * 100, 100)
 }
 
+function resolveMySharePct(myShare: number, effectiveBudget: number, pct: number): number | null {
+  return myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct) : null
+}
+
+function resolvePreventFurtherUsage(
+  data: NonNullable<OrgBudgetState['data']> | null
+): boolean | undefined {
+  return data?.preventFurtherUsage
+}
+
 function computeBudgetCardMetrics(
   d: NonNullable<OrgBudgetState['data']>,
   quotaOverage: number
@@ -47,7 +57,7 @@ function computeBudgetCardMetrics(
   }
 
   const pct = clampPct(barValue, effectiveBudget)
-  const mySharePct = myShare > 0 ? Math.min((myShare / effectiveBudget) * 100, pct) : null
+  const mySharePct = resolveMySharePct(myShare, effectiveBudget, pct)
   const barColor = getQuotaColor(pct)
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
 }
@@ -268,7 +278,11 @@ function BudgetCard({
 
   return (
     <div className="usage-budget-card">
-      <BudgetCardHeader org={org} loading={loading} preventFurtherUsage={d?.preventFurtherUsage} />
+      <BudgetCardHeader
+        org={org}
+        loading={loading}
+        preventFurtherUsage={resolvePreventFurtherUsage(d)}
+      />
 
       {error && !d && <BudgetCardError error={error} />}
 

@@ -36,6 +36,10 @@ const sections = [
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
+function getHoveredItemLabel(hoveredItem: string): string | undefined {
+  return hoveredItem === 'home' ? 'Dashboard' : sections.find(s => s.id === hoveredItem)?.label
+}
+
 export function ActivityBar({
   selectedSection,
   onSectionSelect,
@@ -91,7 +95,7 @@ export function ActivityBar({
       {/* Custom Tooltip */}
       {hoveredItem && tooltipPosition && (
         <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
-          {hoveredItem === 'home' ? 'Dashboard' : sections.find(s => s.id === hoveredItem)?.label}
+          {getHoveredItemLabel(hoveredItem)}
         </div>
       )}
     </div>

@@ -19,6 +19,14 @@ const filterButtons: { label: string; value: StatusFilter }[] = [
   { label: 'Cancelled', value: 'cancelled' },
 ]
 
+function getRunFilterCount(
+  value: StatusFilter,
+  totalCount: number,
+  statusCounts: Record<string, number>
+): number {
+  return value === 'all' ? totalCount : statusCounts[value as RunStatus] || 0
+}
+
 export function RunFilterBar({
   statusFilter,
   totalCount,
@@ -29,7 +37,7 @@ export function RunFilterBar({
     <div className="run-filter-bar">
       <Filter size={14} className="filter-icon" />
       {filterButtons.map(({ label, value }) => {
-        const count = value === 'all' ? totalCount : statusCounts[value as RunStatus] || 0
+        const count = getRunFilterCount(value, totalCount, statusCounts)
         return (
           <button
             key={value}

@@ -41,6 +41,10 @@ function extractDataSourceKey(taskName: string): string {
   return taskName
 }
 
+function hasNoQueuedRefreshTasks(running: string[], pending: string[]): boolean {
+  return running.length === 0 && pending.length === 0
+}
+
 /**
  * Returns a map of data-source keys to their current refresh state.
  * Polls every 200ms while mounted.
@@ -54,7 +58,7 @@ export function useRefreshIndicators(): RefreshIndicators {
       const running = queue.getRunningTaskNames()
       const pending = queue.getPendingTaskNames()
 
-      if (running.length === 0 && pending.length === 0) {
+      if (hasNoQueuedRefreshTasks(running, pending)) {
         setIndicators(prev => (Object.keys(prev).length === 0 ? prev : {}))
         return
       }

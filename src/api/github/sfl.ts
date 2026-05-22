@@ -7,6 +7,22 @@ import {
 } from '../../types/sflStatus'
 import { getOctokitForOwner } from './shared'
 
+function mapLatestWorkflowRun(latestRun: {
+  status?: string | null
+  conclusion?: string | null
+  created_at: string
+  html_url: string
+} | null): SFLWorkflowInfo['latestRun'] {
+  return latestRun
+    ? {
+        status: latestRun.status ?? 'unknown',
+        conclusion: latestRun.conclusion ?? null,
+        createdAt: latestRun.created_at,
+        url: latestRun.html_url,
+      }
+    : null
+}
+
 export async function fetchSFLStatus(
   config: PRConfig['github'],
   owner: string,
@@ -44,14 +60,7 @@ export async function fetchSFLStatus(
           id: w.id,
           name: w.name,
           state: w.state,
-          latestRun: latestRun
-            ? {
-                status: latestRun.status ?? 'unknown',
-                conclusion: latestRun.conclusion ?? null,
-                createdAt: latestRun.created_at,
-                url: latestRun.html_url,
-              }
-            : null,
+          latestRun: mapLatestWorkflowRun(latestRun),
         }
       } catch (_: unknown) {
         return { id: w.id, name: w.name, state: w.state, latestRun: null }

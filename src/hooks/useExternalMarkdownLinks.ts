@@ -15,6 +15,10 @@ function findContainedAnchor(
   return anchor
 }
 
+function getTrimmedAnchorHref(anchor: HTMLAnchorElement | null): string | undefined {
+  return anchor?.getAttribute('href')?.trim()
+}
+
 function resolveOpenableExternalHref(
   target: EventTarget | null,
   container: HTMLElement
@@ -24,7 +28,7 @@ function resolveOpenableExternalHref(
   }
 
   const anchor = findContainedAnchor(target, container)
-  const href = anchor?.getAttribute('href')?.trim()
+  const href = getTrimmedAnchorHref(anchor)
   if (!href || !isExternalProtocol(href)) {
     return null
   }

@@ -81,6 +81,26 @@ function SettingsCopilotSummary({ localAccount, localModel }: { localAccount: st
   )
 }
 
+function SaveStatusBadge({ saveStatus }: Pick<SettingsState, 'saveStatus'>) {
+  if (saveStatus !== 'saved') {
+    return null
+  }
+
+  return (
+    <span
+      style={{
+        color: 'var(--text-success, #4ec9b0)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '12px',
+      }}
+    >
+      <CheckCircle size={14} /> Saved
+    </span>
+  )
+}
+
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
 
@@ -217,19 +237,7 @@ export function SettingsCopilot() {
         <p className="settings-page-description">
           Configure the GitHub account and model used for Copilot SDK interactions.
         </p>
-        {saveStatus === 'saved' && (
-          <span
-            style={{
-              color: 'var(--text-success, #4ec9b0)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '12px',
-            }}
-          >
-            <CheckCircle size={14} /> Saved
-          </span>
-        )}
+        <SaveStatusBadge saveStatus={saveStatus} />
       </div>
 
       <div className="settings-page-content">

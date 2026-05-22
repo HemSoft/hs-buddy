@@ -121,10 +121,19 @@ function shouldSkipPublish(publishingRunId: string | null, owner?: string, repo?
   return !!publishingRunId || !owner || !repo
 }
 
+function resolvePublishTarget(
+  pr: PRDetailInfo,
+  parsed: ReturnType<typeof parseOwnerRepoFromUrl>
+): { owner: string | undefined; repo: string | undefined } {
+  return {
+    owner: pr.org || parsed?.owner,
+    repo: pr.repository || parsed?.repo,
+  }
+}
+
 function usePublishToPR(pr: PRDetailInfo) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
+  const { owner, repo } = resolvePublishTarget(pr, parsed)
   const convex = useConvex()
   const { accounts } = useGitHubAccounts()
   const [publishingRunId, setPublishingRunId] = useState<string | null>(null)

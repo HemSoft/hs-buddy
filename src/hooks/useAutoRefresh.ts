@@ -55,18 +55,22 @@ function readSettings(cardId: string, defaultInterval: number): AutoRefreshSetti
   return fallback
 }
 
+function hasValidStoredSettingsShape(parsed: AutoRefreshSettings): boolean {
+  return (
+    typeof parsed.enabled === 'boolean' &&
+    typeof parsed.intervalMinutes === 'number' &&
+    Number.isFinite(parsed.intervalMinutes) &&
+    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
+  )
+}
+
 function isStoredSettingsCorrupt(cardId: string): boolean {
   const key = `${STORAGE_PREFIX}${cardId}`
   const raw = safeGetItem(key)
   if (raw === null) return false // Key doesn't exist — nothing to repair
   const parsed = safeGetJson<AutoRefreshSettings>(key)
   if (!parsed) return true // Raw exists but parse failed — corrupt JSON
-  return !(
-    typeof parsed.enabled === 'boolean' &&
-    typeof parsed.intervalMinutes === 'number' &&
-    Number.isFinite(parsed.intervalMinutes) &&
-    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-  )
+  return !hasValidStoredSettingsShape(parsed)
 }
 
 function writeSettings(cardId: string, settings: AutoRefreshSettings) {

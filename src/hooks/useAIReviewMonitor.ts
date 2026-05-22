@@ -62,6 +62,10 @@ export function clearPendingAIReview(providerId: string, prUrl: string) {
   }
 }
 
+function isCompletedPollResult(result: PollResult | undefined): boolean {
+  return result?.status === 'completed'
+}
+
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 /* v8 ignore start — audio playback requires native IPC not available in unit tests */
 function playReviewCompleteSound() {
@@ -215,7 +219,7 @@ export function useAIReviewMonitor({
       }
 
       const handlePollResult = (result: PollResult | undefined): 'stop' | 'continue' => {
-        if (result?.status === 'completed') {
+        if (isCompletedPollResult(result)) {
           finishMonitor(sessionId, monitorPrUrl)
           return 'stop'
         }

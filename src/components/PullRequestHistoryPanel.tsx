@@ -313,6 +313,14 @@ function handleHistoryFetchError(
   setError(getErrorMessage(err))
 }
 
+function resolveHistoryOwnerRepo(prUrl: string) {
+  const ownerRepo = parseOwnerRepoFromUrl(prUrl)
+  if (!ownerRepo) {
+    throw new Error(PR_URL_PARSE_ERROR)
+  }
+  return ownerRepo
+}
+
 function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySummary) => void) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -330,10 +338,7 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
     setError(null)
 
     try {
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) {
-        throw new Error(PR_URL_PARSE_ERROR)
-      }
+      const ownerRepo = resolveHistoryOwnerRepo(pr.url)
 
       const result = await enqueueRef.current(
         async signal => {

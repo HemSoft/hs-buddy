@@ -138,6 +138,28 @@ function CronOptions({
     )
   }
 
+  return renderExtendedCronOptions({
+    frequency,
+    dayOfMonth,
+    hourSelect,
+    minuteSelect,
+    updateCron,
+  })
+}
+
+function renderExtendedCronOptions({
+  frequency,
+  dayOfMonth,
+  hourSelect,
+  minuteSelect,
+  updateCron,
+}: {
+  frequency: string
+  dayOfMonth: number
+  hourSelect: React.ReactNode
+  minuteSelect: React.ReactNode
+  updateCron: (patch: Partial<CronState>) => void
+}) {
   if (frequency === 'monthly') {
     return (
       <>
@@ -166,7 +188,7 @@ function CronOptions({
   }
 
   if (frequency === 'custom') {
-    return null // handled separately in CronBuilder
+    return null
   }
 
   return null

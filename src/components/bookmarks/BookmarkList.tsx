@@ -298,6 +298,10 @@ interface BookmarkListProps {
   onOpenTab?: (viewId: string) => void
 }
 
+function resolveBookmarkDialogValue(value: string | null): string | undefined {
+  return value ?? undefined
+}
+
 function BookmarkDialogs({
   dialogOpen,
   editingBookmark,
@@ -325,8 +329,8 @@ function BookmarkDialogs({
         <BookmarkDialog
           bookmark={editingBookmark}
           categories={categories}
-          initialUrl={droppedUrl ?? undefined}
-          initialTitle={droppedTitle ?? undefined}
+          initialUrl={resolveBookmarkDialogValue(droppedUrl)}
+          initialTitle={resolveBookmarkDialogValue(droppedTitle)}
           onClose={() => dispatch({ type: 'close-dialog' })}
         />
       )}

@@ -37,6 +37,59 @@ function getVisibilityIcon(visibility: string) {
   return <Icon size={14} />
 }
 
+function RepoLanguageBadge({ language }: { language: string | null | undefined }) {
+  if (!language) return null
+  return (
+    <span className="repo-badge repo-badge-lang">
+      <span className="lang-dot" style={{ backgroundColor: getLanguageColor(language) }} />
+      {language}
+    </span>
+  )
+}
+
+function RepoWorkflowBadge({
+  run,
+}: {
+  run: NonNullable<RepoDetail['latestWorkflowRun']>
+}) {
+  const info = getWorkflowStatusInfo(run.status, run.conclusion)
+  const StatusIcon = info.icon
+  return (
+    <span
+      className="repo-badge repo-badge-ci"
+      style={{ borderColor: info.color, color: info.color }}
+      title={`${run.name} — ${info.label}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => window.shell?.openExternal(run.url)}
+      onKeyDown={onKeyboardActivate(() => window.shell?.openExternal(run.url))}
+    >
+      {/* v8 ignore start */}
+      <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
+      {/* v8 ignore stop */}
+      {info.label}
+    </span>
+  )
+}
+
+function renderRepoDetailState(
+  detail: RepoDetail | null | undefined,
+  loading: boolean,
+  error: string | null,
+  owner: string,
+  repo: string,
+  refresh: () => void
+): React.ReactNode | null {
+  if (detail) return null
+  if (loading) {
+    return <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 function RepoBadges({ detail }: { detail: RepoDetail }) {
   return (
     <div className="repo-detail-badges">
@@ -56,47 +109,14 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
           Fork
         </span>
       )}
-      {detail.language && (
-        <span className="repo-badge repo-badge-lang">
-          <span
-            className="lang-dot"
-            style={{ backgroundColor: getLanguageColor(detail.language) }}
-          />
-          {detail.language}
-        </span>
-      )}
+      <RepoLanguageBadge language={detail.language} />
       {detail.license && (
         <span className="repo-badge repo-badge-license">
           <Scale size={12} />
           {detail.license}
         </span>
       )}
-      {detail.latestWorkflowRun &&
-        (() => {
-          const info = getWorkflowStatusInfo(
-            detail.latestWorkflowRun.status,
-            detail.latestWorkflowRun.conclusion
-          )
-          const StatusIcon = info.icon
-          return (
-            <span
-              className="repo-badge repo-badge-ci"
-              style={{ borderColor: info.color, color: info.color }}
-              title={`${detail.latestWorkflowRun.name} — ${info.label}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
-              onKeyDown={onKeyboardActivate(() =>
-                window.shell?.openExternal(detail.latestWorkflowRun!.url)
-              )}
-            >
-              {/* v8 ignore start */}
-              <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
-              {/* v8 ignore stop */}
-              {info.label}
-            </span>
-          )
-        })()}
+      {detail.latestWorkflowRun && <RepoWorkflowBadge run={detail.latestWorkflowRun} />}
     </div>
   )
 }
@@ -163,17 +183,12 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
     return () => clearInterval(timer)
   }, [refreshInterval, refresh])
 
-  if (!detail) {
-    if (loading) {
-      return (
-        <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
-    }
-    return null
+  const detailState = renderRepoDetailState(detail, loading, error, owner, repo, refresh)
+  if (detailState) {
+    return detailState
   }
+
+  if (!detail) return null
 
   return (
     <div className="repo-detail-container">

@@ -263,40 +263,56 @@ function requireNumericArg(args: string[], index: number, flag: string, min: num
   return value
 }
 
+function applyMemoryMonitorArg(
+  args: string[],
+  index: number,
+  state: { cycles: number; warmupCycles: number; thresholdMB: number }
+): { nextIndex: number; shouldExit: boolean } {
+  switch (args[index]) {
+    case '--cycles':
+      state.cycles = requireNumericArg(args, index + 1, '--cycles', 1)
+      return { nextIndex: index + 1, shouldExit: false }
+    case '--warmup':
+      state.warmupCycles = requireNumericArg(args, index + 1, '--warmup', 0)
+      return { nextIndex: index + 1, shouldExit: false }
+    case '--threshold':
+      state.thresholdMB = requireNumericArg(args, index + 1, '--threshold', 0)
+      return { nextIndex: index + 1, shouldExit: false }
+    case '--help':
+      console.log(
+        [
+          'Usage: bun perf/memory-monitor.ts [options]',
+          '',
+          'Options:',
+          '  --cycles <n>     Number of measurement cycles (default: 50)',
+          '  --warmup <n>     Warmup cycles before measurement (default: 5)',
+          '  --threshold <MB> Heap growth threshold in MB (default: 5)',
+          '  --help           Show this help message',
+        ].join('\n')
+      )
+      return { nextIndex: index, shouldExit: true }
+    default:
+      return { nextIndex: index, shouldExit: false }
+  }
+}
+
 function parseCliArgs(): { cycles: number; warmupCycles: number; thresholdMB: number } | null {
   const args = process.argv.slice(2)
-  let cycles = 50
-  let warmupCycles = 5
-  let thresholdMB = 5
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--cycles':
-        cycles = requireNumericArg(args, ++i, '--cycles', 1)
-        break
-      case '--warmup':
-        warmupCycles = requireNumericArg(args, ++i, '--warmup', 0)
-        break
-      case '--threshold':
-        thresholdMB = requireNumericArg(args, ++i, '--threshold', 0)
-        break
-      case '--help':
-        console.log(
-          [
-            'Usage: bun perf/memory-monitor.ts [options]',
-            '',
-            'Options:',
-            '  --cycles <n>     Number of measurement cycles (default: 50)',
-            '  --warmup <n>     Warmup cycles before measurement (default: 5)',
-            '  --threshold <MB> Heap growth threshold in MB (default: 5)',
-            '  --help           Show this help message',
-          ].join('\n')
-        )
-        return null
-    }
+  const parsed = {
+    cycles: 50,
+    warmupCycles: 5,
+    thresholdMB: 5,
   }
 
-  return { cycles, warmupCycles, thresholdMB }
+  for (let i = 0; i < args.length; i++) {
+    const { nextIndex, shouldExit } = applyMemoryMonitorArg(args, i, parsed)
+    if (shouldExit) {
+      return null
+    }
+    i = nextIndex
+  }
+
+  return parsed
 }
 
 async function main(): Promise<void> {

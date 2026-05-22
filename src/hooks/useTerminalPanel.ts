@@ -35,6 +35,24 @@ async function resolveRepoCwd(owner: string, repo: string): Promise<string> {
   }
 }
 
+function resolveSettledBoolean(result: PromiseSettledResult<boolean>): boolean | undefined {
+  return result.status === 'fulfilled' && typeof result.value === 'boolean' ? result.value : undefined
+}
+
+function resolveSettledNumber(result: PromiseSettledResult<number>): number | undefined {
+  return result.status === 'fulfilled' && typeof result.value === 'number' ? result.value : undefined
+}
+
+function resolveRepoSlugParts(repoSlug?: string): { owner: string; repo: string } | null {
+  if (!repoSlug) return null
+  const [owner, repo] = repoSlug.split('/')
+  return owner && repo ? { owner, repo } : null
+}
+
+function getActiveRepoContext(activeViewId?: string | null): RepoContext | null {
+  return activeViewId ? getRepoContextFromViewId(activeViewId) : null
+}
+
 export interface TerminalTab {
   id: string
   title: string
@@ -93,11 +111,13 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       /* v8 ignore start */
       if (cancelled) return
       /* v8 ignore stop */
-      if (openResult.status === 'fulfilled' && typeof openResult.value === 'boolean') {
-        setTerminalOpen(openResult.value)
+      const open = resolveSettledBoolean(openResult)
+      if (open !== undefined) {
+        setTerminalOpen(open)
       }
-      if (heightResult.status === 'fulfilled' && typeof heightResult.value === 'number') {
-        setPanelHeight(clampPanelHeight(heightResult.value))
+      const height = resolveSettledNumber(heightResult)
+      if (height !== undefined) {
+        setPanelHeight(clampPanelHeight(height))
       }
       setLoaded(true)
     })
@@ -138,15 +158,13 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         savedTabs.map(async saved => {
           let cwd = saved.cwd
           // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
-          if (saved.repoSlug) {
-            const [owner, repo] = saved.repoSlug.split('/')
-            if (owner && repo) {
-              try {
-                const result = await window.terminal.resolveRepoPath(owner, repo)
-                if (result.path) cwd = result.path
-              } catch (_: unknown) {
-                /* keep saved cwd */
-              }
+          const repoTarget = resolveRepoSlugParts(saved.repoSlug)
+          if (repoTarget) {
+            try {
+              const result = await window.terminal.resolveRepoPath(repoTarget.owner, repoTarget.repo)
+              if (result.path) cwd = result.path
+            } catch (_: unknown) {
+              /* keep saved cwd */
             }
           }
           return {
@@ -258,7 +276,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       if (!next) return
 
       const currentTabs = terminalTabsRef.current
-      const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+      const repoContext = getActiveRepoContext(activeViewId)
 
       if (currentTabs.length === 0) {
         void addTerminalTab(repoContext)

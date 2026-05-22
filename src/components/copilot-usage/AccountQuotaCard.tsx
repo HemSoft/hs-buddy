@@ -131,6 +131,14 @@ function QuotaFooter({
   )
 }
 
+function resolveProjectedPercent(projection: ReturnType<typeof computeProjection>): number | undefined {
+  return projection?.projectedPercent
+}
+
+function shouldShowQuotaError(state: AccountQuotaState): boolean {
+  return !!state.error && !state.data
+}
+
 function QuotaDataView({
   state,
   data,
@@ -162,7 +170,7 @@ function QuotaDataView({
       <div className="usage-account-body">
         <UsageRing
           percentUsed={metrics.percentUsed}
-          projectedPercent={projection?.projectedPercent}
+          projectedPercent={resolveProjectedPercent(projection)}
           size={110}
           strokeWidth={9}
         />
@@ -246,7 +254,7 @@ export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardP
   const state = rawState ?? INITIAL_QUOTA_STATE
   const quotaView = prepareQuotaViewData(state)
   const showLoading = isLoadingWithoutData(state.loading, state.data)
-  const showError = !!state.error && !state.data
+  const showError = shouldShowQuotaError(state)
 
   return (
     <div className="usage-account-card">

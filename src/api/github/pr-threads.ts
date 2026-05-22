@@ -30,6 +30,12 @@ export function groupPrsByOwner<T extends { _owner: string }>(prs: T[]): Map<str
 
 /* v8 ignore start -- GraphQL thread counting; requires real API */
 
+function collectThreadNodes(
+  nodes: Array<{ isResolved: boolean }> | null | undefined
+): Array<{ isResolved: boolean }> {
+  return [...(nodes || [])]
+}
+
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
 async function fetchThreadPage(
   owner: string,
@@ -71,13 +77,13 @@ async function paginateReviewThreads(
   },
   token: string
 ): Promise<Array<{ isResolved: boolean }>> {
-  const allNodes = [...(firstPage.nodes || [])]
+  const allNodes = collectThreadNodes(firstPage.nodes)
   let { hasNextPage, endCursor } = firstPage.pageInfo
 
   while (hasNextPage && endCursor) {
     const pageThreads = await fetchThreadPage(owner, repo, prNumber, endCursor, token)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes || []))
+    allNodes.push(...collectThreadNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }

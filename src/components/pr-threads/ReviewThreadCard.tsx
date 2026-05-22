@@ -126,6 +126,25 @@ function ThreadReplyForm({
   )
 }
 
+function getResolveActionIcon(thread: PRReviewThread, resolving: boolean) {
+  return resolving ? (
+    <Loader2 size={13} className="spin" />
+  ) : thread.isResolved ? (
+    <RotateCcw size={13} />
+  ) : (
+    <Check size={13} />
+  )
+}
+
+function getResolveActionPresentation(thread: PRReviewThread, resolving: boolean) {
+  return {
+    icon: getResolveActionIcon(thread, resolving),
+    label: thread.isResolved ? 'Unresolve' : 'Resolve conversation',
+    title: thread.isResolved ? 'Unresolve conversation' : 'Resolve conversation',
+    className: `thread-resolve-btn ${thread.isResolved ? 'unresolve' : 'resolve'}`,
+  }
+}
+
 function ThreadActionRow({
   thread,
   resolving,
@@ -137,13 +156,7 @@ function ThreadActionRow({
   dispatch: React.Dispatch<ThreadAction>
   handleResolveToggle: () => void
 }) {
-  const resolveIcon = resolving ? (
-    <Loader2 size={13} className="spin" />
-  ) : thread.isResolved ? (
-    <RotateCcw size={13} />
-  ) : (
-    <Check size={13} />
-  )
+  const resolveAction = getResolveActionPresentation(thread, resolving)
 
   return (
     <div className="thread-action-row">
@@ -152,13 +165,13 @@ function ThreadActionRow({
         Reply
       </button>
       <button
-        className={`thread-resolve-btn ${thread.isResolved ? 'unresolve' : 'resolve'}`}
+        className={resolveAction.className}
         onClick={handleResolveToggle}
         disabled={resolving}
-        title={thread.isResolved ? 'Unresolve conversation' : 'Resolve conversation'}
+        title={resolveAction.title}
       >
-        {resolveIcon}
-        {thread.isResolved ? 'Unresolve' : 'Resolve conversation'}
+        {resolveAction.icon}
+        {resolveAction.label}
       </button>
     </div>
   )

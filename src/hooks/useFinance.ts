@@ -65,6 +65,13 @@ function writeWatchlist(symbols: string[]) {
   safeSetJson(WATCHLIST_KEY, symbols)
 }
 
+function hasSameWatchlistValues(nextWatchlist: string[], currentWatchlist: string[]): boolean {
+  return (
+    nextWatchlist.length === currentWatchlist.length &&
+    nextWatchlist.every((symbol, index) => symbol === currentWatchlist[index])
+  )
+}
+
 function sanitizeWatchlist(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null
   const cleaned = raw
@@ -229,7 +236,7 @@ export function useFinance() {
         if (sanitized === null) return
         const current = watchlistRef.current
         // Skip update if values match to avoid unnecessary refresh
-        if (sanitized.length === current.length && sanitized.every((s, i) => s === current[i])) {
+        if (hasSameWatchlistValues(sanitized, current)) {
           return
         }
         writeWatchlist(sanitized)

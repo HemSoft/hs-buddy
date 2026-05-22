@@ -271,6 +271,32 @@ function getTypeIcon(isDir: boolean, expanded: boolean) {
   return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
 }
 
+function renderTreeNodeChildren({
+  isDir,
+  node,
+  depth,
+  onToggle,
+  onFileClick,
+  selectedFile,
+}: {
+  isDir: boolean
+  node: TreeNode
+  depth: number
+  onToggle: (path: string) => void
+  onFileClick: (path: string) => void
+  selectedFile?: string
+}) {
+  return isDir && node.expanded && node.children ? (
+    <TreeNodeList
+      nodes={node.children}
+      depth={depth + 1}
+      onToggle={onToggle}
+      onFileClick={onFileClick}
+      selectedFile={selectedFile}
+    />
+  ) : null
+}
+
 function TreeNodeItem({
   node,
   depth,
@@ -334,15 +360,14 @@ function TreeNodeItem({
           {node.name}
         </span>
       </div>
-      {isDir && node.expanded && node.children && (
-        <TreeNodeList
-          nodes={node.children}
-          depth={depth + 1}
-          onToggle={onToggle}
-          onFileClick={onFileClick}
-          selectedFile={selectedFile}
-        />
-      )}
+      {renderTreeNodeChildren({
+        isDir,
+        node,
+        depth,
+        onToggle,
+        onFileClick,
+        selectedFile,
+      })}
     </li>
   )
 }

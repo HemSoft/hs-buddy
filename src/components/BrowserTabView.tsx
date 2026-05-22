@@ -22,6 +22,23 @@ type BrowserTabAction =
   | { type: 'start-loading' }
   | { type: 'stop-loading' }
 
+type WebviewInput = {
+  type: string
+  key: string
+  control: boolean
+  meta: boolean
+  shift: boolean
+}
+
+const WEBVIEW_SHORTCUTS: Record<string, (shift: boolean) => string> = {
+  Tab: shift => (shift ? 'app:tab-prev' : 'app:tab-next'),
+  F4: () => 'app:tab-close',
+}
+
+function isWebviewShortcutInput(input: WebviewInput | undefined): input is WebviewInput {
+  return !!input && input.type === 'keyDown' && (input.control || input.meta)
+}
+
 function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): BrowserTabState {
   switch (action.type) {
     case 'navigate':
@@ -99,24 +116,9 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       }
     }
 
-    type WebviewInput = {
-      type: string
-      key: string
-      control: boolean
-      meta: boolean
-      shift: boolean
-    }
-
-    const WEBVIEW_SHORTCUTS: Record<string, (shift: boolean) => string> = {
-      Tab: shift => (shift ? 'app:tab-prev' : 'app:tab-next'),
-      F4: () => 'app:tab-close',
-    }
-
     const handleBeforeInput = (event: Event) => {
       const input = (event as Event & { input?: WebviewInput }).input
-      if (!input || input.type !== 'keyDown') return
-      const ctrlOrCmd = input.control || input.meta
-      if (!ctrlOrCmd) return
+      if (!isWebviewShortcutInput(input)) return
       const eventName = WEBVIEW_SHORTCUTS[input.key]
       if (!eventName) return
       event.preventDefault()

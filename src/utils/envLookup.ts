@@ -34,6 +34,23 @@ export function buildPowershellEnvCommand(name: string): string {
 /** Dependency-injected shell executor for resolveEnvVar. */
 type ExecSyncFn = (command: string) => string
 
+function readWindowsMachineEnvVar(
+  name: string,
+  cache: Map<string, string>,
+  execSyncFn: ExecSyncFn
+): string | undefined {
+  try {
+    const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
+    if (val) {
+      cache.set(name, val)
+      return val
+    }
+  } catch (_: unknown) {
+    /* fall through to process.env */
+  }
+  return undefined
+}
+
 /**
  * Resolve an environment variable with optional Windows Machine-scope lookup.
  *
@@ -51,14 +68,9 @@ export function resolveEnvVar(
   if (cache.has(name)) return cache.get(name)
 
   if (shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
-    try {
-      const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
-      if (val) {
-        cache.set(name, val)
-        return val
-      }
-    } catch (_: unknown) {
-      /* fall through to process.env */
+    const machineValue = readWindowsMachineEnvVar(name, cache, execSyncFn)
+    if (machineValue) {
+      return machineValue
     }
   }
 

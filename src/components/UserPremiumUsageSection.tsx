@@ -402,6 +402,16 @@ function renderQuotaGuard(
   return null
 }
 
+function resolveQuotaPremiumSnapshot(
+  data: QuotaData
+): QuotaData['quota_snapshots']['premium_interactions'] | undefined {
+  return data.quota_snapshots?.premium_interactions
+}
+
+function resolveSeatPayload(data: SeatData | null | undefined): SeatData | null {
+  return data ?? null
+}
+
 function QuotaView({ username, org }: { username: string; org: string }) {
   const fetchRef = useRef(0)
   const [state, dispatch] = useReducer(quotaReducer, initQuotaState(username))
@@ -463,7 +473,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   if (guard) return guard
   if (!data) return null
 
-  const quotaPremium = data.quota_snapshots?.premium_interactions
+  const quotaPremium = resolveQuotaPremiumSnapshot(data)
   if (!quotaPremium) return null
 
   const metrics = computeQuotaViewMetrics(quotaPremium, data.quota_reset_date_utc)
@@ -561,8 +571,9 @@ function SeatView({
         if (id !== fetchRef.current) return
         /* v8 ignore stop */
         if (result.success) {
-          seatCache.set(cacheKey, { data: result.data ?? null, fetchedAt: Date.now() })
-          dispatch({ type: 'FETCH_SUCCESS', payload: result.data ?? null })
+          const seatData = resolveSeatPayload(result.data)
+          seatCache.set(cacheKey, { data: seatData, fetchedAt: Date.now() })
+          dispatch({ type: 'FETCH_SUCCESS', payload: seatData })
         } else {
           dispatch({ type: 'FETCH_ERROR', payload: result.error || 'Failed to load' })
         }

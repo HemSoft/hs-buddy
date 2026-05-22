@@ -28,6 +28,12 @@ const workers: Record<string, Worker> = {
   skill: skillWorker,
 }
 
+function hasSnapshotCollectionAccounts(
+  accounts: Array<{ username: string; org: string }> | undefined
+): accounts is Array<{ username: string; org: string }> {
+  return Array.isArray(accounts) && accounts.length > 0
+}
+
 class Dispatcher {
   private client: ConvexHttpClient
   private timer: ReturnType<typeof setInterval> | null = null
@@ -198,7 +204,7 @@ class Dispatcher {
     input?: { accounts?: Array<{ username: string; org: string }> }
   }): Promise<void> {
     const accounts = run.input?.accounts as Array<{ username: string; org: string }> | undefined
-    if (!accounts || accounts.length === 0) {
+    if (!hasSnapshotCollectionAccounts(accounts)) {
       await this.client.mutation(api.runs.fail, {
         id: run._id,
         error: 'No accounts provided for snapshot collection',

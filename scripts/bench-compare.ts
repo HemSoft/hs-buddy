@@ -307,6 +307,35 @@ function parseThresholdArg(raw: string): number {
   return parsed
 }
 
+function applyBenchCompareArg(
+  args: string[],
+  index: number,
+  state: { baselinePath: string; currentPath: string; threshold: number; update: boolean }
+): number {
+  switch (args[index]) {
+    case '--baseline': {
+      const val = requireArgValue(args, index, '--baseline')
+      state.baselinePath = resolve(ROOT, val)
+      return index + 1
+    }
+    case '--current': {
+      const val = requireArgValue(args, index, '--current')
+      state.currentPath = resolve(ROOT, val)
+      return index + 1
+    }
+    case '--threshold': {
+      const raw = requireArgValue(args, index, '--threshold')
+      state.threshold = parseThresholdArg(raw)
+      return index + 1
+    }
+    case '--update':
+      state.update = true
+      return index
+    default:
+      return index
+  }
+}
+
 function parseArgs(): {
   baselinePath: string
   currentPath: string
@@ -314,38 +343,18 @@ function parseArgs(): {
   update: boolean
 } {
   const args = process.argv.slice(2)
-  let baselinePath = DEFAULT_BASELINE_PATH
-  let currentPath = DEFAULT_CURRENT_PATH
-  let threshold = DEFAULT_THRESHOLD
-  let update = false
-
-  for (let i = 0; i < args.length; i++) {
-    switch (args[i]) {
-      case '--baseline': {
-        const val = requireArgValue(args, i, '--baseline')
-        baselinePath = resolve(ROOT, val)
-        i++
-        break
-      }
-      case '--current': {
-        const val = requireArgValue(args, i, '--current')
-        currentPath = resolve(ROOT, val)
-        i++
-        break
-      }
-      case '--threshold': {
-        const raw = requireArgValue(args, i, '--threshold')
-        i++
-        threshold = parseThresholdArg(raw)
-        break
-      }
-      case '--update':
-        update = true
-        break
-    }
+  const parsed = {
+    baselinePath: DEFAULT_BASELINE_PATH,
+    currentPath: DEFAULT_CURRENT_PATH,
+    threshold: DEFAULT_THRESHOLD,
+    update: false,
   }
 
-  return { baselinePath, currentPath, threshold, update }
+  for (let i = 0; i < args.length; i++) {
+    i = applyBenchCompareArg(args, i, parsed)
+  }
+
+  return parsed
 }
 
 function handleUpdateMode(currentPath: string, baselinePath: string): void {

@@ -82,6 +82,20 @@ function computeCacheAges(modes: readonly string[]): { oldestAge: number; latest
   return { oldestAge, latestRefresh }
 }
 
+function resolveBackgroundCountdown(
+  phase: SyncPhase,
+  remainingSecs: number
+): Pick<BackgroundStatus, 'nextRefreshSecs' | 'nextRefreshLabel'> {
+  if (phase === 'syncing') {
+    return { nextRefreshSecs: null, nextRefreshLabel: null }
+  }
+
+  return {
+    nextRefreshSecs: remainingSecs,
+    nextRefreshLabel: formatSecondsCountdown(remainingSecs),
+  }
+}
+
 export function useBackgroundStatus(): BackgroundStatus {
   const { refreshInterval } = usePRSettings()
   const [status, setStatus] = useState<BackgroundStatus>({
@@ -110,13 +124,13 @@ export function useBackgroundStatus(): BackgroundStatus {
       const remainingSecs = Math.ceil(remaining / 1000)
 
       const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
+      const countdown = resolveBackgroundCountdown(phase, remainingSecs)
 
       setStatus({
         phase,
         activeLabel,
         activeTasks,
-        nextRefreshSecs: phase === 'syncing' ? null : remainingSecs,
-        nextRefreshLabel: phase === 'syncing' ? null : formatSecondsCountdown(remainingSecs),
+        ...countdown,
         lastRefreshedAt: latestRefresh || null,
         lastRefreshedLabel: latestRefresh ? formatDistanceToNow(latestRefresh) : null,
       })

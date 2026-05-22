@@ -533,20 +533,33 @@ function resolveCategory(state: BookmarkDialogState): string {
   return (state.useNewCategory ? state.newCategory : state.category).trim()
 }
 
+function hasTooManyBookmarkTags(tagsInput: string): boolean {
+  return tagsInput.split(',').filter(t => t.trim()).length > MAX_BOOKMARK_TAGS
+}
+
+function validateRequiredBookmarkFields(
+  trimmedUrl: string,
+  trimmedTitle: string,
+  resolvedCategory: string
+): string | null {
+  if (!trimmedUrl) return 'URL is required'
+  if (!trimmedTitle) return 'Title is required'
+  if (!resolvedCategory) return 'Category is required'
+  return null
+}
+
 function validateBookmarkForm(state: BookmarkDialogState): string | null {
   const trimmedUrl = state.url.trim()
   const trimmedTitle = state.title.trim()
   const resolvedCategory = resolveCategory(state)
 
-  if (!trimmedUrl) return 'URL is required'
-  if (!trimmedTitle) return 'Title is required'
-  if (!resolvedCategory) return 'Category is required'
+  const requiredError = validateRequiredBookmarkFields(trimmedUrl, trimmedTitle, resolvedCategory)
+  if (requiredError) return requiredError
 
   const urlError = validateUrlProtocol(trimmedUrl)
   if (urlError) return urlError
 
-  const tags = state.tagsInput.split(',').filter(t => t.trim())
-  if (tags.length > MAX_BOOKMARK_TAGS) return 'Maximum 50 tags allowed'
+  if (hasTooManyBookmarkTags(state.tagsInput)) return 'Maximum 50 tags allowed'
 
   return null
 }
@@ -558,14 +571,28 @@ function stripMarkdownCodeBlocks(text: string): string {
     .trim()
 }
 
+function resolveSuggestedDescription(
+  description: string | undefined,
+  userEditedDescription: boolean
+): { description?: string } {
+  return description && !userEditedDescription ? { description } : {}
+}
+
+function resolveSuggestedTagsInput(
+  tags: string[] | undefined,
+  userEditedTags: boolean
+): { tagsInput?: string } {
+  return tags?.length && !userEditedTags ? { tagsInput: tags.join(', ') } : {}
+}
+
 function pickUneditedFields(
   parsed: { description?: string; tags?: string[] },
   userEditedDescription: boolean,
   userEditedTags: boolean
 ): { description?: string; tagsInput?: string } {
   return {
-    ...(parsed.description && !userEditedDescription && { description: parsed.description }),
-    ...(parsed.tags?.length && !userEditedTags && { tagsInput: parsed.tags.join(', ') }),
+    ...resolveSuggestedDescription(parsed.description, userEditedDescription),
+    ...resolveSuggestedTagsInput(parsed.tags, userEditedTags),
   }
 }
 

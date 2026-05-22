@@ -36,6 +36,16 @@ interface ExpandableFileListProps {
   resetKey: string
 }
 
+function handleExpandableFileKeyDown(
+  event: { key: string; preventDefault: () => void },
+  onToggle: () => void
+) {
+  if (event.key === 'Enter' || event.key === ' ') {
+    event.preventDefault()
+    onToggle()
+  }
+}
+
 export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps) {
   const { has: isFileExpanded, toggle: toggleFile, reset: resetExpanded } = useToggleSet()
 
@@ -57,12 +67,7 @@ export function ExpandableFileList({ files, resetKey }: ExpandableFileListProps)
           <div
             className="repo-commit-file-header repo-commit-file-toggle"
             onClick={() => toggleFile(file.filename)}
-            onKeyDown={event => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault()
-                toggleFile(file.filename)
-              }
-            }}
+            onKeyDown={event => handleExpandableFileKeyDown(event, () => toggleFile(file.filename))}
             role="button"
             tabIndex={0}
             aria-expanded={isFileExpanded(file.filename)}

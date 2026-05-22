@@ -16,6 +16,10 @@ import '../shared/ListView.css'
 
 type RunStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 
+function renderRunListConfirmDialog(confirmDialog: ReturnType<typeof useConfirm>['confirmDialog']) {
+  return confirmDialog ? <ConfirmDialog {...confirmDialog} /> : null
+}
+
 export function RunList() {
   const runs = useRecentRuns(100)
   const { cancel, cleanup } = useRunMutations()
@@ -185,7 +189,7 @@ export function RunList() {
           )}
         </div>
       </div>
-      {confirmDialog && <ConfirmDialog {...confirmDialog} />}
+      {renderRunListConfirmDialog(confirmDialog)}
     </>
   )
 }

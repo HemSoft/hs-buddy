@@ -87,6 +87,10 @@ function buildRepoOptions(
   return { options: opts, selectGroups: groupByFolder(sorted) }
 }
 
+function isRepoPickerDisabled(disabled: boolean, loading: boolean): boolean {
+  return disabled || loading
+}
+
 function SelectVariant({
   id,
   value,
@@ -117,7 +121,7 @@ function SelectVariant({
         value={value}
         onChange={e => onChange(e.target.value)}
         className="settings-select"
-        disabled={disabled || loading}
+        disabled={isRepoPickerDisabled(disabled, loading)}
       >
         {allowNone && <option value="">{placeholder}</option>}
         {selectGroups.map(group => (

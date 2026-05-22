@@ -52,6 +52,32 @@ export function getCloneRoots(platform: string, home: string): string[] {
 
 const MAX_OSC_BUFFER = 512
 
+function normalizeOsc7Path(rawPath: string): string {
+  return /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
+}
+
+function resolvePtySize(opts: { cols?: number; rows?: number }): { cols: number; rows: number } {
+  return {
+    cols: opts.cols || 120,
+    rows: opts.rows || 30,
+  }
+}
+
+function findRepoPathInRoot(
+  root: string,
+  orgCandidates: string[],
+  repo: string,
+  isValidDir: (dir: string) => boolean
+): string | null {
+  for (const org of orgCandidates) {
+    const candidate = path.join(root, org, repo)
+    if (isValidDir(candidate)) return candidate
+  }
+
+  const directCandidate = path.join(root, repo)
+  return isValidDir(directCandidate) ? directCandidate : null
+}
+
 /**
  * Process OSC 7 CWD sequences from a terminal output buffer.
  *
@@ -87,8 +113,7 @@ export function processOsc7Buffer(
   try {
     const rawPath = lastMatch[1]
     // On Windows, file:///C:/... yields /C:/...; strip the leading slash to get C:/...
-    const normalizedPath = /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
-    const cwd = decodeURIComponent(normalizedPath)
+    const cwd = decodeURIComponent(normalizeOsc7Path(rawPath))
     return { cwd, remainingBuffer }
   } catch (_: unknown) {
     return { cwd: null, remainingBuffer }
@@ -105,10 +130,11 @@ export function buildPtySpawnOptions(
   env: Record<string, string | undefined>,
   platform: string
 ): Record<string, unknown> {
+  const { cols, rows } = resolvePtySize(opts)
   return {
     name: 'xterm-256color',
-    cols: opts.cols || 120,
-    rows: opts.rows || 30,
+    cols,
+    rows,
     cwd,
     env: {
       ...env,
@@ -135,13 +161,8 @@ export function findRepoPath(
   for (const root of cloneRoots) {
     if (!isValidDir(root)) continue
 
-    for (const org of orgCandidates) {
-      const candidate = path.join(root, org, repo)
-      if (isValidDir(candidate)) return candidate
-    }
-
-    const directCandidate = path.join(root, repo)
-    if (isValidDir(directCandidate)) return directCandidate
+    const candidate = findRepoPathInRoot(root, orgCandidates, repo, isValidDir)
+    if (candidate) return candidate
   }
 
   return null

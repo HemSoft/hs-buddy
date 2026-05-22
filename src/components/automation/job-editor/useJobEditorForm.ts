@@ -110,6 +110,13 @@ function resolveOptionalText(value: string): string | undefined {
   return value.trim() || undefined
 }
 
+function resolveEditorSource(
+  existingJob: UseJobEditorFormSource | null | undefined,
+  duplicateFrom: UseJobEditorFormSource | null | undefined
+): UseJobEditorFormSource | undefined {
+  return existingJob || duplicateFrom || undefined
+}
+
 async function persistJob({
   create,
   update,
@@ -191,7 +198,7 @@ export function useJobEditorForm(
   }, [defaultGhAccount, defaultModel, isEditing, duplicateFrom])
 
   useEffect(() => {
-    const source = existingJob || duplicateFrom
+    const source = resolveEditorSource(existingJob, duplicateFrom)
     if (source) {
       setName(duplicateFrom ? `${source.name} (Copy)` : source.name)
       setDescription(source.description || '')

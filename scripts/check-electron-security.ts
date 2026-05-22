@@ -37,6 +37,10 @@ interface Finding {
 const findings: Finding[] = []
 const electronDir = join(process.cwd(), 'electron')
 
+function isSourceFile(fullPath: string): boolean {
+  return fullPath.endsWith('.ts') || fullPath.endsWith('.js')
+}
+
 function walkDir(dir: string): string[] {
   const files: string[] = []
   for (const entry of readdirSync(dir)) {
@@ -44,7 +48,7 @@ function walkDir(dir: string): string[] {
     if (statSync(full).isDirectory()) {
       if (entry === 'node_modules') continue
       files.push(...walkDir(full))
-    } else if (full.endsWith('.ts') || full.endsWith('.js')) {
+    } else if (isSourceFile(full)) {
       files.push(full)
     }
   }
@@ -175,6 +179,13 @@ function resolveRuleContext(
   return lines.slice(Math.max(0, i - size), i + size).join('\n')
 }
 
+function shouldSkipCommentedRuleMatch(
+  rule: (typeof securityRules)[number],
+  line: string
+): boolean {
+  return !!rule.skipComments && isCommentLine(line)
+}
+
 function checkRuleAgainstLine(
   rule: (typeof securityRules)[number],
   line: string,
@@ -183,7 +194,7 @@ function checkRuleAgainstLine(
   rel: string
 ): void {
   if (!rule.pattern.test(line)) return
-  if (rule.skipComments && isCommentLine(line)) return
+  if (shouldSkipCommentedRuleMatch(rule, line)) return
   const context = resolveRuleContext(rule, lines, i)
   if (context !== null && !rule.contextCheck!(context)) return
   findings.push({
@@ -276,6 +287,10 @@ function findMatchingClose(content: string, startIdx: number): number {
  * detection. This tool is defense-in-depth; code review remains the primary
  * gate for security-critical changes.
  */
+function shouldReportInsecureSetting(setting: InsecureSettingDef, block: string): boolean {
+  return setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)
+}
+
 function checkBrowserWindowBlocks(filePath: string): void {
   const content = readFileSync(filePath, 'utf-8')
   const rel = relative(process.cwd(), filePath)
@@ -289,7 +304,7 @@ function checkBrowserWindowBlocks(filePath: string): void {
     const lineNum = content.slice(0, match.index).split('\n').length
 
     for (const setting of insecureSettings) {
-      if (setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)) {
+      if (shouldReportInsecureSetting(setting, block)) {
         findings.push({
           file: rel,
           line: lineNum,

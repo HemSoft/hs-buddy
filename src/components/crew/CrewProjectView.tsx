@@ -51,6 +51,12 @@ interface SessionErrorBannerProps {
   status: CrewSession['status']
 }
 
+type CopilotChatResponse = string | { content?: string | null } | null | undefined
+
+function resolveCopilotResponseContent(response: CopilotChatResponse): string {
+  return typeof response === 'string' ? response : (response?.content ?? 'No response received.')
+}
+
 function ProjectHeader({ project }: ProjectHeaderProps) {
   return (
     <div
@@ -344,8 +350,7 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
             content: m.content,
           })) ?? [],
       })
-      const responseContent =
-        typeof response === 'string' ? response : (response?.content ?? 'No response received.')
+      const responseContent = resolveCopilotResponseContent(response)
 
       const assistantMsg: CrewChatMessage = {
         role: 'assistant',

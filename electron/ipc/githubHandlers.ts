@@ -245,6 +245,37 @@ async function fetchPersonalAccountSpend(
   }
 }
 
+async function resolveEnterpriseBudgetFallback(
+  org: string,
+  budgetAmount: number | null,
+  preventFurtherUsage: boolean,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ budgetAmount: number | null; preventFurtherUsage: boolean }> {
+  if (budgetAmount !== null) {
+    return { budgetAmount, preventFurtherUsage }
+  }
+
+  try {
+    const match = await findBudgetAcrossPages(async page => {
+      const entResult = await execAsync(
+        `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+        { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+      )
+      return JSON.parse(entResult.stdout.trim())
+    }, org)
+    if (!match) {
+      return { budgetAmount, preventFurtherUsage }
+    }
+    return {
+      budgetAmount: match.budget_amount,
+      preventFurtherUsage: match.prevent_further_usage,
+    }
+  } catch (entError: unknown) {
+    console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
+    return { budgetAmount, preventFurtherUsage }
+  }
+}
+
 /** Fetch budget + spend for an org via billing APIs, with enterprise budget fallback. */
 async function fetchOrgBudgetAndSpend(
   org: string,
@@ -278,23 +309,12 @@ async function fetchOrgBudgetAndSpend(
   }
 
   // Fall back to enterprise-level budget if still no copilot budget found
-  if (budgetAmount === null) {
-    try {
-      const match = await findBudgetAcrossPages(async page => {
-        const entResult = await execAsync(
-          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-        )
-        return JSON.parse(entResult.stdout.trim())
-      }, org)
-      if (match) {
-        budgetAmount = match.budget_amount
-        preventFurtherUsage = match.prevent_further_usage
-      }
-    } catch (entError: unknown) {
-      console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
-    }
-  }
+  ;({ budgetAmount, preventFurtherUsage } = await resolveEnterpriseBudgetFallback(
+    org,
+    budgetAmount,
+    preventFurtherUsage,
+    execEnv
+  ))
 
   const spent = extractUsageSpend(usageResult)
   let spentError: string | null = null
@@ -379,6 +399,39 @@ function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
     createdAt: toNullableString(seat.created_at),
     pendingCancellation: toNullableString(seat.pending_cancellation_date),
   }
+}
+
+function resolveSeatAssigneeLogin(seat: RawCopilotSeat): string {
+  return seat.assignee?.login ?? 'unknown'
+}
+
+async function fetchCopilotSeatsPageData(
+  org: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ totalSeats: number; seats: ReturnType<typeof mapCopilotSeatData>[] }> {
+  const seats: ReturnType<typeof mapCopilotSeatData>[] = []
+  let page = 1
+  const maxPages = 10
+  let totalSeats = 0
+
+  while (page <= maxPages) {
+    const { stdout } = await execAsync(
+      `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+    )
+    const data = JSON.parse(stdout.trim()) as {
+      total_seats: number
+      seats: RawCopilotSeat[]
+    }
+
+    totalSeats = data.total_seats
+    seats.push(...data.seats.map(s => mapCopilotSeatData(s, resolveSeatAssigneeLogin(s))))
+
+    if (seats.length >= totalSeats || data.seats.length < 100) break
+    page++
+  }
+
+  return { totalSeats, seats }
 }
 
 type BatchResult = Record<string, { requests: number; lastActiveDate: string | null }>
@@ -693,27 +746,7 @@ export function registerGitHubHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
-        const seats: ReturnType<typeof mapCopilotSeatData>[] = []
-        let page = 1
-        const maxPages = 10
-        let totalSeats = 0
-
-        while (page <= maxPages) {
-          const { stdout } = await execAsync(
-            `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-          )
-          const data = JSON.parse(stdout.trim()) as {
-            total_seats: number
-            seats: RawCopilotSeat[]
-          }
-
-          totalSeats = data.total_seats
-          seats.push(...data.seats.map(s => mapCopilotSeatData(s, s.assignee?.login ?? 'unknown')))
-
-          if (seats.length >= totalSeats || data.seats.length < 100) break
-          page++
-        }
+        const { totalSeats, seats } = await fetchCopilotSeatsPageData(org, execEnv)
 
         return {
           success: true,

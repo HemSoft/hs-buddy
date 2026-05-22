@@ -69,6 +69,10 @@ function DisclosureChevron({
   )
 }
 
+function getScheduleItemIcon(isScheduleExpanded: boolean): React.ReactNode {
+  return isScheduleExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
 function getItemIcon(
   itemId: string,
   hasJobs: boolean,
@@ -77,7 +81,7 @@ function getItemIcon(
 ): React.ReactNode {
   if (itemId === 'automation-jobs' && hasJobs) return <FolderOpen size={14} />
   if (itemId === 'automation-schedules' && hasSchedules) {
-    return isScheduleExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+    return getScheduleItemIcon(isScheduleExpanded)
   }
   return <FileText size={14} />
 }

@@ -78,6 +78,10 @@ function relocateToSavedDisplay(
  * The caller provides display snapshots; this function returns the
  * corrected bounds with no side-effects.
  */
+function hasIncompleteWindowPosition(x: number | undefined, y: number | undefined): boolean {
+  return x === undefined || y === undefined
+}
+
 export function resolveWindowBounds(
   state: WindowBounds,
   screenInfo: {
@@ -90,15 +94,17 @@ export function resolveWindowBounds(
 ): WindowBounds {
   const { x, y, width, height } = state
 
-  if (x === undefined || y === undefined) return { x, y, width, height }
+  if (hasIncompleteWindowPosition(x, y)) return { x, y, width, height }
 
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo
 
   if (savedDisplayId === 0) return { x, y, width, height }
 
+  const resolvedX = x!
+  const resolvedY = y!
   const savedDisplay = allDisplays.find(d => d.id === savedDisplayId)
-  const targetDisplay = getMatchingDisplay({ x, y, width, height })
+  const targetDisplay = getMatchingDisplay({ x: resolvedX, y: resolvedY, width, height })
 
   if (!savedDisplay) {
     return centerOnDisplay(width, height, primaryWorkArea)
@@ -106,8 +112,8 @@ export function resolveWindowBounds(
 
   if (targetDisplay.id !== savedDisplayId) {
     return relocateToSavedDisplay(
-      x,
-      y,
+      resolvedX,
+      resolvedY,
       width,
       height,
       savedDisplay.workArea,
@@ -116,5 +122,5 @@ export function resolveWindowBounds(
     )
   }
 
-  return clampToWorkArea(x, y, width, height, savedDisplay.workArea)
+  return clampToWorkArea(resolvedX, resolvedY, width, height, savedDisplay.workArea)
 }

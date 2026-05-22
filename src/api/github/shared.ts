@@ -239,6 +239,12 @@ export async function getActiveCliAccount(): Promise<string | null> {
   }
 }
 
+function resolveCliTokenValue(token: unknown): string | null {
+  if (typeof token !== 'string') return null
+  const trimmedToken = token.trim()
+  return trimmedToken.length > 0 ? trimmedToken : null
+}
+
 /**
  * Get GitHub CLI authentication token for a specific account.
  * Uses 'gh auth token --user <username>' to get account-specific tokens.
@@ -253,8 +259,8 @@ export async function getGitHubCLIToken(username: string): Promise<string | null
   try {
     // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token --user <username>'
     const token = await window.ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, username)
-    if (token && typeof token === 'string' && token.trim().length > 0) {
-      const trimmedToken = token.trim()
+    const trimmedToken = resolveCliTokenValue(token)
+    if (trimmedToken) {
       tokenCache.set(username, trimmedToken)
       return trimmedToken
     }
@@ -326,6 +332,12 @@ function getAccountsByOwnerPriority(
   return [...preferred, ...fallback]
 }
 
+function buildAccountFailureMessage(triedCount: number, label: string): string {
+  return triedCount > 0
+    ? `Could not ${label} - all ${triedCount} account(s) failed`
+    : `Could not ${label} - no authenticated account available`
+}
+
 /**
  * Get an Octokit instance for a given owner/org.
  * Tries accounts matching the owner first, then falls back to any account.
@@ -382,10 +394,7 @@ export async function withFirstAvailableAccount<T>(
     }
   }
   if (noAccountFallback !== undefined) return noAccountFallback
-  const message =
-    triedCount > 0
-      ? `Could not ${label} - all ${triedCount} account(s) failed`
-      : `Could not ${label} - no authenticated account available`
+  const message = buildAccountFailureMessage(triedCount, label)
   throw new Error(message, { cause: lastError })
 }
 

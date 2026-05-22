@@ -169,6 +169,23 @@ function getEditorProps(duplicating: boolean, jobId: string | undefined, job: Do
   }
 }
 
+function renderJobEditor(
+  editorOpen: boolean,
+  duplicating: boolean,
+  jobId: string | undefined,
+  job: Doc<'jobs'>,
+  setEditorOpen: (open: boolean) => void
+) {
+  return editorOpen ? (
+    <JobEditor
+      {...getEditorProps(duplicating, jobId, job)}
+      /* v8 ignore start */
+      onClose={() => setEditorOpen(false)}
+      /* v8 ignore stop */
+    />
+  ) : null
+}
+
 export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const job = useJob(jobId as JobId)
   const runs = useJobRuns(jobId as JobId, 10)
@@ -242,14 +259,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   return (
     <>
       <div className="job-detail">
-        {editorOpen && (
-          <JobEditor
-            {...getEditorProps(duplicating, jobId, job)}
-            /* v8 ignore start */
-            onClose={() => setEditorOpen(false)}
-            /* v8 ignore stop */
-          />
-        )}
+        {renderJobEditor(editorOpen, duplicating, jobId, job, setEditorOpen)}
 
         <div className="job-detail-header">
           <div className="job-detail-title-row">

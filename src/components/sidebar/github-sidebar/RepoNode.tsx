@@ -93,6 +93,18 @@ function resolveTreeItems<T>(treeData: Record<string, T[]>, repoKey: string): { 
   }
 }
 
+function resolveBookmarkButtonProps(isBookmarked: boolean): {
+  className: string
+  title: string
+  fill: string
+} {
+  return {
+    className: `sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`,
+    title: isBookmarked ? 'Remove bookmark' : 'Bookmark this repo',
+    fill: isBookmarked ? 'currentColor' : 'none',
+  }
+}
+
 function RepoHeader({
   org,
   repo,
@@ -109,6 +121,7 @@ function RepoHeader({
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }) {
   const repoTitle = repo.description ?? repo.fullName
+  const bookmarkButton = resolveBookmarkButtonProps(isBookmarked)
 
   return (
     <div
@@ -123,11 +136,11 @@ function RepoHeader({
       <span className="sidebar-item-label">{repo.name}</span>
       {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
       <button
-        className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+        className={bookmarkButton.className}
         onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
-        title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+        title={bookmarkButton.title}
       >
-        <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
+        <Star size={12} fill={bookmarkButton.fill} />
       </button>
     </div>
   )
@@ -664,6 +677,10 @@ interface RepoPullRequestsSectionProps {
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function shouldShowClosedPRCount(isOpen: boolean, closedCount: number): boolean {
+  return !isOpen && closedCount > 0
+}
+
 function PRStateCountBadge({
   isOpen,
   isLoading,
@@ -680,7 +697,9 @@ function PRStateCountBadge({
   if (isCountBadgeLoading(isOpen, isLoading, isCountLoading))
     return <Loader2 size={10} className="spin" />
   if (isOpen && counts) return <span className="sidebar-item-count">{counts.prs}</span>
-  if (!isOpen && closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
+  if (shouldShowClosedPRCount(isOpen, closedCount)) {
+    return <span className="sidebar-item-count">{closedCount}</span>
+  }
   return null
 }
 
@@ -1003,6 +1022,18 @@ interface RepoSFLSectionProps {
   onToggleSFLGroup: (org: string, repoName: string) => void
 }
 
+function renderSFLStatusIndicator(
+  isLoading: boolean,
+  sflStatus: SFLRepoStatus
+): React.ReactNode {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  return (
+    <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[sflStatus.overallStatus]}>
+      {sflOverallStatusIcon(sflStatus.overallStatus)}
+    </span>
+  )
+}
+
 function RepoSFLSection({
   org,
   repoName,
@@ -1040,18 +1071,7 @@ function RepoSFLSection({
           <Activity size={12} />
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
-        {/* v8 ignore start */}
-        {isLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : (
-          /* v8 ignore stop */
-          <span
-            className="sidebar-sfl-status-badge"
-            title={SFL_STATUS_LABELS[sflStatus.overallStatus]}
-          >
-            {sflOverallStatusIcon(sflStatus.overallStatus)}
-          </span>
-        )}
+        {renderSFLStatusIndicator(isLoading, sflStatus)}
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-sfl-tree">
@@ -1271,6 +1291,17 @@ function RepoRalphSection({
   )
 }
 
+function resolvePRNodePresentation(
+  closed: boolean,
+  isExpanded: boolean
+): { icon: React.ReactNode; statePrefix: string; chevron: React.ReactNode } {
+  return {
+    icon: closed ? <CheckCircle2 size={12} /> : <GitPullRequest size={12} />,
+    statePrefix: closed ? 'closed' : 'open',
+    chevron: isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />,
+  }
+}
+
 function renderPRNode(
   pr: PullRequest,
   repoKey: string,
@@ -1283,8 +1314,8 @@ function renderPRNode(
 ) {
   const prViewId = createPRDetailViewId(pr)
   const isExpanded = expandedPRNodes.has(prViewId)
-  const icon = closed ? <CheckCircle2 size={12} /> : <GitPullRequest size={12} />
-  const statePrefix = closed ? 'closed' : 'open'
+  const prNodePresentation = resolvePRNodePresentation(closed, isExpanded)
+  const { icon, statePrefix, chevron } = prNodePresentation
 
   return (
     <div
@@ -1315,7 +1346,7 @@ function renderPRNode(
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onTogglePRNode(prViewId), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          {chevron}
         </span>
         <span className="sidebar-item-icon">{icon}</span>
         <span className="sidebar-item-label">

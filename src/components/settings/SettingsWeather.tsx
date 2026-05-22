@@ -43,6 +43,10 @@ function SaveButton({ saving, isDirty, hasKey, onClick }: { saving: boolean; isD
   )
 }
 
+function getApiKeyVisibilityLabel(showKey: boolean): 'Hide' | 'Show' {
+  return showKey ? 'Hide' : 'Show'
+}
+
 export function SettingsWeather() {
   const [apiKey, setApiKey] = useState('')
   const [savedKey, setSavedKey] = useState('')
@@ -141,9 +145,9 @@ export function SettingsWeather() {
                 type="button"
                 className="settings-btn settings-btn-secondary"
                 onClick={() => setShowKey(!showKey)}
-                title={showKey ? 'Hide key' : 'Show key'}
+                title={`${getApiKeyVisibilityLabel(showKey)} key`}
               >
-                {showKey ? 'Hide' : 'Show'}
+                {getApiKeyVisibilityLabel(showKey)}
               </button>
             </div>
           </div>

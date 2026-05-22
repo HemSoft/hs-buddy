@@ -112,6 +112,29 @@ function getFreshCachedData(mode: string, refreshInterval: number): PullRequest[
   /* v8 ignore stop */
 }
 
+function resolvePullRequestOrg(pr: PullRequest): string {
+  return pr.org || ''
+}
+
+function getCachedPrData(
+  cached: ReturnType<typeof dataCache.get<PullRequest[]>> | undefined
+): PullRequest[] | undefined {
+  return cached?.data
+}
+
+function applyFetchLoadingState(
+  hasExistingData: boolean,
+  setRefreshing: (value: boolean) => void,
+  setLoading: (value: boolean) => void
+): void {
+  if (hasExistingData) {
+    setRefreshing(true)
+    setLoading(false)
+  } else {
+    setLoading(true)
+  }
+}
+
 function hasExistingPRData(
   prs: PullRequest[],
   cached: ReturnType<typeof dataCache.get<PullRequest[]>> | undefined
@@ -237,7 +260,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
     const { pr } = contextMenu
-    const org = pr.org || ''
+    const org = resolvePullRequestOrg(pr)
     const repoName = pr.repository
     const key = `${org}/${repoName}`
     if (bookmarkedRepoKeys.has(key)) {
@@ -341,8 +364,9 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
         )
         setPrs(prev => markApproved(prev, pr))
         const cached = dataCache.get<PullRequest[]>(mode)
-        if (cached?.data) {
-          dataCache.set(mode, markApproved(cached.data, pr))
+        const cachedData = getCachedPrData(cached)
+        if (cachedData) {
+          dataCache.set(mode, markApproved(cachedData, pr))
         }
       } catch (error: unknown) {
         console.error('Failed to approve PR:', error)
@@ -397,12 +421,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       /* v8 ignore start */
       const hasExistingData = hasExistingPRData(prs, cached)
       /* v8 ignore stop */
-      if (hasExistingData) {
-        setRefreshing(true)
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
+      applyFetchLoadingState(hasExistingData, setRefreshing, setLoading)
       setError(null)
       setProgress(null)
       setTotalPrsFound(0)

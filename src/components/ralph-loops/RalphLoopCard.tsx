@@ -28,9 +28,10 @@ const PHASE_LABELS: Record<RalphRunPhase, string> = {
   failed: 'Failed',
 }
 
-function formatDuration(startedAt: number, completedAt: number | null): string {
-  const end = completedAt ?? Date.now()
-  const ms = end - startedAt
+function isActiveRalphRun(status: RalphRunStatus): boolean {
+  return status === 'pending' || status === 'running'
+}
+
   const mins = Math.floor(ms / 60_000)
   if (mins < 60) return `${mins}m`
   const hrs = Math.floor(mins / 60)
@@ -98,7 +99,7 @@ function ProgressBar({ run, progress }: { run: RalphRunInfo; progress: number })
 export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
   const statusCfg = STATUS_CONFIG[run.status]
   const StatusIcon = statusCfg.icon
-  const isActive = run.status === 'running' || run.status === 'pending'
+  const isActive = isActiveRalphRun(run.status)
   const progress = computeProgress(run)
 
   return (

@@ -66,6 +66,25 @@ function ExpandIcon({ hasDetails, isExpanded }: { hasDetails: boolean; isExpande
   return isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
 }
 
+function RunCardTitleContent({ run }: { run: RunWithJob }) {
+  return run.job ? (
+    <>
+      {getWorkerIcon(run.job.workerType, 14)}
+      <span className="run-job-name">{run.job.name}</span>
+    </>
+  ) : (
+    <span className="run-job-name deleted">Deleted Job</span>
+  )
+}
+
+function hasRunDetails(run: RunWithJob): boolean {
+  return run.output !== undefined || run.error !== undefined || run.input !== undefined
+}
+
+function canCancelRun(status: RunStatus): boolean {
+  return status === 'pending' || status === 'running'
+}
+
 function RunCardHeader({
   run,
   hasDetails,
@@ -97,14 +116,7 @@ function RunCardHeader({
 
         <span className="run-card-info">
           <span className="run-card-title">
-            {run.job ? (
-              <>
-                {getWorkerIcon(run.job.workerType, 14)}
-                <span className="run-job-name">{run.job.name}</span>
-              </>
-            ) : (
-              <span className="run-job-name deleted">Deleted Job</span>
-            )}
+            <RunCardTitleContent run={run} />
             {run.schedule && <span className="run-schedule-badge">via {run.schedule.name}</span>}
           </span>
 
@@ -191,8 +203,8 @@ function RunCardDetails({ run }: { run: RunWithJob }) {
 }
 
 export function RunCard({ run, isExpanded, onToggle, onCancel }: RunCardProps) {
-  const hasDetails = run.output !== undefined || run.error !== undefined || run.input !== undefined
-  const canCancel = run.status === 'pending' || run.status === 'running'
+  const hasDetails = hasRunDetails(run)
+  const canCancel = canCancelRun(run.status)
 
   return (
     <div className={`run-card run-status-${run.status}`}>

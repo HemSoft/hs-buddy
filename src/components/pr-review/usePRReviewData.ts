@@ -15,6 +15,14 @@ type ReviewSnapshot =
   | { reviewedHeadSha: string | undefined; reviewedThreadStats: Record<string, number> }
   | undefined
 
+function hasReviewSnapshotTarget(prInfo: {
+  org?: string
+  repo?: string
+  prNumber?: number
+}): boolean {
+  return Boolean(prInfo.org && prInfo.repo && prInfo.prNumber)
+}
+
 /** Build the metadata object for a Copilot PR review execution. */
 function buildReviewMetadata(
   prInfo: PRReviewInfo,
@@ -126,7 +134,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   }, [prInfo.initialPrompt, prInfo.prUrl])
 
   const buildReviewSnapshot = useCallback(async () => {
-    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
+    if (!hasReviewSnapshotTarget(prInfo)) {
       return undefined
     }
     try {

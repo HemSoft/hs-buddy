@@ -6,6 +6,22 @@ function normalizeContent(content: string): string {
   return content.replace(/\r\n/g, '\n')
 }
 
+type PromptUpdatePatch = {
+  title?: string
+  content?: string
+  sortOrder?: number
+  updatedAt?: number
+}
+
+function applyPromptPatchFields(
+  patch: PromptUpdatePatch,
+  args: { title?: string; content?: string; sortOrder?: number }
+): void {
+  if (args.title !== undefined) patch.title = args.title.trim()
+  if (args.content !== undefined) patch.content = normalizeContent(args.content)
+  if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder
+}
+
 function validatePromptFields(fields: { title?: string; content?: string }) {
   if (fields.title !== undefined && !fields.title.trim()) {
     throw new Error('Title is required')
@@ -22,6 +38,10 @@ function resolveLastUsed(p: { lastUsedAt?: number }): number {
 
 function resolveSortOrder(p: { sortOrder?: number }): number {
   return p.sortOrder ?? Number.MAX_SAFE_INTEGER
+}
+
+function hasPromptPatchChanges(patch: PromptUpdatePatch): boolean {
+  return Object.keys(patch).length > 0
 }
 
 function comparePrompts(
@@ -96,18 +116,11 @@ export const update = mutation({
 
     validatePromptFields(args)
 
-    const patch: {
-      title?: string
-      content?: string
-      sortOrder?: number
-      updatedAt?: number
-    } = {}
+    const patch: PromptUpdatePatch = {}
 
-    if (args.title !== undefined) patch.title = args.title.trim()
-    if (args.content !== undefined) patch.content = normalizeContent(args.content)
-    if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder
+    applyPromptPatchFields(patch, args)
 
-    if (Object.keys(patch).length === 0) {
+    if (!hasPromptPatchChanges(patch)) {
       return args.id
     }
 

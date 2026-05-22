@@ -13,6 +13,13 @@ interface RepoCommitDetailPanelProps {
   sha: string
 }
 
+function shouldShowCommitLoading(
+  loading: boolean,
+  detail: RepoCommitDetail | null | undefined
+): boolean {
+  return loading && !detail
+}
+
 function CommitIdentityCard({ detail }: { detail: RepoCommitDetail }) {
   return (
     <div className="repo-detail-card repo-commit-detail-card">
@@ -166,7 +173,7 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
     fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
   })
 
-  if (loading && !detail) {
+  if (shouldShowCommitLoading(loading, detail)) {
     return (
       <PanelLoadingState
         message="Loading commit..."

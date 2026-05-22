@@ -6,6 +6,12 @@ function addTextSegment(segments: CommentSegment[], raw: string): void {
   if (trimmed) segments.push({ type: 'text', content: trimmed })
 }
 
+function addFallbackTextSegment(segments: CommentSegment[], safeBody: string): void {
+  if (segments.length === 0 && safeBody.trim()) {
+    segments.push({ type: 'text', content: safeBody })
+  }
+}
+
 export function parseCommentBody(body: string | null | undefined): CommentSegment[] {
   const segments: CommentSegment[] = []
   const safeBody = body ?? ''
@@ -22,9 +28,7 @@ export function parseCommentBody(body: string | null | undefined): CommentSegmen
   addTextSegment(segments, safeBody.slice(lastIndex))
 
   /* v8 ignore start -- defensive fallback; unreachable because addTextSegment always captures non-empty text */
-  if (segments.length === 0 && safeBody.trim()) {
-    segments.push({ type: 'text', content: safeBody })
-  }
+  addFallbackTextSegment(segments, safeBody)
   /* v8 ignore stop */
 
   return segments

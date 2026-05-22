@@ -633,26 +633,23 @@ function FocusedSectionContent({
   refreshKey,
   onHistoryLoaded,
 }: FocusedSectionContentProps) {
-  switch (section) {
-    case 'conversation':
-      return <PRThreadsPanel key={refreshKey} pr={pr} />
-    case 'commits':
-      return (
-        <PullRequestHistoryPanel
-          key={refreshKey}
-          pr={pr}
-          embedded
-          focus="commits"
-          onLoaded={onHistoryLoaded}
-        />
-      )
-    case 'checks':
-      return <PRChecksPanel key={refreshKey} pr={pr} />
-    case 'files-changed':
-      return <PRFilesChangedPanel key={refreshKey} pr={pr} />
-    case 'ai-reviews':
-      return <PRReviewsPanel key={refreshKey} pr={pr} />
+  const contentBySection: Record<PRDetailSection, React.ReactNode> = {
+    conversation: <PRThreadsPanel key={refreshKey} pr={pr} />,
+    commits: (
+      <PullRequestHistoryPanel
+        key={refreshKey}
+        pr={pr}
+        embedded
+        focus="commits"
+        onLoaded={onHistoryLoaded}
+      />
+    ),
+    checks: <PRChecksPanel key={refreshKey} pr={pr} />,
+    'files-changed': <PRFilesChangedPanel key={refreshKey} pr={pr} />,
+    'ai-reviews': <PRReviewsPanel key={refreshKey} pr={pr} />,
   }
+
+  return contentBySection[section]
 }
 
 function resolveLatestActivity(
@@ -698,6 +695,55 @@ function resolveLabelsAndIssue(
   const effectiveIssue =
     linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
+}
+
+function shouldSkipAuthorNudge(nudgeState: 'idle' | 'sending' | 'sent' | 'error'): boolean {
+  return nudgeState === 'sending' || nudgeState === 'sent'
+}
+
+function resolveInitialBranches(pr: PRDetailInfo): { headBranch: string; baseBranch: string } | null {
+  return pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
+}
+
+function resolveRalphLaunchOrg(
+  pr: PRDetailInfo,
+  ownerRepo: { owner: string; repo: string } | null
+): string {
+  return pr.org || ownerRepo?.owner || ''
+}
+
+function resolveRalphLaunchRepoPath(
+  accounts: { org: string; repoRoot?: string | null }[],
+  org: string,
+  repository: string
+): string {
+  const repoRoot = accounts.find(a => a.org === org)?.repoRoot
+  return repoRoot ? `${repoRoot}\\${repository}` : ''
+}
+
+function resolveRalphLaunchDetails(
+  pr: PRDetailInfo,
+  ownerRepo: { owner: string; repo: string } | null,
+  accounts: { org: string; repoRoot?: string | null }[]
+): { org: string; repoPath: string } {
+  const org = resolveRalphLaunchOrg(pr, ownerRepo)
+  return { org, repoPath: resolveRalphLaunchRepoPath(accounts, org, pr.repository) }
+}
+
+function startRalphReviewLaunch(
+  pr: PRDetailInfo,
+  ownerRepo: { owner: string; repo: string } | null,
+  accounts: { org: string; repoRoot?: string | null }[]
+): void {
+  const { org, repoPath } = resolveRalphLaunchDetails(pr, ownerRepo, accounts)
+  window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent('ralph:launch-pr-review', {
+        detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+      })
+    )
+  }, 100)
 }
 
 function applyNudgeError(
@@ -815,7 +861,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   )
 
   const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
-    pr.headBranch && pr.baseBranch ? { headBranch: pr.headBranch, baseBranch: pr.baseBranch } : null
+    resolveInitialBranches(pr)
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
@@ -914,7 +960,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
 
   const handleNudgeAuthor = useCallback(async () => {
     /* v8 ignore start -- button is disabled in sending/sent states */
-    if (nudgeState === 'sending' || nudgeState === 'sent') return
+    if (shouldSkipAuthorNudge(nudgeState)) return
     /* v8 ignore stop */
     setNudgeState('sending')
     setNudgeError(null)
@@ -953,19 +999,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         onNudge={handleNudgeAuthor}
         aiReviewProviders={aiReviewProviders}
         onStartRalphReview={() => {
-          const org = pr.org || ownerRepo?.owner || ''
-          const repoRoot = accounts.find(a => a.org === org)?.repoRoot
-          const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
-          window.dispatchEvent(
-            new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
-          )
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent('ralph:launch-pr-review', {
-                detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
-              })
-            )
-          }, 100)
+          startRalphReviewLaunch(pr, ownerRepo, accounts)
         }}
       />
 

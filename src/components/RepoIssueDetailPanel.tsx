@@ -105,6 +105,29 @@ function IssueHero({
   )
 }
 
+function resolveIssueMilestoneTitle(milestone: RepoIssueDetail['milestone']): string {
+  return milestone?.title || 'None'
+}
+
+function renderIssueDetailState(
+  detail: RepoIssueDetail | null | undefined,
+  loading: boolean,
+  error: string | null,
+  owner: string,
+  repo: string,
+  issueNumber: number,
+  refresh: () => void
+): React.ReactNode | null {
+  if (detail) return null
+  if (loading) {
+    return <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
   return (
     <aside className="repo-issue-detail-sidebar">
@@ -125,7 +148,7 @@ function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
           </div>
           <div className="repo-issue-detail-fact">
             <span className="label">Milestone</span>
-            <span className="value">{detail.milestone?.title || 'None'}</span>
+            <span className="value">{resolveIssueMilestoneTitle(detail.milestone)}</span>
           </div>
         </div>
       </div>
@@ -249,19 +272,12 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     }, 100)
   }
 
-  if (!detail) {
-    if (loading) {
-      return (
-        <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
-    }
-    /* v8 ignore start */
-    return null
-    /* v8 ignore stop */
+  const detailState = renderIssueDetailState(detail, loading, error, owner, repo, issueNumber, refresh)
+  if (detailState) {
+    return detailState
   }
+
+  if (!detail) return null
 
   return (
     <div className="repo-issue-detail-panel">

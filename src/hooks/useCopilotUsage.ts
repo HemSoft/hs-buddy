@@ -51,6 +51,46 @@ function computeAggregateProjections(quotas: Record<string, AccountQuotaState>) 
   return { projectedTotal, projectedOverageCost }
 }
 
+function computeOrgOverage(
+  accounts: { username: string; org: string }[],
+  quotas: Record<string, AccountQuotaState>
+): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const account of accounts) {
+    const premium = getPremiumInteractions(quotas[account.username])
+    if (!premium || !account.org) continue
+    const overageRequests = computeOverageRequests(premium)
+    const cost = overageRequests * OVERAGE_COST_PER_REQUEST
+    map.set(account.org, (map.get(account.org) ?? 0) + cost)
+  }
+  return map
+}
+
+function computeAggregateTotals(quotas: Record<string, AccountQuotaState>) {
+  return Object.values(quotas).reduce(
+    (acc, state) => {
+      const premium = state.data?.quota_snapshots?.premium_interactions
+      if (!premium) return acc
+      const used = premium.entitlement - premium.remaining
+      const overageRequests = computeOverageRequests(premium)
+      acc.totalUsed += used
+      acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_REQUEST
+      return acc
+    },
+    { totalUsed: 0, totalOverageCost: 0 }
+  )
+}
+
+function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): boolean {
+  const now = new Date()
+  const currentUtcMonth = now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1)
+  return Object.values(orgBudgets).some(state => {
+    if (!state.data) return false
+    const dataMonth = state.data.billingYear * 100 + state.data.billingMonth
+    return dataMonth < currentUtcMonth
+  })
+}
+
 export function useCopilotUsage() {
   const { accounts } = useGitHubAccounts()
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
@@ -151,62 +191,20 @@ export function useCopilotUsage() {
 
   useEffect(() => {
     const refreshInterval = setInterval(() => {
-      const now = new Date()
-      const currentUtcMonth = now.getUTCFullYear() * 100 + (now.getUTCMonth() + 1)
-
-      const needsRefresh = Object.values(orgBudgets).some(state => {
-        if (!state.data) {
-          return false
-        }
-        const dataMonth = state.data.billingYear * 100 + state.data.billingMonth
-        return dataMonth < currentUtcMonth
-      })
-
-      if (needsRefresh) {
-        refreshAll()
-      }
+      if (needsMonthRolloverRefresh(orgBudgets)) refreshAll()
     }, 5 * MS_PER_MINUTE)
 
     return () => clearInterval(refreshInterval)
   }, [orgBudgets, refreshAll])
 
-  const orgOverageFromQuotas = useMemo(() => {
-    const map = new Map<string, number>()
-    for (const account of accounts) {
-      const premium = getPremiumInteractions(quotas[account.username])
-      if (!premium || !account.org) {
-        continue
-      }
-
-      const overageRequests = computeOverageRequests(premium)
-      const cost = overageRequests * OVERAGE_COST_PER_REQUEST
-      map.set(account.org, (map.get(account.org) ?? 0) + cost)
-    }
-    return map
-  }, [accounts, quotas])
+  const orgOverageFromQuotas = useMemo(
+    () => computeOrgOverage(accounts, quotas),
+    [accounts, quotas]
+  )
 
   const anyLoading = useMemo(() => Object.values(quotas).some(state => state.loading), [quotas])
 
-  const aggregateTotals = useMemo(
-    () =>
-      Object.values(quotas).reduce(
-        (acc, state) => {
-          const premium = state.data?.quota_snapshots?.premium_interactions
-          if (!premium) {
-            return acc
-          }
-
-          const used = premium.entitlement - premium.remaining
-          const overageRequests = computeOverageRequests(premium)
-
-          acc.totalUsed += used
-          acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_REQUEST
-          return acc
-        },
-        { totalUsed: 0, totalOverageCost: 0 }
-      ),
-    [quotas]
-  )
+  const aggregateTotals = useMemo(() => computeAggregateTotals(quotas), [quotas])
 
   const aggregateProjections = useMemo(() => computeAggregateProjections(quotas), [quotas])
 

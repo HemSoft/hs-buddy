@@ -253,6 +253,71 @@ async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<Weat
   }
 }
 
+function useLocationHydration(refresh: () => Promise<unknown>): void {
+  const [locationHydrated, setLocationHydrated] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    loadLocationFromStore()
+      .then(storeLoc => {
+        if (cancelled) return
+        if (storeLoc) safeSetJson(LOCATION_KEY, storeLoc)
+      })
+      .finally(() => {
+        if (!cancelled) setLocationHydrated(true)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!locationHydrated) return
+    if (!readCache()) {
+      refresh().catch(() => {})
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationHydrated])
+}
+
+async function searchAndApplyLocation(
+  query: string,
+  setState: React.Dispatch<React.SetStateAction<WeatherState>>,
+  refresh: () => Promise<unknown>
+): Promise<void> {
+  if (!query.trim()) return
+
+  setState(prev => ({ ...prev, loading: true, error: null }))
+
+  try {
+    const encoded = encodeURIComponent(query.trim())
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&addressdetails=1`,
+      { headers: { 'User-Agent': 'hs-buddy/1.0' } }
+    )
+    if (!resp.ok) throw new Error(`Geocoding error: ${resp.status}`)
+
+    const results = (await resp.json()) as Array<GeocodingResult>
+    if (results.length === 0) {
+      setState(prev => ({ ...prev, loading: false, error: `No results for "${query}"` }))
+      return
+    }
+
+    const loc = parseGeocodingResult(results[0], query)
+    writeSavedLocation(loc)
+    await persistLocationToStore(loc)
+    safeRemoveItem(CACHE_KEY)
+    setState({ data: null, loading: true, error: null })
+    refresh().catch(() => {})
+  } catch (err: unknown) {
+    setState(prev => ({
+      ...prev,
+      loading: false,
+      error: getErrorMessageWithFallback(err, 'Location search failed'),
+    }))
+  }
+}
+
 export function useWeather() {
   const [state, setState] = useState<WeatherState>(() => {
     const cached = readCache()
@@ -261,7 +326,6 @@ export function useWeather() {
       : { data: null, loading: true, error: null }
   })
 
-  const [locationHydrated, setLocationHydrated] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback(() => {
@@ -283,7 +347,7 @@ export function useWeather() {
       .catch(err => {
         if (!controller.signal.aborted) {
           setState(prev => ({
-            data: prev.data, // keep stale data visible
+            data: prev.data,
             loading: false,
             error: getErrorMessageWithFallback(err, 'Failed to fetch weather'),
           }))
@@ -311,9 +375,7 @@ export function useWeather() {
         await persistLocationToStore(loc)
         safeRemoveItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
-        refresh().catch(() => {
-          /* error already handled in state */
-        })
+        refresh().catch(() => {})
       },
       () => {
         setState(prev => ({ ...prev, error: 'Location permission denied' }))
@@ -323,84 +385,19 @@ export function useWeather() {
   }, [refresh])
 
   const setLocationBySearch = useCallback(
-    async (query: string) => {
-      if (!query.trim()) return
-
-      setState(prev => ({ ...prev, loading: true, error: null }))
-
-      try {
-        const encoded = encodeURIComponent(query.trim())
-        const resp = await fetch(
-          `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&addressdetails=1`,
-          { headers: { 'User-Agent': 'hs-buddy/1.0' } }
-        )
-        if (!resp.ok) throw new Error(`Geocoding error: ${resp.status}`)
-
-        const results = (await resp.json()) as Array<GeocodingResult>
-
-        if (results.length === 0) {
-          setState(prev => ({ ...prev, loading: false, error: `No results for "${query}"` }))
-          return
-        }
-
-        const loc = parseGeocodingResult(results[0], query)
-        writeSavedLocation(loc)
-        await persistLocationToStore(loc)
-        safeRemoveItem(CACHE_KEY)
-        setState({ data: null, loading: true, error: null })
-        refresh().catch(() => {
-          /* error already handled in state */
-        })
-      } catch (err: unknown) {
-        setState(prev => ({
-          ...prev,
-          loading: false,
-          error: getErrorMessageWithFallback(err, 'Location search failed'),
-        }))
-      }
-    },
+    (query: string) => searchAndApplyLocation(query, setState, refresh),
     [refresh]
   )
 
-  const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
+  useLocationHydration(refresh)
 
-  // Hydrate location from electron-store on mount (survives app restarts)
   useEffect(() => {
-    let cancelled = false
-
-    loadLocationFromStore()
-      .then(storeLoc => {
-        if (cancelled) return
-        if (storeLoc) {
-          // Sync electron-store → localStorage so all sync reads pick it up
-          safeSetJson(LOCATION_KEY, storeLoc)
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLocationHydrated(true)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  // Fetch weather once hydration is complete and no cache exists
-  useEffect(() => {
-    if (!locationHydrated) return
-
-    if (!readCache()) {
-      refresh().catch(() => {
-        /* error already handled in state */
-      })
-    }
-
     return () => {
       abortRef.current?.abort()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationHydrated])
+  }, [])
 
+  const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
   const savedLocationCoords = readSavedLocation() ?? DEFAULT_LOCATION
 
   return {

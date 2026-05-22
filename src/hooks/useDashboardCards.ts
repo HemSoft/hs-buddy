@@ -71,19 +71,58 @@ function mergeWithDefaults(stored: CardVisibility | null): CardVisibility {
   return { ...defaults, ...stored }
 }
 
+function resyncFromStore(
+  currentVersion: number,
+  toggleVersionRef: { current: number },
+  mountedRef: { readonly current: boolean },
+  prev: CardVisibility,
+  visibilityRef: { current: CardVisibility },
+  setVisibility: (v: CardVisibility) => void,
+  mutatedRef: { current: boolean }
+): void {
+  window.ipcRenderer
+    .invoke(IPC_INVOKE.CONFIG_GET_DASHBOARD_CARDS)
+    .then((raw: unknown) => {
+      if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+      const sanitized = sanitize(raw)
+      if (sanitized === null && !isEmptyPlainObject(raw)) {
+        console.warn(
+          '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
+        )
+        mutatedRef.current = false
+        writeCache(prev)
+        visibilityRef.current = prev
+        setVisibility(prev)
+        return
+      }
+      const merged = mergeWithDefaults(sanitized)
+      mutatedRef.current = false
+      writeCache(merged)
+      visibilityRef.current = merged
+      setVisibility(merged)
+    })
+    .catch((reloadErr: unknown) => {
+      if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
+      console.warn(
+        '[useDashboardCards] Failed to reload config store after save failure:',
+        reloadErr
+      )
+      mutatedRef.current = false
+      writeCache(prev)
+      visibilityRef.current = prev
+      setVisibility(prev)
+    })
+}
+
 export function useDashboardCards() {
-  // Synchronous init from localStorage cache — correct from the first render
   const [visibility, setVisibility] = useState<CardVisibility>(() => mergeWithDefaults(readCache()))
   const visibilityRef = useRef(visibility)
   const mutatedRef = useRef(false)
   const toggleVersionRef = useRef(0)
   const mountedRef = useIsMounted()
 
-  // Keep ref in sync with state for use outside updater functions
   visibilityRef.current = visibility
 
-  // Deferred cache cleanup: clear invalid localStorage entries after mount.
-  // Keeps the useState initializer side-effect free (StrictMode safe).
   useEffect(() => {
     const raw = safeGetItem(CACHE_KEY)
     if (raw === null) return
@@ -99,7 +138,6 @@ export function useDashboardCards() {
     }
   }, [])
 
-  // Async IPC load from electron-store (authoritative source)
   useEffect(() => {
     let cancelled = false
     window.ipcRenderer
@@ -107,14 +145,9 @@ export function useDashboardCards() {
       .then((raw: unknown) => {
         if (cancelled || mutatedRef.current) return
         const sanitized = sanitize(raw)
-        // If sanitize rejects the data, only proceed when raw was literally {}
-        // (meaning "all defaults"). Otherwise treat as load failure to avoid
-        // overwriting a valid cache with defaults from malformed data.
-        if (sanitized === null) {
-          if (!isEmptyPlainObject(raw)) {
-            console.warn('[useDashboardCards] Malformed IPC data, keeping cached state')
-            return
-          }
+        if (sanitized === null && !isEmptyPlainObject(raw)) {
+          console.warn('[useDashboardCards] Malformed IPC data, keeping cached state')
+          return
         }
         const merged = mergeWithDefaults(sanitized)
         writeCache(merged)
@@ -138,7 +171,6 @@ export function useDashboardCards() {
       const prev = visibilityRef.current
       const next = { ...prev, [cardId]: !prev[cardId] }
 
-      // Update ref immediately so rapid toggles read the latest state
       visibilityRef.current = next
       setVisibility(next)
       writeCache(next)
@@ -147,43 +179,16 @@ export function useDashboardCards() {
         .invoke(IPC_INVOKE.CONFIG_SET_DASHBOARD_CARDS, next)
         .catch((err: unknown) => {
           console.warn('[useDashboardCards] Failed to save to config store:', err)
-          // Only resync if no newer toggle has occurred since this one and component is still mounted
           if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-          // Re-read the authoritative store so the UI converges back
-          window.ipcRenderer
-            .invoke(IPC_INVOKE.CONFIG_GET_DASHBOARD_CARDS)
-            .then((raw: unknown) => {
-              if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-              const sanitized = sanitize(raw)
-              if (sanitized === null) {
-                if (!isEmptyPlainObject(raw)) {
-                  console.warn(
-                    '[useDashboardCards] Malformed IPC data after save failure, reverting local state'
-                  )
-                  mutatedRef.current = false
-                  writeCache(prev)
-                  visibilityRef.current = prev
-                  setVisibility(prev)
-                  return
-                }
-              }
-              const merged = mergeWithDefaults(sanitized)
-              mutatedRef.current = false
-              writeCache(merged)
-              visibilityRef.current = merged
-              setVisibility(merged)
-            })
-            .catch((reloadErr: unknown) => {
-              if (toggleVersionRef.current !== currentVersion || !mountedRef.current) return
-              console.warn(
-                '[useDashboardCards] Failed to reload config store after save failure:',
-                reloadErr
-              )
-              mutatedRef.current = false
-              writeCache(prev)
-              visibilityRef.current = prev
-              setVisibility(prev)
-            })
+          resyncFromStore(
+            currentVersion,
+            toggleVersionRef,
+            mountedRef,
+            prev,
+            visibilityRef,
+            setVisibility,
+            mutatedRef
+          )
         })
     },
     [mountedRef]

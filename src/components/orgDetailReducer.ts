@@ -50,15 +50,22 @@ function readyUsageState(usage: OrgCopilotUsageData | null): OrgCopilotState {
   return { usage, phase: 'ready', error: null }
 }
 
-type OrgCopilotReducerHandler = (state: OrgCopilotState, action: OrgCopilotAction) => OrgCopilotState
+type OrgCopilotReducerHandler = (
+  state: OrgCopilotState,
+  action: OrgCopilotAction
+) => OrgCopilotState
 
 const ORG_COPILOT_REDUCER_HANDLERS: Record<OrgCopilotAction['type'], OrgCopilotReducerHandler> = {
   'reset-for-user-namespace': () => ({ usage: null, phase: 'loading', error: null }),
-  'hydrate-cache': (_state, action) => readyUsageState((action as Extract<OrgCopilotAction, { type: 'hydrate-cache' }>).usage),
-  success: (_state, action) => readyUsageState((action as Extract<OrgCopilotAction, { type: 'success' }>).usage),
+  'hydrate-cache': (_state, action) =>
+    readyUsageState((action as Extract<OrgCopilotAction, { type: 'hydrate-cache' }>).usage),
+  success: (_state, action) =>
+    readyUsageState((action as Extract<OrgCopilotAction, { type: 'success' }>).usage),
   'start-loading': (state, action) => ({
     ...state,
-    phase: resolveLoadingPhase((action as Extract<OrgCopilotAction, { type: 'start-loading' }>).hasUsage),
+    phase: resolveLoadingPhase(
+      (action as Extract<OrgCopilotAction, { type: 'start-loading' }>).hasUsage
+    ),
     error: null,
   }),
   error: (state, action) => ({
@@ -73,7 +80,7 @@ export function orgCopilotReducer(
   action: OrgCopilotAction
 ): OrgCopilotState {
   const handler = ORG_COPILOT_REDUCER_HANDLERS[action.type]
-  return handler(state, action)
+  return handler ? handler(state, action) : state
 }
 
 const METRIC_DEFAULTS: Partial<OrgOverviewResult['metrics']> = {

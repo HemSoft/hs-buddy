@@ -70,130 +70,30 @@ function writeLastRefreshed(cardId: string, ts: number) {
   safeSetItem(`${LAST_REFRESHED_PREFIX}${cardId}`, String(ts))
 }
 
-function isCountdownActive(enabled: boolean, paused: boolean, lastRefreshedAt: number | null, intervalMinutes: number): boolean {
+function isCountdownActive(
+  enabled: boolean,
+  paused: boolean,
+  lastRefreshedAt: number | null,
+  intervalMinutes: number
+): boolean {
   return enabled && !paused && lastRefreshedAt != null && intervalMinutes > 0
 }
 
-/**
- * Manages periodic auto-refresh for a dashboard card.
- * Settings are persisted per card in localStorage, defaulting to off.
- *
- * Returns status indicators (last refreshed, countdown to next) using
- * the same formatting utilities as useBackgroundStatus.
- *
- * @param paused - When true, timer ticks are skipped (e.g. while a fetch is in flight).
- */
-export function useAutoRefresh(
-  cardId: string,
-  refreshFn: () => void | Promise<void>,
-  defaultIntervalMin = 15,
-  paused = false,
-  externalTimestamp?: number | null
-) {
-  const [settings, setSettings] = useState(() => readSettings(cardId, defaultIntervalMin))
-  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => readLastRefreshed(cardId))
+interface StatusLabels {
+  lastRefreshedLabel: string | null
+  nextRefreshSecs: number | null
+  nextRefreshLabel: string | null
+}
 
-  // Repair corrupt localStorage after mount (keeps the useState initializer pure)
-  useEffect(() => {
-    if (isStoredSettingsCorrupt(cardId)) {
-      writeSettings(cardId, settings)
-    }
-    // Intentionally only on mount — settings here is the initial fallback value
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardId])
-
-  const refreshRef = useRef(refreshFn)
-  refreshRef.current = refreshFn
-  const pausedRef = useRef(paused)
-  pausedRef.current = paused
-  const mountedRef = useRef(true)
-  useEffect(() => {
-    return () => {
-      mountedRef.current = false
-    }
-  }, [])
-
-  const stampRefresh = useCallback(() => {
-    const now = Date.now()
-    setLastRefreshedAt(now)
-    writeLastRefreshed(cardId, now)
-  }, [cardId])
-
-  // Stable refresh callback — calls the underlying function and stamps on success.
-  const refresh = useCallback(() => {
-    try {
-      const result = refreshRef.current()
-      if (result && typeof result.then === 'function') {
-        result.then(
-          () => {
-            if (mountedRef.current) stampRefresh()
-          },
-          () => {
-            /* failed — don't stamp */
-          }
-        )
-      } else {
-        stampRefresh()
-      }
-    } catch (_: unknown) {
-      // sync throw — don't stamp
-    }
-  }, [stampRefresh])
-
-  useEffect(() => {
-    if (!settings.enabled || settings.intervalMinutes <= 0) return
-    const id = setInterval(() => {
-      if (!pausedRef.current) refresh()
-    }, settings.intervalMinutes * 60_000)
-    return () => clearInterval(id)
-  }, [settings.enabled, settings.intervalMinutes, refresh])
-
-  // Sync from external data loads that bypass this hook's refresh path
-  // (e.g. initial mount fetch, addSymbol in useFinance).
-  useEffect(() => {
-    if (
-      externalTimestamp != null &&
-      (lastRefreshedAt == null || externalTimestamp > lastRefreshedAt)
-    ) {
-      setLastRefreshedAt(externalTimestamp)
-      writeLastRefreshed(cardId, externalTimestamp)
-    }
-  }, [externalTimestamp, lastRefreshedAt, cardId])
-
-  const update = useCallback(
-    (partial: Partial<AutoRefreshSettings>) => {
-      setSettings(prev => {
-        const merged = { ...prev, ...partial }
-        // Normalize: clamp interval to allowed values, enforce enabled consistency
-        if (
-          merged.intervalMinutes !== undefined &&
-          !ALLOWED_INTERVALS.has(merged.intervalMinutes)
-        ) {
-          merged.intervalMinutes = prev.intervalMinutes
-        }
-        merged.enabled = merged.enabled && merged.intervalMinutes > 0
-        writeSettings(cardId, merged)
-        return merged
-      })
-    },
-    [cardId]
-  )
-
-  const setInterval_ = useCallback(
-    (minutes: number) => {
-      update({
-        enabled: minutes > 0,
-        intervalMinutes: minutes > 0 ? minutes : settings.intervalMinutes,
-      })
-    },
-    [update, settings.intervalMinutes]
-  )
-
-  // Status indicators — 1-second timer for live countdown
-  const [statusLabels, setStatusLabels] = useState({
-    lastRefreshedLabel: null as string | null,
-    nextRefreshSecs: null as number | null,
-    nextRefreshLabel: null as string | null,
+function useRefreshStatusLabels(
+  settings: AutoRefreshSettings,
+  lastRefreshedAt: number | null,
+  paused: boolean
+): StatusLabels {
+  const [statusLabels, setStatusLabels] = useState<StatusLabels>({
+    lastRefreshedLabel: null,
+    nextRefreshSecs: null,
+    nextRefreshLabel: null,
   })
 
   useEffect(() => {
@@ -226,30 +126,139 @@ export function useAutoRefresh(
     }
 
     compute()
-    // Tick every second only while a countdown can change;
-    // otherwise tick every 30 seconds for "updated X ago" freshness.
-    const shouldUseFastTick = isCountdownActive(settings.enabled, paused, lastRefreshedAt, settings.intervalMinutes)
+    const shouldUseFastTick = isCountdownActive(
+      settings.enabled,
+      paused,
+      lastRefreshedAt,
+      settings.intervalMinutes
+    )
     const tickMs = shouldUseFastTick ? 1000 : 30_000
     const id = setInterval(compute, tickMs)
     return () => clearInterval(id)
   }, [settings.enabled, settings.intervalMinutes, lastRefreshedAt, paused])
+
+  return statusLabels
+}
+
+function mergeSettings(
+  prev: AutoRefreshSettings,
+  partial: Partial<AutoRefreshSettings>,
+  cardId: string
+): AutoRefreshSettings {
+  const merged = { ...prev, ...partial }
+  if (merged.intervalMinutes !== undefined && !ALLOWED_INTERVALS.has(merged.intervalMinutes)) {
+    merged.intervalMinutes = prev.intervalMinutes
+  }
+  merged.enabled = merged.enabled && merged.intervalMinutes > 0
+  writeSettings(cardId, merged)
+  return merged
+}
+
+/**
+ * Manages periodic auto-refresh for a dashboard card.
+ * Settings are persisted per card in localStorage, defaulting to off.
+ *
+ * @param paused - When true, timer ticks are skipped (e.g. while a fetch is in flight).
+ */
+export function useAutoRefresh(
+  cardId: string,
+  refreshFn: () => void | Promise<void>,
+  defaultIntervalMin = 15,
+  paused = false,
+  externalTimestamp?: number | null
+) {
+  const [settings, setSettings] = useState(() => readSettings(cardId, defaultIntervalMin))
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(() => readLastRefreshed(cardId))
+
+  useEffect(() => {
+    if (isStoredSettingsCorrupt(cardId)) {
+      writeSettings(cardId, settings)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cardId])
+
+  const refreshRef = useRef(refreshFn)
+  refreshRef.current = refreshFn
+  const pausedRef = useRef(paused)
+  pausedRef.current = paused
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
+  const stampRefresh = useCallback(() => {
+    const now = Date.now()
+    setLastRefreshedAt(now)
+    writeLastRefreshed(cardId, now)
+  }, [cardId])
+
+  const refresh = useCallback(() => {
+    try {
+      const result = refreshRef.current()
+      if (result && typeof result.then === 'function') {
+        result.then(
+          () => {
+            if (mountedRef.current) stampRefresh()
+          },
+          () => {}
+        )
+      } else {
+        stampRefresh()
+      }
+    } catch (_: unknown) {
+      // sync throw — don't stamp
+    }
+  }, [stampRefresh])
+
+  useEffect(() => {
+    if (!settings.enabled || settings.intervalMinutes <= 0) return
+    const id = setInterval(() => {
+      if (!pausedRef.current) refresh()
+    }, settings.intervalMinutes * 60_000)
+    return () => clearInterval(id)
+  }, [settings.enabled, settings.intervalMinutes, refresh])
+
+  useEffect(() => {
+    if (
+      externalTimestamp != null &&
+      (lastRefreshedAt == null || externalTimestamp > lastRefreshedAt)
+    ) {
+      setLastRefreshedAt(externalTimestamp)
+      writeLastRefreshed(cardId, externalTimestamp)
+    }
+  }, [externalTimestamp, lastRefreshedAt, cardId])
+
+  const update = useCallback(
+    (partial: Partial<AutoRefreshSettings>) => {
+      setSettings(prev => mergeSettings(prev, partial, cardId))
+    },
+    [cardId]
+  )
+
+  const setInterval_ = useCallback(
+    (minutes: number) => {
+      update({
+        enabled: minutes > 0,
+        intervalMinutes: minutes > 0 ? minutes : settings.intervalMinutes,
+      })
+    },
+    [update, settings.intervalMinutes]
+  )
+
+  const statusLabels = useRefreshStatusLabels(settings, lastRefreshedAt, paused)
 
   return {
     enabled: settings.enabled,
     intervalMinutes: settings.intervalMinutes,
     update,
     setInterval: setInterval_,
-    /** Wrapped refresh that records the timestamp */
     refresh,
-    /** Current selected value for the interval dropdown (0 = off, N = minutes) */
     selectedValue: settings.enabled ? settings.intervalMinutes : 0,
-    /** Timestamp of the most recent refresh (manual or auto) */
     lastRefreshedAt,
-    /** Human-readable "Updated Xm ago" */
     lastRefreshedLabel: statusLabels.lastRefreshedLabel,
-    /** Seconds until the next auto-refresh fires */
     nextRefreshSecs: statusLabels.nextRefreshSecs,
-    /** Human-readable countdown string, e.g. "12m 30s" */
     nextRefreshLabel: statusLabels.nextRefreshLabel,
   }
 }

@@ -48,15 +48,43 @@ function sortPrefetchPRs(mode: string, prs: PullRequest[]): void {
   })
 }
 
+type EnqueueIfStaleFn = (
+  cacheKey: string,
+  taskName: string,
+  fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
+) => void
+
+function enqueuePRModes(enqueueIfStale: EnqueueIfStaleFn, label: string): void {
+  for (const mode of PR_MODES) {
+    const taskName = `${label.toLowerCase()}-${mode}`
+    enqueueIfStale(mode, taskName, async (_signal, client) => {
+      const prs = await fetchPrefetchPRs(client, mode)
+      sortPrefetchPRs(mode, prs)
+      dataCache.set(mode, prs)
+      console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
+    })
+  }
+}
+
+function enqueueOrgRepos(
+  enqueueIfStale: EnqueueIfStaleFn,
+  label: string,
+  accounts: { org: string }[]
+): void {
+  const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
+  for (const org of uniqueOrgs) {
+    const cacheKey = `org-repos:${org}`
+    enqueueIfStale(cacheKey, `${label.toLowerCase()}-${cacheKey}`, async (_signal, client) => {
+      const result: OrgRepoResult = await client.fetchOrgRepos(org)
+      dataCache.set(cacheKey, result)
+      console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
+    })
+  }
+}
+
 /**
  * Hook that prefetches all PR data in the background on app startup
  * and auto-refreshes on the configured interval.
- *
- * - Runs immediately on startup for initial data population
- * - Auto-refreshes every `refreshInterval` minutes (checks every 30s for stale data)
- * - Uses low priority (-1) so user-initiated fetches always go first
- * - Re-checks freshness before executing (avoids double-fetch with PullRequestList)
- * - Silently catches errors — background failures don't affect the user
  */
 export function usePrefetch(): void {
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
@@ -70,7 +98,6 @@ export function usePrefetch(): void {
     enqueueRef.current = enqueue
   }, [enqueue])
 
-  // Shared function to queue fetches for stale PR data
   const refreshStaleData = useCallback(
     (intervalMs: number, label: string) => {
       /* v8 ignore start */
@@ -85,19 +112,11 @@ export function usePrefetch(): void {
         taskName: string,
         fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
       ) => {
-        if (dataCache.isFresh(cacheKey, intervalMs)) {
-          return
-        }
-
-        if (queue.hasTaskWithName(taskName)) {
-          return
-        }
-
+        if (dataCache.isFresh(cacheKey, intervalMs) || queue.hasTaskWithName(taskName)) return
         const cachedEntry = dataCache.get(cacheKey)
         console.log(
           `[${label}] ${cacheKey}: ${cachedEntry ? 'stale' : 'no cached data'}, queueing background fetch`
         )
-
         enqueueRef
           .current(
             async signal => {
@@ -105,11 +124,7 @@ export function usePrefetch(): void {
                 console.log(`[${label}] ${cacheKey}: became fresh while queued, skipping`)
                 return
               }
-
-              if (signal.aborted) {
-                throw new DOMException('Fetch cancelled', 'AbortError')
-              }
-
+              if (signal.aborted) throw new DOMException('Fetch cancelled', 'AbortError')
               const client = new GitHubClient(config, recentlyMergedDays)
               await fetchFn(signal, client)
             },
@@ -123,25 +138,8 @@ export function usePrefetch(): void {
           })
       }
 
-      for (const mode of PR_MODES) {
-        const taskName = `${label.toLowerCase()}-${mode}`
-        enqueueIfStale(mode, taskName, async (_signal, client) => {
-          const prs = await fetchPrefetchPRs(client, mode)
-          sortPrefetchPRs(mode, prs)
-          dataCache.set(mode, prs)
-          console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
-        })
-      }
-
-      const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
-      for (const org of uniqueOrgs) {
-        const cacheKey = `org-repos:${org}`
-        enqueueIfStale(cacheKey, `${label.toLowerCase()}-${cacheKey}`, async (_signal, client) => {
-          const result: OrgRepoResult = await client.fetchOrgRepos(org)
-          dataCache.set(cacheKey, result)
-          console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
-        })
-      }
+      enqueuePRModes(enqueueIfStale, label)
+      enqueueOrgRepos(enqueueIfStale, label, accounts)
     },
     [accounts, recentlyMergedDays]
   )

@@ -4,13 +4,7 @@ import { sendChatMessage, abortChat, sendPrompt } from '../services/copilotClien
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 
-/**
- * IPC handlers for Copilot SDK integration.
- *
- * Bridges renderer process requests to the CopilotService in the main process.
- */
-export function registerCopilotHandlers(): void {
-  // Execute a prompt via Copilot SDK
+function registerCopilotCoreHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.COPILOT_EXECUTE,
     async (
@@ -34,7 +28,6 @@ export function registerCopilotHandlers(): void {
     }
   )
 
-  // Cancel an in-progress prompt
   ipcMain.handle(IPC_INVOKE.COPILOT_CANCEL, async (_event, resultId: string) => {
     try {
       const service = getCopilotService()
@@ -45,14 +38,11 @@ export function registerCopilotHandlers(): void {
     }
   })
 
-  // Get count of active prompts
   ipcMain.handle(IPC_INVOKE.COPILOT_ACTIVE_COUNT, async () => {
     const service = getCopilotService()
     return service.getActiveCount()
   })
 
-  // List available models from Copilot SDK
-  // Optionally accepts a GitHub account name to switch to before listing.
   ipcMain.handle(IPC_INVOKE.COPILOT_LIST_MODELS, async (_event, ghAccount?: string) => {
     try {
       const service = getCopilotService()
@@ -63,8 +53,9 @@ export function registerCopilotHandlers(): void {
       return { error: errorMessage }
     }
   })
+}
 
-  // Chat: send message with context and conversation history
+function registerCopilotChatHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.COPILOT_CHAT_SEND,
     async (
@@ -87,13 +78,11 @@ export function registerCopilotHandlers(): void {
     }
   )
 
-  // Chat: abort in-flight response
   ipcMain.handle(IPC_INVOKE.COPILOT_CHAT_ABORT, async () => {
     abortChat()
     return { success: true }
   })
 
-  // Quick prompt: one-shot prompt that doesn't share state with chat
   ipcMain.handle(
     IPC_INVOKE.COPILOT_QUICK_PROMPT,
     async (_event, args: { prompt: string; model?: string }) => {
@@ -106,4 +95,14 @@ export function registerCopilotHandlers(): void {
       }
     }
   )
+}
+
+/**
+ * IPC handlers for Copilot SDK integration.
+ *
+ * Bridges renderer process requests to the CopilotService in the main process.
+ */
+export function registerCopilotHandlers(): void {
+  registerCopilotCoreHandlers()
+  registerCopilotChatHandlers()
 }

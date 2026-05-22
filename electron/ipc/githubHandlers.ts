@@ -555,7 +555,11 @@ function hasLoadedAllCopilotSeats(
 async function fetchCopilotSeats(
   org: string,
   execEnv: NodeJS.ProcessEnv
-): Promise<{ totalSeats: number; fetchedSeats: number; seats: ReturnType<typeof mapCopilotSeatData>[] }> {
+): Promise<{
+  totalSeats: number
+  fetchedSeats: number
+  seats: ReturnType<typeof mapCopilotSeatData>[]
+}> {
   const seats: ReturnType<typeof mapCopilotSeatData>[] = []
   let page = 1
   const maxPages = 10
@@ -578,8 +582,7 @@ async function fetchCopilotSeats(
   return { totalSeats, fetchedSeats: seats.length, seats }
 }
 
-export function registerGitHubHandlers(): void {
-  // Get a GitHub CLI auth token for a specific account
+function registerGitHubAuthHandlers(): void {
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, async (_event, username?: string) => {
     try {
       const args = buildGhAuthTokenArgs(username)
@@ -596,10 +599,8 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get the currently-active GitHub CLI account (used for Copilot CLI, git ops, etc.)
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT, async () => {
     try {
-      // `gh auth status` outputs account info to stderr; parse for "Active account: true"
       const { stderr } = await execAsync('gh auth status', {
         encoding: 'utf8',
         timeout: CLI_TIMEOUT_MS,
@@ -611,7 +612,22 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get Copilot premium request usage for an org via gh api
+  ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
+    try {
+      await execAsync(`gh auth switch --user ${username}`, {
+        encoding: 'utf8',
+        timeout: CLI_TIMEOUT_MS,
+      })
+      return { success: true }
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error)
+      console.error(`Failed to switch to account '${username}':`, errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  })
+}
+
+function registerCopilotUsageHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
     async (_event, org: string, username?: string) => {
@@ -627,7 +643,6 @@ export function registerGitHubHandlers(): void {
           data: {
             org,
             ...parsed,
-            // Include raw items for detailed view
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),
           },
@@ -640,10 +655,8 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Get per-account Copilot quota via the internal endpoint
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_COPILOT_QUOTA, async (_event, username: string) => {
     try {
-      // Get a per-account token
       const token = await tryGetCliToken(username)
       if (!token) {
         return { success: false, error: `No token for account '${username}'` }
@@ -664,7 +677,6 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get Copilot budget and current-month spend for an org
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET,
     async (_event, org: string, username?: string) => {
@@ -694,8 +706,9 @@ export function registerGitHubHandlers(): void {
       }
     }
   )
+}
 
-  // Get Copilot seat/usage data for a specific org member
+function registerCopilotMemberHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE,
     async (_event, org: string, memberLogin: string, username?: string) => {
@@ -713,7 +726,6 @@ export function registerGitHubHandlers(): void {
         }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        // 404 means user doesn't have a Copilot seat
         if (isNotFoundError(error)) {
           return { success: true, data: null }
         }
@@ -726,8 +738,6 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Get per-user premium request usage from enterprise billing API (this month + today)
-  // Also returns org-level totals for context.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
     async (_event, org: string, memberLogin: string, username?: string) => {
@@ -739,7 +749,6 @@ export function registerGitHubHandlers(): void {
         const day = now.getUTCDate()
         const encodedLogin = encodeURIComponent(memberLogin)
 
-        // Fetch per-user month + per-user today + org month in parallel
         const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
           execAsync(
             `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
@@ -793,7 +802,6 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Get all Copilot seat assignments for an org (paginated)
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
     async (_event, org: string, username?: string) => {
@@ -814,7 +822,6 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Batch-fetch monthly premium request counts and last active dates for multiple users.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
     async (_event, logins: string[], username?: string, skipDayProbing?: boolean) => {
@@ -841,24 +848,6 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Switch the active GitHub CLI account
-  ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
-    try {
-      await execAsync(`gh auth switch --user ${username}`, {
-        encoding: 'utf8',
-        timeout: CLI_TIMEOUT_MS,
-      })
-      return { success: true }
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error)
-      console.error(`Failed to switch to account '${username}':`, errorMessage)
-      return { success: false, error: errorMessage }
-    }
-  })
-
-  // Collect Copilot usage snapshots for a list of accounts.
-  // Returns an array of per-account results; failures are reported per-account
-  // without corrupting previously stored history.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_COLLECT_COPILOT_SNAPSHOTS,
     async (
@@ -908,4 +897,10 @@ export function registerGitHubHandlers(): void {
       return { results }
     }
   )
+}
+
+export function registerGitHubHandlers(): void {
+  registerGitHubAuthHandlers()
+  registerCopilotUsageHandlers()
+  registerCopilotMemberHandlers()
 }

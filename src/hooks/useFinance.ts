@@ -157,6 +157,49 @@ function applyHydratedWatchlist(
   })
 }
 
+function addToWatchlist(
+  symbol: string,
+  watchlistRef: { current: string[] },
+  mutatedRef: { current: boolean },
+  setWatchlistState: (symbols: string[]) => void,
+  refresh: (symbols?: string[]) => Promise<void>
+): void {
+  const upper = symbol.toUpperCase().trim()
+  if (!upper) return
+
+  const current = watchlistRef.current
+  if (current.includes(upper)) return
+
+  const next = [...current, upper]
+  mutatedRef.current = true
+  writeWatchlist(next)
+  persistWatchlist(next)
+  setWatchlistState(next)
+
+  safeRemoveItem(CACHE_KEY)
+  refresh(next).catch(() => {})
+}
+
+function removeFromWatchlist(
+  symbol: string,
+  watchlistRef: { current: string[] },
+  mutatedRef: { current: boolean },
+  setWatchlistState: (symbols: string[]) => void,
+  setState: React.Dispatch<React.SetStateAction<FinanceState>>
+): void {
+  const current = watchlistRef.current
+  const next = current.filter(s => s !== symbol)
+  mutatedRef.current = true
+  writeWatchlist(next)
+  persistWatchlist(next)
+  setWatchlistState(next)
+
+  setState(prev => ({
+    ...prev,
+    quotes: prev.quotes.filter(q => q.symbol !== symbol),
+  }))
+}
+
 export function useFinance() {
   const [watchlist, setWatchlistState] = useState<string[]>(readWatchlist)
 
@@ -209,40 +252,16 @@ export function useFinance() {
   }, [])
 
   const addSymbol = useCallback(
-    (symbol: string) => {
-      const upper = symbol.toUpperCase().trim()
-      if (!upper) return
-
-      const current = watchlistRef.current
-      if (current.includes(upper)) return
-
-      const next = [...current, upper]
-      mutatedRef.current = true
-      writeWatchlist(next)
-      persistWatchlist(next)
-      setWatchlistState(next)
-
-      safeRemoveItem(CACHE_KEY)
-      refresh(next).catch(() => {
-        /* error already handled in state */
-      })
-    },
+    (symbol: string) =>
+      addToWatchlist(symbol, watchlistRef, mutatedRef, setWatchlistState, refresh),
     [refresh]
   )
 
-  const removeSymbol = useCallback((symbol: string) => {
-    const current = watchlistRef.current
-    const next = current.filter(s => s !== symbol)
-    mutatedRef.current = true
-    writeWatchlist(next)
-    persistWatchlist(next)
-    setWatchlistState(next)
-
-    setState(prev => ({
-      ...prev,
-      quotes: prev.quotes.filter(q => q.symbol !== symbol),
-    }))
-  }, [])
+  const removeSymbol = useCallback(
+    (symbol: string) =>
+      removeFromWatchlist(symbol, watchlistRef, mutatedRef, setWatchlistState, setState),
+    []
+  )
 
   // Async IPC load from electron-store (authoritative source). Mirrors the
   // useDashboardCards pattern: localStorage is the sync first-paint cache,
@@ -253,14 +272,7 @@ export function useFinance() {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST)
       .then((raw: unknown) => {
-        applyHydratedWatchlist(
-          raw,
-          cancelled,
-          mutatedRef,
-          watchlistRef,
-          setWatchlistState,
-          refresh
-        )
+        applyHydratedWatchlist(raw, cancelled, mutatedRef, watchlistRef, setWatchlistState, refresh)
       })
       .catch((err: unknown) => {
         console.warn('[useFinance] Failed to load watchlist from config store:', err)

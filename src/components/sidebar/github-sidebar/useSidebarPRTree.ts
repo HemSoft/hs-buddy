@@ -18,6 +18,27 @@ const PR_TREE_CACHE_KEYS: Record<string, string> = {
   'pr-recently-merged': 'recently-merged',
 }
 
+function normalizeOrg(pr: PullRequest): string {
+  return pr.org ?? ''
+}
+
+function isPRMatch(item: PullRequest, target: PullRequest): boolean {
+  return (
+    item.id === target.id &&
+    item.repository === target.repository &&
+    normalizeOrg(item) === normalizeOrg(target) &&
+    item.source === target.source
+  )
+}
+
+function buildPRKey(pr: PullRequest): string {
+  return `${pr.source}-${normalizeOrg(pr)}-${pr.repository}-${pr.id}`
+}
+
+function shouldApprove(item: PullRequest, target: PullRequest): boolean {
+  return isPRMatch(item, target) && !item.iApproved
+}
+
 function initPrTreeData(): Record<string, PullRequest[]> {
   const result: Record<string, PullRequest[]> = {}
   for (const [key, cacheKey] of Object.entries(PR_TREE_CACHE_KEYS)) {
@@ -26,12 +47,26 @@ function initPrTreeData(): Record<string, PullRequest[]> {
   return result
 }
 
+function resolveOwner(
+  pr: PullRequest,
+  parsed: { owner: string; repo: string } | null
+): string | undefined {
+  return pr.org || parsed?.owner
+}
+
+function resolveRepo(
+  pr: PullRequest,
+  parsed: { owner: string; repo: string } | null
+): string | undefined {
+  return pr.repository || parsed?.repo
+}
+
 /** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
 /* v8 ignore start */
 function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
+  const owner = resolveOwner(pr, parsed)
+  const repo = resolveRepo(pr, parsed)
   if (!owner || !repo) return null
   return { owner, repo }
 }
@@ -148,17 +183,11 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     setPrTreeData(prev => {
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
-        next[groupId] = items.map(item => {
-          if (
-            item.id !== target.id ||
-            item.repository !== target.repository ||
-            (item.org ?? '') !== (target.org ?? '') ||
-            item.source !== target.source ||
-            item.iApproved
-          )
-            return item
-          return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-        })
+        next[groupId] = items.map(item =>
+          shouldApprove(item, target)
+            ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
+            : item
+        )
       }
       return next
     })
@@ -172,7 +201,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       if (!resolved) return
       /* v8 ignore stop */
       const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
+      const prKey = buildPRKey(pr)
       if (approvingPrKeys.has(prKey)) return
       setApprovingPrKeys(prev => new Set(prev).add(prKey))
       try {

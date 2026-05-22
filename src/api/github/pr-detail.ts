@@ -546,17 +546,44 @@ function buildReviewerSummaries(
 
 /** Paginate review threads with extended fields (isOutdated + comment count) for PR history. */
 /* v8 ignore start -- GraphQL pagination; requires real API with >100 review threads */
+
+type DetailedThreadNode = {
+  isResolved: boolean
+  isOutdated: boolean
+  comments: { totalCount: number }
+}
+
+function safeDetailedNodes(nodes: DetailedThreadNode[] | undefined | null): DetailedThreadNode[] {
+  return nodes || []
+}
+
+function extractDetailedPage(result: {
+  repository: {
+    pullRequest: {
+      reviewThreads: {
+        pageInfo: { hasNextPage: boolean; endCursor: string | null }
+        nodes: DetailedThreadNode[]
+      }
+    } | null
+  } | null
+}): {
+  pageInfo: { hasNextPage: boolean; endCursor: string | null }
+  nodes: DetailedThreadNode[]
+} | null {
+  return result.repository?.pullRequest?.reviewThreads ?? null
+}
+
 async function paginateDetailedReviewThreads(
   owner: string,
   repo: string,
   prNumber: number,
   firstPage: {
     pageInfo: { hasNextPage: boolean; endCursor: string | null }
-    nodes: Array<{ isResolved: boolean; isOutdated: boolean; comments: { totalCount: number } }>
+    nodes: DetailedThreadNode[]
   },
   token: string
-): Promise<Array<{ isResolved: boolean; isOutdated: boolean; comments: { totalCount: number } }>> {
-  const allNodes = [...(firstPage.nodes || [])]
+): Promise<DetailedThreadNode[]> {
+  const allNodes: DetailedThreadNode[] = [...safeDetailedNodes(firstPage.nodes)]
   let { hasNextPage, endCursor } = firstPage.pageInfo
   while (hasNextPage && endCursor) {
     const pageQuery = `query {
@@ -574,18 +601,14 @@ async function paginateDetailedReviewThreads(
         pullRequest: {
           reviewThreads: {
             pageInfo: { hasNextPage: boolean; endCursor: string | null }
-            nodes: Array<{
-              isResolved: boolean
-              isOutdated: boolean
-              comments: { totalCount: number }
-            }>
+            nodes: DetailedThreadNode[]
           }
         } | null
       } | null
     }>(pageQuery, { headers: { authorization: `token ${token}` } })
-    const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
+    const pageThreads = extractDetailedPage(pageResult)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes || []))
+    allNodes.push(...safeDetailedNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }

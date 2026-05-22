@@ -54,10 +54,15 @@ interface GoogleForecastResponse {
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
+const CODE_TO_KEY: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
+
+function resolvePollenIndex(info: GoogleIndexInfo | undefined): number {
+  return info?.value ?? 0
+}
+
 function applyPollenType(t: GooglePollenTypeInfo, result: PollenData): void {
-  const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
-  const key = codeToKey[t.code ?? '']
-  if (key) result[key] = t.indexInfo?.value ?? 0
+  const key = CODE_TO_KEY[t.code ?? '']
+  if (key) result[key] = resolvePollenIndex(t.indexInfo)
   if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
 }
 
@@ -72,13 +77,21 @@ function normalizePollenType(raw: string | undefined): 'TREE' | 'GRASS' | 'WEED'
   return VALID_POLLEN_TYPES.has(upper) ? (upper as 'TREE' | 'GRASS' | 'WEED') : 'TREE'
 }
 
+function resolvePlantIndex(info: GoogleIndexInfo | undefined): number {
+  return info?.value ?? 0
+}
+
+function resolvePlantCategory(info: GoogleIndexInfo | undefined): string {
+  return info?.category ?? 'None'
+}
+
 function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
   if (!plant.code || !plant.displayName) return null
   return {
     code: plant.code,
     displayName: plant.displayName,
-    index: plant.indexInfo?.value ?? 0,
-    category: plant.indexInfo?.category ?? 'None',
+    index: resolvePlantIndex(plant.indexInfo),
+    category: resolvePlantCategory(plant.indexInfo),
     inSeason: plant.inSeason ?? false,
     type: normalizePollenType(plant.plantDescription?.type),
   }
@@ -88,20 +101,38 @@ function hasDayData(types: GooglePollenTypeInfo[], plants: GooglePlantInfo[]): b
   return types.length > 0 || plants.length > 0
 }
 
-function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+function collectSpecies(plants: GooglePlantInfo[]): PollenSpecies[] {
+  const species: PollenSpecies[] = []
+  for (const p of plants) {
+    const s = parsePlantInfo(p)
+    if (s) species.push(s)
+  }
+  return species
+}
+
+function resolveDayLists(day: { pollenTypeInfo?: GooglePollenTypeInfo[]; plantInfo?: GooglePlantInfo[] }): {
+  types: GooglePollenTypeInfo[]
+  plants: GooglePlantInfo[]
+} {
+  return { types: day.pollenTypeInfo ?? [], plants: day.plantInfo ?? [] }
+}
+
+function extractDayInfo(json: GoogleForecastResponse): {
+  types: GooglePollenTypeInfo[]
+  plants: GooglePlantInfo[]
+} | null {
   const day = json.dailyInfo?.[0]
   if (!day) return null
+  const lists = resolveDayLists(day)
+  return hasDayData(lists.types, lists.plants) ? lists : null
+}
 
-  const types = day.pollenTypeInfo ?? []
-  const plants = day.plantInfo ?? []
-  if (!hasDayData(types, plants)) return null
-
+function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {
+  const dayInfo = extractDayInfo(json)
+  if (!dayInfo) return null
   const result: PollenData = { tree: 0, grass: 0, weed: 0, species: [], healthRecommendations: [] }
-  parsePollenTypes(types, result)
-  for (const p of plants) {
-    const species = parsePlantInfo(p)
-    if (species) result.species.push(species)
-  }
+  parsePollenTypes(dayInfo.types, result)
+  result.species = collectSpecies(dayInfo.plants)
   return result
 }
 

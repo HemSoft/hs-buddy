@@ -648,6 +648,54 @@ function getInitialBranches(pr: PRDetailInfo): { headBranch: string; baseBranch:
     : null
 }
 
+interface DetailBannersProps {
+  copilotReviewBanner: { completedAt: number } | null
+  onDismissCopilot: () => void
+  codeRabbitReviewBanner: { completedAt: number } | null
+  onDismissCodeRabbit: () => void
+  nudgeState: 'idle' | 'sending' | 'sent' | 'error'
+  nudgeError: string | null
+  prAuthor: string
+  onDismissNudge: () => void
+}
+
+function DetailBanners({
+  copilotReviewBanner,
+  onDismissCopilot,
+  codeRabbitReviewBanner,
+  onDismissCodeRabbit,
+  nudgeState,
+  nudgeError,
+  prAuthor,
+  onDismissNudge,
+}: DetailBannersProps) {
+  return (
+    <>
+      {copilotReviewBanner && (
+        <CopilotReviewBanner
+          completedAt={copilotReviewBanner.completedAt}
+          onDismiss={onDismissCopilot}
+        />
+      )}
+      {codeRabbitReviewBanner && (
+        <AIReviewBanner
+          providerName={codeRabbitProvider.name}
+          completedAt={codeRabbitReviewBanner.completedAt}
+          onDismiss={onDismissCodeRabbit}
+        />
+      )}
+      {(nudgeState === 'sent' || nudgeState === 'error') && (
+        <NudgeBanner
+          state={nudgeState}
+          error={nudgeError}
+          author={prAuthor}
+          onDismiss={onDismissNudge}
+        />
+      )}
+    </>
+  )
+}
+
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const { pr } = props
   const section = props.section ?? null
@@ -853,38 +901,25 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
       />
 
       <div className="pr-detail-body">
-        {copilotReviewBanner && (
-          <CopilotReviewBanner
-            completedAt={copilotReviewBanner.completedAt}
-            onDismiss={() => {
-              setCopilotReviewBanner(null)
-              clearPendingReview(pr.url)
-            }}
-          />
-        )}
-
-        {codeRabbitReviewBanner && (
-          <AIReviewBanner
-            providerName={codeRabbitProvider.name}
-            completedAt={codeRabbitReviewBanner.completedAt}
-            onDismiss={() => {
-              setCodeRabbitReviewBanner(null)
-              clearPendingAIReview(codeRabbitProvider.id, pr.url)
-            }}
-          />
-        )}
-
-        {(nudgeState === 'sent' || nudgeState === 'error') && (
-          <NudgeBanner
-            state={nudgeState}
-            error={nudgeError}
-            author={pr.author}
-            onDismiss={() => {
-              setNudgeState('idle')
-              setNudgeError(null)
-            }}
-          />
-        )}
+        <DetailBanners
+          copilotReviewBanner={copilotReviewBanner}
+          onDismissCopilot={() => {
+            setCopilotReviewBanner(null)
+            clearPendingReview(pr.url)
+          }}
+          codeRabbitReviewBanner={codeRabbitReviewBanner}
+          onDismissCodeRabbit={() => {
+            setCodeRabbitReviewBanner(null)
+            clearPendingAIReview(codeRabbitProvider.id, pr.url)
+          }}
+          nudgeState={nudgeState}
+          nudgeError={nudgeError}
+          prAuthor={pr.author}
+          onDismissNudge={() => {
+            setNudgeState('idle')
+            setNudgeError(null)
+          }}
+        />
 
         {sectionLabel && (
           <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />

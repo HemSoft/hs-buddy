@@ -233,6 +233,18 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 }
 /* v8 ignore stop */
 
+function resolvePRDates(node: ViewerPRNode): {
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    created: node.createdAt ? new Date(node.createdAt) : null,
+    updatedAt: node.updatedAt || null,
+    date: node.closedAt || node.mergedAt || null,
+  }
+}
+
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */
 function mapGraphQLNodeToPullRequest(
@@ -242,6 +254,7 @@ function mapGraphQLNodeToPullRequest(
 ): PullRequest & { _owner: string; _repo: string; _prNumber: number } {
   const [owner, repo] = node.repository.nameWithOwner.split('/')
   const { login: author, avatarUrl: authorAvatarUrl } = resolveGraphQLAuthor(node.author)
+  const dates = resolvePRDates(node)
 
   return {
     source: 'GitHub' as const,
@@ -251,9 +264,7 @@ function mapGraphQLNodeToPullRequest(
     author,
     authorAvatarUrl,
     assigneeCount: node.assignees.totalCount,
-    created: node.createdAt ? new Date(node.createdAt) : null,
-    updatedAt: node.updatedAt || null,
-    date: node.closedAt || node.mergedAt || null,
+    ...dates,
     url: node.url,
     state: node.state.toLowerCase(),
     approvalCount: 0,

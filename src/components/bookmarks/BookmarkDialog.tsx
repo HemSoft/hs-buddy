@@ -64,6 +64,10 @@ type BookmarkDialogAction =
   | { type: 'ai:start' }
   | { type: 'ai:finish'; description?: string; tagsInput?: string }
 
+function resolveTagsInput(tags: string[] | undefined): string {
+  return tags?.join(', ') ?? ''
+}
+
 function deriveBookmarkFields(
   bookmark: BookmarkInput,
   initialUrl?: string,
@@ -83,7 +87,7 @@ function deriveBookmarkFields(
     title: bookmark.title,
     description: bookmark.description ?? '',
     category: bookmark.category,
-    tagsInput: bookmark.tags?.join(', ') ?? '',
+    tagsInput: resolveTagsInput(bookmark.tags),
   }
 }
 
@@ -330,6 +334,67 @@ function BookmarkCategoryField({
   )
 }
 
+function BookmarkDescriptionField({
+  state,
+  dispatch,
+  userEditedDescription,
+}: {
+  state: BookmarkDialogState
+  dispatch: React.Dispatch<BookmarkDialogAction>
+  userEditedDescription: React.MutableRefObject<boolean>
+}) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Description
+        {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+      </span>
+      <textarea
+        className="bookmark-dialog-textarea"
+        value={state.description}
+        onChange={e => {
+          dispatch({ type: 'setDescription', value: e.target.value })
+          userEditedDescription.current = true
+        }}
+        placeholder={
+          state.aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
+        }
+        rows={2}
+      />
+    </label>
+  )
+}
+
+function BookmarkTagsField({
+  state,
+  dispatch,
+  userEditedTags,
+}: {
+  state: BookmarkDialogState
+  dispatch: React.Dispatch<BookmarkDialogAction>
+  userEditedTags: React.MutableRefObject<boolean>
+}) {
+  return (
+    <label className="bookmark-dialog-label">
+      <span>
+        Tags
+        {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
+      </span>
+      <input
+        type="text"
+        className="bookmark-dialog-input"
+        value={state.tagsInput}
+        onChange={e => {
+          dispatch({ type: 'setTagsInput', value: e.target.value })
+          userEditedTags.current = true
+        }}
+        placeholder={state.aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'}
+      />
+      <span className="bookmark-dialog-hint">Comma-separated</span>
+    </label>
+  )
+}
+
 function BookmarkFormFields({
   state,
   isEdit,
@@ -375,24 +440,11 @@ function BookmarkFormFields({
         />
       </label>
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Description
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
-        </span>
-        <textarea
-          className="bookmark-dialog-textarea"
-          value={state.description}
-          onChange={e => {
-            dispatch({ type: 'setDescription', value: e.target.value })
-            userEditedDescription.current = true
-          }}
-          placeholder={
-            state.aiSuggesting ? 'AI is generating a description…' : 'Optional description…'
-          }
-          rows={2}
-        />
-      </label>
+      <BookmarkDescriptionField
+        state={state}
+        dispatch={dispatch}
+        userEditedDescription={userEditedDescription}
+      />
 
       <BookmarkCategoryField
         state={state}
@@ -401,23 +453,7 @@ function BookmarkFormFields({
         dispatch={dispatch}
       />
 
-      <label className="bookmark-dialog-label">
-        <span>
-          Tags
-          {state.aiSuggesting && <span className="bookmark-fetching-hint"> ✨ AI suggesting…</span>}
-        </span>
-        <input
-          type="text"
-          className="bookmark-dialog-input"
-          value={state.tagsInput}
-          onChange={e => {
-            dispatch({ type: 'setTagsInput', value: e.target.value })
-            userEditedTags.current = true
-          }}
-          placeholder={state.aiSuggesting ? 'AI is suggesting tags…' : 'tag1, tag2, tag3'}
-        />
-        <span className="bookmark-dialog-hint">Comma-separated</span>
-      </label>
+      <BookmarkTagsField state={state} dispatch={dispatch} userEditedTags={userEditedTags} />
     </>
   )
 }

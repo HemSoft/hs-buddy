@@ -171,6 +171,47 @@ export function getMissedPolicyHint(policy: string): string {
   return MISSED_POLICY_HINTS[policy] ?? ''
 }
 
+interface PerformScheduleSaveOptions {
+  isEditing: boolean
+  scheduleId?: string
+  name: string
+  trimmedDesc: string | undefined
+  jobId: string
+  cron: string
+  enabled: boolean
+  missedPolicy: MissedPolicy
+  update: ReturnType<typeof useScheduleMutations>['update']
+  create: ReturnType<typeof useScheduleMutations>['create']
+  incrementStat?: ReturnType<typeof useBuddyStatsMutations>['increment']
+}
+
+async function performScheduleSave(opts: PerformScheduleSaveOptions): Promise<void> {
+  if (opts.isEditing && opts.scheduleId) {
+    await opts.update({
+      id: opts.scheduleId as Id<'schedules'>,
+      name: opts.name.trim(),
+      /* v8 ignore start */
+      description: opts.trimmedDesc,
+      /* v8 ignore stop */
+      cron: opts.cron,
+      enabled: opts.enabled,
+      missedPolicy: opts.missedPolicy,
+    })
+  } else {
+    await opts.create({
+      name: opts.name.trim(),
+      description: opts.trimmedDesc,
+      jobId: opts.jobId as JobId,
+      cron: opts.cron,
+      enabled: opts.enabled,
+      missedPolicy: opts.missedPolicy,
+    })
+    /* v8 ignore start */
+    opts.incrementStat?.({ field: 'schedulesCreated' }).catch(() => {})
+    /* v8 ignore stop */
+  }
+}
+
 function ScheduleEditorForm({
   scheduleId,
   isEditing,
@@ -200,30 +241,19 @@ function ScheduleEditorForm({
     setSaving(true)
 
     try {
-      if (isEditing && scheduleId) {
-        await update({
-          id: scheduleId as Id<'schedules'>,
-          name: name.trim(),
-          /* v8 ignore start */
-          description: trimmedDesc,
-          /* v8 ignore stop */
-          cron,
-          enabled,
-          missedPolicy,
-        })
-      } else {
-        await create({
-          name: name.trim(),
-          description: trimmedDesc,
-          jobId: jobId as JobId,
-          cron,
-          enabled,
-          missedPolicy,
-        })
-        /* v8 ignore start */
-        incrementStat({ field: 'schedulesCreated' }).catch(() => {})
-        /* v8 ignore stop */
-      }
+      await performScheduleSave({
+        isEditing,
+        scheduleId,
+        name,
+        trimmedDesc,
+        jobId,
+        cron,
+        enabled,
+        missedPolicy,
+        update,
+        create,
+        incrementStat,
+      })
       onSaved?.()
       onClose()
     } catch (err: unknown) {
@@ -336,11 +366,15 @@ function ScheduleEditorForm({
   )
 }
 
+function resolveDefaultJobId(jobs: ScheduleOption[] | undefined): string {
+  return jobs?.[0]?._id ?? ''
+}
+
 export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorProps) {
   const jobs = useJobs()
   const existingSchedule = useSchedule(scheduleId as Id<'schedules'> | undefined)
   const isEditing = !!scheduleId
-  const defaultJobId = jobs?.[0]?._id ?? ''
+  const defaultJobId = resolveDefaultJobId(jobs)
   const initialFormState = buildInitialScheduleFormState(existingSchedule, defaultJobId)
   const formKey = computeFormKey(isEditing, existingSchedule, scheduleId, defaultJobId)
   const waitingForExistingSchedule = isEditing && !existingSchedule

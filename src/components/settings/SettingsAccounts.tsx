@@ -86,17 +86,258 @@ function validateAddFields(username: string, org: string, accounts: GitHubAccoun
   return null
 }
 
+function AccountAddForm({
+  formState,
+  dispatch,
+  onSubmit,
+}: {
+  formState: AddAccountFormState
+  dispatch: React.Dispatch<AddAccountFormAction>
+  onSubmit: (e: React.FormEvent) => void
+}) {
+  const { newUsername, newOrg, addError, isAdding } = formState
+  return (
+    <form className="add-form" onSubmit={onSubmit}>
+      <div className="form-row">
+        <div className="form-field">
+          <label htmlFor="username">
+            <User size={14} />
+            Username
+          </label>
+          <input
+            id="username"
+            type="text"
+            value={newUsername}
+            onChange={e => dispatch({ type: 'SET_USERNAME', value: e.target.value })}
+            placeholder="your-github-username"
+            disabled={isAdding}
+          />
+        </div>
+        <div className="form-field">
+          <label htmlFor="org">
+            <Building2 size={14} />
+            Organization
+          </label>
+          <input
+            id="org"
+            type="text"
+            value={newOrg}
+            onChange={e => dispatch({ type: 'SET_ORG', value: e.target.value })}
+            placeholder="organization-name"
+            disabled={isAdding}
+          />
+        </div>
+      </div>
+      {addError && (
+        <div className="form-error">
+          <AlertCircle size={14} />
+          {addError}
+        </div>
+      )}
+      <div className="form-actions">
+        <button
+          type="button"
+          className="settings-btn settings-btn-secondary"
+          onClick={() => dispatch({ type: 'CLOSE_FORM' })}
+          disabled={isAdding}
+        >
+          Cancel
+        </button>
+        <button type="submit" className="settings-btn settings-btn-primary" disabled={isAdding}>
+          {isAdding ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />}
+          Add
+        </button>
+      </div>
+    </form>
+  )
+}
+
+function AccountListItem({
+  account,
+  isEditing,
+  editRepoRoot,
+  setEditRepoRoot,
+  setEditingKey,
+  handleRemove,
+  updateAccount,
+}: {
+  account: GitHubAccount
+  isEditing: boolean
+  editRepoRoot: string
+  setEditRepoRoot: (v: string) => void
+  setEditingKey: (v: string | null) => void
+  handleRemove: (username: string, org: string) => void
+  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+}) {
+  const key = `${account.username}-${account.org}`
+  return (
+    <div
+      key={key}
+      className={`list-item list-item-expandable${isEditing ? ' list-item-editing' : ''}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => {
+        if (!isEditing) {
+          setEditingKey(key)
+          setEditRepoRoot(account.repoRoot ?? '')
+        }
+      }}
+      onKeyDown={e => {
+        if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
+          e.preventDefault()
+          setEditingKey(key)
+          setEditRepoRoot(account.repoRoot ?? '')
+        }
+      }}
+      style={{ cursor: isEditing ? 'default' : 'pointer' }}
+    >
+      <div className="list-item-row">
+        <div className="list-item-content">
+          <div className="list-item-primary">
+            <User size={16} />
+            <span className="item-name">{account.username}</span>
+          </div>
+          <AccountSecondaryInfo account={account} isEditing={isEditing} />
+        </div>
+        <div className="list-item-actions">
+          <span className="auth-badge">GitHub CLI</span>
+          {isEditing && (
+            <button
+              className="settings-btn settings-btn-icon"
+              onClick={e => {
+                e.stopPropagation()
+                setEditingKey(null)
+              }}
+              title="Cancel editing"
+            >
+              <X size={14} />
+            </button>
+          )}
+          <button
+            className="settings-btn settings-btn-icon settings-btn-danger"
+            onClick={e => {
+              e.stopPropagation()
+              handleRemove(account.username, account.org)
+            }}
+            title="Remove account"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      </div>
+      {isEditing && (
+        <AccountEditPanel
+          account={account}
+          editRepoRoot={editRepoRoot}
+          setEditRepoRoot={setEditRepoRoot}
+          setEditingKey={setEditingKey}
+          updateAccount={updateAccount}
+        />
+      )}
+    </div>
+  )
+}
+
+function AccountSecondaryInfo({
+  account,
+  isEditing,
+}: {
+  account: GitHubAccount
+  isEditing: boolean
+}) {
+  return (
+    <div className="list-item-secondary">
+      <Building2 size={14} />
+      <span>{account.org}</span>
+      {account.repoRoot && !isEditing && (
+        <>
+          <span className="list-item-dot">·</span>
+          <FolderOpen size={12} />
+          <span className="list-item-path">{account.repoRoot}</span>
+        </>
+      )}
+    </div>
+  )
+}
+
+function AccountEditPanel({
+  account,
+  editRepoRoot,
+  setEditRepoRoot,
+  setEditingKey,
+  updateAccount,
+}: {
+  account: GitHubAccount
+  editRepoRoot: string
+  setEditRepoRoot: (v: string) => void
+  setEditingKey: (v: string | null) => void
+  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+}) {
+  const key = `${account.username}-${account.org}`
+  return (
+    <div
+      className="list-item-edit-panel"
+      role="presentation"
+      onClick={e => e.stopPropagation()}
+      onKeyDown={e => e.stopPropagation()}
+    >
+      <div className="form-field">
+        <label htmlFor={`repo-root-${key}`}>
+          <FolderOpen size={14} />
+          Repository Root Path
+        </label>
+        <div className="ralph-input-row">
+          <input
+            id={`repo-root-${key}`}
+            type="text"
+            value={editRepoRoot}
+            onChange={e => setEditRepoRoot(e.target.value)}
+            placeholder={`D:\\github\\${account.org}`}
+          />
+          <button
+            type="button"
+            className="settings-btn settings-btn-icon"
+            title="Browse for folder"
+            onClick={async () => {
+              const selected = await window.ralph.selectDirectory(editRepoRoot || undefined)
+              if (selected) setEditRepoRoot(selected)
+            }}
+          >
+            <FolderOpen size={14} />
+          </button>
+          <button
+            type="button"
+            className="settings-btn settings-btn-primary settings-btn-icon"
+            title="Save"
+            onClick={async () => {
+              await updateAccount(account.username, account.org, {
+                repoRoot: editRepoRoot || undefined,
+              })
+              setEditingKey(null)
+            }}
+          >
+            <Check size={14} />
+          </button>
+        </div>
+        <span className="form-hint">
+          Local folder containing repos for this org (e.g. D:\github\{account.org})
+        </span>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsAccounts() {
   const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
   const [formState, dispatch] = useReducer(addAccountFormReducer, INITIAL_FORM_STATE)
-  const { showAddForm, newUsername, newOrg, addError, isAdding } = formState
+  const { showAddForm } = formState
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editRepoRoot, setEditRepoRoot] = useState('')
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    const username = newUsername.trim()
-    const org = newOrg.trim()
+    const username = formState.newUsername.trim()
+    const org = formState.newOrg.trim()
 
     const validationError = validateAddFields(username, org, accounts)
     if (validationError) {
@@ -176,62 +417,7 @@ export function SettingsAccounts() {
             </div>
 
             {showAddForm && (
-              <form className="add-form" onSubmit={handleAdd}>
-                <div className="form-row">
-                  <div className="form-field">
-                    <label htmlFor="username">
-                      <User size={14} />
-                      Username
-                    </label>
-                    <input
-                      id="username"
-                      type="text"
-                      value={newUsername}
-                      onChange={e => dispatch({ type: 'SET_USERNAME', value: e.target.value })}
-                      placeholder="your-github-username"
-                      disabled={isAdding}
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label htmlFor="org">
-                      <Building2 size={14} />
-                      Organization
-                    </label>
-                    <input
-                      id="org"
-                      type="text"
-                      value={newOrg}
-                      onChange={e => dispatch({ type: 'SET_ORG', value: e.target.value })}
-                      placeholder="organization-name"
-                      disabled={isAdding}
-                    />
-                  </div>
-                </div>
-                {addError && (
-                  <div className="form-error">
-                    <AlertCircle size={14} />
-                    {addError}
-                  </div>
-                )}
-                <div className="form-actions">
-                  <button
-                    type="button"
-                    className="settings-btn settings-btn-secondary"
-                    onClick={() => dispatch({ type: 'CLOSE_FORM' })}
-                    disabled={isAdding}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="settings-btn settings-btn-primary"
-                    disabled={isAdding}
-                  >
-                    {isAdding ? <RefreshCw className="spin" size={14} /> : <Plus size={14} />}
-                    Add
-                  </button>
-                </div>
-              </form>
+              <AccountAddForm formState={formState} dispatch={dispatch} onSubmit={handleAdd} />
             )}
 
             {accounts.length === 0 ? (
@@ -247,127 +433,17 @@ export function SettingsAccounts() {
               <div className="items-list">
                 {accounts.map(account => {
                   const key = `${account.username}-${account.org}`
-                  const isEditing = editingKey === key
                   return (
-                    <div
+                    <AccountListItem
                       key={key}
-                      className={`list-item list-item-expandable${isEditing ? ' list-item-editing' : ''}`}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => {
-                        if (!isEditing) {
-                          setEditingKey(key)
-                          setEditRepoRoot(account.repoRoot ?? '')
-                        }
-                      }}
-                      onKeyDown={e => {
-                        if ((e.key === 'Enter' || e.key === ' ') && !isEditing) {
-                          e.preventDefault()
-                          setEditingKey(key)
-                          setEditRepoRoot(account.repoRoot ?? '')
-                        }
-                      }}
-                      style={{ cursor: isEditing ? 'default' : 'pointer' }}
-                    >
-                      <div className="list-item-row">
-                        <div className="list-item-content">
-                          <div className="list-item-primary">
-                            <User size={16} />
-                            <span className="item-name">{account.username}</span>
-                          </div>
-                          <div className="list-item-secondary">
-                            <Building2 size={14} />
-                            <span>{account.org}</span>
-                            {account.repoRoot && !isEditing && (
-                              <>
-                                <span className="list-item-dot">·</span>
-                                <FolderOpen size={12} />
-                                <span className="list-item-path">{account.repoRoot}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div className="list-item-actions">
-                          <span className="auth-badge">GitHub CLI</span>
-                          {isEditing && (
-                            <button
-                              className="settings-btn settings-btn-icon"
-                              onClick={e => {
-                                e.stopPropagation()
-                                setEditingKey(null)
-                              }}
-                              title="Cancel editing"
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                          <button
-                            className="settings-btn settings-btn-icon settings-btn-danger"
-                            onClick={e => {
-                              e.stopPropagation()
-                              handleRemove(account.username, account.org)
-                            }}
-                            title="Remove account"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </div>
-                      {isEditing && (
-                        <div
-                          className="list-item-edit-panel"
-                          role="presentation"
-                          onClick={e => e.stopPropagation()}
-                          onKeyDown={e => e.stopPropagation()}
-                        >
-                          <div className="form-field">
-                            <label htmlFor={`repo-root-${key}`}>
-                              <FolderOpen size={14} />
-                              Repository Root Path
-                            </label>
-                            <div className="ralph-input-row">
-                              <input
-                                id={`repo-root-${key}`}
-                                type="text"
-                                value={editRepoRoot}
-                                onChange={e => setEditRepoRoot(e.target.value)}
-                                placeholder={`D:\\github\\${account.org}`}
-                              />
-                              <button
-                                type="button"
-                                className="settings-btn settings-btn-icon"
-                                title="Browse for folder"
-                                onClick={async () => {
-                                  const selected = await window.ralph.selectDirectory(
-                                    editRepoRoot || undefined
-                                  )
-                                  if (selected) setEditRepoRoot(selected)
-                                }}
-                              >
-                                <FolderOpen size={14} />
-                              </button>
-                              <button
-                                type="button"
-                                className="settings-btn settings-btn-primary settings-btn-icon"
-                                title="Save"
-                                onClick={async () => {
-                                  await updateAccount(account.username, account.org, {
-                                    repoRoot: editRepoRoot || undefined,
-                                  })
-                                  setEditingKey(null)
-                                }}
-                              >
-                                <Check size={14} />
-                              </button>
-                            </div>
-                            <span className="form-hint">
-                              Local folder containing repos for this org (e.g. D:\github\
-                              {account.org})
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      account={account}
+                      isEditing={editingKey === key}
+                      editRepoRoot={editRepoRoot}
+                      setEditRepoRoot={setEditRepoRoot}
+                      setEditingKey={setEditingKey}
+                      handleRemove={handleRemove}
+                      updateAccount={updateAccount}
+                    />
                   )
                 })}
               </div>

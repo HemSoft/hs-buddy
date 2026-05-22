@@ -22,6 +22,35 @@ function buildCopilotMetadata(account: string | null): { ghAccount: string } | u
   return account ? { ghAccount: account } : undefined
 }
 
+function extractOrgsFromText(text: string): string[] {
+  const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
+  const orgs: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = urlPattern.exec(text)) !== null) {
+    orgs.push(match[1].toLowerCase())
+  }
+  return orgs
+}
+
+function findMatchingAccount(
+  orgs: string[],
+  accounts: Array<{ org: string; username: string }>
+): { org: string; username: string } | undefined {
+  for (const org of orgs) {
+    const acct = accounts.find(a => a.org.toLowerCase() === org)
+    if (acct) return acct
+  }
+  return undefined
+}
+
+function shouldSkipSubmit(trimmed: string, submitting: boolean): boolean {
+  return !trimmed || submitting
+}
+
+function isSubmitSuccess(result: { success: boolean; resultId?: string | null }): result is { success: true; resultId: string } {
+  return result.success && typeof result.resultId === 'string'
+}
+
 interface CopilotPromptBoxProps {
   /** Called when user opens a result tab */
   onOpenResult?: (resultId: string) => void
@@ -209,12 +238,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
    */
   const resolveAccountFromPrompt = useCallback(
     (text: string) => {
-      const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
-      const orgs: string[] = []
-      let match: RegExpExecArray | null
-      while ((match = urlPattern.exec(text)) !== null) {
-        orgs.push(match[1].toLowerCase())
-      }
+      const orgs = extractOrgsFromText(text)
 
       if (orgs.length === 0) {
         // No GitHub URL — if we previously auto-detected, revert to default
@@ -231,18 +255,13 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       }
 
       // Find the first org that matches a configured account
-      for (const org of orgs) {
-        const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
-        if (acct) {
-          if (localAccount !== acct.username) {
-            autoDetectedRef.current = true
-            setState(previousState => ({
-              ...previousState,
-              localAccount: acct.username,
-            }))
-          }
-          return
-        }
+      const acct = findMatchingAccount(orgs, githubAccounts)
+      if (acct && localAccount !== acct.username) {
+        autoDetectedRef.current = true
+        setState(previousState => ({
+          ...previousState,
+          localAccount: acct.username,
+        }))
       }
     },
     [githubAccounts, ghAccount, localAccount]
@@ -256,7 +275,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
 
   const handleSubmit = async () => {
     const trimmed = prompt.trim()
-    if (!trimmed || submitting) return
+    if (shouldSkipSubmit(trimmed, submitting)) return
 
     setState(previousState => ({
       ...previousState,
@@ -272,7 +291,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         metadata: buildCopilotMetadata(localAccount),
       })
 
-      if (result.success && result.resultId) {
+      if (isSubmitSuccess(result)) {
         setState(previousState => ({
           ...previousState,
           prompt: '',

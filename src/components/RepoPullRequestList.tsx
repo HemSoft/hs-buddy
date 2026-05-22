@@ -298,9 +298,34 @@ function RepoPRListBody({
   )
 }
 
+function resolveRepoPRState(prState?: RepoPullRequestListProps['prState']) {
+  return prState ?? 'open'
+}
+
+function renderRepoPREmptyState(
+  isEmpty: boolean,
+  loading: boolean,
+  error: string | null,
+  refresh: () => void,
+  prState: RepoPullRequestListProps['prState'],
+  owner: string,
+  repo: string
+): React.JSX.Element | null {
+  if (!isEmpty) {
+    return null
+  }
+  if (loading) {
+    return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { owner, repo, onOpenPR } = props
-  const prState = props.prState ?? 'open'
+  const prState = resolveRepoPRState(props.prState)
   const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
     cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
     taskName: `repo-prs-${prState}-${owner}-${repo}`,
@@ -321,15 +346,9 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
     [onOpenPR, owner]
   )
 
-  if (isEmpty) {
-    if (loading) {
-      return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
-    }
-    if (error) {
-      return (
-        <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-      )
-    }
+  const emptyState = renderRepoPREmptyState(isEmpty, loading, error, refresh, prState, owner, repo)
+  if (emptyState) {
+    return emptyState
   }
 
   return (

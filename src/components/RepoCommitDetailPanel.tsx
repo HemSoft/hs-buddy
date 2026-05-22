@@ -154,6 +154,29 @@ function CommitDetailContent({
   )
 }
 
+function renderRepoCommitDetailFallback(
+  detail: RepoCommitDetail | null | undefined,
+  loading: boolean,
+  error: string | null,
+  refresh: () => void,
+  owner: string,
+  repo: string,
+  sha: string
+): React.JSX.Element | null {
+  if (loading && !detail) {
+    return (
+      <PanelLoadingState
+        message="Loading commit..."
+        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
+      />
+    )
+  }
+  if (error && !detail) {
+    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {
   const {
     data: detail,
@@ -166,19 +189,8 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
     fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
   })
 
-  if (loading && !detail) {
-    return (
-      <PanelLoadingState
-        message="Loading commit..."
-        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
-      />
-    )
-  }
-
-  if (error && !detail) {
-    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
-  }
-
+  const fallback = renderRepoCommitDetailFallback(detail, loading, error, refresh, owner, repo, sha)
+  if (fallback) return fallback
   if (!detail) return null
 
   return (

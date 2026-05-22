@@ -20,6 +20,78 @@ function basename(filePath: string): string {
   return filePath.replace(/^.*[\\/]/, '')
 }
 
+function releasePreviewAudio(
+  audio: HTMLAudioElement,
+  url: string,
+  audioRef: { current: HTMLAudioElement | null },
+  previewUrlRef: { current: string | null },
+  revokePreviewUrl: () => void
+): void {
+  if (audioRef.current === audio) audioRef.current = null
+  if (previewUrlRef.current === url) revokePreviewUrl()
+}
+
+function handlePreviewPlaybackError(
+  audio: HTMLAudioElement,
+  url: string,
+  audioRef: { current: HTMLAudioElement | null },
+  previewUrlRef: { current: string | null },
+  revokePreviewUrl: () => void,
+  setPreviewError: (value: string | null) => void
+): void {
+  releasePreviewAudio(audio, url, audioRef, previewUrlRef, revokePreviewUrl)
+  setPreviewError('Could not play this file. Make sure it is a valid audio file.')
+}
+
+function NotificationToggleButton({ enabled, onClick }: { enabled: boolean; onClick: () => void }) {
+  return (
+    <button
+      id="notification-sound-toggle"
+      className={`toggle-button ${enabled ? 'active' : ''}`}
+      onClick={onClick}
+      aria-pressed={enabled}
+    >
+      {enabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
+    </button>
+  )
+}
+
+function SoundFileSelection({
+  soundPath,
+  onPreview,
+  onClear,
+}: {
+  soundPath: string
+  onPreview: () => void
+  onClear: () => void
+}) {
+  if (!soundPath) {
+    return (
+      <p className="hint" style={{ margin: 0 }}>
+        No sound file selected.
+      </p>
+    )
+  }
+
+  return (
+    <div className="sound-file-info">
+      <code className="sound-file-name" title={soundPath}>
+        {basename(soundPath)}
+      </code>
+      <div className="sound-file-actions">
+        <button className="settings-btn settings-btn-secondary" onClick={onPreview} title="Preview sound">
+          <Play size={14} />
+          Preview
+        </button>
+        <button className="settings-btn settings-btn-secondary" onClick={onClear} title="Remove sound file">
+          <X size={14} />
+          Clear
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsNotifications() {
   const { enabled, soundPath, loading, setEnabled, setSoundPath, pickSoundFile } =
     useNotificationSettings()
@@ -83,18 +155,27 @@ export function SettingsNotifications() {
         const audio = new Audio(url)
         audioRef.current = audio
         audio.onended = () => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
+          releasePreviewAudio(audio, url, audioRef, previewUrlRef, revokePreviewUrl)
         }
         audio.onerror = () => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
-          setPreviewError('Could not play this file. Make sure it is a valid audio file.')
+          handlePreviewPlaybackError(
+            audio,
+            url,
+            audioRef,
+            previewUrlRef,
+            revokePreviewUrl,
+            setPreviewError
+          )
         }
         audio.play().catch(() => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
-          setPreviewError('Could not play this file. Make sure it is a valid audio file.')
+          handlePreviewPlaybackError(
+            audio,
+            url,
+            audioRef,
+            previewUrlRef,
+            revokePreviewUrl,
+            setPreviewError
+          )
         })
       })
       .catch(() => {
@@ -143,14 +224,7 @@ export function SettingsNotifications() {
                 completes.
               </p>
             </div>
-            <button
-              id="notification-sound-toggle"
-              className={`toggle-button ${enabled ? 'active' : ''}`}
-              onClick={handleToggle}
-              aria-pressed={enabled}
-            >
-              {enabled ? <ToggleRight size={32} /> : <ToggleLeft size={32} />}
-            </button>
+            <NotificationToggleButton enabled={enabled} onClick={handleToggle} />
           </div>
         </div>
 
@@ -167,35 +241,7 @@ export function SettingsNotifications() {
           </p>
 
           <div className="sound-file-row">
-            {soundPath ? (
-              <div className="sound-file-info">
-                <code className="sound-file-name" title={soundPath}>
-                  {basename(soundPath)}
-                </code>
-                <div className="sound-file-actions">
-                  <button
-                    className="settings-btn settings-btn-secondary"
-                    onClick={handlePreview}
-                    title="Preview sound"
-                  >
-                    <Play size={14} />
-                    Preview
-                  </button>
-                  <button
-                    className="settings-btn settings-btn-secondary"
-                    onClick={handleClear}
-                    title="Remove sound file"
-                  >
-                    <X size={14} />
-                    Clear
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="hint" style={{ margin: 0 }}>
-                No sound file selected.
-              </p>
-            )}
+            <SoundFileSelection soundPath={soundPath ?? ''} onPreview={handlePreview} onClear={handleClear} />
           </div>
 
           <div className="button-group" style={{ marginTop: '8px' }}>

@@ -46,6 +46,12 @@ function resolveLoadingPhase(hasUsage: boolean): LoadPhase {
   return hasUsage ? 'refreshing' : 'loading'
 }
 
+function isReadyOrgCopilotAction(
+  action: OrgCopilotAction
+): action is Extract<OrgCopilotAction, { type: 'hydrate-cache' | 'success' }> {
+  return action.type === 'hydrate-cache' || action.type === 'success'
+}
+
 export function orgCopilotReducer(
   state: OrgCopilotState,
   action: OrgCopilotAction
@@ -53,7 +59,7 @@ export function orgCopilotReducer(
   if (action.type === 'reset-for-user-namespace') {
     return { usage: null, phase: 'loading', error: null }
   }
-  if (action.type === 'hydrate-cache' || action.type === 'success') {
+  if (isReadyOrgCopilotAction(action)) {
     return { usage: action.usage, phase: 'ready', error: null }
   }
   if (action.type === 'start-loading') {

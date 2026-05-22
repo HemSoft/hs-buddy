@@ -68,6 +68,29 @@ interface UseSidebarPRTreeOptions {
   >
 }
 
+function isMatchingSidebarPR(item: PullRequest, target: PullRequest): boolean {
+  return (
+    item.id === target.id &&
+    item.repository === target.repository &&
+    (item.org ?? '') === (target.org ?? '') &&
+    item.source === target.source
+  )
+}
+
+function applyApproveToTreeData(
+  prev: Record<string, PullRequest[]>,
+  target: PullRequest
+): Record<string, PullRequest[]> {
+  const next: Record<string, PullRequest[]> = { ...prev }
+  for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
+    next[groupId] = items.map(item => {
+      if (!isMatchingSidebarPR(item, target) || item.iApproved) return item
+      return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
+    })
+  }
+  return next
+}
+
 export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptions) {
   const prGroups = useToggleSet()
   const prNodes = useToggleSet()
@@ -166,23 +189,27 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
   }
 
   const applyApproveToTree = useCallback((target: PullRequest) => {
-    const isPRMatch = (item: PullRequest) =>
-      item.id === target.id &&
-      item.repository === target.repository &&
-      (item.org ?? '') === (target.org ?? '') &&
-      item.source === target.source
-
-    setPrTreeData(prev => {
-      const next: Record<string, PullRequest[]> = { ...prev }
-      for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
-        next[groupId] = items.map(item => {
-          if (!isPRMatch(item) || item.iApproved) return item
-          return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-        })
-      }
-      return next
-    })
+    setPrTreeData(prev => applyApproveToTreeData(prev, target))
   }, [])
+
+  const approveSidebarPullRequest = async (owner: string, repo: string, prId: number) => {
+    await enqueueRef.current(
+      async signal => {
+        /* v8 ignore next */
+        if (signal) throwIfAborted(signal)
+        const client = new GitHubClient({ accounts }, 7)
+        await client.approvePullRequest(owner, repo, prId)
+      },
+      { name: `approve-sidebar-pr-${owner}-${repo}-${prId}` }
+    )
+  }
+
+  const handleSidebarApproveError = (error: unknown) => {
+    /* v8 ignore start */
+    if (isAbortError(error)) return
+    /* v8 ignore stop */
+    console.error('Failed to approve PR from sidebar:', error)
+  }
 
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
@@ -191,21 +218,10 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       const { owner, repo, prKey } = approval
       setApprovingPrKeys(prev => new Set(prev).add(prKey))
       try {
-        await enqueueRef.current(
-          async signal => {
-            /* v8 ignore next */
-            if (signal) throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            await client.approvePullRequest(owner, repo, pr.id)
-          },
-          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
-        )
+        await approveSidebarPullRequest(owner, repo, pr.id)
         applyApproveToTree(pr)
       } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.error('Failed to approve PR from sidebar:', error)
+        handleSidebarApproveError(error)
       } finally {
         setApprovingPrKeys(prev => {
           const next = new Set(prev)

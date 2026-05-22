@@ -54,12 +54,22 @@ const CREATE_INITIAL_DEFAULTS = {
 }
 
 function getWorklogRaw(worklog: TempoWorklog | null) {
+  if (!worklog) {
+    return {
+      issueKey: undefined,
+      hours: undefined,
+      date: undefined,
+      description: undefined,
+      accountKey: undefined,
+    }
+  }
+
   return {
-    issueKey: worklog?.issueKey,
-    hours: worklog?.hours,
-    date: worklog?.date,
-    description: worklog?.description,
-    accountKey: worklog?.accountKey,
+    issueKey: worklog.issueKey,
+    hours: worklog.hours,
+    date: worklog.date,
+    description: worklog.description,
+    accountKey: worklog.accountKey,
   }
 }
 

@@ -15,16 +15,22 @@ interface PRContextMenuProps {
   onClose: () => void
 }
 
-function getPRContextMenuState(pr: PullRequest, isBookmarked: boolean) {
-  const hasUnresolved = (pr.threadsUnaddressed ?? 0) > 0
+function hasUnresolvedComments(pr: PullRequest): boolean {
+  return (pr.threadsUnaddressed ?? 0) > 0
+}
+
+function getAddressCommentsLabel(pr: PullRequest, hasUnresolved: boolean): string {
+  return hasUnresolved ? `Address Unresolved Comments (${pr.threadsUnaddressed})` : 'No Unresolved Comments'
+}
+
+function getApproveLabel(pr: PullRequest): string {
+  return pr.iApproved ? 'Already Approved' : 'Approve'
+}
+
+function getBookmarkState(pr: PullRequest, isBookmarked: boolean) {
   return {
-    hasUnresolved,
-    addressLabel: hasUnresolved
-      ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
-      : 'No Unresolved Comments',
-    approveLabel: pr.iApproved ? 'Already Approved' : 'Approve',
-    bookmarkLabel: isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`,
-    bookmarkFill: isBookmarked ? 'currentColor' : 'none',
+    fill: isBookmarked ? 'currentColor' : 'none',
+    label: isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`,
   }
 }
 
@@ -43,7 +49,8 @@ export function PRContextMenu({
 }: PRContextMenuProps) {
   const repoKey = `${pr.org}/${pr.repository}`
   const isBookmarked = bookmarkedRepoKeys.has(repoKey)
-  const menuState = getPRContextMenuState(pr, isBookmarked)
+  const hasUnresolved = hasUnresolvedComments(pr)
+  const bookmarkState = getBookmarkState(pr, isBookmarked)
 
   return (
     <>
@@ -57,21 +64,21 @@ export function PRContextMenu({
           <RotateCw size={14} />
           Request Copilot Review
         </button>
-        <button onClick={onAddressComments} disabled={!menuState.hasUnresolved}>
+        <button onClick={onAddressComments} disabled={!hasUnresolved}>
           <MessageSquareWarning size={14} />
-          {menuState.addressLabel}
+          {getAddressCommentsLabel(pr, hasUnresolved)}
         </button>
         <button onClick={onApprove} disabled={!!pr.iApproved}>
           <ThumbsUp size={14} />
-          {menuState.approveLabel}
+          {getApproveLabel(pr)}
         </button>
         <button onClick={onCopyLink}>
           <Copy size={14} />
           Copy Link
         </button>
         <button onClick={onBookmark}>
-          <Star size={14} fill={menuState.bookmarkFill} />
-          {menuState.bookmarkLabel}
+          <Star size={14} fill={bookmarkState.fill} />
+          {bookmarkState.label}
         </button>
       </div>
     </>

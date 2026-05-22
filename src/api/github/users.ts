@@ -81,6 +81,98 @@ export interface UserActivitySummary {
   contributionSource: 'graphql' | 'org-activity'
 }
 
+interface UserSearchResult {
+  data: {
+    total_count: number
+    items: Array<Record<string, unknown>>
+  }
+}
+
+interface UserEventsResult {
+  data: Array<Record<string, unknown>>
+}
+
+interface UserProfileResult {
+  user: {
+    name: string | null
+    bio: string | null
+    company: string | null
+    location: string | null
+    createdAt: string
+    status: { emoji: string | null; message: string | null } | null
+    contributionsCollection: {
+      contributionCalendar: {
+        totalContributions: number
+        weeks: ContributionWeek[]
+      }
+    }
+  } | null
+  viewer: { login: string }
+}
+
+interface UserOrgMembershipResult {
+  data: { role?: string | null }
+}
+
+interface UserActivityData {
+  authoredOpen: UserSearchResult
+  authoredMerged: UserSearchResult
+  reviewed: UserSearchResult
+  events: UserEventsResult
+  repoSource: { repos: OrgRepoSlim[] } | null
+  userProfile: UserProfileResult | null
+  orgMembership: UserOrgMembershipResult | null
+  userTeams: string[]
+  contributionDates: string[]
+}
+
+const USER_PROFILE_QUERY = `
+  query ($login: String!) {
+    user(login: $login) {
+      name
+      bio
+      company
+      location
+      createdAt
+      status {
+        emoji
+        message
+      }
+      contributionsCollection {
+        contributionCalendar {
+          totalContributions
+          weeks {
+            contributionDays {
+              contributionCount
+              date
+              color
+            }
+          }
+        }
+      }
+    }
+    viewer {
+      login
+    }
+  }
+`
+
+const USER_TEAMS_QUERY = `
+  query ($org: String!, $login: String!, $cursor: String) {
+    organization(login: $org) {
+      teams(first: 100, userLogins: [$login], after: $cursor) {
+        nodes {
+          name
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }
+`
+
 // ── Internal helpers for fetchUserActivity ───────────────────────────
 
 /* v8 ignore start -- repo/user enumeration; requires real API */
@@ -164,6 +256,279 @@ async function countRepoCommitsInternal(
   return total
 }
 
+function buildEmptySearchResult(): UserSearchResult {
+  return { data: { total_count: 0, items: [] } }
+}
+
+function buildEmptyEventsResult(): UserEventsResult {
+  return { data: [] }
+}
+
+function getNinetyDaysAgoIso(): string {
+  return new Date(Date.now() - 90 * DAY).toISOString().split('T')[0]
+}
+
+function createStartOfDayState(): { startOfDay: Date; startOfDayIso: string } {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  return { startOfDay, startOfDayIso: startOfDay.toISOString() }
+}
+
+function resolveCommitterDate(
+  commit: { committer?: { date?: string }; author?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.committer?.date
+}
+
+function resolveAuthorDate(
+  commit: { committer?: { date?: string }; author?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.author?.date
+}
+
+function extractCommitSearchDate(item: Record<string, unknown>): string | undefined {
+  const commit = item.commit as
+    | { committer?: { date?: string }; author?: { date?: string } }
+    | undefined
+  return resolveCommitterDate(commit) ?? resolveAuthorDate(commit)
+}
+
+function fetchAuthoredOpenPullRequests(
+  octokit: Octokit,
+  owner: string,
+  login: string,
+  maxPRs: number
+): Promise<UserSearchResult> {
+  const emptySearch = buildEmptySearchResult()
+  return octokit.search
+    .issuesAndPullRequests({
+      q: `org:${owner} is:pr author:${login} is:open`,
+      per_page: maxPRs,
+      sort: 'updated',
+      order: 'desc',
+    })
+    .catch(() => emptySearch)
+}
+
+function fetchAuthoredMergedPullRequests(
+  octokit: Octokit,
+  owner: string,
+  login: string,
+  maxPRs: number,
+  ninetyDaysAgo: string
+): Promise<UserSearchResult> {
+  const emptySearch = buildEmptySearchResult()
+  return octokit.search
+    .issuesAndPullRequests({
+      q: `org:${owner} is:pr author:${login} is:merged merged:>=${ninetyDaysAgo}`,
+      per_page: maxPRs,
+      sort: 'updated',
+      order: 'desc',
+    })
+    .catch(() => emptySearch)
+}
+
+function fetchReviewedPullRequests(
+  octokit: Octokit,
+  owner: string,
+  login: string
+): Promise<UserSearchResult> {
+  const emptySearch = buildEmptySearchResult()
+  return octokit.search
+    .issuesAndPullRequests({
+      q: `org:${owner} is:pr reviewed-by:${login} -author:${login} sort:updated`,
+      per_page: 10,
+      sort: 'updated',
+      order: 'desc',
+    })
+    .catch(() => emptySearch)
+}
+
+function fetchUserEvents(
+  octokit: Octokit,
+  login: string,
+  maxEvents: number
+): Promise<UserEventsResult> {
+  const emptyEvents = buildEmptyEventsResult()
+  return octokit.activity
+    .listPublicEventsForUser({
+      username: login,
+      per_page: maxEvents,
+    })
+    .catch(() => emptyEvents)
+}
+
+async function fetchUserProfile(
+  config: PRConfig['github'],
+  owner: string,
+  login: string
+): Promise<UserProfileResult | null> {
+  try {
+    const token = await getTokenForOwner(config, owner)
+    return await graphql<UserProfileResult>(USER_PROFILE_QUERY, {
+      login,
+      headers: { authorization: `token ${token}` },
+    })
+  } catch (_: unknown) {
+    return null
+  }
+}
+
+async function fetchUserTeams(
+  config: PRConfig['github'],
+  owner: string,
+  login: string
+): Promise<string[]> {
+  try {
+    const token = await getTokenForOwner(config, owner)
+    const memberTeams: string[] = []
+    let cursor: string | null = null
+    let hasNextPage = true
+    while (hasNextPage) {
+      const result: {
+        organization: {
+          teams: {
+            nodes: Array<{ name: string }>
+            pageInfo: { hasNextPage: boolean; endCursor: string | null }
+          }
+        }
+      } = await graphql(USER_TEAMS_QUERY, {
+        org: owner,
+        login,
+        cursor,
+        headers: { authorization: `token ${token}` },
+      })
+      memberTeams.push(...result.organization.teams.nodes.map(team => team.name))
+      hasNextPage = result.organization.teams.pageInfo.hasNextPage
+      cursor = result.organization.teams.pageInfo.endCursor
+    }
+    return memberTeams
+  } catch (_: unknown) {
+    return []
+  }
+}
+
+function buildRecentAuthoredPRs(
+  authoredOpen: UserSearchResult,
+  authoredMerged: UserSearchResult,
+  maxPRs: number
+): UserPRSummary[] {
+  return [...authoredOpen.data.items.map(mapSearchItemToUserPR), ...authoredMerged.data.items.map(mapSearchItemToUserPR)]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, maxPRs)
+}
+
+function buildRecentEvents(events: Array<Record<string, unknown>>, orgPrefix: string): UserEvent[] {
+  return events
+    .map(evt => mapRawEventToUserEvent(evt, orgPrefix))
+    .filter((evt): evt is UserEvent => evt !== null)
+}
+
+function resolveRepoSourceRepos(repoSource: { repos: OrgRepoSlim[] } | null): OrgRepoSlim[] {
+  return repoSource?.repos ?? []
+}
+
+function isRepoPushedSince(repo: OrgRepoSlim, startOfDayMs: number): boolean {
+  return Boolean(repo.pushedAt) && new Date(repo.pushedAt).getTime() >= startOfDayMs
+}
+
+function getRecentlyPushedRepos(
+  repoSource: { repos: OrgRepoSlim[] } | null,
+  startOfDay: Date
+): OrgRepoSlim[] {
+  return resolveRepoSourceRepos(repoSource).filter(repo => isRepoPushedSince(repo, startOfDay.getTime()))
+}
+
+function addRepoIfPresent(activeRepoSet: Set<string>, repo: string | null | undefined): void {
+  if (repo) activeRepoSet.add(repo)
+}
+
+function resolveReviewedRepo(item: Record<string, unknown>): string | null {
+  if (typeof item.repository_url !== 'string') return null
+  return extractRepoFromUrl(item.repository_url) || null
+}
+
+function collectActiveRepos(
+  recentEvents: UserEvent[],
+  recentPRsAuthored: UserPRSummary[],
+  reviewedItems: Array<Record<string, unknown>>
+): string[] {
+  const activeRepoSet = new Set<string>()
+  recentEvents.forEach(event => addRepoIfPresent(activeRepoSet, event.repo))
+  recentPRsAuthored.forEach(pr => addRepoIfPresent(activeRepoSet, pr.repo))
+  reviewedItems.forEach(item => addRepoIfPresent(activeRepoSet, resolveReviewedRepo(item)))
+  return Array.from(activeRepoSet)
+}
+
+function resolveOrgRole(orgMembership: UserOrgMembershipResult | null): string | null {
+  return orgMembership?.data?.role ?? null
+}
+
+function buildUserActivitySummary(
+  userProfile: UserProfileResult | null,
+  orgMembership: UserOrgMembershipResult | null,
+  userTeams: string[],
+  recentPRsAuthored: UserPRSummary[],
+  recentPRsReviewed: UserPRSummary[],
+  recentEvents: UserEvent[],
+  openPRCount: number,
+  mergedPRCount: number,
+  activeRepos: string[],
+  commitsToday: number,
+  contributionDates: string[]
+): UserActivitySummary {
+  const userObj = userProfile?.user
+  return {
+    ...extractUserBasicInfo(userObj),
+    ...extractUserStatusInfo(userObj),
+    orgRole: resolveOrgRole(orgMembership),
+    teams: userTeams,
+    recentPRsAuthored,
+    recentPRsReviewed,
+    recentEvents,
+    openPRCount,
+    mergedPRCount,
+    activeRepos,
+    commitsToday,
+    ...buildContributionData(contributionDates, userProfile),
+  }
+}
+
+async function fetchUserActivityData(
+  config: PRConfig['github'],
+  octokit: Octokit,
+  owner: string,
+  login: string,
+  maxEvents: number,
+  maxPRs: number,
+  ninetyDaysAgo: string
+): Promise<UserActivityData> {
+  const [authoredOpen, authoredMerged, reviewed, events, repoSource, userProfile, orgMembership, userTeams, contributionDates] =
+    await Promise.all([
+      fetchAuthoredOpenPullRequests(octokit, owner, login, maxPRs),
+      fetchAuthoredMergedPullRequests(octokit, owner, login, maxPRs, ninetyDaysAgo),
+      fetchReviewedPullRequests(octokit, owner, login),
+      fetchUserEvents(octokit, login, maxEvents),
+      fetchOrgOrUserRepos(octokit, owner).catch(() => null),
+      fetchUserProfile(config, owner, login),
+      octokit.orgs.getMembershipForUser({ org: owner, username: login }).catch(() => null),
+      fetchUserTeams(config, owner, login),
+      searchActivityDatesInternal(octokit, owner, login).catch(() => []),
+    ])
+
+  return {
+    authoredOpen,
+    authoredMerged,
+    reviewed,
+    events,
+    repoSource,
+    userProfile,
+    orgMembership,
+    userTeams,
+    contributionDates,
+  }
+}
+
 async function searchActivityDatesInternal(
   octokit: Octokit,
   org: string,
@@ -204,12 +569,7 @@ async function searchActivityDatesInternal(
       opts => octokit.search.commits(opts),
       `org:${org} author:${login} committer-date:>=${since}`,
       'committer-date',
-      (item: Record<string, unknown>) => {
-        const commit = item.commit as
-          | { committer?: { date?: string }; author?: { date?: string } }
-          | undefined
-        return commit?.committer?.date ?? commit?.author?.date
-      }
+      extractCommitSearchDate
     ).catch(() => [] as string[]),
     paginateSearch(
       opts => octokit.search.issuesAndPullRequests(opts),
@@ -236,6 +596,52 @@ async function searchActivityDatesInternal(
  * Uses the search API for PRs, repo history for commit counts, and the events API for recent activity.
  */
 /* v8 ignore start */
+async function fetchUserActivityForAccount(
+  config: PRConfig['github'],
+  octokit: Octokit,
+  owner: string,
+  login: string,
+  maxEvents: number,
+  maxPRs: number
+): Promise<UserActivitySummary> {
+  const ninetyDaysAgo = getNinetyDaysAgoIso()
+  const { startOfDay, startOfDayIso } = createStartOfDayState()
+  const data = await fetchUserActivityData(
+    config,
+    octokit,
+    owner,
+    login,
+    maxEvents,
+    maxPRs,
+    ninetyDaysAgo
+  )
+  const orgPrefix = `${owner}/`
+  const recentPRsAuthored = buildRecentAuthoredPRs(data.authoredOpen, data.authoredMerged, maxPRs)
+  const recentEvents = buildRecentEvents(data.events.data, orgPrefix)
+  const eventCommitsToday = countEventCommitsToday(data.events.data, orgPrefix, startOfDayIso)
+  const repoCommitsToday = await countRepoCommitsInternal(
+    octokit,
+    owner,
+    getRecentlyPushedRepos(data.repoSource, startOfDay),
+    startOfDayIso,
+    login
+  )
+
+  return buildUserActivitySummary(
+    data.userProfile,
+    data.orgMembership,
+    data.userTeams,
+    recentPRsAuthored,
+    data.reviewed.data.items.map(mapSearchItemToUserPR),
+    recentEvents,
+    data.authoredOpen.data.total_count,
+    data.authoredMerged.data.total_count,
+    collectActiveRepos(recentEvents, recentPRsAuthored, data.reviewed.data.items),
+    Math.max(repoCommitsToday, eventCommitsToday),
+    data.contributionDates
+  )
+}
+
 export async function fetchUserActivity(
   config: PRConfig['github'],
   owner: string,
@@ -246,240 +652,7 @@ export async function fetchUserActivity(
   return withFirstAvailableAccount(
     config,
     owner,
-    async octokit => {
-      const ninetyDaysAgo = new Date(Date.now() - 90 * DAY).toISOString().split('T')[0]
-
-      const startOfDay = new Date()
-      startOfDay.setHours(0, 0, 0, 0)
-      const startOfDayIso = startOfDay.toISOString()
-
-      const emptySearch = { data: { total_count: 0, items: [] } } as const
-
-      // Parallel: authored PRs (open + recently merged), reviewed PRs, events, repo history, user profile, org membership, teams, contribution dates
-      const [
-        authoredOpen,
-        authoredMerged,
-        reviewed,
-        events,
-        repoSource,
-        userProfile,
-        orgMembership,
-        userTeams,
-        contributionDates,
-      ] = await Promise.all([
-        octokit.search
-          .issuesAndPullRequests({
-            q: `org:${owner} is:pr author:${login} is:open`,
-            per_page: maxPRs,
-            sort: 'updated',
-            order: 'desc',
-          })
-          .catch(() => emptySearch),
-        octokit.search
-          .issuesAndPullRequests({
-            q: `org:${owner} is:pr author:${login} is:merged merged:>=${ninetyDaysAgo}`,
-            per_page: maxPRs,
-            sort: 'updated',
-            order: 'desc',
-          })
-          .catch(() => emptySearch),
-        octokit.search
-          .issuesAndPullRequests({
-            q: `org:${owner} is:pr reviewed-by:${login} -author:${login} sort:updated`,
-            per_page: 10,
-            sort: 'updated',
-            order: 'desc',
-          })
-          .catch(() => emptySearch),
-        octokit.activity
-          .listPublicEventsForUser({
-            username: login,
-            per_page: maxEvents,
-          })
-          .catch(() => ({ data: [] as Array<Record<string, unknown>> })),
-        fetchOrgOrUserRepos(octokit, owner).catch(() => null),
-        (async () => {
-          try {
-            const token = await getTokenForOwner(config, owner)
-            return await graphql<{
-              user: {
-                name: string | null
-                bio: string | null
-                company: string | null
-                location: string | null
-                createdAt: string
-                status: { emoji: string | null; message: string | null } | null
-                contributionsCollection: {
-                  contributionCalendar: {
-                    totalContributions: number
-                    weeks: Array<{
-                      contributionDays: Array<{
-                        contributionCount: number
-                        date: string
-                        color: string
-                      }>
-                    }>
-                  }
-                }
-              } | null
-              viewer: { login: string }
-            }>(
-              `
-                query ($login: String!) {
-                  user(login: $login) {
-                    name
-                    bio
-                    company
-                    location
-                    createdAt
-                    status {
-                      emoji
-                      message
-                    }
-                    contributionsCollection {
-                      contributionCalendar {
-                        totalContributions
-                        weeks {
-                          contributionDays {
-                            contributionCount
-                            date
-                            color
-                          }
-                        }
-                      }
-                    }
-                  }
-                  viewer {
-                    login
-                  }
-                }
-              `,
-              {
-                login,
-                headers: { authorization: `token ${token}` },
-              }
-            )
-          } catch (_: unknown) {
-            return null
-          }
-        })(),
-        octokit.orgs.getMembershipForUser({ org: owner, username: login }).catch(() => null),
-        (async () => {
-          try {
-            const token = await getTokenForOwner(config, owner)
-            const memberTeams: string[] = []
-            let cursor: string | null = null
-            let hasNextPage = true
-            // Single paginated GraphQL query filtered by userLogins avoids N+1 REST calls
-            while (hasNextPage) {
-              const result: {
-                organization: {
-                  teams: {
-                    nodes: Array<{ name: string }>
-                    pageInfo: { hasNextPage: boolean; endCursor: string | null }
-                  }
-                }
-              } = await graphql(
-                `
-                  query ($org: String!, $login: String!, $cursor: String) {
-                    organization(login: $org) {
-                      teams(first: 100, userLogins: [$login], after: $cursor) {
-                        nodes {
-                          name
-                        }
-                        pageInfo {
-                          hasNextPage
-                          endCursor
-                        }
-                      }
-                    }
-                  }
-                `,
-                {
-                  org: owner,
-                  login,
-                  cursor,
-                  headers: { authorization: `token ${token}` },
-                }
-              )
-              memberTeams.push(...result.organization.teams.nodes.map(t => t.name))
-              hasNextPage = result.organization.teams.pageInfo.hasNextPage
-              cursor = result.organization.teams.pageInfo.endCursor
-            }
-            return memberTeams
-          } catch (_: unknown) {
-            return [] as string[]
-          }
-        })(),
-        // Fetch all contribution dates (commits + PRs + issues) via search API
-        searchActivityDatesInternal(octokit, owner, login).catch(() => [] as string[]),
-      ])
-
-      const recentPRsAuthored = [
-        ...authoredOpen.data.items.map(mapSearchItemToUserPR),
-        ...authoredMerged.data.items.map(mapSearchItemToUserPR),
-      ]
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, maxPRs)
-
-      // Filter events to only those in the org
-      const orgPrefix = `${owner}/`
-      const recentEvents: UserEvent[] = (events.data as Array<Record<string, unknown>>)
-        .map(evt => mapRawEventToUserEvent(evt, orgPrefix))
-        .filter((evt): evt is UserEvent => evt !== null)
-
-      // Count commits today from PushEvents in the org
-      const eventCommitsToday = countEventCommitsToday(
-        events.data as Array<Record<string, unknown>>,
-        orgPrefix,
-        startOfDayIso
-      )
-
-      const recentlyPushedRepos = (repoSource?.repos ?? []).filter(
-        repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
-      )
-
-      const repoCommitsToday = await countRepoCommitsInternal(
-        octokit,
-        owner,
-        recentlyPushedRepos,
-        startOfDayIso,
-        login
-      )
-
-      const commitsToday = Math.max(repoCommitsToday, eventCommitsToday)
-
-      // Collect unique repos from events + authored PRs + reviewed PRs
-      const activeRepoSet = new Set<string>()
-      recentEvents.forEach(e => {
-        if (e.repo) activeRepoSet.add(e.repo)
-      })
-      recentPRsAuthored.forEach(pr => {
-        if (pr.repo) activeRepoSet.add(pr.repo)
-      })
-      reviewed.data.items.forEach((item: Record<string, unknown>) => {
-        if (typeof item.repository_url === 'string') {
-          const repo = extractRepoFromUrl(item.repository_url)
-          if (repo) activeRepoSet.add(repo)
-        }
-      })
-
-      const userObj = userProfile?.user
-      return {
-        ...extractUserBasicInfo(userObj),
-        ...extractUserStatusInfo(userObj),
-        orgRole: orgMembership?.data?.role ?? null,
-        teams: userTeams,
-        recentPRsAuthored,
-        recentPRsReviewed: reviewed.data.items.map(mapSearchItemToUserPR),
-        recentEvents,
-        openPRCount: authoredOpen.data.total_count,
-        mergedPRCount: authoredMerged.data.total_count,
-        activeRepos: Array.from(activeRepoSet),
-        commitsToday,
-        ...buildContributionData(contributionDates, userProfile),
-      }
-    },
+    octokit => fetchUserActivityForAccount(config, octokit, owner, login, maxEvents, maxPRs),
     `fetch user activity for ${login} in ${owner}`
   )
 }

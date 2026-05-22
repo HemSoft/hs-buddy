@@ -146,6 +146,13 @@ function ScriptItem({
   )
 }
 
+function getTemplateRunName(run: RalphRunInfo): string | null {
+  if (run.config.scriptType !== 'template' || !run.config.templateScript) {
+    return null
+  }
+  return run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
+}
+
 function runDisplayName(run: RalphRunInfo): string {
   const repo = repoName(run.config.repoPath)
   if (run.config.scriptType === 'ralph-pr' && run.config.prNumber) {
@@ -154,9 +161,9 @@ function runDisplayName(run: RalphRunInfo): string {
   if (run.config.scriptType === 'ralph-issues') {
     return `${repo} · issues`
   }
-  if (run.config.scriptType === 'template' && run.config.templateScript) {
-    const tpl = run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
-    return `${repo} · ${tpl}`
+  const templateName = getTemplateRunName(run)
+  if (templateName) {
+    return `${repo} · ${templateName}`
   }
   return `${repo} · ${run.runId.slice(0, 6)}`
 }

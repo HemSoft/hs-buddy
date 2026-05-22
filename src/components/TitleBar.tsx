@@ -26,6 +26,35 @@ interface TitleBarProps {
   onToggleTerminal?: () => void
 }
 
+function getMenuItemKey(item: MenuItem, index: number): string {
+  return item.label ?? `separator-${index}`
+}
+
+function MenuDropdownItem({
+  item,
+  onItemClick,
+}: {
+  item: MenuItem
+  onItemClick: (item: MenuItem) => void
+}) {
+  if (item.type === 'separator') {
+    return <div className="menu-separator" />
+  }
+
+  return (
+    <button
+      className={`menu-item ${item.disabled ? 'disabled' : ''}`}
+      onClick={() => {
+        onItemClick(item)
+      }}
+      disabled={item.disabled}
+    >
+      <span className="menu-item-label">{item.label}</span>
+      {item.accelerator && <span className="menu-item-accelerator">{item.accelerator}</span>}
+    </button>
+  )
+}
+
 function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
   return [
     {
@@ -161,32 +190,13 @@ export function TitleBar({
             </button>
             {openMenu === menu.label && (
               <div className="menu-dropdown">
-                {menu.items.map((item, index) => {
-                  if (item.type === 'separator') {
-                    /* v8 ignore start -- all separators are followed by labeled items in hardcoded menus */
-                    const nextLabel = menu.items.slice(index + 1).find(i => i.label)?.label ?? 'end'
-                    /* v8 ignore stop */
-                    return <div key={`sep-before-${nextLabel}`} className="menu-separator" />
-                  }
-                  /* v8 ignore start -- no hardcoded menu items have disabled: true */
-                  const itemClass = `menu-item ${item.disabled ? 'disabled' : ''}`
-                  /* v8 ignore stop */
-                  return (
-                    <button
-                      key={item.label}
-                      className={itemClass}
-                      onClick={() => {
-                        handleItemClick(item)
-                      }}
-                      disabled={item.disabled}
-                    >
-                      <span className="menu-item-label">{item.label}</span>
-                      {item.accelerator && (
-                        <span className="menu-item-accelerator">{item.accelerator}</span>
-                      )}
-                    </button>
-                  )
-                })}
+                {menu.items.map((item, index) => (
+                  <MenuDropdownItem
+                    key={getMenuItemKey(item, index)}
+                    item={item}
+                    onItemClick={handleItemClick}
+                  />
+                ))}
               </div>
             )}
           </div>

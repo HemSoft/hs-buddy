@@ -10,14 +10,22 @@ export function nextStartTime(worklogs: TempoWorklog[]): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
 }
 
+function getHoursValidationError(hours: string): string | null {
+  const parsedHours = parseFloat(hours)
+  if (isNaN(parsedHours) || parsedHours <= 0 || parsedHours > 24) {
+    return 'Hours must be between 0 and 24'
+  }
+  return null
+}
+
 export function validateWorklogFields(
   issueKey: string,
   hours: string,
   date: string
 ): string | null {
   if (!issueKey.trim()) return 'Issue key is required'
-  const h = parseFloat(hours)
-  if (isNaN(h) || h <= 0 || h > 24) return 'Hours must be between 0 and 24'
+  const hoursError = getHoursValidationError(hours)
+  if (hoursError) return hoursError
   if (!date) return 'Date is required'
   return null
 }

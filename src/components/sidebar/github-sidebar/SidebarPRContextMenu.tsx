@@ -20,6 +20,17 @@ function getApproveLabel(iApproved: boolean, isApproving: boolean): string {
   return isApproving ? 'Approving…' : 'Approve'
 }
 
+function shouldDisableApprove(iApproved: boolean, isApproving: boolean): boolean {
+  return iApproved || isApproving
+}
+
+function getSidebarBookmarkState(isBookmarked: boolean, repository: string) {
+  return {
+    fill: isBookmarked ? 'currentColor' : 'none',
+    label: isBookmarked ? `Unbookmark ${repository}` : `Bookmark ${repository}`,
+  }
+}
+
 export function SidebarPRContextMenu({
   pr,
   x,
@@ -36,6 +47,7 @@ export function SidebarPRContextMenu({
   const prKey = `${pr.source}-${pr.repository}-${pr.id}`
   const isApproving = approvingPrKeys.has(prKey)
   const isBookmarked = bookmarkedRepoKeys.has(`${pr.org || ''}/${pr.repository}`)
+  const bookmarkState = getSidebarBookmarkState(isBookmarked, pr.repository)
 
   return (
     <>
@@ -53,18 +65,13 @@ export function SidebarPRContextMenu({
           <Sparkles size={14} />
           Request AI Review
         </button>
-        <button
-          onClick={async () => {
-            await onApprove()
-          }}
-          disabled={pr.iApproved || isApproving}
-        >
+        <button onClick={onApprove} disabled={shouldDisableApprove(!!pr.iApproved, isApproving)}>
           {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}
-          {getApproveLabel(pr.iApproved, isApproving)}
+          {getApproveLabel(!!pr.iApproved, isApproving)}
         </button>
         <button onClick={onBookmark}>
-          <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
-          {isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`}
+          <Star size={14} fill={bookmarkState.fill} />
+          {bookmarkState.label}
         </button>
       </div>
     </>

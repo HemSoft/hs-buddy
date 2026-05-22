@@ -301,6 +301,40 @@ function resolveAssigneeCount(item: any): number {
   return item.assignees?.length || 0
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchUser(item: any): { login?: string; avatar_url?: string } {
+  return item.user ?? {}
+}
+
+function resolveSearchAuthor(user: { login?: string }): string {
+  return user.login || 'unknown'
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchCreatedDate(item: any): Date | null {
+  return item.created_at ? new Date(item.created_at) : null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchUpdatedAt(item: any): string | null {
+  return item.updated_at || null
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchClosedAt(item: any): string | null {
+  return item.closed_at || null
+}
+
+function parseSearchPullRequestUrl(htmlUrl: string): { owner: string; repo: string } | null {
+  const urlMatch = htmlUrl.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
+  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
+  return { owner: urlMatch[1], repo: urlMatch[2] }
+}
+
+function resolveSearchOrgAvatarUrl(orgAvatarUrl: string | null): string | undefined {
+  return orgAvatarUrl ?? undefined
+}
+
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -312,14 +346,14 @@ function buildSearchPRFields(item: any): {
   updatedAt: string | null
   date: string | null
 } {
-  const user = item.user ?? {}
+  const user = resolveSearchUser(item)
   return {
-    author: user.login || 'unknown',
+    author: resolveSearchAuthor(user),
     authorAvatarUrl: user.avatar_url,
     assigneeCount: resolveAssigneeCount(item),
-    created: item.created_at ? new Date(item.created_at) : null,
-    updatedAt: item.updated_at || null,
-    date: item.closed_at || null,
+    created: resolveSearchCreatedDate(item),
+    updatedAt: resolveSearchUpdatedAt(item),
+    date: resolveSearchClosedAt(item),
   }
 }
 
@@ -330,15 +364,12 @@ function mapSearchItemToPullRequest(
   orgAvatarUrl: string | null,
   org: string
 ): (PullRequest & { _owner: string; _repo: string; _prNumber: number }) | null {
-  const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
-  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
-
-  const owner: string = urlMatch[1]
-  const repo: string = urlMatch[2]
+  const repoInfo = parseSearchPullRequestUrl(item.html_url)
+  if (!repoInfo) return null
 
   return {
     source: 'GitHub' as const,
-    repository: repo,
+    repository: repoInfo.repo,
     id: item.number,
     title: item.title,
     ...buildSearchPRFields(item),
@@ -351,10 +382,10 @@ function mapSearchItemToPullRequest(
     threadsTotal: null,
     threadsAddressed: null,
     threadsUnaddressed: null,
-    orgAvatarUrl: orgAvatarUrl ?? undefined,
+    orgAvatarUrl: resolveSearchOrgAvatarUrl(orgAvatarUrl),
     org,
-    _owner: owner,
-    _repo: repo,
+    _owner: repoInfo.owner,
+    _repo: repoInfo.repo,
     _prNumber: item.number,
   }
 }
@@ -383,6 +414,13 @@ function extractBranchRefs(
 }
 
 /** Build the latest-review-by-user map from a list of REST reviews. */
+function buildLatestReviewState(review: {
+  state: string
+  submitted_at?: string | null
+}): { state: string; submittedAt: string } {
+  return { state: review.state, submittedAt: review.submitted_at || '' }
+}
+
 function buildLatestReviewByUser(
   reviews: Array<{
     user?: { login?: string } | null
@@ -392,11 +430,11 @@ function buildLatestReviewByUser(
 ): Map<string, { state: string; submittedAt: string }> {
   const map = new Map<string, { state: string; submittedAt: string }>()
   for (const review of reviews) {
-    const login = review.user?.login
+    const login = resolveLogin(review.user)
     if (!login) continue
-    const submittedAt = review.submitted_at || ''
-    if (isNewerReview(submittedAt, map.get(login))) {
-      map.set(login, { state: review.state, submittedAt })
+    const latestReview = buildLatestReviewState(review)
+    if (isNewerReview(latestReview.submittedAt, map.get(login))) {
+      map.set(login, latestReview)
     }
   }
   return map
@@ -506,6 +544,28 @@ async function executeSingleSearchQuery(
 }
 
 /** Execute PR search queries and collect unique results. */
+function addUniquePullRequests(
+  allPrs: PullRequest[],
+  seenUrls: Set<string>,
+  prs: PullRequest[]
+): void {
+  for (const pr of prs) {
+    if (!seenUrls.has(pr.url)) {
+      seenUrls.add(pr.url)
+      allPrs.push(pr)
+    }
+  }
+}
+
+function logSearchQueryFailure(query: string, error: unknown): void {
+  const errorMsg = getErrorMessage(error)
+  if (!errorMsg.includes('404')) {
+    console.warn(`Search query failed: ${query}`, error)
+    return
+  }
+  console.debug(`No search results (404) for: ${query}`)
+}
+
 async function executeSearchQueries(
   _config: PRConfig['github'],
   octokit: Octokit,
@@ -518,19 +578,9 @@ async function executeSearchQueries(
   for (const query of queries) {
     try {
       const prs = await executeSingleSearchQuery(_config, octokit, query, orgAvatarUrl, org)
-      for (const pr of prs) {
-        if (!seenUrls.has(pr.url)) {
-          seenUrls.add(pr.url)
-          allPrs.push(pr)
-        }
-      }
+      addUniquePullRequests(allPrs, seenUrls, prs)
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      if (!errorMsg.includes('404')) {
-        console.warn(`Search query failed: ${query}`, error)
-      } else {
-        console.debug(`No search results (404) for: ${query}`)
-      }
+      logSearchQueryFailure(query, error)
     }
   }
   return allPrs
@@ -540,6 +590,27 @@ async function executeSearchQueries(
  * Fallback: fetch the viewer's open PRs via GraphQL `viewer.pullRequests`
  * when the GitHub Search API is degraded.
  */
+function appendViewerOrgPrs(
+  result: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>,
+  nodes: ViewerPRNode[],
+  orgLower: string,
+  orgAvatarUrl: string | null,
+  org: string
+): void {
+  for (const node of nodes) {
+    if (node.repository.owner.login.toLowerCase() === orgLower) {
+      result.push(mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
+    }
+  }
+}
+
+function resolveNextViewerCursor(pageInfo: {
+  hasNextPage: boolean
+  endCursor: string | null
+}): string | null {
+  return pageInfo.hasNextPage ? pageInfo.endCursor : null
+}
+
 async function fetchPRsViaGraphQLFallback(
   _config: PRConfig['github'],
   username: string,
@@ -563,14 +634,9 @@ async function fetchPRsViaGraphQLFallback(
     })
 
     const page = response.viewer.pullRequests
-    for (const node of page.nodes) {
-      if (node.repository.owner.login.toLowerCase() === orgLower) {
-        result.push(mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
-      }
-    }
-
+    appendViewerOrgPrs(result, page.nodes, orgLower, orgAvatarUrl, org)
     hasNextPage = page.pageInfo.hasNextPage
-    cursor = hasNextPage ? page.pageInfo.endCursor : null
+    cursor = resolveNextViewerCursor(page.pageInfo)
   }
 
   return result
@@ -604,6 +670,63 @@ async function tryGraphQLFallback(
   }
 }
 
+type PullRequestWithMeta = PullRequest & {
+  _owner: string
+  _repo: string
+  _prNumber: number
+}
+
+function applyPullRequestReviewMetadata(
+  pr: PullRequestWithMeta,
+  reviews: Array<{
+    user?: { login?: string } | null
+    state: string
+    submitted_at?: string | null
+  }>,
+  username: string,
+  head: { ref?: string },
+  base: { ref?: string }
+): void {
+  const { approvalCount, iApproved } = countApprovals(reviews, username)
+  const { headBranch, baseBranch } = extractBranchRefs(head, base)
+  pr.approvalCount = approvalCount
+  pr.iApproved = iApproved
+  pr.headBranch = headBranch
+  pr.baseBranch = baseBranch
+}
+
+async function populatePullRequestReviewMetadata(
+  octokit: Octokit,
+  pr: PullRequestWithMeta,
+  username: string
+): Promise<void> {
+  try {
+    const [reviewsData, prData] = await Promise.all([
+      octokit.pulls.listReviews({
+        owner: pr._owner,
+        repo: pr._repo,
+        pull_number: pr._prNumber,
+        per_page: 100,
+      }),
+      octokit.pulls.get({
+        owner: pr._owner,
+        repo: pr._repo,
+        pull_number: pr._prNumber,
+      }),
+    ])
+
+    applyPullRequestReviewMetadata(
+      pr,
+      reviewsData.data,
+      username,
+      prData.data.head || {},
+      prData.data.base || {}
+    )
+  } catch (error: unknown) {
+    console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
+  }
+}
+
 async function fetchPRsForAccount(
   config: PRConfig['github'],
   recentlyMergedDays: number,
@@ -624,39 +747,9 @@ async function fetchPRsForAccount(
   }
 
   // Batch fetch reviews in parallel (with concurrency limit)
-  const prsWithMeta = allPrs as (PullRequest & {
-    _owner: string
-    _repo: string
-    _prNumber: number
-  })[]
+  const prsWithMeta = allPrs as PullRequestWithMeta[]
 
-  await batchProcess(prsWithMeta, async pr => {
-    try {
-      const [reviewsData, prData] = await Promise.all([
-        octokit.pulls.listReviews({
-          owner: pr._owner,
-          repo: pr._repo,
-          pull_number: pr._prNumber,
-          per_page: 100,
-        }),
-        octokit.pulls.get({
-          owner: pr._owner,
-          repo: pr._repo,
-          pull_number: pr._prNumber,
-        }),
-      ])
-
-      const reviews = reviewsData.data
-      const { approvalCount, iApproved } = countApprovals(reviews, username)
-
-      pr.approvalCount = approvalCount
-      pr.iApproved = iApproved
-      pr.headBranch = prData.data.head?.ref || ''
-      pr.baseBranch = prData.data.base?.ref || ''
-    } catch (error: unknown) {
-      console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
-    }
-  })
+  await batchProcess(prsWithMeta, pr => populatePullRequestReviewMetadata(octokit, pr, username))
 
   // Batch-fetch thread stats via a single GraphQL query per owner (more reliable than per-PR calls)
   await fetchBatchThreadStats(config, prsWithMeta)

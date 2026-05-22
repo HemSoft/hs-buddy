@@ -100,6 +100,23 @@ function SaveButton({
   )
 }
 
+function getWeatherApiKeyInputType(showKey: boolean) {
+  return showKey ? 'text' : 'password'
+}
+
+function KeyVisibilityToggle({ showKey, onToggle }: { showKey: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      className="settings-btn settings-btn-secondary"
+      onClick={onToggle}
+      title={showKey ? 'Hide key' : 'Show key'}
+    >
+      {showKey ? 'Hide' : 'Show'}
+    </button>
+  )
+}
+
 export function SettingsWeather() {
   const { apiKey, setApiKey, savedKey, loading, saving, handleSave, handleClear } =
     useWeatherApiKey()
@@ -147,21 +164,14 @@ export function SettingsWeather() {
             <div className="settings-input-row">
               <input
                 id="pollen-api-key"
-                type={showKey ? 'text' : 'password'}
+                type={getWeatherApiKeyInputType(showKey)}
                 className="settings-input"
                 placeholder="Enter your Google Cloud API key…"
                 value={apiKey}
                 onChange={e => setApiKey(e.target.value)}
                 autoComplete="off"
               />
-              <button
-                type="button"
-                className="settings-btn settings-btn-secondary"
-                onClick={() => setShowKey(!showKey)}
-                title={showKey ? 'Hide key' : 'Show key'}
-              >
-                {showKey ? 'Hide' : 'Show'}
-              </button>
+              <KeyVisibilityToggle showKey={showKey} onToggle={() => setShowKey(!showKey)} />
             </div>
           </div>
 

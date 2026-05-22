@@ -87,6 +87,17 @@ function buildRepoOptions(
   return { options: opts, selectGroups: groupByFolder(sorted) }
 }
 
+function getSelectVariantDisabled(disabled: boolean, loading: boolean): boolean {
+  return disabled || loading
+}
+
+function shouldShowRepoPickerHint(
+  loading: boolean,
+  bookmarks: ReturnType<typeof useRepoBookmarks>
+): boolean {
+  return !loading && !!bookmarks && bookmarks.length === 0
+}
+
 function SelectVariant({
   id,
   value,
@@ -117,7 +128,7 @@ function SelectVariant({
         value={value}
         onChange={e => onChange(e.target.value)}
         className="settings-select"
-        disabled={disabled || loading}
+        disabled={getSelectVariantDisabled(disabled, loading)}
       >
         {allowNone && <option value="">{placeholder}</option>}
         {selectGroups.map(group => (
@@ -135,7 +146,7 @@ function SelectVariant({
           </optgroup>
         ))}
       </select>
-      {!loading && bookmarks && bookmarks.length === 0 && (
+      {shouldShowRepoPickerHint(loading, bookmarks) && (
         <p className="hint" style={{ marginTop: '4px' }}>
           No bookmarked repos. Add repos from the Repos view.
         </p>

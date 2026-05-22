@@ -68,14 +68,18 @@ const DEFAULT_COMPLETED = {
   label: 'Unknown',
 }
 
+function getCompletedWorkflowStatus(conclusion: string | null) {
+  const completedConclusion = conclusion ?? ''
+  if (Object.hasOwn(COMPLETED_STATUS, completedConclusion)) {
+    return COMPLETED_STATUS[completedConclusion]
+  }
+  return { ...DEFAULT_COMPLETED, label: conclusion || 'Unknown' }
+}
+
 /** Get CI/CD status color and icon */
 export function getWorkflowStatusInfo(status: string, conclusion: string | null) {
   if (status === 'completed') {
-    const completedConclusion = conclusion ?? ''
-    if (Object.hasOwn(COMPLETED_STATUS, completedConclusion)) {
-      return COMPLETED_STATUS[completedConclusion]
-    }
-    return { ...DEFAULT_COMPLETED, label: conclusion || 'Unknown' }
+    return getCompletedWorkflowStatus(conclusion)
   }
   if (status === 'in_progress') {
     return { color: 'var(--accent-warning)', icon: Loader2, label: 'Running' }

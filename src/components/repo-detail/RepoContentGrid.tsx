@@ -13,6 +13,53 @@ interface LanguageEntry {
   percentage: number
 }
 
+function RepoInfoCard({ detail }: { detail: RepoDetail }) {
+  return (
+    <div className="repo-detail-card">
+      <div className="repo-detail-card-header">
+        <Building2 size={16} />
+        <h3>Repository Info</h3>
+      </div>
+      <div className="repo-info-list">
+        <div className="repo-info-item">
+          <span className="repo-info-label">Created</span>
+          <span className="repo-info-value">{formatDate(detail.createdAt)}</span>
+        </div>
+        <div className="repo-info-item">
+          <span className="repo-info-label">Updated</span>
+          <span className="repo-info-value">
+            {formatDate(detail.updatedAt)}
+            <span className="repo-info-relative">{formatDistanceToNow(detail.updatedAt)}</span>
+          </span>
+        </div>
+        {detail.pushedAt && (
+          <div className="repo-info-item">
+            <span className="repo-info-label">Last Push</span>
+            <span className="repo-info-value">
+              {formatDate(detail.pushedAt)}
+              <span className="repo-info-relative">{formatDistanceToNow(detail.pushedAt)}</span>
+            </span>
+          </div>
+        )}
+        <div className="repo-info-item">
+          <span className="repo-info-label">Size</span>
+          <span className="repo-info-value">{formatSize(detail.sizeKB)}</span>
+        </div>
+        <div className="repo-info-item">
+          <span className="repo-info-label">Default Branch</span>
+          <span className="repo-info-value">{detail.defaultBranch}</span>
+        </div>
+        {detail.license && (
+          <div className="repo-info-item">
+            <span className="repo-info-label">License</span>
+            <span className="repo-info-value">{detail.license}</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export function RepoContentGrid({ detail }: RepoContentGridProps) {
   const totalBytes = Object.values(detail.languages).reduce((a, b) => a + b, 0)
   const languageEntries: LanguageEntry[] = Object.entries(detail.languages)
@@ -100,48 +147,7 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
       )}
 
       {/* Repo Info Card */}
-      <div className="repo-detail-card">
-        <div className="repo-detail-card-header">
-          <Building2 size={16} />
-          <h3>Repository Info</h3>
-        </div>
-        <div className="repo-info-list">
-          <div className="repo-info-item">
-            <span className="repo-info-label">Created</span>
-            <span className="repo-info-value">{formatDate(detail.createdAt)}</span>
-          </div>
-          <div className="repo-info-item">
-            <span className="repo-info-label">Updated</span>
-            <span className="repo-info-value">
-              {formatDate(detail.updatedAt)}
-              <span className="repo-info-relative">{formatDistanceToNow(detail.updatedAt)}</span>
-            </span>
-          </div>
-          {detail.pushedAt && (
-            <div className="repo-info-item">
-              <span className="repo-info-label">Last Push</span>
-              <span className="repo-info-value">
-                {formatDate(detail.pushedAt)}
-                <span className="repo-info-relative">{formatDistanceToNow(detail.pushedAt)}</span>
-              </span>
-            </div>
-          )}
-          <div className="repo-info-item">
-            <span className="repo-info-label">Size</span>
-            <span className="repo-info-value">{formatSize(detail.sizeKB)}</span>
-          </div>
-          <div className="repo-info-item">
-            <span className="repo-info-label">Default Branch</span>
-            <span className="repo-info-value">{detail.defaultBranch}</span>
-          </div>
-          {detail.license && (
-            <div className="repo-info-item">
-              <span className="repo-info-label">License</span>
-              <span className="repo-info-value">{detail.license}</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <RepoInfoCard detail={detail} />
     </div>
   )
 }

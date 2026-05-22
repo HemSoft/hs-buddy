@@ -251,10 +251,11 @@ export function TerminalPane({
       /* v8 ignore start */
       if (!active) return
       /* v8 ignore stop */
-      if (attachResult.success && attachResult.buffer) {
+      if (!attachResult.success) return
+      if (attachResult.buffer) {
         term.write(attachResult.buffer)
       }
-      if (attachResult.success && attachResult.cursor != null) {
+      if (attachResult.cursor != null) {
         attachCursorRef.current = attachResult.cursor
       }
     }

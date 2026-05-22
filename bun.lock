@@ -52,7 +52,7 @@
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "^6.0.1",
         "@vitest/coverage-v8": "^4.1.0",
-        "convex-test": "0.0.51",
+        "convex-test": "0.0.52",
         "dependency-cruiser": "^17.3.10",
         "electron": "^42.0.1",
         "electron-builder": "^26.8.1",
@@ -1035,7 +1035,7 @@
 
     "convex": ["convex@1.38.0", "", { "dependencies": { "esbuild": "0.27.0", "prettier": "^3.0.0", "ws": "8.18.0" }, "peerDependencies": { "@auth0/auth0-react": "^2.0.1", "@clerk/clerk-react": "^4.12.8 || ^5.0.0", "@clerk/react": "^6.4.3", "react": "^18.0.0 || ^19.0.0-0 || ^19.0.0" }, "optionalPeers": ["@auth0/auth0-react", "@clerk/clerk-react", "@clerk/react", "react"], "bin": { "convex": "bin/main.js" } }, "sha512-122AC6y5lUS7mr39cluLw9+TOtRX5d/XxeivHhHObs/NTXoVvOnIgDzexVcxaz6Rk0oLFSoydSR1rDCltEz/0A=="],
 
-    "convex-test": ["convex-test@0.0.51", "", { "peerDependencies": { "convex": "^1.32.0" } }, "sha512-J+4YRpKGXJDfnQqiWUUT+ylNmNO36MpkuwqG3JG4ld+7QtroZGF8HqO4qzMmfv5ltm71rPbkBvi//MoMHjnVvQ=="],
+    "convex-test": ["convex-test@0.0.52", "", { "peerDependencies": { "convex": "^1.32.0" } }, "sha512-C27plpAqg+5tT/whYaAoAAjSwl6bCNPZX/705nbijo1nu5L4Xnv1Ssd29KCvgM5liU5tvfo8Vz4o8Lu4wH+6fw=="],
 
     "cookie": ["cookie@0.7.2", "", {}, "sha512-yki5XnKuf750l50uGTllt6kKILY4nQ1eNIQatoXEByZ5dWgnKqbnqmTrBE5B4N7lrMJKQ2ytWMiTO2o0v6Ew/w=="],
 

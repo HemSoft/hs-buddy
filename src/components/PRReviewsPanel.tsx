@@ -117,6 +117,10 @@ function buildReviewCommentBody(resultText: string, model?: string, resultModel?
   return `## \u{1F916} AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy \u2014 ${modelName} review*`
 }
 
+function shouldSkipPublish(publishingRunId: string | null, owner?: string, repo?: string): boolean {
+  return !!publishingRunId || !owner || !repo
+}
+
 function usePublishToPR(pr: PRDetailInfo) {
   const parsed = parseOwnerRepoFromUrl(pr.url)
   const owner = pr.org || parsed?.owner
@@ -128,9 +132,8 @@ function usePublishToPR(pr: PRDetailInfo) {
 
   const handlePublishToPR = async (runId: string, resultId: string, model?: string) => {
     /* v8 ignore start -- button is disabled when publishingRunId is set */
-    if (publishingRunId) return
+    if (shouldSkipPublish(publishingRunId, owner, repo)) return
     /* v8 ignore stop */
-    if (!owner || !repo) return
     setPublishingRunId(runId)
     try {
       const result = await convex.query(api.copilotResults.get, {
@@ -139,7 +142,7 @@ function usePublishToPR(pr: PRDetailInfo) {
       if (!result?.result) return
       const client = new GitHubClient({ accounts }, 7)
       const body = buildReviewCommentBody(result.result, model, result.model)
-      await client.addPRComment(owner, repo, pr.id, body)
+      await client.addPRComment(owner!, repo!, pr.id, body)
       setPublishedRunIds(prev => new Set(prev).add(runId))
     } catch (err: unknown) {
       console.error('Failed to publish review to PR:', err)
@@ -151,13 +154,17 @@ function usePublishToPR(pr: PRDetailInfo) {
   return { owner, repo, resolvedOrg: owner ?? '', publishingRunId, publishedRunIds, handlePublishToPR }
 }
 
+function resolveLatestRun<T>(runs: T[] | undefined | null): { hasRuns: boolean; latest: T | null } {
+  const hasRuns = runs != null && runs.length > 0
+  return { hasRuns, latest: hasRuns ? runs[0] : null }
+}
+
 export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
   const { owner, repo, resolvedOrg, publishingRunId, publishedRunIds, handlePublishToPR } = usePublishToPR(pr)
 
   const runs = usePRReviewRunsByPR(owner, repo, pr.id, 25)
 
-  const hasRuns = runs != null && runs.length > 0
-  const latest = hasRuns ? runs[0] : null
+  const { hasRuns, latest } = resolveLatestRun(runs)
 
   const latestStatusIcon = useMemo(() => getLatestStatusIcon(latest), [latest])
 

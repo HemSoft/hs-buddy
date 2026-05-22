@@ -262,6 +262,18 @@ function JobSubTree({
   )
 }
 
+function shouldShowScheduleTree(itemId: string, isExpanded: (key: string) => boolean, schedules: Schedule[] | null | undefined): boolean {
+  return itemId === 'automation-schedules' && isExpanded('automation-schedules') && !!schedules
+}
+
+function shouldShowJobTree(
+  itemId: string,
+  isExpanded: (key: string) => boolean,
+  jobsByType: Record<'exec' | 'ai' | 'skill', Job[]> | null
+): boolean {
+  return itemId === 'automation-jobs' && isExpanded('automation-jobs') && !!jobsByType
+}
+
 function renderItemSubTree(
   itemId: string,
   isExpanded: (key: string) => boolean,
@@ -271,19 +283,19 @@ function renderItemSubTree(
   onItemSelect: (id: string) => void,
   toggleSubSection: (key: string) => void
 ): React.ReactNode {
-  if (itemId === 'automation-schedules' && isExpanded('automation-schedules') && schedules) {
+  if (shouldShowScheduleTree(itemId, isExpanded, schedules)) {
     return (
       <ScheduleSubTree
-        schedules={schedules}
+        schedules={schedules!}
         selectedItem={selectedItem}
         onItemSelect={onItemSelect}
       />
     )
   }
-  if (itemId === 'automation-jobs' && isExpanded('automation-jobs') && jobsByType) {
+  if (shouldShowJobTree(itemId, isExpanded, jobsByType)) {
     return (
       <JobSubTree
-        jobsByType={jobsByType}
+        jobsByType={jobsByType!}
         selectedItem={selectedItem}
         onItemSelect={onItemSelect}
         isExpanded={isExpanded}
@@ -292,6 +304,10 @@ function renderItemSubTree(
     )
   }
   return null
+}
+
+function resolveHasDisclosure(itemId: string, hasJobs: boolean, hasSchedules: boolean): boolean {
+  return (itemId === 'automation-jobs' && hasJobs) || (itemId === 'automation-schedules' && hasSchedules)
 }
 
 function AutomationSidebarItem({
@@ -322,9 +338,7 @@ function AutomationSidebarItem({
   jobs: Job[] | null | undefined
 }) {
   const isSelected = selectedItem === item.id
-  const hasDisclosure =
-    (item.id === 'automation-jobs' && hasJobs) ||
-    (item.id === 'automation-schedules' && hasSchedules)
+  const hasDisclosure = resolveHasDisclosure(item.id, hasJobs, hasSchedules)
 
   return (
     <div>
@@ -370,6 +384,19 @@ function AutomationSidebarItem({
   )
 }
 
+function resolveJobsByType(jobs: Job[] | null | undefined): Record<'exec' | 'ai' | 'skill', Job[]> | null {
+  if (!jobs) return null
+  return {
+    exec: jobs.filter(j => j.workerType === 'exec'),
+    ai: jobs.filter(j => j.workerType === 'ai'),
+    skill: jobs.filter(j => j.workerType === 'skill'),
+  }
+}
+
+function hasNonEmptyArray<T>(arr: T[] | null | undefined): boolean {
+  return Boolean(arr && arr.length > 0)
+}
+
 export function AutomationSidebarSection({
   jobs,
   schedules,
@@ -380,16 +407,10 @@ export function AutomationSidebarSection({
 }: AutomationSidebarSectionProps) {
   const { has: isExpanded, toggle: toggleSubSection } = useToggleSet()
 
-  const jobsByType = jobs
-    ? {
-        exec: jobs.filter(j => j.workerType === 'exec'),
-        ai: jobs.filter(j => j.workerType === 'ai'),
-        skill: jobs.filter(j => j.workerType === 'skill'),
-      }
-    : null
+  const jobsByType = resolveJobsByType(jobs)
 
-  const hasJobs = Boolean(jobsByType && jobs && jobs.length > 0)
-  const hasSchedules = Boolean(schedules && schedules.length > 0)
+  const hasJobs = Boolean(jobsByType && hasNonEmptyArray(jobs))
+  const hasSchedules = hasNonEmptyArray(schedules)
 
   const items = [
     { id: 'automation-jobs', label: 'Jobs' },

@@ -242,6 +242,14 @@ export function useGitHubAccounts() {
   }
 }
 
+function resolvePRFallback(config: AppConfig) {
+  return {
+    refreshInterval: config.pr?.refreshInterval ?? 15,
+    autoRefresh: config.pr?.autoRefresh ?? false,
+    recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+  }
+}
+
 /**
  * Hook for PR-specific settings
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
@@ -251,11 +259,7 @@ export function usePRSettings() {
   const { updatePR } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.pr,
-    config => ({
-      refreshInterval: config.pr?.refreshInterval ?? 15,
-      autoRefresh: config.pr?.autoRefresh ?? false,
-      recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
-    }),
+    resolvePRFallback,
     {
       refreshInterval: 15,
       autoRefresh: true,
@@ -286,6 +290,14 @@ export function usePRSettings() {
   }
 }
 
+function resolveCopilotFallback(config: AppConfig) {
+  return {
+    ghAccount: config.copilot?.ghAccount ?? '',
+    model: config.copilot?.model ?? 'claude-sonnet-4.5',
+    premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
+  }
+}
+
 /**
  * Hook for Copilot-specific settings
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
@@ -295,11 +307,7 @@ export function useCopilotSettings() {
   const { updateCopilot } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.copilot ?? undefined,
-    config => ({
-      ghAccount: config.copilot?.ghAccount ?? '',
-      model: config.copilot?.model ?? 'claude-sonnet-4.5',
-      premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
-    }),
+    resolveCopilotFallback,
     { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
   )
 

@@ -79,6 +79,13 @@ export function addAccountFormReducer(
   return handler(state, action)
 }
 
+function validateAddFields(username: string, org: string, accounts: GitHubAccount[]): string | null {
+  if (!username || !org) return 'Both username and organization are required'
+  if (accounts.some(a => a.username === username && a.org === org))
+    return 'This account already exists'
+  return null
+}
+
 export function SettingsAccounts() {
   const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
   const [formState, dispatch] = useReducer(addAccountFormReducer, INITIAL_FORM_STATE)
@@ -91,13 +98,9 @@ export function SettingsAccounts() {
     const username = newUsername.trim()
     const org = newOrg.trim()
 
-    if (!username || !org) {
-      dispatch({ type: 'SET_ERROR', value: 'Both username and organization are required' })
-      return
-    }
-
-    if (accounts.some(a => a.username === username && a.org === org)) {
-      dispatch({ type: 'SET_ERROR', value: 'This account already exists' })
+    const validationError = validateAddFields(username, org, accounts)
+    if (validationError) {
+      dispatch({ type: 'SET_ERROR', value: validationError })
       return
     }
 

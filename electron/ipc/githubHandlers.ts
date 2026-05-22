@@ -720,19 +720,11 @@ function registerCopilotMemberHandlers(): void {
           env: execEnv,
         })
         const seat = JSON.parse(stdout.trim()) as RawCopilotSeat
-        return {
-          success: true,
-          data: mapCopilotSeatData(seat, memberLogin),
-        }
+        return { success: true, data: mapCopilotSeatData(seat, memberLogin) }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        if (isNotFoundError(error)) {
-          return { success: true, data: null }
-        }
-        console.error(
-          `Failed to get Copilot member usage for '${memberLogin}' in '${org}':`,
-          errorMessage
-        )
+        if (isNotFoundError(error)) return { success: true, data: null }
+        console.error(`Failed to get Copilot member usage for '${memberLogin}' in '${org}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
     }
@@ -742,66 +734,68 @@ function registerCopilotMemberHandlers(): void {
     IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
-        const execEnv = await getTokenEnv(username)
-        const now = new Date()
-        const year = now.getUTCFullYear()
-        const month = now.getUTCMonth() + 1
-        const day = now.getUTCDate()
-        const encodedLogin = encodeURIComponent(memberLogin)
-
-        const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
-          execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-          execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-          execAsync(
-            `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-        ])
-
-        const userMonthItems = extractPremiumUsageItems(userMonthResult)
-        const userMonthlyRequests = sumGrossRequests(userMonthItems)
-        const userMonthlyModels = userMonthItems
-          .filter(i => i.grossQuantity > 0)
-          .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
-          .sort((a, b) => b.requests - a.requests)
-
-        const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))
-
-        const orgMonthItems = extractPremiumUsageItems(orgMonthResult)
-        const orgMonthlyRequests = sumGrossRequests(orgMonthItems)
-        const orgMonthlyNetCost = sumNetCost(orgMonthItems)
-
-        return {
-          success: true,
-          data: {
-            memberLogin,
-            org,
-            userMonthlyRequests,
-            userTodayRequests,
-            userMonthlyModels,
-            orgMonthlyRequests,
-            orgMonthlyNetCost,
-            billingYear: year,
-            billingMonth: month,
-          },
-        }
+        return { success: true, data: await fetchUserPremiumRequests(org, memberLogin, username) }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        console.error(
-          `Failed to get user premium requests for '${memberLogin}' in '${org}':`,
-          errorMessage
-        )
+        console.error(`Failed to get user premium requests for '${memberLogin}' in '${org}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
     }
   )
 
+  registerCopilotSeatHandlers()
+}
+
+async function fetchUserPremiumRequests(org: string, memberLogin: string, username?: string) {
+  const execEnv = await getTokenEnv(username)
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1
+  const day = now.getUTCDate()
+  const encodedLogin = encodeURIComponent(memberLogin)
+
+  const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
+    execAsync(
+      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+  ])
+
+  const userMonthItems = extractPremiumUsageItems(userMonthResult)
+  const userMonthlyRequests = sumGrossRequests(userMonthItems)
+  const userMonthlyModels = userMonthItems
+    .filter(i => i.grossQuantity > 0)
+    .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
+    .sort((a, b) => b.requests - a.requests)
+
+  const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))
+
+  const orgMonthItems = extractPremiumUsageItems(orgMonthResult)
+  const orgMonthlyRequests = sumGrossRequests(orgMonthItems)
+  const orgMonthlyNetCost = sumNetCost(orgMonthItems)
+
+  return {
+    memberLogin,
+    org,
+    userMonthlyRequests,
+    userTodayRequests,
+    userMonthlyModels,
+    orgMonthlyRequests,
+    orgMonthlyNetCost,
+    billingYear: year,
+    billingMonth: month,
+  }
+}
+
+function registerCopilotSeatHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
     async (_event, org: string, username?: string) => {
@@ -850,53 +844,55 @@ function registerCopilotMemberHandlers(): void {
 
   ipcMain.handle(
     IPC_INVOKE.GITHUB_COLLECT_COPILOT_SNAPSHOTS,
-    async (
-      _event,
-      accounts: Array<{ username: string; org: string }>
-    ): Promise<{
-      results: Array<
-        | { success: true; data: CopilotUsageMetrics }
-        | { success: false; username: string; org: string; error: string }
-      >
-    }> => {
-      const results: Array<
-        | { success: true; data: CopilotUsageMetrics }
-        | { success: false; username: string; org: string; error: string }
-      > = []
-
-      const client = new ConvexHttpClient(CONVEX_URL)
-
-      for (const { username, org } of accounts) {
-        const result = await fetchCopilotMetrics(org, username)
-        if (result.success) {
-          try {
-            await client.mutation(api.copilotUsageHistory.store, {
-              accountUsername: username,
-              org: result.data.org,
-              billingYear: result.data.billingYear,
-              billingMonth: result.data.billingMonth,
-              premiumRequests: result.data.premiumRequests,
-              grossCost: result.data.grossCost,
-              discount: result.data.discount,
-              netCost: result.data.netCost,
-              businessSeats: result.data.businessSeats,
-              ...(result.data.budgetAmount != null
-                ? { budgetAmount: result.data.budgetAmount }
-                : {}),
-              spent: result.data.spent,
-            })
-          } catch (storeErr: unknown) {
-            console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
-          }
-          results.push(result)
-        } else {
-          results.push({ success: false, username, org, error: result.error })
-        }
-      }
-
-      return { results }
-    }
+    async (_event, accounts: Array<{ username: string; org: string }>) =>
+      collectCopilotSnapshots(accounts)
   )
+}
+
+async function collectCopilotSnapshots(
+  accounts: Array<{ username: string; org: string }>
+): Promise<{
+  results: Array<
+    | { success: true; data: CopilotUsageMetrics }
+    | { success: false; username: string; org: string; error: string }
+  >
+}> {
+  const results: Array<
+    | { success: true; data: CopilotUsageMetrics }
+    | { success: false; username: string; org: string; error: string }
+  > = []
+
+  const client = new ConvexHttpClient(CONVEX_URL)
+
+  for (const { username, org } of accounts) {
+    const result = await fetchCopilotMetrics(org, username)
+    if (result.success) {
+      try {
+        await client.mutation(api.copilotUsageHistory.store, {
+          accountUsername: username,
+          org: result.data.org,
+          billingYear: result.data.billingYear,
+          billingMonth: result.data.billingMonth,
+          premiumRequests: result.data.premiumRequests,
+          grossCost: result.data.grossCost,
+          discount: result.data.discount,
+          netCost: result.data.netCost,
+          businessSeats: result.data.businessSeats,
+          ...(result.data.budgetAmount != null
+            ? { budgetAmount: result.data.budgetAmount }
+            : {}),
+          spent: result.data.spent,
+        })
+      } catch (storeErr: unknown) {
+        console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
+      }
+      results.push(result)
+    } else {
+      results.push({ success: false, username, org, error: result.error })
+    }
+  }
+
+  return { results }
 }
 
 export function registerGitHubHandlers(): void {

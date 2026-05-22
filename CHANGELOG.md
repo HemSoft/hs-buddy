@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce CRAP scores batch 7 - complexity 229→172
 - Reduce CRAP scores batch 8 - hooks and handlers
 - Reduce CRAP scores batch 9 - smaller hooks
+- Extract fetchUserPremiumRequests, registerCopilotSeatHandlers, collectCopilotSnapshots
 
 ### Added
 

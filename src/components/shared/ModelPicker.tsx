@@ -17,6 +17,62 @@ function applyModelResult(
   }
 }
 
+function isLatestModelFetch(fetchIdRef: React.RefObject<number>, fetchId: number) {
+  return fetchIdRef.current === fetchId
+}
+
+function applyLatestModelFetchResult(
+  result: unknown,
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  if (!isLatestModelFetch(fetchIdRef, fetchId)) {
+    return
+  }
+
+  applyModelResult(result, setModelsError, setSdkModels)
+}
+
+function applyLatestModelFetchError(
+  error: unknown,
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  if (!isLatestModelFetch(fetchIdRef, fetchId)) {
+    return
+  }
+
+  setModelsError(getErrorMessage(error))
+  setSdkModels([])
+}
+
+function finishLatestModelFetch(
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsLoading: (loading: boolean) => void
+) {
+  if (isLatestModelFetch(fetchIdRef, fetchId)) {
+    setModelsLoading(false)
+  }
+}
+
+function getNextValidModel(sdkModels: { id: string; isDisabled?: boolean }[], value: string) {
+  if (sdkModels.length === 0) {
+    return null
+  }
+
+  const isKnown = sdkModels.some(model => model.id === value)
+  if (isKnown || value === '') {
+    return null
+  }
+
+  return sdkModels.find(model => !model.isDisabled) ?? null
+}
+
 /** Model info returned from the Copilot SDK */
 interface SdkModel {
   id: string
@@ -62,16 +118,11 @@ function useModelFetch() {
     setModelsError(null)
     try {
       const result = await window.copilot.listModels(forAccount || undefined)
-      if (fetchIdRef.current !== thisId) return
-      applyModelResult(result, setModelsError, setSdkModels)
+      applyLatestModelFetchResult(result, fetchIdRef, thisId, setModelsError, setSdkModels)
     } catch (err: unknown) {
-      if (fetchIdRef.current !== thisId) return
-      setModelsError(getErrorMessage(err))
-      setSdkModels([])
+      applyLatestModelFetchError(err, fetchIdRef, thisId, setModelsError, setSdkModels)
     } finally {
-      if (fetchIdRef.current === thisId) {
-        setModelsLoading(false)
-      }
+      finishLatestModelFetch(fetchIdRef, thisId, setModelsLoading)
     }
   }, [])
 
@@ -295,15 +346,12 @@ function useModelValidation(
   persistModel: (v: string) => Promise<void>
 ) {
   useEffect(() => {
-    if (sdkModels.length === 0) return
-    const isKnown = sdkModels.some(m => m.id === value)
-    if (isKnown || value === '') return
-    const firstEnabled = sdkModels.find(m => !m.isDisabled)
-    if (!firstEnabled) return
-    onChange(firstEnabled.id)
+    const nextModel = getNextValidModel(sdkModels, value)
+    if (!nextModel) return
+    onChange(nextModel.id)
     if (persist) {
       /* v8 ignore start */
-      persistModel(firstEnabled.id).catch(() => {})
+      persistModel(nextModel.id).catch(() => {})
       /* v8 ignore stop */
     }
   }, [sdkModels, value, onChange, persist, persistModel])

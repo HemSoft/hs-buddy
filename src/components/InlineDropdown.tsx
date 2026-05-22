@@ -427,7 +427,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
       title={title}
       tabIndex={attrs.tabIndex}
       role="combobox"
-      aria-label={ariaLabel ?? title}
+      aria-label={resolveComboboxLabel(ariaLabel, title)}
       aria-expanded={isOpen}
       aria-controls={attrs.ariaControls}
       onKeyDown={handleKeyDown}
@@ -439,25 +439,24 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
         disabled={disabled}
         tabIndex={-1}
       >
-        {icon && <span className="idropdown-icon">{icon}</span>}
+        <DropdownTriggerIcon icon={icon} />
         <span className="idropdown-label">{displayLabel}</span>
         <ChevronDown size={10} className={attrs.chevronClassName} />
       </button>
 
-      {isOpen && (
-        <DropdownMenu
-          menuRef={menuRef}
-          listboxId={listboxId}
-          options={options}
-          enabledOptions={enabledOptions}
-          value={value}
-          focusIndex={focusIndex}
-          align={align}
-          openUpward={openUpward}
-          handleSelect={handleSelect}
-          setFocusIndex={setFocusIndex}
-        />
-      )}
+      <DropdownMenuContent
+        isOpen={isOpen}
+        menuRef={menuRef}
+        listboxId={listboxId}
+        options={options}
+        enabledOptions={enabledOptions}
+        value={value}
+        focusIndex={focusIndex}
+        align={align}
+        openUpward={openUpward}
+        handleSelect={handleSelect}
+        setFocusIndex={setFocusIndex}
+      />
     </div>
   )
 }

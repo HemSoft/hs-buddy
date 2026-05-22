@@ -158,20 +158,15 @@ export function collectDailyCounts(commitDates: string[]): Map<string, number> {
   return dateCounts
 }
 
-export function buildContributionCalendar(commitDates: string[]): {
-  totalContributions: number
-  weeks: ContributionWeek[]
-} {
-  const dateCounts = collectDailyCounts(commitDates)
-
+function buildContributionDayCounts(
+  dateCounts: Map<string, number>
+): Array<{ date: string; count: number }> {
   const now = new Date()
   const end = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
   const start = new Date(end)
   start.setUTCFullYear(start.getUTCFullYear() - 1)
-  // Align start to Sunday
   start.setUTCDate(start.getUTCDate() - start.getUTCDay())
 
-  // First pass — collect all daily counts
   const allDays: Array<{ date: string; count: number }> = []
   const cursor = new Date(start)
   while (cursor <= end) {
@@ -179,10 +174,13 @@ export function buildContributionCalendar(commitDates: string[]): {
     allDays.push({ date: dateStr, count: dateCounts.get(dateStr) ?? 0 })
     cursor.setUTCDate(cursor.getUTCDate() + 1)
   }
+  return allDays
+}
 
-  const quartiles = computeQuartiles(allDays.map(d => d.count))
-
-  // Second pass — build weeks with colors
+function buildContributionWeeks(
+  allDays: Array<{ date: string; count: number }>,
+  quartiles: number[]
+): ContributionWeek[] {
   const weeks: ContributionWeek[] = []
   let weekDays: ContributionDay[] = []
   for (const { date, count } of allDays) {
@@ -199,12 +197,33 @@ export function buildContributionCalendar(commitDates: string[]): {
   if (weekDays.length > 0) {
     weeks.push({ contributionDays: weekDays })
   }
+  return weeks
+}
 
-  return { totalContributions: commitDates.length, weeks }
+export function buildContributionCalendar(commitDates: string[]): {
+  totalContributions: number
+  weeks: ContributionWeek[]
+} {
+  const allDays = buildContributionDayCounts(collectDailyCounts(commitDates))
+  const quartiles = computeQuartiles(allDays.map(d => d.count))
+  return {
+    totalContributions: commitDates.length,
+    weeks: buildContributionWeeks(allDays, quartiles),
+  }
 }
 
 function resolveGraphqlCalendar(userProfile: GraphQLUserProfile | null) {
   return userProfile?.user?.contributionsCollection?.contributionCalendar ?? null
+}
+
+function resolveGraphqlContributionTotal(
+  graphqlCalendar: { totalContributions: number } | null
+): number {
+  return graphqlCalendar?.totalContributions ?? 0
+}
+
+function shouldUseOrgContributionData(contributionDates: string[], graphqlTotal: number): boolean {
+  return contributionDates.length > 0 && contributionDates.length >= graphqlTotal
 }
 
 /** Build contribution calendar/source data from search dates and GraphQL profile. */
@@ -217,9 +236,9 @@ export function buildContributionData(
   contributionSource: 'graphql' | 'org-activity'
 } {
   const graphqlCalendar = resolveGraphqlCalendar(userProfile)
-  const graphqlTotal = graphqlCalendar?.totalContributions ?? 0
+  const graphqlTotal = resolveGraphqlContributionTotal(graphqlCalendar)
 
-  if (contributionDates.length > 0 && contributionDates.length >= graphqlTotal) {
+  if (shouldUseOrgContributionData(contributionDates, graphqlTotal)) {
     const derived = buildContributionCalendar(contributionDates)
     return {
       totalContributions: derived.totalContributions,
@@ -271,27 +290,54 @@ export function buildEventId(evt: Record<string, unknown>, repoName: string): st
   return String(evt.id ?? `${evt.type ?? 'Unknown'}:${repoName}:${evt.created_at ?? ''}`)
 }
 
+function getEventRepoName(evt: Record<string, unknown>): string | undefined {
+  return (evt.repo as { name?: string } | undefined)?.name
+}
+
+function resolveEventText(value: string | undefined, fallback: string): string {
+  return value ?? fallback
+}
+
 export function mapRawEventToUserEvent(
   evt: Record<string, unknown>,
   orgPrefix: string
 ): UserEvent | null {
-  const repoObj = evt.repo as { name?: string } | undefined
-  const repoName = repoObj?.name
+  const repoName = getEventRepoName(evt)
   if (!repoName?.startsWith(orgPrefix)) return null
   const ghEvent: GitHubEvent = {
     id: evt.id as string | undefined,
     type: evt.type as string | undefined,
-    repo: repoObj,
+    repo: { name: repoName },
     payload: evt.payload as GitHubEventPayload | undefined,
     created_at: evt.created_at as string | undefined,
   }
   return {
     id: buildEventId(evt, repoName),
-    type: ghEvent.type ?? 'Unknown',
+    type: resolveEventText(ghEvent.type, 'Unknown'),
     repo: repoName,
-    createdAt: ghEvent.created_at ?? '',
+    createdAt: resolveEventText(ghEvent.created_at, ''),
     summary: eventSummary(ghEvent),
   }
+}
+
+function isOrgRepoName(repoName: string | undefined, orgPrefix: string): boolean {
+  return Boolean(repoName?.startsWith(orgPrefix))
+}
+
+function isEventOnOrAfter(evt: Record<string, unknown>, startOfDayIso: string): boolean {
+  return typeof evt.created_at === 'string' && evt.created_at >= startOfDayIso
+}
+
+function isTodayOrgPushEvent(
+  evt: Record<string, unknown>,
+  orgPrefix: string,
+  startOfDayIso: string
+): boolean {
+  return (
+    evt.type === 'PushEvent' &&
+    isOrgRepoName(getEventRepoName(evt), orgPrefix) &&
+    isEventOnOrAfter(evt, startOfDayIso)
+  )
 }
 
 /** Count commits from PushEvents that occurred today in the org. */
@@ -301,15 +347,7 @@ export function countEventCommitsToday(
   startOfDayIso: string
 ): number {
   return events
-    .filter(evt => {
-      const repo = evt.repo as { name?: string } | undefined
-      return (
-        evt.type === 'PushEvent' &&
-        repo?.name?.startsWith(orgPrefix) &&
-        typeof evt.created_at === 'string' &&
-        evt.created_at >= startOfDayIso
-      )
-    })
+    .filter(evt => isTodayOrgPushEvent(evt, orgPrefix, startOfDayIso))
     .reduce((sum, evt) => {
       const size = (evt.payload as Record<string, unknown> | undefined)?.size
       return sum + (typeof size === 'number' ? size : 1)
@@ -317,6 +355,10 @@ export function countEventCommitsToday(
 }
 
 // ── User Profile Helpers ─────────────────────────────────────────────
+
+function toNullableString(value: string | null | undefined): string | null {
+  return value ?? null
+}
 
 /** Extract basic user profile fields from a GraphQL user profile response. */
 export function extractUserBasicInfo(
@@ -337,10 +379,10 @@ export function extractUserBasicInfo(
 } {
   if (!user) return { name: null, bio: null, company: null, location: null }
   return {
-    name: user.name ?? null,
-    bio: user.bio ?? null,
-    company: user.company ?? null,
-    location: user.location ?? null,
+    name: toNullableString(user.name),
+    bio: toNullableString(user.bio),
+    company: toNullableString(user.company),
+    location: toNullableString(user.location),
   }
 }
 

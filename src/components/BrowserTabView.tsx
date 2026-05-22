@@ -112,11 +112,15 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
       F4: () => 'app:tab-close',
     }
 
+    const hasShortcutModifier = (input: WebviewInput) => input.control || input.meta
+
     const getBeforeInputShortcutEvent = (input?: WebviewInput): string | null => {
-      if (!input || input.type !== 'keyDown') return null
-      if (!input.control && !input.meta) return null
+      if (!input) return null
+      if (input.type !== 'keyDown') return null
+      if (!hasShortcutModifier(input)) return null
       const eventName = WEBVIEW_SHORTCUTS[input.key]
-      return eventName ? eventName(input.shift) : null
+      if (!eventName) return null
+      return eventName(input.shift)
     }
 
     const handleBeforeInput = (event: Event) => {

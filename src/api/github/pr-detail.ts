@@ -396,10 +396,22 @@ function buildCommentTimelineEvents(
   }))
 }
 
+function resolveCommitAuthorLogin(
+  author: { user: { login: string } | null; name: string | null } | null
+): string | null {
+  return author?.user?.login ?? null
+}
+
+function resolveCommitAuthorName(
+  author: { user: { login: string } | null; name: string | null } | null
+): string | null {
+  return author?.name ?? null
+}
+
 function resolveCommitAuthor(
   author: { user: { login: string } | null; name: string | null } | null
 ): string {
-  return author?.user?.login || author?.name || 'unknown'
+  return resolveCommitAuthorLogin(author) || resolveCommitAuthorName(author) || 'unknown'
 }
 
 function buildCommitTimelineEvents(
@@ -586,6 +598,17 @@ function extractDetailedThreads(result: {
   return result.repository?.pullRequest?.reviewThreads
 }
 
+function cloneDetailedThreadNodes(nodes: DetailedThreadNode[] | null | undefined): DetailedThreadNode[] {
+  return [...(nodes ?? [])]
+}
+
+function hasDetailedThreadCursor(pageInfo: {
+  hasNextPage: boolean
+  endCursor: string | null
+}): boolean {
+  return pageInfo.hasNextPage && Boolean(pageInfo.endCursor)
+}
+
 async function paginateDetailedReviewThreads(
   owner: string,
   repo: string,
@@ -596,9 +619,9 @@ async function paginateDetailedReviewThreads(
   },
   token: string
 ): Promise<DetailedThreadNode[]> {
-  const allNodes = [...(firstPage.nodes ?? [])]
+  const allNodes = cloneDetailedThreadNodes(firstPage.nodes)
   let { hasNextPage, endCursor } = firstPage.pageInfo
-  while (hasNextPage && endCursor) {
+  while (hasDetailedThreadCursor({ hasNextPage, endCursor })) {
     const pageResult = await graphql<{
       repository: {
         pullRequest: {
@@ -608,12 +631,12 @@ async function paginateDetailedReviewThreads(
           }
         } | null
       } | null
-    }>(buildReviewThreadsPageQuery(owner, repo, prNumber, endCursor), {
+    }>(buildReviewThreadsPageQuery(owner, repo, prNumber, endCursor!), {
       headers: { authorization: `token ${token}` },
     })
     const pageThreads = extractDetailedThreads(pageResult)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes ?? []))
+    allNodes.push(...cloneDetailedThreadNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }

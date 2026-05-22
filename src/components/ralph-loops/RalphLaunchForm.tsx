@@ -66,6 +66,45 @@ function buildProviderModelGroup(
     : null
 }
 
+function shouldResetSelectedModel(
+  model: string,
+  provider: string,
+  providers: RalphProvider | null | undefined,
+  models: RalphModelsConfig | null | undefined
+): boolean {
+  if (!model) return false
+  if (!provider) return false
+  if (!providers) return false
+  if (!models) return false
+
+  return isModelIncompatible(model, provider, providers, models)
+}
+
+function getSupportedModelProviders(
+  provider: string,
+  providers: RalphProvider | null | undefined
+): string[] | undefined {
+  if (!provider) return undefined
+
+  return providers?.providers?.[provider]?.supportedModelProviders
+}
+
+async function launchRalphConfig(
+  onLaunch: RalphLaunchFormProps['onLaunch'],
+  config: RalphLaunchConfig
+): Promise<RalphLaunchResult | undefined> {
+  if (!onLaunch) return undefined
+
+  return onLaunch(config)
+}
+
+function resolveLaunchError(result: RalphLaunchResult | undefined): string | null {
+  if (!result) return null
+  if (result.success) return null
+
+  return result.error ?? 'Launch failed'
+}
+
 interface LaunchFormValues {
   repoPath: string
   scriptChoice: ScriptChoice

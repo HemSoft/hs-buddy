@@ -400,6 +400,58 @@ function mapCopilotSeatData(seat: RawCopilotSeat, fallbackLogin: string) {
   }
 }
 
+type CopilotSeatData = ReturnType<typeof mapCopilotSeatData>
+
+type CopilotSeatsPage = {
+  total_seats: number
+  seats: RawCopilotSeat[]
+}
+
+async function fetchCopilotSeatsPage(
+  org: string,
+  page: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<CopilotSeatsPage> {
+  const { stdout } = await execAsync(
+    `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+    { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+  )
+  return JSON.parse(stdout.trim()) as CopilotSeatsPage
+}
+
+function appendCopilotSeats(target: CopilotSeatData[], pageData: CopilotSeatsPage): void {
+  target.push(...pageData.seats.map(seat => mapCopilotSeatData(seat, seat.assignee?.login ?? 'unknown')))
+}
+
+function shouldFetchNextCopilotSeatPage(
+  seats: CopilotSeatData[],
+  totalSeats: number,
+  pageSize: number
+): boolean {
+  if (seats.length >= totalSeats) return false
+  return pageSize === 100
+}
+
+async function fetchAllCopilotSeats(
+  org: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ totalSeats: number; seats: CopilotSeatData[] }> {
+  const seats: CopilotSeatData[] = []
+  let page = 1
+  let totalSeats = 0
+  const maxPages = 10
+
+  while (page <= maxPages) {
+    const pageData = await fetchCopilotSeatsPage(org, page, execEnv)
+    totalSeats = pageData.total_seats
+    appendCopilotSeats(seats, pageData)
+    if (!shouldFetchNextCopilotSeatPage(seats, totalSeats, pageData.seats.length)) break
+    page++
+  }
+
+  return { totalSeats, seats }
+}
+
 type BatchResult = Record<string, { requests: number; lastActiveDate: string | null }>
 
 const BATCH_CONCURRENCY = 10
@@ -738,28 +790,7 @@ export function registerGitHubHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
-        const seats: ReturnType<typeof mapCopilotSeatData>[] = []
-        let page = 1
-        const maxPages = 10
-        let totalSeats = 0
-
-        while (page <= maxPages) {
-          const { stdout } = await execAsync(
-            `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-          )
-          const data = JSON.parse(stdout.trim()) as {
-            total_seats: number
-            seats: RawCopilotSeat[]
-          }
-
-          totalSeats = data.total_seats
-          seats.push(...data.seats.map(s => mapCopilotSeatData(s, s.assignee?.login ?? 'unknown')))
-
-          if (seats.length >= totalSeats || data.seats.length < 100) break
-          page++
-        }
-
+        const { totalSeats, seats } = await fetchAllCopilotSeats(org, execEnv)
         return {
           success: true,
           data: { totalSeats, fetchedSeats: seats.length, seats },

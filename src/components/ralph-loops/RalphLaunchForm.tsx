@@ -465,35 +465,50 @@ function getConfigDefaults(
   return { defaultModel: models?.default, defaultProvider: providers?.default }
 }
 
-export function RalphLaunchForm({
-  initialScript,
-  initialPR,
-  initialIssue,
-  onLaunch,
-}: RalphLaunchFormProps) {
-  const { data: models } = useRalphModels()
-  const { data: agents } = useRalphAgents()
-  const { data: providers } = useRalphProviders()
+function useRalphFormSync(
+  initialScript: RalphLaunchFormProps['initialScript'],
+  initialPR: RalphLaunchFormProps['initialPR'],
+  initialIssue: RalphLaunchFormProps['initialIssue'],
+  setters: {
+    setScriptChoice: (v: ScriptChoice) => void
+    setPrNumber: (v: string) => void
+    setRepoPath: (v: string) => void
+    setIssueNumber: (v: string) => void
+    setBranch: (v: string) => void
+    setPrompt: (v: string) => void
+    setModel: (v: string) => void
+  },
+  deps: {
+    scriptChoice: ScriptChoice
+    model: string
+    provider: string
+    providers: RalphProvidersConfig | null | undefined
+    models: RalphModelsConfig | null | undefined
+  }
+) {
+  const [templates, setTemplates] = useState<RalphTemplateInfo[]>([])
+  const {
+    setScriptChoice,
+    setPrNumber,
+    setRepoPath,
+    setIssueNumber,
+    setBranch,
+    setPrompt,
+    setModel,
+  } = setters
 
-  const effectiveScript: ScriptChoice = initialScript ?? 'ralph'
-  const [repoPath, setRepoPath] = useState(() => safeGetItem('ralph-last-repo') ?? '')
-  const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(effectiveScript)
-
-  // Sync when sidebar changes the selected script
   useEffect(() => {
     if (initialScript) setScriptChoice(initialScript)
-  }, [initialScript])
+  }, [initialScript, setScriptChoice])
 
-  // Pre-populate from PR detail context menu
   useEffect(() => {
     if (initialPR) {
       setScriptChoice('ralph-pr')
       setPrNumber(String(initialPR.prNumber))
       if (initialPR.repoPath) setRepoPath(initialPR.repoPath)
     }
-  }, [initialPR])
+  }, [initialPR, setScriptChoice, setPrNumber, setRepoPath])
 
-  // Pre-populate from Issue detail "Start Ralph Loop" action
   useEffect(() => {
     if (initialIssue) {
       setScriptChoice('ralph')
@@ -509,24 +524,7 @@ export function RalphLaunchForm({
       ].join('\n')
       setPrompt(issuePrompt)
     }
-  }, [initialIssue])
-  const [model, setModel] = useState('claude-opus-4.6')
-  const [provider, setProvider] = useState('')
-  const [devAgent, setDevAgent] = useState('anvil')
-  const [reviewAgents, setReviewAgents] = useState<string[]>([])
-  const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
-  const [iterations, setIterations] = useState(3)
-  const [repeats, setRepeats] = useState(1)
-  const [branch, setBranch] = useState('')
-  const [prompt, setPrompt] = useState('')
-  const [prNumber, setPrNumber] = useState('')
-  const [issueNumber, setIssueNumber] = useState('')
-  const [labels, setLabels] = useState('')
-  const [dryRun, setDryRun] = useState(false)
-  const [autoApprove, setAutoApprove] = useState(true)
-  const [launching, setLaunching] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [templates, setTemplates] = useState<RalphTemplateInfo[]>([])
+  }, [initialIssue, setScriptChoice, setRepoPath, setIssueNumber, setBranch, setPrompt])
 
   useEffect(() => {
     window.ralph
@@ -535,19 +533,26 @@ export function RalphLaunchForm({
       .catch(() => {})
   }, [])
 
-  // Auto-populate prompt from the script's embedded default prompt
   useEffect(() => {
-    const key = scriptChoice.replace(/\.ps1$/, '')
+    const key = deps.scriptChoice.replace(/\.ps1$/, '')
     const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
     setPrompt(template?.defaultPrompt ?? '')
-  }, [scriptChoice, templates])
+  }, [deps.scriptChoice, templates, setPrompt])
 
-  // Reset model when provider changes and current model is incompatible
   useEffect(() => {
-    if (!model || !provider || !providers || !models) return
-    if (isModelIncompatible(model, provider, providers, models)) setModel('')
-  }, [provider, providers, models, model])
+    if (!deps.model || !deps.provider || !deps.providers || !deps.models) return
+    if (isModelIncompatible(deps.model, deps.provider, deps.providers, deps.models)) setModel('')
+  }, [deps.provider, deps.providers, deps.models, deps.model, setModel])
 
+  return { templates }
+}
+
+function useRalphFormOptions(
+  models: RalphModelsConfig | null | undefined,
+  providers: RalphProvidersConfig | null | undefined,
+  agents: ReturnType<typeof useRalphAgents>['data'],
+  provider: string
+) {
   const modelOptions = useMemo(() => {
     if (!models) return []
     const supported = provider
@@ -571,7 +576,6 @@ export function RalphLaunchForm({
     return [...filteredModels, ...filteredAliases]
   }, [models, provider, providers])
 
-  // Per-reviewer options: Account: Model list across ALL providers (not filtered by main)
   const reviewerModelOptions = useMemo(() => {
     if (!models || !providers) return []
     return Object.entries(providers.providers)
@@ -600,6 +604,69 @@ export function RalphLaunchForm({
       .filter(([, role]) => role.category === 'review')
       .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
   }, [agents])
+
+  return {
+    modelOptions,
+    reviewerModelOptions,
+    providerOptions,
+    devAgentOptions,
+    reviewAgentOptions,
+  }
+}
+
+export function RalphLaunchForm({
+  initialScript,
+  initialPR,
+  initialIssue,
+  onLaunch,
+}: RalphLaunchFormProps) {
+  const { data: models } = useRalphModels()
+  const { data: agents } = useRalphAgents()
+  const { data: providers } = useRalphProviders()
+
+  const effectiveScript: ScriptChoice = initialScript ?? 'ralph'
+  const [repoPath, setRepoPath] = useState(() => safeGetItem('ralph-last-repo') ?? '')
+  const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(effectiveScript)
+  const [model, setModel] = useState('claude-opus-4.6')
+  const [provider, setProvider] = useState('')
+  const [devAgent, setDevAgent] = useState('anvil')
+  const [reviewAgents, setReviewAgents] = useState<string[]>([])
+  const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
+  const [iterations, setIterations] = useState(3)
+  const [repeats, setRepeats] = useState(1)
+  const [branch, setBranch] = useState('')
+  const [prompt, setPrompt] = useState('')
+  const [prNumber, setPrNumber] = useState('')
+  const [issueNumber, setIssueNumber] = useState('')
+  const [labels, setLabels] = useState('')
+  const [dryRun, setDryRun] = useState(false)
+  const [autoApprove, setAutoApprove] = useState(true)
+  const [launching, setLaunching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const { templates } = useRalphFormSync(
+    initialScript,
+    initialPR,
+    initialIssue,
+    {
+      setScriptChoice,
+      setPrNumber,
+      setRepoPath,
+      setIssueNumber,
+      setBranch,
+      setPrompt,
+      setModel,
+    },
+    { scriptChoice, model, provider, providers, models }
+  )
+
+  const {
+    modelOptions,
+    reviewerModelOptions,
+    providerOptions,
+    devAgentOptions,
+    reviewAgentOptions,
+  } = useRalphFormOptions(models, providers, agents, provider)
 
   const toggleReviewAgent = (key: string) => {
     setReviewAgents(prev => {

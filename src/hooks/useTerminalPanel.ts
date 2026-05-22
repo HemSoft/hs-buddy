@@ -101,6 +101,7 @@ function shouldSkipRestore(
   return currentTabCount > 0
 }
 
+/* v8 ignore start -- IPC-dependent path resolution */
 async function resolveTabCwd(repoSlug: string | undefined, savedCwd: string): Promise<string> {
   if (!repoSlug) return savedCwd
   const parts = repoSlug.split('/')
@@ -110,6 +111,7 @@ async function resolveTabCwd(repoSlug: string | undefined, savedCwd: string): Pr
   const resolved = await resolveRepoCwd(owner, repo)
   return resolved || savedCwd
 }
+/* v8 ignore stop */
 
 export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanelReturn {
   const [terminalOpen, setTerminalOpen] = useState(false)

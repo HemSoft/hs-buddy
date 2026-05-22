@@ -165,6 +165,133 @@ function GridEmptyState({
   )
 }
 
+function TimesheetRow({
+  issue,
+  columns,
+  worklogs,
+  isCapex,
+  showTooltip,
+  hideTooltip,
+  onCellClick,
+  onWorklogEdit,
+  onWorklogDelete,
+  onCopyToToday,
+}: {
+  issue: TempoIssueSummary
+  columns: DayColumn[]
+  worklogs: TempoWorklog[]
+  isCapex: boolean
+  showTooltip: (e: React.MouseEvent, text: string) => void
+  hideTooltip: () => void
+  onCellClick: (date: string, issueKey?: string) => void
+  onWorklogEdit: (worklog: TempoWorklog) => void
+  onWorklogDelete: (worklog: TempoWorklog) => void
+  onCopyToToday: (worklogs: TempoWorklog[]) => void
+}) {
+  return (
+    <tr className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
+      <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
+        {issue.issueSummary}
+      </td>
+      <td className="tempo-grid-key-cell">
+        <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>{issue.issueKey}</span>
+      </td>
+      <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
+      {columns.map(col => {
+        const hours = issue.hoursByDate[col.date] || 0
+        const cellWorklogs =
+          hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
+
+        return (
+          <td
+            key={col.date}
+            className={getCellClassName(col, hours, isCapex)}
+            title={
+              hours > 0
+                ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
+                : `Click to log time on ${col.date}`
+            }
+            onClick={e => {
+              if (isModKey(e) && cellWorklogs.length > 0) {
+                onCopyToToday(cellWorklogs)
+              } else if (cellWorklogs.length === 1) {
+                onWorklogEdit(cellWorklogs[0])
+              } else if (hours === 0) {
+                onCellClick(col.date, issue.issueKey)
+              }
+            }}
+            onContextMenu={e => {
+              if (cellWorklogs.length === 1) {
+                e.preventDefault()
+                onWorklogDelete(cellWorklogs[0])
+              }
+            }}
+            onMouseEnter={e =>
+              showTooltip(e, buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length))
+            }
+            onMouseLeave={hideTooltip}
+          >
+            {hours > 0 ? hours : ''}
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
+function TimesheetFooterRow({
+  columns,
+  totalHours,
+  dailyTotals,
+  worklogs,
+  showTooltip,
+  hideTooltip,
+  onCopyToToday,
+}: {
+  columns: DayColumn[]
+  totalHours: number
+  dailyTotals: Record<string, number>
+  worklogs: TempoWorklog[]
+  showTooltip: (e: React.MouseEvent, text: string) => void
+  hideTooltip: () => void
+  onCopyToToday: (worklogs: TempoWorklog[]) => void
+}) {
+  return (
+    <tr className="tempo-grid-totals">
+      <td className="tempo-grid-total-label">Total</td>
+      <td className="tempo-grid-total-key"></td>
+      <td className="tempo-grid-total-logged">{totalHours}</td>
+      {columns.map(col => {
+        const dayTotal = dailyTotals[col.date] || 0
+        const isDayComplete = dayTotal >= 8
+        return (
+          <td
+            key={col.date}
+            className={buildTotalCellClass(col, isDayComplete, dayTotal)}
+            onClick={e => {
+              if (isModKey(e) && dayTotal > 0) {
+                onCopyToToday(worklogs.filter(w => w.date === col.date))
+              }
+            }}
+            onMouseEnter={e => {
+              if (dayTotal > 0) {
+                showTooltip(
+                  e,
+                  `${dayTotal}h total\n${modLabel}+click — copy all worklogs to next empty day`
+                )
+              }
+            }}
+            onMouseLeave={hideTooltip}
+            style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
+          >
+            {renderTotalCellContent(isDayComplete, dayTotal)}
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
 export function TempoTimesheetGrid({
   issueSummaries,
   worklogs,
@@ -284,97 +411,32 @@ export function TempoTimesheetGrid({
             </tr>
           </thead>
           <tbody>
-            {issueSummaries.map(issue => {
-              const isCapex = capexMap[issue.issueKey]
-              return (
-                <tr key={issue.issueKey} className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
-                  <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
-                    {issue.issueSummary}
-                  </td>
-                  <td className="tempo-grid-key-cell">
-                    <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>
-                      {issue.issueKey}
-                    </span>
-                  </td>
-                  <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
-                  {columns.map(col => {
-                    const hours = issue.hoursByDate[col.date] || 0
-                    const cellWorklogs =
-                      hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
-
-                    return (
-                      <td
-                        key={col.date}
-                        className={getCellClassName(col, hours, isCapex)}
-                        title={
-                          hours > 0
-                            ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
-                            : `Click to log time on ${col.date}`
-                        }
-                        onClick={e => {
-                          if (isModKey(e) && cellWorklogs.length > 0) {
-                            onCopyToToday(cellWorklogs)
-                          } else if (cellWorklogs.length === 1) {
-                            onWorklogEdit(cellWorklogs[0])
-                          } else if (hours === 0) {
-                            onCellClick(col.date, issue.issueKey)
-                          }
-                        }}
-                        onContextMenu={e => {
-                          if (cellWorklogs.length === 1) {
-                            e.preventDefault()
-                            onWorklogDelete(cellWorklogs[0])
-                          }
-                        }}
-                        onMouseEnter={e =>
-                          showTooltip(
-                            e,
-                            buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length)
-                          )
-                        }
-                        onMouseLeave={hideTooltip}
-                      >
-                        {hours > 0 ? hours : ''}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
+            {issueSummaries.map(issue => (
+              <TimesheetRow
+                key={issue.issueKey}
+                issue={issue}
+                columns={columns}
+                worklogs={worklogs}
+                isCapex={capexMap[issue.issueKey]}
+                showTooltip={showTooltip}
+                hideTooltip={hideTooltip}
+                onCellClick={onCellClick}
+                onWorklogEdit={onWorklogEdit}
+                onWorklogDelete={onWorklogDelete}
+                onCopyToToday={onCopyToToday}
+              />
+            ))}
           </tbody>
           <tfoot>
-            <tr className="tempo-grid-totals">
-              <td className="tempo-grid-total-label">Total</td>
-              <td className="tempo-grid-total-key"></td>
-              <td className="tempo-grid-total-logged">{totalHours}</td>
-              {columns.map(col => {
-                const dayTotal = dailyTotals[col.date] || 0
-                const isDayComplete = dayTotal >= 8
-                return (
-                  <td
-                    key={col.date}
-                    className={buildTotalCellClass(col, isDayComplete, dayTotal)}
-                    onClick={e => {
-                      if (isModKey(e) && dayTotal > 0) {
-                        onCopyToToday(worklogs.filter(w => w.date === col.date))
-                      }
-                    }}
-                    onMouseEnter={e => {
-                      if (dayTotal > 0) {
-                        showTooltip(
-                          e,
-                          `${dayTotal}h total\n${modLabel}+click — copy all worklogs to next empty day`
-                        )
-                      }
-                    }}
-                    onMouseLeave={hideTooltip}
-                    style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
-                  >
-                    {renderTotalCellContent(isDayComplete, dayTotal)}
-                  </td>
-                )
-              })}
-            </tr>
+            <TimesheetFooterRow
+              columns={columns}
+              totalHours={totalHours}
+              dailyTotals={dailyTotals}
+              worklogs={worklogs}
+              showTooltip={showTooltip}
+              hideTooltip={hideTooltip}
+              onCopyToToday={onCopyToToday}
+            />
           </tfoot>
         </table>
       </div>

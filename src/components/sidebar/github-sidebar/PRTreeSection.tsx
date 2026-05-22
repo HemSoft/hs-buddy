@@ -194,6 +194,14 @@ function CountBadge({
   return <span className="sidebar-item-count">{counts[itemId]}</span>
 }
 
+function resolveNewCount(newCounts: Record<string, number> | undefined, itemId: string): number {
+  return newCounts?.[itemId] ?? 0
+}
+
+function newPullRequestLabel(count: number): string {
+  return `${count} new pull request${count === 1 ? '' : 's'}`
+}
+
 function NewCountBadge({
   itemId,
   newCounts,
@@ -201,17 +209,142 @@ function NewCountBadge({
   itemId: string
   newCounts?: Record<string, number>
 }) {
-  if (!newCounts || (newCounts[itemId] ?? 0) <= 0) return null
+  const count = resolveNewCount(newCounts, itemId)
+  if (count <= 0) return null
   return (
     <span
       className="sidebar-new-badge"
-      title={`${newCounts[itemId]} new PR${newCounts[itemId] !== 1 ? 's' : ''}`}
+      title={`${count} new PR${count === 1 ? '' : 's'}`}
       role="status"
       aria-live="polite"
-      aria-label={`${newCounts[itemId]} new pull request${newCounts[itemId] !== 1 ? 's' : ''}`}
+      aria-label={newPullRequestLabel(count)}
     >
-      {newCounts[itemId]}
+      {count}
     </span>
+  )
+}
+
+function prGroupClassName(
+  itemId: string,
+  selectedItem: string | null,
+  refreshIndicators?: RefreshIndicators
+): string {
+  return `sidebar-item sidebar-item-disclosure ${selectedItem === itemId ? 'selected' : ''} ${refreshClass(itemId, refreshIndicators)}`
+}
+
+function PRTreeGroupChildren({
+  item,
+  prs,
+  expandedPRNodes,
+  selectedItem,
+  newUrls,
+  onItemSelect,
+  onTogglePRNode,
+  onContextMenu,
+}: {
+  item: SidebarItem
+  prs: PullRequest[]
+  expandedPRNodes: ReadonlySet<string>
+  selectedItem: string | null
+  newUrls?: ReadonlySet<string>
+  onItemSelect: (itemId: string) => void
+  onTogglePRNode: (prViewId: string) => void
+  onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+}) {
+  if (prs.length === 0) return null
+  return (
+    <div className="sidebar-job-tree sidebar-pr-tree">
+      <div className="sidebar-job-items">
+        {prs.map(pr => (
+          <PRItemNode
+            key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
+            item={item}
+            pr={pr}
+            expandedPRNodes={expandedPRNodes}
+            selectedItem={selectedItem}
+            newUrls={newUrls}
+            onItemSelect={onItemSelect}
+            onTogglePRNode={onTogglePRNode}
+            onContextMenu={onContextMenu}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function PRTreeGroupSection({
+  item,
+  prTreeData,
+  expandedPrGroups,
+  refreshIndicators,
+  selectedItem,
+  newCounts,
+  counts,
+  badgeProgress,
+  newUrls,
+  expandedPRNodes,
+  onItemSelect,
+  onTogglePRGroup,
+  onTogglePRNode,
+  onContextMenu,
+}: {
+  item: SidebarItem
+  prTreeData: Record<string, PullRequest[]>
+  expandedPrGroups: ReadonlySet<string>
+  refreshIndicators?: RefreshIndicators
+  selectedItem: string | null
+  newCounts?: Record<string, number>
+  counts: Record<string, number>
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  newUrls?: ReadonlySet<string>
+  expandedPRNodes: ReadonlySet<string>
+  onItemSelect: (itemId: string) => void
+  onTogglePRGroup: (itemId: string) => void
+  onTogglePRNode: (prViewId: string) => void
+  onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
+}) {
+  const isExpanded = expandedPrGroups.has(item.id)
+  const prs = getPRsForItem(prTreeData, item.id)
+
+  return (
+    <div>
+      <div className={prGroupClassName(item.id, selectedItem, refreshIndicators)}>
+        <button
+          type="button"
+          className="sidebar-item-chevron"
+          tabIndex={0}
+          onClick={e => {
+            e.stopPropagation()
+            onTogglePRGroup(item.id)
+          }}
+          aria-label={isExpanded ? `Collapse ${item.label}` : `Expand ${item.label}`}
+        >
+          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        </button>
+        <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(item.id)}>
+          <span className="sidebar-item-icon">
+            <FileText size={14} />
+          </span>
+          <span className="sidebar-item-label">{item.label}</span>
+          <NewCountBadge itemId={item.id} newCounts={newCounts} />
+          <CountBadge itemId={item.id} counts={counts} badgeProgress={badgeProgress} />
+        </button>
+      </div>
+
+      {isExpanded && (
+        <PRTreeGroupChildren
+          item={item}
+          prs={prs}
+          expandedPRNodes={expandedPRNodes}
+          selectedItem={selectedItem}
+          newUrls={newUrls}
+          onItemSelect={onItemSelect}
+          onTogglePRNode={onTogglePRNode}
+          onContextMenu={onContextMenu}
+        />
+      )}
+    </div>
   )
 }
 
@@ -234,62 +367,23 @@ export function PRTreeSection({
   return (
     <>
       {prItems.map(item => (
-        <div key={item.id}>
-          <div
-            className={`sidebar-item sidebar-item-disclosure ${selectedItem === item.id ? 'selected' : ''} ${refreshClass(item.id, refreshIndicators)}`}
-          >
-            <button
-              type="button"
-              className="sidebar-item-chevron"
-              tabIndex={0}
-              onClick={e => {
-                e.stopPropagation()
-                onTogglePRGroup(item.id)
-              }}
-              aria-label={
-                expandedPrGroups.has(item.id) ? `Collapse ${item.label}` : `Expand ${item.label}`
-              }
-            >
-              {expandedPrGroups.has(item.id) ? (
-                <ChevronDown size={12} />
-              ) : (
-                <ChevronRight size={12} />
-              )}
-            </button>
-            <button
-              type="button"
-              className="sidebar-item-main"
-              onClick={() => onItemSelect(item.id)}
-            >
-              <span className="sidebar-item-icon">
-                <FileText size={14} />
-              </span>
-              <span className="sidebar-item-label">{item.label}</span>
-              <NewCountBadge itemId={item.id} newCounts={newCounts} />
-              <CountBadge itemId={item.id} counts={counts} badgeProgress={badgeProgress} />
-            </button>
-          </div>
-
-          {expandedPrGroups.has(item.id) && getPRsForItem(prTreeData, item.id).length > 0 && (
-            <div className="sidebar-job-tree sidebar-pr-tree">
-              <div className="sidebar-job-items">
-                {getPRsForItem(prTreeData, item.id).map(pr => (
-                  <PRItemNode
-                    key={`${item.id}-${pr.source}-${pr.repository}-${pr.id}`}
-                    item={item}
-                    pr={pr}
-                    expandedPRNodes={expandedPRNodes}
-                    selectedItem={selectedItem}
-                    newUrls={newUrls}
-                    onItemSelect={onItemSelect}
-                    onTogglePRNode={onTogglePRNode}
-                    onContextMenu={onContextMenu}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <PRTreeGroupSection
+          key={item.id}
+          item={item}
+          prTreeData={prTreeData}
+          expandedPrGroups={expandedPrGroups}
+          refreshIndicators={refreshIndicators}
+          selectedItem={selectedItem}
+          newCounts={newCounts}
+          counts={counts}
+          badgeProgress={badgeProgress}
+          newUrls={newUrls}
+          expandedPRNodes={expandedPRNodes}
+          onItemSelect={onItemSelect}
+          onTogglePRGroup={onTogglePRGroup}
+          onTogglePRNode={onTogglePRNode}
+          onContextMenu={onContextMenu}
+        />
       ))}
     </>
   )

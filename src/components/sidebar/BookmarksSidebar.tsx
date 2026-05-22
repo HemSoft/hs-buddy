@@ -60,6 +60,34 @@ interface BookmarkItemProps {
   onDrop: (e: React.DragEvent, id: string) => void
 }
 
+function bookmarkItemClassName(
+  selectedItem: string | null,
+  bmViewId: string,
+  dragOver: DragOver,
+  bookmarkId: string
+) {
+  const selectedClass = selectedItem === bmViewId ? 'selected' : ''
+  const dragClass = dragOver && dragOver.id === bookmarkId ? `drag-over-${dragOver.position}` : ''
+  return `sidebar-item ${selectedClass} ${dragClass}`
+}
+
+function handleBookmarkItemKeyDown(
+  e: React.KeyboardEvent,
+  bmViewId: string,
+  onItemSelect: (viewId: string) => void
+) {
+  if (e.key !== 'Enter' && e.key !== ' ') return
+  e.preventDefault()
+  onItemSelect(bmViewId)
+}
+
+function BookmarkItemIcon({ bm }: { bm: BookmarkItemProps['bm'] }) {
+  if (bm.faviconUrl && isSafeImageUrl(bm.faviconUrl)) {
+    return <img src={bm.faviconUrl} alt="" width={14} height={14} style={{ borderRadius: 2 }} />
+  }
+  return <Globe size={14} />
+}
+
 function BookmarkItem({
   bm,
   selectedItem,
@@ -76,7 +104,7 @@ function BookmarkItem({
   return (
     <div
       key={bm._id}
-      className={`sidebar-item ${selectedItem === bmViewId ? 'selected' : ''} ${dragOver && dragOver.id === bm._id ? `drag-over-${dragOver.position}` : ''}`}
+      className={bookmarkItemClassName(selectedItem, bmViewId, dragOver, bm._id)}
       style={{ paddingLeft }}
       onClick={() => onItemSelect(bmViewId)}
       onContextMenu={e => onContextMenu(e, bm._id)}
@@ -88,22 +116,11 @@ function BookmarkItem({
       role="button"
       tabIndex={0}
       title={bm.url}
-      onKeyDown={e => {
-        /* v8 ignore start */
-        if (e.key === 'Enter' || e.key === ' ') {
-          /* v8 ignore stop */
-          e.preventDefault()
-          onItemSelect(bmViewId)
-        }
-      }}
+      onKeyDown={e => handleBookmarkItemKeyDown(e, bmViewId, onItemSelect)}
     >
       <span className="sidebar-item-chevron" style={{ width: 12 }} />
       <span className="sidebar-item-icon">
-        {bm.faviconUrl && isSafeImageUrl(bm.faviconUrl) ? (
-          <img src={bm.faviconUrl} alt="" width={14} height={14} style={{ borderRadius: 2 }} />
-        ) : (
-          <Globe size={14} />
-        )}
+        <BookmarkItemIcon bm={bm} />
       </span>
       <span className="sidebar-item-label">{bm.title}</span>
     </div>
@@ -255,6 +272,105 @@ function getBookmarkCount(bookmarks: readonly unknown[] | undefined): number {
   return bookmarks?.length ?? 0
 }
 
+function renderRootCategoryNode(
+  node: CategoryNode,
+  props: React.ComponentProps<typeof CategoryTreeNode>
+) {
+  return <CategoryTreeNode {...props} key={node.fullPath} node={node} depth={0} />
+}
+
+type BookmarkDropHandler = (
+  e: React.DragEvent,
+  id: string,
+  categoryBookmarks: CategoryBookmark[]
+) => void
+
+function renderBookmarksPanelContent(
+  categoryTree: CategoryNode[],
+  bookmarksByCategory: Map<string, CategoryBookmark[]>,
+  categoryProps: React.ComponentProps<typeof CategoryTreeNode>,
+  bookmarkProps: Omit<BookmarkItemProps, 'bm' | 'paddingLeft' | 'onDrop'> & { onDrop: BookmarkDropHandler }
+) {
+  return categoryTree.flatMap(node => {
+    if (!node.name) {
+      return renderUncategorizedBookmarks(node, bookmarksByCategory, categoryProps, bookmarkProps)
+    }
+    return [renderRootCategoryNode(node, { ...categoryProps, node })]
+  })
+}
+
+function renderUncategorizedBookmarks(
+  node: CategoryNode,
+  bookmarksByCategory: Map<string, CategoryBookmark[]>,
+  categoryProps: React.ComponentProps<typeof CategoryTreeNode>,
+  bookmarkProps: Omit<BookmarkItemProps, 'bm' | 'paddingLeft' | 'onDrop'> & { onDrop: BookmarkDropHandler }
+) {
+  const uncatBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
+  return [
+    ...node.children.map(child => renderRootCategoryNode(child, categoryProps)),
+    ...uncatBookmarks.map(bm => (
+      <BookmarkItem
+        key={bm._id}
+        bm={bm}
+        paddingLeft="12px"
+        {...bookmarkProps}
+        onDrop={e => bookmarkProps.onDrop(e, bm._id, uncatBookmarks)}
+      />
+    )),
+  ]
+}
+
+function BookmarksContextMenu({
+  contextMenu,
+  bookmarks,
+  closeContextMenu,
+  menuRef,
+  setEditingBookmark,
+}: {
+  contextMenu: { x: number; y: number; bookmarkId: string } | null
+  bookmarks: ReturnType<typeof useBookmarks>
+  closeContextMenu: () => void
+  menuRef: React.RefObject<HTMLDivElement | null>
+  setEditingBookmark: React.Dispatch<React.SetStateAction<NonNullable<ReturnType<typeof useBookmarks>>[number] | null>>
+}) {
+  if (!contextMenu) return null
+  return (
+    <>
+      <div className="tab-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
+      <div
+        ref={menuRef}
+        className="tab-context-menu"
+        role="menu"
+        style={{ top: contextMenu.y, left: contextMenu.x }}
+      >
+        <button
+          role="menuitem"
+          onClick={() => {
+            const bm = bookmarks?.find(b => b._id === contextMenu.bookmarkId)
+            if (bm) setEditingBookmark(bm)
+            closeContextMenu()
+          }}
+        >
+          Edit
+        </button>
+      </div>
+    </>
+  )
+}
+
+function EditingBookmarkDialog({
+  editingBookmark,
+  categories,
+  onClose,
+}: {
+  editingBookmark: NonNullable<ReturnType<typeof useBookmarks>>[number] | null
+  categories: ReturnType<typeof useBookmarkCategories>
+  onClose: () => void
+}) {
+  if (!editingBookmark) return null
+  return <BookmarkDialog bookmark={editingBookmark} categories={categories ?? []} onClose={onClose} />
+}
+
 export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
   const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<{
@@ -390,64 +506,35 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       </div>
       <div className="sidebar-panel-content">
         {categoryTree.length > 0 ? (
-          categoryTree.flatMap(node => {
-            if (!node.name) {
-              const uncatBookmarks = bookmarksByCategory.get(node.fullPath) ?? []
-              return [
-                ...node.children.map(child => (
-                  <CategoryTreeNode
-                    key={child.fullPath}
-                    node={child}
-                    depth={0}
-                    bookmarksByCategory={bookmarksByCategory}
-                    isSectionExpanded={isSectionExpanded}
-                    selectedItem={selectedItem}
-                    dragOver={dragOver}
-                    onItemSelect={onItemSelect}
-                    onToggleSection={toggleSection}
-                    onContextMenu={handleContextMenu}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                    onDrop={handleDrop}
-                  />
-                )),
-                ...uncatBookmarks.map(bm => (
-                  <BookmarkItem
-                    key={bm._id}
-                    bm={bm}
-                    selectedItem={selectedItem}
-                    dragOver={dragOver}
-                    paddingLeft="12px"
-                    onItemSelect={onItemSelect}
-                    onContextMenu={handleContextMenu}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                    onDrop={e => handleDrop(e, bm._id, uncatBookmarks)}
-                  />
-                )),
-              ]
+          renderBookmarksPanelContent(
+            categoryTree,
+            bookmarksByCategory,
+            {
+              node: categoryTree[0],
+              depth: 0,
+              bookmarksByCategory,
+              isSectionExpanded,
+              selectedItem,
+              dragOver,
+              onItemSelect,
+              onToggleSection: toggleSection,
+              onContextMenu: handleContextMenu,
+              onDragStart: handleDragStart,
+              onDragOver: handleDragOver,
+              onDragEnd: handleDragEnd,
+              onDrop: handleDrop,
+            },
+            {
+              selectedItem,
+              dragOver,
+              onItemSelect,
+              onContextMenu: handleContextMenu,
+              onDragStart: handleDragStart,
+              onDragOver: handleDragOver,
+              onDragEnd: handleDragEnd,
+              onDrop: handleDrop,
             }
-            return [
-              <CategoryTreeNode
-                key={node.fullPath}
-                node={node}
-                depth={0}
-                bookmarksByCategory={bookmarksByCategory}
-                isSectionExpanded={isSectionExpanded}
-                selectedItem={selectedItem}
-                dragOver={dragOver}
-                onItemSelect={onItemSelect}
-                onToggleSection={toggleSection}
-                onContextMenu={handleContextMenu}
-                onDragStart={handleDragStart}
-                onDragOver={handleDragOver}
-                onDragEnd={handleDragEnd}
-                onDrop={handleDrop}
-              />,
-            ]
-          })
+          )
         ) : (
           <div className="sidebar-item" style={{ color: 'var(--text-muted)' }}>
             <span className="sidebar-item-label">No bookmarks yet</span>
@@ -455,38 +542,19 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
         )}
       </div>
 
-      {contextMenu && (
-        <>
-          <div className="tab-context-menu-overlay" onClick={closeContextMenu} aria-hidden="true" />
-          <div
-            ref={menuRef}
-            className="tab-context-menu"
-            role="menu"
-            style={{ top: contextMenu.y, left: contextMenu.x }}
-          >
-            <button
-              role="menuitem"
-              onClick={() => {
-                const bm = bookmarks?.find(b => b._id === contextMenu.bookmarkId)
-                if (bm) setEditingBookmark(bm)
-                closeContextMenu()
-              }}
-            >
-              Edit
-            </button>
-          </div>
-        </>
-      )}
+      <BookmarksContextMenu
+        contextMenu={contextMenu}
+        bookmarks={bookmarks}
+        closeContextMenu={closeContextMenu}
+        menuRef={menuRef}
+        setEditingBookmark={setEditingBookmark}
+      />
 
-      {editingBookmark && (
-        <BookmarkDialog
-          bookmark={editingBookmark}
-          /* v8 ignore start */
-          categories={categories ?? []}
-          /* v8 ignore stop */
-          onClose={() => setEditingBookmark(null)}
-        />
-      )}
+      <EditingBookmarkDialog
+        editingBookmark={editingBookmark}
+        categories={categories}
+        onClose={() => setEditingBookmark(null)}
+      />
     </div>
   )
 }

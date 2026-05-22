@@ -177,6 +177,42 @@ function shouldShowEmptyState(
   return sessions.length === 0 && !isLoading && !error
 }
 
+function addDefaultExpandedHashes(next: Set<string>, defaultExpandedHashes: ReadonlySet<string>): boolean {
+  let changed = false
+  for (const hash of defaultExpandedHashes) {
+    if (!next.has(hash)) {
+      next.add(hash)
+      changed = true
+    }
+  }
+  return changed
+}
+
+function removeMissingExpandedHashes(next: Set<string>, workspaceGroups: WorkspaceGroup[]): boolean {
+  let changed = false
+  const availableHashes = new Set(workspaceGroups.map(group => group.hash))
+  for (const hash of next) {
+    if (!availableHashes.has(hash)) {
+      next.delete(hash)
+      changed = true
+    }
+  }
+  return changed
+}
+
+function syncExpandedWorkspaceHashes(
+  prev: Set<string>,
+  defaultExpandedHashes: ReadonlySet<string>,
+  workspaceGroups: WorkspaceGroup[]
+): Set<string> {
+  const next = new Set(prev)
+  const changed = [
+    addDefaultExpandedHashes(next, defaultExpandedHashes),
+    removeMissingExpandedHashes(next, workspaceGroups),
+  ].some(Boolean)
+  return changed ? next : prev
+}
+
 function SessionExplorerStats({
   sessions,
   totalCount,
@@ -270,27 +306,9 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setExpandedHashes(prev => {
-      const next = new Set(prev)
-      let changed = false
-      const availableHashes = new Set(workspaceGroups.map(group => group.hash))
-
-      for (const hash of defaultExpandedHashes) {
-        if (!next.has(hash)) {
-          next.add(hash)
-          changed = true
-        }
-      }
-
-      for (const hash of next) {
-        if (!availableHashes.has(hash)) {
-          next.delete(hash)
-          changed = true
-        }
-      }
-
-      return changed ? next : prev
-    })
+    setExpandedHashes(prev =>
+      syncExpandedWorkspaceHashes(prev, defaultExpandedHashes, workspaceGroups)
+    )
   }, [defaultExpandedHashes, workspaceGroups])
 
   const toggleWorkspace = (hash: string) => {

@@ -11,11 +11,15 @@ import { useToggleSet } from '../../../hooks/useToggleSet'
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose'
 import type { SidebarItem } from './useGitHubSidebarData'
 
+function normalizePrOrg(org: string | null | undefined): string {
+  return org ?? ''
+}
+
 function isPRMatch(item: PullRequest, target: PullRequest): boolean {
   return (
     item.id === target.id &&
     item.repository === target.repository &&
-    (item.org ?? '') === (target.org ?? '') &&
+    normalizePrOrg(item.org) === normalizePrOrg(target.org) &&
     item.source === target.source
   )
 }

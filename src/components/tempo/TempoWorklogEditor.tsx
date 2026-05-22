@@ -198,14 +198,22 @@ function useProjectAccountsLoader(
 function useEditProjectAccountsLoader(
   isEdit: boolean,
   issueKey: string,
-  dispatch: React.Dispatch<TempoWorklogEditorAction>
+  dispatch: React.Dispatch<TempoWorklogEditorAction>,
+  userPickedAccountRef: React.MutableRefObject<boolean>
 ) {
+  const initialPickedRef = useRef(userPickedAccountRef.current)
   useEffect(() => {
     if (!isEdit) return
     const projectKey = resolveProjectKey(issueKey)
     if (!projectKey) return
     window.tempo.getProjectAccounts(projectKey).then(res => {
-      if (res.data) applyProjectAccounts(dispatch, res.data)
+      if (res.data) {
+        dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
+        if (!initialPickedRef.current) {
+          const defaultAccount = res.data.find(a => a.isDefault)
+          if (defaultAccount) dispatch({ type: 'setAccountKey', value: defaultAccount.key })
+        }
+      }
     })
   }, [dispatch, isEdit, issueKey])
 }
@@ -262,7 +270,7 @@ export function TempoWorklogEditor({
   }, [])
 
   useProjectAccountsLoader(state.issueKey, dispatch, userPickedAccountRef, requestVersionRef)
-  useEditProjectAccountsLoader(isEdit, state.issueKey, dispatch)
+  useEditProjectAccountsLoader(isEdit, state.issueKey, dispatch, userPickedAccountRef)
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

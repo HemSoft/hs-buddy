@@ -339,40 +339,36 @@ async function fetchUserTeamNames(config: PRConfig['github'], owner: string, log
   }
 }
 
+function extractCommitterDate(
+  commit: { committer?: { date?: string }; author?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.committer?.date
+}
+
+function extractAuthorDate(
+  commit: { committer?: { date?: string }; author?: { date?: string } } | undefined
+): string | undefined {
+  return commit?.author?.date
+}
+
 function extractCommitSearchDate(item: Record<string, unknown>): string | undefined {
   const commit = item.commit as
     | { committer?: { date?: string }; author?: { date?: string } }
     | undefined
-  return commit?.committer?.date ?? commit?.author?.date
+  return extractCommitterDate(commit) ?? extractAuthorDate(commit)
 }
 
-async function buildUserActivitySummary(
+async function loadUserActivityResources(
   octokit: Octokit,
   config: PRConfig['github'],
   owner: string,
   login: string,
   maxEvents: number,
   maxPRs: number
-): Promise<UserActivitySummary> {
+) {
   const ninetyDaysAgo = new Date(Date.now() - 90 * DAY).toISOString().split('T')[0]
-
-  const startOfDay = new Date()
-  startOfDay.setHours(0, 0, 0, 0)
-  const startOfDayIso = startOfDay.toISOString()
-
   const emptySearch = { data: { total_count: 0, items: [] } } as const
-
-  const [
-    authoredOpen,
-    authoredMerged,
-    reviewed,
-    events,
-    repoSource,
-    userProfile,
-    orgMembership,
-    userTeams,
-    contributionDates,
-  ] = await Promise.all([
+  return Promise.all([
     octokit.search
       .issuesAndPullRequests({
         q: `org:${owner} is:pr author:${login} is:open`,
@@ -409,38 +405,46 @@ async function buildUserActivitySummary(
     fetchUserTeamNames(config, owner, login),
     searchActivityDatesInternal(octokit, owner, login).catch(() => [] as string[]),
   ])
+}
 
-  const recentPRsAuthored = [
-    ...authoredOpen.data.items.map(mapSearchItemToUserPR),
-    ...authoredMerged.data.items.map(mapSearchItemToUserPR),
-  ]
+type SearchPRItem = Parameters<typeof mapSearchItemToUserPR>[0]
+
+function buildRecentPRsAuthored(
+  authoredOpen: { data: { items: readonly SearchPRItem[] } },
+  authoredMerged: { data: { items: readonly SearchPRItem[] } },
+  maxPRs: number
+): UserPRSummary[] {
+  return [...authoredOpen.data.items.map(mapSearchItemToUserPR), ...authoredMerged.data.items.map(mapSearchItemToUserPR)]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, maxPRs)
+}
 
-  const orgPrefix = `${owner}/`
-  const recentEvents: UserEvent[] = (events.data as Array<Record<string, unknown>>)
-    .map(evt => mapRawEventToUserEvent(evt, orgPrefix))
-    .filter((evt): evt is UserEvent => evt !== null)
+function buildRecentEvents(events: Array<Record<string, unknown>>, orgPrefix: string): UserEvent[] {
+  return events.map(evt => mapRawEventToUserEvent(evt, orgPrefix)).filter((evt): evt is UserEvent => evt !== null)
+}
 
-  const eventCommitsToday = countEventCommitsToday(
-    events.data as Array<Record<string, unknown>>,
-    orgPrefix,
-    startOfDayIso
-  )
-
-  const recentlyPushedRepos = (repoSource?.repos ?? []).filter(
+function resolveRecentlyPushedRepos(
+  repoSource: Awaited<ReturnType<typeof fetchOrgOrUserRepos>> | null,
+  startOfDay: Date
+): OrgRepoSlim[] {
+  return (repoSource?.repos ?? []).filter(
     repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
   )
+}
 
-  const repoCommitsToday = await countRepoCommitsInternal(
-    octokit,
-    owner,
-    recentlyPushedRepos,
-    startOfDayIso,
-    login
-  )
+function resolveOrgRole(orgMembership: { data?: { role?: string } } | null): string | null {
+  return orgMembership?.data?.role ?? null
+}
 
-  const commitsToday = Math.max(repoCommitsToday, eventCommitsToday)
+function resolveUserProfileUser(userProfile: Awaited<ReturnType<typeof fetchUserProfileGraph>>) {
+  return userProfile?.user
+}
+
+function collectActiveRepos(
+  recentEvents: UserEvent[],
+  recentPRsAuthored: UserPRSummary[],
+  reviewedItems: Array<Record<string, unknown>>
+): string[] {
   const activeRepoSet = new Set<string>()
   recentEvents.forEach(e => {
     if (e.repo) activeRepoSet.add(e.repo)
@@ -448,26 +452,71 @@ async function buildUserActivitySummary(
   recentPRsAuthored.forEach(pr => {
     if (pr.repo) activeRepoSet.add(pr.repo)
   })
-  reviewed.data.items.forEach((item: Record<string, unknown>) => {
+  reviewedItems.forEach(item => {
     if (typeof item.repository_url === 'string') {
       const repo = extractRepoFromUrl(item.repository_url)
       if (repo) activeRepoSet.add(repo)
     }
   })
+  return Array.from(activeRepoSet)
+}
 
-  const userObj = userProfile?.user
+async function buildUserActivitySummary(
+  octokit: Octokit,
+  config: PRConfig['github'],
+  owner: string,
+  login: string,
+  maxEvents: number,
+  maxPRs: number
+): Promise<UserActivitySummary> {
+  const startOfDay = new Date()
+  startOfDay.setHours(0, 0, 0, 0)
+  const startOfDayIso = startOfDay.toISOString()
+  const [
+    authoredOpen,
+    authoredMerged,
+    reviewed,
+    events,
+    repoSource,
+    userProfile,
+    orgMembership,
+    userTeams,
+    contributionDates,
+  ] = await loadUserActivityResources(octokit, config, owner, login, maxEvents, maxPRs)
+
+  const recentPRsAuthored = buildRecentPRsAuthored(
+    authoredOpen as { data: { items: readonly SearchPRItem[] } },
+    authoredMerged as { data: { items: readonly SearchPRItem[] } },
+    maxPRs
+  )
+  const orgPrefix = `${owner}/`
+  const recentEvents = buildRecentEvents(events.data as Array<Record<string, unknown>>, orgPrefix)
+  const eventCommitsToday = countEventCommitsToday(
+    events.data as Array<Record<string, unknown>>,
+    orgPrefix,
+    startOfDayIso
+  )
+  const recentlyPushedRepos = resolveRecentlyPushedRepos(repoSource, startOfDay)
+  const repoCommitsToday = await countRepoCommitsInternal(
+    octokit,
+    owner,
+    recentlyPushedRepos,
+    startOfDayIso,
+    login
+  )
+  const userObj = resolveUserProfileUser(userProfile)
   return {
     ...extractUserBasicInfo(userObj),
     ...extractUserStatusInfo(userObj),
-    orgRole: orgMembership?.data?.role ?? null,
+    orgRole: resolveOrgRole(orgMembership),
     teams: userTeams,
     recentPRsAuthored,
     recentPRsReviewed: reviewed.data.items.map(mapSearchItemToUserPR),
     recentEvents,
     openPRCount: authoredOpen.data.total_count,
     mergedPRCount: authoredMerged.data.total_count,
-    activeRepos: Array.from(activeRepoSet),
-    commitsToday,
+    activeRepos: collectActiveRepos(recentEvents, recentPRsAuthored, reviewed.data.items as Array<Record<string, unknown>>),
+    commitsToday: Math.max(repoCommitsToday, eventCommitsToday),
     ...buildContributionData(contributionDates, userProfile),
   }
 }

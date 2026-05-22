@@ -50,6 +50,23 @@ interface ModelPickerProps {
   id?: string
 }
 
+function isActiveModelFetch(fetchIdRef: React.MutableRefObject<number>, fetchId: number): boolean {
+  return fetchIdRef.current === fetchId
+}
+
+function normalizeModelAccount(forAccount?: string): string | undefined {
+  return forAccount || undefined
+}
+
+function applyModelFetchFailure(
+  err: unknown,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  setModelsError(getErrorMessage(err))
+  setSdkModels([])
+}
+
 function useModelFetch() {
   const [sdkModels, setSdkModels] = useState<SdkModel[]>([])
   const [modelsLoading, setModelsLoading] = useState(false)
@@ -61,15 +78,16 @@ function useModelFetch() {
     setModelsLoading(true)
     setModelsError(null)
     try {
-      const result = await window.copilot.listModels(forAccount || undefined)
-      if (fetchIdRef.current !== thisId) return
-      applyModelResult(result, setModelsError, setSdkModels)
+      const result = await window.copilot.listModels(normalizeModelAccount(forAccount))
+      if (isActiveModelFetch(fetchIdRef, thisId)) {
+        applyModelResult(result, setModelsError, setSdkModels)
+      }
     } catch (err: unknown) {
-      if (fetchIdRef.current !== thisId) return
-      setModelsError(getErrorMessage(err))
-      setSdkModels([])
+      if (isActiveModelFetch(fetchIdRef, thisId)) {
+        applyModelFetchFailure(err, setModelsError, setSdkModels)
+      }
     } finally {
-      if (fetchIdRef.current === thisId) {
+      if (isActiveModelFetch(fetchIdRef, thisId)) {
         setModelsLoading(false)
       }
     }
@@ -288,6 +306,15 @@ function ModelPickerSelectVariant({
   )
 }
 
+function resolveFallbackModel(
+  sdkModels: { id: string; isDisabled?: boolean }[],
+  value: string
+): { id: string; isDisabled?: boolean } | null {
+  if (sdkModels.length === 0 || value === '') return null
+  if (sdkModels.some(m => m.id === value)) return null
+  return sdkModels.find(m => !m.isDisabled) ?? null
+}
+
 function useModelValidation(
   sdkModels: { id: string; isDisabled?: boolean }[],
   value: string,
@@ -296,16 +323,11 @@ function useModelValidation(
   persistModel: (v: string) => Promise<void>
 ) {
   useEffect(() => {
-    if (sdkModels.length === 0) return
-    const isKnown = sdkModels.some(m => m.id === value)
-    if (isKnown || value === '') return
-    const firstEnabled = sdkModels.find(m => !m.isDisabled)
-    if (!firstEnabled) return
-    onChange(firstEnabled.id)
+    const fallbackModel = resolveFallbackModel(sdkModels, value)
+    if (!fallbackModel) return
+    onChange(fallbackModel.id)
     if (persist) {
-      /* v8 ignore start */
-      persistModel(firstEnabled.id).catch(() => {})
-      /* v8 ignore stop */
+      persistModel(fallbackModel.id).catch(() => {})
     }
   }, [sdkModels, value, onChange, persist, persistModel])
 }

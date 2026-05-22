@@ -463,12 +463,22 @@ async function fetchPreviousMonthWeek(viewMonth: Date) {
   return window.tempo.getWeek(from, to)
 }
 
+function hasPreviousMonthWorklogs(result: Awaited<ReturnType<typeof window.tempo.getWeek>>): boolean {
+  return Boolean(result.success && result.data && result.data.worklogs.length > 0)
+}
+
+function resolvePreviousMonthCopyError(
+  result: Awaited<ReturnType<typeof window.tempo.getWeek>>
+): string {
+  return result.success ? 'No entries found in the previous month.' : result.error || 'Failed to load previous month data.'
+}
+
 function applyPreviousMonthCopyResult(
   dispatch: React.Dispatch<TempoDashboardAction>,
   result: Awaited<ReturnType<typeof window.tempo.getWeek>>
 ) {
-  if (result.success && result.data && result.data.worklogs.length > 0) {
-    const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
+  if (hasPreviousMonthWorklogs(result)) {
+    const { issues, prefills } = buildTemplateFromWorklogs(result.data!.worklogs)
     dispatch({ type: 'setTemplateIssues', issues, prefills })
     return
   }
@@ -476,7 +486,7 @@ function applyPreviousMonthCopyResult(
   dispatch({ type: 'setLoadingTemplates', loading: false })
   dispatch({
     type: 'setActionError',
-    error: result.success ? 'No entries found in the previous month.' : result.error || 'Failed to load previous month data.',
+    error: resolvePreviousMonthCopyError(result),
   })
 }
 

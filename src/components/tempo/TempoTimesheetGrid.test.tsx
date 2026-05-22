@@ -101,7 +101,7 @@ describe('TempoTimesheetGrid', () => {
       />
     )
 
-    fireEvent.click(screen.getByTitle('Click to log time on 2026-03-06'))
+    fireEvent.click(screen.getByTitle('Click \u2014 log time on 2026-03-06'))
     expect(onCellClick).toHaveBeenCalledWith('2026-03-06', 'PE-101')
 
     const filledCell = screen.getByTitle(
@@ -193,7 +193,7 @@ describe('TempoTimesheetGrid', () => {
       />
     )
 
-    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    const emptyCell = screen.getByTitle('Click \u2014 log time on 2026-03-06')
     fireEvent.mouseEnter(emptyCell)
     // Tooltip portal renders in document.body
     expect(document.querySelector('.tempo-cell-tooltip')).toBeInTheDocument()
@@ -576,7 +576,7 @@ describe('TempoTimesheetGrid', () => {
     )
 
     // Show a tooltip first
-    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    const emptyCell = screen.getByTitle('Click \u2014 log time on 2026-03-06')
     fireEvent.mouseEnter(emptyCell)
     expect(document.querySelector('.tempo-cell-tooltip')).toBeInTheDocument()
 

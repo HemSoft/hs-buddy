@@ -128,6 +128,23 @@ function OrgRepoCount({
   )
 }
 
+function OrgDisclosureIcon({ expanded }: { expanded: boolean }) {
+  return expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />
+}
+
+function OrgFolderIcon({ expanded }: { expanded: boolean }) {
+  return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
+function OrgNamespaceBadge({ meta }: { meta?: OrgMeta }) {
+  if (!meta?.isUserNamespace) return null
+  return (
+    <span className="sidebar-namespace-badge" title="User account (not an org)">
+      user
+    </span>
+  )
+}
+
 function OrgHeader({
   org,
   isOrgExpanded,
@@ -159,17 +176,13 @@ function OrgHeader({
         }}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrg(org), true)}
       >
-        {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <OrgDisclosureIcon expanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-icon">
-        {isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+        <OrgFolderIcon expanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-label">{org}</span>
-      {meta?.isUserNamespace && (
-        <span className="sidebar-namespace-badge" title="User account (not an org)">
-          user
-        </span>
-      )}
+      <OrgNamespaceBadge meta={meta} />
       <OrgRepoCount
         isLoading={isLoading}
         repoCount={repoCount}
@@ -275,6 +288,12 @@ function OrgTeamNodeMembers({
   )
 }
 
+function TeamMemberCount({ isLoadingMembers, memberCount }: { isLoadingMembers: boolean; memberCount: number }) {
+  if (isLoadingMembers) return <Loader2 size={10} className="spin" />
+  if (memberCount <= 0) return null
+  return <span className="sidebar-item-count">{memberCount}</span>
+}
+
 function OrgTeamNode({
   org,
   team,
@@ -301,17 +320,13 @@ function OrgTeamNode({
         onKeyDown={event => handleItemKeyDown(event, () => onToggleTeam(org, team.slug))}
       >
         <span className="sidebar-item-chevron">
-          {isTeamExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+          <OrgDisclosureIcon expanded={isTeamExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <UsersRound size={11} />
         </span>
         <span className="sidebar-item-label">{team.name}</span>
-        {isLoadingMembers ? (
-          <Loader2 size={10} className="spin" />
-        ) : team.memberCount > 0 ? (
-          <span className="sidebar-item-count">{team.memberCount}</span>
-        ) : null}
+        <TeamMemberCount isLoadingMembers={isLoadingMembers} memberCount={team.memberCount} />
       </div>
       <OrgTeamNodeMembers
         isExpanded={isTeamExpanded}

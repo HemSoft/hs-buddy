@@ -265,6 +265,36 @@ function openRepoPullRequest(
   window.shell?.openExternal(pr.url)
 }
 
+function resolvePRState(prState: RepoPullRequestListProps['prState']): 'open' | 'closed' {
+  return prState ?? 'open'
+}
+
+function resolveRepoPRs(data: RepoPullRequest[] | null | undefined): RepoPullRequest[] {
+  return data ?? []
+}
+
+function RepoPRListEmptyState({
+  loading,
+  error,
+  owner,
+  repo,
+  refresh,
+}: {
+  loading: boolean
+  error: string | null
+  owner: string
+  repo: string
+  refresh: () => void
+}) {
+  if (loading) {
+    return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 function RepoPRListBody({
   prs,
   loading,
@@ -301,13 +331,13 @@ function RepoPRListBody({
 
 export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { owner, repo, onOpenPR } = props
-  const prState = props.prState ?? 'open'
+  const prState = resolvePRState(props.prState)
   const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
     cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
     taskName: `repo-prs-${prState}-${owner}-${repo}`,
     fetchFn: client => client.fetchRepoPRs(owner, repo, prState),
   })
-  const prs = data ?? []
+  const prs = resolveRepoPRs(data)
   const isEmpty = prs.length === 0
   const [viewMode, setViewMode] = useViewMode(`repo-prs-${owner}-${repo}`)
 
@@ -319,14 +349,8 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
   )
 
   if (isEmpty) {
-    if (loading) {
-      return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
-    }
-    if (error) {
-      return (
-        <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-      )
-    }
+    const emptyState = RepoPRListEmptyState({ loading, error, owner, repo, refresh })
+    if (emptyState) return emptyState
   }
 
   return (

@@ -532,41 +532,51 @@ export function useGitHubSidebarData() {
     [accounts]
   )
 
+  const applyOrgOverview = useCallback((org: string, overview: OrgOverviewResult) => {
+    const contributorCounts = Object.fromEntries(
+      overview.metrics.topContributorsToday.map(c => [c.login, c.commits])
+    )
+    setOrgContributorCounts(prev => ({ ...prev, [org]: contributorCounts }))
+  }, [])
+
+  const getCachedOrgOverview = useCallback((org: string, forceRefresh: boolean) => {
+    if (forceRefresh) return null
+    return dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
+  }, [])
+
+  const requestOrgOverview = useCallback(
+    async (org: string) => {
+      return enqueueRef.current(
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          return client.fetchOrgOverview(org)
+        },
+        { name: `org-overview-${org}`, priority: -1 }
+      )
+    },
+    [accounts]
+  )
+
   const fetchOrgOverview = useCallback(
     async (org: string, forceRefresh = false) => {
-      const cacheKey = `org-overview:${org}`
-      const cached = forceRefresh ? null : dataCache.get<OrgOverviewResult>(cacheKey)?.data ?? null
-      const applyOverview = (overview: OrgOverviewResult) => {
-        const contributorCounts = Object.fromEntries(
-          overview.metrics.topContributorsToday.map(c => [c.login, c.commits])
-        )
-        setOrgContributorCounts(prev => ({ ...prev, [org]: contributorCounts }))
-      }
-
+      const cached = getCachedOrgOverview(org, forceRefresh)
       if (cached) {
-        applyOverview(cached)
+        applyOrgOverview(org, cached)
         return
       }
 
       try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
-          },
-          { name: `org-overview-${org}`, priority: -1 }
-        )
-        applyOverview(result)
-        dataCache.set(cacheKey, result)
+        const result = await requestOrgOverview(org)
+        applyOrgOverview(org, result)
+        dataCache.set(`org-overview:${org}`, result)
       } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.warn(`[OrgOverview] ${org} failed:`, error)
+        if (!isAbortError(error)) {
+          console.warn(`[OrgOverview] ${org} failed:`, error)
+        }
       }
     },
-    [accounts]
+    [applyOrgOverview, getCachedOrgOverview, requestOrgOverview]
   )
 
   const toggleOrgUserGroup = useCallback(
@@ -651,20 +661,13 @@ export function useGitHubSidebarData() {
     [teams, fetchTeamMembers]
   )
 
-  const toggleBookmarkRepoByValues = useCallback(
+  const findRepoBookmark = useCallback(
+    (org: string, repoName: string) => (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName),
+    [bookmarks]
+  )
+
+  const createRepoBookmark = useCallback(
     async (org: string, repoName: string, repoUrl: string) => {
-      const key = `${org}/${repoName}`
-      if (bookmarkedRepoKeys.has(key)) {
-        /* v8 ignore start */
-        const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-        /* v8 ignore stop */
-        /* v8 ignore start */
-        if (bookmark) {
-          /* v8 ignore stop */
-          await removeBookmark({ id: bookmark._id })
-        }
-        return
-      }
       const result = await createBookmark({
         folder: org,
         owner: org,
@@ -672,13 +675,26 @@ export function useGitHubSidebarData() {
         url: repoUrl,
         description: '',
       })
-      /* v8 ignore start */
       if (result?.inserted) {
-        /* v8 ignore stop */
         incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
       }
     },
-    [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
+    [createBookmark, incrementStat]
+  )
+
+  const toggleBookmarkRepoByValues = useCallback(
+    async (org: string, repoName: string, repoUrl: string) => {
+      const key = `${org}/${repoName}`
+      if (bookmarkedRepoKeys.has(key)) {
+        const bookmark = findRepoBookmark(org, repoName)
+        if (bookmark) {
+          await removeBookmark({ id: bookmark._id })
+        }
+        return
+      }
+      await createRepoBookmark(org, repoName, repoUrl)
+    },
+    [bookmarkedRepoKeys, createRepoBookmark, findRepoBookmark, removeBookmark]
   )
 
   const handleBookmarkToggle = async (

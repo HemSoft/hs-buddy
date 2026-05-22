@@ -67,14 +67,19 @@ interface DayColumn {
   holidayName?: string
 }
 
+function buildDayStateClasses(col: DayColumn): string[] {
+  return [col.isWeekend && 'weekend', col.isHoliday && 'holiday', col.isToday && 'today'].filter(
+    Boolean
+  ) as string[]
+}
+
+function buildCompletionStateClass(isDayComplete: boolean, dayTotal: number): string[] {
+  if (isDayComplete) return ['full']
+  return dayTotal > 0 ? ['partial'] : []
+}
+
 function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
-  const parts = ['tempo-grid-total-cell']
-  if (col.isWeekend) parts.push('weekend')
-  if (col.isHoliday) parts.push('holiday')
-  if (col.isToday) parts.push('today')
-  if (isDayComplete) parts.push('full')
-  else if (dayTotal > 0) parts.push('partial')
-  return parts.join(' ')
+  return ['tempo-grid-total-cell', ...buildDayStateClasses(col), ...buildCompletionStateClass(isDayComplete, dayTotal)].join(' ')
 }
 
 function renderTotalCellContent(isDayComplete: boolean, dayTotal: number) {
@@ -263,6 +268,44 @@ function TempoIssueRow({
   )
 }
 
+function dayHeaderClassName(col: DayColumn): string {
+  return `tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`
+}
+
+function dayHeaderLabel(col: DayColumn): string {
+  return col.isHoliday ? '🎉' : col.dayLabel
+}
+
+function DayHeaderCell({
+  col,
+  todayRef,
+}: {
+  col: DayColumn
+  todayRef: React.RefObject<HTMLTableCellElement | null>
+}) {
+  return (
+    <th
+      key={col.date}
+      ref={col.isToday ? todayRef : undefined}
+      className={dayHeaderClassName(col)}
+      title={col.holidayName}
+    >
+      <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
+      <span className="tempo-grid-day-label">{dayHeaderLabel(col)}</span>
+    </th>
+  )
+}
+
+function DayHeaderCells({
+  columns,
+  todayRef,
+}: {
+  columns: DayColumn[]
+  todayRef: React.RefObject<HTMLTableCellElement | null>
+}) {
+  return columns.map(col => <DayHeaderCell key={col.date} col={col} todayRef={todayRef} />)
+}
+
 function TempoTotalRow({
   columns,
   totalHours,
@@ -391,17 +434,7 @@ export function TempoTimesheetGrid({
               <th className="tempo-grid-issue-header">Issue</th>
               <th className="tempo-grid-key-header">Key</th>
               <th className="tempo-grid-logged-header">Logged</th>
-              {columns.map(col => (
-                <th
-                  key={col.date}
-                  ref={col.isToday ? todayRef : undefined}
-                  className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`}
-                  title={col.holidayName}
-                >
-                  <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
-                  <span className="tempo-grid-day-label">{col.isHoliday ? '🎉' : col.dayLabel}</span>
-                </th>
-              ))}
+              <DayHeaderCells columns={columns} todayRef={todayRef} />
             </tr>
           </thead>
           <tbody>

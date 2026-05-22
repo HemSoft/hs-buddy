@@ -346,19 +346,34 @@ function resolveContainerAttrs(
   }
 }
 
+function resolvePlaceholder(placeholder: string | undefined): string {
+  return placeholder ?? 'Select...'
+}
+
+function resolveDropdownDisabled(disabled: boolean | undefined): boolean {
+  return disabled ?? false
+}
+
+function resolveDropdownClassName(className: string | undefined): string {
+  return className ?? ''
+}
+
+function resolveDropdownAlign(align: InlineDropdownProps['align']): 'left' | 'right' {
+  return align ?? 'left'
+}
+
+function resolveOpenUpward(openUpward: boolean | undefined): boolean {
+  return openUpward ?? false
+}
+
 function resolveProps(raw: InlineDropdownProps) {
-  const placeholder = raw.placeholder ?? 'Select...'
-  const disabled = raw.disabled ?? false
-  const className = raw.className ?? ''
-  const align = raw.align ?? ('left' as const)
-  const openUpward = raw.openUpward ?? false
   return {
     ...raw,
-    placeholder,
-    disabled,
-    className,
-    align,
-    openUpward,
+    placeholder: resolvePlaceholder(raw.placeholder),
+    disabled: resolveDropdownDisabled(raw.disabled),
+    className: resolveDropdownClassName(raw.className),
+    align: resolveDropdownAlign(raw.align),
+    openUpward: resolveOpenUpward(raw.openUpward),
   }
 }
 

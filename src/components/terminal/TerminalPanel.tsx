@@ -44,6 +44,14 @@ function deriveContextMenu(
     : null
 }
 
+function getPromptTriggerClass(isOpen: boolean): string {
+  return `terminal-panel-prompt-trigger ${isOpen ? 'active' : ''}`
+}
+
+function getTabClassName(tabId: string, activeTabId: string | null, dragOverId: string | null): string {
+  return `terminal-panel-tab ${tabId === activeTabId ? 'active' : ''} ${dragOverId === tabId ? 'drag-over' : ''}`
+}
+
 export function TerminalPanel({
   tabs,
   activeTabId,
@@ -150,7 +158,7 @@ export function TerminalPanel({
         <div className="terminal-panel-prompt-shell" ref={promptShellRef}>
           <button
             type="button"
-            className={`terminal-panel-prompt-trigger ${promptLibraryOpen ? 'active' : ''}`}
+            className={getPromptTriggerClass(promptLibraryOpen)}
             onClick={() => setPromptLibraryOpen(open => !open)}
             title="Prompt Library"
             aria-haspopup="dialog"
@@ -172,7 +180,7 @@ export function TerminalPanel({
           {tabs.map(tab => (
             <div
               key={tab.id}
-              className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
+              className={getTabClassName(tab.id, activeTabId, dragOverId)}
               /* v8 ignore start */
               title={tab.cwd || tab.title}
               /* v8 ignore stop */

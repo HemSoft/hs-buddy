@@ -14,6 +14,14 @@ const STORAGE_KEY = 'hs-buddy:pending-ai-reviews'
 const DEFAULT_POLL_MS = 15_000
 const DEFAULT_MAX_POLLS = 40
 
+function isPollCompleted(result: PollResult | undefined): boolean {
+  return result?.status === 'completed'
+}
+
+function isPollFailed(result: PollResult | undefined): boolean {
+  return result?.status === 'failed'
+}
+
 interface PendingReview {
   providerId: string
   prUrl: string
@@ -215,11 +223,11 @@ export function useAIReviewMonitor({
       }
 
       const handlePollResult = (result: PollResult | undefined): 'stop' | 'continue' => {
-        if (result?.status === 'completed') {
+        if (isPollCompleted(result)) {
           finishMonitor(sessionId, monitorPrUrl)
           return 'stop'
         }
-        if (result?.status === 'failed') {
+        if (isPollFailed(result)) {
           clearTimers()
           clearPendingAIReview(provider.id, monitorPrUrl)
           /* v8 ignore next */
@@ -229,17 +237,21 @@ export function useAIReviewMonitor({
         return 'continue'
       }
 
+      const handleMaxPollsExceeded = () => {
+        clearTimers()
+        clearPendingAIReview(provider.id, monitorPrUrl)
+        /* v8 ignore start */
+        if (monitorSessionRef.current === sessionId) setReviewState('idle')
+        /* v8 ignore stop */
+      }
+
       const pollOnce = async () => {
         /* v8 ignore start */
         if (monitorSessionRef.current !== sessionId) return
         /* v8 ignore stop */
         monitorCountRef.current++
         if (monitorCountRef.current > maxPolls) {
-          clearTimers()
-          clearPendingAIReview(provider.id, monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setReviewState('idle')
-          /* v8 ignore stop */
+          handleMaxPollsExceeded()
           return
         }
         try {

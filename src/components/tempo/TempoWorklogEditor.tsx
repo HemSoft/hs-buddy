@@ -54,12 +54,22 @@ const CREATE_INITIAL_DEFAULTS = {
 }
 
 function getWorklogRaw(worklog: TempoWorklog | null) {
+  if (!worklog) {
+    return {
+      issueKey: undefined,
+      hours: undefined,
+      date: undefined,
+      description: undefined,
+      accountKey: undefined,
+    }
+  }
+
   return {
-    issueKey: worklog?.issueKey,
-    hours: worklog?.hours,
-    date: worklog?.date,
-    description: worklog?.description,
-    accountKey: worklog?.accountKey,
+    issueKey: worklog.issueKey,
+    hours: worklog.hours,
+    date: worklog.date,
+    description: worklog.description,
+    accountKey: worklog.accountKey,
   }
 }
 
@@ -144,6 +154,53 @@ function getAccountOptions(projectAccounts: TempoAccount[], accounts: TempoAccou
   return projectAccounts.length > 0 ? projectAccounts : accounts
 }
 
+function hasInitialAccountSelection(worklog: TempoWorklog | null, defaultAccountKey?: string): boolean {
+  if (worklog) return Boolean(worklog.accountKey)
+  return Boolean(defaultAccountKey)
+}
+
+function getEditorTitle(isEdit: boolean): string {
+  return isEdit ? 'Edit Worklog' : 'Log Time'
+}
+
+function getBackdropClickHandler(saving: boolean, onCancel: () => void) {
+  return saving ? undefined : onCancel
+}
+
+function getAccountLabel(accountsLoading: boolean): string {
+  return accountsLoading ? 'Account (loading…)' : 'Account'
+}
+
+function renderEditorError(error: string | null) {
+  if (!error) return null
+  return <div className="tempo-editor-error">{error}</div>
+}
+
+function resolveSubmitStartTime(worklog: TempoWorklog | null, existingWorklogs: TempoWorklog[]): string {
+  if (worklog) return worklog.startTime
+  return nextStartTime(existingWorklogs)
+}
+
+function resolveSubmitAccountKey(accountKey: string): string | undefined {
+  if (!accountKey) return undefined
+  return accountKey
+}
+
+function buildSubmitPayload(
+  state: TempoWorklogEditorState,
+  worklog: TempoWorklog | null,
+  existingWorklogs: TempoWorklog[]
+): CreateWorklogPayload {
+  return {
+    issueKey: state.issueKey.trim().toUpperCase(),
+    hours: parseFloat(state.hours),
+    date: state.date,
+    startTime: resolveSubmitStartTime(worklog, existingWorklogs),
+    description: state.description,
+    accountKey: resolveSubmitAccountKey(state.accountKey),
+  }
+}
+
 export function TempoWorklogEditor({
   worklog,
   defaultDate,
@@ -172,7 +229,7 @@ export function TempoWorklogEditor({
   const accountId = useId()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const requestVersionRef = useRef(0)
-  const userPickedAccountRef = useRef(Boolean(worklog?.accountKey || defaultAccountKey))
+  const userPickedAccountRef = useRef(hasInitialAccountSelection(worklog, defaultAccountKey))
 
   // Fetch all accounts on mount
   useEffect(() => {
@@ -249,15 +306,7 @@ export function TempoWorklogEditor({
 
     dispatch({ type: 'submit:start' })
     try {
-      const startTime = worklog?.startTime || nextStartTime(existingWorklogs)
-      await onSave({
-        issueKey: state.issueKey.trim().toUpperCase(),
-        hours: parseFloat(state.hours),
-        date: state.date,
-        startTime,
-        description: state.description,
-        accountKey: state.accountKey || undefined,
-      })
+      await onSave(buildSubmitPayload(state, worklog, existingWorklogs))
     } catch (err: unknown) {
       dispatch({ type: 'submit:error', value: String(err) })
       return
@@ -265,12 +314,16 @@ export function TempoWorklogEditor({
     dispatch({ type: 'submit:finish' })
   }
 
+  const editorTitle = getEditorTitle(isEdit)
+  const backdropClick = getBackdropClickHandler(state.saving, onCancel)
+  const accountLabel = getAccountLabel(state.accountsLoading)
+
   return (
     <div className="tempo-editor-overlay">
       <button
         type="button"
         className="tempo-editor-backdrop"
-        onClick={state.saving ? undefined : onCancel}
+        onClick={backdropClick}
         aria-label="Close worklog editor"
       />
       <div
@@ -280,7 +333,7 @@ export function TempoWorklogEditor({
         aria-labelledby="tempo-editor-title"
       >
         <div className="tempo-editor-header">
-          <h3 id="tempo-editor-title">{isEdit ? 'Edit Worklog' : 'Log Time'}</h3>
+          <h3 id="tempo-editor-title">{editorTitle}</h3>
           <button
             type="button"
             className="tempo-editor-close"
@@ -336,7 +389,7 @@ export function TempoWorklogEditor({
             />
           </div>
           <div className="tempo-editor-row">
-            <label htmlFor={accountId}>Account{state.accountsLoading ? ' (loading…)' : ''}</label>
+            <label htmlFor={accountId}>{accountLabel}</label>
             <select
               id={accountId}
               value={state.accountKey}
@@ -353,7 +406,7 @@ export function TempoWorklogEditor({
               ))}
             </select>
           </div>
-          {state.error && <div className="tempo-editor-error">{state.error}</div>}
+          {renderEditorError(state.error)}
           <div className="tempo-editor-actions">
             <button type="button" onClick={onCancel} className="tempo-btn-secondary">
               Cancel

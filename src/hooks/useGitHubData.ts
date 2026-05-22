@@ -25,6 +25,27 @@ function handleFetchError(
   setError(getErrorMessage(err))
 }
 
+function resolveNextCacheState<T>(cacheKey: string | null): { data: T | null; hasCache: boolean } {
+  const next = cacheKey ? dataCache.get<T>(cacheKey) : null
+  return { data: next?.data ?? null, hasCache: next !== null }
+}
+
+function tryServeFromCache<T>(
+  cacheKey: string,
+  setData: (d: T) => void,
+  setLoading: (v: boolean) => void,
+  setError: (v: string | null) => void
+): boolean {
+  const cached = dataCache.get<T>(cacheKey)
+  if (cached !== null) {
+    setData(cached.data)
+    setLoading(false)
+    setError(null)
+    return true
+  }
+  return false
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -75,9 +96,9 @@ export function useGitHubData<T>({
       prevKeyRef.current = cacheKey
       // Invalidate any in-flight request from the previous cacheKey
       requestIdRef.current += 1
-      const next = cacheKey ? dataCache.get<T>(cacheKey) : null
-      setData(next?.data ?? null)
-      setLoading(cacheKey !== null && !next)
+      const { data: nextData, hasCache } = resolveNextCacheState<T>(cacheKey)
+      setData(nextData)
+      setLoading(cacheKey !== null && !hasCache)
       setError(null)
     }
   }, [cacheKey])
@@ -89,14 +110,8 @@ export function useGitHubData<T>({
       // Stale-request protection: only the latest request writes state
       const requestId = ++requestIdRef.current
 
-      if (!forceRefresh) {
-        const cached = dataCache.get<T>(cacheKey)
-        if (cached !== null) {
-          setData(cached.data)
-          setLoading(false)
-          setError(null)
-          return
-        }
+      if (!forceRefresh && tryServeFromCache<T>(cacheKey, setData, setLoading, setError)) {
+        return
       }
 
       setLoading(true)

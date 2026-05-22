@@ -50,12 +50,7 @@ function isStoredSettingsCorrupt(cardId: string): boolean {
   if (raw === null) return false // Key doesn't exist — nothing to repair
   const parsed = safeGetJson<AutoRefreshSettings>(key)
   if (!parsed) return true // Raw exists but parse failed — corrupt JSON
-  return !(
-    typeof parsed.enabled === 'boolean' &&
-    typeof parsed.intervalMinutes === 'number' &&
-    Number.isFinite(parsed.intervalMinutes) &&
-    ALLOWED_INTERVALS.has(parsed.intervalMinutes)
-  )
+  return !isValidAutoRefreshSettings(parsed)
 }
 
 function writeSettings(cardId: string, settings: AutoRefreshSettings) {
@@ -73,6 +68,10 @@ function readLastRefreshed(cardId: string): number | null {
 
 function writeLastRefreshed(cardId: string, ts: number) {
   safeSetItem(`${LAST_REFRESHED_PREFIX}${cardId}`, String(ts))
+}
+
+function isCountdownActive(enabled: boolean, paused: boolean, lastRefreshedAt: number | null, intervalMinutes: number): boolean {
+  return enabled && !paused && lastRefreshedAt != null && intervalMinutes > 0
 }
 
 /**
@@ -203,8 +202,8 @@ export function useAutoRefresh(
 
       let nextSecs: number | null = null
       let nextLabel: string | null = null
-      if (settings.enabled && !paused && lastRefreshedAt && settings.intervalMinutes > 0) {
-        const elapsed = Date.now() - lastRefreshedAt
+      if (isCountdownActive(settings.enabled, paused, lastRefreshedAt, settings.intervalMinutes)) {
+        const elapsed = Date.now() - lastRefreshedAt!
         const remaining = Math.max(0, settings.intervalMinutes * 60_000 - elapsed)
         nextSecs = Math.ceil(remaining / 1000)
         nextLabel = nextSecs > 0 ? formatSecondsCountdown(nextSecs) : null
@@ -229,8 +228,7 @@ export function useAutoRefresh(
     compute()
     // Tick every second only while a countdown can change;
     // otherwise tick every 30 seconds for "updated X ago" freshness.
-    const shouldUseFastTick =
-      settings.enabled && !paused && lastRefreshedAt != null && settings.intervalMinutes > 0
+    const shouldUseFastTick = isCountdownActive(settings.enabled, paused, lastRefreshedAt, settings.intervalMinutes)
     const tickMs = shouldUseFastTick ? 1000 : 30_000
     const id = setInterval(compute, tickMs)
     return () => clearInterval(id)

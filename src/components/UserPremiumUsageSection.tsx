@@ -324,6 +324,25 @@ function initPremiumFromCache(cacheKey: string): UserPremiumData | null {
   return premiumCache.get(cacheKey)?.data ?? null
 }
 
+function resolveSeatPayload(data: SeatData | null | undefined) {
+  return data ?? null
+}
+
+function applySeatFetchResult(
+  cacheKey: string,
+  result: { success: boolean; data?: SeatData | null; error?: string | null },
+  dispatch: React.Dispatch<SeatAction>
+) {
+  if (result.success) {
+    const payload = resolveSeatPayload(result.data)
+    seatCache.set(cacheKey, { data: payload, fetchedAt: Date.now() })
+    dispatch({ type: 'FETCH_SUCCESS', payload })
+    return
+  }
+
+  dispatch({ type: 'FETCH_ERROR', payload: result.error || 'Failed to load' })
+}
+
 // ── Error message sub-components ──
 
 function QuotaErrorMessage({ error }: { error: string }) {
@@ -370,6 +389,137 @@ function SeatPremiumContent({
       {premium.userMonthlyModels.length > 0 && <ModelBreakdown premium={premium} />}
       {premium.orgMonthlyRequests > 0 && <OrgContextFooter premium={premium} />}
     </>
+  )
+}
+
+function renderQuotaPendingState(data: QuotaData | null, loading: boolean, error: string | null) {
+  if (data) return null
+
+  if (loading) {
+    return (
+      <div className="ud-premium-loading">
+        <Loader2 size={16} className="spin" />
+        <span>Loading premium usage…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="ud-premium-error">
+        <AlertCircle size={14} />
+        <QuotaErrorMessage error={error} />
+      </div>
+    )
+  }
+
+  return null
+}
+
+function resolveQuotaPremiumSnapshot(data: QuotaData) {
+  return data.quota_snapshots?.premium_interactions ?? null
+}
+
+function QuotaLoadedContent({
+  data,
+  loading,
+  premium,
+  refreshAll,
+}: {
+  data: QuotaData
+  loading: boolean
+  premium: UserPremiumData | null
+  refreshAll: () => void
+}) {
+  const quotaPremium = resolveQuotaPremiumSnapshot(data)
+  if (!quotaPremium) return null
+
+  const metrics = computeQuotaViewMetrics(quotaPremium, data.quota_reset_date_utc)
+  const projection = computeProjection(quotaPremium, data.quota_reset_date_utc)
+
+  return (
+    <>
+      <div className="ud-premium-header">
+        <div className="ud-premium-header-left">
+          <span className="ud-premium-pct" style={{ color: metrics.color }}>
+            {metrics.percentUsed.toFixed(1)}%
+          </span>
+          <span className="ud-premium-used-label">used</span>
+        </div>
+        <div className="ud-premium-header-right">
+          <span className="ud-premium-reset">
+            <Calendar size={11} />
+            Resets {formatResetDate(data.quota_reset_date_utc)}
+            <span className="ud-premium-reset-days">({metrics.resetDays}d)</span>
+          </span>
+          <button
+            className="ud-premium-refresh-btn"
+            onClick={refreshAll}
+            disabled={loading}
+            title="Refresh"
+          >
+            <RefreshCw size={12} className={loading ? 'spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      <QuotaBarAndStats metrics={metrics} quotaPremium={quotaPremium} projection={projection} />
+      <QuotaProjectionBanner projection={projection} />
+      <QuotaPremiumSections premium={premium} />
+    </>
+  )
+}
+
+function renderSeatPendingState(
+  data: SeatData | null | undefined,
+  loading: boolean,
+  error: string | null
+) {
+  if (data !== undefined) return null
+
+  if (loading) {
+    return (
+      <div className="ud-premium-loading">
+        <Loader2 size={16} className="spin" />
+        <span>Loading Copilot seat info…</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="ud-premium-error">
+        <AlertCircle size={14} />
+        <SeatErrorMessage error={error} />
+      </div>
+    )
+  }
+
+  return null
+}
+
+function SeatLoadedContent({
+  data,
+  premium,
+  loading,
+  refreshAll,
+}: {
+  data: SeatData | null | undefined
+  premium: UserPremiumData | null
+  loading: boolean
+  refreshAll: () => void
+}) {
+  if (data === null) {
+    return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
+  }
+
+  if (!data) return null
+
+  return (
+    <div className="ud-prem">
+      <SeatPremiumContent premium={premium} loading={loading} onRefresh={refreshAll} />
+      <SeatMetaPills data={data} />
+    </div>
   )
 }
 
@@ -431,65 +581,15 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   }, [username]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { data, loading, error } = state
+  const pendingContent = renderQuotaPendingState(data, loading, error)
 
-  if (!data) {
-    if (loading) {
-      return (
-        <div className="ud-premium-loading">
-          <Loader2 size={16} className="spin" />
-          <span>Loading premium usage…</span>
-        </div>
-      )
-    }
-    if (error) {
-      return (
-        <div className="ud-premium-error">
-          <AlertCircle size={14} />
-          <QuotaErrorMessage error={error} />
-        </div>
-      )
-    }
-    return null
+  if (pendingContent) {
+    return pendingContent
   }
 
-  const quotaPremium = data.quota_snapshots?.premium_interactions
-  if (!quotaPremium) return null
+  if (!data) return null
 
-  const metrics = computeQuotaViewMetrics(quotaPremium, data.quota_reset_date_utc)
-  const projection = computeProjection(quotaPremium, data.quota_reset_date_utc)
-
-  return (
-    <>
-      <div className="ud-premium-header">
-        <div className="ud-premium-header-left">
-          <span className="ud-premium-pct" style={{ color: metrics.color }}>
-            {metrics.percentUsed.toFixed(1)}%
-          </span>
-          <span className="ud-premium-used-label">used</span>
-        </div>
-        <div className="ud-premium-header-right">
-          <span className="ud-premium-reset">
-            <Calendar size={11} />
-            Resets {formatResetDate(data.quota_reset_date_utc)}
-            <span className="ud-premium-reset-days">({metrics.resetDays}d)</span>
-          </span>
-          <button
-            className="ud-premium-refresh-btn"
-            onClick={refreshAll}
-            disabled={loading}
-            title="Refresh"
-          >
-            <RefreshCw size={12} className={loading ? 'spin' : ''} />
-          </button>
-        </div>
-      </div>
-
-      <QuotaBarAndStats metrics={metrics} quotaPremium={quotaPremium} projection={projection} />
-      <QuotaProjectionBanner projection={projection} />
-
-      <QuotaPremiumSections premium={premium} />
-    </>
-  )
+  return <QuotaLoadedContent data={data} loading={loading} premium={premium} refreshAll={refreshAll} />
 }
 
 // ── Seat-only view (non-configured org members) ──
@@ -519,12 +619,7 @@ function SeatView({
         /* v8 ignore start */
         if (id !== fetchRef.current) return
         /* v8 ignore stop */
-        if (result.success) {
-          seatCache.set(cacheKey, { data: result.data ?? null, fetchedAt: Date.now() })
-          dispatch({ type: 'FETCH_SUCCESS', payload: result.data ?? null })
-        } else {
-          dispatch({ type: 'FETCH_ERROR', payload: result.error || 'Failed to load' })
-        }
+        applySeatFetchResult(cacheKey, result, dispatch)
       })
       .catch(err => {
         /* v8 ignore start */
@@ -556,37 +651,13 @@ function SeatView({
   }
 
   const { data, loading, error } = state
+  const pendingContent = renderSeatPendingState(data, loading, error)
 
-  if (loading && data === undefined) {
-    return (
-      <div className="ud-premium-loading">
-        <Loader2 size={16} className="spin" />
-        <span>Loading Copilot seat info…</span>
-      </div>
-    )
+  if (pendingContent) {
+    return pendingContent
   }
 
-  if (error && data === undefined) {
-    return (
-      <div className="ud-premium-error">
-        <AlertCircle size={14} />
-        <SeatErrorMessage error={error} />
-      </div>
-    )
-  }
-
-  if (data === null) {
-    return <div className="ud-premium-seat-none">No Copilot seat assigned</div>
-  }
-
-  if (data === undefined) return null
-
-  return (
-    <div className="ud-prem">
-      <SeatPremiumContent premium={premium} loading={loading} onRefresh={refreshAll} />
-      <SeatMetaPills data={data} />
-    </div>
-  )
+  return <SeatLoadedContent data={data} premium={premium} loading={loading} refreshAll={refreshAll} />
 }
 
 function SeatHeroStats({

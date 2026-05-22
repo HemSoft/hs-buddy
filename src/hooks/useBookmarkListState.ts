@@ -49,6 +49,13 @@ export type Bookmark = {
   updatedAt: number
 }
 
+function matchesSearchQuery(b: Bookmark, q: string): boolean {
+  if (b.title.toLowerCase().includes(q)) return true
+  if (b.url.toLowerCase().includes(q)) return true
+  if (b.description?.toLowerCase().includes(q)) return true
+  return b.tags?.some(t => t.toLowerCase().includes(q)) ?? false
+}
+
 interface BookmarkListState {
   searchQuery: string
   selectedCategory: string
@@ -139,6 +146,16 @@ function handleFilterAction(
       return { ...state, selectedCategory: action.category }
     case 'set-tag':
       return { ...state, selectedTag: action.tag }
+    default:
+      return handleMiscFilterAction(state, action)
+  }
+}
+
+function handleMiscFilterAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  switch (action.type) {
     case 'clear-filters':
       return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
     case 'set-drag-over':
@@ -203,13 +220,7 @@ export function useBookmarkListState(filterCategory?: string) {
     }
     if (state.searchQuery.trim()) {
       const q = state.searchQuery.toLowerCase()
-      result = result.filter(
-        b =>
-          b.title.toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q) ||
-          b.description?.toLowerCase().includes(q) ||
-          b.tags?.some(t => t.toLowerCase().includes(q))
-      )
+      result = result.filter(b => matchesSearchQuery(b, q))
     }
 
     result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)

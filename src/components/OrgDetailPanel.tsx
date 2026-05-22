@@ -316,9 +316,16 @@ function resolveBudgetData(budgetState: CopilotBudgetState): {
   budgetAmount: number | null | undefined
   spent: number
 } {
+  if (!budgetState || !budgetState.data) {
+    return {
+      budgetAmount: undefined,
+      spent: 0,
+    }
+  }
+
   return {
-    budgetAmount: budgetState?.data?.budgetAmount,
-    spent: budgetState?.data?.spent ?? 0,
+    budgetAmount: budgetState.data.budgetAmount,
+    spent: budgetState.data.spent ?? 0,
   }
 }
 
@@ -738,6 +745,27 @@ function handleCopilotCatchError(
   if (isAbortError(error)) return
   dispatch({ type: 'error', error: getErrorMessage(error) })
 }
+
+function getCachedCopilotForFetch(
+  cacheKey: string,
+  forceRefresh: boolean
+): OrgCopilotUsageData | null {
+  if (forceRefresh) return null
+  return getCachedCopilotData(cacheKey)
+}
+
+function shouldSkipCopilotFetch(
+  cached: OrgCopilotUsageData | null,
+  queue: ReturnType<typeof getTaskQueue>,
+  copilotTaskName: string,
+  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+): boolean {
+  if (cached) {
+    dispatch({ type: 'hydrate-cache', usage: cached })
+    return true
+  }
+  return queue.hasTaskWithName(copilotTaskName)
+}
 /* v8 ignore stop */
 
 function useOrgCopilotData({
@@ -789,15 +817,8 @@ function useOrgCopilotData({
       }
 
       const queue = getTaskQueue('github')
-      const cached = getCachedCopilotData(copilotCacheKey)
-      /* v8 ignore start */
-      if (cached && !forceRefresh) {
-        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(copilotTaskName)) {
+      const cached = getCachedCopilotForFetch(copilotCacheKey, forceRefresh)
+      if (shouldSkipCopilotFetch(cached, queue, copilotTaskName, dispatchCopilot)) {
         return
       }
 
@@ -1395,6 +1416,28 @@ function OrgDetailAlerts({
   )
 }
 
+function SelectedMemberSpotlight({
+  selectedMember,
+  selectedContributor,
+  selectedConfiguredAccount,
+  selectedMemberQuotaState,
+}: {
+  selectedMember: OrgMember | null
+  selectedContributor: OrgContributor | null
+  selectedConfiguredAccount: GitHubAccount | null
+  selectedMemberQuotaState: CopilotQuotaState | null
+}) {
+  if (!selectedMember) return null
+  return (
+    <OrgMemberSpotlightSection
+      selectedMember={selectedMember}
+      selectedContributor={selectedContributor}
+      selectedConfiguredAccount={selectedConfiguredAccount}
+      selectedMemberQuotaState={selectedMemberQuotaState}
+    />
+  )
+}
+
 function getHighlightedLogin(member: { login: string } | undefined | null): string | null {
   return member?.login ?? null
 }
@@ -1557,14 +1600,12 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         />
       </div>
 
-      {selectedMember && (
-        <OrgMemberSpotlightSection
-          selectedMember={selectedMember}
-          selectedContributor={selectedContributor}
-          selectedConfiguredAccount={selectedConfiguredAccount}
-          selectedMemberQuotaState={selectedMemberQuotaState}
-        />
-      )}
+      <SelectedMemberSpotlight
+        selectedMember={selectedMember}
+        selectedContributor={selectedContributor}
+        selectedConfiguredAccount={selectedConfiguredAccount}
+        selectedMemberQuotaState={selectedMemberQuotaState}
+      />
 
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
 

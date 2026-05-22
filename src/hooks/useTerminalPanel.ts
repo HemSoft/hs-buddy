@@ -26,6 +26,14 @@ export interface TerminalTab {
   color?: string
 }
 
+function findTabBySlug(tabs: TerminalTab[], slug: string): TerminalTab | undefined {
+  return tabs.find(t => t.repoSlug === slug)
+}
+
+function resolveViewRepoContext(activeViewId: string | null | undefined): RepoContext | null {
+  return activeViewId ? getRepoContextFromViewId(activeViewId) : null
+}
+
 interface UseTerminalPanelReturn {
   terminalOpen: boolean
   terminalTabs: TerminalTab[]
@@ -192,7 +200,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       repoSlug = `${repoContext.owner}/${repoContext.repo}`
 
       // Optimistic dedup via ref (avoids unnecessary IPC calls)
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
+      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
       if (existing) {
         setActiveTerminalTabId(existing.id)
         return existing
@@ -221,7 +229,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     // Re-check against the latest ref after async work completes so dedup/add and
     // active-tab selection are derived from the same snapshot.
     if (repoSlug) {
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
+      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
       if (existing) {
         setActiveTerminalTabId(existing.id)
         return existing
@@ -246,7 +254,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       if (!next) return
 
       const currentTabs = terminalTabsRef.current
-      const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+      const repoContext = resolveViewRepoContext(activeViewId)
 
       if (currentTabs.length === 0) {
         void addTerminalTab(repoContext)
@@ -254,14 +262,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       }
 
       if (!repoContext) return
-
       const slug = `${repoContext.owner}/${repoContext.repo}`
-      const existing = currentTabs.find(t => t.repoSlug === slug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-      } else {
-        void addTerminalTab(repoContext)
-      }
+      const existing = findTabBySlug(currentTabs, slug)
+      if (existing) setActiveTerminalTabId(existing.id)
+      else void addTerminalTab(repoContext)
     },
     [addTerminalTab]
   )

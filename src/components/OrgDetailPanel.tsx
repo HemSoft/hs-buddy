@@ -312,6 +312,16 @@ function formatBudgetAmount(budgetAmount: number | null | undefined): string {
   return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
 }
 
+function resolveBudgetData(budgetState: CopilotBudgetState): {
+  budgetAmount: number | null | undefined
+  spent: number
+} {
+  return {
+    budgetAmount: budgetState?.data?.budgetAmount,
+    spent: budgetState?.data?.spent ?? 0,
+  }
+}
+
 function OrgBudgetBand({
   budgetState,
   quotaOverage,
@@ -319,15 +329,16 @@ function OrgBudgetBand({
   budgetState: CopilotBudgetState
   quotaOverage: number
 }) {
+  const { budgetAmount, spent } = resolveBudgetData(budgetState)
   return (
     <div className="org-detail-budget-band">
       <div>
         <span className="org-detail-budget-label">Budget</span>
-        <strong>{formatBudgetAmount(budgetState?.data?.budgetAmount)}</strong>
+        <strong>{formatBudgetAmount(budgetAmount)}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">Spent</span>
-        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+        <strong>{formatCurrency(spent)}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">My Share</span>
@@ -335,6 +346,11 @@ function OrgBudgetBand({
       </div>
     </div>
   )
+}
+
+function FetchedAtStamp({ timestamp }: { timestamp?: number }) {
+  if (!timestamp) return null
+  return <span className="org-detail-fetched-at">{formatTime(timestamp)}</span>
 }
 
 function CopilotSectionHeader({
@@ -353,13 +369,9 @@ function CopilotSectionHeader({
         {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
       </h3>
       {/* v8 ignore start */}
-      {!isUserNamespace && copilotFetchedAt && (
-        /* v8 ignore stop */
-        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
-      )}
-      {isUserNamespace && personalQuotaFetchedAt ? (
-        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
-      ) : null}
+      {!isUserNamespace && <FetchedAtStamp timestamp={copilotFetchedAt} />}
+      {/* v8 ignore stop */}
+      {isUserNamespace && <FetchedAtStamp timestamp={personalQuotaFetchedAt} />}
     </div>
   )
 }
@@ -391,6 +403,14 @@ function getHeaderTimestamps(
   }
 }
 
+function shouldShowWarming(
+  liveCopilotPhase: LoadPhase,
+  copilotUsage: OrgCopilotUsageData | null,
+  shouldShowPersonalQuotaPulse: boolean
+): boolean {
+  return liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
+}
+
 function OrgCopilotSection({
   overview,
   copilotUsage,
@@ -410,8 +430,11 @@ function OrgCopilotSection({
   liveCopilotPhase: LoadPhase
   shouldShowPersonalQuotaPulse: boolean
 }) {
-  const showWarmingMessage =
-    liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
+  const showWarmingMessage = shouldShowWarming(
+    liveCopilotPhase,
+    copilotUsage,
+    shouldShowPersonalQuotaPulse
+  )
 
   const { copilotFetchedAt, personalQuotaFetchedAt } = getHeaderTimestamps(
     copilotUsage,
@@ -492,6 +515,28 @@ function OrgLeadersSection({
   )
 }
 
+function MemberDisplayName({ member }: { member: OrgMember }) {
+  return member.name ? `${member.name} (${member.login})` : member.login
+}
+
+function MemberMetaLine({
+  member,
+  contributor,
+}: {
+  member: OrgMember
+  contributor: OrgContributor | null
+}) {
+  const prefix = member.name ? `@${member.login} · ` : ''
+  const commits = contributor ? ` · ${contributor.commits} commits today` : ' · no commits today'
+  return (
+    <>
+      {prefix}
+      {member.type}
+      {commits}
+    </>
+  )
+}
+
 function OrgMemberSpotlightSection({
   selectedMember,
   selectedContributor,
@@ -514,16 +559,10 @@ function OrgMemberSpotlightSection({
       <div className="org-detail-member-card">
         <div>
           <div className="org-detail-member-name">
-            {selectedMember.name
-              ? `${selectedMember.name} (${selectedMember.login})`
-              : selectedMember.login}
+            <MemberDisplayName member={selectedMember} />
           </div>
           <div className="org-detail-member-meta">
-            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
-            {selectedMember.type}
-            {selectedContributor
-              ? ` · ${selectedContributor.commits} commits today`
-              : ' · no commits today'}
+            <MemberMetaLine member={selectedMember} contributor={selectedContributor} />
           </div>
         </div>
         <button
@@ -1240,7 +1279,7 @@ function MemberRosterItem({
       onClick={() => navigateToOrgUser(org, member.login)}
     >
       <span className="org-detail-roster-name">
-        {member.name ? `${member.name} (${member.login})` : member.login}
+        <MemberDisplayName member={member} />
       </span>
       <span className="org-detail-roster-meta">
         {member.name ? `@${member.login} · ` : ''}
@@ -1313,6 +1352,10 @@ function MemberRosterSection({
   )
 }
 
+function hasMembersFailure(error: string | null, phase: LoadPhase): boolean {
+  return !!error && phase === 'error'
+}
+
 function OrgDetailAlerts({
   isUpdating,
   membersError,
@@ -1338,14 +1381,14 @@ function OrgDetailAlerts({
           </span>
         </div>
       )}
-      {membersError && liveMembersPhase === 'error' && (
+      {hasMembersFailure(membersError, liveMembersPhase) && (
         /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
+        <InlineErrorBanner label="Members" message={membersError!} onRetry={onRetry} />
         /* v8 ignore stop */
       )}
-      {copilotError && liveCopilotPhase === 'error' && (
+      {hasMembersFailure(copilotError, liveCopilotPhase) && (
         /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
+        <InlineErrorBanner label="Copilot" message={copilotError!} onRetry={onRetry} />
         /* v8 ignore stop */
       )}
     </>

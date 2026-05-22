@@ -181,12 +181,16 @@ function isNewerReview(
   return !existing || (submittedAt || '') > (existing.submittedAt || '')
 }
 
+function getReviewAuthorLogin(review: ReviewNodeForMap): string | undefined {
+  return review.author?.login
+}
+
 export function buildLatestReviewsMap(
   reviews: ReviewNodeForMap[] | undefined
 ): Map<string, ReviewEntryForMap> {
   const map = new Map<string, ReviewEntryForMap>()
   for (const review of reviews ?? []) {
-    const login = review.author?.login
+    const login = getReviewAuthorLogin(review)
     if (!login) continue
     if (isNewerReview(review.submittedAt, map.get(login))) {
       map.set(login, buildReviewEntry(review))
@@ -204,14 +208,25 @@ function isUserReviewer(
   return r.__typename === 'User' && 'login' in r && 'avatarUrl' in r
 }
 
+function buildReviewerEntry(r: {
+  login: string
+  avatarUrl?: string | null
+  name?: string | null
+}): {
+  login: string
+  data: { avatarUrl: string | null; name: string | null }
+} {
+  return { login: r.login, data: { avatarUrl: r.avatarUrl || null, name: r.name || null } }
+}
+
 export function buildRequestedReviewersMap(
   reviewRequests: ReviewRequestNode[] | undefined
 ): Map<string, { avatarUrl: string | null; name: string | null }> {
   const map = new Map<string, { avatarUrl: string | null; name: string | null }>()
   for (const req of reviewRequests ?? []) {
     if (isUserReviewer(req.requestedReviewer)) {
-      const r = req.requestedReviewer
-      map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
+      const { login, data } = buildReviewerEntry(req.requestedReviewer)
+      map.set(login, data)
     }
   }
   return map
@@ -289,6 +304,19 @@ function resolveAssigneeCount(item: any): number {
   return item.assignees?.length || 0
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchDates(item: any): {
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    created: item.created_at ? new Date(item.created_at) : null,
+    updatedAt: item.updated_at || null,
+    date: item.closed_at || null,
+  }
+}
+
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -305,10 +333,14 @@ function buildSearchPRFields(item: any): {
     author: user.login || 'unknown',
     authorAvatarUrl: user.avatar_url,
     assigneeCount: resolveAssigneeCount(item),
-    created: item.created_at ? new Date(item.created_at) : null,
-    updatedAt: item.updated_at || null,
-    date: item.closed_at || null,
+    ...resolveSearchDates(item),
   }
+}
+
+function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
+  if (!match?.[1] || !match?.[2]) return null
+  return { owner: match[1], repo: match[2] }
 }
 
 /** Map a GitHub search item to a PullRequest (with temp metadata fields). */
@@ -318,15 +350,12 @@ function mapSearchItemToPullRequest(
   orgAvatarUrl: string | null,
   org: string
 ): (PullRequest & { _owner: string; _repo: string; _prNumber: number }) | null {
-  const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
-  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
-
-  const owner: string = urlMatch[1]
-  const repo: string = urlMatch[2]
+  const parsed = parseOwnerRepoFromUrl(item.html_url)
+  if (!parsed) return null
 
   return {
     source: 'GitHub' as const,
-    repository: repo,
+    repository: parsed.repo,
     id: item.number,
     title: item.title,
     ...buildSearchPRFields(item),
@@ -341,8 +370,8 @@ function mapSearchItemToPullRequest(
     threadsUnaddressed: null,
     orgAvatarUrl: orgAvatarUrl ?? undefined,
     org,
-    _owner: owner,
-    _repo: repo,
+    _owner: parsed.owner,
+    _repo: parsed.repo,
     _prNumber: item.number,
   }
 }
@@ -370,6 +399,10 @@ function extractBranchRefs(
   return { headBranch: head.ref || '', baseBranch: base.ref || '', headSha: head.sha || '' }
 }
 
+function getRestReviewLogin(review: { user?: { login?: string } | null }): string | undefined {
+  return review.user?.login
+}
+
 /** Build the latest-review-by-user map from a list of REST reviews. */
 function buildLatestReviewByUser(
   reviews: Array<{
@@ -380,7 +413,7 @@ function buildLatestReviewByUser(
 ): Map<string, { state: string; submittedAt: string }> {
   const map = new Map<string, { state: string; submittedAt: string }>()
   for (const review of reviews) {
-    const login = review.user?.login
+    const login = getRestReviewLogin(review)
     if (!login) continue
     const submittedAt = review.submitted_at || ''
     if (isNewerReview(submittedAt, map.get(login))) {
@@ -524,6 +557,17 @@ async function executeSearchQueries(
   return allPrs
 }
 
+function collectOrgPRsFromPage(
+  nodes: ViewerPRNode[],
+  orgLower: string,
+  orgAvatarUrl: string | null,
+  org: string
+): Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }> {
+  return nodes
+    .filter(node => node.repository.owner.login.toLowerCase() === orgLower)
+    .map(node => mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
+}
+
 /**
  * Fallback: fetch the viewer's open PRs via GraphQL `viewer.pullRequests`
  * when the GitHub Search API is degraded.
@@ -551,11 +595,7 @@ async function fetchPRsViaGraphQLFallback(
     })
 
     const page = response.viewer.pullRequests
-    for (const node of page.nodes) {
-      if (node.repository.owner.login.toLowerCase() === orgLower) {
-        result.push(mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
-      }
-    }
+    result.push(...collectOrgPRsFromPage(page.nodes, orgLower, orgAvatarUrl, org))
 
     hasNextPage = page.pageInfo.hasNextPage
     cursor = hasNextPage ? page.pageInfo.endCursor : null
@@ -638,8 +678,9 @@ async function fetchPRsForAccount(
 
       pr.approvalCount = approvalCount
       pr.iApproved = iApproved
-      pr.headBranch = prData.data.head?.ref || ''
-      pr.baseBranch = prData.data.base?.ref || ''
+      const refs = extractBranchRefs(prData.data.head, prData.data.base)
+      pr.headBranch = refs.headBranch
+      pr.baseBranch = refs.baseBranch
     } catch (error: unknown) {
       console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
     }
@@ -796,6 +837,10 @@ export async function fetchNeedANudge(
   return fetchPRs(config, recentlyMergedDays, 'need-a-nudge', onProgress)
 }
 
+function resolveViewerLogin(viewer: { data?: { login?: string } } | null): string | null {
+  return viewer?.data?.login?.toLowerCase() || null
+}
+
 /** Fetch open pull requests for a specific repository. */
 /* v8 ignore start -- repo PR listing; requires real API */
 export async function fetchRepoPRs(
@@ -817,7 +862,7 @@ export async function fetchRepoPRs(
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+  const viewerLogin = resolveViewerLogin(viewer)
 
   const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
 

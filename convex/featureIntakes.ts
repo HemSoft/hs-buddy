@@ -175,7 +175,7 @@ function buildFeatureIntakeInsertDoc(
   },
   now: number
 ) {
-  const status = existingByCanonical ? 'duplicate' : 'draft'
+  const status: 'draft' | 'duplicate' = existingByCanonical ? 'duplicate' : 'draft'
   return {
     source: normalizedArgs.source,
     externalId: normalizedArgs.externalId,

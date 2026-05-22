@@ -252,7 +252,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     return () => clearTimeout(timer)
   }, [prompt, resolveAccountFromPrompt])
 
-  const handleSubmitResult = (result: { success?: boolean; resultId?: string; error?: string }) => {
+  const handleSubmitResult = (result: { success?: boolean; resultId?: string | null; error?: string }) => {
     if (result.success && result.resultId) {
       setState(previousState => ({ ...previousState, prompt: '', error: null }))
       onOpenResult?.(result.resultId)

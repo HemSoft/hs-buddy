@@ -274,6 +274,7 @@ function QuotaCardContent({
   if (state.error && !state.data) {
     return <QuotaErrorView username={account.username} error={state.error} />
   }
+  /* v8 ignore next -- defensive null guard; quotaView derived from state.data above */
   if (!quotaView) return null
   return (
     <QuotaDataView

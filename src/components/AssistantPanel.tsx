@@ -33,7 +33,9 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
     return () => window.removeEventListener('assistant:send-prompt', handler)
   }, [sendMessage])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
   useEffect(() => { conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
   useEffect(() => { const el = textareaRef.current!; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px` }, [input])
 
   const handleSend = () => { if (!input.trim() || isStreaming) return; sendMessage(input); setInput('') }

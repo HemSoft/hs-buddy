@@ -208,7 +208,7 @@ function getSessionTitle(session: {
 function applyDigestResult(
   targetPath: string,
   currentPath: string,
-  result: SessionDigest,
+  result: SessionDigest | null,
   setDigest: React.Dispatch<React.SetStateAction<SessionDigest | null>>
 ) {
   /* v8 ignore next -- stale-response guard; path always matches in sync tests */

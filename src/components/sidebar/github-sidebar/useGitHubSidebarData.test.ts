@@ -1944,20 +1944,20 @@ describe('findRepoBookmark', () => {
 
 describe('removeRepoBookmarkByValues', () => {
   it('does nothing when bookmark not found', async () => {
-    const remove = vi.fn()
+    const remove = vi.fn() as unknown as Parameters<typeof removeRepoBookmarkByValues>[3]
     await removeRepoBookmarkByValues([], 'acme', 'missing', remove)
     expect(remove).not.toHaveBeenCalled()
   })
 
   it('calls remove with the bookmark id when found', async () => {
-    const remove = vi.fn()
+    const remove = vi.fn() as unknown as Parameters<typeof removeRepoBookmarkByValues>[3]
     const bookmarks = [{ _id: 'bm1' as Id<'repoBookmarks'>, owner: 'acme', repo: 'repo1' }]
     await removeRepoBookmarkByValues(bookmarks, 'acme', 'repo1', remove)
     expect(remove).toHaveBeenCalledWith({ id: 'bm1' })
   })
 
   it('does nothing when bookmarks is null', async () => {
-    const remove = vi.fn()
+    const remove = vi.fn() as unknown as Parameters<typeof removeRepoBookmarkByValues>[3]
     await removeRepoBookmarkByValues(null, 'acme', 'repo1', remove)
     expect(remove).not.toHaveBeenCalled()
   })
@@ -1965,31 +1965,31 @@ describe('removeRepoBookmarkByValues', () => {
 
 describe('recordBookmarkInsert', () => {
   it('calls increment when result has inserted: true', () => {
-    const increment = vi.fn().mockResolvedValue(undefined)
+    const increment = vi.fn().mockResolvedValue(undefined) as unknown as Parameters<typeof recordBookmarkInsert>[1]
     recordBookmarkInsert({ inserted: true }, increment)
     expect(increment).toHaveBeenCalledWith({ field: 'bookmarksCreated' })
   })
 
   it('does not call increment when result is null', () => {
-    const increment = vi.fn()
+    const increment = vi.fn() as unknown as Parameters<typeof recordBookmarkInsert>[1]
     recordBookmarkInsert(null, increment)
     expect(increment).not.toHaveBeenCalled()
   })
 
   it('does not call increment when result is undefined', () => {
-    const increment = vi.fn()
+    const increment = vi.fn() as unknown as Parameters<typeof recordBookmarkInsert>[1]
     recordBookmarkInsert(undefined, increment)
     expect(increment).not.toHaveBeenCalled()
   })
 
   it('does not call increment when inserted is false', () => {
-    const increment = vi.fn()
+    const increment = vi.fn() as unknown as Parameters<typeof recordBookmarkInsert>[1]
     recordBookmarkInsert({ inserted: false }, increment)
     expect(increment).not.toHaveBeenCalled()
   })
 
   it('does not call increment when inserted is absent', () => {
-    const increment = vi.fn()
+    const increment = vi.fn() as unknown as Parameters<typeof recordBookmarkInsert>[1]
     recordBookmarkInsert({}, increment)
     expect(increment).not.toHaveBeenCalled()
   })

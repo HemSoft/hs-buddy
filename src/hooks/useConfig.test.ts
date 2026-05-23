@@ -582,7 +582,7 @@ describe('resolvePRFallback', () => {
   it('fills nullish fields with defaults', () => {
     const result = resolvePRFallback({
       pr: { refreshInterval: null, autoRefresh: null, recentlyMergedDays: null },
-    } as Parameters<typeof resolvePRFallback>[0])
+    } as unknown as Parameters<typeof resolvePRFallback>[0])
     expect(result.refreshInterval).toBe(15)
     expect(result.autoRefresh).toBe(false)
     expect(result.recentlyMergedDays).toBe(7)
@@ -609,7 +609,7 @@ describe('resolveCopilotFallback', () => {
   it('fills nullish fields with defaults', () => {
     const result = resolveCopilotFallback({
       copilot: { ghAccount: null, model: null, premiumModel: null },
-    } as Parameters<typeof resolveCopilotFallback>[0])
+    } as unknown as Parameters<typeof resolveCopilotFallback>[0])
     expect(result.ghAccount).toBe('')
     expect(result.model).toBe('claude-sonnet-4.5')
     expect(result.premiumModel).toBe('claude-opus-4.6')

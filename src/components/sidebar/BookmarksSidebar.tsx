@@ -131,6 +131,7 @@ function isToggleKey(key: string) {
   return key === 'Enter' || key === ' '
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function resolveDialogCategories(categories: BookmarkCategories) {
   if (!categories) return []
   return categories
@@ -153,6 +154,7 @@ function hasContextMenuPositionChanged(
   return contextMenu.x !== nextPosition.x || contextMenu.y !== nextPosition.y
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function updateContextMenuPosition(
   contextMenu: ContextMenuState,
   nextPosition: { x: number; y: number }
@@ -161,6 +163,7 @@ export function updateContextMenuPosition(
   return { ...contextMenu, x: nextPosition.x, y: nextPosition.y }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function resolveDropInsertIndex(
   target: HTMLElement,
   clientY: number,
@@ -172,6 +175,7 @@ export function resolveDropInsertIndex(
   return clientY < rect.top + rect.height / 2 ? adjustedToIdx : adjustedToIdx + 1
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function reorderCategoryBookmarks(
   categoryBookmarks: readonly BookmarkRecord[],
   draggedId: string,
@@ -197,6 +201,7 @@ function createReorderUpdates(bookmarks: readonly BookmarkRecord[]) {
   }))
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function findBookmarkById(bookmarks: readonly BookmarkRecord[] | undefined, bookmarkId: string) {
   if (!bookmarks) return null
   return bookmarks.find(bookmark => bookmark._id === bookmarkId) ?? null
@@ -214,6 +219,7 @@ function CategoryCount({ count }: { count: number }) {
   return <span className="sidebar-item-count">{count}</span>
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function handleCategoryChevronKeyDown(
   e: React.KeyboardEvent,
   sectionId: string,
@@ -661,6 +667,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
 
   const handleDragStart = useCallback((e: React.DragEvent, bookmarkId: string) => {
     draggedIdRef.current = bookmarkId; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', bookmarkId)
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
   }, [])
 
   const handleDragOver = useCallback((e: React.DragEvent, targetId: string) => {
@@ -670,8 +677,10 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     /* v8 ignore start */
     setDragOver({ id: targetId, position: e.clientY < rect.top + rect.height / 2 ? 'above' : 'below' })
     /* v8 ignore stop */
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
   }, [])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
   const handleDragEnd = useCallback(() => { draggedIdRef.current = null; setDragOver(null) }, [])
 
   const handleDrop = useCallback((e: React.DragEvent, targetId: string, categoryBookmarks: readonly BookmarkRecord[]) => {
@@ -683,6 +692,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     /* v8 ignore next -- defensive guard; reorder always succeeds with valid drag state */
     if (!reorderedBookmarks) return
     reorder({ updates: createReorderUpdates(reorderedBookmarks) }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
   }, [reorder])
 
   useEffect(() => {
@@ -699,6 +709,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     /* v8 ignore start */
     setContextMenu(prev => updateContextMenuPosition(prev, nextPosition))
     /* v8 ignore stop */
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- menuRef is stable
   }, [contextMenu])
 
   const totalCount = getBookmarkCount(bookmarks)

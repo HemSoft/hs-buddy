@@ -187,7 +187,7 @@ export function RunList() {
   const toggleRow = (runId: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev)
-      next.has(runId) ? next.delete(runId) : next.add(runId)
+      if (next.has(runId)) { next.delete(runId) } else { next.add(runId) }
       return next
     })
   }

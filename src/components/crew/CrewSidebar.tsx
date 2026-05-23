@@ -126,10 +126,12 @@ function getAddProjectState(isAdding: boolean) {
   }
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export function resolveAddProjectError(result: CrewAddProjectResult): string | null {
   return result.error && result.error !== 'Cancelled' ? result.error : null
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
 export async function applyAddProjectResult(
   result: CrewAddProjectResult,
   loadProjects: () => Promise<void>,

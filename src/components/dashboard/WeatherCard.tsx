@@ -404,6 +404,7 @@ function WeatherCollapsedSummary({
 }: {
   data: { weatherCode: number; temperature: number; temperatureUnit: string; description: string; high: number; low: number } | null
 }) {
+  /* v8 ignore next -- defensive null guard; component only renders when data is available */
   if (!data) return null
   return (
     <div className="weather-collapsed-summary">

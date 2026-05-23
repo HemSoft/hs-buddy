@@ -697,7 +697,17 @@ function useBookmarkAiSuggestion(
       }
       cancelled = true
     }
-  }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url, dispatch, aiRequestedFor, userEditedDescription, userEditedTags])
+  }, [
+    isEdit,
+    initialUrl,
+    state.initialTitleReady,
+    state.title,
+    state.url,
+    dispatch,
+    aiRequestedFor,
+    userEditedDescription,
+    userEditedTags,
+  ])
 }
 
 export function BookmarkDialog({
@@ -752,7 +762,7 @@ export function BookmarkDialog({
       })
       .catch(() => {
         /* v8 ignore start */ if (!cancelled)
-         dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */
+          dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */
       })
     return () => {
       cancelled = true

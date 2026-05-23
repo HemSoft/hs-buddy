@@ -46,7 +46,9 @@ function updateAssistantMessage(
   messageId: string,
   content: string
 ) {
-  setMessages(prev => prev.map(message => (message.id === messageId ? { ...message, content } : message)))
+  setMessages(prev =>
+    prev.map(message => (message.id === messageId ? { ...message, content } : message))
+  )
 }
 
 /**
@@ -96,7 +98,11 @@ export function useAssistantConversation(context: AssistantContext) {
         )
       } catch (err: unknown) {
         if (abortRef.current) return
-        updateAssistantMessage(setMessages, assistantMessage.id, `⚠️ Error: ${getErrorMessage(err)}`)
+        updateAssistantMessage(
+          setMessages,
+          assistantMessage.id,
+          `⚠️ Error: ${getErrorMessage(err)}`
+        )
       } finally {
         setIsStreaming(false)
       }

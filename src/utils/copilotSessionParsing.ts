@@ -52,7 +52,9 @@ export function parseModelMetadata(sm: Record<string, unknown>): SessionModelInf
 // ─── Init data extraction ────────────────────────────────
 
 function getSelectedModel(v: Record<string, unknown>): Record<string, unknown> | undefined {
-  return (v.inputState as Record<string, unknown>)?.selectedModel as Record<string, unknown> | undefined
+  return (v.inputState as Record<string, unknown>)?.selectedModel as
+    | Record<string, unknown>
+    | undefined
 }
 
 function parseSelectedModelMetadata(

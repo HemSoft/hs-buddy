@@ -303,7 +303,10 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
 
   const totalSize = sumBy(sessions, s => s.sizeBytes)
   const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
-  const defaultExpandedHashes = useMemo(() => getDefaultExpandedHashes(workspaceGroups), [workspaceGroups])
+  const defaultExpandedHashes = useMemo(
+    () => getDefaultExpandedHashes(workspaceGroups),
+    [workspaceGroups]
+  )
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set())
 
   useEffect(() => {

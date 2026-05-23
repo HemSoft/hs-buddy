@@ -507,7 +507,11 @@ function applyPreviousMonthTemplateResult(
 }
 
 export function TempoDashboard() {
-  const [state, dispatch] = useReducer(tempoDashboardReducer, undefined, createInitialDashboardState)
+  const [state, dispatch] = useReducer(
+    tempoDashboardReducer,
+    undefined,
+    createInitialDashboardState
+  )
   const todayKey = formatDateKey(new Date())
   const monthLabel = formatMonthLabel(state.viewMonth)
   const copyMonthRef = useRef('')
@@ -544,30 +548,71 @@ export function TempoDashboard() {
 
   return (
     <div className="tempo-dashboard">
-      <TempoDashboardHeader monthLabel={monthLabel} viewMode={state.viewMode} monthLoading={month.loading}
-        todayKey={todayKey} onPreviousMonth={prevMonth} onCurrentMonth={goToCurrentMonth}
-        onNextMonth={nextMonth} onSetViewMode={viewMode => dispatch({ type: 'setViewMode', viewMode })}
-        onAddWorklog={handleAddForDate} onRefresh={refreshAll} />
-      <TempoSummaryCards todayHours={todayHours} monthHours={month.totalHours} monthTarget={monthTarget}
-        isCurrentMonth={isCurrentMonth} viewMonth={state.viewMonth} worklogs={month.worklogs} capexMap={capexMap} />
-      {activeError && <TempoDashboardErrorBanner error={activeError} canRetry={Boolean(month.error)}
-        onRetry={refreshAll} onDismiss={() => dispatch({ type: 'setActionError', error: null })} />}
+      <TempoDashboardHeader
+        monthLabel={monthLabel}
+        viewMode={state.viewMode}
+        monthLoading={month.loading}
+        todayKey={todayKey}
+        onPreviousMonth={prevMonth}
+        onCurrentMonth={goToCurrentMonth}
+        onNextMonth={nextMonth}
+        onSetViewMode={viewMode => dispatch({ type: 'setViewMode', viewMode })}
+        onAddWorklog={handleAddForDate}
+        onRefresh={refreshAll}
+      />
+      <TempoSummaryCards
+        todayHours={todayHours}
+        monthHours={month.totalHours}
+        monthTarget={monthTarget}
+        isCurrentMonth={isCurrentMonth}
+        viewMonth={state.viewMonth}
+        worklogs={month.worklogs}
+        capexMap={capexMap}
+      />
+      {activeError && (
+        <TempoDashboardErrorBanner
+          error={activeError}
+          canRetry={Boolean(month.error)}
+          onRetry={refreshAll}
+          onDismiss={() => dispatch({ type: 'setActionError', error: null })}
+        />
+      )}
       {state.viewMode === 'grid' ? (
-        <TempoTimesheetGrid issueSummaries={mergedIssueSummaries} worklogs={month.worklogs}
-          totalHours={month.totalHours} monthDate={state.viewMonth} holidays={holidays}
-          loading={month.loading} loadingTemplates={state.loadingTemplates} capexMap={capexMap}
-          onCellClick={handleAddForDate} onWorklogEdit={handleEdit} onWorklogDelete={handleDelete}
-          onCopyToToday={handleCopyToDay} onCopyFromPreviousMonth={handleCopyFromPreviousMonth} />
+        <TempoTimesheetGrid
+          issueSummaries={mergedIssueSummaries}
+          worklogs={month.worklogs}
+          totalHours={month.totalHours}
+          monthDate={state.viewMonth}
+          holidays={holidays}
+          loading={month.loading}
+          loadingTemplates={state.loadingTemplates}
+          capexMap={capexMap}
+          onCellClick={handleAddForDate}
+          onWorklogEdit={handleEdit}
+          onWorklogDelete={handleDelete}
+          onCopyToToday={handleCopyToDay}
+          onCopyFromPreviousMonth={handleCopyFromPreviousMonth}
+        />
       ) : (
-        <TempoTimelineView worklogs={month.worklogs} loading={month.loading}
-          monthLabel={monthLabel} onEdit={handleEdit} onDelete={handleDelete} />
+        <TempoTimelineView
+          worklogs={month.worklogs}
+          loading={month.loading}
+          monthLabel={monthLabel}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+        />
       )}
       {state.editorOpen && (
-        <TempoWorklogEditor worklog={state.editingWorklog} defaultDate={editorDefaults.defaultDate}
-          defaultIssueKey={editorDefaults.defaultIssueKey} defaultAccountKey={editorDefaults.defaultAccountKey}
+        <TempoWorklogEditor
+          worklog={state.editingWorklog}
+          defaultDate={editorDefaults.defaultDate}
+          defaultIssueKey={editorDefaults.defaultIssueKey}
+          defaultAccountKey={editorDefaults.defaultAccountKey}
           defaultDescription={editorDefaults.defaultDescription}
           existingWorklogs={month.worklogs.filter(w => w.date === activeEditorDate)}
-          onSave={handleEditorSave} onCancel={() => dispatch({ type: 'closeEditor' })} />
+          onSave={handleEditorSave}
+          onCancel={() => dispatch({ type: 'closeEditor' })}
+        />
       )}
     </div>
   )

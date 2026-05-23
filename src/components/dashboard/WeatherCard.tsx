@@ -227,7 +227,10 @@ function PollenSpeciesDetail({
       </button>
 
       {expanded && (
-        <PollenDetailContent typeGroups={typeGroups} healthRecommendations={healthRecommendations} />
+        <PollenDetailContent
+          typeGroups={typeGroups}
+          healthRecommendations={healthRecommendations}
+        />
       )}
     </div>
   )
@@ -402,7 +405,14 @@ function WeatherExpandedContent({
 function WeatherCollapsedSummary({
   data,
 }: {
-  data: { weatherCode: number; temperature: number; temperatureUnit: string; description: string; high: number; low: number } | null
+  data: {
+    weatherCode: number
+    temperature: number
+    temperatureUnit: string
+    description: string
+    high: number
+    low: number
+  } | null
 }) {
   /* v8 ignore next -- defensive null guard; component only renders when data is available */
   if (!data) return null

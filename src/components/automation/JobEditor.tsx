@@ -92,21 +92,54 @@ function JobEditorError({ error }: { error: string | null }) {
 
 interface JobConfigFieldsProps {
   workerType: 'exec' | 'ai' | 'skill'
-  command: string; shell: 'powershell' | 'bash' | 'cmd'; timeout: number; cwd: string
-  setCommand: (value: string) => void; setShell: (value: 'powershell' | 'bash' | 'cmd') => void
-  setTimeout: (value: number) => void; setCwd: (value: string) => void
-  prompt: string; ghAccount: string; model: string; targetRepo: string
-  setPrompt: (value: string) => void; setGhAccount: (value: string) => void
-  setModel: (value: string) => void; setTargetRepo: (value: string) => void
-  skillName: string; skillAction: string; skillParams: string
-  setSkillName: (value: string) => void; setSkillAction: (value: string) => void
+  command: string
+  shell: 'powershell' | 'bash' | 'cmd'
+  timeout: number
+  cwd: string
+  setCommand: (value: string) => void
+  setShell: (value: 'powershell' | 'bash' | 'cmd') => void
+  setTimeout: (value: number) => void
+  setCwd: (value: string) => void
+  prompt: string
+  ghAccount: string
+  model: string
+  targetRepo: string
+  setPrompt: (value: string) => void
+  setGhAccount: (value: string) => void
+  setModel: (value: string) => void
+  setTargetRepo: (value: string) => void
+  skillName: string
+  skillAction: string
+  skillParams: string
+  setSkillName: (value: string) => void
+  setSkillAction: (value: string) => void
   setSkillParams: (value: string) => void
 }
 
 function JobConfigFields({
-  workerType, command, shell, timeout, cwd, setCommand, setShell, setTimeout, setCwd,
-  prompt, ghAccount, model, targetRepo, setPrompt, setGhAccount, setModel, setTargetRepo,
-  skillName, skillAction, skillParams, setSkillName, setSkillAction, setSkillParams,
+  workerType,
+  command,
+  shell,
+  timeout,
+  cwd,
+  setCommand,
+  setShell,
+  setTimeout,
+  setCwd,
+  prompt,
+  ghAccount,
+  model,
+  targetRepo,
+  setPrompt,
+  setGhAccount,
+  setModel,
+  setTargetRepo,
+  skillName,
+  skillAction,
+  skillParams,
+  setSkillName,
+  setSkillAction,
+  setSkillParams,
 }: JobConfigFieldsProps) {
   switch (workerType) {
     case 'exec':
@@ -157,11 +190,38 @@ function getSaveJobLabel(saving: boolean, isEditing: boolean): string {
 export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorProps) {
   const workerTypeLabelId = useId()
   const {
-    name, setName, description, setDescription, workerType, setWorkerType,
-    command, setCommand, cwd, setCwd, timeout, setTimeout, shell, setShell,
-    prompt, setPrompt, ghAccount, setGhAccount, model, setModel, targetRepo, setTargetRepo,
-    skillName, setSkillName, skillAction, setSkillAction, skillParams, setSkillParams,
-    saving, error, isEditing, handleSave,
+    name,
+    setName,
+    description,
+    setDescription,
+    workerType,
+    setWorkerType,
+    command,
+    setCommand,
+    cwd,
+    setCwd,
+    timeout,
+    setTimeout,
+    shell,
+    setShell,
+    prompt,
+    setPrompt,
+    ghAccount,
+    setGhAccount,
+    model,
+    setModel,
+    targetRepo,
+    setTargetRepo,
+    skillName,
+    setSkillName,
+    skillAction,
+    setSkillAction,
+    skillParams,
+    setSkillParams,
+    saving,
+    error,
+    isEditing,
+    handleSave,
   } = useJobEditorForm(jobId, duplicateFrom, onSaved, onClose)
 
   return (
@@ -172,36 +232,72 @@ export function JobEditor({ jobId, duplicateFrom, onClose, onSaved }: JobEditorP
             <Package size={20} />
             <h2>{getEditorTitle(isEditing, duplicateFrom)}</h2>
           </div>
-          <button className="btn-close" onClick={onClose} title="Close"><X size={18} /></button>
+          <button className="btn-close" onClick={onClose} title="Close">
+            <X size={18} />
+          </button>
         </div>
         <div className="job-editor-content">
           <JobEditorError error={error} />
           <div className="form-group">
             <label htmlFor="job-name">Name *</label>
-            <input id="job-name" type="text" value={name}
-              onChange={e => setName(e.target.value)} placeholder="e.g., Daily PR Report" />
+            <input
+              id="job-name"
+              type="text"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g., Daily PR Report"
+            />
           </div>
           <div className="form-group">
             <label htmlFor="job-description">Description</label>
-            <textarea id="job-description" value={description}
+            <textarea
+              id="job-description"
+              value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Optional description of what this job does" rows={2} />
+              placeholder="Optional description of what this job does"
+              rows={2}
+            />
           </div>
-          <WorkerTypeSelector workerType={workerType} setWorkerType={setWorkerType}
-            isEditing={isEditing} workerTypeLabelId={workerTypeLabelId} />
+          <WorkerTypeSelector
+            workerType={workerType}
+            setWorkerType={setWorkerType}
+            isEditing={isEditing}
+            workerTypeLabelId={workerTypeLabelId}
+          />
           <div className="form-divider" />
           <JobConfigFields
-            workerType={workerType} command={command} shell={shell} timeout={timeout} cwd={cwd}
-            setCommand={setCommand} setShell={setShell} setTimeout={setTimeout} setCwd={setCwd}
-            prompt={prompt} ghAccount={ghAccount} model={model} targetRepo={targetRepo}
-            setPrompt={setPrompt} setGhAccount={setGhAccount} setModel={setModel} setTargetRepo={setTargetRepo}
-            skillName={skillName} skillAction={skillAction} skillParams={skillParams}
-            setSkillName={setSkillName} setSkillAction={setSkillAction} setSkillParams={setSkillParams} />
+            workerType={workerType}
+            command={command}
+            shell={shell}
+            timeout={timeout}
+            cwd={cwd}
+            setCommand={setCommand}
+            setShell={setShell}
+            setTimeout={setTimeout}
+            setCwd={setCwd}
+            prompt={prompt}
+            ghAccount={ghAccount}
+            model={model}
+            targetRepo={targetRepo}
+            setPrompt={setPrompt}
+            setGhAccount={setGhAccount}
+            setModel={setModel}
+            setTargetRepo={setTargetRepo}
+            skillName={skillName}
+            skillAction={skillAction}
+            skillParams={skillParams}
+            setSkillName={setSkillName}
+            setSkillAction={setSkillAction}
+            setSkillParams={setSkillParams}
+          />
         </div>
         <div className="job-editor-footer">
-          <button className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn-secondary" onClick={onClose} disabled={saving}>
+            Cancel
+          </button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            <Save size={16} />{getSaveJobLabel(saving, isEditing)}
+            <Save size={16} />
+            {getSaveJobLabel(saving, isEditing)}
           </button>
         </div>
       </div>

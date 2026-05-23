@@ -515,44 +515,175 @@ function PromptField({
   )
 }
 
-export function RalphLaunchForm({ initialScript, initialPR, initialIssue, onLaunch }: RalphLaunchFormProps) {
-  const { data: models } = useRalphModels(); const { data: agents } = useRalphAgents(); const { data: providers } = useRalphProviders()
+export function RalphLaunchForm({
+  initialScript,
+  initialPR,
+  initialIssue,
+  onLaunch,
+}: RalphLaunchFormProps) {
+  const { data: models } = useRalphModels()
+  const { data: agents } = useRalphAgents()
+  const { data: providers } = useRalphProviders()
   const [repoPath, setRepoPath] = useState(() => safeGetItem('ralph-last-repo') ?? '')
   const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(initialScript ?? 'ralph')
 
-  useEffect(() => { if (initialScript) setScriptChoice(initialScript) }, [initialScript])
-  useEffect(() => { if (initialPR) { setScriptChoice('ralph-pr'); setPrNumber(String(initialPR.prNumber)); if (initialPR.repoPath) setRepoPath(initialPR.repoPath) } }, [initialPR])
-  useEffect(() => { if (initialIssue) { setScriptChoice('ralph'); if (initialIssue.repoPath) setRepoPath(initialIssue.repoPath); setIssueNumber(String(initialIssue.issueNumber)); setBranch(`fix/issue-${initialIssue.issueNumber}`); setPrompt([`Fix GitHub Issue #${initialIssue.issueNumber}: ${initialIssue.issueTitle}`, '', initialIssue.issueBody || '(no description provided)', '', 'Implement the fix, run tests, commit, and push.'].join('\n')) } }, [initialIssue])
+  useEffect(() => {
+    if (initialScript) setScriptChoice(initialScript)
+  }, [initialScript])
+  useEffect(() => {
+    if (initialPR) {
+      setScriptChoice('ralph-pr')
+      setPrNumber(String(initialPR.prNumber))
+      if (initialPR.repoPath) setRepoPath(initialPR.repoPath)
+    }
+  }, [initialPR])
+  useEffect(() => {
+    if (initialIssue) {
+      setScriptChoice('ralph')
+      if (initialIssue.repoPath) setRepoPath(initialIssue.repoPath)
+      setIssueNumber(String(initialIssue.issueNumber))
+      setBranch(`fix/issue-${initialIssue.issueNumber}`)
+      setPrompt(
+        [
+          `Fix GitHub Issue #${initialIssue.issueNumber}: ${initialIssue.issueTitle}`,
+          '',
+          initialIssue.issueBody || '(no description provided)',
+          '',
+          'Implement the fix, run tests, commit, and push.',
+        ].join('\n')
+      )
+    }
+  }, [initialIssue])
 
-  const [model, setModel] = useState('claude-opus-4.6'); const [provider, setProvider] = useState(''); const [devAgent, setDevAgent] = useState('anvil')
-  const [reviewAgents, setReviewAgents] = useState<string[]>([]); const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
-  const [iterations, setIterations] = useState(3); const [repeats, setRepeats] = useState(1)
-  const [branch, setBranch] = useState(''); const [prompt, setPrompt] = useState('')
-  const [prNumber, setPrNumber] = useState(''); const [issueNumber, setIssueNumber] = useState('')
-  const [labels, setLabels] = useState(''); const [dryRun, setDryRun] = useState(false); const [autoApprove, setAutoApprove] = useState(true)
-  const [launching, setLaunching] = useState(false); const [error, setError] = useState<string | null>(null)
+  const [model, setModel] = useState('claude-opus-4.6')
+  const [provider, setProvider] = useState('')
+  const [devAgent, setDevAgent] = useState('anvil')
+  const [reviewAgents, setReviewAgents] = useState<string[]>([])
+  const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
+  const [iterations, setIterations] = useState(3)
+  const [repeats, setRepeats] = useState(1)
+  const [branch, setBranch] = useState('')
+  const [prompt, setPrompt] = useState('')
+  const [prNumber, setPrNumber] = useState('')
+  const [issueNumber, setIssueNumber] = useState('')
+  const [labels, setLabels] = useState('')
+  const [dryRun, setDryRun] = useState(false)
+  const [autoApprove, setAutoApprove] = useState(true)
+  const [launching, setLaunching] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [templates, setTemplates] = useState<RalphTemplateInfo[]>([])
 
-  useEffect(() => { window.ralph.listTemplates().then(setTemplates).catch(() => {}) }, [])
-  useEffect(() => { const key = scriptChoice.replace(/\.ps1$/, ''); const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key); setPrompt(template?.defaultPrompt ?? '') }, [scriptChoice, templates])
-  useEffect(() => { if (shouldResetModelForProvider({ model, provider, providers, models })) setModel('') }, [provider, providers, models, model])
+  useEffect(() => {
+    window.ralph
+      .listTemplates()
+      .then(setTemplates)
+      .catch(() => {})
+  }, [])
+  useEffect(() => {
+    const key = scriptChoice.replace(/\.ps1$/, '')
+    const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
+    setPrompt(template?.defaultPrompt ?? '')
+  }, [scriptChoice, templates])
+  useEffect(() => {
+    if (shouldResetModelForProvider({ model, provider, providers, models })) setModel('')
+  }, [provider, providers, models, model])
 
-  const modelOptions = useMemo(() => { const supported = provider ? providers?.providers?.[provider]?.supportedModelProviders : undefined; return computeModelOptions(models, supported) }, [models, provider, providers])
-  const reviewerModelOptions = useMemo(() => { if (!models || !providers) return []; return Object.entries(providers.providers).map(([key, prov]) => buildProviderModelGroup(key, prov, models)).filter((g): g is ReviewerModelGroup => g !== null) }, [models, providers])
-  const providerOptions = useMemo(() => { if (!providers) return []; return Object.entries(providers.providers).map(([key, p]) => ({ value: key, label: `${key} — ${p.description}` })) }, [providers])
-  const devAgentOptions = useMemo(() => { if (!agents) return []; return Object.entries(agents.roles).filter(([, role]) => role.category === 'dev').map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` })) }, [agents])
-  const reviewAgentOptions = useMemo(() => { if (!agents) return []; return Object.entries(agents.roles).filter(([, role]) => role.category === 'review').map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` })) }, [agents])
+  const modelOptions = useMemo(() => {
+    const supported = provider
+      ? providers?.providers?.[provider]?.supportedModelProviders
+      : undefined
+    return computeModelOptions(models, supported)
+  }, [models, provider, providers])
+  const reviewerModelOptions = useMemo(() => {
+    if (!models || !providers) return []
+    return Object.entries(providers.providers)
+      .map(([key, prov]) => buildProviderModelGroup(key, prov, models))
+      .filter((g): g is ReviewerModelGroup => g !== null)
+  }, [models, providers])
+  const providerOptions = useMemo(() => {
+    if (!providers) return []
+    return Object.entries(providers.providers).map(([key, p]) => ({
+      value: key,
+      label: `${key} — ${p.description}`,
+    }))
+  }, [providers])
+  const devAgentOptions = useMemo(() => {
+    if (!agents) return []
+    return Object.entries(agents.roles)
+      .filter(([, role]) => role.category === 'dev')
+      .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
+  }, [agents])
+  const reviewAgentOptions = useMemo(() => {
+    if (!agents) return []
+    return Object.entries(agents.roles)
+      .filter(([, role]) => role.category === 'review')
+      .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
+  }, [agents])
 
-  const toggleReviewAgent = (key: string) => { setReviewAgents(prev => { if (prev.includes(key)) { setReviewerModels(rm => { const next = { ...rm }; delete next[key]; return next }); return prev.filter(a => a !== key) } return [...prev, key] }) }
-  const setReviewerModel = (role: string, m: string) => { setReviewerModels(prev => ({ ...prev, [role]: m })) }
-  const handleBrowse = async () => { try { const result = await window.ralph.selectDirectory(); if (result) { setRepoPath(result); safeSetItem('ralph-last-repo', result) } } catch (_: unknown) { /* user cancelled */ } }
-  const validateForm = (): string | null => { if (!repoPath) return 'Select a repository path'; if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'; return null }
+  const toggleReviewAgent = (key: string) => {
+    setReviewAgents(prev => {
+      if (prev.includes(key)) {
+        setReviewerModels(rm => {
+          const next = { ...rm }
+          delete next[key]
+          return next
+        })
+        return prev.filter(a => a !== key)
+      }
+      return [...prev, key]
+    })
+  }
+  const setReviewerModel = (role: string, m: string) => {
+    setReviewerModels(prev => ({ ...prev, [role]: m }))
+  }
+  const handleBrowse = async () => {
+    try {
+      const result = await window.ralph.selectDirectory()
+      if (result) {
+        setRepoPath(result)
+        safeSetItem('ralph-last-repo', result)
+      }
+    } catch (_: unknown) {
+      /* user cancelled */
+    }
+  }
+  const validateForm = (): string | null => {
+    if (!repoPath) return 'Select a repository path'
+    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    return null
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault(); const validationError = validateForm(); if (validationError) { setError(validationError); return }
-    setLaunching(true); setError(null); safeSetItem('ralph-last-repo', repoPath)
-    const config = buildLaunchConfig({ repoPath, scriptChoice, model, provider, devAgent, reviewAgents, reviewerModels, iterations, repeats, branch, prompt, prNumber, issueNumber, labels, dryRun, autoApprove })
-    const result = await launchLoop(onLaunch, config); const launchFailure = getLaunchFailure(result); if (launchFailure) setError(launchFailure)
+    e.preventDefault()
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setLaunching(true)
+    setError(null)
+    safeSetItem('ralph-last-repo', repoPath)
+    const config = buildLaunchConfig({
+      repoPath,
+      scriptChoice,
+      model,
+      provider,
+      devAgent,
+      reviewAgents,
+      reviewerModels,
+      iterations,
+      repeats,
+      branch,
+      prompt,
+      prNumber,
+      issueNumber,
+      labels,
+      dryRun,
+      autoApprove,
+    })
+    const result = await launchLoop(onLaunch, config)
+    const launchFailure = getLaunchFailure(result)
+    if (launchFailure) setError(launchFailure)
     setLaunching(false)
   }
 
@@ -560,14 +691,89 @@ export function RalphLaunchForm({ initialScript, initialPR, initialIssue, onLaun
     <form className="ralph-launch-form" onSubmit={handleSubmit}>
       <h3 className="ralph-form-title">Launch Loop</h3>
       {error && <div className="ralph-form-error">{error}</div>}
-      <div className="ralph-form-field"><label htmlFor="ralph-repo">Repository</label><div className="ralph-input-row"><input id="ralph-repo" type="text" value={repoPath} onChange={e => setRepoPath(e.target.value)} placeholder="D:\github\org\repo" /><button type="button" className="ralph-browse-btn" onClick={handleBrowse}><FolderOpen size={14} /></button></div></div>
+      <div className="ralph-form-field">
+        <label htmlFor="ralph-repo">Repository</label>
+        <div className="ralph-input-row">
+          <input
+            id="ralph-repo"
+            type="text"
+            value={repoPath}
+            onChange={e => setRepoPath(e.target.value)}
+            placeholder="D:\github\org\repo"
+          />
+          <button type="button" className="ralph-browse-btn" onClick={handleBrowse}>
+            <FolderOpen size={14} />
+          </button>
+        </div>
+      </div>
       <ScriptSelect value={scriptChoice} onChange={setScriptChoice} templates={templates} />
-      <ScriptSpecificFields scriptChoice={scriptChoice} prNumber={prNumber} onPrNumberChange={setPrNumber} labels={labels} onLabelsChange={setLabels} dryRun={dryRun} onDryRunChange={setDryRun} />
-      <IterationsRow scriptChoice={scriptChoice} iterations={iterations} onIterationsChange={setIterations} repeats={repeats} onRepeatsChange={setRepeats} />
-      <ModelProviderRow model={model} onModelChange={setModel} provider={provider} onProviderChange={setProvider} modelOptions={modelOptions} providerOptions={providerOptions} defaultModel={models?.default} defaultProvider={providers?.default} />
-      <div className="ralph-form-row"><div className="ralph-form-field"><label htmlFor="ralph-dev-agent">Work Agent</label><select id="ralph-dev-agent" value={devAgent} onChange={e => setDevAgent(e.target.value)}><option value="">Default</option>{devAgentOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div><div className="ralph-form-field"><label htmlFor="ralph-branch">Branch (optional)</label><input id="ralph-branch" type="text" value={branch} onChange={e => setBranch(e.target.value)} placeholder="Specify branch to work on, or leave blank to auto-create" /></div></div>
-      <div className="ralph-form-row"><label className="ralph-toggle-label"><input type="checkbox" checked={autoApprove} onChange={e => setAutoApprove(e.target.checked)} /><span className="ralph-toggle-text">Auto-approve PR when reviews pass</span></label></div>
-      <ReviewAgentsSection reviewAgentOptions={reviewAgentOptions} reviewAgents={reviewAgents} reviewerModels={reviewerModels} reviewerModelOptions={reviewerModelOptions} onToggle={toggleReviewAgent} onModelChange={setReviewerModel} />
+      <ScriptSpecificFields
+        scriptChoice={scriptChoice}
+        prNumber={prNumber}
+        onPrNumberChange={setPrNumber}
+        labels={labels}
+        onLabelsChange={setLabels}
+        dryRun={dryRun}
+        onDryRunChange={setDryRun}
+      />
+      <IterationsRow
+        scriptChoice={scriptChoice}
+        iterations={iterations}
+        onIterationsChange={setIterations}
+        repeats={repeats}
+        onRepeatsChange={setRepeats}
+      />
+      <ModelProviderRow
+        model={model}
+        onModelChange={setModel}
+        provider={provider}
+        onProviderChange={setProvider}
+        modelOptions={modelOptions}
+        providerOptions={providerOptions}
+        defaultModel={models?.default}
+        defaultProvider={providers?.default}
+      />
+      <div className="ralph-form-row">
+        <div className="ralph-form-field">
+          <label htmlFor="ralph-dev-agent">Work Agent</label>
+          <select id="ralph-dev-agent" value={devAgent} onChange={e => setDevAgent(e.target.value)}>
+            <option value="">Default</option>
+            {devAgentOptions.map(o => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="ralph-form-field">
+          <label htmlFor="ralph-branch">Branch (optional)</label>
+          <input
+            id="ralph-branch"
+            type="text"
+            value={branch}
+            onChange={e => setBranch(e.target.value)}
+            placeholder="Specify branch to work on, or leave blank to auto-create"
+          />
+        </div>
+      </div>
+      <div className="ralph-form-row">
+        <label className="ralph-toggle-label">
+          <input
+            type="checkbox"
+            checked={autoApprove}
+            onChange={e => setAutoApprove(e.target.checked)}
+          />
+          <span className="ralph-toggle-text">Auto-approve PR when reviews pass</span>
+        </label>
+      </div>
+      <ReviewAgentsSection
+        reviewAgentOptions={reviewAgentOptions}
+        reviewAgents={reviewAgents}
+        reviewerModels={reviewerModels}
+        reviewerModelOptions={reviewerModelOptions}
+        onToggle={toggleReviewAgent}
+        onModelChange={setReviewerModel}
+      />
       <PromptField scriptChoice={scriptChoice} prompt={prompt} onChange={setPrompt} />
       <LaunchButton launching={launching} disabled={!repoPath} />
     </form>

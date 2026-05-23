@@ -134,7 +134,9 @@ function resolveRunConfigValue(value: string | null | undefined, fallback: strin
   return value || fallback
 }
 
-function getIterationProgress(run: RalphRunInfo): { current: number; total: number; label: string } | null {
+function getIterationProgress(
+  run: RalphRunInfo
+): { current: number; total: number; label: string } | null {
   const totalIterations = run.totalIterations
   if (totalIterations == null || totalIterations <= 0) return null
   return {
@@ -188,7 +190,9 @@ function ProgressSection({ run }: { run: RalphRunInfo }) {
           Branch: <strong>{branch}</strong>
         </span>
       </div>
-      {progress ? <ProgressBar current={progress.current} total={progress.total} label={progress.label} /> : null}
+      {progress ? (
+        <ProgressBar current={progress.current} total={progress.total} label={progress.label} />
+      ) : null}
       <StatsGrid stats={run.stats} />
       <ProgressFooter phase={phase} duration={duration} exitCode={run.exitCode} />
     </div>

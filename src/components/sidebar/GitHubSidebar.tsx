@@ -222,9 +222,7 @@ function getBookmarkedOnlyTitle(showBookmarkedOnly: boolean): string {
   return showBookmarkedOnly ? 'Showing bookmarked only' : 'Showing all repos'
 }
 
-function toggleBookmarkedOnly(
-  setShowBookmarkedOnly: SidebarData['setShowBookmarkedOnly']
-): void {
+function toggleBookmarkedOnly(setShowBookmarkedOnly: SidebarData['setShowBookmarkedOnly']): void {
   setShowBookmarkedOnly(prev => {
     const next = !prev
     window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_SHOW_BOOKMARKED_ONLY, next).catch(() => {})
@@ -233,7 +231,11 @@ function toggleBookmarkedOnly(
 }
 
 function OrganizationsSection({
-  sidebarData, ralphRuns, refreshIndicators, selectedItem, onItemSelect,
+  sidebarData,
+  ralphRuns,
+  refreshIndicators,
+  selectedItem,
+  onItemSelect,
 }: {
   sidebarData: SidebarData
   ralphRuns: ReturnType<typeof useRalphLoops>['runs']
@@ -243,9 +245,14 @@ function OrganizationsSection({
 }) {
   const isExpanded = sidebarData.expandedSections.has('organizations')
   const filterButton = (
-    <button className={getBookmarkedOnlyButtonClass(sidebarData.showBookmarkedOnly)}
-      onClick={e => { e.stopPropagation(); toggleBookmarkedOnly(sidebarData.setShowBookmarkedOnly) }}
-      title={getBookmarkedOnlyTitle(sidebarData.showBookmarkedOnly)}>
+    <button
+      className={getBookmarkedOnlyButtonClass(sidebarData.showBookmarkedOnly)}
+      onClick={e => {
+        e.stopPropagation()
+        toggleBookmarkedOnly(sidebarData.setShowBookmarkedOnly)
+      }}
+      title={getBookmarkedOnlyTitle(sidebarData.showBookmarkedOnly)}
+    >
       <Filter size={14} />
     </button>
   )
@@ -253,42 +260,72 @@ function OrganizationsSection({
 
   return (
     <div className="sidebar-section">
-      <SectionHeader expanded={isExpanded} icon={<Building2 size={16} />}
-        label="Organizations" onToggle={() => sd.toggleSection('organizations')} action={filterButton} />
+      <SectionHeader
+        expanded={isExpanded}
+        icon={<Building2 size={16} />}
+        label="Organizations"
+        onToggle={() => sd.toggleSection('organizations')}
+        action={filterButton}
+      />
       {isExpanded && (
         <OrgRepoTree
-          uniqueOrgs={sd.uniqueOrgs} orgRepos={sd.orgRepos} orgMeta={sd.orgMeta}
-          orgMembers={sd.orgMembers} loadingOrgMembers={sd.loadingOrgMembers}
-          expandedOrgUserGroups={sd.expandedOrgUserGroups} orgTeams={sd.orgTeams}
-          loadingOrgTeams={sd.loadingOrgTeams} expandedOrgTeamGroups={sd.expandedOrgTeamGroups}
-          expandedTeams={sd.expandedTeams} teamMembers={sd.teamMembers}
-          loadingTeamMembers={sd.loadingTeamMembers} orgContributorCounts={sd.orgContributorCounts}
-          loadingOrgs={sd.loadingOrgs} expandedOrgs={sd.expandedOrgs} expandedRepos={sd.expandedRepos}
+          uniqueOrgs={sd.uniqueOrgs}
+          orgRepos={sd.orgRepos}
+          orgMeta={sd.orgMeta}
+          orgMembers={sd.orgMembers}
+          loadingOrgMembers={sd.loadingOrgMembers}
+          expandedOrgUserGroups={sd.expandedOrgUserGroups}
+          orgTeams={sd.orgTeams}
+          loadingOrgTeams={sd.loadingOrgTeams}
+          expandedOrgTeamGroups={sd.expandedOrgTeamGroups}
+          expandedTeams={sd.expandedTeams}
+          teamMembers={sd.teamMembers}
+          loadingTeamMembers={sd.loadingTeamMembers}
+          orgContributorCounts={sd.orgContributorCounts}
+          loadingOrgs={sd.loadingOrgs}
+          expandedOrgs={sd.expandedOrgs}
+          expandedRepos={sd.expandedRepos}
           expandedRepoIssueGroups={sd.expandedRepoIssueGroups}
           expandedRepoIssueStateGroups={sd.expandedRepoIssueStateGroups}
           expandedRepoPRGroups={sd.expandedRepoPRGroups}
           expandedRepoPRStateGroups={sd.expandedRepoPRStateGroups}
-          expandedRepoCommitGroups={sd.expandedRepoCommitGroups} expandedPRNodes={sd.expandedPRNodes}
-          repoCounts={sd.repoCounts} loadingRepoCounts={sd.loadingRepoCounts}
-          repoPrTreeData={sd.repoPrTreeData} repoCommitTreeData={sd.repoCommitTreeData}
-          repoIssueTreeData={sd.repoIssueTreeData} loadingRepoCommits={sd.loadingRepoCommits}
-          loadingRepoPRs={sd.loadingRepoPRs} loadingRepoIssues={sd.loadingRepoIssues}
-          sflStatusData={sd.sflStatusData} loadingSFLStatus={sd.loadingSFLStatus}
-          expandedSFLGroups={sd.expandedSFLGroups} ralphRuns={ralphRuns}
-          expandedRalphGroups={sd.expandedRalphGroups} bookmarkedRepoKeys={sd.bookmarkedRepoKeys}
-          showBookmarkedOnly={sd.showBookmarkedOnly} selectedItem={selectedItem}
-          refreshTick={sd.refreshTick} onToggleOrg={sd.toggleOrg}
-          onToggleOrgUserGroup={sd.toggleOrgUserGroup} onToggleOrgTeamGroup={sd.toggleOrgTeamGroup}
-          onToggleTeam={sd.toggleTeam} onToggleRepo={sd.toggleRepo}
+          expandedRepoCommitGroups={sd.expandedRepoCommitGroups}
+          expandedPRNodes={sd.expandedPRNodes}
+          repoCounts={sd.repoCounts}
+          loadingRepoCounts={sd.loadingRepoCounts}
+          repoPrTreeData={sd.repoPrTreeData}
+          repoCommitTreeData={sd.repoCommitTreeData}
+          repoIssueTreeData={sd.repoIssueTreeData}
+          loadingRepoCommits={sd.loadingRepoCommits}
+          loadingRepoPRs={sd.loadingRepoPRs}
+          loadingRepoIssues={sd.loadingRepoIssues}
+          sflStatusData={sd.sflStatusData}
+          loadingSFLStatus={sd.loadingSFLStatus}
+          expandedSFLGroups={sd.expandedSFLGroups}
+          ralphRuns={ralphRuns}
+          expandedRalphGroups={sd.expandedRalphGroups}
+          bookmarkedRepoKeys={sd.bookmarkedRepoKeys}
+          showBookmarkedOnly={sd.showBookmarkedOnly}
+          selectedItem={selectedItem}
+          refreshTick={sd.refreshTick}
+          onToggleOrg={sd.toggleOrg}
+          onToggleOrgUserGroup={sd.toggleOrgUserGroup}
+          onToggleOrgTeamGroup={sd.toggleOrgTeamGroup}
+          onToggleTeam={sd.toggleTeam}
+          onToggleRepo={sd.toggleRepo}
           onToggleRepoIssueGroup={sd.toggleRepoIssueGroup}
           onToggleRepoIssueStateGroup={sd.toggleRepoIssueStateGroup}
           onToggleRepoPRGroup={sd.toggleRepoPRGroup}
           onToggleRepoPRStateGroup={sd.toggleRepoPRStateGroup}
           onToggleRepoCommitGroup={sd.toggleRepoCommitGroup}
-          onToggleSFLGroup={sd.toggleSFLGroup} onToggleRalphGroup={sd.toggleRalphGroup}
-          onTogglePRNode={sd.togglePRNode} onItemSelect={onItemSelect}
-          onContextMenu={sd.openTreePRContextMenu} onBookmarkToggle={sd.handleBookmarkToggle}
-          favoriteUsers={sd.favoriteUsers} onUserContextMenu={sd.openUserContextMenu}
+          onToggleSFLGroup={sd.toggleSFLGroup}
+          onToggleRalphGroup={sd.toggleRalphGroup}
+          onTogglePRNode={sd.togglePRNode}
+          onItemSelect={onItemSelect}
+          onContextMenu={sd.openTreePRContextMenu}
+          onBookmarkToggle={sd.handleBookmarkToggle}
+          favoriteUsers={sd.favoriteUsers}
+          onUserContextMenu={sd.openUserContextMenu}
           refreshIndicators={refreshIndicators}
         />
       )}

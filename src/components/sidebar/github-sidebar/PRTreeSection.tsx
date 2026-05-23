@@ -32,14 +32,7 @@ function hasNewPullRequest(newUrls: ReadonlySet<string> | undefined, url: string
 
 function NewPRDot({ isNew }: { isNew: boolean }) {
   if (!isNew) return null
-  return (
-    <span
-      className="sidebar-new-dot"
-      title="New"
-      role="img"
-      aria-label="New pull request"
-    />
-  )
+  return <span className="sidebar-new-dot" title="New" role="img" aria-label="New pull request" />
 }
 
 function PRChildNodes({

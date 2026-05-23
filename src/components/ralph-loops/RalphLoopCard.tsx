@@ -117,7 +117,12 @@ function CardHeaderSection({ run }: { run: RalphRunInfo }) {
   )
 }
 
-function CardBodySection({ run, isActive, progress, onStop }: {
+function CardBodySection({
+  run,
+  isActive,
+  progress,
+  onStop,
+}: {
   run: RalphRunInfo
   isActive: boolean
   progress: number | null

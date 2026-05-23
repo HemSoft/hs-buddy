@@ -313,17 +313,11 @@ export function mapRawEventToUserEvent(
   }
 }
 
-function hasOrgPushEventRepo(
-  repo: { name?: string } | undefined,
-  orgPrefix: string
-): boolean {
+function hasOrgPushEventRepo(repo: { name?: string } | undefined, orgPrefix: string): boolean {
   return repo?.name?.startsWith(orgPrefix) === true
 }
 
-function isEventOnOrAfterStartOfDay(
-  evt: Record<string, unknown>,
-  startOfDayIso: string
-): boolean {
+function isEventOnOrAfterStartOfDay(evt: Record<string, unknown>, startOfDayIso: string): boolean {
   return typeof evt.created_at === 'string' && evt.created_at >= startOfDayIso
 }
 

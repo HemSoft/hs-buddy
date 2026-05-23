@@ -33,49 +33,130 @@ function PRReviewError({ error }: { error: string | null }) {
 }
 
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
-  const { account, setAccount, model, setModel, prompt, setPrompt, promptExpanded, setPromptExpanded, submitting, error, scheduled, scheduleDelay, setScheduleDelay, savingDefault, handleRunNow, handleSchedule, handleResetPrompt, handleSaveAsDefault } = usePRReviewData(prInfo, onSubmitted)
+  const {
+    account,
+    setAccount,
+    model,
+    setModel,
+    prompt,
+    setPrompt,
+    promptExpanded,
+    setPromptExpanded,
+    submitting,
+    error,
+    scheduled,
+    scheduleDelay,
+    setScheduleDelay,
+    savingDefault,
+    handleRunNow,
+    handleSchedule,
+    handleResetPrompt,
+    handleSaveAsDefault,
+  } = usePRReviewData(prInfo, onSubmitted)
 
   if (scheduled) {
-    return (<ScheduledMessage prTitle={prInfo.prTitle} scheduleDelay={scheduleDelay} onClose={onClose} />)
+    return (
+      <ScheduledMessage prTitle={prInfo.prTitle} scheduleDelay={scheduleDelay} onClose={onClose} />
+    )
   }
 
   return (
     <div className="pr-review-panel">
       <div className="pr-review-panel-header">
-        <div className="pr-review-panel-title"><Sparkles size={18} /><h2>PR Review</h2></div>
+        <div className="pr-review-panel-title">
+          <Sparkles size={18} />
+          <h2>PR Review</h2>
+        </div>
         <PRReviewCloseButton onClose={onClose} />
       </div>
-      <PRInfoCard prTitle={prInfo.prTitle} org={prInfo.org} repo={prInfo.repo} prNumber={prInfo.prNumber} author={prInfo.author} prUrl={prInfo.prUrl} />
+      <PRInfoCard
+        prTitle={prInfo.prTitle}
+        org={prInfo.org}
+        repo={prInfo.repo}
+        prNumber={prInfo.prNumber}
+        author={prInfo.author}
+        prUrl={prInfo.prUrl}
+      />
       <div className="pr-review-config">
         <div className="pr-review-config-row">
-          <label htmlFor="pr-review-account" className="pr-review-label"><User size={14} />Account</label>
+          <label htmlFor="pr-review-account" className="pr-review-label">
+            <User size={14} />
+            Account
+          </label>
           <div className="pr-review-control">
-            <AccountPicker id="pr-review-account" value={account} onChange={setAccount} disabled={submitting} title="GitHub account used for authentication" variant="select" />
+            <AccountPicker
+              id="pr-review-account"
+              value={account}
+              onChange={setAccount}
+              disabled={submitting}
+              title="GitHub account used for authentication"
+              variant="select"
+            />
             {account && <PremiumUsageBadge username={account} />}
           </div>
         </div>
         <div className="pr-review-config-row">
-          <label htmlFor="pr-review-model" className="pr-review-label"><Cpu size={14} />Model</label>
+          <label htmlFor="pr-review-model" className="pr-review-label">
+            <Cpu size={14} />
+            Model
+          </label>
           <div className="pr-review-control">
-            <ModelPicker id="pr-review-model" value={model} onChange={setModel} ghAccount={account} disabled={submitting} title="AI model for the review" variant="select" showRefresh />
+            <ModelPicker
+              id="pr-review-model"
+              value={model}
+              onChange={setModel}
+              ghAccount={account}
+              disabled={submitting}
+              title="AI model for the review"
+              variant="select"
+              showRefresh
+            />
           </div>
         </div>
       </div>
-      <PromptSection prompt={prompt} promptExpanded={promptExpanded} submitting={submitting} savingDefault={savingDefault} onPromptChange={setPrompt} onToggleExpanded={() => setPromptExpanded(prev => !prev)} onResetPrompt={handleResetPrompt} onSaveAsDefault={handleSaveAsDefault} />
+      <PromptSection
+        prompt={prompt}
+        promptExpanded={promptExpanded}
+        submitting={submitting}
+        savingDefault={savingDefault}
+        onPromptChange={setPrompt}
+        onToggleExpanded={() => setPromptExpanded(prev => !prev)}
+        onResetPrompt={handleResetPrompt}
+        onSaveAsDefault={handleSaveAsDefault}
+      />
       <PRReviewError error={error} />
       <div className="pr-review-actions">
-        <button className="pr-review-btn pr-review-btn-primary" onClick={handleRunNow} disabled={submitting || !prompt.trim()}>
-          <Play size={14} />Run Now
+        <button
+          className="pr-review-btn pr-review-btn-primary"
+          onClick={handleRunNow}
+          disabled={submitting || !prompt.trim()}
+        >
+          <Play size={14} />
+          Run Now
         </button>
         <div className="pr-review-schedule-group">
-          <button className="pr-review-btn pr-review-btn-secondary" onClick={handleSchedule} disabled={submitting || !prompt.trim()}>
-            <Clock size={14} />Schedule
+          <button
+            className="pr-review-btn pr-review-btn-secondary"
+            onClick={handleSchedule}
+            disabled={submitting || !prompt.trim()}
+          >
+            <Clock size={14} />
+            Schedule
           </button>
           <div className="pr-review-schedule-delay">
             <span>in</span>
-            <select className="pr-review-delay-select" value={scheduleDelay} onChange={e => setScheduleDelay(Number(e.target.value))} disabled={submitting}>
-              <option value={1}>1 min</option><option value={5}>5 min</option><option value={15}>15 min</option>
-              <option value={30}>30 min</option><option value={60}>1 hour</option><option value={120}>2 hours</option>
+            <select
+              className="pr-review-delay-select"
+              value={scheduleDelay}
+              onChange={e => setScheduleDelay(Number(e.target.value))}
+              disabled={submitting}
+            >
+              <option value={1}>1 min</option>
+              <option value={5}>5 min</option>
+              <option value={15}>15 min</option>
+              <option value={30}>30 min</option>
+              <option value={60}>1 hour</option>
+              <option value={120}>2 hours</option>
             </select>
           </div>
         </div>

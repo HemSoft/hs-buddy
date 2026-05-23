@@ -182,7 +182,12 @@ export function useAutoRefresh(
   const pausedRef = useRef(paused)
   pausedRef.current = paused
   const mountedRef = useRef(true)
-  useEffect(() => () => { mountedRef.current = false }, [])
+  useEffect(
+    () => () => {
+      mountedRef.current = false
+    },
+    []
+  )
 
   const stampRefresh = useCallback(() => {
     const now = Date.now()
@@ -194,11 +199,18 @@ export function useAutoRefresh(
     try {
       const result = refreshRef.current()
       if (result && typeof result.then === 'function') {
-        result.then(() => { if (mountedRef.current) stampRefresh() }, () => {})
+        result.then(
+          () => {
+            if (mountedRef.current) stampRefresh()
+          },
+          () => {}
+        )
       } else {
         stampRefresh()
       }
-    } catch (_: unknown) { /* sync throw — don't stamp */ }
+    } catch (_: unknown) {
+      /* sync throw — don't stamp */
+    }
   }, [stampRefresh])
 
   useEffect(() => {

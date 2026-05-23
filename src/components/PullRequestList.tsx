@@ -368,14 +368,58 @@ function PRListActiveHeader({
   )
 }
 
-function PRListFallback({ loading, error, prs, getTitle, progress, totalPrsFound, accounts, updateTimes, getProgressColor, refreshing, handleManualRefresh }: {
-  loading: boolean; error: string | null; prs: PullRequest[]; getTitle: () => string;
-  progress: unknown; totalPrsFound: number; accounts: unknown[]; updateTimes: unknown;
-  getProgressColor: unknown; refreshing: boolean; handleManualRefresh: () => void
+function PRListFallback({
+  loading,
+  error,
+  prs,
+  getTitle,
+  progress,
+  totalPrsFound,
+  accounts,
+  updateTimes,
+  getProgressColor,
+  refreshing,
+  handleManualRefresh,
+}: {
+  loading: boolean
+  error: string | null
+  prs: PullRequest[]
+  getTitle: () => string
+  progress: unknown
+  totalPrsFound: number
+  accounts: unknown[]
+  updateTimes: unknown
+  getProgressColor: unknown
+  refreshing: boolean
+  handleManualRefresh: () => void
 }) {
-  if (loading) return <PRListLoadingState getTitle={getTitle} progress={progress as never} totalPrsFound={totalPrsFound} />
-  if (error) return <PRListErrorState getTitle={getTitle} accounts={accounts as never} error={error} handleManualRefresh={handleManualRefresh} />
-  if (prs.length === 0) return <PREmptyState getTitle={getTitle} updateTimes={updateTimes as never} getProgressColor={getProgressColor as never} refreshing={refreshing} handleManualRefresh={handleManualRefresh} />
+  if (loading)
+    return (
+      <PRListLoadingState
+        getTitle={getTitle}
+        progress={progress as never}
+        totalPrsFound={totalPrsFound}
+      />
+    )
+  if (error)
+    return (
+      <PRListErrorState
+        getTitle={getTitle}
+        accounts={accounts as never}
+        error={error}
+        handleManualRefresh={handleManualRefresh}
+      />
+    )
+  if (prs.length === 0)
+    return (
+      <PREmptyState
+        getTitle={getTitle}
+        updateTimes={updateTimes as never}
+        getProgressColor={getProgressColor as never}
+        refreshing={refreshing}
+        handleManualRefresh={handleManualRefresh}
+      />
+    )
   return null
 }
 
@@ -408,7 +452,19 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
 
   const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
-  const fallback = PRListFallback({ loading, error, prs, getTitle, progress, totalPrsFound, accounts, updateTimes, getProgressColor, refreshing, handleManualRefresh })
+  const fallback = PRListFallback({
+    loading,
+    error,
+    prs,
+    getTitle,
+    progress,
+    totalPrsFound,
+    accounts,
+    updateTimes,
+    getProgressColor,
+    refreshing,
+    handleManualRefresh,
+  })
   if (fallback) return fallback
 
   const openPR = (pr: PullRequest) =>

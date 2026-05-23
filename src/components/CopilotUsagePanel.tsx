@@ -6,14 +6,22 @@ import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
 import './CopilotUsagePanel.css'
 
-function resolveProjection(aggregateProjections: { projectedTotal?: number; projectedOverageCost?: number } | null | undefined) {
+function resolveProjection(
+  aggregateProjections:
+    | { projectedTotal?: number; projectedOverageCost?: number }
+    | null
+    | undefined
+) {
   return {
     projectedTotal: aggregateProjections?.projectedTotal ?? null,
     projectedOverageCost: aggregateProjections?.projectedOverageCost ?? null,
   }
 }
 
-function AccountsGrid({ accounts, quotas }: {
+function AccountsGrid({
+  accounts,
+  quotas,
+}: {
   accounts: { username: string; org?: string }[]
   quotas: Record<string, AccountQuotaState>
 }) {

@@ -206,11 +206,15 @@ describe('resolveAddProjectError', () => {
   })
 
   it('returns null when error is "Cancelled"', () => {
-    expect(resolveAddProjectError({ success: false, error: 'Cancelled' } as CrewAddProjectResult)).toBeNull()
+    expect(
+      resolveAddProjectError({ success: false, error: 'Cancelled' } as CrewAddProjectResult)
+    ).toBeNull()
   })
 
   it('returns the error string when present and not Cancelled', () => {
-    expect(resolveAddProjectError({ success: false, error: 'Permission denied' } as CrewAddProjectResult)).toBe('Permission denied')
+    expect(
+      resolveAddProjectError({ success: false, error: 'Permission denied' } as CrewAddProjectResult)
+    ).toBe('Permission denied')
   })
 })
 

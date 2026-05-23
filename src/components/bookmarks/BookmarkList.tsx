@@ -375,23 +375,47 @@ function BookmarkDialogs({
 
 export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
   const {
-    state, dispatch, allBookmarks, categories, recordVisit,
-    allTags, filteredBookmarks, handleDelete, handleDragOver, handleDragLeave, handleDrop, hasFilters,
+    state,
+    dispatch,
+    allBookmarks,
+    categories,
+    recordVisit,
+    allTags,
+    filteredBookmarks,
+    handleDelete,
+    handleDragOver,
+    handleDragLeave,
+    handleDrop,
+    hasFilters,
   } = useBookmarkListState(filterCategory)
 
-  const handleOpen = useCallback((bookmark: Bookmark) => {
-    recordVisit({ id: bookmark._id })
-    if (onOpenTab) { onOpenTab(`browser:${encodeURIComponent(bookmark.url)}`) }
-    else { window.shell.openInAppBrowser(bookmark.url, bookmark.title) }
-  }, [recordVisit, onOpenTab])
+  const handleOpen = useCallback(
+    (bookmark: Bookmark) => {
+      recordVisit({ id: bookmark._id })
+      if (onOpenTab) {
+        onOpenTab(`browser:${encodeURIComponent(bookmark.url)}`)
+      } else {
+        window.shell.openInAppBrowser(bookmark.url, bookmark.title)
+      }
+    },
+    [recordVisit, onOpenTab]
+  )
 
-  const handleOpenExternal = useCallback((bookmark: Bookmark) => {
-    recordVisit({ id: bookmark._id })
-    window.shell.openExternal(bookmark.url)
-  }, [recordVisit])
+  const handleOpenExternal = useCallback(
+    (bookmark: Bookmark) => {
+      recordVisit({ id: bookmark._id })
+      window.shell.openExternal(bookmark.url)
+    },
+    [recordVisit]
+  )
 
   if (allBookmarks === undefined) {
-    return <div className="bookmark-list-loading"><div className="bookmark-list-spinner" /><span>Loading bookmarks…</span></div>
+    return (
+      <div className="bookmark-list-loading">
+        <div className="bookmark-list-spinner" />
+        <span>Loading bookmarks…</span>
+      </div>
+    )
   }
 
   return (

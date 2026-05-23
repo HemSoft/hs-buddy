@@ -130,7 +130,12 @@ function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
   ]
 }
 
-export function TitleBar({ assistantOpen, onToggleAssistant, terminalOpen, onToggleTerminal }: TitleBarProps) {
+export function TitleBar({
+  assistantOpen,
+  onToggleAssistant,
+  terminalOpen,
+  onToggleTerminal,
+}: TitleBarProps) {
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
@@ -144,16 +149,24 @@ export function TitleBar({ assistantOpen, onToggleAssistant, terminalOpen, onTog
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleMenuClick = (label: string) => { setOpenMenu(openMenu === label ? null : label) }
+  const handleMenuClick = (label: string) => {
+    setOpenMenu(openMenu === label ? null : label)
+  }
   const handleItemClick = (item: MenuItem) => {
     /* v8 ignore start -- no hardcoded menu items combine action + disabled */
     if (item.action && !item.disabled) item.action()
     /* v8 ignore stop */
     setOpenMenu(null)
   }
-  const handleMinimize = () => { window.ipcRenderer.send(IPC_SEND.WINDOW_MINIMIZE) }
-  const handleMaximize = () => { window.ipcRenderer.send(IPC_SEND.WINDOW_MAXIMIZE) }
-  const handleClose = () => { window.close() }
+  const handleMinimize = () => {
+    window.ipcRenderer.send(IPC_SEND.WINDOW_MINIMIZE)
+  }
+  const handleMaximize = () => {
+    window.ipcRenderer.send(IPC_SEND.WINDOW_MAXIMIZE)
+  }
+  const handleClose = () => {
+    window.close()
+  }
 
   return (
     <div className="title-bar">
@@ -161,14 +174,25 @@ export function TitleBar({ assistantOpen, onToggleAssistant, terminalOpen, onTog
       <div className="menu-bar" ref={menuBarRef}>
         {menus.map(menu => (
           <div key={menu.label} className="menu-container">
-            <button className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
+            <button
+              className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
               onClick={() => handleMenuClick(menu.label)}
-              onMouseEnter={() => { if (openMenu) setOpenMenu(menu.label) }}>{menu.label}</button>
+              onMouseEnter={() => {
+                if (openMenu) setOpenMenu(menu.label)
+              }}
+            >
+              {menu.label}
+            </button>
             {openMenu === menu.label && (
               <div className="menu-dropdown">
                 {menu.items.map((item, index) => (
-                  <MenuDropdownItem key={item.label ?? `sep-${index}`} item={item}
-                    index={index} items={menu.items} onItemClick={handleItemClick} />
+                  <MenuDropdownItem
+                    key={item.label ?? `sep-${index}`}
+                    item={item}
+                    index={index}
+                    items={menu.items}
+                    onItemClick={handleItemClick}
+                  />
                 ))}
               </div>
             )}
@@ -177,27 +201,51 @@ export function TitleBar({ assistantOpen, onToggleAssistant, terminalOpen, onTog
       </div>
       <div className="title-bar-title">
         <span className="title-brand">HemSoft Developments</span>
-        <span className="title-icon"><Users size={14} /></span>
+        <span className="title-icon">
+          <Users size={14} />
+        </span>
         <span className="title-product">Buddy</span>
         <span className="title-version">V{APP_VERSION}</span>
       </div>
       <div className="window-controls">
-        <button type="button" className={`window-control-button terminal-toggle-button ${terminalOpen ? 'active' : ''}`}
-          onClick={onToggleTerminal} title={`Toggle Terminal (${modLabel}+\`)`} aria-label={`Toggle Terminal (${modLabel}+\`)`}>
+        <button
+          type="button"
+          className={`window-control-button terminal-toggle-button ${terminalOpen ? 'active' : ''}`}
+          onClick={onToggleTerminal}
+          title={`Toggle Terminal (${modLabel}+\`)`}
+          aria-label={`Toggle Terminal (${modLabel}+\`)`}
+        >
           <TerminalSquare size={14} />
         </button>
-        <button className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
-          onClick={onToggleAssistant} title={`Toggle Copilot Assistant (${modLabel}+Shift+A)`}>
+        <button
+          className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
+          onClick={onToggleAssistant}
+          title={`Toggle Copilot Assistant (${modLabel}+Shift+A)`}
+        >
           <Sparkles size={14} />
         </button>
         <button className="window-control-button" onClick={handleMinimize} title="Minimize">
-          <svg width="10" height="10" viewBox="0 0 10 10"><rect y="9" width="10" height="1" fill="currentColor" /></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <rect y="9" width="10" height="1" fill="currentColor" />
+          </svg>
         </button>
         <button className="window-control-button" onClick={handleMaximize} title="Maximize">
-          <svg width="10" height="10" viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" fill="none" stroke="currentColor" strokeWidth="1" /></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <rect
+              x="0.5"
+              y="0.5"
+              width="9"
+              height="9"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+            />
+          </svg>
         </button>
         <button className="window-control-button close-button" onClick={handleClose} title="Close">
-          <svg width="10" height="10" viewBox="0 0 10 10"><path d="M0 0 L10 10 M10 0 L0 10" stroke="currentColor" strokeWidth="1" /></svg>
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <path d="M0 0 L10 10 M10 0 L0 10" stroke="currentColor" strokeWidth="1" />
+          </svg>
         </button>
       </div>
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}

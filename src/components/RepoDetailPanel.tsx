@@ -71,10 +71,7 @@ function RepoMetaBadges({
     <>
       {language && (
         <span className="repo-badge repo-badge-lang">
-          <span
-            className="lang-dot"
-            style={{ backgroundColor: getLanguageColor(language) }}
-          />
+          <span className="lang-dot" style={{ backgroundColor: getLanguageColor(language) }} />
           {language}
         </span>
       )}
@@ -108,7 +105,11 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
           Fork
         </span>
       )}
-      <RepoMetaBadges language={detail.language} license={detail.license} workflowRun={detail.latestWorkflowRun} />
+      <RepoMetaBadges
+        language={detail.language}
+        license={detail.license}
+        workflowRun={detail.latestWorkflowRun}
+      />
     </div>
   )
 }

@@ -138,23 +138,42 @@ interface RalphDashboardProps {
 
 export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
   const { runs, loading, error: hookError, clearError, launch, stop, refresh } = useRalphLoops()
-  const [state, dispatch] = useReducer(reducer, { viewMode: 'grid', error: null, selectedScript: null, prLaunchData: null, issueLaunchData: null })
+  const [state, dispatch] = useReducer(reducer, {
+    viewMode: 'grid',
+    error: null,
+    selectedScript: null,
+    prLaunchData: null,
+    issueLaunchData: null,
+  })
   const [templates, setTemplates] = useState<RalphTemplateInfo[]>([])
   const [renderErrorResetKey, setRenderErrorResetKey] = useState(0)
 
-  useEffect(() => { window.ralph.listTemplates().then(result => { if (Array.isArray(result)) setTemplates(result) }).catch(() => {}) }, [])
+  useEffect(() => {
+    window.ralph
+      .listTemplates()
+      .then(result => {
+        if (Array.isArray(result)) setTemplates(result)
+      })
+      .catch(() => {})
+  }, [])
 
   useRalphEventListeners(dispatch)
 
-  const handleStop = useCallback(async (runId: string) => {
-    const result = await stop(runId)
-    if (!result.success) dispatch({ type: 'setError', error: result.error ?? 'Stop failed' })
-  }, [stop])
+  const handleStop = useCallback(
+    async (runId: string) => {
+      const result = await stop(runId)
+      if (!result.success) dispatch({ type: 'setError', error: result.error ?? 'Stop failed' })
+    },
+    [stop]
+  )
 
-  const handleLaunched = useCallback((runId?: string) => {
-    dispatch({ type: 'setView', mode: 'grid' })
-    if (runId && onOpenTab) onOpenTab(`ralph-run:${runId}`)
-  }, [onOpenTab])
+  const handleLaunched = useCallback(
+    (runId?: string) => {
+      dispatch({ type: 'setView', mode: 'grid' })
+      if (runId && onOpenTab) onOpenTab(`ralph-run:${runId}`)
+    },
+    [onOpenTab]
+  )
 
   const handleClearError = useCallback(() => {
     dispatch({ type: 'setError', error: null })
@@ -162,14 +181,21 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
     setRenderErrorResetKey(current => current + 1)
   }, [clearError])
 
-  const handleLaunch = useCallback(async (config: Parameters<typeof launch>[0]) => {
-    const result = await launch(config)
-    if (result.success) handleLaunched(result.runId)
-    return result
-  }, [handleLaunched, launch])
+  const handleLaunch = useCallback(
+    async (config: Parameters<typeof launch>[0]) => {
+      const result = await launch(config)
+      if (result.success) handleLaunched(result.runId)
+      return result
+    },
+    [handleLaunched, launch]
+  )
 
-  const handleSelectScript = useCallback((script: string) => { dispatch({ type: 'setView', mode: 'launch', script }) }, [])
-  const handleToggleLaunchView = useCallback(() => { dispatch({ type: 'setView', mode: state.viewMode === 'launch' ? 'grid' : 'launch' }) }, [state.viewMode])
+  const handleSelectScript = useCallback((script: string) => {
+    dispatch({ type: 'setView', mode: 'launch', script })
+  }, [])
+  const handleToggleLaunchView = useCallback(() => {
+    dispatch({ type: 'setView', mode: state.viewMode === 'launch' ? 'grid' : 'launch' })
+  }, [state.viewMode])
 
   const { active, recent } = partitionRuns(runs)
   const displayError = state.error ?? hookError
@@ -177,26 +203,51 @@ export function RalphDashboard({ onOpenTab }: RalphDashboardProps) {
   const dashboardBodyResetKey = buildResetKey(renderErrorResetKey, state)
 
   if (loading) {
-    return (<div className="ralph-dashboard ralph-loading"><RefreshCw size={20} className="ralph-spin" /><span>Loading loops…</span></div>)
+    return (
+      <div className="ralph-dashboard ralph-loading">
+        <RefreshCw size={20} className="ralph-spin" />
+        <span>Loading loops…</span>
+      </div>
+    )
   }
 
   return (
     <div className="ralph-dashboard">
-      <RalphDashboardHeader isLaunchView={isLaunchView} onRefresh={refresh} onToggleLaunchView={handleToggleLaunchView} />
+      <RalphDashboardHeader
+        isLaunchView={isLaunchView}
+        onRefresh={refresh}
+        onToggleLaunchView={handleToggleLaunchView}
+      />
 
       <div className="ralph-dashboard-body">
         <RalphDashboardErrorBanner error={displayError} onDismiss={handleClearError} />
 
         <AppErrorBoundary
-          fallback={({ message, reset }) => (<RalphDashboardErrorBanner error={message} onDismiss={() => { reset(); handleClearError() }} />)}
+          fallback={({ message, reset }) => (
+            <RalphDashboardErrorBanner
+              error={message}
+              onDismiss={() => {
+                reset()
+                handleClearError()
+              }}
+            />
+          )}
           resetKey={dashboardBodyResetKey}
         >
           <>
             {isLaunchView && (
-              <RalphLaunchForm initialScript={state.selectedScript} initialPR={state.prLaunchData} initialIssue={state.issueLaunchData} onLaunch={handleLaunch} />
+              <RalphLaunchForm
+                initialScript={state.selectedScript}
+                initialPR={state.prLaunchData}
+                initialIssue={state.issueLaunchData}
+                onLaunch={handleLaunch}
+              />
             )}
 
-            <RalphDashboardAvailableScripts templates={templates} onLaunchScript={handleSelectScript} />
+            <RalphDashboardAvailableScripts
+              templates={templates}
+              onLaunchScript={handleSelectScript}
+            />
             <RalphDashboardRunSection title="Active" runs={active} onStop={handleStop} />
             <RalphDashboardRunSection title="Recent" runs={recent} onStop={handleStop} />
           </>

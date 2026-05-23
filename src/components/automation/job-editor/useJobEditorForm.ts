@@ -160,8 +160,10 @@ async function persistJobChanges({
 }
 
 export function useJobEditorForm(
-  jobId: string | undefined, duplicateFrom: UseJobEditorFormSource | undefined,
-  onSaved: (() => void) | undefined, onClose: () => void
+  jobId: string | undefined,
+  duplicateFrom: UseJobEditorFormSource | undefined,
+  onSaved: (() => void) | undefined,
+  onClose: () => void
 ) {
   const existingJob = useJob(jobId as JobId | undefined)
   const { create, update } = useJobMutations()
@@ -187,30 +189,67 @@ export function useJobEditorForm(
   const isEditing = !!jobId
 
   useEffect(() => {
-    if (!isEditing && !duplicateFrom) { setGhAccount(defaultGhAccount); setModel(defaultModel) }
+    if (!isEditing && !duplicateFrom) {
+      setGhAccount(defaultGhAccount)
+      setModel(defaultModel)
+    }
   }, [defaultGhAccount, defaultModel, isEditing, duplicateFrom])
 
   useEffect(() => {
     const source = existingJob || duplicateFrom
     if (!source) return
-    populateJobFormFromSource(source, duplicateFrom, { setName, setDescription, setWorkerType, setCommand, setCwd, setTimeout, setShell, setPrompt, setModel, setTargetRepo, setSkillName, setSkillAction, setSkillParams })
+    populateJobFormFromSource(source, duplicateFrom, {
+      setName,
+      setDescription,
+      setWorkerType,
+      setCommand,
+      setCwd,
+      setTimeout,
+      setShell,
+      setPrompt,
+      setModel,
+      setTargetRepo,
+      setSkillName,
+      setSkillAction,
+      setSkillParams,
+    })
   }, [existingJob, duplicateFrom])
 
-  const buildExecJobConfig = (): JobConfig => ({ command: command.trim(), cwd: cwd.trim() || undefined, /* v8 ignore start */ timeout: timeout || undefined, /* v8 ignore stop */ shell })
+  const buildExecJobConfig = (): JobConfig => ({
+    command: command.trim(),
+    cwd: cwd.trim() || undefined,
+    /* v8 ignore start */ timeout: timeout || undefined,
+    /* v8 ignore stop */ shell,
+  })
 
   const buildAiJobConfig = (): JobConfig => {
     const [repoOwner, repoName] = targetRepo ? targetRepo.split('/') : [undefined, undefined]
-    return { prompt: prompt.trim(), /* v8 ignore start */ model: model.trim() || undefined, /* v8 ignore stop */ repoOwner, repoName }
+    return {
+      prompt: prompt.trim(),
+      /* v8 ignore start */ model: model.trim() || undefined,
+      /* v8 ignore stop */ repoOwner,
+      repoName,
+    }
   }
 
   const buildSkillJobConfig = (): JobConfig => {
     let params: unknown = undefined
-    if (skillParams.trim()) { try { params = JSON.parse(skillParams) } catch (_: unknown) { throw new Error('Invalid JSON in parameters', { cause: _ }) } }
+    if (skillParams.trim()) {
+      try {
+        params = JSON.parse(skillParams)
+      } catch (_: unknown) {
+        throw new Error('Invalid JSON in parameters', { cause: _ })
+      }
+    }
     return { skillName: skillName.trim(), action: skillAction.trim() || undefined, params }
   }
 
   const buildConfig = (): JobConfig => {
-    const builders: Record<string, () => JobConfig> = { exec: buildExecJobConfig, ai: buildAiJobConfig, skill: buildSkillJobConfig }
+    const builders: Record<string, () => JobConfig> = {
+      exec: buildExecJobConfig,
+      ai: buildAiJobConfig,
+      skill: buildSkillJobConfig,
+    }
     /* v8 ignore start */
     return (builders[workerType] ?? (() => ({})))()
     /* v8 ignore stop */
@@ -218,20 +257,66 @@ export function useJobEditorForm(
 
   const handleSave = async () => {
     const validationError = validateJobForm(name, workerType, command, prompt, skillName)
-    if (validationError) { setError(validationError); return }
-    setError(null); setSaving(true)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
+    setSaving(true)
     try {
       const config = buildConfig()
-      await persistJobChanges({ isEditing, jobId, name, description, workerType, config, create, update, incrementStat })
-      onSaved?.(); onClose()
-    } catch (err: unknown) { setError(getUserFacingErrorMessage(err, 'Failed to save job')) } finally { setSaving(false) }
+      await persistJobChanges({
+        isEditing,
+        jobId,
+        name,
+        description,
+        workerType,
+        config,
+        create,
+        update,
+        incrementStat,
+      })
+      onSaved?.()
+      onClose()
+    } catch (err: unknown) {
+      setError(getUserFacingErrorMessage(err, 'Failed to save job'))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return {
-    name, setName, description, setDescription, workerType, setWorkerType,
-    command, setCommand, cwd, setCwd, timeout, setTimeout, shell, setShell,
-    prompt, setPrompt, ghAccount, setGhAccount, model, setModel, targetRepo, setTargetRepo,
-    skillName, setSkillName, skillAction, setSkillAction, skillParams, setSkillParams,
-    saving, error, isEditing, handleSave,
+    name,
+    setName,
+    description,
+    setDescription,
+    workerType,
+    setWorkerType,
+    command,
+    setCommand,
+    cwd,
+    setCwd,
+    timeout,
+    setTimeout,
+    shell,
+    setShell,
+    prompt,
+    setPrompt,
+    ghAccount,
+    setGhAccount,
+    model,
+    setModel,
+    targetRepo,
+    setTargetRepo,
+    skillName,
+    setSkillName,
+    skillAction,
+    setSkillAction,
+    skillParams,
+    setSkillParams,
+    saving,
+    error,
+    isEditing,
+    handleSave,
   }
 }

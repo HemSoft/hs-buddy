@@ -314,33 +314,53 @@ function usePromptEditorActions(params: {
   setErrorMessage: (value: string | null) => void
   setSaving: (value: boolean) => void
 }) {
-  const { editorState, createPrompt, updatePrompt, removePrompt, confirm, setEditorState, setErrorMessage, setSaving } = params
+  const {
+    editorState,
+    createPrompt,
+    updatePrompt,
+    removePrompt,
+    confirm,
+    setEditorState,
+    setErrorMessage,
+    setSaving,
+  } = params
 
   const openCreateEditor = useCallback(() => {
     setErrorMessage(null)
     setEditorState({ mode: 'create', title: '', content: '' })
   }, [setEditorState, setErrorMessage])
 
-  const openEditEditor = useCallback((prompt: TerminalPrompt) => {
+  const openEditEditor = useCallback(
+    (prompt: TerminalPrompt) => {
+      setErrorMessage(null)
+      setEditorState({ mode: 'edit', id: prompt._id, title: prompt.title, content: prompt.content })
+    },
+    [setEditorState, setErrorMessage]
+  )
+
+  const closeEditor = useCallback(() => {
     setErrorMessage(null)
-    setEditorState({ mode: 'edit', id: prompt._id, title: prompt.title, content: prompt.content })
+    setEditorState(null)
   }, [setEditorState, setErrorMessage])
 
-  const closeEditor = useCallback(() => { setErrorMessage(null); setEditorState(null) }, [setEditorState, setErrorMessage])
-
-  const handleSave = useCallback(async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    /* v8 ignore next -- submit comes from the mounted editor form */
-    if (!editorState) return
-    setSaving(true)
-    setErrorMessage(null)
-    try {
-      await persistPrompt(editorState, createPrompt, updatePrompt)
-      setEditorState(null)
-    } catch (error: unknown) {
-      setErrorMessage(resolveErrorMessage(error, 'Failed to save prompt'))
-    } finally { setSaving(false) }
-  }, [createPrompt, editorState, setEditorState, setErrorMessage, setSaving, updatePrompt])
+  const handleSave = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      /* v8 ignore next -- submit comes from the mounted editor form */
+      if (!editorState) return
+      setSaving(true)
+      setErrorMessage(null)
+      try {
+        await persistPrompt(editorState, createPrompt, updatePrompt)
+        setEditorState(null)
+      } catch (error: unknown) {
+        setErrorMessage(resolveErrorMessage(error, 'Failed to save prompt'))
+      } finally {
+        setSaving(false)
+      }
+    },
+    [createPrompt, editorState, setEditorState, setErrorMessage, setSaving, updatePrompt]
+  )
 
   const handleDelete = useCallback(async () => {
     /* v8 ignore next -- delete is only available from the mounted edit view */
@@ -348,7 +368,9 @@ function usePromptEditorActions(params: {
     const confirmed = await confirm({
       message: `Delete "${editorState.title}"?`,
       description: 'This prompt will be removed from Convex for every synced client.',
-      confirmLabel: 'Delete', cancelLabel: 'Keep', variant: 'danger',
+      confirmLabel: 'Delete',
+      cancelLabel: 'Keep',
+      variant: 'danger',
     })
     if (!confirmed) return
     setSaving(true)
@@ -358,7 +380,9 @@ function usePromptEditorActions(params: {
       setEditorState(null)
     } catch (error: unknown) {
       setErrorMessage(resolveErrorMessage(error, 'Failed to delete prompt'))
-    } finally { setSaving(false) }
+    } finally {
+      setSaving(false)
+    }
   }, [confirm, editorState, removePrompt, setEditorState, setErrorMessage, setSaving])
 
   return { openCreateEditor, openEditEditor, closeEditor, handleSave, handleDelete }
@@ -658,35 +682,79 @@ export function TerminalPromptLibrary({
   usePromptLibraryDismiss(ownerRef, rootRef, onClose)
   useEditorFocus(editorState, titleInputRef)
 
-  const { canUsePrompt, terminalStatus } = useMemo(() => getTerminalAvailability(activeTabId), [activeTabId])
+  const { canUsePrompt, terminalStatus } = useMemo(
+    () => getTerminalAvailability(activeTabId),
+    [activeTabId]
+  )
 
   const { openCreateEditor, openEditEditor, closeEditor, handleSave, handleDelete } =
-    usePromptEditorActions({ editorState, createPrompt: create, updatePrompt: update, removePrompt: remove, confirm, setEditorState, setErrorMessage, setSaving })
-
-  const handleUsePrompt = usePromptUseAction({ activeTabId, markUsed, onClose, setErrorMessage, setUsingPromptId })
-
-  const updateEditorState = useCallback((updater: (current: EditorState) => EditorState) => {
-    setEditorState(current => {
-      /* v8 ignore next -- editor inputs only render while editor state exists */
-      if (!current) { return current }
-      return updater(current)
+    usePromptEditorActions({
+      editorState,
+      createPrompt: create,
+      updatePrompt: update,
+      removePrompt: remove,
+      confirm,
+      setEditorState,
+      setErrorMessage,
+      setSaving,
     })
-  }, [setEditorState])
-  const handleTitleChange = useCallback((value: string) => updateEditorState(c => ({ ...c, title: value })), [updateEditorState])
-  const handleContentChange = useCallback((value: string) => updateEditorState(c => ({ ...c, content: value })), [updateEditorState])
+
+  const handleUsePrompt = usePromptUseAction({
+    activeTabId,
+    markUsed,
+    onClose,
+    setErrorMessage,
+    setUsingPromptId,
+  })
+
+  const updateEditorState = useCallback(
+    (updater: (current: EditorState) => EditorState) => {
+      setEditorState(current => {
+        /* v8 ignore next -- editor inputs only render while editor state exists */
+        if (!current) {
+          return current
+        }
+        return updater(current)
+      })
+    },
+    [setEditorState]
+  )
+  const handleTitleChange = useCallback(
+    (value: string) => updateEditorState(c => ({ ...c, title: value })),
+    [updateEditorState]
+  )
+  const handleContentChange = useCallback(
+    (value: string) => updateEditorState(c => ({ ...c, content: value })),
+    [updateEditorState]
+  )
 
   return (
     <>
-      <div className={getLibraryClassName(editorState)} ref={rootRef}
-        role="dialog" aria-modal="false" aria-label={getLibraryAriaLabel(editorState)}>
+      <div
+        className={getLibraryClassName(editorState)}
+        ref={rootRef}
+        role="dialog"
+        aria-modal="false"
+        aria-label={getLibraryAriaLabel(editorState)}
+      >
         <TerminalPromptLibraryHeader editorState={editorState} onClose={onClose} />
         <TerminalPromptLibraryError errorMessage={errorMessage} />
         <TerminalPromptLibraryContent
-          editorState={editorState} saving={saving} titleInputRef={titleInputRef}
-          prompts={prompts} canUsePrompt={canUsePrompt} terminalStatus={terminalStatus}
-          usingPromptId={usingPromptId} onCreate={openCreateEditor} onEdit={openEditEditor}
-          onUse={handleUsePrompt} onBack={closeEditor} onDelete={() => void handleDelete()}
-          onSubmit={handleSave} onTitleChange={handleTitleChange} onContentChange={handleContentChange}
+          editorState={editorState}
+          saving={saving}
+          titleInputRef={titleInputRef}
+          prompts={prompts}
+          canUsePrompt={canUsePrompt}
+          terminalStatus={terminalStatus}
+          usingPromptId={usingPromptId}
+          onCreate={openCreateEditor}
+          onEdit={openEditEditor}
+          onUse={handleUsePrompt}
+          onBack={closeEditor}
+          onDelete={() => void handleDelete()}
+          onSubmit={handleSave}
+          onTitleChange={handleTitleChange}
+          onContentChange={handleContentChange}
         />
       </div>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}

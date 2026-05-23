@@ -64,7 +64,10 @@ vi.mock('./AppearanceColorsSection', () => ({
       <button data-testid="change-accent" onClick={() => setColorValue(brandColors, 0, '#123456')}>
         Accent
       </button>
-      <button data-testid="change-font-color" onClick={() => setColorValue(brandColors, 1, '#654321')}>
+      <button
+        data-testid="change-font-color"
+        onClick={() => setColorValue(brandColors, 1, '#654321')}
+      >
         Font
       </button>
       <button

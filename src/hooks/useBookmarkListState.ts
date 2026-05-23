@@ -246,7 +246,8 @@ export function useBookmarkListState(filterCategory?: string) {
   const allTags = useMemo(() => computeAllTags(allBookmarks), [allBookmarks])
 
   const filteredBookmarks = useMemo(
-    () => filterBookmarks(allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery),
+    () =>
+      filterBookmarks(allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery),
     [allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery]
   )
 

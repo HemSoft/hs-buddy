@@ -7,12 +7,14 @@ import {
 } from '../../types/sflStatus'
 import { getOctokitForOwner } from './shared'
 
-function buildLatestWorkflowRun(latestRun: {
-  status?: string | null
-  conclusion?: string | null
-  created_at: string
-  html_url: string
-} | null): SFLWorkflowInfo['latestRun'] {
+function buildLatestWorkflowRun(
+  latestRun: {
+    status?: string | null
+    conclusion?: string | null
+    created_at: string
+    html_url: string
+  } | null
+): SFLWorkflowInfo['latestRun'] {
   if (!latestRun) return null
   return {
     status: latestRun.status ?? 'unknown',

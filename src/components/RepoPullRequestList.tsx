@@ -311,9 +311,7 @@ function renderRepoPRLoadState(
     return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
   }
   if (error) {
-    return (
-      <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-    )
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
   }
   return null
 }

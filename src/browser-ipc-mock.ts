@@ -101,16 +101,94 @@ export function installBrowserIpcMock(): void {
   console.warn('[Browser Mock] Electron preload unavailable — installing IPC mocks')
   const w = window as unknown as Record<string, unknown>
   w.ipcRenderer = createIpcRendererMock()
-  w.shell = { openExternal: () => Promise.resolve({ success: false, error: 'Browser mock' }), openInAppBrowser: () => Promise.resolve({ success: false, error: 'Browser mock' }), fetchPageTitle: () => Promise.resolve({ success: false }) }
-  w.github = { getCliToken: () => Promise.resolve(''), getActiveAccount: () => Promise.resolve(null), switchAccount: () => Promise.resolve({ success: false }), getCopilotUsage: () => Promise.resolve({ success: false }), getCopilotQuota: () => Promise.resolve({ success: false }), getCopilotBudget: () => Promise.resolve({ success: false }), getCopilotMemberUsage: () => Promise.resolve({ success: false }), getUserPremiumRequests: () => Promise.resolve({ success: false }) }
-  w.terminal = { spawn: () => Promise.resolve({ success: false, error: 'Browser mock' }), attach: () => Promise.resolve({ success: false }), write: () => {}, resize: () => {}, kill: () => Promise.resolve({ success: false }), resolveRepoPath: () => Promise.resolve({ path: null }) }
-  w.crew = { addProject: () => Promise.resolve({ success: false }), listProjects: () => Promise.resolve([]), removeProject: () => Promise.resolve(false), getSession: () => Promise.resolve(null), createSession: () => Promise.resolve(null), addMessage: () => Promise.resolve(null), updateSessionStatus: () => Promise.resolve(null), updateChangedFiles: () => Promise.resolve(null), clearSession: () => Promise.resolve(false), undoFile: () => Promise.resolve(false) }
-  w.tempo = { getToday: () => Promise.resolve({ success: false }), getRange: () => Promise.resolve({ success: false }), getWeek: () => Promise.resolve({ success: false }), createWorklog: () => Promise.resolve({ success: false }), updateWorklog: () => Promise.resolve({ success: false }), deleteWorklog: () => Promise.resolve({ success: false }), getAccounts: () => Promise.resolve({ success: false }), getProjectAccounts: () => Promise.resolve({ success: false }), getCapexMap: () => Promise.resolve({ success: false }), getSchedule: () => Promise.resolve({ success: false }) }
-  w.copilotSessions = { scan: () => Promise.resolve({ sessions: [], totalSize: 0 }), getSession: () => Promise.resolve(null), computeDigest: () => Promise.resolve(null) }
-  w.todoist = { getUpcoming: () => Promise.resolve({ success: false }), getToday: () => Promise.resolve({ success: false }), completeTask: () => Promise.resolve({ success: false }), reopenTask: () => Promise.resolve({ success: false }), createTask: () => Promise.resolve({ success: false }), updateTask: () => Promise.resolve({ success: false }), deleteTask: () => Promise.resolve({ success: false }), getProjects: () => Promise.resolve({ success: false }) }
+  w.shell = {
+    openExternal: () => Promise.resolve({ success: false, error: 'Browser mock' }),
+    openInAppBrowser: () => Promise.resolve({ success: false, error: 'Browser mock' }),
+    fetchPageTitle: () => Promise.resolve({ success: false }),
+  }
+  w.github = {
+    getCliToken: () => Promise.resolve(''),
+    getActiveAccount: () => Promise.resolve(null),
+    switchAccount: () => Promise.resolve({ success: false }),
+    getCopilotUsage: () => Promise.resolve({ success: false }),
+    getCopilotQuota: () => Promise.resolve({ success: false }),
+    getCopilotBudget: () => Promise.resolve({ success: false }),
+    getCopilotMemberUsage: () => Promise.resolve({ success: false }),
+    getUserPremiumRequests: () => Promise.resolve({ success: false }),
+  }
+  w.terminal = {
+    spawn: () => Promise.resolve({ success: false, error: 'Browser mock' }),
+    attach: () => Promise.resolve({ success: false }),
+    write: () => {},
+    resize: () => {},
+    kill: () => Promise.resolve({ success: false }),
+    resolveRepoPath: () => Promise.resolve({ path: null }),
+  }
+  w.crew = {
+    addProject: () => Promise.resolve({ success: false }),
+    listProjects: () => Promise.resolve([]),
+    removeProject: () => Promise.resolve(false),
+    getSession: () => Promise.resolve(null),
+    createSession: () => Promise.resolve(null),
+    addMessage: () => Promise.resolve(null),
+    updateSessionStatus: () => Promise.resolve(null),
+    updateChangedFiles: () => Promise.resolve(null),
+    clearSession: () => Promise.resolve(false),
+    undoFile: () => Promise.resolve(false),
+  }
+  w.tempo = {
+    getToday: () => Promise.resolve({ success: false }),
+    getRange: () => Promise.resolve({ success: false }),
+    getWeek: () => Promise.resolve({ success: false }),
+    createWorklog: () => Promise.resolve({ success: false }),
+    updateWorklog: () => Promise.resolve({ success: false }),
+    deleteWorklog: () => Promise.resolve({ success: false }),
+    getAccounts: () => Promise.resolve({ success: false }),
+    getProjectAccounts: () => Promise.resolve({ success: false }),
+    getCapexMap: () => Promise.resolve({ success: false }),
+    getSchedule: () => Promise.resolve({ success: false }),
+  }
+  w.copilotSessions = {
+    scan: () => Promise.resolve({ sessions: [], totalSize: 0 }),
+    getSession: () => Promise.resolve(null),
+    computeDigest: () => Promise.resolve(null),
+  }
+  w.todoist = {
+    getUpcoming: () => Promise.resolve({ success: false }),
+    getToday: () => Promise.resolve({ success: false }),
+    completeTask: () => Promise.resolve({ success: false }),
+    reopenTask: () => Promise.resolve({ success: false }),
+    createTask: () => Promise.resolve({ success: false }),
+    updateTask: () => Promise.resolve({ success: false }),
+    deleteTask: () => Promise.resolve({ success: false }),
+    getProjects: () => Promise.resolve({ success: false }),
+  }
   w.finance = { fetchQuote: () => Promise.resolve({ success: false }) }
   w.slack = { nudgeAuthor: () => Promise.resolve({ success: false }) }
-  w.filesystem = { readDir: () => Promise.resolve({ entries: [] }), readFile: () => Promise.resolve({ content: '', language: 'text', size: 0, error: 'Browser mock' }) }
-  w.ralph = { launch: () => Promise.resolve({ runId: '', status: 'error' }), stop: () => Promise.resolve({ success: false }), list: () => Promise.resolve([]), getStatus: () => Promise.resolve(null), getConfig: () => Promise.resolve({}), getScriptsPath: () => Promise.resolve(''), listTemplates: () => Promise.resolve([]), selectDirectory: () => Promise.resolve(null), onStatusChange: () => {}, offStatusChange: () => {} }
-  w.copilot = { execute: () => Promise.resolve({ resultId: null, success: false }), cancel: () => Promise.resolve({ success: false }), getActiveCount: () => Promise.resolve(0), listModels: () => Promise.resolve([]), chatSend: () => Promise.resolve(null), chatAbort: () => Promise.resolve({ success: false }), quickPrompt: () => Promise.resolve('') }
+  w.filesystem = {
+    readDir: () => Promise.resolve({ entries: [] }),
+    readFile: () =>
+      Promise.resolve({ content: '', language: 'text', size: 0, error: 'Browser mock' }),
+  }
+  w.ralph = {
+    launch: () => Promise.resolve({ runId: '', status: 'error' }),
+    stop: () => Promise.resolve({ success: false }),
+    list: () => Promise.resolve([]),
+    getStatus: () => Promise.resolve(null),
+    getConfig: () => Promise.resolve({}),
+    getScriptsPath: () => Promise.resolve(''),
+    listTemplates: () => Promise.resolve([]),
+    selectDirectory: () => Promise.resolve(null),
+    onStatusChange: () => {},
+    offStatusChange: () => {},
+  }
+  w.copilot = {
+    execute: () => Promise.resolve({ resultId: null, success: false }),
+    cancel: () => Promise.resolve({ success: false }),
+    getActiveCount: () => Promise.resolve(0),
+    listModels: () => Promise.resolve([]),
+    chatSend: () => Promise.resolve(null),
+    chatAbort: () => Promise.resolve({ success: false }),
+    quickPrompt: () => Promise.resolve(''),
+  }
 }

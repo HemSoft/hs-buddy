@@ -147,10 +147,18 @@ export function useOrgCachedFetch<T>({
     hasDataRef.current = seed != null
   }, [cacheKey])
 
-  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
-  useEffect(() => { fetchFnRef.current = fetchFn }, [fetchFn])
-  useEffect(() => { normalizeRef.current = normalizeFn }, [normalizeFn])
-  useEffect(() => { hasDataRef.current = data != null }, [data])
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
+  useEffect(() => {
+    fetchFnRef.current = fetchFn
+  }, [fetchFn])
+  useEffect(() => {
+    normalizeRef.current = normalizeFn
+  }, [normalizeFn])
+  useEffect(() => {
+    hasDataRef.current = data != null
+  }, [data])
 
   const accountsRef = useRef(accounts)
   useEffect(() => {

@@ -18,28 +18,52 @@ const SUGGESTED_PROMPTS: Record<string, string[]> = {
 }
 
 export function AssistantPanel({ context }: AssistantPanelProps) {
-  const { messages, isStreaming, sendMessage, clearConversation, abortResponse } = useAssistantConversation(context)
+  const { messages, isStreaming, sendMessage, clearConversation, abortResponse } =
+    useAssistantConversation(context)
   const [input, setInput] = useState('')
-  const [conversationEndRef, conversationRef, textareaRef] = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLTextAreaElement>(null)]
+  const [conversationEndRef, conversationRef, textareaRef] = [
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLTextAreaElement>(null),
+  ]
   useExternalMarkdownLinks(conversationRef)
 
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string | { prompt: string; model?: string }>).detail
       if (!detail) return
-      if (typeof detail === 'string') { sendMessage(detail) } else { sendMessage(detail.prompt, detail.model) }
+      if (typeof detail === 'string') {
+        sendMessage(detail)
+      } else {
+        sendMessage(detail.prompt, detail.model)
+      }
     }
     window.addEventListener('assistant:send-prompt', handler)
     return () => window.removeEventListener('assistant:send-prompt', handler)
   }, [sendMessage])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
-  useEffect(() => { conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
-  useEffect(() => { const el = textareaRef.current!; el.style.height = 'auto'; el.style.height = `${Math.min(el.scrollHeight, 120)}px` }, [input])
+  useEffect(() => {
+    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
+  }, [messages])
+  useEffect(() => {
+    const el = textareaRef.current!
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
+  }, [input])
 
-  const handleSend = () => { if (!input.trim() || isStreaming) return; sendMessage(input); setInput('') }
-  const handleKeyDown = (e: React.KeyboardEvent) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }
+  const handleSend = () => {
+    if (!input.trim() || isStreaming) return
+    sendMessage(input)
+    setInput('')
+  }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
   const suggestions = SUGGESTED_PROMPTS[context.viewType] || SUGGESTED_PROMPTS.welcome
 
   return (
@@ -50,8 +74,15 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           <span className="assistant-header-title">Copilot Assistant</span>
         </div>
         <div className="assistant-header-actions">
-          <button className="assistant-header-btn" onClick={clearConversation} title="Clear conversation"
-            aria-label="Clear conversation" disabled={messages.length === 0}><Trash2 size={14} /></button>
+          <button
+            className="assistant-header-btn"
+            onClick={clearConversation}
+            title="Clear conversation"
+            aria-label="Clear conversation"
+            disabled={messages.length === 0}
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
       </div>
       <div ref={conversationRef} className="assistant-conversation">
@@ -59,12 +90,19 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           <div className="assistant-empty-state">
             <Sparkles size={32} className="assistant-empty-icon" />
             <p className="assistant-empty-text">
-              Ask me anything about what you&apos;re viewing, or about Buddy itself. I can help with PRs, repos, issues, and more.
+              Ask me anything about what you&apos;re viewing, or about Buddy itself. I can help with
+              PRs, repos, issues, and more.
             </p>
             <div className="assistant-suggestions">
               {suggestions.map(prompt => (
-                <button key={prompt} className="assistant-suggestion-btn"
-                  onClick={() => sendMessage(prompt)} disabled={isStreaming}>{prompt}</button>
+                <button
+                  key={prompt}
+                  className="assistant-suggestion-btn"
+                  onClick={() => sendMessage(prompt)}
+                  disabled={isStreaming}
+                >
+                  {prompt}
+                </button>
               ))}
             </div>
           </div>
@@ -73,9 +111,17 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
             {messages.map(msg => (
               <div key={msg.id} className={`assistant-message assistant-message-${msg.role}`}>
                 {msg.role === 'assistant' ? (
-                  msg.content ? <MarkdownContent source={msg.content} className="assistant-message-markdown" />
-                    : <div className="assistant-message-loading"><Loader2 size={14} className="spin" /><span>Thinking...</span></div>
-                ) : <div className="assistant-message-text">{msg.content}</div>}
+                  msg.content ? (
+                    <MarkdownContent source={msg.content} className="assistant-message-markdown" />
+                  ) : (
+                    <div className="assistant-message-loading">
+                      <Loader2 size={14} className="spin" />
+                      <span>Thinking...</span>
+                    </div>
+                  )
+                ) : (
+                  <div className="assistant-message-text">{msg.content}</div>
+                )}
               </div>
             ))}
             <div ref={conversationEndRef} />
@@ -84,18 +130,36 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
       </div>
       {context.viewId && (
         <div className="assistant-context-bar">
-          <span className="assistant-context-badge" title={context.summary}>{context.summary}</span>
+          <span className="assistant-context-badge" title={context.summary}>
+            {context.summary}
+          </span>
         </div>
       )}
       <div className="assistant-input-area">
-        <textarea ref={textareaRef} className="assistant-input" value={input}
-          onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-          placeholder="Ask a question..." rows={1} disabled={isStreaming} />
+        <textarea
+          ref={textareaRef}
+          className="assistant-input"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Ask a question..."
+          rows={1}
+          disabled={isStreaming}
+        />
         <div className="assistant-input-actions">
           {isStreaming ? (
-            <button className="assistant-stop-btn" onClick={abortResponse} title="Stop"><StopCircle size={16} /></button>
+            <button className="assistant-stop-btn" onClick={abortResponse} title="Stop">
+              <StopCircle size={16} />
+            </button>
           ) : (
-            <button className="assistant-send-btn" onClick={handleSend} disabled={!input.trim()} title="Send (Enter)"><Send size={16} /></button>
+            <button
+              className="assistant-send-btn"
+              onClick={handleSend}
+              disabled={!input.trim()}
+              title="Send (Enter)"
+            >
+              <Send size={16} />
+            </button>
           )}
         </div>
       </div>

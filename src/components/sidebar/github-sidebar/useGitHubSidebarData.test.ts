@@ -1965,7 +1965,9 @@ describe('removeRepoBookmarkByValues', () => {
 
 describe('recordBookmarkInsert', () => {
   it('calls increment when result has inserted: true', () => {
-    const increment = vi.fn().mockResolvedValue(undefined) as unknown as Parameters<typeof recordBookmarkInsert>[1]
+    const increment = vi.fn().mockResolvedValue(undefined) as unknown as Parameters<
+      typeof recordBookmarkInsert
+    >[1]
     recordBookmarkInsert({ inserted: true }, increment)
     expect(increment).toHaveBeenCalledWith({ field: 'bookmarksCreated' })
   })

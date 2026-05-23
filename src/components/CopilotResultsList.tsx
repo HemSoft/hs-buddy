@@ -52,7 +52,10 @@ function PRLinkButton({ metadata }: { metadata: Record<string, unknown> | null }
   )
 }
 
-function shouldShowPRLink(category: string | undefined, metadata: Record<string, unknown> | null): boolean {
+function shouldShowPRLink(
+  category: string | undefined,
+  metadata: Record<string, unknown> | null
+): boolean {
   return category === 'pr-review' && !!metadata?.prUrl
 }
 

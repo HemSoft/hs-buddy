@@ -301,7 +301,11 @@ function AccountEditPanel({
   account: GitHubAccount
   editRepoRoot: string
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+  updateAccount: (
+    username: string,
+    org: string,
+    updates: Partial<GitHubAccount>
+  ) => Promise<unknown>
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
 }) {
   if (!isEditing) return null
@@ -331,7 +335,9 @@ function AccountEditPanel({
             className="settings-btn settings-btn-icon"
             title="Browse for folder"
             onClick={async () => {
-              const selected = await window.ralph.selectDirectory(resolveRepoRootUpdate(editRepoRoot))
+              const selected = await window.ralph.selectDirectory(
+                resolveRepoRootUpdate(editRepoRoot)
+              )
               if (selected) setEditRepoRoot(selected)
             }}
           >
@@ -373,7 +379,11 @@ function AccountListItem({
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+  updateAccount: (
+    username: string,
+    org: string,
+    updates: Partial<GitHubAccount>
+  ) => Promise<unknown>
   handleRemove: (username: string, org: string) => Promise<void>
 }) {
   const key = resolveAccountKey(account)
@@ -441,7 +451,11 @@ function AccountsListSection({
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+  updateAccount: (
+    username: string,
+    org: string,
+    updates: Partial<GitHubAccount>
+  ) => Promise<unknown>
   handleRemove: (username: string, org: string) => Promise<void>
 }) {
   if (accounts.length === 0) {
@@ -494,7 +508,11 @@ function ConfiguredAccountsSection({
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (username: string, org: string, updates: Partial<GitHubAccount>) => Promise<unknown>
+  updateAccount: (
+    username: string,
+    org: string,
+    updates: Partial<GitHubAccount>
+  ) => Promise<unknown>
   handleRemove: (username: string, org: string) => Promise<void>
 }) {
   return (
@@ -573,13 +591,19 @@ export function SettingsAccounts() {
     e.preventDefault()
     const { username, org } = trimAccountInput(newUsername, newOrg)
     const validationError = validateNewAccount(username, org, accounts)
-    if (validationError) { dispatch({ type: 'SET_ERROR', value: validationError }); return }
+    if (validationError) {
+      dispatch({ type: 'SET_ERROR', value: validationError })
+      return
+    }
     dispatch({ type: 'START_ADD' })
     try {
       const result = await addAccount({ username, org })
       dispatch({ type: 'FINISH_ADD', error: resolveAddAccountError(result) })
     } catch (error: unknown) {
-      dispatch({ type: 'FINISH_ADD', error: getUserFacingErrorMessage(error, 'Failed to add account') })
+      dispatch({
+        type: 'FINISH_ADD',
+        error: getUserFacingErrorMessage(error, 'Failed to add account'),
+      })
     }
   }
 

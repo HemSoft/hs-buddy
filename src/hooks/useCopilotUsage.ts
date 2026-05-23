@@ -1,4 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, type Dispatch, type SetStateAction } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  type Dispatch,
+  type SetStateAction,
+} from 'react'
 import { useGitHubAccounts } from './useConfig'
 import {
   OVERAGE_COST_PER_REQUEST,
@@ -127,7 +134,11 @@ async function doFetchQuota(username: string, setQuotas: QuotaSetter): Promise<v
   }
 }
 
-async function doFetchBudget(org: string, username: string | undefined, setOrgBudgets: BudgetSetter): Promise<void> {
+async function doFetchBudget(
+  org: string,
+  username: string | undefined,
+  setOrgBudgets: BudgetSetter
+): Promise<void> {
   setOrgBudgets(prev => ({
     ...prev,
     [org]: { data: prev[org]?.data ?? null, loading: true, error: null },
@@ -165,10 +176,7 @@ export function useCopilotUsage() {
     return map
   }, [accounts])
 
-  const fetchQuota = useCallback(
-    async (username: string) => doFetchQuota(username, setQuotas),
-    []
-  )
+  const fetchQuota = useCallback(async (username: string) => doFetchQuota(username, setQuotas), [])
 
   const fetchBudget = useCallback(
     async (org: string, username?: string) => doFetchBudget(org, username, setOrgBudgets),

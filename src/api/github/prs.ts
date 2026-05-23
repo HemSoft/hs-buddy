@@ -649,7 +649,9 @@ async function applyGraphQLFallback(
   try {
     const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
     if (fallbackPrs.length > 0) {
-      console.info(`[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`)
+      console.info(
+        `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
+      )
       allPrs.push(...fallbackPrs)
     }
   } catch (error: unknown) {
@@ -738,7 +740,11 @@ function createAccountReport(
   config: PRConfig['github'],
   totalAccounts: number,
   report: ProgressCallback
-): (index: number, status: PRProgressStatus, extra?: { prsFound?: number; error?: string }) => void {
+): (
+  index: number,
+  status: PRProgressStatus,
+  extra?: { prsFound?: number; error?: string }
+) => void {
   return (index, status, extra) => {
     const { username, org } = config.accounts[index]
     report({
@@ -767,7 +773,11 @@ async function fetchConfiguredAccountPRs(
   org: string,
   mode: PRSearchMode,
   index: number,
-  accountReport: (index: number, status: PRProgressStatus, extra?: { prsFound?: number; error?: string }) => void
+  accountReport: (
+    index: number,
+    status: PRProgressStatus,
+    extra?: { prsFound?: number; error?: string }
+  ) => void
 ): Promise<{ prs: PullRequest[]; authFailed: boolean }> {
   console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
   accountReport(index, 'authenticating')

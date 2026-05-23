@@ -91,10 +91,7 @@ function loadPreviewData(filePath: string, dispatch: React.Dispatch<FilePreviewA
   }
 }
 
-function highlightPreviewData(
-  data: FileData | null,
-  dispatch: React.Dispatch<FilePreviewAction>
-) {
+function highlightPreviewData(data: FileData | null, dispatch: React.Dispatch<FilePreviewAction>) {
   if (!data?.content || data.error) {
     return undefined
   }
@@ -122,7 +119,8 @@ function highlightPreviewData(
         /* v8 ignore stop */
         codeToHtml(content, { lang: 'text', theme: 'dark-plus' })
           .then(html => {
-            if (!cancelled && html.includes('class="shiki')) dispatch({ type: 'set-highlight', html })
+            if (!cancelled && html.includes('class="shiki'))
+              dispatch({ type: 'set-highlight', html })
           })
           .catch(() => {
             /* v8 ignore start */
@@ -160,10 +158,7 @@ function getLineLabel(lineCount: number): string {
   return lineCount === 1 ? 'line' : 'lines'
 }
 
-function resetPreviewForPath(
-  filePath: string,
-  dispatch: React.Dispatch<FilePreviewAction>
-): void {
+function resetPreviewForPath(filePath: string, dispatch: React.Dispatch<FilePreviewAction>): void {
   if (filePath) {
     dispatch({ type: 'load-start' })
   }

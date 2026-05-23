@@ -106,8 +106,12 @@ function ExpandableFileCard({
           <PreviousFilenameLabel previousFilename={file.previousFilename} />
         </div>
         <div className="repo-commit-file-header-meta">
-          <span className="repo-commit-file-stat repo-commit-file-stat-added">+{file.additions}</span>
-          <span className="repo-commit-file-stat repo-commit-file-stat-removed">-{file.deletions}</span>
+          <span className="repo-commit-file-stat repo-commit-file-stat-added">
+            +{file.additions}
+          </span>
+          <span className="repo-commit-file-stat repo-commit-file-stat-removed">
+            -{file.deletions}
+          </span>
           <span className="repo-commit-file-stat">{file.changes} changes</span>
           <OpenBlobButton blobUrl={file.blobUrl} />
         </div>

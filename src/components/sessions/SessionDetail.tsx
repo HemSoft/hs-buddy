@@ -198,10 +198,7 @@ function SessionRequestTimeline({
   )
 }
 
-function getSessionTitle(session: {
-  title?: string | null
-  sessionId: string
-}): string {
+function getSessionTitle(session: { title?: string | null; sessionId: string }): string {
   return session.title || `Session ${session.sessionId.slice(0, 8)}`
 }
 

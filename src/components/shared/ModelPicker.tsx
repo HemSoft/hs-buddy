@@ -198,7 +198,13 @@ function ModelPickerLoadingState({ className }: { className: string }) {
   )
 }
 
-function ModelPickerErrorState({ className, modelsError }: { className: string; modelsError: string }) {
+function ModelPickerErrorState({
+  className,
+  modelsError,
+}: {
+  className: string
+  modelsError: string
+}) {
   return (
     <div className={className}>
       <div className="form-error" style={{ marginBottom: '8px' }}>
@@ -347,10 +353,7 @@ function ModelPickerSelectVariant({
   )
 }
 
-function resolveFallbackModel(
-  sdkModels: { id: string; isDisabled?: boolean }[],
-  value: string
-) {
+function resolveFallbackModel(sdkModels: { id: string; isDisabled?: boolean }[], value: string) {
   if (sdkModels.length === 0) return null
   const isKnown = sdkModels.some(m => m.id === value)
   if (isKnown || value === '') return null

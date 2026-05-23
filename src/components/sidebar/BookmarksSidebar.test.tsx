@@ -1020,7 +1020,9 @@ describe('updateContextMenuPosition', () => {
   it('returns updated position when contextMenu is present', () => {
     const menu = { x: 5, y: 5, bookmarkId: 'bm1' }
     expect(updateContextMenuPosition(menu, { x: 10, y: 20 })).toEqual({
-      x: 10, y: 20, bookmarkId: 'bm1',
+      x: 10,
+      y: 20,
+      bookmarkId: 'bm1',
     })
   })
 })
@@ -1049,22 +1051,26 @@ describe('resolveDropInsertIndex', () => {
 })
 
 describe('reorderCategoryBookmarks', () => {
-  const makeBookmarks = () => [
-    { _id: 'a' }, { _id: 'b' }, { _id: 'c' },
-  ] as never[]
+  const makeBookmarks = () => [{ _id: 'a' }, { _id: 'b' }, { _id: 'c' }] as never[]
 
   it('returns null when draggedId not found', () => {
-    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    const target = {
+      getBoundingClientRect: () => ({ top: 0, height: 40 }),
+    } as unknown as HTMLElement
     expect(reorderCategoryBookmarks(makeBookmarks(), 'missing', 'b', target, 10)).toBeNull()
   })
 
   it('returns null when targetId not found', () => {
-    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    const target = {
+      getBoundingClientRect: () => ({ top: 0, height: 40 }),
+    } as unknown as HTMLElement
     expect(reorderCategoryBookmarks(makeBookmarks(), 'a', 'missing', target, 10)).toBeNull()
   })
 
   it('reorders when both ids are found', () => {
-    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    const target = {
+      getBoundingClientRect: () => ({ top: 0, height: 40 }),
+    } as unknown as HTMLElement
     const result = reorderCategoryBookmarks(makeBookmarks(), 'a', 'c', target, 5)
     expect(result).not.toBeNull()
     expect(result!.map((b: { _id: string }) => b._id)).toEqual(['b', 'a', 'c'])
@@ -1090,21 +1096,33 @@ describe('findBookmarkById', () => {
 describe('handleCategoryChevronKeyDown', () => {
   it('does nothing when key is not Enter or Space', () => {
     const toggle = vi.fn()
-    const e = { key: 'a', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    const e = {
+      key: 'a',
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    } as unknown as React.KeyboardEvent
     handleCategoryChevronKeyDown(e, 'section1', toggle)
     expect(toggle).not.toHaveBeenCalled()
   })
 
   it('calls toggleSection on Enter', () => {
     const toggle = vi.fn()
-    const e = { key: 'Enter', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    const e = {
+      key: 'Enter',
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    } as unknown as React.KeyboardEvent
     handleCategoryChevronKeyDown(e, 'section1', toggle)
     expect(toggle).toHaveBeenCalledWith('section1')
   })
 
   it('calls toggleSection on Space', () => {
     const toggle = vi.fn()
-    const e = { key: ' ', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    const e = {
+      key: ' ',
+      stopPropagation: vi.fn(),
+      preventDefault: vi.fn(),
+    } as unknown as React.KeyboardEvent
     handleCategoryChevronKeyDown(e, 'section1', toggle)
     expect(toggle).toHaveBeenCalledWith('section1')
   })

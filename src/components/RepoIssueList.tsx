@@ -372,11 +372,32 @@ function useIssueContextMenuActions(
   return { handleStartRalphLoop, handleViewDetails, handleCopyLink, handleOpenOnGitHub }
 }
 
-function RepoIssueListFallback({ isEmpty, loading, error, owner, repo, issueState, refresh }: {
-  isEmpty: boolean; loading: boolean; error: string | null; owner: string; repo: string; issueState: string; refresh: () => void
+function RepoIssueListFallback({
+  isEmpty,
+  loading,
+  error,
+  owner,
+  repo,
+  issueState,
+  refresh,
+}: {
+  isEmpty: boolean
+  loading: boolean
+  error: string | null
+  owner: string
+  repo: string
+  issueState: string
+  refresh: () => void
 }) {
-  if (isEmpty && loading) return <PanelLoadingState message="Loading issues..." subtitle={`${owner}/${repo} · ${issueState}`} />
-  if (isEmpty && error) return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
+  if (isEmpty && loading)
+    return (
+      <PanelLoadingState
+        message="Loading issues..."
+        subtitle={`${owner}/${repo} · ${issueState}`}
+      />
+    )
+  if (isEmpty && error)
+    return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
   return null
 }
 
@@ -413,7 +434,15 @@ export function RepoIssueList(props: RepoIssueListProps) {
       onOpenIssue
     )
 
-  const fallback = RepoIssueListFallback({ isEmpty, loading, error, owner, repo, issueState, refresh })
+  const fallback = RepoIssueListFallback({
+    isEmpty,
+    loading,
+    error,
+    owner,
+    repo,
+    issueState,
+    refresh,
+  })
   if (fallback) return fallback
 
   return (

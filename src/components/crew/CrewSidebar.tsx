@@ -214,7 +214,11 @@ function ProjectListItem({
         aria-pressed={selectedItem === viewId}
       >
         <span className="sidebar-item-icon">
-          {isActive ? <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" /> : <FolderGit2 size={14} />}
+          {isActive ? (
+            <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" />
+          ) : (
+            <FolderGit2 size={14} />
+          )}
         </span>
         <span className="sidebar-item-label">{project.displayName}</span>
       </button>

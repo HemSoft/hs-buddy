@@ -18,10 +18,7 @@ interface ExistingSchedule {
   enabled: boolean
 }
 
-function hasDefinedScheduleChange<T>(
-  updatedValue: T | undefined,
-  existingValue: T
-): boolean {
+function hasDefinedScheduleChange<T>(updatedValue: T | undefined, existingValue: T): boolean {
   return updatedValue !== undefined && updatedValue !== existingValue
 }
 

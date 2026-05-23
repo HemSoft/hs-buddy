@@ -110,14 +110,19 @@ function resolveTerminalEnvValue(value: string | undefined, fallback: string): s
   return value || fallback
 }
 
-function buildTerminalEnv(env: Record<string, string | undefined>): Record<string, string | undefined> {
+function buildTerminalEnv(
+  env: Record<string, string | undefined>
+): Record<string, string | undefined> {
   return {
     ...env,
     COLORTERM: 'truecolor',
     TERM_PROGRAM: 'hs-buddy',
     COLORFGBG: '15;0',
     WT_SESSION: resolveTerminalEnvValue(env.WT_SESSION, 'b916bc1b-75a7-4c9a-8a38-6e8d06032505'),
-    WT_PROFILE_ID: resolveTerminalEnvValue(env.WT_PROFILE_ID, '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}'),
+    WT_PROFILE_ID: resolveTerminalEnvValue(
+      env.WT_PROFILE_ID,
+      '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}'
+    ),
   }
 }
 

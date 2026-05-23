@@ -148,11 +148,9 @@ function buildAccountsContentKey(
   convexConnected: boolean
 ): string {
   return JSON.stringify(
-    resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(account => [
-      account.username,
-      account.org,
-      account.repoRoot,
-    ])
+    resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(
+      account => [account.username, account.org, account.repoRoot]
+    )
   )
 }
 

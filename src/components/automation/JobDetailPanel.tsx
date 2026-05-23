@@ -253,13 +253,24 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   }
 
   const handleRunNow = async () => {
-    try { await createRun({ jobId: job._id, triggeredBy: 'manual' }) }
-    catch (error: unknown) { /* v8 ignore start */ console.error('Failed to create run:', error) /* v8 ignore stop */ }
+    try {
+      await createRun({ jobId: job._id, triggeredBy: 'manual' })
+    } catch (error: unknown) {
+      /* v8 ignore start */ console.error('Failed to create run:', error) /* v8 ignore stop */
+    }
   }
 
-  const handleEdit = () => { setDuplicating(false); setEditorOpen(true) }
-  const handleDuplicate = () => { setDuplicating(true); setEditorOpen(true) }
-  const handleDelete = async () => { await confirmAndDeleteJob(job, confirm, remove) }
+  const handleEdit = () => {
+    setDuplicating(false)
+    setEditorOpen(true)
+  }
+  const handleDuplicate = () => {
+    setDuplicating(true)
+    setEditorOpen(true)
+  }
+  const handleDelete = async () => {
+    await confirmAndDeleteJob(job, confirm, remove)
+  }
 
   return (
     <>

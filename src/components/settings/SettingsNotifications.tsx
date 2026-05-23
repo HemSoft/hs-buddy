@@ -80,8 +80,7 @@ function SoundFileSection({
         </h3>
       </div>
       <p className="section-description">
-        Select a local audio file (MP3, WAV, OGG, FLAC, AAC, M4A) to play as the notification
-        sound.
+        Select a local audio file (MP3, WAV, OGG, FLAC, AAC, M4A) to play as the notification sound.
       </p>
       <div className="sound-file-row">
         {soundPath ? (

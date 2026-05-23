@@ -589,7 +589,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
   if (!data) return null
 
-  return <QuotaLoadedContent data={data} loading={loading} premium={premium} refreshAll={refreshAll} />
+  return (
+    <QuotaLoadedContent data={data} loading={loading} premium={premium} refreshAll={refreshAll} />
+  )
 }
 
 // ── Seat-only view (non-configured org members) ──
@@ -657,7 +659,9 @@ function SeatView({
     return pendingContent
   }
 
-  return <SeatLoadedContent data={data} premium={premium} loading={loading} refreshAll={refreshAll} />
+  return (
+    <SeatLoadedContent data={data} premium={premium} loading={loading} refreshAll={refreshAll} />
+  )
 }
 
 function SeatHeroStats({

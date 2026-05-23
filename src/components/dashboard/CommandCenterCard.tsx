@@ -32,7 +32,10 @@ function CommandCenterStats({
   totalOverage,
   projectedTotal,
   projectedOverageCost,
-}: Pick<CommandCenterCardProps, 'totalUsed' | 'totalOverage' | 'projectedTotal' | 'projectedOverageCost'>) {
+}: Pick<
+  CommandCenterCardProps,
+  'totalUsed' | 'totalOverage' | 'projectedTotal' | 'projectedOverageCost'
+>) {
   return (
     <div className="welcome-usage-stats" aria-live="polite">
       <StatCard

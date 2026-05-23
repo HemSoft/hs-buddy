@@ -77,7 +77,13 @@ describe('handleOrgFetchErrorIfCurrent', () => {
   it('does nothing when fetch is stale', () => {
     const setPhase = vi.fn()
     const setError = vi.fn()
-    handleOrgFetchErrorIfCurrent(new Error('fail'), 'key-a', { current: 'key-b' }, setPhase, setError)
+    handleOrgFetchErrorIfCurrent(
+      new Error('fail'),
+      'key-a',
+      { current: 'key-b' },
+      setPhase,
+      setError
+    )
     expect(setPhase).not.toHaveBeenCalled()
     expect(setError).not.toHaveBeenCalled()
   })
@@ -85,7 +91,13 @@ describe('handleOrgFetchErrorIfCurrent', () => {
   it('sets error phase when fetch is current', () => {
     const setPhase = vi.fn()
     const setError = vi.fn()
-    handleOrgFetchErrorIfCurrent(new Error('fail'), 'key-a', { current: 'key-a' }, setPhase, setError)
+    handleOrgFetchErrorIfCurrent(
+      new Error('fail'),
+      'key-a',
+      { current: 'key-a' },
+      setPhase,
+      setError
+    )
     expect(setPhase).toHaveBeenCalledWith('error')
     expect(setError).toHaveBeenCalledWith('fail')
   })

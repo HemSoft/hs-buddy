@@ -43,7 +43,9 @@ function getTotalActiveCount(activeCount: CopilotActiveResult): number {
   return pending + running
 }
 
-function getRecentResultsCount(recentResults: ReturnType<typeof useCopilotResultsRecent>): number | undefined {
+function getRecentResultsCount(
+  recentResults: ReturnType<typeof useCopilotResultsRecent>
+): number | undefined {
   return recentResults?.length
 }
 

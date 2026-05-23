@@ -134,11 +134,7 @@ function GitHubAccountItem({
   )
 }
 
-function BackgroundSyncSection({
-  backgroundStatus,
-}: {
-  backgroundStatus?: BackgroundStatus
-}) {
+function BackgroundSyncSection({ backgroundStatus }: { backgroundStatus?: BackgroundStatus }) {
   if (!backgroundStatus) return null
   return (
     <>

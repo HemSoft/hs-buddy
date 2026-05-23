@@ -260,7 +260,13 @@ export function SidebarPanel({
 
   if (!data) return null
 
-  const specialSidebar = renderSectionSidebar(section, onItemSelect, selectedItem, counts, badgeProgress)
+  const specialSidebar = renderSectionSidebar(
+    section,
+    onItemSelect,
+    selectedItem,
+    counts,
+    badgeProgress
+  )
   if (specialSidebar) return specialSidebar
 
   return (

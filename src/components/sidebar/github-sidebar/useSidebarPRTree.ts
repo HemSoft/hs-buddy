@@ -138,8 +138,12 @@ const PR_ITEMS: SidebarItem[] = [
 /* v8 ignore start -- UI event handler; tested via E2E */
 function openPRReviewFromSidebar(pr: PullRequest): void {
   dispatchPRReviewOpen({
-    prUrl: pr.url, prTitle: pr.title, prNumber: pr.id,
-    repo: pr.repository, org: pr.org || '', author: pr.author,
+    prUrl: pr.url,
+    prTitle: pr.title,
+    prNumber: pr.id,
+    repo: pr.repository,
+    org: pr.org || '',
+    author: pr.author,
   })
 }
 /* v8 ignore stop */
@@ -147,8 +151,14 @@ function openPRReviewFromSidebar(pr: PullRequest): void {
 async function copyToClipboardFn(text: string): Promise<void> {
   /* v8 ignore start */
   if (navigator.clipboard?.writeText) {
-    try { await navigator.clipboard.writeText(text); return } catch (error: unknown) {
-      console.warn('Clipboard API writeText failed, falling back to deprecated execCommand("copy")', error)
+    try {
+      await navigator.clipboard.writeText(text)
+      return
+    } catch (error: unknown) {
+      console.warn(
+        'Clipboard API writeText failed, falling back to deprecated execCommand("copy")',
+        error
+      )
     }
   } else {
     console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
@@ -160,7 +170,9 @@ async function copyToClipboardFn(text: string): Promise<void> {
   textArea.style.opacity = '0'
   document.body.appendChild(textArea)
   textArea.select()
-  try { document.execCommand('copy') } catch (_: unknown) {
+  try {
+    document.execCommand('copy')
+  } catch (_: unknown) {
     /* v8 ignore next */
     console.warn('execCommand("copy") failed')
   }
@@ -188,9 +200,17 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
   const prGroups = useToggleSet()
   const prNodes = useToggleSet()
   const [prTreeData, setPrTreeData] = useState<Record<string, PullRequest[]>>(initPrTreeData)
-  const [prContextMenu, setPrContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(null)
+  const [prContextMenu, setPrContextMenu] = useState<{
+    x: number
+    y: number
+    pr: PullRequest
+  } | null>(null)
   const [approvingPrKeys, setApprovingPrKeys] = useState<Set<string>>(new Set())
-  const { newCounts: newPRCounts, newUrls: newPRUrls, markAsSeen: markPRsAsSeen } = useNewPRIndicator()
+  const {
+    newCounts: newPRCounts,
+    newUrls: newPRUrls,
+    markAsSeen: markPRsAsSeen,
+  } = useNewPRIndicator()
 
   useEffect(() => {
     const unsubscribe = dataCache.subscribe(key => {
@@ -206,7 +226,10 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     return unsubscribe
   }, [])
 
-  const openTreePRContextMenu = (e: React.MouseEvent, pr: PullRequest) => { e.preventDefault(); setPrContextMenu({ x: e.clientX, y: e.clientY, pr }) }
+  const openTreePRContextMenu = (e: React.MouseEvent, pr: PullRequest) => {
+    e.preventDefault()
+    setPrContextMenu({ x: e.clientX, y: e.clientY, pr })
+  }
   const closePrContextMenu = useCallback(() => setPrContextMenu(null), [])
   useEscapeToClose(!!prContextMenu, closePrContextMenu)
 
@@ -214,27 +237,49 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     setPrTreeData(prev => {
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
-        next[groupId] = items.map(item => shouldApprove(item, target) ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 } : item)
+        next[groupId] = items.map(item =>
+          shouldApprove(item, target)
+            ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
+            : item
+        )
       }
       return next
     })
   }, [])
 
-  const handleApprovePR = useCallback(async (pr: PullRequest) => {
-    const request = resolveApprovalRequest(pr, approvingPrKeys)
-    if (!request) return
-    setApprovingPrKeys(prev => new Set(prev).add(request.prKey))
-    try {
-      await approveSidebarPR(accounts, enqueueRef.current, request, pr.id)
-      applyApproveToTree(pr)
-    } catch (error: unknown) { handleApprovePRError(error) } finally { clearApprovingPRKey(setApprovingPrKeys, request.prKey) }
-  }, [accounts, approvingPrKeys, applyApproveToTree, enqueueRef])
+  const handleApprovePR = useCallback(
+    async (pr: PullRequest) => {
+      const request = resolveApprovalRequest(pr, approvingPrKeys)
+      if (!request) return
+      setApprovingPrKeys(prev => new Set(prev).add(request.prKey))
+      try {
+        await approveSidebarPR(accounts, enqueueRef.current, request, pr.id)
+        applyApproveToTree(pr)
+      } catch (error: unknown) {
+        handleApprovePRError(error)
+      } finally {
+        clearApprovingPRKey(setApprovingPrKeys, request.prKey)
+      }
+    },
+    [accounts, approvingPrKeys, applyApproveToTree, enqueueRef]
+  )
 
   return {
-    prContextMenu, setPrContextMenu, approvingPrKeys, prItems: PR_ITEMS, prTreeData,
-    expandedPrGroups: prGroups.set, expandedPRNodes: prNodes.set,
-    togglePRGroup: prGroups.toggle, togglePRNode: prNodes.toggle,
-    newPRCounts, newPRUrls, markPRsAsSeen, openTreePRContextMenu, handleApprovePR,
-    copyToClipboard: copyToClipboardFn, openPRReview: openPRReviewFromSidebar,
+    prContextMenu,
+    setPrContextMenu,
+    approvingPrKeys,
+    prItems: PR_ITEMS,
+    prTreeData,
+    expandedPrGroups: prGroups.set,
+    expandedPRNodes: prNodes.set,
+    togglePRGroup: prGroups.toggle,
+    togglePRNode: prNodes.toggle,
+    newPRCounts,
+    newPRUrls,
+    markPRsAsSeen,
+    openTreePRContextMenu,
+    handleApprovePR,
+    copyToClipboard: copyToClipboardFn,
+    openPRReview: openPRReviewFromSidebar,
   }
 }

@@ -99,9 +99,13 @@ function RunListTable({
               <RunListRowTitle run={run} />
             </td>
             <td>
-              <span className={`run-status-badge status-${run.status}`}>{getStatusLabel(run.status)}</span>
+              <span className={`run-status-badge status-${run.status}`}>
+                {getStatusLabel(run.status)}
+              </span>
             </td>
-            <td className="col-date">{run.duration !== undefined ? formatDuration(run.duration) : '—'}</td>
+            <td className="col-date">
+              {run.duration !== undefined ? formatDuration(run.duration) : '—'}
+            </td>
             <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
           </tr>
         ))}
@@ -187,14 +191,22 @@ export function RunList() {
   const toggleRow = (runId: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev)
-      if (next.has(runId)) { next.delete(runId) } else { next.add(runId) }
+      if (next.has(runId)) {
+        next.delete(runId)
+      } else {
+        next.add(runId)
+      }
       return next
     })
   }
 
   const handleCancel = async (runId: string, e: React.MouseEvent) => {
     e.stopPropagation()
-    try { await cancel({ id: runId as Id<'runs'> }) } catch (error: unknown) { console.error('Failed to cancel run:', error) }
+    try {
+      await cancel({ id: runId as Id<'runs'> })
+    } catch (error: unknown) {
+      console.error('Failed to cancel run:', error)
+    }
   }
 
   const { confirm, confirmDialog } = useConfirm()
@@ -220,10 +232,7 @@ export function RunList() {
     [runs, statusFilter]
   )
 
-  const statusCounts = useMemo(
-    () => getStatusCounts(runs as RunWithJob[] | undefined),
-    [runs]
-  )
+  const statusCounts = useMemo(() => getStatusCounts(runs as RunWithJob[] | undefined), [runs])
 
   if (runs === undefined) {
     return <RunListLoadingState />

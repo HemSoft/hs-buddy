@@ -1008,40 +1008,108 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const copilotTaskName = `org-detail-copilot-${org}`
   const initialOverview = buildSeedOverview(org)
   const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
-  const configuredAccounts = useMemo(() => accounts.filter(account => account.org === org), [accounts, org])
-  const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(configuredAccounts, quotas)
-  const overviewData = useOrgOverviewData({ accounts, org, enqueue, initialOverview, overviewCacheKey, overviewTaskName })
-  const membersData = useOrgMembersData({ accounts, org, enqueue, membersCacheKey, membersTaskName })
-  const preferredAccount = useMemo(() => accounts.find(account => account.org === org)?.username ?? overviewData.overview?.authenticatedAs, [accounts, org, overviewData.overview])
+  const configuredAccounts = useMemo(
+    () => accounts.filter(account => account.org === org),
+    [accounts, org]
+  )
+  const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(
+    configuredAccounts,
+    quotas
+  )
+  const overviewData = useOrgOverviewData({
+    accounts,
+    org,
+    enqueue,
+    initialOverview,
+    overviewCacheKey,
+    overviewTaskName,
+  })
+  const membersData = useOrgMembersData({
+    accounts,
+    org,
+    enqueue,
+    membersCacheKey,
+    membersTaskName,
+  })
+  const preferredAccount = useMemo(
+    () =>
+      accounts.find(account => account.org === org)?.username ??
+      overviewData.overview?.authenticatedAs,
+    [accounts, org, overviewData.overview]
+  )
   const isUserNamespace = Boolean(overviewData.overview?.isUserNamespace)
-  const copilotData = useOrgCopilotData({ org, enqueue, preferredAccount, isUserNamespace, copilotCacheKey, copilotTaskName })
+  const copilotData = useOrgCopilotData({
+    org,
+    enqueue,
+    preferredAccount,
+    isUserNamespace,
+    copilotCacheKey,
+    copilotTaskName,
+  })
   const { rateLimit, fetchRateLimit } = useOrgRateLimit(accounts, org)
-  const shouldRefreshOnMount = shouldRefreshOrgOnMount(initialOverview, membersData.hasCachedMembers, copilotData.hasCachedCopilot)
+  const shouldRefreshOnMount = shouldRefreshOrgOnMount(
+    initialOverview,
+    membersData.hasCachedMembers,
+    copilotData.hasCachedCopilot
+  )
   const githubQueue = getTaskQueue('github')
   void stats
-  const { liveOverviewPhase, liveMembersPhase, liveCopilotPhase } = computeLivePhases(overviewData, membersData, copilotData, isUserNamespace, personalQuotaSummary, personalQuotaLoading, githubQueue, overviewTaskName, membersTaskName, copilotTaskName)
+  const { liveOverviewPhase, liveMembersPhase, liveCopilotPhase } = computeLivePhases(
+    overviewData,
+    membersData,
+    copilotData,
+    isUserNamespace,
+    personalQuotaSummary,
+    personalQuotaLoading,
+    githubQueue,
+    overviewTaskName,
+    membersTaskName,
+    copilotTaskName
+  )
   const { fetchOverview } = overviewData
   const { fetchMembers } = membersData
   const { fetchCopilot } = copilotData
 
-  const fetchAll = useCallback(async (forceRefresh = false) => {
-    const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
-    if (!isUserNamespace) work.push(fetchCopilot(forceRefresh))
-    await Promise.allSettled(work)
-  }, [fetchCopilot, fetchRateLimit, isUserNamespace, fetchMembers, fetchOverview])
+  const fetchAll = useCallback(
+    async (forceRefresh = false) => {
+      const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
+      if (!isUserNamespace) work.push(fetchCopilot(forceRefresh))
+      await Promise.allSettled(work)
+    },
+    [fetchCopilot, fetchRateLimit, isUserNamespace, fetchMembers, fetchOverview]
+  )
 
-  useEffect(() => { void fetchAll(shouldRefreshOnMount) }, [fetchAll, shouldRefreshOnMount])
+  useEffect(() => {
+    void fetchAll(shouldRefreshOnMount)
+  }, [fetchAll, shouldRefreshOnMount])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return
     /* v8 ignore start */
-    const timer = setInterval(() => { void fetchAll(true) /* v8 ignore stop */ }, refreshInterval * MS_PER_MINUTE)
+    const timer = setInterval(() => {
+      void fetchAll(true) /* v8 ignore stop */
+    }, refreshInterval * MS_PER_MINUTE)
     return () => clearInterval(timer)
   }, [fetchAll, refreshInterval])
 
-  const selectedMember = useMemo(() => membersData.membersResult?.members.find(member => member.login === memberLogin) ?? null, [memberLogin, membersData.membersResult])
-  const selectedConfiguredAccount = useMemo(() => configuredAccounts.find(account => account.username === memberLogin) ?? null, [configuredAccounts, memberLogin])
-  const contributorMap = useMemo(() => new Map((overviewData.overview?.metrics.topContributorsToday ?? []).map(contributor => [contributor.login, contributor])), [overviewData.overview])
+  const selectedMember = useMemo(
+    () => membersData.membersResult?.members.find(member => member.login === memberLogin) ?? null,
+    [memberLogin, membersData.membersResult]
+  )
+  const selectedConfiguredAccount = useMemo(
+    () => configuredAccounts.find(account => account.username === memberLogin) ?? null,
+    [configuredAccounts, memberLogin]
+  )
+  const contributorMap = useMemo(
+    () =>
+      new Map(
+        (overviewData.overview?.metrics.topContributorsToday ?? []).map(contributor => [
+          contributor.login,
+          contributor,
+        ])
+      ),
+    [overviewData.overview]
+  )
   const budgetState = orgBudgets[org]
   const quotaOverage = orgOverageFromQuotas.get(org) ?? 0
   const isInitialLoading = !overviewData.overview && liveOverviewPhase === 'loading'
@@ -1050,16 +1118,32 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const selectedMemberQuotaState = resolveSelectedQuotaState(selectedConfiguredAccount, quotas)
 
   return {
-    budgetState, configuredAccounts, contributorMap,
-    copilotError: copilotData.copilotError, copilotUsage: copilotData.copilotUsage, fetchAll,
-    hasFullOverview: overviewData.hasFullOverview, isInitialLoading, isUpdating,
-    liveCopilotPhase, liveMembersPhase, liveOverviewPhase,
+    budgetState,
+    configuredAccounts,
+    contributorMap,
+    copilotError: copilotData.copilotError,
+    copilotUsage: copilotData.copilotUsage,
+    fetchAll,
+    hasFullOverview: overviewData.hasFullOverview,
+    isInitialLoading,
+    isUpdating,
+    liveCopilotPhase,
+    liveMembersPhase,
+    liveOverviewPhase,
     memberCount: getMembersFromResult(membersData.membersResult).length,
     members: getMembersFromResult(membersData.membersResult),
-    membersError: membersData.membersError, overview: overviewData.overview,
-    overviewError: overviewData.overviewError, personalQuotaSummary, quotaOverage, quotas,
-    rateLimit, selectedConfiguredAccount, selectedContributor, selectedMember,
-    selectedMemberQuotaState, shouldShowPersonalQuotaPulse: Boolean(isUserNamespace && personalQuotaSummary),
+    membersError: membersData.membersError,
+    overview: overviewData.overview,
+    overviewError: overviewData.overviewError,
+    personalQuotaSummary,
+    quotaOverage,
+    quotas,
+    rateLimit,
+    selectedConfiguredAccount,
+    selectedContributor,
+    selectedMember,
+    selectedMemberQuotaState,
+    shouldShowPersonalQuotaPulse: Boolean(isUserNamespace && personalQuotaSummary),
   }
 }
 
@@ -1356,18 +1440,48 @@ function getHighlightedLogin(member: { login: string } | undefined | null): stri
 
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const {
-    budgetState, configuredAccounts, contributorMap, copilotError, copilotUsage, fetchAll,
-    hasFullOverview, isInitialLoading, isUpdating, liveCopilotPhase, liveMembersPhase,
-    liveOverviewPhase, memberCount, members, membersError, overview, overviewError,
-    personalQuotaSummary, quotaOverage, quotas, rateLimit, selectedConfiguredAccount,
-    selectedContributor, selectedMember, selectedMemberQuotaState, shouldShowPersonalQuotaPulse,
+    budgetState,
+    configuredAccounts,
+    contributorMap,
+    copilotError,
+    copilotUsage,
+    fetchAll,
+    hasFullOverview,
+    isInitialLoading,
+    isUpdating,
+    liveCopilotPhase,
+    liveMembersPhase,
+    liveOverviewPhase,
+    memberCount,
+    members,
+    membersError,
+    overview,
+    overviewError,
+    personalQuotaSummary,
+    quotaOverage,
+    quotas,
+    rateLimit,
+    selectedConfiguredAccount,
+    selectedContributor,
+    selectedMember,
+    selectedMemberQuotaState,
+    shouldShowPersonalQuotaPulse,
   } = useOrgDetailData(org, memberLogin)
 
   const [rosterFilter, setRosterFilter] = useState<RosterFilter>('all')
   const [rosterSort, setRosterSort] = useState<RosterSort>('name')
 
-  const nameMap = useMemo(() => { const map = new Map<string, string>(); for (const m of members) { if (m.name) map.set(m.login, m.name) } return map }, [members])
-  const configuredLogins = useMemo(() => new Set(configuredAccounts.map(a => a.username)), [configuredAccounts])
+  const nameMap = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of members) {
+      if (m.name) map.set(m.login, m.name)
+    }
+    return map
+  }, [members])
+  const configuredLogins = useMemo(
+    () => new Set(configuredAccounts.map(a => a.username)),
+    [configuredAccounts]
+  )
 
   const rosterCounts = useMemo(() => {
     const active = members.filter(m => contributorMap.has(m.login)).length
@@ -1378,9 +1492,15 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const filteredMembers = useMemo(() => {
     let result = members
     switch (rosterFilter) {
-      case 'active': result = result.filter(m => contributorMap.has(m.login)); break
-      case 'configured': result = result.filter(m => configuredLogins.has(m.login)); break
-      case 'idle': result = result.filter(m => !contributorMap.has(m.login)); break
+      case 'active':
+        result = result.filter(m => contributorMap.has(m.login))
+        break
+      case 'configured':
+        result = result.filter(m => configuredLogins.has(m.login))
+        break
+      case 'idle':
+        result = result.filter(m => !contributorMap.has(m.login))
+        break
     }
     if (rosterSort === 'commits') {
       result = [...result].sort((a, b) => {
@@ -1410,7 +1530,10 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         <AlertCircle size={32} />
         <p className="org-detail-error-title">Failed to load organization overview</p>
         <p className="org-detail-error-detail">{overviewError}</p>
-        <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}><RefreshCw size={14} />Retry</button>
+        <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
+          <RefreshCw size={14} />
+          Retry
+        </button>
       </div>
     )
   }
@@ -1419,16 +1542,65 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   return (
     <div className="org-detail-container">
-      <OrgDetailHero org={org} overview={overview} highlightedMemberLogin={getHighlightedLogin(selectedMember)} liveOverviewPhase={liveOverviewPhase} liveMembersPhase={liveMembersPhase} liveCopilotPhase={liveCopilotPhase} rateLimit={rateLimit} isUpdating={isUpdating} onRefresh={() => fetchAll(true)} />
+      <OrgDetailHero
+        org={org}
+        overview={overview}
+        highlightedMemberLogin={getHighlightedLogin(selectedMember)}
+        liveOverviewPhase={liveOverviewPhase}
+        liveMembersPhase={liveMembersPhase}
+        liveCopilotPhase={liveCopilotPhase}
+        rateLimit={rateLimit}
+        isUpdating={isUpdating}
+        onRefresh={() => fetchAll(true)}
+      />
       <OrgMetricsGrid overview={overview} memberCount={memberCount} />
-      <OrgDetailAlerts isUpdating={isUpdating} membersError={membersError} copilotError={copilotError} liveMembersPhase={liveMembersPhase} liveCopilotPhase={liveCopilotPhase} /* v8 ignore start */ onRetry={() => fetchAll(true)} /* v8 ignore stop */ />
+      <OrgDetailAlerts
+        isUpdating={isUpdating}
+        membersError={membersError}
+        copilotError={copilotError}
+        liveMembersPhase={liveMembersPhase}
+        liveCopilotPhase={liveCopilotPhase}
+        /* v8 ignore start */ onRetry={() => fetchAll(true)} /* v8 ignore stop */
+      />
       <div className="org-detail-section-grid">
-        <OrgCopilotSection overview={overview} copilotUsage={copilotUsage} personalQuotaSummary={personalQuotaSummary} configuredAccountsCount={configuredAccounts.length} budgetState={budgetState} quotaOverage={quotaOverage} liveCopilotPhase={liveCopilotPhase} shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse} />
-        <OrgLeadersSection org={org} contributors={overview.metrics.topContributorsToday} nameMap={nameMap} memberLogin={memberLogin} hasFullOverview={hasFullOverview} />
+        <OrgCopilotSection
+          overview={overview}
+          copilotUsage={copilotUsage}
+          personalQuotaSummary={personalQuotaSummary}
+          configuredAccountsCount={configuredAccounts.length}
+          budgetState={budgetState}
+          quotaOverage={quotaOverage}
+          liveCopilotPhase={liveCopilotPhase}
+          shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
+        />
+        <OrgLeadersSection
+          org={org}
+          contributors={overview.metrics.topContributorsToday}
+          nameMap={nameMap}
+          memberLogin={memberLogin}
+          hasFullOverview={hasFullOverview}
+        />
       </div>
-      <SelectedMemberSpotlight selectedMember={selectedMember} selectedContributor={selectedContributor} selectedConfiguredAccount={selectedConfiguredAccount} selectedMemberQuotaState={selectedMemberQuotaState} />
+      <SelectedMemberSpotlight
+        selectedMember={selectedMember}
+        selectedContributor={selectedContributor}
+        selectedConfiguredAccount={selectedConfiguredAccount}
+        selectedMemberQuotaState={selectedMemberQuotaState}
+      />
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
-      <MemberRosterSection org={org} memberLogin={memberLogin} members={members} filteredMembers={filteredMembers} contributorMap={contributorMap} configuredLogins={configuredLogins} rosterFilter={rosterFilter} rosterSort={rosterSort} rosterCounts={rosterCounts} onFilterChange={setRosterFilter} onSortChange={setRosterSort} />
+      <MemberRosterSection
+        org={org}
+        memberLogin={memberLogin}
+        members={members}
+        filteredMembers={filteredMembers}
+        contributorMap={contributorMap}
+        configuredLogins={configuredLogins}
+        rosterFilter={rosterFilter}
+        rosterSort={rosterSort}
+        rosterCounts={rosterCounts}
+        onFilterChange={setRosterFilter}
+        onSortChange={setRosterSort}
+      />
     </div>
   )
 }

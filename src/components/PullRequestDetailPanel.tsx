@@ -248,13 +248,21 @@ function PRDetailHeader({
           </span>
         </div>
         <div className="pr-detail-subtitle">
-          <span className="pr-detail-author">{pr.author}</span><span className="pr-detail-dot">·</span>
-          <span>{sourceLabel}</span><span className="pr-detail-dot">·</span>
-          <span>{pr.repository}</span><BranchFlow branches={branches} />
+          <span className="pr-detail-author">{pr.author}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{sourceLabel}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{pr.repository}</span>
+          <BranchFlow branches={branches} />
         </div>
       </div>
       <div className="pr-detail-header-actions">
-        <button className={`pr-detail-refresh-btn${copilotStateConfig.buttonClass}`} onClick={handleRequestCopilotReview} title={copilotStateConfig.title} disabled={copilotReviewState !== 'idle'}>
+        <button
+          className={`pr-detail-refresh-btn${copilotStateConfig.buttonClass}`}
+          onClick={handleRequestCopilotReview}
+          title={copilotStateConfig.title}
+          disabled={copilotReviewState !== 'idle'}
+        >
           <CopilotReviewButtonIcon state={copilotReviewState} />
         </button>
         <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
@@ -272,16 +280,46 @@ function PRDetailHeader({
       </div>
       {contextMenu && (
         <PRDetailContextMenu
-          x={contextMenu.x} y={contextMenu.y} youApproved={youApproved}
-          copilotReviewState={copilotReviewState} nudgeState={nudgeState}
-          aiReviewProviders={aiReviewProviders.map(p => ({ ...p, onRequest: () => { p.onRequest(); setContextMenu(null) } }))}
-          onRequestCopilotReview={() => { handleRequestCopilotReview(); setContextMenu(null) }}
-          onApprove={() => { onApprove(); setContextMenu(null) }}
-          onNudge={() => { onNudge(); setContextMenu(null) }}
-          onRefresh={() => { onRefresh(); setContextMenu(null) }}
-          onCopyLink={() => { navigator.clipboard.writeText(pr.url); setContextMenu(null) }}
-          onOpenExternal={() => { window.shell.openExternal(pr.url); setContextMenu(null) }}
-          onStartRalphReview={() => { onStartRalphReview(); setContextMenu(null) }}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          youApproved={youApproved}
+          copilotReviewState={copilotReviewState}
+          nudgeState={nudgeState}
+          aiReviewProviders={aiReviewProviders.map(p => ({
+            ...p,
+            onRequest: () => {
+              p.onRequest()
+              setContextMenu(null)
+            },
+          }))}
+          onRequestCopilotReview={() => {
+            handleRequestCopilotReview()
+            setContextMenu(null)
+          }}
+          onApprove={() => {
+            onApprove()
+            setContextMenu(null)
+          }}
+          onNudge={() => {
+            onNudge()
+            setContextMenu(null)
+          }}
+          onRefresh={() => {
+            onRefresh()
+            setContextMenu(null)
+          }}
+          onCopyLink={() => {
+            navigator.clipboard.writeText(pr.url)
+            setContextMenu(null)
+          }}
+          onOpenExternal={() => {
+            window.shell.openExternal(pr.url)
+            setContextMenu(null)
+          }}
+          onStartRalphReview={() => {
+            onStartRalphReview()
+            setContextMenu(null)
+          }}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -777,69 +815,245 @@ function DetailBanners({
 }
 
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
-  const { pr } = props; const section = props.section ?? null
-  const { accounts } = useGitHubAccounts(); const { enqueue } = useTaskQueue('github'); const enqueueRef = useRef(enqueue)
+  const { pr } = props
+  const section = props.section ?? null
+  const { accounts } = useGitHubAccounts()
+  const { enqueue } = useTaskQueue('github')
+  const enqueueRef = useRef(enqueue)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url) ?? null, [pr.url])
-  const { data: prBody } = usePRPanelData<string>(pr, 'pr-body', (client, owner, repo, prNumber) => client.fetchPRBody(owner, repo, prNumber))
-  const { copilotReviewState, copilotReviewBanner, setCopilotReviewBanner, refreshKey, setRefreshKey, handleRequestCopilotReview } = useCopilotReviewMonitor({ prId: pr.id, prUrl: pr.url, ownerRepo })
-  const { reviewState: codeRabbitReviewState, reviewBanner: codeRabbitReviewBanner, setReviewBanner: setCodeRabbitReviewBanner, handleRequestReview: handleRequestCodeRabbitReview } = useAIReviewMonitor({ provider: codeRabbitProvider, prId: pr.id, prUrl: pr.url, ownerRepo })
-  const aiReviewProviders = useMemo(() => [{ id: codeRabbitProvider.id, name: codeRabbitProvider.name, state: codeRabbitReviewState, onRequest: handleRequestCodeRabbitReview }], [codeRabbitReviewState, handleRequestCodeRabbitReview])
-  const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(getInitialBranches(pr))
+  const { data: prBody } = usePRPanelData<string>(pr, 'pr-body', (client, owner, repo, prNumber) =>
+    client.fetchPRBody(owner, repo, prNumber)
+  )
+  const {
+    copilotReviewState,
+    copilotReviewBanner,
+    setCopilotReviewBanner,
+    refreshKey,
+    setRefreshKey,
+    handleRequestCopilotReview,
+  } = useCopilotReviewMonitor({ prId: pr.id, prUrl: pr.url, ownerRepo })
+  const {
+    reviewState: codeRabbitReviewState,
+    reviewBanner: codeRabbitReviewBanner,
+    setReviewBanner: setCodeRabbitReviewBanner,
+    handleRequestReview: handleRequestCodeRabbitReview,
+  } = useAIReviewMonitor({ provider: codeRabbitProvider, prId: pr.id, prUrl: pr.url, ownerRepo })
+  const aiReviewProviders = useMemo(
+    () => [
+      {
+        id: codeRabbitProvider.id,
+        name: codeRabbitProvider.name,
+        state: codeRabbitReviewState,
+        onRequest: handleRequestCodeRabbitReview,
+      },
+    ],
+    [codeRabbitReviewState, handleRequestCodeRabbitReview]
+  )
+  const [branches, setBranches] = useState<{ headBranch: string; baseBranch: string } | null>(
+    getInitialBranches(pr)
+  )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
-  const [youApproved, setYouApproved] = useState(pr.iApproved); const [isApproving, setIsApproving] = useState(false)
+  const [youApproved, setYouApproved] = useState(pr.iApproved)
+  const [isApproving, setIsApproving] = useState(false)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
-  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle'); const [nudgeError, setNudgeError] = useState<string | null>(null)
-  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
-  useEffect(() => { setYouApproved(pr.iApproved) }, [pr.id, pr.url, pr.iApproved])
-  useEffect(() => { setHistoryUpdatedAt(null); setLinkedIssues([]); setNudgeState('idle'); setNudgeError(null) }, [pr.id, pr.repository, pr.url])
+  const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [nudgeError, setNudgeError] = useState<string | null>(null)
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
+  useEffect(() => {
+    setYouApproved(pr.iApproved)
+  }, [pr.id, pr.url, pr.iApproved])
+  useEffect(() => {
+    setHistoryUpdatedAt(null)
+    setLinkedIssues([])
+    setNudgeState('idle')
+    setNudgeError(null)
+  }, [pr.id, pr.repository, pr.url])
 
   const fetchBranches = useCallback(async () => {
-    if (pr.headBranch && pr.baseBranch) { setBranches({ headBranch: pr.headBranch, baseBranch: pr.baseBranch }); return }
-    if (!ownerRepo) { setBranches(null); return }
+    if (pr.headBranch && pr.baseBranch) {
+      setBranches({ headBranch: pr.headBranch, baseBranch: pr.baseBranch })
+      return
+    }
+    if (!ownerRepo) {
+      setBranches(null)
+      return
+    }
     try {
-      const result = await enqueueRef.current(/* v8 ignore start */ async signal => { throwIfAborted(signal); const client = new GitHubClient({ accounts }, 7); return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, pr.id) /* v8 ignore stop */ }, { name: `pr-branches-${pr.repository}-${pr.id}` })
+      const result = await enqueueRef.current(
+        /* v8 ignore start */ async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          return await client.fetchPRBranches(
+            ownerRepo.owner,
+            ownerRepo.repo,
+            pr.id
+          ) /* v8 ignore stop */
+        },
+        { name: `pr-branches-${pr.repository}-${pr.id}` }
+      )
       /* v8 ignore start */
       setBranches(result)
       /* v8 ignore stop */
-    } catch (_: unknown) { setBranches(null) }
+    } catch (_: unknown) {
+      setBranches(null)
+    }
   }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
 
-  useEffect(() => { fetchBranches() }, [fetchBranches])
-  const { activityAt, activityRelative, createdRelative } = resolveActivityDates(pr, historyUpdatedAt)
-  const { stateLabel, sectionLabel, isFocusedSection, effectiveIssue } = resolveLabelsAndIssue(pr, section, linkedIssues, branches, ownerRepo)
+  useEffect(() => {
+    fetchBranches()
+  }, [fetchBranches])
+  const { activityAt, activityRelative, createdRelative } = resolveActivityDates(
+    pr,
+    historyUpdatedAt
+  )
+  const { stateLabel, sectionLabel, isFocusedSection, effectiveIssue } = resolveLabelsAndIssue(
+    pr,
+    section,
+    linkedIssues,
+    branches,
+    ownerRepo
+  )
 
-  const handleHistoryLoaded = useCallback((history: PRHistorySummary) => { setHistoryUpdatedAt(history.updatedAt || null); setLinkedIssues(history.linkedIssues); const namespace = resolveNamespace(pr.org, ownerRepo?.owner); setYouApproved(resolveUserApproval(history, accounts, namespace)) }, [accounts, ownerRepo, pr.org])
+  const handleHistoryLoaded = useCallback(
+    (history: PRHistorySummary) => {
+      setHistoryUpdatedAt(history.updatedAt || null)
+      setLinkedIssues(history.linkedIssues)
+      const namespace = resolveNamespace(pr.org, ownerRepo?.owner)
+      setYouApproved(resolveUserApproval(history, accounts, namespace))
+    },
+    [accounts, ownerRepo, pr.org]
+  )
 
   const handleApprovePR = useCallback(async () => {
-    if (!ownerRepo || youApproved || isApproving) return; setIsApproving(true)
-    try { await enqueueRef.current(async signal => { throwIfAborted(signal); const client = new GitHubClient({ accounts }, 7); await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id) }, { name: `pr-approve-${pr.repository}-${pr.id}` }); setYouApproved(true) } finally { setIsApproving(false) }
+    if (!ownerRepo || youApproved || isApproving) return
+    setIsApproving(true)
+    try {
+      await enqueueRef.current(
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+        },
+        { name: `pr-approve-${pr.repository}-${pr.id}` }
+      )
+      setYouApproved(true)
+    } finally {
+      setIsApproving(false)
+    }
   }, [accounts, ownerRepo, pr.id, pr.repository, youApproved, isApproving])
 
   const handleNudgeAuthor = useCallback(async () => {
     /* v8 ignore start -- button is disabled in sending/sent states */
     if (isNudgeLocked(nudgeState)) return
     /* v8 ignore stop */
-    const failNudge = (message: string) => { setNudgeError(message); setNudgeState('error'); setTimeout(() => setNudgeState('idle'), 5000) }
-    setNudgeState('sending'); setNudgeError(null)
-    try { const result = await window.slack.nudgeAuthor({ githubLogin: pr.author, prTitle: pr.title, prUrl: pr.url }); if (result.success) { setNudgeState('sent'); return } console.warn('[Nudge] Failed:', result.error); failNudge(resolveNudgeFailureMessage(result.error)) } catch (err: unknown) { console.error('[Nudge] Error:', err); failNudge(String(err)) }
+    const failNudge = (message: string) => {
+      setNudgeError(message)
+      setNudgeState('error')
+      setTimeout(() => setNudgeState('idle'), 5000)
+    }
+    setNudgeState('sending')
+    setNudgeError(null)
+    try {
+      const result = await window.slack.nudgeAuthor({
+        githubLogin: pr.author,
+        prTitle: pr.title,
+        prUrl: pr.url,
+      })
+      if (result.success) {
+        setNudgeState('sent')
+        return
+      }
+      console.warn('[Nudge] Failed:', result.error)
+      failNudge(resolveNudgeFailureMessage(result.error))
+    } catch (err: unknown) {
+      console.error('[Nudge] Error:', err)
+      failNudge(String(err))
+    }
   }, [nudgeState, pr.author, pr.title, pr.url])
 
   const handleStartRalphReview = useCallback(() => {
-    const org = resolveNamespace(pr.org, ownerRepo?.owner); const repoRoot = resolveRepoRoot(accounts, org); const repoPath = buildRepoPath(repoRoot, pr.repository)
+    const org = resolveNamespace(pr.org, ownerRepo?.owner)
+    const repoRoot = resolveRepoRoot(accounts, org)
+    const repoPath = buildRepoPath(repoRoot, pr.repository)
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
-    setTimeout(() => { window.dispatchEvent(new CustomEvent('ralph:launch-pr-review', { detail: { prNumber: pr.id, repository: pr.repository, org, repoPath } })) }, 100)
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent('ralph:launch-pr-review', {
+          detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+        })
+      )
+    }, 100)
   }, [accounts, ownerRepo, pr.id, pr.org, pr.repository])
 
   return (
     <div className="pr-detail-container">
-      <PRDetailHeader pr={pr} stateLabel={stateLabel} branches={branches} copilotReviewState={copilotReviewState} handleRequestCopilotReview={handleRequestCopilotReview} onRefresh={() => setRefreshKey(k => k + 1)} youApproved={youApproved} isApproving={isApproving} onApprove={handleApprovePR} nudgeState={nudgeState} nudgeError={nudgeError} onNudge={handleNudgeAuthor} aiReviewProviders={aiReviewProviders} onStartRalphReview={handleStartRalphReview} />
+      <PRDetailHeader
+        pr={pr}
+        stateLabel={stateLabel}
+        branches={branches}
+        copilotReviewState={copilotReviewState}
+        handleRequestCopilotReview={handleRequestCopilotReview}
+        onRefresh={() => setRefreshKey(k => k + 1)}
+        youApproved={youApproved}
+        isApproving={isApproving}
+        onApprove={handleApprovePR}
+        nudgeState={nudgeState}
+        nudgeError={nudgeError}
+        onNudge={handleNudgeAuthor}
+        aiReviewProviders={aiReviewProviders}
+        onStartRalphReview={handleStartRalphReview}
+      />
       <div className="pr-detail-body">
-        <DetailBanners copilotReviewBanner={copilotReviewBanner} onDismissCopilot={() => { setCopilotReviewBanner(null); clearPendingReview(pr.url) }} codeRabbitReviewBanner={codeRabbitReviewBanner} onDismissCodeRabbit={() => { setCodeRabbitReviewBanner(null); clearPendingAIReview(codeRabbitProvider.id, pr.url) }} nudgeState={nudgeState} nudgeError={nudgeError} prAuthor={pr.author} onDismissNudge={() => { setNudgeState('idle'); setNudgeError(null) }} />
-        {sectionLabel && <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />}
+        <DetailBanners
+          copilotReviewBanner={copilotReviewBanner}
+          onDismissCopilot={() => {
+            setCopilotReviewBanner(null)
+            clearPendingReview(pr.url)
+          }}
+          codeRabbitReviewBanner={codeRabbitReviewBanner}
+          onDismissCodeRabbit={() => {
+            setCodeRabbitReviewBanner(null)
+            clearPendingAIReview(codeRabbitProvider.id, pr.url)
+          }}
+          nudgeState={nudgeState}
+          nudgeError={nudgeError}
+          prAuthor={pr.author}
+          onDismissNudge={() => {
+            setNudgeState('idle')
+            setNudgeError(null)
+          }}
+        />
+        {sectionLabel && (
+          <SectionNoteBar section={section!} sectionLabel={sectionLabel} prUrl={pr.url} />
+        )}
         {isFocusedSection ? (
-          <FocusedSectionContent section={section!} pr={pr} refreshKey={refreshKey} onHistoryLoaded={handleHistoryLoaded} />
+          <FocusedSectionContent
+            section={section!}
+            pr={pr}
+            refreshKey={refreshKey}
+            onHistoryLoaded={handleHistoryLoaded}
+          />
         ) : (
-          <><PROverviewSection pr={pr} youApproved={youApproved} effectiveIssue={effectiveIssue} createdRelative={createdRelative} activityRelative={activityRelative} activityAt={activityAt} /><PRSummarySection body={prBody} /><PullRequestHistoryPanel key={refreshKey} pr={pr} embedded onLoaded={handleHistoryLoaded} /><PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} /></>
+          <>
+            <PROverviewSection
+              pr={pr}
+              youApproved={youApproved}
+              effectiveIssue={effectiveIssue}
+              createdRelative={createdRelative}
+              activityRelative={activityRelative}
+              activityAt={activityAt}
+            />
+            <PRSummarySection body={prBody} />
+            <PullRequestHistoryPanel
+              key={refreshKey}
+              pr={pr}
+              embedded
+              onLoaded={handleHistoryLoaded}
+            />
+            <PRThreadsPanel key={`threads-${refreshKey}`} pr={pr} />
+          </>
         )}
       </div>
     </div>

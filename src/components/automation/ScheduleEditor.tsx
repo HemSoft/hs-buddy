@@ -243,10 +243,7 @@ function shouldWaitForExistingSchedule(
   return Boolean(isEditing && !existingSchedule)
 }
 
-function closeOnOverlayClick(
-  e: React.MouseEvent,
-  onClose: () => void
-) {
+function closeOnOverlayClick(e: React.MouseEvent, onClose: () => void) {
   if (e.target === e.currentTarget) {
     onClose()
   }
@@ -303,7 +300,14 @@ function ScheduleEditorBody({
   )
 }
 
-function ScheduleEditorForm({ scheduleId, isEditing, jobs, initialFormState, onClose, onSaved }: ScheduleEditorFormProps) {
+function ScheduleEditorForm({
+  scheduleId,
+  isEditing,
+  jobs,
+  initialFormState,
+  onClose,
+  onSaved,
+}: ScheduleEditorFormProps) {
   const scheduleCronLabelId = useId()
   const { create, update } = useScheduleMutations()
   const { increment: incrementStat } = useBuddyStatsMutations()
@@ -315,53 +319,126 @@ function ScheduleEditorForm({ scheduleId, isEditing, jobs, initialFormState, onC
 
   const handleSave = async () => {
     const validationError = validateScheduleForm(name, jobId)
-    if (validationError) { setError(validationError); return }
-    setError(null); setSaving(true)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    setError(null)
+    setSaving(true)
     try {
-      await persistScheduleChanges({ isEditing, scheduleId, name, description, jobId, cron, enabled, missedPolicy, create, update, incrementStat })
-      onSaved?.(); onClose()
-    } catch (err: unknown) { /* v8 ignore start */ setError(getUserFacingErrorMessage(err, 'Failed to save schedule')) /* v8 ignore stop */ } finally { setSaving(false) }
+      await persistScheduleChanges({
+        isEditing,
+        scheduleId,
+        name,
+        description,
+        jobId,
+        cron,
+        enabled,
+        missedPolicy,
+        create,
+        update,
+        incrementStat,
+      })
+      onSaved?.()
+      onClose()
+    } catch (err: unknown) {
+      /* v8 ignore start */ setError(
+        getUserFacingErrorMessage(err, 'Failed to save schedule')
+      ) /* v8 ignore stop */
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <>
       <div className="schedule-editor-content">
-        {error && (<div className="schedule-editor-error"><AlertCircle size={16} /><span>{error}</span></div>)}
+        {error && (
+          <div className="schedule-editor-error">
+            <AlertCircle size={16} />
+            <span>{error}</span>
+          </div>
+        )}
         <div className="form-group">
           <label htmlFor="schedule-name">Name</label>
-          <input id="schedule-name" type="text" value={name} onChange={e => dispatch({ type: 'SET_FIELD', field: 'name', value: e.target.value })} placeholder="e.g., Daily PR Check" />
+          <input
+            id="schedule-name"
+            type="text"
+            value={name}
+            onChange={e => dispatch({ type: 'SET_FIELD', field: 'name', value: e.target.value })}
+            placeholder="e.g., Daily PR Check"
+          />
         </div>
         <div className="form-group">
           <label htmlFor="schedule-description">Description</label>
-          <textarea id="schedule-description" value={description} onChange={e => dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })} placeholder="Optional description of what this schedule does" rows={2} />
+          <textarea
+            id="schedule-description"
+            value={description}
+            onChange={e =>
+              dispatch({ type: 'SET_FIELD', field: 'description', value: e.target.value })
+            }
+            placeholder="Optional description of what this schedule does"
+            rows={2}
+          />
         </div>
         <div className="form-group">
           <label htmlFor="schedule-job">Job</label>
-          <JobSelector jobs={jobs} jobId={jobId} isEditing={isEditing} selectedJob={selectedJob} dispatch={dispatch} />
+          <JobSelector
+            jobs={jobs}
+            jobId={jobId}
+            isEditing={isEditing}
+            selectedJob={selectedJob}
+            dispatch={dispatch}
+          />
         </div>
         <div className="form-group">
-          <span id={scheduleCronLabelId} className="form-label">Schedule</span>
+          <span id={scheduleCronLabelId} className="form-label">
+            Schedule
+          </span>
           <div role="group" aria-labelledby={scheduleCronLabelId}>
-            <CronBuilder value={cron} onChange={value => dispatch({ type: 'SET_FIELD', field: 'cron', value })} />
+            <CronBuilder
+              value={cron}
+              onChange={value => dispatch({ type: 'SET_FIELD', field: 'cron', value })}
+            />
           </div>
         </div>
         <div className="form-group">
           <label htmlFor="missed-policy">When Missed</label>
-          <select id="missed-policy" value={missedPolicy} onChange={e => dispatch({ type: 'SET_FIELD', field: 'missedPolicy', value: e.target.value })}>
-            <option value="skip">Skip missed runs</option><option value="catchup">Catch up all missed runs</option><option value="last">Run once for all missed</option>
+          <select
+            id="missed-policy"
+            value={missedPolicy}
+            onChange={e =>
+              dispatch({ type: 'SET_FIELD', field: 'missedPolicy', value: e.target.value })
+            }
+          >
+            <option value="skip">Skip missed runs</option>
+            <option value="catchup">Catch up all missed runs</option>
+            <option value="last">Run once for all missed</option>
           </select>
           <div className="form-hint">{getMissedPolicyHint(missedPolicy)}</div>
         </div>
         <div className="form-group form-row">
           <label htmlFor="schedule-enabled" className="checkbox-label">
-            <input id="schedule-enabled" type="checkbox" checked={enabled} onChange={e => dispatch({ type: 'SET_FIELD', field: 'enabled', value: e.target.checked })} />
+            <input
+              id="schedule-enabled"
+              type="checkbox"
+              checked={enabled}
+              onChange={e =>
+                dispatch({ type: 'SET_FIELD', field: 'enabled', value: e.target.checked })
+              }
+            />
             <span>Enabled</span>
           </label>
         </div>
       </div>
       <div className="schedule-editor-footer">
-        <button className="btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
-        <button className="btn-primary" onClick={handleSave} disabled={saving}><Save size={16} />{saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}</button>
+        <button className="btn-secondary" onClick={onClose} disabled={saving}>
+          Cancel
+        </button>
+        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+          <Save size={16} />
+          {saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}
+        </button>
       </div>
     </>
   )

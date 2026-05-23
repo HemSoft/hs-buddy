@@ -4,8 +4,18 @@ function clampPercent(value: number | undefined): number {
   return Math.min(value ?? 0, 100)
 }
 
-function ProjectedArc({ size, radius, circumference, strokeWidth, projectedCapped }: {
-  size: number; radius: number; circumference: number; strokeWidth: number; projectedCapped: number
+function ProjectedArc({
+  size,
+  radius,
+  circumference,
+  strokeWidth,
+  projectedCapped,
+}: {
+  size: number
+  radius: number
+  circumference: number
+  strokeWidth: number
+  projectedCapped: number
 }) {
   return (
     <circle
@@ -47,31 +57,52 @@ export function UsageRing({
   return (
     <svg width={size} height={size} className="usage-ring">
       <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={strokeWidth}
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke="rgba(255,255,255,0.08)"
+        strokeWidth={strokeWidth}
       />
       {showProjected && (
-        <ProjectedArc size={size} radius={radius} circumference={circumference}
-          strokeWidth={strokeWidth} projectedCapped={projectedCapped} />
+        <ProjectedArc
+          size={size}
+          radius={radius}
+          circumference={circumference}
+          strokeWidth={strokeWidth}
+          projectedCapped={projectedCapped}
+        />
       )}
       <circle
-        cx={size / 2} cy={size / 2} r={radius}
-        fill="none" stroke={color} strokeWidth={strokeWidth}
-        strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
+        cx={size / 2}
+        cy={size / 2}
+        r={radius}
+        fill="none"
+        stroke={color}
+        strokeWidth={strokeWidth}
+        strokeDasharray={circumference}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
         style={{ transition: 'stroke-dashoffset 0.6s ease, stroke 0.3s ease' }}
       />
       <text
-        x={size / 2} y={size / 2 - 4}
-        textAnchor="middle" dominantBaseline="central"
-        className="usage-ring-percent" fill={color}
+        x={size / 2}
+        y={size / 2 - 4}
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="usage-ring-percent"
+        fill={color}
       >
         {percentUsed.toFixed(1)}%
       </text>
       <text
-        x={size / 2} y={size / 2 + 14}
-        textAnchor="middle" dominantBaseline="central"
-        className="usage-ring-label" fill="var(--text-secondary, #888)"
+        x={size / 2}
+        y={size / 2 + 14}
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="usage-ring-label"
+        fill="var(--text-secondary, #888)"
       >
         used
       </text>

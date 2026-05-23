@@ -111,7 +111,12 @@ function HourlyCronOptions({ minute, updateCron }: CronOptionsProps) {
   )
 }
 
-function WeeklyCronOptions({ selectedDays, toggleDay, hourSelect, minuteSelect }: CronOptionsProps) {
+function WeeklyCronOptions({
+  selectedDays,
+  toggleDay,
+  hourSelect,
+  minuteSelect,
+}: CronOptionsProps) {
   return (
     <>
       <div className="cron-option">
@@ -135,12 +140,20 @@ function WeeklyCronOptions({ selectedDays, toggleDay, hourSelect, minuteSelect }
   )
 }
 
-function MonthlyCronOptions({ dayOfMonth, updateCron, hourSelect, minuteSelect }: CronOptionsProps) {
+function MonthlyCronOptions({
+  dayOfMonth,
+  updateCron,
+  hourSelect,
+  minuteSelect,
+}: CronOptionsProps) {
   return (
     <>
       <div className="cron-option">
         <span className="option-label">On day</span>
-        <select value={dayOfMonth} onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}>
+        <select
+          value={dayOfMonth}
+          onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
+        >
           {Array.from({ length: 31 }, (_, day) => (
             <option key={day + 1} value={day + 1}>
               {day + 1}
@@ -174,49 +187,137 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   const cronFreqLabelId = useId()
   const cronState = useMemo(() => parseCronValue(value), [value])
   const { frequency, minute, hour, dayOfMonth, selectedDays } = cronState
-  const updateCron = (patch: Partial<CronState>) => { onChange(buildCronExpression({ ...cronState, ...patch }, value)) }
+  const updateCron = (patch: Partial<CronState>) => {
+    onChange(buildCronExpression({ ...cronState, ...patch }, value))
+  }
   const cronExpression = useMemo(() => buildCronExpression(cronState, value), [cronState, value])
-  const description = useMemo(() => describeCronSchedule(frequency, minute, hour, dayOfMonth, selectedDays), [frequency, minute, hour, dayOfMonth, selectedDays])
+  const description = useMemo(
+    () => describeCronSchedule(frequency, minute, hour, dayOfMonth, selectedDays),
+    [frequency, minute, hour, dayOfMonth, selectedDays]
+  )
 
   const toggleDay = (day: number) => {
-    if (selectedDays.includes(day)) { if (selectedDays.length === 1) return; updateCron({ selectedDays: selectedDays.filter(selectedDay => selectedDay !== day) }); return }
+    if (selectedDays.includes(day)) {
+      if (selectedDays.length === 1) return
+      updateCron({ selectedDays: selectedDays.filter(selectedDay => selectedDay !== day) })
+      return
+    }
     updateCron({ selectedDays: [...selectedDays, day] })
   }
 
-  const hourSelect = (/* v8 ignore start */
-    <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>{Array.from({ length: 24 }, (_, h) => (<option key={h} value={h}>{formatHour12(h)}</option>))}</select>
-    /* v8 ignore stop */)
-  const minuteSelect = (/* v8 ignore start */
-    <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>{MINUTE_INCREMENTS.map(m => (<option key={m} value={m}>{m.toString().padStart(2, '0')}</option>))}</select>
-    /* v8 ignore stop */)
+  const hourSelect = (
+    /* v8 ignore start */
+    <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
+      {Array.from({ length: 24 }, (_, h) => (
+        <option key={h} value={h}>
+          {formatHour12(h)}
+        </option>
+      ))}
+    </select>
+    /* v8 ignore stop */
+  )
+  const minuteSelect = (
+    /* v8 ignore start */
+    <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+      {MINUTE_INCREMENTS.map(m => (
+        <option key={m} value={m}>
+          {m.toString().padStart(2, '0')}
+        </option>
+      ))}
+    </select>
+    /* v8 ignore stop */
+  )
 
   return (
     <div className="cron-builder">
       <div className="cron-frequency">
-        <span id={cronFreqLabelId} className="cron-label">Run Frequency</span>
+        <span id={cronFreqLabelId} className="cron-label">
+          Run Frequency
+        </span>
         <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
-          <button type="button" className={freqBtnClass(frequency, 'minute')} onClick={() => updateCron({ frequency: 'minute' })}>Every Minute</button>
-          <button type="button" className={freqBtnClass(frequency, 'hourly')} onClick={() => updateCron({ frequency: 'hourly' })}>Hourly</button>
-          <button type="button" className={freqBtnClass(frequency, 'daily')} onClick={() => updateCron({ frequency: 'daily' })}>Daily</button>
-          <button type="button" className={freqBtnClass(frequency, 'weekly')} onClick={() => updateCron({ frequency: 'weekly' })}>Weekly</button>
-          <button type="button" className={freqBtnClass(frequency, 'monthly')} onClick={() => updateCron({ frequency: 'monthly' })}>Monthly</button>
-          <button type="button" className={freqBtnClass(frequency, 'custom')} onClick={() => updateCron({ frequency: 'custom' })}>Custom</button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'minute')}
+            onClick={() => updateCron({ frequency: 'minute' })}
+          >
+            Every Minute
+          </button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'hourly')}
+            onClick={() => updateCron({ frequency: 'hourly' })}
+          >
+            Hourly
+          </button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'daily')}
+            onClick={() => updateCron({ frequency: 'daily' })}
+          >
+            Daily
+          </button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'weekly')}
+            onClick={() => updateCron({ frequency: 'weekly' })}
+          >
+            Weekly
+          </button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'monthly')}
+            onClick={() => updateCron({ frequency: 'monthly' })}
+          >
+            Monthly
+          </button>
+          <button
+            type="button"
+            className={freqBtnClass(frequency, 'custom')}
+            onClick={() => updateCron({ frequency: 'custom' })}
+          >
+            Custom
+          </button>
         </div>
       </div>
       <div className="cron-options">
-        <CronOptions frequency={frequency} minute={minute} dayOfMonth={dayOfMonth} selectedDays={selectedDays} hourSelect={hourSelect} minuteSelect={minuteSelect} toggleDay={toggleDay} updateCron={updateCron} />
+        <CronOptions
+          frequency={frequency}
+          minute={minute}
+          dayOfMonth={dayOfMonth}
+          selectedDays={selectedDays}
+          hourSelect={hourSelect}
+          minuteSelect={minuteSelect}
+          toggleDay={toggleDay}
+          updateCron={updateCron}
+        />
         {frequency === 'custom' && (
           <div className="cron-option custom">
-            <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder="* * * * *" className="custom-cron-input" />
+            <input
+              type="text"
+              value={value}
+              onChange={e => onChange(e.target.value)}
+              placeholder="* * * * *"
+              className="custom-cron-input"
+            />
             <div className="cron-format-hint">
-              <span className="cron-part">minute</span><span className="cron-part">hour</span><span className="cron-part">day</span><span className="cron-part">month</span><span className="cron-part">weekday</span>
+              <span className="cron-part">minute</span>
+              <span className="cron-part">hour</span>
+              <span className="cron-part">day</span>
+              <span className="cron-part">month</span>
+              <span className="cron-part">weekday</span>
             </div>
           </div>
         )}
       </div>
       <div className="cron-preview">
-        <div className="preview-expression"><span className="preview-label">Cron:</span><code className="preview-cron">{cronExpression}</code></div>
-        <div className="preview-description"><span className="preview-icon">📅</span>{description}</div>
+        <div className="preview-expression">
+          <span className="preview-label">Cron:</span>
+          <code className="preview-cron">{cronExpression}</code>
+        </div>
+        <div className="preview-description">
+          <span className="preview-icon">📅</span>
+          {description}
+        </div>
       </div>
     </div>
   )

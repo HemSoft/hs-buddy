@@ -63,10 +63,7 @@ function isFreshCopilotReview(
   return review.user?.login === 'copilot-pull-request-reviewer[bot]' && review.id > baselineReviewId
 }
 
-function isCopilotMonitorStale(
-  monitorSessionRef: { current: number },
-  sessionId: number
-): boolean {
+function isCopilotMonitorStale(monitorSessionRef: { current: number }, sessionId: number): boolean {
   return monitorSessionRef.current !== sessionId
 }
 
@@ -141,13 +138,19 @@ interface UseCopilotReviewMonitorOptions {
   ownerRepo: { owner: string; repo: string } | null
 }
 
-export function useCopilotReviewMonitor({ prId, prUrl, ownerRepo }: UseCopilotReviewMonitorOptions) {
+export function useCopilotReviewMonitor({
+  prId,
+  prUrl,
+  ownerRepo,
+}: UseCopilotReviewMonitorOptions) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
   const accountsRef = useRef(accounts)
   const enqueueRef = useRef(enqueue)
   const [copilotReviewState, setCopilotReviewState] = useState<CopilotReviewState>('idle')
-  const [copilotReviewBanner, setCopilotReviewBanner] = useState<{ completedAt: number } | null>(null)
+  const [copilotReviewBanner, setCopilotReviewBanner] = useState<{ completedAt: number } | null>(
+    null
+  )
   const [refreshKey, setRefreshKey] = useState(0)
   const monitorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const monitorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -155,62 +158,132 @@ export function useCopilotReviewMonitor({ prId, prUrl, ownerRepo }: UseCopilotRe
   const monitorSessionRef = useRef(0)
   const requestSessionRef = useRef(0)
 
-  useEffect(() => { accountsRef.current = accounts }, [accounts])
-  useEffect(() => { enqueueRef.current = enqueue }, [enqueue])
+  useEffect(() => {
+    accountsRef.current = accounts
+  }, [accounts])
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
 
   const clearCopilotReviewTimers = useCallback(() => {
-    if (monitorTimerRef.current) { clearTimeout(monitorTimerRef.current); monitorTimerRef.current = null }
-    if (monitorTimeoutRef.current) { clearTimeout(monitorTimeoutRef.current); monitorTimeoutRef.current = null }
+    if (monitorTimerRef.current) {
+      clearTimeout(monitorTimerRef.current)
+      monitorTimerRef.current = null
+    }
+    if (monitorTimeoutRef.current) {
+      clearTimeout(monitorTimeoutRef.current)
+      monitorTimeoutRef.current = null
+    }
   }, [])
 
-  const finishCopilotReviewMonitor = useCallback((sessionId: number, reviewPrUrl: string) => {
-    clearCopilotReviewTimers()
-    /* v8 ignore start */
-    if (monitorSessionRef.current !== sessionId) return
-    /* v8 ignore stop */
-    clearPendingReview(reviewPrUrl)
-    setCopilotReviewState('done')
-    setCopilotReviewBanner({ completedAt: Date.now() })
-    playReviewCompleteSound()
-    setRefreshKey(k => k + 1)
-    monitorTimeoutRef.current = setTimeout(() => {
+  const finishCopilotReviewMonitor = useCallback(
+    (sessionId: number, reviewPrUrl: string) => {
+      clearCopilotReviewTimers()
       /* v8 ignore start */
       if (monitorSessionRef.current !== sessionId) return
       /* v8 ignore stop */
-      setCopilotReviewState('idle'); monitorTimeoutRef.current = null
-    }, 3000)
+      clearPendingReview(reviewPrUrl)
+      setCopilotReviewState('done')
+      setCopilotReviewBanner({ completedAt: Date.now() })
+      playReviewCompleteSound()
+      setRefreshKey(k => k + 1)
+      monitorTimeoutRef.current = setTimeout(() => {
+        /* v8 ignore start */
+        if (monitorSessionRef.current !== sessionId) return
+        /* v8 ignore stop */
+        setCopilotReviewState('idle')
+        monitorTimeoutRef.current = null
+      }, 3000)
+    },
+    [clearCopilotReviewTimers]
+  )
+
+  const stopCopilotReviewMonitor = useCallback(() => {
+    monitorSessionRef.current++
+    clearCopilotReviewTimers()
   }, [clearCopilotReviewTimers])
 
-  const stopCopilotReviewMonitor = useCallback(() => { monitorSessionRef.current++; clearCopilotReviewTimers() }, [clearCopilotReviewTimers])
-
-  const startCopilotReviewMonitor = useCallback(({ ownerRepo: monitorOwnerRepo, prUrl: monitorPrUrl, baselineReviewId, runImmediately = false }: { ownerRepo: { owner: string; repo: string }; prUrl: string; baselineReviewId: number; runImmediately?: boolean }) => {
-    const sessionId = monitorSessionRef.current
-    setCopilotReviewState('monitoring')
-    monitorCountRef.current = 0
-    const findFreshCopilotReview = async () => enqueueRef.current(async signal => {
-      throwIfAborted(signal)
-      /* v8 ignore start */
-      if (monitorSessionRef.current !== sessionId) return undefined
-      /* v8 ignore stop */
-      const client = new GitHubClient({ accounts: accountsRef.current }, 7)
-      const reviews = await client.listPRReviews(monitorOwnerRepo.owner, monitorOwnerRepo.repo, prId)
-      throwIfAborted(signal)
-      /* v8 ignore start */
-      if (monitorSessionRef.current !== sessionId) return undefined
-      /* v8 ignore stop */
-      return reviews.find(review => isFreshCopilotReview(review, baselineReviewId))
-    }, { name: `copilot-review-poll-${prId}` })
-    const finish = () => finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-    const scheduleNextPoll = () => { /* v8 ignore start */ if (monitorSessionRef.current !== sessionId) return; /* v8 ignore stop */ monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS) }
-    const pollOnce = async () => { /* v8 ignore start */ if (isCopilotMonitorStale(monitorSessionRef, sessionId)) return; /* v8 ignore stop */ monitorCountRef.current++; if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) { handleCopilotPollLimitExceeded(sessionId, monitorPrUrl, monitorSessionRef, clearCopilotReviewTimers, setCopilotReviewState); return } if (!(await shouldContinueCopilotPolling(findFreshCopilotReview, finish))) return; scheduleNextPoll() }
-    if (runImmediately) { void shouldContinueCopilotPolling(findFreshCopilotReview, finish).then(cont => { if (cont) scheduleNextPoll() }); return }
-    scheduleNextPoll()
-  }, [clearCopilotReviewTimers, finishCopilotReviewMonitor, prId])
+  const startCopilotReviewMonitor = useCallback(
+    ({
+      ownerRepo: monitorOwnerRepo,
+      prUrl: monitorPrUrl,
+      baselineReviewId,
+      runImmediately = false,
+    }: {
+      ownerRepo: { owner: string; repo: string }
+      prUrl: string
+      baselineReviewId: number
+      runImmediately?: boolean
+    }) => {
+      const sessionId = monitorSessionRef.current
+      setCopilotReviewState('monitoring')
+      monitorCountRef.current = 0
+      const findFreshCopilotReview = async () =>
+        enqueueRef.current(
+          async signal => {
+            throwIfAborted(signal)
+            /* v8 ignore start */
+            if (monitorSessionRef.current !== sessionId) return undefined
+            /* v8 ignore stop */
+            const client = new GitHubClient({ accounts: accountsRef.current }, 7)
+            const reviews = await client.listPRReviews(
+              monitorOwnerRepo.owner,
+              monitorOwnerRepo.repo,
+              prId
+            )
+            throwIfAborted(signal)
+            /* v8 ignore start */
+            if (monitorSessionRef.current !== sessionId) return undefined
+            /* v8 ignore stop */
+            return reviews.find(review => isFreshCopilotReview(review, baselineReviewId))
+          },
+          { name: `copilot-review-poll-${prId}` }
+        )
+      const finish = () => finishCopilotReviewMonitor(sessionId, monitorPrUrl)
+      const scheduleNextPoll = () => {
+        /* v8 ignore start */ if (monitorSessionRef.current !== sessionId) return
+        /* v8 ignore stop */ monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
+      }
+      const pollOnce = async () => {
+        /* v8 ignore start */ if (isCopilotMonitorStale(monitorSessionRef, sessionId)) return
+        /* v8 ignore stop */ monitorCountRef.current++
+        if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
+          handleCopilotPollLimitExceeded(
+            sessionId,
+            monitorPrUrl,
+            monitorSessionRef,
+            clearCopilotReviewTimers,
+            setCopilotReviewState
+          )
+          return
+        }
+        if (!(await shouldContinueCopilotPolling(findFreshCopilotReview, finish))) return
+        scheduleNextPoll()
+      }
+      if (runImmediately) {
+        void shouldContinueCopilotPolling(findFreshCopilotReview, finish).then(cont => {
+          if (cont) scheduleNextPoll()
+        })
+        return
+      }
+      scheduleNextPoll()
+    },
+    [clearCopilotReviewTimers, finishCopilotReviewMonitor, prId]
+  )
 
   useEffect(() => {
-    requestSessionRef.current++; stopCopilotReviewMonitor(); setCopilotReviewState('idle'); setCopilotReviewBanner(null)
+    requestSessionRef.current++
+    stopCopilotReviewMonitor()
+    setCopilotReviewState('idle')
+    setCopilotReviewBanner(null)
     const pending = loadPendingReview(prUrl)
-    if (pending && ownerRepo) startCopilotReviewMonitor({ ownerRepo, prUrl, baselineReviewId: pending.baselineReviewId, runImmediately: true })
+    if (pending && ownerRepo)
+      startCopilotReviewMonitor({
+        ownerRepo,
+        prUrl,
+        baselineReviewId: pending.baselineReviewId,
+        runImmediately: true,
+      })
     return stopCopilotReviewMonitor
   }, [prId, prUrl, ownerRepo, startCopilotReviewMonitor, stopCopilotReviewMonitor])
 
@@ -219,20 +292,40 @@ export function useCopilotReviewMonitor({ prId, prUrl, ownerRepo }: UseCopilotRe
     const requestId = requestSessionRef.current
     setCopilotReviewState('requesting')
     try {
-      await enqueueRef.current(async signal => {
-        throwIfAborted(signal)
-        const c0 = new GitHubClient({ accounts: accountsRef.current }, 7)
-        const existingReviews = await c0.listPRReviews(ownerRepo.owner, ownerRepo.repo, prId)
-        const baselineReviewId = existingReviews.filter(r => r.user?.login === 'copilot-pull-request-reviewer[bot]').reduce((max, r) => Math.max(max, r.id), 0)
-        throwIfAborted(signal); /* v8 ignore start */ if (requestSessionRef.current !== requestId) return /* v8 ignore stop */
-        const c = new GitHubClient({ accounts: accountsRef.current }, 7)
-        await c.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, prId)
-        throwIfAborted(signal); /* v8 ignore start */ if (requestSessionRef.current !== requestId) return /* v8 ignore stop */
-        savePendingReview(prUrl, baselineReviewId)
-        startCopilotReviewMonitor({ ownerRepo, prUrl, baselineReviewId })
-      }, { name: `copilot-review-request-${prId}` })
-    } catch (err: unknown) { /* v8 ignore start */ if (isAbortError(err)) return; /* v8 ignore stop */ console.error('Failed to request Copilot review:', err); setCopilotReviewState('idle') }
+      await enqueueRef.current(
+        async signal => {
+          throwIfAborted(signal)
+          const c0 = new GitHubClient({ accounts: accountsRef.current }, 7)
+          const existingReviews = await c0.listPRReviews(ownerRepo.owner, ownerRepo.repo, prId)
+          const baselineReviewId = existingReviews
+            .filter(r => r.user?.login === 'copilot-pull-request-reviewer[bot]')
+            .reduce((max, r) => Math.max(max, r.id), 0)
+          throwIfAborted(signal)
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
+          const c = new GitHubClient({ accounts: accountsRef.current }, 7)
+          await c.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, prId)
+          throwIfAborted(signal)
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
+          savePendingReview(prUrl, baselineReviewId)
+          startCopilotReviewMonitor({ ownerRepo, prUrl, baselineReviewId })
+        },
+        { name: `copilot-review-request-${prId}` }
+      )
+    } catch (err: unknown) {
+      /* v8 ignore start */ if (isAbortError(err)) return
+      /* v8 ignore stop */ console.error('Failed to request Copilot review:', err)
+      setCopilotReviewState('idle')
+    }
   }, [prUrl, prId, copilotReviewState, ownerRepo, startCopilotReviewMonitor])
 
-  return { copilotReviewState, copilotReviewBanner, setCopilotReviewBanner, refreshKey, setRefreshKey, handleRequestCopilotReview }
+  return {
+    copilotReviewState,
+    copilotReviewBanner,
+    setCopilotReviewBanner,
+    refreshKey,
+    setRefreshKey,
+    handleRequestCopilotReview,
+  }
 }

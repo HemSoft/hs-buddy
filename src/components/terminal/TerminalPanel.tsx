@@ -48,60 +48,192 @@ function getPromptTriggerClass(isOpen: boolean): string {
   return `terminal-panel-prompt-trigger ${isOpen ? 'active' : ''}`
 }
 
-function getTabClassName(tabId: string, activeTabId: string | null, dragOverId: string | null): string {
+function getTabClassName(
+  tabId: string,
+  activeTabId: string | null,
+  dragOverId: string | null
+): string {
   return `terminal-panel-tab ${tabId === activeTabId ? 'active' : ''} ${dragOverId === tabId ? 'drag-over' : ''}`
 }
 
-export function TerminalPanel({ tabs, activeTabId, onTabSelect, onTabClose, onAddTab, onRenameTab, onSetTabColor, onReorderTabs, onTabCwdChange, onOpenFolderView }: TerminalPanelProps) {
-  const [contextMenuState, setContextMenuState] = useState<{ x: number; y: number; tab: TerminalTab; openedForTabId: string | null; activationSeq: number } | null>(null)
+export function TerminalPanel({
+  tabs,
+  activeTabId,
+  onTabSelect,
+  onTabClose,
+  onAddTab,
+  onRenameTab,
+  onSetTabColor,
+  onReorderTabs,
+  onTabCwdChange,
+  onOpenFolderView,
+}: TerminalPanelProps) {
+  const [contextMenuState, setContextMenuState] = useState<{
+    x: number
+    y: number
+    tab: TerminalTab
+    openedForTabId: string | null
+    activationSeq: number
+  } | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const [promptLibraryOpen, setPromptLibraryOpen] = useState(false)
   const dragTabIdRef = useRef<string | null>(null)
   const promptShellRef = useRef<HTMLDivElement>(null)
   const activationSeqRef = useRef(0)
-  useLayoutEffect(() => { activationSeqRef.current += 1 }, [activeTabId])
+  useLayoutEffect(() => {
+    activationSeqRef.current += 1
+  }, [activeTabId])
   const contextMenu = deriveContextMenu(contextMenuState, activeTabId, activationSeqRef.current)
 
-  const handleTabSelect = useCallback((tabId: string) => { setContextMenuState(null); setPromptLibraryOpen(false); onTabSelect(tabId) }, [onTabSelect])
-  const handleTabClose = useCallback((e: SyntheticEvent, tabId: string) => { e.stopPropagation(); setPromptLibraryOpen(false); onTabClose(tabId) }, [onTabClose])
-  const handleContextMenu = useCallback((e: React.MouseEvent, tab: TerminalTab) => { e.preventDefault(); setContextMenuState({ x: e.clientX, y: e.clientY, tab, openedForTabId: activeTabId, activationSeq: activationSeqRef.current }) }, [activeTabId])
-  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => { dragTabIdRef.current = tabId; e.dataTransfer.effectAllowed = 'move' }, [])
-  const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverId(tabId) }, [])
-  const handleDragEnd = useCallback(() => { dragTabIdRef.current = null; setDragOverId(null) }, [])
-  const handleDrop = useCallback((e: React.DragEvent, toId: string) => { e.preventDefault(); const fromId = dragTabIdRef.current; if (fromId && fromId !== toId) onReorderTabs(fromId, toId); dragTabIdRef.current = null; setDragOverId(null) }, [onReorderTabs])
+  const handleTabSelect = useCallback(
+    (tabId: string) => {
+      setContextMenuState(null)
+      setPromptLibraryOpen(false)
+      onTabSelect(tabId)
+    },
+    [onTabSelect]
+  )
+  const handleTabClose = useCallback(
+    (e: SyntheticEvent, tabId: string) => {
+      e.stopPropagation()
+      setPromptLibraryOpen(false)
+      onTabClose(tabId)
+    },
+    [onTabClose]
+  )
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent, tab: TerminalTab) => {
+      e.preventDefault()
+      setContextMenuState({
+        x: e.clientX,
+        y: e.clientY,
+        tab,
+        openedForTabId: activeTabId,
+        activationSeq: activationSeqRef.current,
+      })
+    },
+    [activeTabId]
+  )
+  const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
+    dragTabIdRef.current = tabId
+    e.dataTransfer.effectAllowed = 'move'
+  }, [])
+  const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverId(tabId)
+  }, [])
+  const handleDragEnd = useCallback(() => {
+    dragTabIdRef.current = null
+    setDragOverId(null)
+  }, [])
+  const handleDrop = useCallback(
+    (e: React.DragEvent, toId: string) => {
+      e.preventDefault()
+      const fromId = dragTabIdRef.current
+      if (fromId && fromId !== toId) onReorderTabs(fromId, toId)
+      dragTabIdRef.current = null
+      setDragOverId(null)
+    },
+    [onReorderTabs]
+  )
   const activeTab = tabs.find(t => t.id === activeTabId)
 
   return (
     <div className="terminal-panel">
-      <div className="terminal-panel-resize-grip" title="Drag to resize"><GripHorizontal size={14} /></div>
+      <div className="terminal-panel-resize-grip" title="Drag to resize">
+        <GripHorizontal size={14} />
+      </div>
       <div className="terminal-panel-header">
         <div className="terminal-panel-prompt-shell" ref={promptShellRef}>
-          <button type="button" className={getPromptTriggerClass(promptLibraryOpen)} onClick={() => setPromptLibraryOpen(open => !open)} title="Prompt Library" aria-haspopup="dialog" aria-expanded={promptLibraryOpen}>
-            <TerminalSquare size={12} /><span>Terminal</span><ChevronDown size={12} />
+          <button
+            type="button"
+            className={getPromptTriggerClass(promptLibraryOpen)}
+            onClick={() => setPromptLibraryOpen(open => !open)}
+            title="Prompt Library"
+            aria-haspopup="dialog"
+            aria-expanded={promptLibraryOpen}
+          >
+            <TerminalSquare size={12} />
+            <span>Terminal</span>
+            <ChevronDown size={12} />
           </button>
-          {promptLibraryOpen && <TerminalPromptLibrary activeTabId={activeTabId} ownerRef={promptShellRef} onClose={() => setPromptLibraryOpen(false)} />}
+          {promptLibraryOpen && (
+            <TerminalPromptLibrary
+              activeTabId={activeTabId}
+              ownerRef={promptShellRef}
+              onClose={() => setPromptLibraryOpen(false)}
+            />
+          )}
         </div>
         <div className="terminal-panel-tabs">
           {tabs.map(tab => (
-            <div key={tab.id} className={getTabClassName(tab.id, activeTabId, dragOverId)} /* v8 ignore start */ title={tab.cwd || tab.title} /* v8 ignore stop */ onContextMenu={e => handleContextMenu(e, tab)} style={tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined} draggable onDragStart={e => handleDragStart(e, tab.id)} onDragOver={e => handleDragOver(e, tab.id)} onDragEnd={handleDragEnd} onDrop={e => handleDrop(e, tab.id)}>
+            <div
+              key={tab.id}
+              className={getTabClassName(tab.id, activeTabId, dragOverId)}
+              /* v8 ignore start */ title={tab.cwd || tab.title}
+              /* v8 ignore stop */ onContextMenu={e => handleContextMenu(e, tab)}
+              style={tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined}
+              draggable
+              onDragStart={e => handleDragStart(e, tab.id)}
+              onDragOver={e => handleDragOver(e, tab.id)}
+              onDragEnd={handleDragEnd}
+              onDrop={e => handleDrop(e, tab.id)}
+            >
               {tab.color && <span className="terminal-panel-tab-color-dot" />}
-              <button type="button" className="terminal-panel-tab-button" onClick={() => handleTabSelect(tab.id)}><span className="terminal-panel-tab-title">{tab.title}</span></button>
-              <button type="button" className="terminal-panel-tab-close" onClick={e => handleTabClose(e, tab.id)} aria-label={`Close ${tab.title}`}><X size={12} /></button>
+              <button
+                type="button"
+                className="terminal-panel-tab-button"
+                onClick={() => handleTabSelect(tab.id)}
+              >
+                <span className="terminal-panel-tab-title">{tab.title}</span>
+              </button>
+              <button
+                type="button"
+                className="terminal-panel-tab-close"
+                onClick={e => handleTabClose(e, tab.id)}
+                aria-label={`Close ${tab.title}`}
+              >
+                <X size={12} />
+              </button>
             </div>
           ))}
-          <button type="button" className="terminal-panel-add-tab" onClick={onAddTab} title="New Terminal" aria-label="New Terminal"><Plus size={14} /></button>
+          <button
+            type="button"
+            className="terminal-panel-add-tab"
+            onClick={onAddTab}
+            title="New Terminal"
+            aria-label="New Terminal"
+          >
+            <Plus size={14} />
+          </button>
         </div>
       </div>
       <div className="terminal-panel-body">
         {activeTab ? (
           <Suspense fallback={<div className="terminal-panel-loading">Loading terminal…</div>}>
-            <TerminalPane key={activeTab.id} viewKey={activeTab.id} /* v8 ignore start */ cwd={activeTab.cwd || undefined} /* v8 ignore stop */ onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)} />
+            <TerminalPane
+              key={activeTab.id}
+              viewKey={activeTab.id}
+              /* v8 ignore start */ cwd={activeTab.cwd || undefined}
+              /* v8 ignore stop */ onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
+            />
           </Suspense>
         ) : (
           <div className="terminal-panel-empty">No terminal sessions. Click + to open one.</div>
         )}
       </div>
-      {contextMenu && <TerminalTabContextMenu x={contextMenu.x} y={contextMenu.y} tab={contextMenu.tab} onRename={onRenameTab} onSetColor={onSetTabColor} onOpenFolderView={onOpenFolderView} onClose={() => setContextMenuState(null)} />}
+      {contextMenu && (
+        <TerminalTabContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          tab={contextMenu.tab}
+          onRename={onRenameTab}
+          onSetColor={onSetTabColor}
+          onOpenFolderView={onOpenFolderView}
+          onClose={() => setContextMenuState(null)}
+        />
+      )}
     </div>
   )
 }

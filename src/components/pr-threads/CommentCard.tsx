@@ -94,10 +94,16 @@ function getCommentTimestamp(comment: PRReviewComment): number {
 
 function CommentAvatar({ comment }: { comment: PRReviewComment }) {
   if (comment.authorAvatarUrl) {
-    return <img src={comment.authorAvatarUrl} alt={comment.author} className="thread-comment-avatar" />
+    return (
+      <img src={comment.authorAvatarUrl} alt={comment.author} className="thread-comment-avatar" />
+    )
   }
 
-  return <div className="thread-comment-avatar-placeholder">{comment.author.charAt(0).toUpperCase()}</div>
+  return (
+    <div className="thread-comment-avatar-placeholder">
+      {comment.author.charAt(0).toUpperCase()}
+    </div>
+  )
 }
 
 function getReactionMeta(comment: PRReviewComment, content: PRCommentReactionContent) {
@@ -208,7 +214,9 @@ export function CommentCard({
       </summary>
       <div className="thread-comment-collapsible-body">
         <CommentBody body={comment.body} bodyHtml={comment.bodyHtml} />
-        {onReact && <CommentReactions comment={comment} reacting={reacting} handleReact={handleReact} />}
+        {onReact && (
+          <CommentReactions comment={comment} reacting={reacting} handleReact={handleReact} />
+        )}
       </div>
     </details>
   )

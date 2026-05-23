@@ -44,7 +44,7 @@ const ENTERPRISE_SLUG = 'Bertelsmann'
 /** Personal GitHub accounts that lack org-level billing API access.
  *  Maps org name (lowercase) to a known monthly budget limit.
  *  Billing API calls are skipped entirely for these orgs. */
-const PERSONAL_BUDGETS: Record<string, number> = {}
+export const PERSONAL_BUDGETS: Record<string, number> = {}
 
 type ExecAsyncSettledResult = PromiseSettledResult<Awaited<ReturnType<typeof execAsync>>>
 type CliStdoutSettledResult = PromiseSettledResult<{ stdout: string }>
@@ -724,7 +724,10 @@ function registerCopilotMemberHandlers(): void {
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
         if (isNotFoundError(error)) return { success: true, data: null }
-        console.error(`Failed to get Copilot member usage for '${memberLogin}' in '${org}':`, errorMessage)
+        console.error(
+          `Failed to get Copilot member usage for '${memberLogin}' in '${org}':`,
+          errorMessage
+        )
         return { success: false, error: errorMessage }
       }
     }
@@ -737,7 +740,10 @@ function registerCopilotMemberHandlers(): void {
         return { success: true, data: await fetchUserPremiumRequests(org, memberLogin, username) }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        console.error(`Failed to get user premium requests for '${memberLogin}' in '${org}':`, errorMessage)
+        console.error(
+          `Failed to get user premium requests for '${memberLogin}' in '${org}':`,
+          errorMessage
+        )
         return { success: false, error: errorMessage }
       }
     }
@@ -878,9 +884,7 @@ async function collectCopilotSnapshots(
           discount: result.data.discount,
           netCost: result.data.netCost,
           businessSeats: result.data.businessSeats,
-          ...(result.data.budgetAmount != null
-            ? { budgetAmount: result.data.budgetAmount }
-            : {}),
+          ...(result.data.budgetAmount != null ? { budgetAmount: result.data.budgetAmount } : {}),
           spent: result.data.spent,
         })
       } catch (storeErr: unknown) {

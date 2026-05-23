@@ -30,6 +30,12 @@ interface UsePRContextMenuOptions {
   >
 }
 
+function resolveBookmarkTarget(pr: PullRequest): { org: string; repoName: string } | null {
+  const org = pr.org ?? ''
+  if (!org || !pr.repository) return null
+  return { org, repoName: pr.repository }
+}
+
 async function toggleBookmark(
   pr: PullRequest,
   bookmarkedRepoKeys: Set<string>,
@@ -37,21 +43,14 @@ async function toggleBookmark(
   createBookmark: UsePRContextMenuOptions['createBookmark'],
   removeBookmark: UsePRContextMenuOptions['removeBookmark']
 ) {
-  const org = pr.org || ''
-  if (!org || !pr.repository) {
+  const target = resolveBookmarkTarget(pr)
+  if (!target) {
     console.warn('toggleBookmark: missing org or repository', pr)
     return
   }
-  const repoName = pr.repository
+  const { org, repoName } = target
   const key = `${org}/${repoName}`
-  if (bookmarkedRepoKeys.has(key)) {
-    const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-    if (bookmark) {
-      await removeBookmark({ id: bookmark._id })
-    } else {
-      console.error('toggleBookmark: key in Set but bookmark not found', { org, repoName })
-    }
-  } else {
+  if (!bookmarkedRepoKeys.has(key)) {
     await createBookmark({
       folder: org,
       owner: org,
@@ -59,7 +58,14 @@ async function toggleBookmark(
       url: pr.url.replace(/\/pull\/\d+$/, ''),
       description: '',
     })
+    return
   }
+  const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+  if (!bookmark) {
+    console.error('toggleBookmark: key in Set but bookmark not found', { org, repoName })
+    return
+  }
+  await removeBookmark({ id: bookmark._id })
 }
 
 export function usePRContextMenu(opts: UsePRContextMenuOptions) {

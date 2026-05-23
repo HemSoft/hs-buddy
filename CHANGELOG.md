@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Extract sub-hooks to reduce CRAP scores
+- Reduce cyclomatic complexity in toggleBookmark and parseSpawnOpts
+- Add coverage for nullish coalescing branch in resolveBookmarkTarget
 
 ### Fixed
 

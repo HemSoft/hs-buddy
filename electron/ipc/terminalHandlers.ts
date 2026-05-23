@@ -270,20 +270,25 @@ interface ParsedSpawnOpts {
   startupCommand: string | undefined
 }
 
+function asObject(raw: unknown): Record<string, unknown> {
+  return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
+}
+
+function parseValidCwd(cwdField: unknown): string {
+  if (typeof cwdField !== 'string') return resolveDefaultCwd()
+  return isValidCwd(cwdField) ? path.resolve(cwdField) : resolveDefaultCwd()
+}
+
+function parseNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined
+}
+
 function parseSpawnOpts(rawOpts: unknown): ParsedSpawnOpts {
-  const opts =
-    rawOpts && typeof rawOpts === 'object'
-      ? (rawOpts as { cwd?: unknown; cols?: unknown; rows?: unknown; startupCommand?: unknown })
-      : {}
-  const defaultCwd = resolveDefaultCwd()
-  const cwdInput = typeof opts.cwd === 'string' ? opts.cwd : undefined
-  const cwd = cwdInput && isValidCwd(cwdInput) ? path.resolve(cwdInput) : defaultCwd
+  const opts = asObject(rawOpts)
+  const cwd = parseValidCwd(opts.cwd)
   const cols = typeof opts.cols === 'number' ? opts.cols : undefined
   const rows = typeof opts.rows === 'number' ? opts.rows : undefined
-  const startupCommand =
-    typeof opts.startupCommand === 'string' && opts.startupCommand.length > 0
-      ? opts.startupCommand
-      : undefined
+  const startupCommand = parseNonEmptyString(opts.startupCommand)
   return { cwd, cols, rows, startupCommand }
 }
 

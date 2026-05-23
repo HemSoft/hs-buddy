@@ -139,6 +139,44 @@ describe('usePRContextMenu – toggleBookmark edge cases', () => {
     errorSpy.mockRestore()
   })
 
+  it('warns and returns early when pr.org is undefined (nullish coalescing fallback)', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const pr = makePR({ org: undefined, repository: 'hs-buddy' })
+
+    const { result } = renderHook(() =>
+      usePRContextMenu({
+        accounts: [],
+        bookmarks: [],
+        bookmarkedRepoKeys: new Set(),
+        recentlyMergedDays: 14,
+        premiumModel: 'gpt-4',
+        createBookmark,
+        removeBookmark,
+        enqueueRef,
+      })
+    )
+
+    act(() => {
+      result.current.handleContextMenu(
+        { preventDefault: vi.fn(), clientX: 10, clientY: 20 } as unknown as React.MouseEvent,
+        pr
+      )
+    })
+
+    await act(async () => {
+      await result.current.handleBookmarkRepo()
+    })
+
+    expect(createBookmark).not.toHaveBeenCalled()
+    expect(removeBookmark).not.toHaveBeenCalled()
+    expect(warnSpy).toHaveBeenCalledWith(
+      'toggleBookmark: missing org or repository',
+      expect.objectContaining({ org: undefined })
+    )
+
+    warnSpy.mockRestore()
+  })
+
   it('warns and returns early when pr.org is falsy', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const pr = makePR({ org: '', repository: 'hs-buddy' })

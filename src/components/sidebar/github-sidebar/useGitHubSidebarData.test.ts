@@ -23,6 +23,7 @@ vi.mock('../../../services/dataCache', () => ({
 let mockRefreshInterval = 0
 let mockCreateBookmarkResult: { inserted?: boolean } | null | undefined = undefined
 let mockCreateBookmarkShouldReject = false
+const mockIncrementStat = vi.fn().mockResolvedValue(undefined)
 
 // --- Mock hooks ---
 vi.mock('../../../hooks/useConfig', () => {
@@ -56,7 +57,7 @@ vi.mock('../../../hooks/useConvex', () => ({
     remove: vi.fn(),
   }),
   useBuddyStatsMutations: () => ({
-    increment: vi.fn().mockResolvedValue(undefined),
+    increment: mockIncrementStat,
   }),
 }))
 vi.mock('../../../hooks/useNewPRIndicator', () => ({
@@ -781,7 +782,7 @@ describe('useGitHubSidebarData', () => {
         'https://github.com/acme/new-repo'
       )
     })
-    // The incrementStat path was exercised (line 345)
+    expect(mockIncrementStat).toHaveBeenCalledWith({ field: 'bookmarksCreated' })
   })
 
   it('toggleRalphGroup toggles ralph group state', () => {
@@ -794,10 +795,15 @@ describe('useGitHubSidebarData', () => {
   })
 
   it('handleRepoCacheUpdate returns false for unrecognized keys', () => {
-    renderHook(() => useGitHubSidebarData())
+    const { result } = renderHook(() => useGitHubSidebarData())
     const subscribeCb = getMainSubscribeCb()
-    // Calling with an unrecognized key exercises the return false path (line 443)
+    const stateBefore = {
+      orgRepos: { ...result.current.orgRepos },
+      repoCounts: { ...result.current.repoCounts },
+    }
     act(() => subscribeCb('completely-unknown-prefix:something'))
+    expect(result.current.orgRepos).toEqual(stateBefore.orgRepos)
+    expect(result.current.repoCounts).toEqual(stateBefore.repoCounts)
   })
 
   it('toggleRepo toggles and fetches counts on first expand', async () => {

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.760] - 2026-05-23
+
 ### Changed
 
 - Extract sub-hooks to reduce CRAP scores
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove unused exports flagged by knip
 - Remove unused exports and address review findings
+- Achieve 100% test coverage for CRAP score improvements
 
 ## [0.1.759] - 2026-05-11
 

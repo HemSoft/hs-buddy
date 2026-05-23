@@ -8,7 +8,7 @@ import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
 import { throwIfAborted } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 
-export interface UsePRContextMenuOptions {
+interface UsePRContextMenuOptions {
   accounts: GitHubAccount[]
   bookmarks:
     | Array<{ _id: Id<'repoBookmarks'>; owner?: string | null; repo?: string | null }>

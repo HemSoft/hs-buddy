@@ -4,7 +4,6 @@ import type { useGitHubAccounts } from '../../../hooks/useConfig'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import {
   GitHubClient,
-  type OrgRepo,
   type RepoCounts,
   type RepoPullRequest,
   type RepoCommit,
@@ -85,7 +84,7 @@ function getMaxAgeMs(refreshInterval: number): number | null {
   return refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
 }
 
-export interface UseSidebarRepoActionsOptions {
+interface UseSidebarRepoActionsOptions {
   accounts: ReturnType<typeof useGitHubAccounts>['accounts']
   enqueueRef: React.MutableRefObject<EnqueueFn>
   refreshInterval: number
@@ -496,5 +495,3 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     handleRepoCacheUpdate,
   }
 }
-
-export type { OrgRepo }

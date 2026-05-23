@@ -74,14 +74,14 @@ function toContributorMap(overview: OrgOverviewResult): Record<string, number> {
   return Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
 }
 
-export function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
+function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
   /* v8 ignore next -- forceRefresh=true branch only used by future callers */
   if (forceRefresh) return null
   const cached = dataCache.get<OrgOverviewResult>(`org-overview:${org}`)
   return cached?.data ?? null
 }
 
-export interface UseSidebarOrgActionsOptions {
+interface UseSidebarOrgActionsOptions {
   accounts: ReturnType<typeof useGitHubAccounts>['accounts']
   enqueueRef: React.MutableRefObject<EnqueueFn>
 }

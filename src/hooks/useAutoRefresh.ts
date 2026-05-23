@@ -164,7 +164,9 @@ function handleRefreshResult(
       () => {
         if (mountedRef.current) stampRefresh()
       },
-      () => {}
+      (err) => {
+        console.error('[useAutoRefresh] Refresh promise rejected:', err)
+      }
     )
   } else {
     stampRefresh()

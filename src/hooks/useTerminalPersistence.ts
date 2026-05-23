@@ -9,7 +9,7 @@ const DEFAULT_TERMINAL_PANEL_HEIGHT = 300
 const MIN_PANEL_HEIGHT = 100
 const MAX_PANEL_HEIGHT = 1200
 
-export function clampPanelHeight(value: number): number {
+function clampPanelHeight(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_TERMINAL_PANEL_HEIGHT
   return Math.max(MIN_PANEL_HEIGHT, Math.min(MAX_PANEL_HEIGHT, value))
 }
@@ -220,4 +220,4 @@ export function useTerminalPersistence({
   }
 }
 
-export { DEFAULT_TERMINAL_PANEL_HEIGHT, PANEL_HEIGHT_SAVE_DEBOUNCE_MS, tryResolveRepoPath }
+export { DEFAULT_TERMINAL_PANEL_HEIGHT, tryResolveRepoPath }

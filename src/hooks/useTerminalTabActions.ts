@@ -1,7 +1,7 @@
 import { useCallback, type MutableRefObject } from 'react'
 import type { TerminalTab } from './useTerminalPanel'
 
-export interface UseTerminalTabActionsOptions {
+interface UseTerminalTabActionsOptions {
   terminalTabsRef: MutableRefObject<TerminalTab[]>
   setTerminalTabs: React.Dispatch<React.SetStateAction<TerminalTab[]>>
 }

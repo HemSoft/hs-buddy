@@ -15,7 +15,7 @@ function resolveViewRepoContext(activeViewId: string | null | undefined): RepoCo
 
 let nextTabNumber = 1
 
-export interface UseTerminalTabLifecycleOptions {
+interface UseTerminalTabLifecycleOptions {
   terminalTabsRef: MutableRefObject<TerminalTab[]>
   terminalOpenRef: MutableRefObject<boolean>
   activeTerminalTabId: string | null
@@ -35,52 +35,55 @@ export function useTerminalTabLifecycle({
   setTerminalTabs,
   setActiveTerminalTabId,
 }: UseTerminalTabLifecycleOptions) {
-  const addTerminalTab = useCallback(async (repoContext: RepoContext | null) => {
-    let cwd = ''
-    let title: string
-    let repoSlug: string | undefined
+  const addTerminalTab = useCallback(
+    async (repoContext: RepoContext | null) => {
+      let cwd = ''
+      let title: string
+      let repoSlug: string | undefined
 
-    if (repoContext) {
-      repoSlug = `${repoContext.owner}/${repoContext.repo}`
+      if (repoContext) {
+        repoSlug = `${repoContext.owner}/${repoContext.repo}`
 
-      // Optimistic dedup via ref (avoids unnecessary IPC calls)
-      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-        return existing
+        // Optimistic dedup via ref (avoids unnecessary IPC calls)
+        const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
+        if (existing) {
+          setActiveTerminalTabId(existing.id)
+          return existing
+        }
+
+        title = repoContext.repo
+        cwd = await tryResolveRepoPath(repoContext.owner, repoContext.repo)
+      } else {
+        title = `Terminal ${nextTabNumber++}`
       }
 
-      title = repoContext.repo
-      cwd = await tryResolveRepoPath(repoContext.owner, repoContext.repo)
-    } else {
-      title = `Terminal ${nextTabNumber++}`
-    }
-
-    const tabId = `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
-    const newTab: TerminalTab = {
-      id: tabId,
-      title,
-      cwd,
-      repoSlug,
-    }
-
-    // Re-check against the latest ref after async work completes so dedup/add and
-    // active-tab selection are derived from the same snapshot.
-    if (repoSlug) {
-      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-        return existing
+      const tabId = `term-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
+      const newTab: TerminalTab = {
+        id: tabId,
+        title,
+        cwd,
+        repoSlug,
       }
-    }
 
-    const nextTabs = [...terminalTabsRef.current, newTab]
-    terminalTabsRef.current = nextTabs
-    setTerminalTabs(nextTabs)
+      // Re-check against the latest ref after async work completes so dedup/add and
+      // active-tab selection are derived from the same snapshot.
+      if (repoSlug) {
+        const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
+        if (existing) {
+          setActiveTerminalTabId(existing.id)
+          return existing
+        }
+      }
 
-    setActiveTerminalTabId(tabId)
-    return newTab
-  }, [terminalTabsRef, setActiveTerminalTabId, setTerminalTabs])
+      const nextTabs = [...terminalTabsRef.current, newTab]
+      terminalTabsRef.current = nextTabs
+      setTerminalTabs(nextTabs)
+
+      setActiveTerminalTabId(tabId)
+      return newTab
+    },
+    [terminalTabsRef, setActiveTerminalTabId, setTerminalTabs]
+  )
 
   const toggleTerminal = useCallback(
     (activeViewId?: string | null) => {

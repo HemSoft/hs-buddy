@@ -35,13 +35,20 @@ function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): Br
   }
 }
 
-function handleWebviewBeforeInput(event: Event, shortcuts: Record<string, (s: boolean) => string>) {
+function getWebviewShortcutInput(event: Event) {
   const input = (
     event as Event & {
       input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean }
     }
   ).input
-  if (!input || input.type !== 'keyDown' || !(input.control || input.meta)) return
+  if (!input || input.type !== 'keyDown') return null
+  if (!input.control && !input.meta) return null
+  return input
+}
+
+function handleWebviewBeforeInput(event: Event, shortcuts: Record<string, (s: boolean) => string>) {
+  const input = getWebviewShortcutInput(event)
+  if (!input) return
   const fn = shortcuts[input.key]
   if (fn) {
     event.preventDefault()

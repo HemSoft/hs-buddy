@@ -305,6 +305,21 @@ function resolvePlannerConfig(mode: PlannerMode) {
   return mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
 }
 
+function PlannerDayContent({ mode, dayGroups, completingIds, projectMap, onComplete, onCreate }: {
+  mode: PlannerMode; dayGroups: DayGroup[]; completingIds: Set<string>;
+  projectMap: Map<string, TodoistProject>; onComplete: (id: string) => void; onCreate: (date: string, content: string) => void
+}) {
+  if (mode === 'today' && dayGroups.length > 0) {
+    return <TodayTaskList tasks={dayGroups[0].tasks} completingIds={completingIds}
+      projectMap={projectMap} onComplete={onComplete} />
+  }
+  return <>{dayGroups.map(group => (
+    <DaySection key={group.date}
+      group={{ ...group, tasks: group.tasks.filter(t => !completingIds.has(t.id)) }}
+      projectMap={projectMap} onComplete={onComplete} onCreate={onCreate} />
+  ))}</>
+}
+
 export function TaskPlannerView(props: { mode?: PlannerMode }) {
   const { mode } = { ...PLANNER_DEFAULTS, ...props }
   const { days, heading } = resolvePlannerConfig(mode)
@@ -363,24 +378,8 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
       )}
 
       <div className="planner-day-list">
-        {mode === 'today' && dayGroups.length > 0 ? (
-          <TodayTaskList
-            tasks={dayGroups[0].tasks}
-            completingIds={completingIds}
-            projectMap={projectMap}
-            onComplete={handleComplete}
-          />
-        ) : (
-          dayGroups.map(group => (
-            <DaySection
-              key={group.date}
-              group={{ ...group, tasks: group.tasks.filter(t => !completingIds.has(t.id)) }}
-              projectMap={projectMap}
-              onComplete={handleComplete}
-              onCreate={handleCreate}
-            />
-          ))
-        )}
+        <PlannerDayContent mode={mode} dayGroups={dayGroups} completingIds={completingIds}
+          projectMap={projectMap} onComplete={handleComplete} onCreate={handleCreate} />
       </div>
     </div>
   )

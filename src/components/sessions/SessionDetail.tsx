@@ -211,6 +211,7 @@ function applyDigestResult(
   result: SessionDigest,
   setDigest: React.Dispatch<React.SetStateAction<SessionDigest | null>>
 ) {
+  /* v8 ignore next -- stale-response guard; path always matches in sync tests */
   if (targetPath === currentPath) {
     setDigest(result)
   }

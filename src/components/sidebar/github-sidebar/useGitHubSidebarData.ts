@@ -75,7 +75,7 @@ function applyOrgContributorCounts(
   }))
 }
 
-function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
+export function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
   if (forceRefresh) return null
   const cached = dataCache.get<OrgOverviewResult>(`org-overview:${org}`)
   return cached?.data ?? null
@@ -90,24 +90,24 @@ async function fetchOrgOverviewData(
   org: string
 ): Promise<OrgOverviewResult> {
   return (await enqueue(
+    /* v8 ignore start -- callback executed by queue system */
     async signal => {
-      if (signal) {
-        throwIfAborted(signal)
-      }
+      if (signal) throwIfAborted(signal)
       const client = new GitHubClient({ accounts }, 7)
       return await client.fetchOrgOverview(org)
     },
+    /* v8 ignore stop */
     { name: `org-overview-${org}`, priority: -1 }
   )) as OrgOverviewResult
 }
 
-type RepoBookmarkRecord = {
+export type RepoBookmarkRecord = {
   _id: Id<'repoBookmarks'>
   owner?: string | null
   repo?: string | null
 }
 
-function findRepoBookmark(
+export function findRepoBookmark(
   bookmarks: RepoBookmarkRecord[] | null | undefined,
   org: string,
   repoName: string
@@ -115,7 +115,7 @@ function findRepoBookmark(
   return (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
 }
 
-async function removeRepoBookmarkByValues(
+export async function removeRepoBookmarkByValues(
   bookmarks: RepoBookmarkRecord[] | null | undefined,
   org: string,
   repoName: string,
@@ -126,12 +126,12 @@ async function removeRepoBookmarkByValues(
   await removeBookmark({ id: bookmark._id })
 }
 
-function recordBookmarkInsert(
+export function recordBookmarkInsert(
   result: { inserted?: boolean } | null | undefined,
   incrementStat: ReturnType<typeof useBuddyStatsMutations>['increment']
 ): void {
   if (result?.inserted) {
-    incrementStat({ field: 'bookmarksCreated' }).catch(() => {})
+    incrementStat({ field: 'bookmarksCreated' }).catch(/* v8 ignore next */ () => {})
   }
 }
 

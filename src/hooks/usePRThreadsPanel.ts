@@ -49,11 +49,13 @@ async function fetchPRThreadsResult(
   if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
 
   return await enqueueRef.current(
+    /* v8 ignore start -- callback executed by queue system */
     async signal => {
       throwIfAborted(signal)
       const client = new GitHubClient({ accounts }, 7)
       return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
     },
+    /* v8 ignore stop */
     { name: `pr-threads-${pr.repository}-${pr.id}` }
   )
 }

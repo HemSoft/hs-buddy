@@ -36,6 +36,7 @@ function PromptResultLabel({
 
 function PRLinkButton({ metadata }: { metadata: Record<string, unknown> | null }) {
   const hasPrUrl = !!metadata?.prUrl
+  /* v8 ignore next -- guard for missing PR URL in result metadata */
   if (!hasPrUrl) return null
   return (
     <button

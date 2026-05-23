@@ -6,6 +6,8 @@ import {
   usePRSettings,
   useCopilotSettings,
   useNotificationSettings,
+  resolvePRFallback,
+  resolveCopilotFallback,
 } from './useConfig'
 
 // Mock Convex hooks
@@ -555,5 +557,61 @@ describe('useConfig', () => {
       })
       expect(filePath!).toBeNull()
     })
+  })
+})
+
+// ─── Pure resolver function tests ───────────────────────────────────────
+
+describe('resolvePRFallback', () => {
+  it('returns defaults when config.pr is undefined', () => {
+    const result = resolvePRFallback({} as Parameters<typeof resolvePRFallback>[0])
+    expect(result.refreshInterval).toBe(15)
+    expect(result.autoRefresh).toBe(false)
+    expect(result.recentlyMergedDays).toBe(7)
+  })
+
+  it('uses provided values when present', () => {
+    const result = resolvePRFallback({
+      pr: { refreshInterval: 30, autoRefresh: true, recentlyMergedDays: 7 },
+    } as Parameters<typeof resolvePRFallback>[0])
+    expect(result.refreshInterval).toBe(30)
+    expect(result.autoRefresh).toBe(true)
+    expect(result.recentlyMergedDays).toBe(7)
+  })
+
+  it('fills nullish fields with defaults', () => {
+    const result = resolvePRFallback({
+      pr: { refreshInterval: null, autoRefresh: null, recentlyMergedDays: null },
+    } as Parameters<typeof resolvePRFallback>[0])
+    expect(result.refreshInterval).toBe(15)
+    expect(result.autoRefresh).toBe(false)
+    expect(result.recentlyMergedDays).toBe(7)
+  })
+})
+
+describe('resolveCopilotFallback', () => {
+  it('returns defaults when config.copilot is undefined', () => {
+    const result = resolveCopilotFallback({} as Parameters<typeof resolveCopilotFallback>[0])
+    expect(result.ghAccount).toBe('')
+    expect(result.model).toBe('claude-sonnet-4.5')
+    expect(result.premiumModel).toBe('claude-opus-4.6')
+  })
+
+  it('uses provided values when present', () => {
+    const result = resolveCopilotFallback({
+      copilot: { ghAccount: 'user1', model: 'gpt-4', premiumModel: 'gpt-5' },
+    } as Parameters<typeof resolveCopilotFallback>[0])
+    expect(result.ghAccount).toBe('user1')
+    expect(result.model).toBe('gpt-4')
+    expect(result.premiumModel).toBe('gpt-5')
+  })
+
+  it('fills nullish fields with defaults', () => {
+    const result = resolveCopilotFallback({
+      copilot: { ghAccount: null, model: null, premiumModel: null },
+    } as Parameters<typeof resolveCopilotFallback>[0])
+    expect(result.ghAccount).toBe('')
+    expect(result.model).toBe('claude-sonnet-4.5')
+    expect(result.premiumModel).toBe('claude-opus-4.6')
   })
 })

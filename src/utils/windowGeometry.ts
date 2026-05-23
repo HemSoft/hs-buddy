@@ -81,11 +81,11 @@ function shouldRelocateToSavedDisplay(targetDisplayId: number, savedDisplayId: n
   return targetDisplayId !== savedDisplayId
 }
 
-function resolveWindowPosition(state: WindowBounds): { x: number; y: number } {
-  return {
-    x: state.x ?? 0,
-    y: state.y ?? 0,
-  }
+function resolveWindowPosition(state: WindowBounds & { x: number; y: number }): {
+  x: number
+  y: number
+} {
+  return { x: state.x, y: state.y }
 }
 
 /**

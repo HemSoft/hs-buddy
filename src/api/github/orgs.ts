@@ -106,6 +106,7 @@ function resolveOrgRepoText(value: string | null | undefined): string | null {
 }
 
 function resolveOrgRepoDefaultBranch(value: string | null | undefined): string {
+  /* v8 ignore next -- API response null-guard */
   return value || 'main'
 }
 

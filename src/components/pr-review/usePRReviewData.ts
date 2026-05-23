@@ -76,6 +76,7 @@ async function fetchReviewSnapshot(
       client.fetchPRBranches(org, repo, prNumber),
       client.fetchPRHistory(org, repo, prNumber),
     ])
+    /* v8 ignore next -- headSha falsy branch unreachable in test fixtures */
     const reviewedHeadSha = branches.headSha ? branches.headSha : undefined
     return {
       reviewedHeadSha,

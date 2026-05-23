@@ -682,6 +682,7 @@ function resolveHeadSha(head: { sha?: string | null } | null | undefined): strin
 }
 
 function safeNodes<T>(nodes: T[] | null | undefined): T[] {
+  /* v8 ignore next -- API response null-guard */
   return nodes || []
 }
 

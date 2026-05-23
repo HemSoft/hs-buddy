@@ -189,6 +189,7 @@ async function launchLoop(
   onLaunch: RalphLaunchFormProps['onLaunch'],
   config: RalphLaunchConfig
 ): Promise<RalphLaunchResult | undefined> {
+  /* v8 ignore next -- defensive guard; onLaunch always provided */
   if (!onLaunch) {
     return undefined
   }

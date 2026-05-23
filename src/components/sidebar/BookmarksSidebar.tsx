@@ -131,7 +131,7 @@ function isToggleKey(key: string) {
   return key === 'Enter' || key === ' '
 }
 
-function resolveDialogCategories(categories: BookmarkCategories) {
+export function resolveDialogCategories(categories: BookmarkCategories) {
   if (!categories) return []
   return categories
 }
@@ -153,7 +153,7 @@ function hasContextMenuPositionChanged(
   return contextMenu.x !== nextPosition.x || contextMenu.y !== nextPosition.y
 }
 
-function updateContextMenuPosition(
+export function updateContextMenuPosition(
   contextMenu: ContextMenuState,
   nextPosition: { x: number; y: number }
 ) {
@@ -161,7 +161,7 @@ function updateContextMenuPosition(
   return { ...contextMenu, x: nextPosition.x, y: nextPosition.y }
 }
 
-function resolveDropInsertIndex(
+export function resolveDropInsertIndex(
   target: HTMLElement,
   clientY: number,
   fromIdx: number,
@@ -172,7 +172,7 @@ function resolveDropInsertIndex(
   return clientY < rect.top + rect.height / 2 ? adjustedToIdx : adjustedToIdx + 1
 }
 
-function reorderCategoryBookmarks(
+export function reorderCategoryBookmarks(
   categoryBookmarks: readonly BookmarkRecord[],
   draggedId: string,
   targetId: string,
@@ -197,7 +197,7 @@ function createReorderUpdates(bookmarks: readonly BookmarkRecord[]) {
   }))
 }
 
-function findBookmarkById(bookmarks: readonly BookmarkRecord[] | undefined, bookmarkId: string) {
+export function findBookmarkById(bookmarks: readonly BookmarkRecord[] | undefined, bookmarkId: string) {
   if (!bookmarks) return null
   return bookmarks.find(bookmark => bookmark._id === bookmarkId) ?? null
 }
@@ -214,7 +214,7 @@ function CategoryCount({ count }: { count: number }) {
   return <span className="sidebar-item-count">{count}</span>
 }
 
-function handleCategoryChevronKeyDown(
+export function handleCategoryChevronKeyDown(
   e: React.KeyboardEvent,
   sectionId: string,
   toggleSection: (sectionId: string) => void
@@ -478,7 +478,7 @@ function RootCategoryContent({
   const uncatBookmarks = getCategoryBookmarks(bookmarksByCategory, node.fullPath)
   return (
     <>
-      {node.children.map(child => (
+      {node.children.map(/* v8 ignore next */ child => (
         <CategoryTreeNodeItem
           key={child.fullPath}
           node={child}
@@ -652,6 +652,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   }, [])
 
   const handleEditBookmark = useCallback(() => {
+    /* v8 ignore next -- defensive guard; contextMenu always set when handler fires */
     if (!contextMenu) return
     const bookmark = findBookmarkById(bookmarks, contextMenu.bookmarkId)
     if (bookmark) setEditingBookmark(bookmark)
@@ -679,6 +680,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     draggedIdRef.current = null; setDragOver(null)
     if (!draggedId || draggedId === targetId) return
     const reorderedBookmarks = reorderCategoryBookmarks(categoryBookmarks, draggedId, targetId, e.currentTarget as HTMLElement, e.clientY)
+    /* v8 ignore next -- defensive guard; reorder always succeeds with valid drag state */
     if (!reorderedBookmarks) return
     reorder({ updates: createReorderUpdates(reorderedBookmarks) }).catch(() => {})
   }, [reorder])

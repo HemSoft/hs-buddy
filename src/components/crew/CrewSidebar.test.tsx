@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { CrewSidebar } from './CrewSidebar'
+import { CrewSidebar, resolveAddProjectError, applyAddProjectResult } from './CrewSidebar'
 import type { CrewAddProjectResult, CrewProject, CrewSession } from '../../types/crew'
 
 const mockListProjects = vi.fn<() => Promise<CrewProject[]>>()
@@ -195,5 +195,66 @@ describe('CrewSidebar', () => {
     fireEvent.click(screen.getByTitle('Add Project'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('string error value')
+  })
+})
+
+// ─── Pure helper function tests ─────────────────────────────────────────
+
+describe('resolveAddProjectError', () => {
+  it('returns null when error is undefined', () => {
+    expect(resolveAddProjectError({ success: false } as CrewAddProjectResult)).toBeNull()
+  })
+
+  it('returns null when error is "Cancelled"', () => {
+    expect(resolveAddProjectError({ success: false, error: 'Cancelled' } as CrewAddProjectResult)).toBeNull()
+  })
+
+  it('returns the error string when present and not Cancelled', () => {
+    expect(resolveAddProjectError({ success: false, error: 'Permission denied' } as CrewAddProjectResult)).toBe('Permission denied')
+  })
+})
+
+describe('applyAddProjectResult', () => {
+  it('loads projects and selects item on success with project', async () => {
+    const loadProjects = vi.fn().mockResolvedValue(undefined)
+    const onItemSelect = vi.fn()
+    const dispatch = vi.fn()
+    const result = { success: true, project: { id: 'p1' } } as CrewAddProjectResult
+
+    await applyAddProjectResult(result, loadProjects, onItemSelect, dispatch)
+    expect(loadProjects).toHaveBeenCalled()
+    expect(onItemSelect).toHaveBeenCalledWith('crew-project:p1')
+    expect(dispatch).not.toHaveBeenCalled()
+  })
+
+  it('loads projects but does not select when project is null', async () => {
+    const loadProjects = vi.fn().mockResolvedValue(undefined)
+    const onItemSelect = vi.fn()
+    const dispatch = vi.fn()
+    const result = { success: true, project: null } as unknown as CrewAddProjectResult
+
+    await applyAddProjectResult(result, loadProjects, onItemSelect, dispatch)
+    expect(loadProjects).toHaveBeenCalled()
+    expect(onItemSelect).not.toHaveBeenCalled()
+  })
+
+  it('dispatches error when failure with non-Cancelled error', async () => {
+    const loadProjects = vi.fn()
+    const onItemSelect = vi.fn()
+    const dispatch = vi.fn()
+    const result = { success: false, error: 'Disk full' } as CrewAddProjectResult
+
+    await applyAddProjectResult(result, loadProjects, onItemSelect, dispatch)
+    expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ADD_PROJECT_ERROR', error: 'Disk full' })
+  })
+
+  it('does not dispatch when failure with Cancelled error', async () => {
+    const loadProjects = vi.fn()
+    const onItemSelect = vi.fn()
+    const dispatch = vi.fn()
+    const result = { success: false, error: 'Cancelled' } as CrewAddProjectResult
+
+    await applyAddProjectResult(result, loadProjects, onItemSelect, dispatch)
+    expect(dispatch).not.toHaveBeenCalled()
   })
 })

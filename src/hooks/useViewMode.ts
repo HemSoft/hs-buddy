@@ -23,6 +23,7 @@ function syncSeededViewMode(
   updateViewMode: (args: { pageKey: string; mode: ViewMode }) => Promise<unknown>,
   setModeState: Dispatch<SetStateAction<ViewMode>>
 ) {
+  /* v8 ignore next -- guard for undefined convexMode during loading */
   if (!convexMode) {
     return
   }

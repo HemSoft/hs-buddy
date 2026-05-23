@@ -38,7 +38,7 @@ function resolveLoadPhase(hasData: boolean): LoadPhase {
   return hasData ? 'refreshing' : 'loading'
 }
 
-function applyResolvedOrgCache<T>(
+export function applyResolvedOrgCache<T>(
   cached: T | null,
   setData: (data: T | null) => void,
   setError: (error: string | null) => void,
@@ -54,11 +54,11 @@ function applyResolvedOrgCache<T>(
   return true
 }
 
-function isStaleOrgFetch(activeCacheKey: string, cacheKeyRef: { current: string }): boolean {
+export function isStaleOrgFetch(activeCacheKey: string, cacheKeyRef: { current: string }): boolean {
   return cacheKeyRef.current !== activeCacheKey
 }
 
-function applyOrgFetchResult<T>(
+export function applyOrgFetchResult<T>(
   activeCacheKey: string,
   cacheKeyRef: { current: string },
   normalize: (data: T | null) => T | null,
@@ -76,7 +76,7 @@ function applyOrgFetchResult<T>(
   dataCache.set(activeCacheKey, normalized)
 }
 
-function handleOrgFetchErrorIfCurrent(
+export function handleOrgFetchErrorIfCurrent(
   error: unknown,
   activeCacheKey: string,
   cacheKeyRef: { current: string },

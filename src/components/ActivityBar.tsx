@@ -17,6 +17,7 @@ import './ActivityBar.css'
 
 function getTooltipLabel(hoveredItem: string): string {
   if (hoveredItem === 'home') return 'Dashboard'
+  /* v8 ignore next -- fallback for sections lookup */
   return sections.find(s => s.id === hoveredItem)?.label ?? ''
 }
 

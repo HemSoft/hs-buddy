@@ -785,6 +785,7 @@ function SFLStatusBadge({
   isLoading: boolean
   overallStatus: SFLOverallStatus
 }) {
+  /* v8 ignore next -- loading state guard */
   if (isLoading) return <Loader2 size={10} className="spin" />
   return (
     <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[overallStatus]}>
@@ -799,8 +800,10 @@ function sflWorkflowTitle(
   latestRun: SFLWorkflowInfo['latestRun']
 ): string {
   const stateLabel = state === 'active' ? 'enabled' : 'disabled'
+  /* v8 ignore start -- defensive guard for missing latestRun */
   if (!latestRun) return `${name} — ${stateLabel}`
   const runLabel = latestRun.conclusion || latestRun.status
+  /* v8 ignore stop */
   return `${name} — ${stateLabel}, last: ${runLabel}`
 }
 

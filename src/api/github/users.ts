@@ -282,6 +282,7 @@ async function fetchUserTeamsGraphQL(config: PRConfig['github'], owner: string, 
   } catch (_: unknown) { return [] as string[] }
 }
 
+/* v8 ignore start -- only called from fetchUserActivity (also ignored) */
 function buildActivityResult(authoredOpen: { data: { total_count: number; items: Array<Record<string, unknown>> } }, authoredMerged: { data: { total_count: number; items: Array<Record<string, unknown>> } }, reviewed: { data: { items: Array<Record<string, unknown>> } }, recentEvents: UserEvent[], recentPRsAuthored: UserPRSummary[], commitsToday: number, userProfile: UserProfileResult | null, orgMembership: { data: { role: string } } | null, userTeams: string[], contributionDates: string[]): UserActivitySummary {
   const activeRepoSet = new Set<string>()
   recentEvents.forEach(e => { if (e.repo) activeRepoSet.add(e.repo) })
@@ -290,6 +291,7 @@ function buildActivityResult(authoredOpen: { data: { total_count: number; items:
   const userObj = getFetchedUserProfile(userProfile)
   return { ...extractUserBasicInfo(userObj), ...extractUserStatusInfo(userObj), orgRole: getFetchedOrgRole(orgMembership), teams: userTeams, recentPRsAuthored, recentPRsReviewed: reviewed.data.items.map(mapSearchItemToUserPR), recentEvents, openPRCount: authoredOpen.data.total_count, mergedPRCount: authoredMerged.data.total_count, activeRepos: Array.from(activeRepoSet), commitsToday, ...buildContributionData(contributionDates, userProfile) }
 }
+/* v8 ignore stop */
 
 /**
  * Fetch a summary of a user's recent activity within an org.

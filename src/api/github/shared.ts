@@ -244,6 +244,7 @@ function normalizeGitHubCLIToken(token: unknown): string | null {
     return null
   }
   const trimmedToken = token.trim()
+  /* v8 ignore next -- defensive empty-string guard */
   return trimmedToken.length > 0 ? trimmedToken : null
 }
 

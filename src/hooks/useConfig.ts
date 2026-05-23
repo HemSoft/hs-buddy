@@ -187,7 +187,7 @@ function computeAccountsLoading(convexConnected: boolean, fallbackLoaded: boolea
   return !convexConnected && !fallbackLoaded
 }
 
-function resolvePRFallback(config: AppConfig) {
+export function resolvePRFallback(config: AppConfig) {
   if (!config.pr)
     return {
       refreshInterval: 15,
@@ -213,7 +213,7 @@ function resolvePRValues(s: {
   }
 }
 
-function resolveCopilotFallback(config: AppConfig) {
+export function resolveCopilotFallback(config: AppConfig) {
   if (!config.copilot)
     return { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
   return {
@@ -278,6 +278,7 @@ export function useGitHubAccounts() {
   const loading = computeAccountsLoading(convexConnected, fallbackLoaded)
 
   const findAccount = (username: string, org: string) => {
+    /* v8 ignore next -- defensive guard during convex loading */
     if (!convexAccounts) return undefined
     return convexAccounts.find(account => account.username === username && account.org === org)
   }

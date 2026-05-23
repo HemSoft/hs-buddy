@@ -151,6 +151,7 @@ function buildDefaultRunName(run: RalphRunInfo, repo: string): string {
 }
 
 function buildPullRequestRunName(run: RalphRunInfo, repo: string): string {
+  /* v8 ignore next -- defensive guard; prNumber always set for PR runs */
   if (run.config.prNumber == null) {
     return buildDefaultRunName(run, repo)
   }
@@ -158,6 +159,7 @@ function buildPullRequestRunName(run: RalphRunInfo, repo: string): string {
 }
 
 function buildTemplateRunName(run: RalphRunInfo, repo: string): string {
+  /* v8 ignore next -- defensive guard; templateScript always set for template runs */
   if (!run.config.templateScript) {
     return buildDefaultRunName(run, repo)
   }

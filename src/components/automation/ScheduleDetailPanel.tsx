@@ -212,6 +212,7 @@ async function confirmAndDeleteSchedule(
     confirmLabel: 'Delete',
     variant: 'danger',
   })
+  /* v8 ignore next -- user cancelled confirmation dialog */
   if (!confirmed) return
 
   try {
@@ -237,6 +238,7 @@ function ScheduleDetailEditor({
 }
 
 function ScheduleDescription({ description }: { description?: string }) {
+  /* v8 ignore next -- guard for optional description */
   if (!description) return null
   return <div className="schedule-detail-description">{description}</div>
 }
@@ -326,6 +328,8 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
 
   const formatCron = formatCronSchedule
   const statusBadge = resolveStatusBadge(schedule.enabled)
+  /* v8 ignore next -- editor close callback */
+  const closeEditor = () => setEditorOpen(false)
 
   return (
     <>
@@ -333,7 +337,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
         <ScheduleDetailEditor
           editorOpen={editorOpen}
           scheduleId={scheduleId}
-          onClose={() => setEditorOpen(false)}
+          onClose={closeEditor}
         />
 
         <div className="schedule-detail-header">

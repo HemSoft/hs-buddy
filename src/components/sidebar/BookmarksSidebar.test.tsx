@@ -1,6 +1,14 @@
 import { beforeEach, describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { BookmarksSidebar } from './BookmarksSidebar'
+import {
+  BookmarksSidebar,
+  resolveDialogCategories,
+  updateContextMenuPosition,
+  resolveDropInsertIndex,
+  reorderCategoryBookmarks,
+  findBookmarkById,
+  handleCategoryChevronKeyDown,
+} from './BookmarksSidebar'
 import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
 
 const { mockUseBookmarks, mockUseBookmarkCategories, mockUseBookmarkMutations } = vi.hoisted(
@@ -987,5 +995,117 @@ describe('buildCategoryTree', () => {
     expect(result[0].fullPath).toBe('X')
     expect(result[0].children[0].fullPath).toBe('X/Y')
     expect(result[0].children[0].children[0].fullPath).toBe('X/Y/Z')
+  })
+})
+
+// ─── Pure helper function tests ─────────────────────────────────────────
+
+describe('resolveDialogCategories', () => {
+  it('returns empty array when categories is null/undefined', () => {
+    expect(resolveDialogCategories(null as never)).toEqual([])
+    expect(resolveDialogCategories(undefined as never)).toEqual([])
+  })
+
+  it('returns categories when provided', () => {
+    const cats = [{ _id: '1', name: 'Work', sortOrder: 0 }]
+    expect(resolveDialogCategories(cats as never)).toBe(cats)
+  })
+})
+
+describe('updateContextMenuPosition', () => {
+  it('returns null when contextMenu is null', () => {
+    expect(updateContextMenuPosition(null, { x: 10, y: 20 })).toBeNull()
+  })
+
+  it('returns updated position when contextMenu is present', () => {
+    const menu = { x: 5, y: 5, bookmarkId: 'bm1' }
+    expect(updateContextMenuPosition(menu, { x: 10, y: 20 })).toEqual({
+      x: 10, y: 20, bookmarkId: 'bm1',
+    })
+  })
+})
+
+describe('resolveDropInsertIndex', () => {
+  const makeTarget = (top: number, height: number) =>
+    ({ getBoundingClientRect: () => ({ top, height }) }) as unknown as HTMLElement
+
+  it('returns adjusted index when dropping above midpoint', () => {
+    const target = makeTarget(100, 40)
+    // clientY = 110 < top(100) + height(40)/2 = 120 → above
+    expect(resolveDropInsertIndex(target, 110, 0, 2)).toBe(1)
+  })
+
+  it('returns adjusted index + 1 when dropping below midpoint', () => {
+    const target = makeTarget(100, 40)
+    // clientY = 125 >= 120 → below
+    expect(resolveDropInsertIndex(target, 125, 0, 2)).toBe(2)
+  })
+
+  it('adjusts toIdx when toIdx > fromIdx', () => {
+    const target = makeTarget(100, 40)
+    // toIdx(3) > fromIdx(1) → adjustedToIdx = 2
+    expect(resolveDropInsertIndex(target, 110, 1, 3)).toBe(2)
+  })
+})
+
+describe('reorderCategoryBookmarks', () => {
+  const makeBookmarks = () => [
+    { _id: 'a' }, { _id: 'b' }, { _id: 'c' },
+  ] as never[]
+
+  it('returns null when draggedId not found', () => {
+    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    expect(reorderCategoryBookmarks(makeBookmarks(), 'missing', 'b', target, 10)).toBeNull()
+  })
+
+  it('returns null when targetId not found', () => {
+    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    expect(reorderCategoryBookmarks(makeBookmarks(), 'a', 'missing', target, 10)).toBeNull()
+  })
+
+  it('reorders when both ids are found', () => {
+    const target = { getBoundingClientRect: () => ({ top: 0, height: 40 }) } as unknown as HTMLElement
+    const result = reorderCategoryBookmarks(makeBookmarks(), 'a', 'c', target, 5)
+    expect(result).not.toBeNull()
+    expect(result!.map((b: { _id: string }) => b._id)).toEqual(['b', 'a', 'c'])
+  })
+})
+
+describe('findBookmarkById', () => {
+  it('returns null when bookmarks is undefined', () => {
+    expect(findBookmarkById(undefined, 'bm1')).toBeNull()
+  })
+
+  it('returns null when bookmark not found', () => {
+    const bookmarks = [{ _id: 'bm1' }] as never[]
+    expect(findBookmarkById(bookmarks, 'bm2')).toBeNull()
+  })
+
+  it('returns bookmark when found', () => {
+    const bookmarks = [{ _id: 'bm1', title: 'Test' }] as never[]
+    expect(findBookmarkById(bookmarks, 'bm1')).toEqual({ _id: 'bm1', title: 'Test' })
+  })
+})
+
+describe('handleCategoryChevronKeyDown', () => {
+  it('does nothing when key is not Enter or Space', () => {
+    const toggle = vi.fn()
+    const e = { key: 'a', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    handleCategoryChevronKeyDown(e, 'section1', toggle)
+    expect(toggle).not.toHaveBeenCalled()
+  })
+
+  it('calls toggleSection on Enter', () => {
+    const toggle = vi.fn()
+    const e = { key: 'Enter', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    handleCategoryChevronKeyDown(e, 'section1', toggle)
+    expect(toggle).toHaveBeenCalledWith('section1')
+  })
+
+  it('calls toggleSection on Space', () => {
+    const toggle = vi.fn()
+    const e = { key: ' ', stopPropagation: vi.fn(), preventDefault: vi.fn() } as unknown as React.KeyboardEvent
+    handleCategoryChevronKeyDown(e, 'section1', toggle)
+    expect(toggle).toHaveBeenCalledWith('section1')
   })
 })

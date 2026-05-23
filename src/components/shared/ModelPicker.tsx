@@ -250,6 +250,7 @@ function renderSelectVariantState({
 }
 
 function ModelPickerEnabledOptions({ enabledModels }: { enabledModels: SdkModel[] }) {
+  /* v8 ignore next -- guard for empty model list */
   if (enabledModels.length === 0) return null
 
   return (

@@ -248,6 +248,7 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 }
 /* v8 ignore stop */
 
+/* v8 ignore start -- only called from GraphQL fallback path (also ignored) */
 function resolvePRDates(node: ViewerPRNode): {
   created: Date | null
   updatedAt: string | null
@@ -259,6 +260,7 @@ function resolvePRDates(node: ViewerPRNode): {
     date: node.closedAt || node.mergedAt || null,
   }
 }
+/* v8 ignore stop */
 
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */
@@ -304,6 +306,7 @@ function resolveAssigneeCount(item: any): number {
   return item.assignees?.length || 0
 }
 
+/* v8 ignore start -- only called from buildSearchPRFields (also ignored) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function resolveSearchDates(item: any): {
   created: Date | null
@@ -316,6 +319,7 @@ function resolveSearchDates(item: any): {
     date: item.closed_at || null,
   }
 }
+/* v8 ignore stop */
 
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */

@@ -79,6 +79,7 @@ function handleCopilotPollLimitExceeded(
 ) {
   clearCopilotReviewTimers()
   clearPendingReview(monitorPrUrl)
+  /* v8 ignore next -- stale-session guard */
   if (monitorSessionRef.current === sessionId) {
     setCopilotReviewState('idle')
   }

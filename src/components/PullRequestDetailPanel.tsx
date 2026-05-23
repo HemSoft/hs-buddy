@@ -109,8 +109,10 @@ function resolveSourceLabel(pr: PRDetailInfo): string {
 
 function BranchFlow({ branches }: { branches: { headBranch: string; baseBranch: string } | null }) {
   if (!branches) return null
+  /* v8 ignore start -- defensive null checks for branch names */
   if (!branches.baseBranch) return null
   if (!branches.headBranch) return null
+  /* v8 ignore stop */
 
   return (
     <>

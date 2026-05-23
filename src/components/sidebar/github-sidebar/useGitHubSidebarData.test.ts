@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import type { Id } from '../../../../convex/_generated/dataModel'
 
 // --- Mock services ---
 const mockGet = vi.fn()
@@ -1884,5 +1885,112 @@ describe('useGitHubSidebarData', () => {
     expect(mockFetchRepoCounts).toHaveBeenCalled()
     unmount()
     vi.useRealTimers()
+  })
+})
+
+// ─── Pure helper function tests ─────────────────────────────────────────
+
+import {
+  getCachedOrgOverview,
+  findRepoBookmark,
+  removeRepoBookmarkByValues,
+  recordBookmarkInsert,
+} from './useGitHubSidebarData'
+
+describe('getCachedOrgOverview', () => {
+  it('returns null when forceRefresh is true', () => {
+    mockGet.mockReturnValue({ data: { repos: [] } })
+    expect(getCachedOrgOverview('acme', true)).toBeNull()
+    expect(mockGet).not.toHaveBeenCalled()
+  })
+
+  it('returns cached data when forceRefresh is false and cache has data', () => {
+    const data = { repos: [{ name: 'repo1' }] }
+    mockGet.mockReturnValue({ data })
+    expect(getCachedOrgOverview('acme', false)).toEqual(data)
+  })
+
+  it('returns null when cache miss', () => {
+    mockGet.mockReturnValue(undefined)
+    expect(getCachedOrgOverview('acme', false)).toBeNull()
+  })
+})
+
+describe('findRepoBookmark', () => {
+  const makeBookmark = (owner: string, repo: string) => ({
+    _id: `id-${owner}-${repo}` as Id<'repoBookmarks'>,
+    owner,
+    repo,
+  })
+
+  it('returns matching bookmark', () => {
+    const bookmarks = [makeBookmark('acme', 'repo1'), makeBookmark('acme', 'repo2')]
+    expect(findRepoBookmark(bookmarks, 'acme', 'repo2')).toEqual(bookmarks[1])
+  })
+
+  it('returns null when no match', () => {
+    const bookmarks = [makeBookmark('acme', 'repo1')]
+    expect(findRepoBookmark(bookmarks, 'acme', 'other')).toBeNull()
+  })
+
+  it('returns null when bookmarks is null', () => {
+    expect(findRepoBookmark(null, 'acme', 'repo1')).toBeNull()
+  })
+
+  it('returns null when bookmarks is undefined', () => {
+    expect(findRepoBookmark(undefined, 'acme', 'repo1')).toBeNull()
+  })
+})
+
+describe('removeRepoBookmarkByValues', () => {
+  it('does nothing when bookmark not found', async () => {
+    const remove = vi.fn()
+    await removeRepoBookmarkByValues([], 'acme', 'missing', remove)
+    expect(remove).not.toHaveBeenCalled()
+  })
+
+  it('calls remove with the bookmark id when found', async () => {
+    const remove = vi.fn()
+    const bookmarks = [{ _id: 'bm1' as Id<'repoBookmarks'>, owner: 'acme', repo: 'repo1' }]
+    await removeRepoBookmarkByValues(bookmarks, 'acme', 'repo1', remove)
+    expect(remove).toHaveBeenCalledWith({ id: 'bm1' })
+  })
+
+  it('does nothing when bookmarks is null', async () => {
+    const remove = vi.fn()
+    await removeRepoBookmarkByValues(null, 'acme', 'repo1', remove)
+    expect(remove).not.toHaveBeenCalled()
+  })
+})
+
+describe('recordBookmarkInsert', () => {
+  it('calls increment when result has inserted: true', () => {
+    const increment = vi.fn().mockResolvedValue(undefined)
+    recordBookmarkInsert({ inserted: true }, increment)
+    expect(increment).toHaveBeenCalledWith({ field: 'bookmarksCreated' })
+  })
+
+  it('does not call increment when result is null', () => {
+    const increment = vi.fn()
+    recordBookmarkInsert(null, increment)
+    expect(increment).not.toHaveBeenCalled()
+  })
+
+  it('does not call increment when result is undefined', () => {
+    const increment = vi.fn()
+    recordBookmarkInsert(undefined, increment)
+    expect(increment).not.toHaveBeenCalled()
+  })
+
+  it('does not call increment when inserted is false', () => {
+    const increment = vi.fn()
+    recordBookmarkInsert({ inserted: false }, increment)
+    expect(increment).not.toHaveBeenCalled()
+  })
+
+  it('does not call increment when inserted is absent', () => {
+    const increment = vi.fn()
+    recordBookmarkInsert({}, increment)
+    expect(increment).not.toHaveBeenCalled()
   })
 })

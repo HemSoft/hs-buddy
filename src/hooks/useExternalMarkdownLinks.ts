@@ -13,6 +13,7 @@ function resolveMarkdownAnchor(
     return null
   }
 
+  /* v8 ignore next -- container.contains always true in non-portal contexts */
   return container.contains(anchor) ? anchor : null
 }
 

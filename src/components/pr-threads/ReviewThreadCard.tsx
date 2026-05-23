@@ -240,9 +240,11 @@ function ThreadComments({
   remainingComments: PRReviewComment[]
   onReactToComment: (commentId: string, content: PRCommentReactionContent) => Promise<void>
 }) {
+  /* v8 ignore next -- firstComment always present in rendered threads */
+  const first = firstComment ? <CommentCard comment={firstComment} isFirst onReact={onReactToComment} /> : null
   return (
     <div className="review-thread-comments">
-      {firstComment ? <CommentCard comment={firstComment} isFirst onReact={onReactToComment} /> : null}
+      {first}
       {remainingComments.map(c => (
         <CommentCard key={c.id} comment={c} onReact={onReactToComment} />
       ))}

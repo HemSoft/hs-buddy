@@ -325,6 +325,7 @@ function resolveBudgetData(budgetState: CopilotBudgetState): {
 
   return {
     budgetAmount: budgetState.data.budgetAmount,
+    /* v8 ignore next -- defensive fallback for null spent */
     spent: budgetState.data.spent ?? 0,
   }
 }

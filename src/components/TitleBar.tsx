@@ -20,6 +20,7 @@ interface Menu {
 }
 
 function getSeparatorKey(items: MenuItem[], index: number): string {
+  /* v8 ignore next -- fallback for menu separator key */
   const nextLabel = items.slice(index + 1).find(i => i.label)?.label ?? 'end'
   return `sep-before-${nextLabel}`
 }

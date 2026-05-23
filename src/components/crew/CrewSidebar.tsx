@@ -126,11 +126,11 @@ function getAddProjectState(isAdding: boolean) {
   }
 }
 
-function resolveAddProjectError(result: CrewAddProjectResult): string | null {
+export function resolveAddProjectError(result: CrewAddProjectResult): string | null {
   return result.error && result.error !== 'Cancelled' ? result.error : null
 }
 
-async function applyAddProjectResult(
+export async function applyAddProjectResult(
   result: CrewAddProjectResult,
   loadProjects: () => Promise<void>,
   onItemSelect: (itemId: string) => void,

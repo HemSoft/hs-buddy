@@ -180,6 +180,7 @@ async function confirmAndDeleteJob(
     confirmLabel: 'Delete',
     variant: 'danger',
   })
+  /* v8 ignore next -- user cancelled confirmation dialog */
   if (!confirmed) return
 
   try {

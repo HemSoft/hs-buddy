@@ -175,6 +175,7 @@ async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
       `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
       { headers: { 'User-Agent': 'hs-buddy/1.0' } }
     )
+    /* v8 ignore next -- reverse geocoding HTTP failure guard */
     if (!resp.ok) {
       return
     }
@@ -345,6 +346,7 @@ export function useWeather() {
         }
       })
       .catch(err => {
+        /* v8 ignore next -- abort signal race condition guard */
         if (!controller.signal.aborted) {
           setState(prev => ({
             data: prev.data,

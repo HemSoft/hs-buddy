@@ -34,35 +34,13 @@ export function buildPowershellEnvCommand(name: string): string {
 /** Dependency-injected shell executor for resolveEnvVar. */
 type ExecSyncFn = (command: string) => string
 
-function getCachedEnvValue(name: string, cache: Map<string, string>): string | undefined {
-  return cache.has(name) ? cache.get(name) : undefined
-}
-
-function cacheResolvedEnvValue(
-  name: string,
-  value: string | undefined,
-  cache: Map<string, string>
-): string | undefined {
-  if (!value) {
-    return undefined
-  }
-  cache.set(name, value)
-  return value
-}
-
-function resolveWindowsMachineScopeValue(
-  name: string,
-  platform: string,
-  allowedNames: Set<string>,
-  execSyncFn: ExecSyncFn
-): string | undefined {
-  if (!shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
-    return undefined
-  }
+/** Attempt Machine-scope lookup via PowerShell. Returns null on failure. */
+function tryMachineScopeLookup(name: string, execSyncFn: ExecSyncFn): string | null {
   try {
-    return execSyncFn(buildPowershellEnvCommand(name)).trim() || undefined
+    const val = execSyncFn(buildPowershellEnvCommand(name)).trim()
+    return val || null
   } catch (_: unknown) {
-    return undefined
+    return null
   }
 }
 
@@ -80,17 +58,22 @@ export function resolveEnvVar(
   env: Record<string, string | undefined>,
   execSyncFn: ExecSyncFn
 ): string | undefined {
-  const cachedValue = getCachedEnvValue(name, cache)
-  if (cachedValue !== undefined) {
-    return cachedValue
+  if (cache.has(name)) return cache.get(name)
+
+  if (shouldCheckWindowsMachineScope(platform, name, allowedNames)) {
+    const machineVal = tryMachineScopeLookup(name, execSyncFn)
+    if (machineVal) {
+      cache.set(name, machineVal)
+      return machineVal
+    }
   }
 
-  const machineValue = resolveWindowsMachineScopeValue(name, platform, allowedNames, execSyncFn)
-  if (machineValue !== undefined) {
-    return cacheResolvedEnvValue(name, machineValue, cache)
+  const val = env[name]
+  if (val) {
+    cache.set(name, val)
+    return val
   }
-
-  return cacheResolvedEnvValue(name, env[name], cache)
+  return undefined
 }
 
 /**

@@ -282,7 +282,7 @@ describe('usePollen', () => {
     })
 
     expect(result.current.data).toBeNull()
-    expect(result.current.error).toBeNull()
+    expect(result.current.error).toBeTruthy()
   })
 
   it('refresh bypasses cache and re-fetches', async () => {
@@ -403,7 +403,20 @@ describe('usePollen', () => {
     })
 
     expect(result.current.data).toBeNull()
-    expect(result.current.error).toBeNull()
+    expect(result.current.error).toBe('IPC channel closed')
+  })
+
+  it('uses fallback message when IPC throws a non-Error value', async () => {
+    mockInvoke.mockRejectedValueOnce('something unexpected')
+
+    const { result } = renderHook(() => usePollen(MOCK_LOCATION))
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
+
+    expect(result.current.data).toBeNull()
+    expect(result.current.error).toBe('Pollen fetch failed')
   })
 
   it('catch block is silent when component unmounted during IPC rejection', async () => {

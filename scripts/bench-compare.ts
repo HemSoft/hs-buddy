@@ -135,56 +135,17 @@ export function parseBenchOutput(data: BenchmarkOutput): Map<string, BenchmarkRe
  * Compare current benchmark results against a baseline.
  * Returns regression analysis with pass/fail per benchmark.
  */
-function buildComparisonEntry(
-  key: string,
-  baselineBench: BenchmarkResult,
-  currentBench: BenchmarkResult,
-  threshold: number
-): ComparisonEntry {
-  const changePercent =
-    baselineBench.hz === 0 ? 0 : ((currentBench.hz - baselineBench.hz) / baselineBench.hz) * 100
-  return {
-    key,
-    name: currentBench.name,
-    baselineHz: baselineBench.hz,
-    currentHz: currentBench.hz,
-    changePercent,
-    rme: currentBench.rme,
-    passed: changePercent >= -threshold,
-  }
-}
-
-function compareCurrentBenchmarks(
-  baselineMap: Map<string, BenchmarkResult>,
-  currentMap: Map<string, BenchmarkResult>,
-  threshold: number
-): { entries: ComparisonEntry[]; newBenchmarks: string[] } {
-  const entries: ComparisonEntry[] = []
-  const newBenchmarks: string[] = []
-
-  for (const [key, currentBench] of currentMap) {
-    const baselineBench = baselineMap.get(key)
-    if (!baselineBench) {
-      newBenchmarks.push(key)
-      continue
-    }
-    entries.push(buildComparisonEntry(key, baselineBench, currentBench, threshold))
-  }
-
-  return { entries, newBenchmarks }
-}
-
 function findRemovedBenchmarks(
-  baselineMap: Map<string, BenchmarkResult>,
-  currentMap: Map<string, BenchmarkResult>
+  baselineMap: Map<string, { name: string; hz: number; rme: number }>,
+  currentMap: Map<string, { name: string; hz: number; rme: number }>
 ): string[] {
-  const removedBenchmarks: string[] = []
+  const removed: string[] = []
   for (const key of baselineMap.keys()) {
     if (!currentMap.has(key)) {
-      removedBenchmarks.push(key)
+      removed.push(key)
     }
   }
-  return removedBenchmarks
+  return removed
 }
 
 export function compareBenchmarks(
@@ -194,7 +155,36 @@ export function compareBenchmarks(
 ): ComparisonResult {
   const baselineMap = parseBenchOutput(baseline)
   const currentMap = parseBenchOutput(current)
-  const { entries, newBenchmarks } = compareCurrentBenchmarks(baselineMap, currentMap, threshold)
+
+  const entries: ComparisonEntry[] = []
+  const newBenchmarks: string[] = []
+
+  // Check each current benchmark against baseline
+  for (const [key, currentBench] of currentMap) {
+    const baselineBench = baselineMap.get(key)
+    if (!baselineBench) {
+      newBenchmarks.push(key)
+      continue
+    }
+
+    // hz = ops/sec, higher is better. Regression = current < baseline.
+    const changePercent =
+      baselineBench.hz === 0 ? 0 : ((currentBench.hz - baselineBench.hz) / baselineBench.hz) * 100
+
+    // A regression exceeds threshold when performance drops
+    const passed = changePercent >= -threshold
+
+    entries.push({
+      key,
+      name: currentBench.name,
+      baselineHz: baselineBench.hz,
+      currentHz: currentBench.hz,
+      changePercent,
+      rme: currentBench.rme,
+      passed,
+    })
+  }
+
   const removedBenchmarks = findRemovedBenchmarks(baselineMap, currentMap)
   const passed = entries.every(e => e.passed)
 
@@ -225,40 +215,47 @@ function formatEntryRow(entry: ComparisonEntry): string {
   return `| ${status} | ${label} | ${formatHz(entry.baselineHz)} | ${formatHz(entry.currentHz)} | ${formatChange(entry.changePercent)} | ${formatRme(entry.rme)} |`
 }
 
-function formatEntriesSection(entries: ComparisonEntry[]): string[] {
-  if (entries.length === 0) return []
-  return [
-    '| Status | Benchmark | Baseline | Current | Change | RME |',
-    '|--------|-----------|----------|---------|--------|-----|',
-    ...entries.map(formatEntryRow),
-    '',
-  ]
-}
-
-function formatListSection(title: string, items: string[]): string[] {
-  if (items.length === 0) return []
-  return [`**${title}**: ${items.length}`, ...items.map(key => `  - ${key}`), '']
-}
-
 export function formatResults(result: ComparisonResult): string {
-  const lines: string[] = [
-    '## Benchmark Comparison',
-    '',
-    `Threshold: ${result.threshold}% regression`,
-    '',
-    ...formatEntriesSection(result.entries),
-    ...formatListSection('New benchmarks (no baseline)', result.newBenchmarks),
-    ...formatListSection('Removed benchmarks', result.removedBenchmarks),
-  ]
+  const lines: string[] = []
+
+  lines.push('## Benchmark Comparison')
+  lines.push('')
+  lines.push(`Threshold: ${result.threshold}% regression`)
+  lines.push('')
+
+  appendEntryTable(lines, result.entries)
+  appendListSection(lines, '**New benchmarks** (no baseline)', result.newBenchmarks)
+  appendListSection(lines, '**Removed benchmarks**', result.removedBenchmarks)
 
   const regressions = result.entries.filter(e => !e.passed)
-  lines.push(
-    regressions.length > 0
-      ? `❌ **FAILED**: ${regressions.length} benchmark(s) regressed more than ${result.threshold}%`
-      : '✅ **PASSED**: No significant regressions detected'
-  )
+  if (regressions.length > 0) {
+    lines.push(
+      `❌ **FAILED**: ${regressions.length} benchmark(s) regressed more than ${result.threshold}%`
+    )
+  } else {
+    lines.push('✅ **PASSED**: No significant regressions detected')
+  }
 
   return lines.join('\n')
+}
+
+function appendEntryTable(lines: string[], entries: ComparisonEntry[]): void {
+  if (entries.length === 0) return
+  lines.push('| Status | Benchmark | Baseline | Current | Change | RME |')
+  lines.push('|--------|-----------|----------|---------|--------|-----|')
+  for (const entry of entries) {
+    lines.push(formatEntryRow(entry))
+  }
+  lines.push('')
+}
+
+function appendListSection(lines: string[], title: string, items: string[]): void {
+  if (items.length === 0) return
+  lines.push(`${title}: ${items.length}`)
+  for (const key of items) {
+    lines.push(`  - ${key}`)
+  }
+  lines.push('')
 }
 
 // --- Validation ---
@@ -302,13 +299,6 @@ function requireArgValue(args: string[], index: number, flag: string): string {
   return args[index + 1]
 }
 
-interface ParsedArgs {
-  baselinePath: string
-  currentPath: string
-  threshold: number
-  update: boolean
-}
-
 function parseThreshold(raw: string): number {
   const parsed = Number(raw)
   if (!Number.isFinite(parsed) || parsed < 0) {
@@ -318,52 +308,52 @@ function parseThreshold(raw: string): number {
   return parsed
 }
 
-type BenchCompareArgHandler = (args: string[], index: number, state: ParsedArgs) => number
-
-const BENCH_COMPARE_ARG_HANDLERS: Record<string, BenchCompareArgHandler> = {
-  '--baseline': (args, index, state) => {
-    state.baselinePath = resolve(ROOT, requireArgValue(args, index, '--baseline'))
-    return index + 1
-  },
-  '--current': (args, index, state) => {
-    state.currentPath = resolve(ROOT, requireArgValue(args, index, '--current'))
-    return index + 1
-  },
-  '--threshold': (args, index, state) => {
-    state.threshold = parseThreshold(requireArgValue(args, index, '--threshold'))
-    return index + 1
-  },
-  '--update': (_args, index, state) => {
-    state.update = true
-    return index
-  },
-}
-
-function parseBenchCompareArg(arg: string, args: string[], index: number, state: ParsedArgs): number {
-  const handler = BENCH_COMPARE_ARG_HANDLERS[arg]
-  if (!handler) {
-    return index
-  }
-  return handler(args, index, state)
-}
-
-function parseArgs(): ParsedArgs {
+function parseArgs(): {
+  baselinePath: string
+  currentPath: string
+  threshold: number
+  update: boolean
+} {
   const args = process.argv.slice(2)
-  const state: ParsedArgs = {
+  const result = {
     baselinePath: DEFAULT_BASELINE_PATH,
     currentPath: DEFAULT_CURRENT_PATH,
     threshold: DEFAULT_THRESHOLD,
     update: false,
   }
 
-  for (let i = 0; i < args.length; i++) {
-    i = parseBenchCompareArg(args[i], args, i, state)
+  const handlers: Record<string, (i: number) => number> = {
+    '--baseline': i => {
+      result.baselinePath = resolve(ROOT, requireArgValue(args, i, '--baseline'))
+      return i + 1
+    },
+    '--current': i => {
+      result.currentPath = resolve(ROOT, requireArgValue(args, i, '--current'))
+      return i + 1
+    },
+    '--threshold': i => {
+      result.threshold = parseThreshold(requireArgValue(args, i, '--threshold'))
+      return i + 1
+    },
+    '--update': i => {
+      result.update = true
+      return i
+    },
   }
 
-  return state
+  for (let i = 0; i < args.length; i++) {
+    const handler = handlers[args[i]]
+    if (!handler) {
+      console.error(`❌ Unknown argument: ${args[i]}`)
+      process.exit(1)
+    }
+    i = handler(i)
+  }
+
+  return result
 }
 
-function handleUpdate(baselinePath: string, currentPath: string): void {
+function updateBaseline(currentPath: string, baselinePath: string): void {
   if (!existsSync(currentPath)) {
     console.error(`❌ Current results file not found: ${currentPath}`)
     console.error('Run `bun run bench:json` first to generate benchmark results.')
@@ -383,10 +373,14 @@ function handleUpdate(baselinePath: string, currentPath: string): void {
   console.log(`✅ Updated baseline (${benchCount} benchmarks) → ${baselinePath}`)
 }
 
-function loadAndValidate(path: string, label: string): BenchmarkOutput {
+function loadValidatedBenchFile(path: string, label: string): BenchmarkOutput {
   if (!existsSync(path)) {
     console.error(`❌ ${label} file not found: ${path}`)
-    console.error('Run `bun run bench:json` first to generate benchmark results.')
+    console.error(
+      label === 'Current results'
+        ? 'Run `bun run bench:json` first to generate benchmark results.'
+        : ''
+    )
     process.exit(1)
   }
   const raw: unknown = JSON.parse(readFileSync(path, 'utf-8'))
@@ -401,7 +395,7 @@ function main(): void {
   const { baselinePath, currentPath, threshold, update } = parseArgs()
 
   if (update) {
-    handleUpdate(baselinePath, currentPath)
+    updateBaseline(currentPath, baselinePath)
     return
   }
 
@@ -412,8 +406,8 @@ function main(): void {
     return
   }
 
-  const baselineRaw = loadAndValidate(baselinePath, 'Baseline')
-  const currentRaw = loadAndValidate(currentPath, 'Current results')
+  const baselineRaw = loadValidatedBenchFile(baselinePath, 'Baseline')
+  const currentRaw = loadValidatedBenchFile(currentPath, 'Current results')
 
   const result = compareBenchmarks(baselineRaw, currentRaw, threshold)
   console.log(formatResults(result))

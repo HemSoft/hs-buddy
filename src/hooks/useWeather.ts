@@ -108,30 +108,22 @@ async function persistLocationToStore(loc: GeoLocation): Promise<void> {
   }
 }
 
-function isGeoLocation(value: unknown): value is GeoLocation {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const candidate = value as Partial<GeoLocation>
-  return (
-    Number.isFinite(candidate.latitude) &&
-    Number.isFinite(candidate.longitude) &&
-    typeof candidate.name === 'string'
-  )
+function isGeoLocation(val: unknown): val is GeoLocation {
+  if (!val || typeof val !== 'object') return false
+  const obj = val as Record<string, unknown>
+  if (!Number.isFinite(obj.latitude)) return false
+  if (!Number.isFinite(obj.longitude)) return false
+  return typeof obj.name === 'string'
 }
 
 /** Load saved location from electron-store. Returns null when unavailable. */
 async function loadLocationFromStore(): Promise<GeoLocation | null> {
   try {
     const loc = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_WEATHER_LOCATION)
-    if (isGeoLocation(loc)) {
-      return loc
-    }
+    return isGeoLocation(loc) ? (loc as GeoLocation) : null
   } catch (_: unknown) {
-    // electron-store unavailable; fall back to localStorage
+    return null
   }
-  return null
 }
 
 interface GeocodingResult {
@@ -157,41 +149,33 @@ function buildLocationName(city: string, state: string, fallback: string): strin
   return fallback
 }
 
-function resolveReverseGeocodeName(
-  result: { address?: { city?: string; town?: string; village?: string; state?: string } },
-  fallback: string
-): string | null {
-  const city = extractCity(result.address)
-  const state = result.address?.state ?? ''
-  if (!city) {
+async function fetchReverseGeocode(
+  lat: number,
+  lon: number
+): Promise<{
+  address?: { city?: string; town?: string; village?: string; state?: string }
+} | null> {
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
+      { headers: { 'User-Agent': 'hs-buddy/1.0' } }
+    )
+    return resp.ok
+      ? ((await resp.json()) as {
+          address?: { city?: string; town?: string; village?: string; state?: string }
+        })
+      : null
+  } catch (_: unknown) {
     return null
   }
-  return buildLocationName(city, state, fallback)
 }
 
 async function reverseGeocodeLocation(loc: GeoLocation): Promise<void> {
-  try {
-    const resp = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${loc.latitude}&lon=${loc.longitude}&format=json`,
-      { headers: { 'User-Agent': 'hs-buddy/1.0' } }
-    )
-    /* v8 ignore next -- reverse geocoding HTTP failure guard */
-    if (!resp.ok) {
-      return
-    }
-
-    const resolvedName = resolveReverseGeocodeName(
-      (await resp.json()) as {
-        address?: { city?: string; town?: string; village?: string; state?: string }
-      },
-      loc.name
-    )
-    if (resolvedName) {
-      loc.name = resolvedName
-    }
-  } catch (_: unknown) {
-    // Use coordinate-based name as fallback
-  }
+  const json = await fetchReverseGeocode(loc.latitude, loc.longitude)
+  if (!json) return
+  const city = extractCity(json.address)
+  const st = json.address?.state ?? ''
+  if (city) loc.name = buildLocationName(city, st, loc.name)
 }
 
 function parseGeocodingResult(r: GeocodingResult, query: string): GeoLocation {
@@ -254,71 +238,6 @@ async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<Weat
   }
 }
 
-function useLocationHydration(refresh: () => Promise<unknown>): void {
-  const [locationHydrated, setLocationHydrated] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    loadLocationFromStore()
-      .then(storeLoc => {
-        if (cancelled) return
-        if (storeLoc) safeSetJson(LOCATION_KEY, storeLoc)
-      })
-      .finally(() => {
-        if (!cancelled) setLocationHydrated(true)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!locationHydrated) return
-    if (!readCache()) {
-      refresh().catch(() => {})
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationHydrated])
-}
-
-async function searchAndApplyLocation(
-  query: string,
-  setState: React.Dispatch<React.SetStateAction<WeatherState>>,
-  refresh: () => Promise<unknown>
-): Promise<void> {
-  if (!query.trim()) return
-
-  setState(prev => ({ ...prev, loading: true, error: null }))
-
-  try {
-    const encoded = encodeURIComponent(query.trim())
-    const resp = await fetch(
-      `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&addressdetails=1`,
-      { headers: { 'User-Agent': 'hs-buddy/1.0' } }
-    )
-    if (!resp.ok) throw new Error(`Geocoding error: ${resp.status}`)
-
-    const results = (await resp.json()) as Array<GeocodingResult>
-    if (results.length === 0) {
-      setState(prev => ({ ...prev, loading: false, error: `No results for "${query}"` }))
-      return
-    }
-
-    const loc = parseGeocodingResult(results[0], query)
-    writeSavedLocation(loc)
-    await persistLocationToStore(loc)
-    safeRemoveItem(CACHE_KEY)
-    setState({ data: null, loading: true, error: null })
-    refresh().catch(() => {})
-  } catch (err: unknown) {
-    setState(prev => ({
-      ...prev,
-      loading: false,
-      error: getErrorMessageWithFallback(err, 'Location search failed'),
-    }))
-  }
-}
-
 export function useWeather() {
   const [state, setState] = useState<WeatherState>(() => {
     const cached = readCache()
@@ -327,6 +246,7 @@ export function useWeather() {
       : { data: null, loading: true, error: null }
   })
 
+  const [locationHydrated, setLocationHydrated] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   const refresh = useCallback(() => {
@@ -346,10 +266,9 @@ export function useWeather() {
         }
       })
       .catch(err => {
-        /* v8 ignore next -- abort signal race condition guard */
         if (!controller.signal.aborted) {
           setState(prev => ({
-            data: prev.data,
+            data: prev.data, // keep stale data visible
             loading: false,
             error: getErrorMessageWithFallback(err, 'Failed to fetch weather'),
           }))
@@ -377,7 +296,9 @@ export function useWeather() {
         await persistLocationToStore(loc)
         safeRemoveItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
-        refresh().catch(() => {})
+        refresh().catch(() => {
+          /* error already handled in state */
+        })
       },
       () => {
         setState(prev => ({ ...prev, error: 'Location permission denied' }))
@@ -387,19 +308,84 @@ export function useWeather() {
   }, [refresh])
 
   const setLocationBySearch = useCallback(
-    (query: string) => searchAndApplyLocation(query, setState, refresh),
+    async (query: string) => {
+      if (!query.trim()) return
+
+      setState(prev => ({ ...prev, loading: true, error: null }))
+
+      try {
+        const encoded = encodeURIComponent(query.trim())
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${encoded}&format=json&limit=1&addressdetails=1`,
+          { headers: { 'User-Agent': 'hs-buddy/1.0' } }
+        )
+        if (!resp.ok) throw new Error(`Geocoding error: ${resp.status}`)
+
+        const results = (await resp.json()) as Array<GeocodingResult>
+
+        if (results.length === 0) {
+          setState(prev => ({ ...prev, loading: false, error: `No results for "${query}"` }))
+          return
+        }
+
+        const loc = parseGeocodingResult(results[0], query)
+        writeSavedLocation(loc)
+        await persistLocationToStore(loc)
+        safeRemoveItem(CACHE_KEY)
+        setState({ data: null, loading: true, error: null })
+        refresh().catch(() => {
+          /* error already handled in state */
+        })
+      } catch (err: unknown) {
+        setState(prev => ({
+          ...prev,
+          loading: false,
+          error: getErrorMessageWithFallback(err, 'Location search failed'),
+        }))
+      }
+    },
     [refresh]
   )
 
-  useLocationHydration(refresh)
+  const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
 
+  // Hydrate location from electron-store on mount (survives app restarts)
   useEffect(() => {
+    let cancelled = false
+
+    loadLocationFromStore()
+      .then(storeLoc => {
+        if (cancelled) return
+        if (storeLoc) {
+          // Sync electron-store → localStorage so all sync reads pick it up
+          safeSetJson(LOCATION_KEY, storeLoc)
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLocationHydrated(true)
+      })
+
     return () => {
-      abortRef.current?.abort()
+      cancelled = true
     }
   }, [])
 
-  const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
+  // Fetch weather once hydration is complete and no cache exists
+  useEffect(() => {
+    if (!locationHydrated) return
+
+    if (!readCache()) {
+      refresh().catch(() => {
+        /* error already handled in state */
+      })
+    }
+
+    return () => {
+      abortRef.current?.abort()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationHydrated])
+
   const savedLocationCoords = readSavedLocation() ?? DEFAULT_LOCATION
 
   return {

@@ -940,6 +940,46 @@ describe('RalphLaunchForm', () => {
       await userEvent.type(promptInput, 'My custom override')
       expect(promptInput.value).toBe('My custom override')
     })
+
+    it('does not override prompt when template has no defaultPrompt', async () => {
+      const mockTemplates = [
+        {
+          filename: 'no-prompt-template.ps1',
+          name: 'No Prompt Template',
+        },
+      ]
+
+      const mockRalph = {
+        launch: vi.fn().mockResolvedValue({ success: true }),
+        listTemplates: vi.fn().mockResolvedValue(mockTemplates),
+      }
+      Object.defineProperty(window, 'ralph', {
+        value: mockRalph,
+        writable: true,
+        configurable: true,
+      })
+
+      render(<RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />)
+
+      await waitFor(() => {
+        const scriptSelect = screen.getByLabelText(/script/i) as HTMLSelectElement
+        expect(
+          Array.from(scriptSelect.options).some(opt => opt.value === 'no-prompt-template.ps1')
+        ).toBe(true)
+      })
+
+      const promptInput = screen.getByLabelText(/prompt/i) as HTMLTextAreaElement
+      await userEvent.clear(promptInput)
+      await userEvent.type(promptInput, 'User typed prompt')
+
+      const scriptSelect = screen.getByLabelText(/script/i) as HTMLSelectElement
+      await userEvent.selectOptions(scriptSelect, 'no-prompt-template.ps1')
+
+      // Prompt should remain unchanged since template has no defaultPrompt
+      await waitFor(() => {
+        expect(promptInput.value).toBe('User typed prompt')
+      })
+    })
   })
 
   describe('Provider and Model Compatibility', () => {

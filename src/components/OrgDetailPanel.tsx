@@ -76,26 +76,15 @@ interface RateLimitSnapshot {
   used: number
 }
 
-function getCachedOverview(org: string): OrgOverviewResult | null {
-  return normalizeOverview(dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null)
-}
-
-function getCachedRepos(org: string): OrgRepoResult | null {
-  return dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
-}
-
-function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = getCachedOverview(org)
-  if (cachedOverview) {
-    return cachedOverview
-  }
-
-  const cachedRepos = getCachedRepos(org)
-  if (!cachedRepos) {
-    return null
-  }
-
+function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOverviewResult {
   const repos = cachedRepos.repos
+  const lastPushAt =
+    repos
+      .map(repo => repo.pushedAt)
+      .filter((value): value is string => Boolean(value))
+      /* v8 ignore start */
+      .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null
+  /* v8 ignore stop */
   return {
     authenticatedAs: cachedRepos.authenticatedAs,
     isUserNamespace: cachedRepos.isUserNamespace,
@@ -110,16 +99,22 @@ function buildSeedOverview(org: string): OrgOverviewResult | null {
       totalForks: sumBy(repos, repo => repo.forksCount),
       activeReposToday: 0,
       commitsToday: 0,
-      lastPushAt:
-        repos
-          .map(repo => repo.pushedAt)
-          .filter((value): value is string => Boolean(value))
-          /* v8 ignore start */
-          .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null,
-      /* v8 ignore stop */
+      lastPushAt,
       topContributorsToday: [],
     },
   }
+}
+
+function buildSeedOverview(org: string): OrgOverviewResult | null {
+  const cachedOverview = normalizeOverview(
+    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
+  )
+  if (cachedOverview) return cachedOverview
+
+  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  if (!cachedRepos) return null
+
+  return buildMetricsFromRepos(org, cachedRepos)
 }
 
 function navigateToOrgUser(org: string, login: string) {
@@ -312,24 +307,6 @@ function formatBudgetAmount(budgetAmount: number | null | undefined): string {
   return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
 }
 
-function resolveBudgetData(budgetState: CopilotBudgetState): {
-  budgetAmount: number | null | undefined
-  spent: number
-} {
-  if (!budgetState || !budgetState.data) {
-    return {
-      budgetAmount: undefined,
-      spent: 0,
-    }
-  }
-
-  return {
-    budgetAmount: budgetState.data.budgetAmount,
-    /* v8 ignore next -- defensive fallback for null spent */
-    spent: budgetState.data.spent ?? 0,
-  }
-}
-
 function OrgBudgetBand({
   budgetState,
   quotaOverage,
@@ -337,16 +314,15 @@ function OrgBudgetBand({
   budgetState: CopilotBudgetState
   quotaOverage: number
 }) {
-  const { budgetAmount, spent } = resolveBudgetData(budgetState)
   return (
     <div className="org-detail-budget-band">
       <div>
         <span className="org-detail-budget-label">Budget</span>
-        <strong>{formatBudgetAmount(budgetAmount)}</strong>
+        <strong>{formatBudgetAmount(budgetState?.data?.budgetAmount)}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">Spent</span>
-        <strong>{formatCurrency(spent)}</strong>
+        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">My Share</span>
@@ -354,11 +330,6 @@ function OrgBudgetBand({
       </div>
     </div>
   )
-}
-
-function FetchedAtStamp({ timestamp }: { timestamp?: number }) {
-  if (!timestamp) return null
-  return <span className="org-detail-fetched-at">{formatTime(timestamp)}</span>
 }
 
 function CopilotSectionHeader({
@@ -377,9 +348,13 @@ function CopilotSectionHeader({
         {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
       </h3>
       {/* v8 ignore start */}
-      {!isUserNamespace && <FetchedAtStamp timestamp={copilotFetchedAt} />}
-      {/* v8 ignore stop */}
-      {isUserNamespace && <FetchedAtStamp timestamp={personalQuotaFetchedAt} />}
+      {!isUserNamespace && copilotFetchedAt && (
+        /* v8 ignore stop */
+        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
+      )}
+      {isUserNamespace && personalQuotaFetchedAt ? (
+        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
+      ) : null}
     </div>
   )
 }
@@ -411,14 +386,6 @@ function getHeaderTimestamps(
   }
 }
 
-function shouldShowWarming(
-  liveCopilotPhase: LoadPhase,
-  copilotUsage: OrgCopilotUsageData | null,
-  shouldShowPersonalQuotaPulse: boolean
-): boolean {
-  return liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
-}
-
 function OrgCopilotSection({
   overview,
   copilotUsage,
@@ -438,11 +405,8 @@ function OrgCopilotSection({
   liveCopilotPhase: LoadPhase
   shouldShowPersonalQuotaPulse: boolean
 }) {
-  const showWarmingMessage = shouldShowWarming(
-    liveCopilotPhase,
-    copilotUsage,
-    shouldShowPersonalQuotaPulse
-  )
+  const showWarmingMessage =
+    liveCopilotPhase !== 'ready' && !copilotUsage && !shouldShowPersonalQuotaPulse
 
   const { copilotFetchedAt, personalQuotaFetchedAt } = getHeaderTimestamps(
     copilotUsage,
@@ -523,28 +487,6 @@ function OrgLeadersSection({
   )
 }
 
-function MemberDisplayName({ member }: { member: OrgMember }) {
-  return member.name ? `${member.name} (${member.login})` : member.login
-}
-
-function MemberMetaLine({
-  member,
-  contributor,
-}: {
-  member: OrgMember
-  contributor: OrgContributor | null
-}) {
-  const prefix = member.name ? `@${member.login} · ` : ''
-  const commits = contributor ? ` · ${contributor.commits} commits today` : ' · no commits today'
-  return (
-    <>
-      {prefix}
-      {member.type}
-      {commits}
-    </>
-  )
-}
-
 function OrgMemberSpotlightSection({
   selectedMember,
   selectedContributor,
@@ -567,10 +509,16 @@ function OrgMemberSpotlightSection({
       <div className="org-detail-member-card">
         <div>
           <div className="org-detail-member-name">
-            <MemberDisplayName member={selectedMember} />
+            {selectedMember.name
+              ? `${selectedMember.name} (${selectedMember.login})`
+              : selectedMember.login}
           </div>
           <div className="org-detail-member-meta">
-            <MemberMetaLine member={selectedMember} contributor={selectedContributor} />
+            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
+            {selectedMember.type}
+            {selectedContributor
+              ? ` · ${selectedContributor.commits} commits today`
+              : ' · no commits today'}
           </div>
         </div>
         <button
@@ -746,27 +694,6 @@ function handleCopilotCatchError(
   if (isAbortError(error)) return
   dispatch({ type: 'error', error: getErrorMessage(error) })
 }
-
-function getCachedCopilotForFetch(
-  cacheKey: string,
-  forceRefresh: boolean
-): OrgCopilotUsageData | null {
-  if (forceRefresh) return null
-  return getCachedCopilotData(cacheKey)
-}
-
-function shouldSkipCopilotFetch(
-  cached: OrgCopilotUsageData | null,
-  queue: ReturnType<typeof getTaskQueue>,
-  copilotTaskName: string,
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
-): boolean {
-  if (cached) {
-    dispatch({ type: 'hydrate-cache', usage: cached })
-    return true
-  }
-  return queue.hasTaskWithName(copilotTaskName)
-}
 /* v8 ignore stop */
 
 function useOrgCopilotData({
@@ -818,8 +745,15 @@ function useOrgCopilotData({
       }
 
       const queue = getTaskQueue('github')
-      const cached = getCachedCopilotForFetch(copilotCacheKey, forceRefresh)
-      if (shouldSkipCopilotFetch(cached, queue, copilotTaskName, dispatchCopilot)) {
+      const cached = getCachedCopilotData(copilotCacheKey)
+      /* v8 ignore start */
+      if (cached && !forceRefresh) {
+        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
+        return
+        /* v8 ignore stop */
+      }
+
+      if (queue.hasTaskWithName(copilotTaskName)) {
         return
       }
 
@@ -1052,6 +986,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     membersData.hasCachedMembers,
     copilotData.hasCachedCopilot
   )
+
   const githubQueue = getTaskQueue('github')
   void stats
   const { liveOverviewPhase, liveMembersPhase, liveCopilotPhase } = computeLivePhases(
@@ -1066,6 +1001,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     membersTaskName,
     copilotTaskName
   )
+
   const { fetchOverview } = overviewData
   const { fetchMembers } = membersData
   const { fetchCopilot } = copilotData
@@ -1073,7 +1009,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const fetchAll = useCallback(
     async (forceRefresh = false) => {
       const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
-      if (!isUserNamespace) work.push(fetchCopilot(forceRefresh))
+      if (!isUserNamespace) {
+        work.push(fetchCopilot(forceRefresh))
+      }
       await Promise.allSettled(work)
     },
     [fetchCopilot, fetchRateLimit, isUserNamespace, fetchMembers, fetchOverview]
@@ -1087,7 +1025,8 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     if (!refreshInterval || refreshInterval <= 0) return
     /* v8 ignore start */
     const timer = setInterval(() => {
-      void fetchAll(true) /* v8 ignore stop */
+      void fetchAll(true)
+      /* v8 ignore stop */
     }, refreshInterval * MS_PER_MINUTE)
     return () => clearInterval(timer)
   }, [fetchAll, refreshInterval])
@@ -1296,7 +1235,7 @@ function MemberRosterItem({
       onClick={() => navigateToOrgUser(org, member.login)}
     >
       <span className="org-detail-roster-name">
-        <MemberDisplayName member={member} />
+        {member.name ? `${member.name} (${member.login})` : member.login}
       </span>
       <span className="org-detail-roster-meta">
         {member.name ? `@${member.login} · ` : ''}
@@ -1369,10 +1308,6 @@ function MemberRosterSection({
   )
 }
 
-function hasMembersFailure(error: string | null, phase: LoadPhase): boolean {
-  return !!error && phase === 'error'
-}
-
 function OrgDetailAlerts({
   isUpdating,
   membersError,
@@ -1398,39 +1333,17 @@ function OrgDetailAlerts({
           </span>
         </div>
       )}
-      {hasMembersFailure(membersError, liveMembersPhase) && (
+      {membersError && liveMembersPhase === 'error' && (
         /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError!} onRetry={onRetry} />
+        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
         /* v8 ignore stop */
       )}
-      {hasMembersFailure(copilotError, liveCopilotPhase) && (
+      {copilotError && liveCopilotPhase === 'error' && (
         /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError!} onRetry={onRetry} />
+        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
         /* v8 ignore stop */
       )}
     </>
-  )
-}
-
-function SelectedMemberSpotlight({
-  selectedMember,
-  selectedContributor,
-  selectedConfiguredAccount,
-  selectedMemberQuotaState,
-}: {
-  selectedMember: OrgMember | null
-  selectedContributor: OrgContributor | null
-  selectedConfiguredAccount: GitHubAccount | null
-  selectedMemberQuotaState: CopilotQuotaState | null
-}) {
-  if (!selectedMember) return null
-  return (
-    <OrgMemberSpotlightSection
-      selectedMember={selectedMember}
-      selectedContributor={selectedContributor}
-      selectedConfiguredAccount={selectedConfiguredAccount}
-      selectedMemberQuotaState={selectedMemberQuotaState}
-    />
   )
 }
 
@@ -1478,6 +1391,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     }
     return map
   }, [members])
+
   const configuredLogins = useMemo(
     () => new Set(configuredAccounts.map(a => a.username)),
     [configuredAccounts]
@@ -1486,7 +1400,12 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const rosterCounts = useMemo(() => {
     const active = members.filter(m => contributorMap.has(m.login)).length
     const configured = members.filter(m => configuredLogins.has(m.login)).length
-    return { all: members.length, active, configured, idle: members.length - active }
+    return {
+      all: members.length,
+      active,
+      configured,
+      idle: members.length - active,
+    }
   }, [members, contributorMap, configuredLogins])
 
   const filteredMembers = useMemo(() => {
@@ -1522,7 +1441,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     return result
   }, [members, rosterFilter, rosterSort, contributorMap, configuredLogins])
 
-  if (isInitialLoading) return <OrgDetailSkeleton org={org} />
+  if (isInitialLoading) {
+    return <OrgDetailSkeleton org={org} />
+  }
 
   if (overviewError && !overview) {
     return (
@@ -1553,15 +1474,20 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         isUpdating={isUpdating}
         onRefresh={() => fetchAll(true)}
       />
+
       <OrgMetricsGrid overview={overview} memberCount={memberCount} />
+
       <OrgDetailAlerts
         isUpdating={isUpdating}
         membersError={membersError}
         copilotError={copilotError}
         liveMembersPhase={liveMembersPhase}
         liveCopilotPhase={liveCopilotPhase}
-        /* v8 ignore start */ onRetry={() => fetchAll(true)} /* v8 ignore stop */
+        /* v8 ignore start */
+        onRetry={() => fetchAll(true)}
+        /* v8 ignore stop */
       />
+
       <div className="org-detail-section-grid">
         <OrgCopilotSection
           overview={overview}
@@ -1573,6 +1499,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           liveCopilotPhase={liveCopilotPhase}
           shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
         />
+
         <OrgLeadersSection
           org={org}
           contributors={overview.metrics.topContributorsToday}
@@ -1581,13 +1508,18 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           hasFullOverview={hasFullOverview}
         />
       </div>
-      <SelectedMemberSpotlight
-        selectedMember={selectedMember}
-        selectedContributor={selectedContributor}
-        selectedConfiguredAccount={selectedConfiguredAccount}
-        selectedMemberQuotaState={selectedMemberQuotaState}
-      />
+
+      {selectedMember && (
+        <OrgMemberSpotlightSection
+          selectedMember={selectedMember}
+          selectedContributor={selectedContributor}
+          selectedConfiguredAccount={selectedConfiguredAccount}
+          selectedMemberQuotaState={selectedMemberQuotaState}
+        />
+      )}
+
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
+
       <MemberRosterSection
         org={org}
         memberLogin={memberLogin}

@@ -17,21 +17,13 @@ interface ShortcutEntry {
   shift?: boolean
 }
 
-function hasCtrlOrCmd(input: KeyInput): boolean {
-  return Boolean(input.control || input.meta)
-}
-
-function isMissingCtrlOrCmd(entry: ShortcutEntry, input: KeyInput): boolean {
-  return entry.ctrlOrCmd === true && !hasCtrlOrCmd(input)
-}
-
-function isMissingShift(entry: ShortcutEntry, input: KeyInput): boolean {
-  return entry.shift === true && !input.shift
+function isModifierPressed(input: KeyInput): boolean {
+  return input.control === true || input.meta === true
 }
 
 /** Returns true when the keyboard input matches the shortcut definition. */
 export function matchesShortcut(entry: ShortcutEntry, input: KeyInput): boolean {
-  if (isMissingCtrlOrCmd(entry, input)) return false
-  if (isMissingShift(entry, input)) return false
+  if (entry.ctrlOrCmd && !isModifierPressed(input)) return false
+  if (entry.shift && !input.shift) return false
   return input.key === entry.key
 }

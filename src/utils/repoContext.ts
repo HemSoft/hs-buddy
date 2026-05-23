@@ -20,12 +20,14 @@ function extractOwnerFromUrl(url: string): string | null {
   }
 }
 
-function resolveRepoContextOwner(
+function resolveOwner(
   normalizedOwner: string | null,
   org: string | undefined,
   url: string
 ): string | null {
-  return normalizedOwner || org || extractOwnerFromUrl(url)
+  if (normalizedOwner) return normalizedOwner
+  if (org) return org
+  return extractOwnerFromUrl(url)
 }
 
 function parseRepoContextFromPRDetail(viewId: string): RepoContext | null {
@@ -34,8 +36,7 @@ function parseRepoContextFromPRDetail(viewId: string): RepoContext | null {
   const { repository, org, url } = route.pr
 
   const { owner: normalizedOwner, repo: normalizedRepo } = splitRepoSlug(repository)
-
-  const resolvedOwner = resolveRepoContextOwner(normalizedOwner, org, url)
+  const resolvedOwner = resolveOwner(normalizedOwner, org, url)
   if (resolvedOwner && normalizedRepo) return { owner: resolvedOwner, repo: normalizedRepo }
   return null
 }

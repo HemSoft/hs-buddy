@@ -37,19 +37,14 @@ interface Finding {
 const findings: Finding[] = []
 const electronDir = join(process.cwd(), 'electron')
 
-const SCAN_EXTENSIONS = new Set(['.ts', '.js'])
-
-function isScannableFile(path: string): boolean {
-  return SCAN_EXTENSIONS.has(path.slice(path.lastIndexOf('.')))
-}
-
 function walkDir(dir: string): string[] {
   const files: string[] = []
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) {
-      if (entry !== 'node_modules') files.push(...walkDir(full))
-    } else if (isScannableFile(full)) {
+      if (entry === 'node_modules') continue
+      files.push(...walkDir(full))
+    } else if (full.endsWith('.ts') || full.endsWith('.js')) {
       files.push(full)
     }
   }
@@ -170,17 +165,20 @@ function isCommentLine(line: string): boolean {
   return trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')
 }
 
-function shouldSkipRule(
-  rule: SecurityRule,
+function matchesRule(
+  rule: (typeof securityRules)[number],
   line: string,
   lines: string[],
   lineIdx: number
 ): boolean {
-  if (rule.skipComments && isCommentLine(line)) return true
-  if (!rule.contextCheck) return false
-  const size = rule.contextSize ?? 5
-  const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size).join('\n')
-  return !rule.contextCheck(context)
+  if (!rule.pattern.test(line)) return false
+  if (rule.skipComments && isCommentLine(line)) return false
+  if (rule.contextCheck) {
+    const size = rule.contextSize ?? 5
+    const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size).join('\n')
+    if (!rule.contextCheck(context)) return false
+  }
+  return true
 }
 
 function checkFile(filePath: string): void {
@@ -190,12 +188,13 @@ function checkFile(filePath: string): void {
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    const lineNum = i + 1
+
     for (const rule of securityRules) {
-      if (!rule.pattern.test(line)) continue
-      if (shouldSkipRule(rule, line, lines, i)) continue
+      if (!matchesRule(rule, line, lines, i)) continue
       findings.push({
         file: rel,
-        line: i + 1,
+        line: lineNum,
         severity: rule.severity,
         rule: rule.rule,
         message: rule.message,
@@ -240,36 +239,16 @@ const insecureSettings: InsecureSettingDef[] = [
   },
 ]
 
-const OPENERS = new Set(['(', '{'])
-const CLOSERS = new Set([')', '}'])
-
 /** Find the end index of a balanced brace/paren block starting from startIdx. */
 function findMatchingClose(content: string, startIdx: number): number {
   let depth = 1
-  for (let i = startIdx; i < content.length; i++) {
-    if (OPENERS.has(content[i])) depth++
-    else if (CLOSERS.has(content[i])) depth--
-    if (depth === 0) return i
+  let endIdx = startIdx
+  for (let i = startIdx; i < content.length && depth > 0; i++) {
+    if (content[i] === '(' || content[i] === '{') depth++
+    else if (content[i] === ')' || content[i] === '}') depth--
+    endIdx = i
   }
-  return content.length - 1
-}
-
-function blockContainsInsecureSetting(block: string, setting: InsecureSettingDef): boolean {
-  return setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)
-}
-
-function recordBlockFinding(
-  rel: string,
-  lineNum: number,
-  setting: InsecureSettingDef
-): void {
-  findings.push({
-    file: rel,
-    line: lineNum,
-    severity: setting.severity ?? 'high',
-    rule: setting.rule,
-    message: setting.message,
-  })
+  return endIdx
 }
 
 /**
@@ -298,8 +277,14 @@ function checkBrowserWindowBlocks(filePath: string): void {
     const lineNum = content.slice(0, match.index).split('\n').length
 
     for (const setting of insecureSettings) {
-      if (blockContainsInsecureSetting(block, setting)) {
-        recordBlockFinding(rel, lineNum, setting)
+      if (setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)) {
+        findings.push({
+          file: rel,
+          line: lineNum,
+          severity: setting.severity ?? 'high',
+          rule: setting.rule,
+          message: setting.message,
+        })
       }
     }
   }

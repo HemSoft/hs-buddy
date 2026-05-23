@@ -6,12 +6,13 @@ import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConve
 import { useLatest } from '../../hooks/useLatest'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
+import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
 import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
-import { usePRContextMenu } from './usePRContextMenu'
+import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 
 function applyCachedPRs(
   data: PullRequest[],
@@ -123,40 +124,174 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
   })
 }
 
-function updateApprovedCache(mode: PRSearchMode, pr: PullRequest): void {
-  const cached = dataCache.get<PullRequest[]>(mode)
-  if (cached?.data) {
-    dataCache.set(mode, markApproved(cached.data, pr))
-  }
+interface PRContextMenuDeps {
+  contextMenu: { x: number; y: number; pr: PullRequest } | null
+  setContextMenu: (v: { x: number; y: number; pr: PullRequest } | null) => void
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+  recentlyMergedDays: number
+  bookmarks: ReturnType<typeof useRepoBookmarks>
+  bookmarkedRepoKeys: Set<string>
+  createBookmark: ReturnType<typeof useRepoBookmarkMutations>['create']
+  removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
+  enqueueRef: React.RefObject<ReturnType<typeof useTaskQueue>['enqueue']>
+  premiumModel: string
+  setPrs: React.Dispatch<React.SetStateAction<PullRequest[]>>
+  setApproving: (v: string | null) => void
+  mode: PRSearchMode
 }
 
-function shouldUseFreshCache(
-  mode: PRSearchMode,
-  refreshInterval: number,
-  isForceRefresh: boolean
-): PullRequest[] | null {
-  if (isForceRefresh) return null
-  const cached = dataCache.get<PullRequest[]>(mode)
-  if (!cached) return null
-  const intervalMs = refreshInterval * MS_PER_MINUTE
-  const timeSinceLastFetch = Date.now() - cached.fetchedAt
-  if (timeSinceLastFetch < intervalMs) return cached.data
-  return null
-}
+function usePRContextMenuActions(deps: PRContextMenuDeps) {
+  const {
+    contextMenu,
+    setContextMenu,
+    accounts,
+    recentlyMergedDays,
+    bookmarks,
+    bookmarkedRepoKeys,
+    createBookmark,
+    removeBookmark,
+    enqueueRef,
+    premiumModel,
+    setPrs,
+    setApproving,
+    mode,
+  } = deps
 
-function finalizeFetchState(
-  currentFetchId: number,
-  fetchIdRef: { current: number },
-  setLoading: (v: boolean) => void,
-  setRefreshing: (v: boolean) => void,
-  fetchInProgressRef: { current: boolean }
-): void {
-  /* v8 ignore start */
-  if (currentFetchId === fetchIdRef.current) {
-    /* v8 ignore stop */
-    setLoading(false)
-    setRefreshing(false)
-    fetchInProgressRef.current = false
+  const handleBookmarkRepo = useCallback(async () => {
+    if (!contextMenu) return
+    if (bookmarks == null) return
+    const { pr } = contextMenu
+    const org = pr.org || ''
+    const repoName = pr.repository
+    if (!org || !repoName) return
+    const key = `${org}/${repoName}`
+    if (bookmarkedRepoKeys.has(key)) {
+      /* v8 ignore start */
+      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+      /* v8 ignore stop */
+      /* v8 ignore start */
+      if (bookmark) await removeBookmark({ id: bookmark._id })
+      /* v8 ignore stop */
+    } else {
+      await createBookmark({
+        folder: org,
+        owner: org,
+        repo: repoName,
+        url: pr.url.replace(/\/pull\/\d+$/, ''),
+        description: '',
+      })
+    }
+    setContextMenu(null)
+  }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark, setContextMenu])
+
+  const handleAIReview = useCallback(async () => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    dispatchPRReviewOpen({
+      prUrl: pr.url,
+      prTitle: pr.title,
+      prNumber: pr.id,
+      repo: pr.repository,
+      /* v8 ignore start */
+      org: pr.org || '',
+      /* v8 ignore stop */
+      author: pr.author,
+    })
+    setContextMenu(null)
+  }, [contextMenu, setContextMenu])
+
+  const handleRequestCopilotReview = useCallback(async () => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+    if (!ownerRepo) return
+    try {
+      await enqueueRef.current(
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, recentlyMergedDays)
+          await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
+        },
+        { name: `copilot-review-${pr.repository}-${pr.id}` }
+      )
+    } catch (err: unknown) {
+      console.error('Failed to request Copilot review:', err)
+    }
+    setContextMenu(null)
+  }, [contextMenu, accounts, recentlyMergedDays, enqueueRef, setContextMenu])
+
+  const handleAddressComments = useCallback(() => {
+    if (!contextMenu) return
+    const { pr } = contextMenu
+    const org = pr.org || pr.source
+    const prompt = buildAddressCommentsPrompt({
+      prId: pr.id,
+      org,
+      repository: pr.repository,
+      url: pr.url,
+    })
+    window.dispatchEvent(
+      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
+    )
+    setContextMenu(null)
+  }, [contextMenu, premiumModel, setContextMenu])
+
+  const handleCopyLink = useCallback(async () => {
+    if (!contextMenu) return
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(contextMenu.pr.url)
+      }
+    } catch (error: unknown) {
+      console.error('Failed to copy PR link:', error)
+    }
+    setContextMenu(null)
+  }, [contextMenu, setContextMenu])
+
+  const handleApprove = useCallback(
+    async (pr: PullRequest) => {
+      if (pr.iApproved) return
+      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+      if (!ownerRepo) return
+      const approveKey = `${pr.repository}-${pr.id}`
+      setApproving(approveKey)
+      try {
+        await enqueueRef.current(
+          async signal => {
+            throwIfAborted(signal)
+            const client = new GitHubClient({ accounts }, recentlyMergedDays)
+            await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+          },
+          { name: `approve-pr-${pr.repository}-${pr.id}` }
+        )
+        setPrs(prev => markApproved(prev, pr))
+        const cached = dataCache.get<PullRequest[]>(mode)
+        if (cached?.data) {
+          dataCache.set(mode, markApproved(cached.data, pr))
+        }
+      } catch (error: unknown) {
+        console.error('Failed to approve PR:', error)
+      } finally {
+        setApproving(null)
+      }
+    },
+    [accounts, mode, recentlyMergedDays, enqueueRef, setPrs, setApproving]
+  )
+
+  const handleApproveFromMenu = useCallback(async () => {
+    if (!contextMenu) return
+    await handleApprove(contextMenu.pr)
+    setContextMenu(null)
+  }, [contextMenu, handleApprove, setContextMenu])
+
+  return {
+    handleBookmarkRepo,
+    handleAIReview,
+    handleRequestCopilotReview,
+    handleAddressComments,
+    handleCopyLink,
+    handleApprove,
+    handleApproveFromMenu,
   }
 }
 
@@ -174,6 +309,9 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     nextUpdate: string
     progress: number
   } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
+    null
+  )
   const [approving, setApproving] = useState<string | null>(null)
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
@@ -246,60 +384,49 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     setForceRefresh(prev => prev + 1)
   }, [])
 
-  const ctxMenu = usePRContextMenu({
+  const handleContextMenu = useCallback((e: React.MouseEvent, pr: PullRequest) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, pr })
+  }, [])
+
+  const closeContextMenu = useCallback(() => {
+    setContextMenu(null)
+  }, [])
+
+  const {
+    handleBookmarkRepo,
+    handleAIReview,
+    handleRequestCopilotReview,
+    handleAddressComments,
+    handleCopyLink,
+    handleApprove,
+    handleApproveFromMenu,
+  } = usePRContextMenuActions({
+    contextMenu,
+    setContextMenu,
     accounts,
+    recentlyMergedDays,
     bookmarks,
     bookmarkedRepoKeys,
-    recentlyMergedDays,
-    premiumModel,
     createBookmark,
     removeBookmark,
     enqueueRef,
+    premiumModel,
+    setPrs,
+    setApproving,
+    mode,
   })
 
-  const handleApprove = useCallback(
-    async (pr: PullRequest) => {
-      if (pr.iApproved) return
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) return
-      const approveKey = `${pr.repository}-${pr.id}`
-      setApproving(approveKey)
-      try {
-        await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, recentlyMergedDays)
-            await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
-          },
-          { name: `approve-pr-${pr.repository}-${pr.id}` }
-        )
-        setPrs(prev => markApproved(prev, pr))
-        updateApprovedCache(mode, pr)
-      } catch (error: unknown) {
-        console.error('Failed to approve PR:', error)
-      } finally {
-        setApproving(null)
-      }
-    },
-    [accounts, mode, recentlyMergedDays, enqueueRef]
-  )
-
-  const handleApproveFromMenu = useCallback(async () => {
-    if (!ctxMenu.contextMenu) return
-    await handleApprove(ctxMenu.contextMenu.pr)
-    ctxMenu.closeContextMenu()
-  }, [ctxMenu, handleApprove])
-
   useEffect(() => {
-    if (!ctxMenu.contextMenu) return
+    if (!contextMenu) return
     const handleKeyDown = (e: KeyboardEvent) => {
       /* v8 ignore start */
-      if (e.key === 'Escape') ctxMenu.closeContextMenu()
+      if (e.key === 'Escape') closeContextMenu()
       /* v8 ignore stop */
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [ctxMenu])
+  }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
     if (accountsLoading || prSettingsLoading) {
@@ -311,14 +438,17 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       return
       /* v8 ignore stop */
     }
-    const isForceRefresh = forceRefresh > 0
-    const freshData = shouldUseFreshCache(mode, refreshInterval, isForceRefresh)
-    if (freshData) {
-      console.log(`Using cached PRs for ${mode}`)
-      applyCachedPRs(freshData, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
-      return
-    }
     const cached = dataCache.get<PullRequest[]>(mode)
+    const isForceRefresh = forceRefresh > 0
+    if (cached && !isForceRefresh) {
+      const intervalMs = refreshInterval * MS_PER_MINUTE
+      const timeSinceLastFetch = Date.now() - cached.fetchedAt
+      if (timeSinceLastFetch < intervalMs) {
+        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
+        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
+        return
+      }
+    }
     fetchInProgressRef.current = true
     const currentFetchId = ++fetchIdRef.current
     const fetchPRs = async () => {
@@ -340,7 +470,10 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
           setLoading(false)
           return
         }
-        const githubClient = new GitHubClient({ accounts }, recentlyMergedDays)
+        const config = {
+          github: { accounts },
+        }
+        const githubClient = new GitHubClient(config.github, recentlyMergedDays)
         console.log(
           'Fetching PRs for',
           accounts.length,
@@ -382,13 +515,13 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       } catch (err: unknown) {
         handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
       } finally {
-        finalizeFetchState(
-          currentFetchId,
-          fetchIdRef,
-          setLoading,
-          setRefreshing,
-          fetchInProgressRef
-        )
+        /* v8 ignore start */
+        if (currentFetchId === fetchIdRef.current) {
+          /* v8 ignore stop */
+          setLoading(false)
+          setRefreshing(false)
+          fetchInProgressRef.current = false
+        }
       }
     }
     fetchPRs()
@@ -444,22 +577,22 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     progress,
     totalPrsFound,
     updateTimes,
-    contextMenu: ctxMenu.contextMenu,
+    contextMenu,
     approving,
     accounts,
     bookmarks,
     bookmarkedRepoKeys,
     getProgressColor,
     handleManualRefresh,
-    handleContextMenu: ctxMenu.handleContextMenu,
-    handleBookmarkRepo: ctxMenu.handleBookmarkRepo,
-    handleAIReview: ctxMenu.handleAIReview,
-    handleRequestCopilotReview: ctxMenu.handleRequestCopilotReview,
-    handleAddressComments: ctxMenu.handleAddressComments,
-    handleCopyLink: ctxMenu.handleCopyLink,
+    handleContextMenu,
+    handleBookmarkRepo,
+    handleAIReview,
+    handleRequestCopilotReview,
+    handleAddressComments,
+    handleCopyLink,
     handleApprove,
     handleApproveFromMenu,
-    closeContextMenu: ctxMenu.closeContextMenu,
+    closeContextMenu,
     getTitle,
   }
 }

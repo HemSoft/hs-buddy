@@ -16,12 +16,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extract sub-hooks to reduce CRAP scores
 - Reduce cyclomatic complexity in toggleBookmark and parseSpawnOpts
 - Add coverage for nullish coalescing branch in resolveBookmarkTarget
+- Cover missing branches in RalphLaunchForm and usePollen
 
 ### Fixed
 
 - Remove unused exports flagged by knip
 - Remove unused exports and address review findings
 - Achieve 100% test coverage for CRAP score improvements
+- Resolve CI failures — guard null bookmarks and remove unused hooks
+- Resolve CI failures (lint + coverage)
+- Correct type error in usePRContextMenu test
+- Address all 11 PR review comments
 
 ## [0.1.759] - 2026-05-11
 
@@ -68,6 +73,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve CRAP scores for terminalHandlers and githubHandlers
 - Reduce CRAP scores below 30 for all critical methods
 - Reduce cyclomatic complexity across 5 files to improve CRAP scores
+- Extract helpers to reduce CRAP scores in utils and hooks
+- Reduce complexity in services, API, and component logic
+- Extract sub-components to reduce complexity (pass 3)
+- Reduce complexity in components and hooks (pass 4)
+- Reduce complexity in forms, scripts, and cards (pass 5)
+- Reduce complexity in perf scripts, bench-compare, RalphLaunchForm, and RepoPullRequestList
+- Reduce CRAP scores for 7 highest-complexity functions
 
 ### Added
 

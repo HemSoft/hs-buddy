@@ -18,27 +18,6 @@ const PR_TREE_CACHE_KEYS: Record<string, string> = {
   'pr-recently-merged': 'recently-merged',
 }
 
-function normalizeOrg(pr: PullRequest): string {
-  return pr.org ?? ''
-}
-
-function isPRMatch(item: PullRequest, target: PullRequest): boolean {
-  return (
-    item.id === target.id &&
-    item.repository === target.repository &&
-    normalizeOrg(item) === normalizeOrg(target) &&
-    item.source === target.source
-  )
-}
-
-function buildPRKey(pr: PullRequest): string {
-  return `${pr.source}-${normalizeOrg(pr)}-${pr.repository}-${pr.id}`
-}
-
-function shouldApprove(item: PullRequest, target: PullRequest): boolean {
-  return isPRMatch(item, target) && !item.iApproved
-}
-
 function initPrTreeData(): Record<string, PullRequest[]> {
   const result: Record<string, PullRequest[]> = {}
   for (const [key, cacheKey] of Object.entries(PR_TREE_CACHE_KEYS)) {
@@ -47,144 +26,25 @@ function initPrTreeData(): Record<string, PullRequest[]> {
   return result
 }
 
-/* v8 ignore start -- only called from resolvePROwnerRepo (also ignored) */
-function resolveOwner(
-  pr: PullRequest,
-  parsed: { owner: string; repo: string } | null
-): string | undefined {
-  return pr.org || parsed?.owner
+function isSamePR(a: PullRequest, b: PullRequest): boolean {
+  return (
+    a.id === b.id &&
+    a.repository === b.repository &&
+    (a.org ?? '') === (b.org ?? '') &&
+    a.source === b.source
+  )
 }
-
-function resolveRepo(
-  pr: PullRequest,
-  parsed: { owner: string; repo: string } | null
-): string | undefined {
-  return pr.repository || parsed?.repo
-}
-/* v8 ignore stop */
 
 /** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
 /* v8 ignore start */
 function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = resolveOwner(pr, parsed)
-  const repo = resolveRepo(pr, parsed)
+  const owner = pr.org || parsed?.owner
+  const repo = pr.repository || parsed?.repo
   if (!owner || !repo) return null
   return { owner, repo }
 }
 /* v8 ignore stop */
-
-type ApprovalRequest = {
-  owner: string
-  repo: string
-  prKey: string
-}
-
-function resolveApprovalRequest(
-  pr: PullRequest,
-  approvingPrKeys: ReadonlySet<string>
-): ApprovalRequest | null {
-  if (pr.iApproved) return null
-  const resolved = resolvePROwnerRepo(pr)
-  /* v8 ignore next -- resolvePROwnerRepo always resolves in test fixtures */
-  if (!resolved) return null
-  const prKey = buildPRKey(pr)
-  if (approvingPrKeys.has(prKey)) return null
-  return { ...resolved, prKey }
-}
-
-async function approveSidebarPR(
-  accounts: GitHubAccount[],
-  enqueue: UseSidebarPRTreeOptions['enqueueRef']['current'],
-  request: ApprovalRequest,
-  prId: number
-): Promise<void> {
-  await enqueue(
-    async signal => {
-      /* v8 ignore next */
-      if (signal) throwIfAborted(signal)
-      const client = new GitHubClient({ accounts }, 7)
-      await client.approvePullRequest(request.owner, request.repo, prId)
-    },
-    { name: `approve-sidebar-pr-${request.owner}-${request.repo}-${prId}` }
-  )
-}
-
-function clearApprovingPRKey(
-  setApprovingPrKeys: React.Dispatch<React.SetStateAction<Set<string>>>,
-  prKey: string
-): void {
-  setApprovingPrKeys(prev => {
-    const next = new Set(prev)
-    next.delete(prKey)
-    return next
-  })
-}
-
-function handleApprovePRError(error: unknown): void {
-  /* v8 ignore start */
-  if (isAbortError(error)) return
-  /* v8 ignore stop */
-  console.error('Failed to approve PR from sidebar:', error)
-}
-
-const PR_ITEMS: SidebarItem[] = [
-  { id: 'pr-my-prs', label: 'My PRs' },
-  { id: 'pr-needs-review', label: 'Needs Review' },
-  { id: 'pr-need-a-nudge', label: 'Needs a nudge' },
-  { id: 'pr-recently-merged', label: 'Recently Merged' },
-]
-
-/* v8 ignore start -- UI event handler; tested via E2E */
-function openPRReviewFromSidebar(pr: PullRequest): void {
-  dispatchPRReviewOpen({
-    prUrl: pr.url,
-    prTitle: pr.title,
-    prNumber: pr.id,
-    repo: pr.repository,
-    org: pr.org || '',
-    author: pr.author,
-  })
-}
-/* v8 ignore stop */
-
-async function copyToClipboardFn(text: string): Promise<void> {
-  /* v8 ignore start */
-  if (navigator.clipboard?.writeText) {
-    try {
-      await navigator.clipboard.writeText(text)
-      return
-    } catch (error: unknown) {
-      console.warn(
-        'Clipboard API writeText failed, falling back to deprecated execCommand("copy")',
-        error
-      )
-    }
-  } else {
-    console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
-  }
-  /* v8 ignore stop */
-  const textArea = document.createElement('textarea')
-  textArea.value = text
-  textArea.style.position = 'fixed'
-  textArea.style.opacity = '0'
-  document.body.appendChild(textArea)
-  textArea.select()
-  try {
-    document.execCommand('copy')
-  } catch (_: unknown) {
-    /* v8 ignore next */
-    console.warn('execCommand("copy") failed')
-  }
-  document.body.removeChild(textArea)
-}
-
-const VIEW_ID_BY_CACHE_KEY: Record<string, string> = {
-  'my-prs': 'pr-my-prs',
-  'needs-review': 'pr-needs-review',
-  'need-a-nudge': 'pr-need-a-nudge',
-  'recently-merged': 'pr-recently-merged',
-}
 
 interface UseSidebarPRTreeOptions {
   accounts: GitHubAccount[]
@@ -206,15 +66,30 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     pr: PullRequest
   } | null>(null)
   const [approvingPrKeys, setApprovingPrKeys] = useState<Set<string>>(new Set())
+
+  const prItems: SidebarItem[] = [
+    { id: 'pr-my-prs', label: 'My PRs' },
+    { id: 'pr-needs-review', label: 'Needs Review' },
+    { id: 'pr-need-a-nudge', label: 'Needs a nudge' },
+    { id: 'pr-recently-merged', label: 'Recently Merged' },
+  ]
+
   const {
     newCounts: newPRCounts,
     newUrls: newPRUrls,
     markAsSeen: markPRsAsSeen,
   } = useNewPRIndicator()
 
+  // Subscribe to PR tree cache updates
   useEffect(() => {
+    const viewIdByCacheKey: Record<string, string> = {
+      'my-prs': 'pr-my-prs',
+      'needs-review': 'pr-needs-review',
+      'need-a-nudge': 'pr-need-a-nudge',
+      'recently-merged': 'pr-recently-merged',
+    }
     const unsubscribe = dataCache.subscribe(key => {
-      const viewId = VIEW_ID_BY_CACHE_KEY[key]
+      const viewId = viewIdByCacheKey[key]
       /* v8 ignore start */
       if (!viewId) return
       /* v8 ignore stop */
@@ -226,22 +101,66 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     return unsubscribe
   }, [])
 
+  const openPRReview = (pr: PullRequest) => {
+    dispatchPRReviewOpen({
+      prUrl: pr.url,
+      prTitle: pr.title,
+      prNumber: pr.id,
+      repo: pr.repository,
+      /* v8 ignore start */
+      org: pr.org || '',
+      /* v8 ignore stop */
+      author: pr.author,
+    })
+  }
+
   const openTreePRContextMenu = (e: React.MouseEvent, pr: PullRequest) => {
     e.preventDefault()
     setPrContextMenu({ x: e.clientX, y: e.clientY, pr })
   }
+
   const closePrContextMenu = useCallback(() => setPrContextMenu(null), [])
   useEscapeToClose(!!prContextMenu, closePrContextMenu)
+
+  const copyToClipboard = async (text: string) => {
+    /* v8 ignore start */
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text)
+        return
+      } catch (error: unknown) {
+        console.warn(
+          'Clipboard API writeText failed, falling back to deprecated execCommand("copy")',
+          error
+        )
+      }
+    } else {
+      console.warn('Clipboard API unavailable, falling back to deprecated execCommand("copy")')
+    }
+    /* v8 ignore stop */
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.opacity = '0'
+    document.body.appendChild(textArea)
+    textArea.select()
+    try {
+      document.execCommand('copy')
+    } catch (_: unknown) {
+      /* v8 ignore next */
+      console.warn('execCommand("copy") failed')
+    }
+    document.body.removeChild(textArea)
+  }
 
   const applyApproveToTree = useCallback((target: PullRequest) => {
     setPrTreeData(prev => {
       const next: Record<string, PullRequest[]> = { ...prev }
       for (const [groupId, items] of Object.entries(prev) as Array<[string, PullRequest[]]>) {
-        next[groupId] = items.map(item =>
-          shouldApprove(item, target)
-            ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
-            : item
-        )
+        next[groupId] = items.map(item => {
+          if (!isSamePR(item, target) || item.iApproved) return item
+          return { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
+        })
       }
       return next
     })
@@ -249,16 +168,37 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
 
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
-      const request = resolveApprovalRequest(pr, approvingPrKeys)
-      if (!request) return
-      setApprovingPrKeys(prev => new Set(prev).add(request.prKey))
+      if (pr.iApproved) return
+      const resolved = resolvePROwnerRepo(pr)
+      /* v8 ignore start */
+      if (!resolved) return
+      /* v8 ignore stop */
+      const { owner, repo } = resolved
+      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
+      if (approvingPrKeys.has(prKey)) return
+      setApprovingPrKeys(prev => new Set(prev).add(prKey))
       try {
-        await approveSidebarPR(accounts, enqueueRef.current, request, pr.id)
+        await enqueueRef.current(
+          async signal => {
+            /* v8 ignore next */
+            if (signal) throwIfAborted(signal)
+            const client = new GitHubClient({ accounts }, 7)
+            await client.approvePullRequest(owner, repo, pr.id)
+          },
+          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
+        )
         applyApproveToTree(pr)
       } catch (error: unknown) {
-        handleApprovePRError(error)
+        /* v8 ignore start */
+        if (isAbortError(error)) return
+        /* v8 ignore stop */
+        console.error('Failed to approve PR from sidebar:', error)
       } finally {
-        clearApprovingPRKey(setApprovingPrKeys, request.prKey)
+        setApprovingPrKeys(prev => {
+          const next = new Set(prev)
+          next.delete(prKey)
+          return next
+        })
       }
     },
     [accounts, approvingPrKeys, applyApproveToTree, enqueueRef]
@@ -268,7 +208,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     prContextMenu,
     setPrContextMenu,
     approvingPrKeys,
-    prItems: PR_ITEMS,
+    prItems,
     prTreeData,
     expandedPrGroups: prGroups.set,
     expandedPRNodes: prNodes.set,
@@ -279,7 +219,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     markPRsAsSeen,
     openTreePRContextMenu,
     handleApprovePR,
-    copyToClipboard: copyToClipboardFn,
-    openPRReview: openPRReviewFromSidebar,
+    copyToClipboard,
+    openPRReview,
   }
 }

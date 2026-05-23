@@ -15,184 +15,58 @@ import { applyReactionToResult } from '../utils/reactions'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildReReviewPrompt, dispatchPRReviewOpen } from '../utils/prReviewEvents'
 
-function resolvePRThreadsOwner(
-  prOrg: string | undefined,
-  ownerRepo: { owner: string; repo: string } | null
-): string | undefined {
-  return prOrg ?? ownerRepo?.owner
-}
-
-function getThreadList(data: PRThreadsResult | null) {
-  return data?.threads ?? []
-}
-
-function getReviewedThreadStats(
-  latestReview: ReturnType<typeof useLatestPRReviewRun>
-): { unresolved: number; outdated: number } | null {
-  return latestReview?.reviewedThreadStats ?? null
-}
-
-function getReviewedHeadSha(latestReview: ReturnType<typeof useLatestPRReviewRun>): string | null {
-  return latestReview?.reviewedHeadSha ?? null
-}
-
-function isLatestThreadsRequest(
-  requestId: number,
-  latestThreadsRequestRef: { current: number }
-): boolean {
-  return requestId === latestThreadsRequestRef.current
-}
-
-async function fetchPRThreadsResult(
-  ownerRepo: { owner: string; repo: string } | null,
-  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
+function useThreadActions(
   accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
-  pr: Pick<PRDetailInfo, 'id' | 'repository'>
-): Promise<PRThreadsResult> {
-  if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
-
-  return await enqueueRef.current(
-    /* v8 ignore start -- callback executed by queue system */
-    async signal => {
-      throwIfAborted(signal)
-      const client = new GitHubClient({ accounts }, 7)
-      return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
-    },
-    /* v8 ignore stop */
-    { name: `pr-threads-${pr.repository}-${pr.id}` }
-  )
-}
-
-function setPRThreadsErrorIfCurrent(
-  requestId: number,
-  latestThreadsRequestRef: { current: number },
-  error: unknown,
-  setError: (error: string | null) => void
-): void {
-  if (isAbortError(error)) return
-  if (!isLatestThreadsRequest(requestId, latestThreadsRequestRef)) return
-  setError(getErrorMessage(error))
-}
-
-function finishPRThreadsLoading(
-  requestId: number,
-  latestThreadsRequestRef: { current: number },
-  setLoading: (loading: boolean) => void
-): void {
-  if (isLatestThreadsRequest(requestId, latestThreadsRequestRef)) {
-    setLoading(false)
-  }
-}
-
-function useHeadShaTracker(
-  owner: string | undefined,
+  ownerRepo: ReturnType<typeof parseOwnerRepoFromUrl>,
   pr: PRDetailInfo,
-  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
-  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] }
+  enqueueRef: React.RefObject<ReturnType<typeof useTaskQueue>['enqueue']>,
+  setData: React.Dispatch<React.SetStateAction<PRThreadsResult | null>>
 ) {
-  const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
-  const headShaRequestRef = useRef(0)
-
-  useEffect(() => {
-    if (!owner || !pr.repository || !pr.id) {
-      setCurrentHeadSha(null)
-      return
-    }
-    const requestId = ++headShaRequestRef.current
-    enqueueRef
-      .current(
-        /* v8 ignore start */ async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRBranches(owner, pr.repository, pr.id) /* v8 ignore stop */
-        },
-        { name: `pr-head-${pr.repository}-${pr.id}` }
-      )
-      .then(result => {
-        if (requestId !== headShaRequestRef.current) return
-        setCurrentHeadSha(result.headSha || null)
+  const handleReplyAdded = useCallback(
+    (threadId: string, comment: PRReviewComment) => {
+      setData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          threads: prev.threads.map(t =>
+            t.id === threadId ? { ...t, comments: [...t.comments, comment] } : t
+          ),
+        }
       })
-      .catch(err => {
-        /* v8 ignore start */ if (isAbortError(err)) return
-        /* v8 ignore stop */ if (requestId !== headShaRequestRef.current) return
-        setCurrentHeadSha(null)
+    },
+    [setData]
+  )
+
+  const handleResolveToggled = useCallback(
+    (threadId: string, resolved: boolean) => {
+      setData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          threads: prev.threads.map(t => (t.id === threadId ? { ...t, isResolved: resolved } : t)),
+        }
       })
-  }, [accounts, owner, pr.repository, pr.id, enqueueRef])
+    },
+    [setData]
+  )
 
-  return currentHeadSha
-}
-
-export function usePRThreadsPanel(pr: PRDetailInfo) {
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useLatest(enqueue)
-  const latestThreadsRequestRef = useRef(0)
-  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = resolvePRThreadsOwner(pr.org, ownerRepo)
-  const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<PRThreadsResult | null>(null)
-  const currentHeadSha = useHeadShaTracker(owner, pr, accounts, enqueueRef)
-  const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const [commentText, setCommentText] = useState('')
   const [sendingComment, setSendingComment] = useState(false)
-  const [showResolved, setShowResolved] = useState(true)
-
-  const fetchThreads = useCallback(async () => {
-    const requestId = ++latestThreadsRequestRef.current
-    setLoading(true)
-    setError(null)
-    try {
-      const result = await fetchPRThreadsResult(ownerRepo, enqueueRef, accounts, pr)
-      if (isLatestThreadsRequest(requestId, latestThreadsRequestRef)) setData(result)
-    } catch (err: unknown) {
-      setPRThreadsErrorIfCurrent(requestId, latestThreadsRequestRef, err, setError)
-    } finally {
-      finishPRThreadsLoading(requestId, latestThreadsRequestRef, setLoading)
-    }
-  }, [accounts, pr, ownerRepo, enqueueRef])
-
-  useEffect(() => {
-    fetchThreads()
-  }, [fetchThreads])
-
-  const handleReplyAdded = useCallback((threadId: string, comment: PRReviewComment) => {
-    setData(prev =>
-      prev
-        ? {
-            ...prev,
-            threads: prev.threads.map(t =>
-              t.id === threadId ? { ...t, comments: [...t.comments, comment] } : t
-            ),
-          }
-        : prev
-    )
-  }, [])
-
-  const handleResolveToggled = useCallback((threadId: string, resolved: boolean) => {
-    setData(prev =>
-      prev
-        ? {
-            ...prev,
-            threads: prev.threads.map(t =>
-              t.id === threadId ? { ...t, isResolved: resolved } : t
-            ),
-          }
-        : prev
-    )
-  }, [])
 
   const handleAddComment = useCallback(async () => {
-    if (!commentText.trim() || sendingComment || !ownerRepo) return
+    if (!commentText.trim() || sendingComment) return
+    if (!ownerRepo) return
+
     setSendingComment(true)
     try {
       const newComment = await enqueueRef.current(
-        /* v8 ignore start */ async signal => {
+        /* v8 ignore start */
+        async signal => {
           throwIfAborted(signal)
           const client = new GitHubClient({ accounts }, 7)
           return await client.addPRComment(
-            /* v8 ignore stop */ ownerRepo.owner,
+            /* v8 ignore stop */
+            ownerRepo.owner,
             ownerRepo.repo,
             pr.id,
             commentText.trim()
@@ -202,9 +76,9 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
       )
       setData(
         prev =>
-          /* v8 ignore start */ prev
-            ? { ...prev, issueComments: [...prev.issueComments, newComment] }
-            : prev /* v8 ignore stop */
+          /* v8 ignore start */
+          prev ? { ...prev, issueComments: [...prev.issueComments, newComment] } : prev
+        /* v8 ignore stop */
       )
       setCommentText('')
     } catch (err: unknown) {
@@ -212,76 +86,202 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     } finally {
       setSendingComment(false)
     }
-  }, [commentText, sendingComment, ownerRepo, pr.id, pr.repository, accounts, enqueueRef])
+  }, [commentText, sendingComment, ownerRepo, pr.id, pr.repository, accounts, enqueueRef, setData])
 
   const handleReactToComment = useCallback(
     async (commentId: string, content: PRCommentReactionContent) => {
       if (!ownerRepo) return
+
       try {
         await enqueueRef.current(
-          /* v8 ignore start */ async signal => {
+          /* v8 ignore start */
+          async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
-            await client.addCommentReaction(
-              ownerRepo.owner,
-              commentId,
-              content
-            ) /* v8 ignore stop */
+            await client.addCommentReaction(ownerRepo.owner, commentId, content)
+            /* v8 ignore stop */
           },
           { name: `add-comment-reaction-${pr.repository}-${pr.id}-${commentId}-${content}` }
         )
+
         setData(prev => (prev ? applyReactionToResult(prev, commentId, content) : prev))
       } catch (err: unknown) {
-        /* v8 ignore start */ if (isAbortError(err)) return
-        /* v8 ignore stop */ console.error('Failed to add reaction:', err)
+        /* v8 ignore start */
+        if (isAbortError(err)) return
+        /* v8 ignore stop */
+        console.error('Failed to add reaction:', err)
       }
     },
-    [accounts, ownerRepo, pr.repository, pr.id, enqueueRef]
+    [accounts, ownerRepo, pr.repository, pr.id, enqueueRef, setData]
   )
 
-  const threads = getThreadList(data)
-  const reviewedThreadStats = getReviewedThreadStats(latestReview)
-  const reviewedHeadSha = getReviewedHeadSha(latestReview)
-  const activeThreads = useMemo(() => threads.filter(t => !t.isResolved), [threads])
-  const resolvedThreads = useMemo(() => threads.filter(t => t.isResolved), [threads])
-  const outdatedThreads = useMemo(() => threads.filter(t => t.isOutdated), [threads])
+  return {
+    commentText,
+    setCommentText,
+    sendingComment,
+    handleReplyAdded,
+    handleResolveToggled,
+    handleAddComment,
+    handleReactToComment,
+  }
+}
+
+export function usePRThreadsPanel(pr: PRDetailInfo) {
+  const { accounts } = useGitHubAccounts()
+  const { enqueue } = useTaskQueue('github')
+  const enqueueRef = useLatest(enqueue)
+  const latestThreadsRequestRef = useRef(0)
+  const headShaRequestRef = useRef(0)
+  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
+  const owner = pr.org || ownerRepo?.owner
+  const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<PRThreadsResult | null>(null)
+  const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
+  const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
+  const [showResolved, setShowResolved] = useState(true)
+
+  useEffect(() => {
+    if (!owner || !pr.repository || !pr.id) {
+      setCurrentHeadSha(null)
+      return
+    }
+
+    const requestId = ++headShaRequestRef.current
+
+    enqueueRef
+      .current(
+        /* v8 ignore start */
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          return await client.fetchPRBranches(owner, pr.repository, pr.id)
+          /* v8 ignore stop */
+        },
+        { name: `pr-head-${pr.repository}-${pr.id}` }
+      )
+      .then(result => {
+        if (requestId !== headShaRequestRef.current) return
+        setCurrentHeadSha(result.headSha || null)
+      })
+      .catch(err => {
+        /* v8 ignore start */
+        if (isAbortError(err)) return
+        /* v8 ignore stop */
+        if (requestId !== headShaRequestRef.current) return
+        setCurrentHeadSha(null)
+      })
+  }, [accounts, owner, pr.repository, pr.id, enqueueRef])
+
+  const fetchThreads = useCallback(async () => {
+    const requestId = latestThreadsRequestRef.current + 1
+    latestThreadsRequestRef.current = requestId
+
+    setLoading(true)
+    setError(null)
+    try {
+      if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
+
+      const result = await enqueueRef.current(
+        /* v8 ignore start */
+        async signal => {
+          throwIfAborted(signal)
+          const client = new GitHubClient({ accounts }, 7)
+          return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
+          /* v8 ignore stop */
+        },
+        { name: `pr-threads-${pr.repository}-${pr.id}` }
+      )
+
+      if (requestId !== latestThreadsRequestRef.current) {
+        return
+      }
+
+      setData(result)
+      /* v8 ignore start */
+    } catch (err: unknown) {
+      /* v8 ignore stop */
+      /* v8 ignore start */
+      if (isAbortError(err)) return
+      /* v8 ignore stop */
+
+      if (requestId !== latestThreadsRequestRef.current) {
+        return
+      }
+
+      setError(getErrorMessage(err))
+    } finally {
+      if (requestId === latestThreadsRequestRef.current) {
+        setLoading(false)
+      }
+    }
+  }, [accounts, pr.id, pr.repository, ownerRepo, enqueueRef])
+
+  useEffect(() => {
+    fetchThreads()
+  }, [fetchThreads])
+
+  const {
+    commentText,
+    setCommentText,
+    sendingComment,
+    handleReplyAdded,
+    handleResolveToggled,
+    handleAddComment,
+    handleReactToComment,
+  } = useThreadActions(accounts, ownerRepo, pr, enqueueRef, setData)
+
+  const threads = data?.threads
+  const activeThreads = useMemo(() => threads?.filter(t => !t.isResolved) ?? [], [threads])
+  const resolvedThreads = useMemo(() => threads?.filter(t => t.isResolved) ?? [], [threads])
+  const outdatedThreads = useMemo(() => threads?.filter(t => t.isOutdated) ?? [], [threads])
+
   const threadSnapshotChanged = useMemo(
     () =>
-      !!reviewedThreadStats &&
-      (reviewedThreadStats.unresolved !== activeThreads.length ||
-        reviewedThreadStats.outdated !== outdatedThreads.length),
-    [reviewedThreadStats, activeThreads.length, outdatedThreads.length]
+      !!latestReview?.reviewedThreadStats &&
+      (latestReview.reviewedThreadStats.unresolved !== activeThreads.length ||
+        latestReview.reviewedThreadStats.outdated !== outdatedThreads.length),
+    [latestReview?.reviewedThreadStats, activeThreads.length, outdatedThreads.length]
   )
   const needsRefresh = useMemo(
     () =>
-      (!!reviewedHeadSha && !!currentHeadSha && reviewedHeadSha !== currentHeadSha) ||
+      (!!latestReview?.reviewedHeadSha &&
+        !!currentHeadSha &&
+        latestReview.reviewedHeadSha !== currentHeadSha) ||
       threadSnapshotChanged,
-    [reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
+    [latestReview?.reviewedHeadSha, currentHeadSha, threadSnapshotChanged]
   )
+
   const filteredThreads = useMemo(
     () =>
-      threads.filter(t => {
+      threads?.filter(t => {
         if (filter === 'active') return !t.isResolved
         if (filter === 'resolved') return t.isResolved
         return true
-      }),
+      }) ?? [],
     [threads, filter]
   )
+
   const openLatestReview = useCallback(() => {
     if (!latestReview) return
     window.dispatchEvent(
       new CustomEvent('copilot:open-result', { detail: { resultId: latestReview.resultId } })
     )
   }, [latestReview])
+
   const requestReReview = useCallback(() => {
     const prompt = buildReReviewPrompt(pr.url, latestReview?.reviewedHeadSha)
+
     dispatchPRReviewOpen({
       prUrl: pr.url,
       prTitle: pr.title,
       prNumber: pr.id,
       repo: pr.repository,
-      /* v8 ignore start */ org: owner || '',
-      /* v8 ignore stop */ author: pr.author,
+      /* v8 ignore start */
+      org: owner || '',
+      /* v8 ignore stop */
+      author: pr.author,
       initialPrompt: prompt,
     })
   }, [latestReview, pr.url, pr.title, pr.id, pr.repository, pr.author, owner])

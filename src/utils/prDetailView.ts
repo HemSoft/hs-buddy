@@ -7,6 +7,14 @@ function toIsoOrNull(value: unknown): string | null {
   return Number.isFinite(d.getTime()) ? d.toISOString() : null
 }
 
+function orEmpty(val: string | undefined): string {
+  return val || ''
+}
+
+function nullIfUndefined(val: number | null | undefined): number | null {
+  return val ?? null
+}
+
 export interface PRDetailInfo {
   source: PullRequest['source']
   repository: string
@@ -37,14 +45,6 @@ interface PRDetailRoute {
   section: PRDetailSection | null
 }
 
-function resolvePRDetailText(value: string | undefined): string {
-  return value || ''
-}
-
-function resolvePRDetailNumber(value: number | null | undefined): number | null {
-  return value ?? null
-}
-
 function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
   return {
     source: pr.source,
@@ -59,14 +59,14 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     assigneeCount: pr.assigneeCount,
     iApproved: pr.iApproved,
     created: toIsoOrNull(pr.created),
-    updatedAt: pr.updatedAt ?? null,
-    headBranch: resolvePRDetailText(pr.headBranch),
-    baseBranch: resolvePRDetailText(pr.baseBranch),
+    updatedAt: pr.updatedAt || null,
+    headBranch: orEmpty(pr.headBranch),
+    baseBranch: orEmpty(pr.baseBranch),
     date: pr.date,
     orgAvatarUrl: pr.orgAvatarUrl,
     org: pr.org,
-    threadsTotal: resolvePRDetailNumber(pr.threadsTotal),
-    threadsUnaddressed: resolvePRDetailNumber(pr.threadsUnaddressed),
+    threadsTotal: nullIfUndefined(pr.threadsTotal),
+    threadsUnaddressed: nullIfUndefined(pr.threadsUnaddressed),
   }
 }
 

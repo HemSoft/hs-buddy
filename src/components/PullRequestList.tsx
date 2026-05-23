@@ -368,9 +368,15 @@ function PRListActiveHeader({
   )
 }
 
-function createPROpener(onOpenPR: ((viewId: string) => void) | undefined) {
-  return (pr: PullRequest) =>
-    onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+function PRListFallback({ loading, error, prs, getTitle, progress, totalPrsFound, accounts, updateTimes, getProgressColor, refreshing, handleManualRefresh }: {
+  loading: boolean; error: string | null; prs: PullRequest[]; getTitle: () => string;
+  progress: unknown; totalPrsFound: number; accounts: unknown[]; updateTimes: unknown;
+  getProgressColor: unknown; refreshing: boolean; handleManualRefresh: () => void
+}) {
+  if (loading) return <PRListLoadingState getTitle={getTitle} progress={progress as never} totalPrsFound={totalPrsFound} />
+  if (error) return <PRListErrorState getTitle={getTitle} accounts={accounts as never} error={error} handleManualRefresh={handleManualRefresh} />
+  if (prs.length === 0) return <PREmptyState getTitle={getTitle} updateTimes={updateTimes as never} getProgressColor={getProgressColor as never} refreshing={refreshing} handleManualRefresh={handleManualRefresh} />
+  return null
 }
 
 export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
@@ -402,32 +408,11 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
 
   const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
-  if (loading)
-    return (
-      <PRListLoadingState getTitle={getTitle} progress={progress} totalPrsFound={totalPrsFound} />
-    )
-  if (error)
-    return (
-      <PRListErrorState
-        getTitle={getTitle}
-        accounts={accounts}
-        error={error}
-        handleManualRefresh={handleManualRefresh}
-      />
-    )
-  if (prs.length === 0) {
-    return (
-      <PREmptyState
-        getTitle={getTitle}
-        updateTimes={updateTimes}
-        getProgressColor={getProgressColor}
-        refreshing={refreshing}
-        handleManualRefresh={handleManualRefresh}
-      />
-    )
-  }
+  const fallback = PRListFallback({ loading, error, prs, getTitle, progress, totalPrsFound, accounts, updateTimes, getProgressColor, refreshing, handleManualRefresh })
+  if (fallback) return fallback
 
-  const openPR = createPROpener(onOpenPR)
+  const openPR = (pr: PullRequest) =>
+    onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
 
   return (
     <div className="pr-list-container">

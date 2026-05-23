@@ -219,6 +219,47 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
   )
 }
 
+function IssueNarrativeSection({ body }: { body: string }) {
+  return (
+    <section className="repo-issue-detail-main-card">
+      <div className="repo-issue-detail-card-title">Issue Narrative</div>
+      {body.trim() ? (
+        <div className="repo-issue-detail-markdown" data-color-mode="dark">
+          <MarkdownPreview
+            source={body}
+            remarkPlugins={[remarkGemoji]}
+            style={{ backgroundColor: 'transparent', color: 'inherit' }}
+          />
+        </div>
+      ) : (
+        <div className="repo-issue-detail-empty-body">
+          No description was provided for this issue.
+        </div>
+      )}
+    </section>
+  )
+}
+
+function IssueDiscussionSection({ comments }: { comments: RepoIssueDetail['comments'] }) {
+  return (
+    <section className="repo-issue-detail-comments-card">
+      <div className="repo-issue-detail-comments-header">
+        <div className="repo-issue-detail-card-title">Discussion</div>
+        <span className="repo-issue-detail-comments-count">{comments.length} replies</span>
+      </div>
+      {comments.length === 0 ? (
+        <div className="repo-issue-detail-empty-comments">No comments yet.</div>
+      ) : (
+        <div className="repo-issue-detail-comments-list">
+          {comments.map(comment => (
+            <IssueCommentItem key={comment.id} comment={comment} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const {
@@ -280,39 +321,10 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
         onStartRalphLoop={handleStartRalphLoop}
       />
       <div className="repo-issue-detail-layout">
-        <section className="repo-issue-detail-main-card">
-          <div className="repo-issue-detail-card-title">Issue Narrative</div>
-          {detail.body.trim() ? (
-            <div className="repo-issue-detail-markdown" data-color-mode="dark">
-              <MarkdownPreview
-                source={detail.body}
-                remarkPlugins={[remarkGemoji]}
-                style={{ backgroundColor: 'transparent', color: 'inherit' }}
-              />
-            </div>
-          ) : (
-            <div className="repo-issue-detail-empty-body">
-              No description was provided for this issue.
-            </div>
-          )}
-        </section>
+        <IssueNarrativeSection body={detail.body} />
         <IssueSidebar detail={detail} />
       </div>
-      <section className="repo-issue-detail-comments-card">
-        <div className="repo-issue-detail-comments-header">
-          <div className="repo-issue-detail-card-title">Discussion</div>
-          <span className="repo-issue-detail-comments-count">{detail.comments.length} replies</span>
-        </div>
-        {detail.comments.length === 0 ? (
-          <div className="repo-issue-detail-empty-comments">No comments yet.</div>
-        ) : (
-          <div className="repo-issue-detail-comments-list">
-            {detail.comments.map(comment => (
-              <IssueCommentItem key={comment.id} comment={comment} />
-            ))}
-          </div>
-        )}
-      </section>
+      <IssueDiscussionSection comments={detail.comments} />
     </div>
   )
 }

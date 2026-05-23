@@ -58,6 +58,37 @@ function WorkflowBadge({ run }: { run: NonNullable<RepoDetail['latestWorkflowRun
   )
 }
 
+function RepoMetaBadges({
+  language,
+  license,
+  workflowRun,
+}: {
+  language: string | null
+  license: string | null
+  workflowRun: RepoDetail['latestWorkflowRun']
+}) {
+  return (
+    <>
+      {language && (
+        <span className="repo-badge repo-badge-lang">
+          <span
+            className="lang-dot"
+            style={{ backgroundColor: getLanguageColor(language) }}
+          />
+          {language}
+        </span>
+      )}
+      {license && (
+        <span className="repo-badge repo-badge-license">
+          <Scale size={12} />
+          {license}
+        </span>
+      )}
+      {workflowRun && <WorkflowBadge run={workflowRun} />}
+    </>
+  )
+}
+
 function RepoBadges({ detail }: { detail: RepoDetail }) {
   return (
     <div className="repo-detail-badges">
@@ -77,22 +108,7 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
           Fork
         </span>
       )}
-      {detail.language && (
-        <span className="repo-badge repo-badge-lang">
-          <span
-            className="lang-dot"
-            style={{ backgroundColor: getLanguageColor(detail.language) }}
-          />
-          {detail.language}
-        </span>
-      )}
-      {detail.license && (
-        <span className="repo-badge repo-badge-license">
-          <Scale size={12} />
-          {detail.license}
-        </span>
-      )}
-      {detail.latestWorkflowRun && <WorkflowBadge run={detail.latestWorkflowRun} />}
+      <RepoMetaBadges language={detail.language} license={detail.license} workflowRun={detail.latestWorkflowRun} />
     </div>
   )
 }

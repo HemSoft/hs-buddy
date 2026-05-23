@@ -175,6 +175,33 @@ function buildTypeGroups(
     .filter(g => g.items.length > 0)
 }
 
+function PollenDetailContent({
+  typeGroups,
+  healthRecommendations,
+}: {
+  typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }>
+  healthRecommendations: string[]
+}) {
+  return (
+    <div className="pollen-detail-content">
+      {typeGroups.map(g => (
+        <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
+      ))}
+
+      {healthRecommendations.length > 0 && (
+        <div className="pollen-health-recs">
+          <span className="pollen-health-recs-label">Health Tips</span>
+          <ul className="pollen-health-recs-list">
+            {healthRecommendations.map((rec, i) => (
+              <li key={i}>{rec}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PollenSpeciesDetail({
   species,
   healthRecommendations,
@@ -200,22 +227,7 @@ function PollenSpeciesDetail({
       </button>
 
       {expanded && (
-        <div className="pollen-detail-content">
-          {typeGroups.map(g => (
-            <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
-          ))}
-
-          {healthRecommendations.length > 0 && (
-            <div className="pollen-health-recs">
-              <span className="pollen-health-recs-label">Health Tips</span>
-              <ul className="pollen-health-recs-list">
-                {healthRecommendations.map((rec, i) => (
-                  <li key={i}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <PollenDetailContent typeGroups={typeGroups} healthRecommendations={healthRecommendations} />
       )}
     </div>
   )
@@ -387,6 +399,28 @@ function WeatherExpandedContent({
   )
 }
 
+function WeatherCollapsedSummary({
+  data,
+}: {
+  data: { weatherCode: number; temperature: number; temperatureUnit: string; description: string; high: number; low: number } | null
+}) {
+  if (!data) return null
+  return (
+    <div className="weather-collapsed-summary">
+      <div className="weather-collapsed-left">
+        <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
+        <span className="weather-collapsed-temp">
+          {`${data.temperature}${data.temperatureUnit}`}
+        </span>
+        <span className="weather-collapsed-desc">{data.description}</span>
+      </div>
+      <span className="weather-collapsed-hilo">
+        H: {data.high}° &nbsp; L: {data.low}°
+      </span>
+    </div>
+  )
+}
+
 export function WeatherCard() {
   const {
     data,
@@ -432,23 +466,8 @@ export function WeatherCard() {
         />
       </CardHeader>
 
-      {/* Collapsed summary — always visible */}
-      {!expanded && data && (
-        <div className="weather-collapsed-summary">
-          <div className="weather-collapsed-left">
-            <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
-            <span className="weather-collapsed-temp">
-              {`${data.temperature}${data.temperatureUnit}`}
-            </span>
-            <span className="weather-collapsed-desc">{data.description}</span>
-          </div>
-          <span className="weather-collapsed-hilo">
-            H: {data.high}° &nbsp; L: {data.low}°
-          </span>
-        </div>
-      )}
+      {!expanded && <WeatherCollapsedSummary data={data} />}
 
-      {/* Expanded content */}
       {expanded && (
         <WeatherExpandedContent
           data={data}

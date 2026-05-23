@@ -61,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch-31 — extract sub-components to reduce complexity in 7 files
 - Improve CRAP scores for terminalHandlers and githubHandlers
 - Reduce CRAP scores below 30 for all critical methods
+- Reduce cyclomatic complexity across 5 files to improve CRAP scores
 
 ### Added
 

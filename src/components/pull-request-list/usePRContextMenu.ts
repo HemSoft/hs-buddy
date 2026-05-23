@@ -30,6 +30,34 @@ interface UsePRContextMenuOptions {
   >
 }
 
+async function toggleBookmark(
+  pr: PullRequest,
+  bookmarkedRepoKeys: Set<string>,
+  bookmarks: UsePRContextMenuOptions['bookmarks'],
+  createBookmark: UsePRContextMenuOptions['createBookmark'],
+  removeBookmark: UsePRContextMenuOptions['removeBookmark']
+) {
+  const org = pr.org || ''
+  const repoName = pr.repository
+  const key = `${org}/${repoName}`
+  if (bookmarkedRepoKeys.has(key)) {
+    /* v8 ignore start */
+    const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+    /* v8 ignore stop */
+    /* v8 ignore start */
+    if (bookmark) await removeBookmark({ id: bookmark._id })
+    /* v8 ignore stop */
+  } else {
+    await createBookmark({
+      folder: org,
+      owner: org,
+      repo: repoName,
+      url: pr.url.replace(/\/pull\/\d+$/, ''),
+      description: '',
+    })
+  }
+}
+
 export function usePRContextMenu(opts: UsePRContextMenuOptions) {
   const {
     accounts,
@@ -53,26 +81,13 @@ export function usePRContextMenu(opts: UsePRContextMenuOptions) {
 
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
-    const { pr } = contextMenu
-    const org = pr.org || ''
-    const repoName = pr.repository
-    const key = `${org}/${repoName}`
-    if (bookmarkedRepoKeys.has(key)) {
-      /* v8 ignore start */
-      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      if (bookmark) await removeBookmark({ id: bookmark._id })
-      /* v8 ignore stop */
-    } else {
-      await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: pr.url.replace(/\/pull\/\d+$/, ''),
-        description: '',
-      })
-    }
+    await toggleBookmark(
+      contextMenu.pr,
+      bookmarkedRepoKeys,
+      bookmarks,
+      createBookmark,
+      removeBookmark
+    )
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark])
 

@@ -40,6 +40,18 @@ function isCacheHitFresh(maxAgeMs: number | null | undefined, cacheKey: string):
   return typeof maxAgeMs === 'number' && dataCache.isFresh(cacheKey, maxAgeMs)
 }
 
+function shouldUseCachedData<TRaw>(
+  cacheKey: string,
+  forceRefresh: boolean | undefined,
+  maxAgeMs: number | null | undefined,
+  onData: (data: TRaw) => void
+): boolean {
+  const cached = dataCache.get<TRaw>(cacheKey)
+  if (!cached?.data || forceRefresh) return false
+  onData(cached.data)
+  return isCacheHitFresh(maxAgeMs, cacheKey)
+}
+
 async function fetchCachedRepoData<TRaw>(opts: {
   key: string
   cacheKey: string
@@ -53,11 +65,7 @@ async function fetchCachedRepoData<TRaw>(opts: {
   forceRefresh?: boolean
   maxAgeMs?: number | null
 }): Promise<void> {
-  const cached = dataCache.get<TRaw>(opts.cacheKey)
-  if (cached?.data && !opts.forceRefresh) {
-    opts.onData(cached.data)
-    if (isCacheHitFresh(opts.maxAgeMs, opts.cacheKey)) return
-  }
+  if (shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData)) return
   addToLoadingSet(opts.loadingSetter, opts.key)
   try {
     const result = (await opts.enqueue(
@@ -102,6 +110,53 @@ interface UseSidebarRepoActionsOptions {
   }) => Promise<{ inserted?: boolean } | null | undefined>
   removeBookmark: (data: { id: Id<'repoBookmarks'> }) => Promise<unknown>
   incrementStat: (data: { field: string }) => Promise<unknown>
+}
+
+async function removeExistingBookmark(
+  org: string,
+  repoName: string,
+  bookmarks: UseSidebarRepoActionsOptions['bookmarks'],
+  removeBookmark: UseSidebarRepoActionsOptions['removeBookmark']
+): Promise<void> {
+  /* v8 ignore start -- defensive: bookmarkedRepoKeys is derived from bookmarks */
+  const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
+  if (bookmark) await removeBookmark({ id: bookmark._id })
+  /* v8 ignore stop */
+}
+
+function handleSimplePrefixCacheUpdate(
+  key: string,
+  handlers: Record<string, (repoKey: string) => void>
+): boolean {
+  for (const [prefix, handle] of Object.entries(handlers)) {
+    if (key.startsWith(prefix)) {
+      handle(key.replace(prefix, ''))
+      return true
+    }
+  }
+  return false
+}
+
+function handleRepoPrCacheUpdate(
+  key: string,
+  setRepoPrTreeData: React.Dispatch<React.SetStateAction<Record<string, PullRequest[]>>>
+): boolean {
+  const repoKey = key.replace('repo-prs:', '')
+  const updated = dataCache.get<RepoPullRequest[]>(key)
+  /* v8 ignore start */
+  if (!updated?.data) return true
+  /* v8 ignore stop */
+  const [, ownerRepo] = repoKey.split(':', 2)
+  if (!ownerRepo) return true
+  const parsed = parseOwnerRepoKey(ownerRepo)
+  /* v8 ignore start */
+  if (!parsed) return true
+  /* v8 ignore stop */
+  setRepoPrTreeData(prev => ({
+    ...prev,
+    [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, parsed.owner)),
+  }))
+  return true
 }
 
 export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
@@ -332,10 +387,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     async (org: string, repoName: string, repoUrl: string) => {
       const key = `${org}/${repoName}`
       if (bookmarkedRepoKeys.has(key)) {
-        /* v8 ignore start -- defensive: bookmarkedRepoKeys is derived from bookmarks */
-        const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-        if (bookmark) await removeBookmark({ id: bookmark._id })
-        /* v8 ignore stop */
+        await removeExistingBookmark(org, repoName, bookmarks, removeBookmark)
         return
       }
       const result = await createBookmark({
@@ -369,82 +421,43 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
   /** Apply incoming cache updates for repo-level data. Returns true if handled. */
   const handleRepoCacheUpdate = useCallback((key: string): boolean => {
     if (key.startsWith('repo-prs:')) {
-      const repoKey = key.replace('repo-prs:', '')
-      const updated = dataCache.get<RepoPullRequest[]>(key)
-      /* v8 ignore start */
-      if (!updated?.data) return true
-      /* v8 ignore stop */
-      const [, ownerRepo] = repoKey.split(':', 2)
-      if (!ownerRepo) return true
-      const parsed = parseOwnerRepoKey(ownerRepo)
-      /* v8 ignore start */
-      if (!parsed) return true
-      /* v8 ignore stop */
-      setRepoPrTreeData(prev => ({
-        ...prev,
-        [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, parsed.owner)),
-      }))
-      return true
+      return handleRepoPrCacheUpdate(key, setRepoPrTreeData)
     }
 
-    const simplePrefixes: Array<{
-      prefix: string
-      handle: (repoKey: string) => void
-    }> = [
-      {
-        prefix: 'repo-counts:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoCounts>(`repo-counts:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
+    return handleSimplePrefixCacheUpdate(key, {
+      'repo-counts:': repoKey => {
+        const updated = dataCache.get<RepoCounts>(`repo-counts:${repoKey}`)
+        /* v8 ignore start */
+        if (updated?.data) {
+          /* v8 ignore stop */
+          setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
       },
-      {
-        prefix: 'repo-commits:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoCommit[]>(`repo-commits:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
+      'repo-commits:': repoKey => {
+        const updated = dataCache.get<RepoCommit[]>(`repo-commits:${repoKey}`)
+        /* v8 ignore start */
+        if (updated?.data) {
+          /* v8 ignore stop */
+          setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
       },
-      {
-        prefix: 'repo-issues:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoIssue[]>(`repo-issues:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
+      'repo-issues:': repoKey => {
+        const updated = dataCache.get<RepoIssue[]>(`repo-issues:${repoKey}`)
+        /* v8 ignore start */
+        if (updated?.data) {
+          /* v8 ignore stop */
+          setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
       },
-      {
-        prefix: 'sfl-status:',
-        handle: repoKey => {
-          const updated = dataCache.get<SFLRepoStatus>(`sfl-status:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
+      'sfl-status:': repoKey => {
+        const updated = dataCache.get<SFLRepoStatus>(`sfl-status:${repoKey}`)
+        /* v8 ignore start */
+        if (updated?.data) {
+          /* v8 ignore stop */
+          setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
+        }
       },
-    ]
-
-    for (const sub of simplePrefixes) {
-      if (key.startsWith(sub.prefix)) {
-        sub.handle(key.replace(sub.prefix, ''))
-        return true
-      }
-    }
-
-    return false
+    })
   }, [])
 
   return {

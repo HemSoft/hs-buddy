@@ -642,6 +642,64 @@ function shouldSkipAiSuggest(
   return isEdit || !initialUrl || !initialTitleReady || url !== initialUrl
 }
 
+function useBookmarkAiSuggestion(
+  isEdit: boolean,
+  initialUrl: string | undefined,
+  state: { initialTitleReady: boolean; title: string; url: string },
+  dispatch: Dispatch<BookmarkDialogAction>,
+  aiRequestedFor: React.MutableRefObject<string | null>,
+  userEditedDescription: React.MutableRefObject<boolean>,
+  userEditedTags: React.MutableRefObject<boolean>
+) {
+  useEffect(() => {
+    if (shouldSkipAiSuggest(isEdit, initialUrl, state.initialTitleReady, state.url)) return
+    const resolvedTitle = state.title.trim()
+    const key = `${initialUrl}|${resolvedTitle}`
+    /* v8 ignore start */
+    if (aiRequestedFor.current === key) return
+    /* v8 ignore stop */
+    aiRequestedFor.current = key
+    let cancelled = false
+    dispatch({ type: 'ai:start' })
+    const titleLine = resolvedTitle ? `\nTitle: ${resolvedTitle}` : ''
+    window.copilot
+      .quickPrompt({
+        prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):\n{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}\n\nURL: ${initialUrl}${titleLine}\n\nRules:\n- description: 1 short sentence, max 120 chars\n- tags: 3-5 lowercase single-word tags relevant to the content\n- Respond with ONLY the JSON object, nothing else`,
+        model: 'gpt-4o-mini',
+      })
+      .then(text => {
+        if (cancelled || !text) {
+          if (!cancelled) dispatch({ type: 'ai:finish' })
+          return
+        }
+        const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(
+          text,
+          userEditedDescription.current,
+          userEditedTags.current
+        )
+        /* v8 ignore start */
+        if (!cancelled) {
+          /* v8 ignore stop */ dispatch({
+            type: 'ai:finish',
+            description: nextDescription,
+            tagsInput: nextTagsInput,
+          })
+        }
+      })
+      .catch(err => {
+        console.warn('[BookmarkDialog] AI suggestion failed:', err)
+        /* v8 ignore start */ if (!cancelled) dispatch({ type: 'ai:finish' }) /* v8 ignore stop */
+      })
+    return () => {
+      /* v8 ignore start */ if (aiRequestedFor.current === key) {
+        /* v8 ignore stop */ dispatch({ type: 'ai:finish' })
+        aiRequestedFor.current = null
+      }
+      cancelled = true
+    }
+  }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url, dispatch, aiRequestedFor, userEditedDescription, userEditedTags])
+}
+
 export function BookmarkDialog({
   bookmark,
   categories,
@@ -694,7 +752,7 @@ export function BookmarkDialog({
       })
       .catch(() => {
         /* v8 ignore start */ if (!cancelled)
-          dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */
+         dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */
       })
     return () => {
       cancelled = true
@@ -702,53 +760,15 @@ export function BookmarkDialog({
     }
   }, [isEdit, initialUrl, initialTitle, state.url])
 
-  useEffect(() => {
-    if (shouldSkipAiSuggest(isEdit, initialUrl, state.initialTitleReady, state.url)) return
-    const resolvedTitle = state.title.trim()
-    const key = `${initialUrl}|${resolvedTitle}`
-    /* v8 ignore start */
-    if (aiRequestedFor.current === key) return
-    /* v8 ignore stop */
-    aiRequestedFor.current = key
-    let cancelled = false
-    dispatch({ type: 'ai:start' })
-    const titleLine = resolvedTitle ? `\nTitle: ${resolvedTitle}` : ''
-    window.copilot
-      .quickPrompt({
-        prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):\n{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}\n\nURL: ${initialUrl}${titleLine}\n\nRules:\n- description: 1 short sentence, max 120 chars\n- tags: 3-5 lowercase single-word tags relevant to the content\n- Respond with ONLY the JSON object, nothing else`,
-        model: 'gpt-4o-mini',
-      })
-      .then(text => {
-        if (cancelled || !text) {
-          if (!cancelled) dispatch({ type: 'ai:finish' })
-          return
-        }
-        const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(
-          text,
-          userEditedDescription.current,
-          userEditedTags.current
-        )
-        /* v8 ignore start */
-        if (!cancelled) {
-          /* v8 ignore stop */ dispatch({
-            type: 'ai:finish',
-            description: nextDescription,
-            tagsInput: nextTagsInput,
-          })
-        }
-      })
-      .catch(err => {
-        console.warn('[BookmarkDialog] AI suggestion failed:', err)
-        /* v8 ignore start */ if (!cancelled) dispatch({ type: 'ai:finish' }) /* v8 ignore stop */
-      })
-    return () => {
-      /* v8 ignore start */ if (aiRequestedFor.current === key) {
-        /* v8 ignore stop */ dispatch({ type: 'ai:finish' })
-        aiRequestedFor.current = null
-      }
-      cancelled = true
-    }
-  }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url])
+  useBookmarkAiSuggestion(
+    isEdit,
+    initialUrl,
+    state,
+    dispatch,
+    aiRequestedFor,
+    userEditedDescription,
+    userEditedTags
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

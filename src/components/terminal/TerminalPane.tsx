@@ -124,6 +124,73 @@ interface TerminalEffectRefs {
   attachCursorRef: React.MutableRefObject<number>
 }
 
+function createIpcHandlers(
+  refs: TerminalEffectRefs,
+  onExit: ((exitCode: number) => void) | undefined,
+  onCwdChange: ((newCwd: string) => void) | undefined
+) {
+  const onData = (_event: unknown, sid: string, data: string, seq?: number) => {
+    if (sid === refs.sessionIdRef.current && refs.termRef.current) {
+      if (seq != null && seq <= refs.attachCursorRef.current) return
+      refs.termRef.current.write(data)
+    }
+  }
+  const onSessionExit = (_event: unknown, sid: string, exitCode: number) => {
+    /* v8 ignore start */ if (sid === refs.sessionIdRef.current && refs.termRef.current) {
+      /* v8 ignore stop */ refs.termRef.current.writeln(
+        `\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m`
+      )
+      onExit?.(exitCode)
+    }
+  }
+  /* v8 ignore start */
+  const onCwdChanged = (_event: unknown, sid: string, newCwd: string) => {
+    if (sid === refs.sessionIdRef.current) {
+      onCwdChange?.(newCwd) /* v8 ignore stop */
+    }
+  }
+  return { onData, onSessionExit, onCwdChanged }
+}
+
+function setupResizeObserver(
+  container: HTMLElement,
+  refs: TerminalEffectRefs
+): { observer: ResizeObserver; cleanup: () => void } {
+  let resizeTimer: ReturnType<typeof setTimeout> | null = null
+  const handleResize = () => {
+    const fit = refs.fitRef.current
+    const sid = refs.sessionIdRef.current
+    /* v8 ignore start */
+    if (!fit || !sid) return
+    /* v8 ignore stop */
+    try {
+      fit.fit()
+      const d = fit.proposeDimensions()
+      /* v8 ignore start */ if (!d || !d.cols || !d.rows) return
+      /* v8 ignore stop */ if (
+        !isDimensionChanged({ cols: d.cols, rows: d.rows }, refs.lastResizeRef.current)
+      )
+        return
+      refs.lastResizeRef.current = { cols: d.cols, rows: d.rows }
+      window.terminal.resize(sid, d.cols, d.rows)
+    } catch (_: unknown) {
+      /* ignore */
+    }
+  }
+  const observer = new ResizeObserver(() => {
+    if (resizeTimer) clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(handleResize, 100)
+  })
+  observer.observe(container)
+  return {
+    observer,
+    cleanup: () => {
+      observer.disconnect()
+      if (resizeTimer) clearTimeout(resizeTimer)
+    },
+  }
+}
+
 function setupTerminalEffect(
   container: HTMLElement,
   viewKey: string,
@@ -224,26 +291,8 @@ function setupTerminalEffect(
     const sid = refs.sessionIdRef.current
     if (sid) window.terminal.write(sid, data)
   })
-  const onData = (_event: unknown, sid: string, data: string, seq?: number) => {
-    if (sid === refs.sessionIdRef.current && refs.termRef.current) {
-      if (seq != null && seq <= refs.attachCursorRef.current) return
-      refs.termRef.current.write(data)
-    }
-  }
-  const onSessionExit = (_event: unknown, sid: string, exitCode: number) => {
-    /* v8 ignore start */ if (sid === refs.sessionIdRef.current && refs.termRef.current) {
-      /* v8 ignore stop */ refs.termRef.current.writeln(
-        `\r\n\x1b[90m[Process exited with code ${exitCode}]\x1b[0m`
-      )
-      onExit?.(exitCode)
-    }
-  }
-  /* v8 ignore start */
-  const onCwdChanged = (_event: unknown, sid: string, newCwd: string) => {
-    if (sid === refs.sessionIdRef.current) {
-      onCwdChange?.(newCwd) /* v8 ignore stop */
-    }
-  }
+
+  const { onData, onSessionExit, onCwdChanged } = createIpcHandlers(refs, onExit, onCwdChange)
 
   void (async () => {
     await initSession()
@@ -253,37 +302,11 @@ function setupTerminalEffect(
     window.ipcRenderer.on(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
   })()
 
-  let resizeTimer: ReturnType<typeof setTimeout> | null = null
-  const handleResize = () => {
-    const fit = refs.fitRef.current
-    const sid = refs.sessionIdRef.current
-    /* v8 ignore start */
-    if (!fit || !sid) return
-    /* v8 ignore stop */
-    try {
-      fit.fit()
-      const d = fit.proposeDimensions()
-      /* v8 ignore start */ if (!d || !d.cols || !d.rows) return
-      /* v8 ignore stop */ if (
-        !isDimensionChanged({ cols: d.cols, rows: d.rows }, refs.lastResizeRef.current)
-      )
-        return
-      refs.lastResizeRef.current = { cols: d.cols, rows: d.rows }
-      window.terminal.resize(sid, d.cols, d.rows)
-    } catch (_: unknown) {
-      /* ignore */
-    }
-  }
-  const resizeObserver = new ResizeObserver(() => {
-    if (resizeTimer) clearTimeout(resizeTimer)
-    resizeTimer = setTimeout(handleResize, 100)
-  })
-  resizeObserver.observe(container)
+  const { cleanup: cleanupResize } = setupResizeObserver(container, refs)
 
   return () => {
     active = false
-    resizeObserver.disconnect()
-    if (resizeTimer) clearTimeout(resizeTimer)
+    cleanupResize()
     cursorMoveDisposable.dispose()
     renderDisposable.dispose()
     inputDisposable.dispose()

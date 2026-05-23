@@ -72,6 +72,33 @@ function resolveActiveTabAfterClose(
   return resolveRemainingActiveTabId(nextTabs, previousState.activeTabId)
 }
 
+function useTabNavigationListeners(openTab: (viewId: string) => Promise<void>) {
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent).detail
+      if (d?.resultId) openTab(`copilot-result:${d.resultId}`)
+    }
+    window.addEventListener('copilot:open-result', h)
+    return () => window.removeEventListener('copilot:open-result', h)
+  }, [openTab])
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent).detail as PRReviewInfo | undefined
+      if (d?.prUrl) openTab(`pr-review:${encodeURIComponent(JSON.stringify(d))}`)
+    }
+    window.addEventListener('pr-review:open', h)
+    return () => window.removeEventListener('pr-review:open', h)
+  }, [openTab])
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<{ viewId?: string }>).detail
+      if (d?.viewId) openTab(d.viewId)
+    }
+    window.addEventListener('app:navigate', h)
+    return () => window.removeEventListener('app:navigate', h)
+  }, [openTab])
+}
+
 export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
   const [tabState, setTabState] = useState<TabState>(() => {
     const dashboardTab: Tab = { id: 'tab-dashboard', label: 'Dashboard', viewId: DASHBOARD_VIEW_ID }
@@ -160,30 +187,7 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
     }
   }, [crewTabDependency])
 
-  useEffect(() => {
-    const h = (e: Event) => {
-      const d = (e as CustomEvent).detail
-      if (d?.resultId) openTab(`copilot-result:${d.resultId}`)
-    }
-    window.addEventListener('copilot:open-result', h)
-    return () => window.removeEventListener('copilot:open-result', h)
-  }, [openTab])
-  useEffect(() => {
-    const h = (e: Event) => {
-      const d = (e as CustomEvent).detail as PRReviewInfo | undefined
-      if (d?.prUrl) openTab(`pr-review:${encodeURIComponent(JSON.stringify(d))}`)
-    }
-    window.addEventListener('pr-review:open', h)
-    return () => window.removeEventListener('pr-review:open', h)
-  }, [openTab])
-  useEffect(() => {
-    const h = (e: Event) => {
-      const d = (e as CustomEvent<{ viewId?: string }>).detail
-      if (d?.viewId) openTab(d.viewId)
-    }
-    window.addEventListener('app:navigate', h)
-    return () => window.removeEventListener('app:navigate', h)
-  }, [openTab])
+  useTabNavigationListeners(openTab)
 
   const closeTab = useCallback((tabId: string) => {
     setTabState(previousState => {

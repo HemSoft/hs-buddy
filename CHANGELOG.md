@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Extract sub-hooks to reduce CRAP scores
+
+### Fixed
+
+- Remove unused exports flagged by knip
+- Remove unused exports and address review findings
+
 ## [0.1.759] - 2026-05-11
 
 ### Fixed
@@ -22,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove unused export on RepoBookmarkRecord type
 - Resolve prettier formatting and eslint lint errors
 - Resolve CI failures (security check + branch coverage)
+- Resolve CI failures (prettier, flaky telemetry test, changelog)
 
 ### Changed
 

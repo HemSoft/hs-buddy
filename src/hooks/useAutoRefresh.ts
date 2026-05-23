@@ -154,6 +154,40 @@ function mergeSettings(
   return merged
 }
 
+function handleRefreshResult(
+  result: void | Promise<void>,
+  mountedRef: { current: boolean },
+  stampRefresh: () => void
+): void {
+  if (result && typeof (result as Promise<void>).then === 'function') {
+    ;(result as Promise<void>).then(
+      () => {
+        if (mountedRef.current) stampRefresh()
+      },
+      err => {
+        console.error('[useAutoRefresh] Refresh promise rejected:', err)
+      }
+    )
+  } else {
+    stampRefresh()
+  }
+}
+
+function syncExternalTimestamp(
+  externalTimestamp: number | null | undefined,
+  lastRefreshedAt: number | null,
+  setLastRefreshedAt: (ts: number) => void,
+  cardId: string
+): void {
+  if (
+    externalTimestamp != null &&
+    (lastRefreshedAt == null || externalTimestamp > lastRefreshedAt)
+  ) {
+    setLastRefreshedAt(externalTimestamp)
+    writeLastRefreshed(cardId, externalTimestamp)
+  }
+}
+
 /**
  * Manages periodic auto-refresh for a dashboard card.
  * Settings are persisted per card in localStorage, defaulting to off.
@@ -197,17 +231,7 @@ export function useAutoRefresh(
 
   const refresh = useCallback(() => {
     try {
-      const result = refreshRef.current()
-      if (result && typeof result.then === 'function') {
-        result.then(
-          () => {
-            if (mountedRef.current) stampRefresh()
-          },
-          () => {}
-        )
-      } else {
-        stampRefresh()
-      }
+      handleRefreshResult(refreshRef.current(), mountedRef, stampRefresh)
     } catch (_: unknown) {
       /* sync throw — don't stamp */
     }
@@ -222,13 +246,7 @@ export function useAutoRefresh(
   }, [settings.enabled, settings.intervalMinutes, refresh])
 
   useEffect(() => {
-    if (
-      externalTimestamp != null &&
-      (lastRefreshedAt == null || externalTimestamp > lastRefreshedAt)
-    ) {
-      setLastRefreshedAt(externalTimestamp)
-      writeLastRefreshed(cardId, externalTimestamp)
-    }
+    syncExternalTimestamp(externalTimestamp, lastRefreshedAt, setLastRefreshedAt, cardId)
   }, [externalTimestamp, lastRefreshedAt, cardId])
 
   const update = useCallback(

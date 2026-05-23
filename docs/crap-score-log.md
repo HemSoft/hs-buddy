@@ -1,4 +1,4 @@
-## 2025-07-14 — CRAP Score Snapshot (Electron)
+## 2026-05-23 — CRAP Score Snapshot (Electron)
 
 | Metric | Value |
 |--------|-------|

@@ -265,14 +265,21 @@ function handleResolveRepoPath(_event: unknown, opts: unknown) {
 
 async function handleSpawn(
   event: { sender: WebContents },
-  opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }
+  rawOpts: unknown
 ) {
+  const opts =
+    rawOpts && typeof rawOpts === 'object'
+      ? (rawOpts as { cwd?: unknown; cols?: unknown; rows?: unknown; startupCommand?: unknown })
+      : {}
   const defaultCwd = resolveDefaultCwd()
-  const cwd = opts.cwd && isValidCwd(opts.cwd) ? path.resolve(opts.cwd) : defaultCwd
+  const cwdInput = typeof opts.cwd === 'string' ? opts.cwd : undefined
+  const cwd = cwdInput && isValidCwd(cwdInput) ? path.resolve(cwdInput) : defaultCwd
   const sessionId = randomUUID()
 
+  const cols = typeof opts.cols === 'number' ? opts.cols : undefined
+  const rows = typeof opts.rows === 'number' ? opts.rows : undefined
   const { shell, shellArgs } = resolveSpawnShell()
-  const spawnOptions = buildSpawnOptions(opts, cwd)
+  const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
 
   let ptyProcess
   try {
@@ -286,7 +293,7 @@ async function handleSpawn(
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  if (opts.startupCommand) {
+  if (typeof opts.startupCommand === 'string' && opts.startupCommand.length > 0) {
     scheduleStartupCommand(sessionId, opts.startupCommand)
   }
 

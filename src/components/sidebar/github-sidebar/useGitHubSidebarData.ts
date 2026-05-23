@@ -252,7 +252,7 @@ export function useGitHubSidebarData() {
       repoActions.handleRepoCacheUpdate(key)
     })
     return unsubscribe
-  }, [applyOrgRepoResult, repoActions.handleRepoCacheUpdate])
+  }, [applyOrgRepoResult, repoActions])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -325,7 +325,6 @@ export function useGitHubSidebarData() {
         if (isAbortError(error)) return
         /* v8 ignore stop */
         console.error(`Failed to fetch repos for ${org}:`, error)
-        setOrgRepos(prev => ({ ...prev, [org]: [] }))
       } finally {
         removeFromLoadingSet(setLoadingOrgs, org)
       }
@@ -366,12 +365,8 @@ export function useGitHubSidebarData() {
         parseOwnerRepoKey,
         p => repoActions.fetchRepoCommitsForRepo(p.owner, p.repo, true)
       )
-      forEachStaleEntry(
-        repoActions.fetchedSFLRef,
-        'sfl-status',
-        intervalMs,
-        parseOwnerRepoKey,
-        p => repoActions.fetchSFLStatusForRepo(p.owner, p.repo, true)
+      forEachStaleEntry(repoActions.fetchedSFLRef, 'sfl-status', intervalMs, parseOwnerRepoKey, p =>
+        repoActions.fetchSFLStatusForRepo(p.owner, p.repo, true)
       )
       forEachStaleEntry(
         repoActions.fetchedRepoIssuesRef,
@@ -382,14 +377,7 @@ export function useGitHubSidebarData() {
       )
     }, intervalMs)
     return () => clearInterval(intervalId)
-  }, [
-    accounts.length,
-    repoActions.fetchRepoPRsForRepo,
-    repoActions.fetchRepoCommitsForRepo,
-    repoActions.fetchSFLStatusForRepo,
-    repoActions.fetchRepoIssuesForRepo,
-    refreshInterval,
-  ])
+  }, [accounts.length, repoActions, refreshInterval])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -426,7 +414,7 @@ export function useGitHubSidebarData() {
     }
     const intervalId = setInterval(refreshRepoCounts, intervalMs)
     return () => clearInterval(intervalId)
-  }, [accounts, refreshInterval])
+  }, [accounts, refreshInterval, repoActions.fetchedCountsRef])
 
   return {
     ...prTree,
@@ -446,4 +434,4 @@ export function useGitHubSidebarData() {
     toggleOrg,
     ...userMenu,
   }
-}
+}

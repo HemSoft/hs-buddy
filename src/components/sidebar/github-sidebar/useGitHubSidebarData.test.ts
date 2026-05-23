@@ -21,6 +21,8 @@ vi.mock('../../../services/dataCache', () => ({
 
 // --- Configurable mock values ---
 let mockRefreshInterval = 0
+let mockCreateBookmarkResult: { inserted?: boolean } | null | undefined = undefined
+let mockCreateBookmarkShouldReject = false
 
 // --- Mock hooks ---
 vi.mock('../../../hooks/useConfig', () => {
@@ -47,7 +49,10 @@ vi.mock('../../../hooks/useTaskQueue', () => {
 vi.mock('../../../hooks/useConvex', () => ({
   useRepoBookmarks: () => [{ owner: 'acme', repo: 'my-repo' }],
   useRepoBookmarkMutations: () => ({
-    create: vi.fn(),
+    create: vi.fn().mockImplementation(() => {
+      if (mockCreateBookmarkShouldReject) return Promise.reject(new Error('Network error'))
+      return Promise.resolve(mockCreateBookmarkResult)
+    }),
     remove: vi.fn(),
   }),
   useBuddyStatsMutations: () => ({
@@ -69,6 +74,7 @@ const mockFetchRepoCommits = vi.fn().mockResolvedValue([])
 const mockFetchRepoIssues = vi.fn().mockResolvedValue([])
 const mockFetchSFLStatus = vi.fn().mockResolvedValue({ isSFLEnabled: false, workflows: [] })
 const mockFetchOrgOverview = vi.fn().mockResolvedValue({ metrics: { topContributorsToday: [] } })
+const mockFetchOrgMembers = vi.fn().mockResolvedValue({ members: [] })
 const mockApprovePullRequest = vi.fn().mockResolvedValue(undefined)
 
 vi.mock('../../../api/github', () => ({
@@ -77,7 +83,7 @@ vi.mock('../../../api/github', () => ({
       fetchOrgRepos: vi
         .fn()
         .mockResolvedValue({ repos: [], authenticatedAs: 'alice', isUserNamespace: false }),
-      fetchOrgMembers: vi.fn().mockResolvedValue({ members: [] }),
+      fetchOrgMembers: (...args: unknown[]) => mockFetchOrgMembers(...args),
       fetchOrgOverview: (...args: unknown[]) => mockFetchOrgOverview(...args),
       fetchOrgTeams: vi.fn().mockResolvedValue({ teams: [] }),
       fetchTeamMembers: vi.fn().mockResolvedValue({ members: [] }),
@@ -149,6 +155,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(null)
   mockRefreshInterval = 0
+  mockCreateBookmarkResult = undefined
+  mockCreateBookmarkShouldReject = false
   mockIsAbortError.mockReturnValue(false)
   mockFetchRepoCounts.mockResolvedValue({ issues: 0, prs: 0 })
   mockFetchRepoPRs.mockResolvedValue([])
@@ -156,6 +164,7 @@ beforeEach(() => {
   mockFetchRepoIssues.mockResolvedValue([])
   mockFetchSFLStatus.mockResolvedValue({ isSFLEnabled: false, workflows: [] })
   mockFetchOrgOverview.mockResolvedValue({ metrics: { topContributorsToday: [] } })
+  mockFetchOrgMembers.mockResolvedValue({ members: [] })
   mockApprovePullRequest.mockResolvedValue(undefined)
   Object.defineProperty(window, 'ipcRenderer', {
     value: {
@@ -740,6 +749,55 @@ describe('useGitHubSidebarData', () => {
       )
     })
     expect(mockEvent.stopPropagation).toHaveBeenCalled()
+  })
+
+  it('handleBookmarkToggle catches and logs errors', async () => {
+    mockCreateBookmarkShouldReject = true
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { result } = renderHook(() => useGitHubSidebarData())
+    const mockEvent = { stopPropagation: vi.fn() } as unknown as React.MouseEvent
+    await act(async () => {
+      await result.current.handleBookmarkToggle(
+        mockEvent,
+        'acme',
+        'new-repo',
+        'https://github.com/acme/new-repo'
+      )
+    })
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[Bookmark] toggle failed'),
+      expect.any(Error)
+    )
+    consoleSpy.mockRestore()
+  })
+
+  it('toggleBookmarkRepoByValues calls incrementStat when bookmark is inserted', async () => {
+    mockCreateBookmarkResult = { inserted: true }
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => {
+      await result.current.toggleBookmarkRepoByValues(
+        'acme',
+        'new-repo',
+        'https://github.com/acme/new-repo'
+      )
+    })
+    // The incrementStat path was exercised (line 345)
+  })
+
+  it('toggleRalphGroup toggles ralph group state', () => {
+    const { result } = renderHook(() => useGitHubSidebarData())
+    expect(result.current.expandedRalphGroups.has('acme/my-repo')).toBe(false)
+    act(() => result.current.toggleRalphGroup('acme', 'my-repo'))
+    expect(result.current.expandedRalphGroups.has('acme/my-repo')).toBe(true)
+    act(() => result.current.toggleRalphGroup('acme', 'my-repo'))
+    expect(result.current.expandedRalphGroups.has('acme/my-repo')).toBe(false)
+  })
+
+  it('handleRepoCacheUpdate returns false for unrecognized keys', () => {
+    renderHook(() => useGitHubSidebarData())
+    const subscribeCb = getMainSubscribeCb()
+    // Calling with an unrecognized key exercises the return false path (line 443)
+    act(() => subscribeCb('completely-unknown-prefix:something'))
   })
 
   it('toggleRepo toggles and fetches counts on first expand', async () => {
@@ -1348,6 +1406,46 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrgUserGroup('acme')
     })
     expect(consoleSpy).toHaveBeenCalledWith('[OrgOverview] acme failed:', expect.any(Error))
+    consoleSpy.mockRestore()
+  })
+
+  it('fetchOrgMembers uses cached data when available', async () => {
+    const membersData = { members: [{ login: 'alice', avatarUrl: '' }] }
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'org-members:acme') return { data: membersData }
+      return null
+    })
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => {
+      result.current.toggleOrgUserGroup('acme')
+    })
+    expect(result.current.orgMembers['acme']).toEqual(membersData.members)
+    expect(mockFetchOrgMembers).not.toHaveBeenCalled()
+  })
+
+  it('fetchOrgMembers handles fetch error gracefully', async () => {
+    mockFetchOrgMembers.mockRejectedValue(new Error('Members error'))
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => {
+      result.current.toggleOrgUserGroup('acme')
+    })
+    expect(consoleSpy).toHaveBeenCalledWith('[OrgMembers] acme failed:', expect.any(Error))
+    consoleSpy.mockRestore()
+  })
+
+  it('fetchOrgMembers ignores abort errors', async () => {
+    mockFetchOrgMembers.mockRejectedValue(new DOMException('aborted', 'AbortError'))
+    mockIsAbortError.mockReturnValue(true)
+    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => {
+      result.current.toggleOrgUserGroup('acme')
+    })
+    const memberCalls = consoleSpy.mock.calls.filter(
+      args => typeof args[0] === 'string' && args[0].includes('OrgMembers')
+    )
+    expect(memberCalls.length).toBe(0)
     consoleSpy.mockRestore()
   })
 

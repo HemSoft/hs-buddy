@@ -299,7 +299,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [ctxMenu.contextMenu, ctxMenu.closeContextMenu])
+  }, [ctxMenu])
 
   useEffect(() => {
     if (accountsLoading || prSettingsLoading) {

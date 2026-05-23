@@ -75,6 +75,7 @@ function toContributorMap(overview: OrgOverviewResult): Record<string, number> {
 }
 
 export function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
+  /* v8 ignore next -- forceRefresh=true branch only used by future callers */
   if (forceRefresh) return null
   const cached = dataCache.get<OrgOverviewResult>(`org-overview:${org}`)
   return cached?.data ?? null

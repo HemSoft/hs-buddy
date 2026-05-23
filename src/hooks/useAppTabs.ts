@@ -75,7 +75,7 @@ function resolveActiveTabAfterClose(
 function useTabNavigationListeners(openTab: (viewId: string) => Promise<void>) {
   useEffect(() => {
     const h = (e: Event) => {
-      const d = (e as CustomEvent).detail
+      const d = (e as CustomEvent<{ resultId?: string }>).detail
       if (d?.resultId) openTab(`copilot-result:${d.resultId}`)
     }
     window.addEventListener('copilot:open-result', h)

@@ -8,13 +8,12 @@ import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
 import { throwIfAborted } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 
-function resolveOrgName(pr: PullRequest): string {
-  return pr.org || pr.source
-}
-
 export interface UsePRContextMenuOptions {
   accounts: GitHubAccount[]
-  bookmarks: Array<{ _id: Id<'repoBookmarks'>; owner?: string | null; repo?: string | null }> | null | undefined
+  bookmarks:
+    | Array<{ _id: Id<'repoBookmarks'>; owner?: string | null; repo?: string | null }>
+    | null
+    | undefined
   bookmarkedRepoKeys: Set<string>
   recentlyMergedDays: number
   premiumModel: string

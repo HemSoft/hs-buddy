@@ -17,6 +17,47 @@ function applyModelResult(
   }
 }
 
+function resolveAccountArg(forAccount?: string) {
+  return forAccount || undefined
+}
+
+function isCurrentModelFetch(fetchIdRef: React.RefObject<number>, fetchId: number) {
+  return fetchIdRef.current === fetchId
+}
+
+function applyFetchedModels(
+  result: unknown,
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  if (!isCurrentModelFetch(fetchIdRef, fetchId)) return
+  applyModelResult(result, setModelsError, setSdkModels)
+}
+
+function applyModelFetchError(
+  err: unknown,
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsError: (e: string | null) => void,
+  setSdkModels: (m: SdkModel[]) => void
+) {
+  if (!isCurrentModelFetch(fetchIdRef, fetchId)) return
+  setModelsError(getErrorMessage(err))
+  setSdkModels([])
+}
+
+function finishModelFetch(
+  fetchIdRef: React.RefObject<number>,
+  fetchId: number,
+  setModelsLoading: (loading: boolean) => void
+) {
+  if (isCurrentModelFetch(fetchIdRef, fetchId)) {
+    setModelsLoading(false)
+  }
+}
+
 /** Model info returned from the Copilot SDK */
 interface SdkModel {
   id: string
@@ -61,17 +102,12 @@ function useModelFetch() {
     setModelsLoading(true)
     setModelsError(null)
     try {
-      const result = await window.copilot.listModels(forAccount || undefined)
-      if (fetchIdRef.current !== thisId) return
-      applyModelResult(result, setModelsError, setSdkModels)
+      const result = await window.copilot.listModels(resolveAccountArg(forAccount))
+      applyFetchedModels(result, fetchIdRef, thisId, setModelsError, setSdkModels)
     } catch (err: unknown) {
-      if (fetchIdRef.current !== thisId) return
-      setModelsError(getErrorMessage(err))
-      setSdkModels([])
+      applyModelFetchError(err, fetchIdRef, thisId, setModelsError, setSdkModels)
     } finally {
-      if (fetchIdRef.current === thisId) {
-        setModelsLoading(false)
-      }
+      finishModelFetch(fetchIdRef, thisId, setModelsLoading)
     }
   }, [])
 
@@ -112,7 +148,7 @@ function ModelPickerNoModels({
         {showRefresh && (
           <button
             className="settings-btn settings-btn-secondary"
-            onClick={() => fetchModels(ghAccount || undefined)}
+            onClick={() => fetchModels(resolveAccountArg(ghAccount))}
             style={{ padding: '4px 8px', fontSize: '12px' }}
           >
             <RefreshCw size={12} /> Refresh
@@ -138,7 +174,7 @@ function ModelPickerRefreshButton({
   return (
     <button
       className="settings-btn settings-btn-secondary"
-      onClick={() => fetchModels(ghAccount || undefined)}
+      onClick={() => fetchModels(resolveAccountArg(ghAccount))}
       disabled={modelsLoading}
       title="Refresh models from Copilot SDK"
       style={{ padding: '6px 10px' }}
@@ -148,6 +184,104 @@ function ModelPickerRefreshButton({
       {/* v8 ignore stop */}
       Refresh
     </button>
+  )
+}
+
+function ModelPickerLoadingState({ className }: { className: string }) {
+  return (
+    <div className={className}>
+      <div style={SELECT_STATUS_STYLE}>
+        <Loader2 size={16} className="spin" />
+        Fetching available models...
+      </div>
+    </div>
+  )
+}
+
+function ModelPickerErrorState({
+  className,
+  modelsError,
+}: {
+  className: string
+  modelsError: string
+}) {
+  return (
+    <div className={className}>
+      <div className="form-error" style={{ marginBottom: '8px' }}>
+        Failed to fetch models: {modelsError}
+      </div>
+    </div>
+  )
+}
+
+function renderSelectVariantState({
+  modelsLoading,
+  modelsError,
+  enabledModels,
+  disabledModels,
+  showRefresh,
+  fetchModels,
+  ghAccount,
+  className,
+}: {
+  modelsLoading: boolean
+  modelsError: string | null
+  enabledModels: SdkModel[]
+  disabledModels: SdkModel[]
+  showRefresh: boolean
+  fetchModels: (forAccount?: string) => Promise<void>
+  ghAccount: string
+  className: string
+}) {
+  if (modelsLoading) {
+    return <ModelPickerLoadingState className={className} />
+  }
+
+  if (modelsError) {
+    return <ModelPickerErrorState className={className} modelsError={modelsError} />
+  }
+
+  if (enabledModels.length === 0 && disabledModels.length === 0) {
+    return (
+      <ModelPickerNoModels
+        showRefresh={showRefresh}
+        fetchModels={fetchModels}
+        ghAccount={ghAccount}
+        className={className}
+      />
+    )
+  }
+
+  return null
+}
+
+function ModelPickerEnabledOptions({ enabledModels }: { enabledModels: SdkModel[] }) {
+  /* v8 ignore next -- guard for empty model list */
+  if (enabledModels.length === 0) return null
+
+  return (
+    <optgroup label="Available Models">
+      {enabledModels.map(m => (
+        <option key={m.id} value={m.id}>
+          {m.name}
+          {billingLabel(m.billingMultiplier)}
+        </option>
+      ))}
+    </optgroup>
+  )
+}
+
+function ModelPickerDisabledOptions({ disabledModels }: { disabledModels: SdkModel[] }) {
+  if (disabledModels.length === 0) return null
+
+  return (
+    <optgroup label="Disabled by Policy">
+      {disabledModels.map(m => (
+        <option key={m.id} value={m.id} disabled>
+          {m.name} (disabled)
+        </option>
+      ))}
+    </optgroup>
   )
 }
 
@@ -178,36 +312,19 @@ function ModelPickerSelectVariant({
   className: string
   id?: string
 }) {
-  if (modelsLoading) {
-    return (
-      <div className={className}>
-        <div style={SELECT_STATUS_STYLE}>
-          <Loader2 size={16} className="spin" />
-          Fetching available models...
-        </div>
-      </div>
-    )
-  }
+  const statusContent = renderSelectVariantState({
+    modelsLoading,
+    modelsError,
+    enabledModels,
+    disabledModels,
+    showRefresh,
+    fetchModels,
+    ghAccount,
+    className,
+  })
 
-  if (modelsError) {
-    return (
-      <div className={className}>
-        <div className="form-error" style={{ marginBottom: '8px' }}>
-          Failed to fetch models: {modelsError}
-        </div>
-      </div>
-    )
-  }
-
-  if (enabledModels.length === 0 && disabledModels.length === 0) {
-    return (
-      <ModelPickerNoModels
-        showRefresh={showRefresh}
-        fetchModels={fetchModels}
-        ghAccount={ghAccount}
-        className={className}
-      />
-    )
+  if (statusContent) {
+    return statusContent
   }
 
   return (
@@ -221,25 +338,8 @@ function ModelPickerSelectVariant({
             className="settings-select"
             disabled={disabled}
           >
-            {enabledModels.length > 0 && (
-              <optgroup label="Available Models">
-                {enabledModels.map(m => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                    {billingLabel(m.billingMultiplier)}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-            {disabledModels.length > 0 && (
-              <optgroup label="Disabled by Policy">
-                {disabledModels.map(m => (
-                  <option key={m.id} value={m.id} disabled>
-                    {m.name} (disabled)
-                  </option>
-                ))}
-              </optgroup>
-            )}
+            <ModelPickerEnabledOptions enabledModels={enabledModels} />
+            <ModelPickerDisabledOptions disabledModels={disabledModels} />
           </select>
         </div>
         <ModelPickerRefreshButton
@@ -253,6 +353,24 @@ function ModelPickerSelectVariant({
   )
 }
 
+function resolveFallbackModel(sdkModels: { id: string; isDisabled?: boolean }[], value: string) {
+  if (sdkModels.length === 0) return null
+  const isKnown = sdkModels.some(m => m.id === value)
+  if (isKnown || value === '') return null
+  return sdkModels.find(m => !m.isDisabled) ?? null
+}
+
+function persistModelSelection(
+  persist: boolean,
+  persistModel: (v: string) => Promise<void>,
+  value: string
+) {
+  if (!persist) return
+  /* v8 ignore start */
+  persistModel(value).catch(() => {})
+  /* v8 ignore stop */
+}
+
 function useModelValidation(
   sdkModels: { id: string; isDisabled?: boolean }[],
   value: string,
@@ -261,17 +379,10 @@ function useModelValidation(
   persistModel: (v: string) => Promise<void>
 ) {
   useEffect(() => {
-    if (sdkModels.length === 0) return
-    const isKnown = sdkModels.some(m => m.id === value)
-    if (isKnown || value === '') return
-    const firstEnabled = sdkModels.find(m => !m.isDisabled)
-    if (!firstEnabled) return
-    onChange(firstEnabled.id)
-    if (persist) {
-      /* v8 ignore start */
-      persistModel(firstEnabled.id).catch(() => {})
-      /* v8 ignore stop */
-    }
+    const fallbackModel = resolveFallbackModel(sdkModels, value)
+    if (!fallbackModel) return
+    onChange(fallbackModel.id)
+    persistModelSelection(persist, persistModel, fallbackModel.id)
   }, [sdkModels, value, onChange, persist, persistModel])
 }
 
@@ -306,7 +417,7 @@ function useModelPickerSetup(
     if (lastAccountRef.current !== ghAccount) {
       /* v8 ignore stop */
       lastAccountRef.current = ghAccount
-      fetchModels(ghAccount || undefined)
+      fetchModels(resolveAccountArg(ghAccount))
     }
   }, [ghAccount, fetchModels, lastAccountRef])
 

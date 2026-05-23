@@ -60,6 +60,33 @@ interface PRListTableViewProps {
   handleContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function ThreadsStatusCell({
+  threadsUnaddressed,
+}: {
+  threadsUnaddressed: number | null | undefined
+}) {
+  if (threadsUnaddressed == null) return null
+  if (threadsUnaddressed === 0) {
+    return <CircleCheck size={14} className="list-view-comments-clear" />
+  }
+  return (
+    <span className="list-view-comments-unresolved">
+      <MessageSquare size={12} />
+      {threadsUnaddressed}
+    </span>
+  )
+}
+
+function ApprovalCell({ approvalCount, iApproved }: { approvalCount: number; iApproved: boolean }) {
+  if (approvalCount <= 0) return null
+  return (
+    <span className={`list-view-approvals${iApproved ? ' list-view-approvals--mine' : ''}`}>
+      <ThumbsUp size={12} />
+      {approvalCount}
+    </span>
+  )
+}
+
 function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewProps) {
   return (
     <div className="pr-list" style={{ display: 'block', padding: '0' }}>
@@ -105,26 +132,10 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
               <td className="col-number">{pr.repository}</td>
               <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
               <td>
-                {pr.threadsUnaddressed != null ? (
-                  pr.threadsUnaddressed === 0 ? (
-                    <CircleCheck size={14} className="list-view-comments-clear" />
-                  ) : (
-                    <span className="list-view-comments-unresolved">
-                      <MessageSquare size={12} />
-                      {pr.threadsUnaddressed}
-                    </span>
-                  )
-                ) : null}
+                <ThreadsStatusCell threadsUnaddressed={pr.threadsUnaddressed} />
               </td>
               <td>
-                {pr.approvalCount > 0 && (
-                  <span
-                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
-                  >
-                    <ThumbsUp size={12} />
-                    {pr.approvalCount}
-                  </span>
-                )}
+                <ApprovalCell approvalCount={pr.approvalCount} iApproved={pr.iApproved} />
               </td>
             </tr>
           ))}
@@ -357,6 +368,61 @@ function PRListActiveHeader({
   )
 }
 
+function PRListFallback({
+  loading,
+  error,
+  prs,
+  getTitle,
+  progress,
+  totalPrsFound,
+  accounts,
+  updateTimes,
+  getProgressColor,
+  refreshing,
+  handleManualRefresh,
+}: {
+  loading: boolean
+  error: string | null
+  prs: PullRequest[]
+  getTitle: () => string
+  progress: unknown
+  totalPrsFound: number
+  accounts: unknown[]
+  updateTimes: unknown
+  getProgressColor: unknown
+  refreshing: boolean
+  handleManualRefresh: () => void
+}) {
+  if (loading)
+    return (
+      <PRListLoadingState
+        getTitle={getTitle}
+        progress={progress as never}
+        totalPrsFound={totalPrsFound}
+      />
+    )
+  if (error)
+    return (
+      <PRListErrorState
+        getTitle={getTitle}
+        accounts={accounts as never}
+        error={error}
+        handleManualRefresh={handleManualRefresh}
+      />
+    )
+  if (prs.length === 0)
+    return (
+      <PREmptyState
+        getTitle={getTitle}
+        updateTimes={updateTimes as never}
+        getProgressColor={getProgressColor as never}
+        refreshing={refreshing}
+        handleManualRefresh={handleManualRefresh}
+      />
+    )
+  return null
+}
+
 export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
   const {
     prs,
@@ -386,34 +452,23 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
 
   const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
-  if (loading) {
-    return (
-      <PRListLoadingState getTitle={getTitle} progress={progress} totalPrsFound={totalPrsFound} />
-    )
-  }
+  const fallback = PRListFallback({
+    loading,
+    error,
+    prs,
+    getTitle,
+    progress,
+    totalPrsFound,
+    accounts,
+    updateTimes,
+    getProgressColor,
+    refreshing,
+    handleManualRefresh,
+  })
+  if (fallback) return fallback
 
-  if (error) {
-    return (
-      <PRListErrorState
-        getTitle={getTitle}
-        accounts={accounts}
-        error={error}
-        handleManualRefresh={handleManualRefresh}
-      />
-    )
-  }
-
-  if (prs.length === 0) {
-    return (
-      <PREmptyState
-        getTitle={getTitle}
-        updateTimes={updateTimes}
-        getProgressColor={getProgressColor}
-        refreshing={refreshing}
-        handleManualRefresh={handleManualRefresh}
-      />
-    )
-  }
+  const openPR = (pr: PullRequest) =>
+    onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
 
   return (
     <div className="pr-list-container">
@@ -439,9 +494,7 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
               approving={approving}
               onApprove={handleApprove}
               onContextMenu={handleContextMenu}
-              onOpen={pr =>
-                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
-              }
+              onOpen={openPR}
             />
           ))}
         </div>

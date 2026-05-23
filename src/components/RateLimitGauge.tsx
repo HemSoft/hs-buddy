@@ -39,23 +39,12 @@ function formatResetTime(resetTimestamp: number): string {
   return `${mins}m`
 }
 
-export function RateLimitGauge({
-  remaining,
-  limit,
-  reset,
-  refreshInterval = 60,
-}: RateLimitGaugeProps) {
-  const ratio = limit > 0 ? remaining / limit : 1
-  const color = useMemo(() => getGaugeColor(ratio), [ratio])
-  const resetLabel = formatResetTime(reset)
-
-  // Countdown bar: resets to 1 when data changes, drains to 0 over refreshInterval
+function useCountdownAnimation(remaining: number, refreshInterval: number): number {
   const [countdown, setCountdown] = useState(1)
   const prevRemainingRef = useRef(remaining)
   const animFrameRef = useRef<number>(0)
   const startTimeRef = useRef(Date.now())
 
-  // Reset countdown when the data actually changes
   useEffect(() => {
     if (remaining !== prevRemainingRef.current) {
       prevRemainingRef.current = remaining
@@ -64,7 +53,6 @@ export function RateLimitGauge({
     }
   }, [remaining])
 
-  // Animate the countdown bar via requestAnimationFrame
   useEffect(() => {
     const intervalMs = refreshInterval * 1000
     const tick = () => {
@@ -76,6 +64,20 @@ export function RateLimitGauge({
     animFrameRef.current = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(animFrameRef.current)
   }, [refreshInterval, remaining])
+
+  return countdown
+}
+
+export function RateLimitGauge({
+  remaining,
+  limit,
+  reset,
+  refreshInterval = 60,
+}: RateLimitGaugeProps) {
+  const ratio = limit > 0 ? remaining / limit : 1
+  const color = useMemo(() => getGaugeColor(ratio), [ratio])
+  const resetLabel = formatResetTime(reset)
+  const countdown = useCountdownAnimation(remaining, refreshInterval)
 
   // Proven technique: <circle> + stroke-dasharray (CSS-Tricks progress ring)
   // A circle with dasharray = half circumference shows a semicircle.

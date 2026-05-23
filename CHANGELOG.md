@@ -18,12 +18,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Persist weather location across app restarts via electron-store
 - Surface pollen API errors instead of silently hiding
 - Resolve knip, test-electron crash, and coverage failures
+- Resolve all CI failures (lint, typecheck, tests, coverage)
+- Remove unused export on RepoBookmarkRecord type
+- Resolve prettier formatting and eslint lint errors
+- Resolve CI failures (security check + branch coverage)
 
 ### Changed
 
 - Bootstrap lean-ctx section in AGENTS.md
 - Swap pollen API from Tomorrow.io to Google Pollen API
 - Bump @opentelemetry/api-logs from 0.216.0 to 0.218.0
+- Reduce CRAP scores across codebase (batch 2)
+- Reduce CRAP scores batch 3 - extract helpers
+- Batch 4 — reduce complexity in prs, OrgDetailPanel, userHelpers, useTerminalPanel
+- Batch 5 — reduce complexity in useConfig, CopilotResultPanel, useTerminalPanel, RepoNode
+- Batch 6 - reduce complexity in TerminalPane, usePRListData, pr-detail, RepoNode, PullRequestDetailPanel, BookmarksSidebar, ralphService, BookmarkDialog, UserDetailPanel, OrgBudgetsSection, AutomationSidebarSection
+- Reduce CRAP scores batch 7 - complexity 229→172
+- Reduce CRAP scores batch 8 - hooks and handlers
+- Reduce CRAP scores batch 9 - smaller hooks
+- Extract fetchUserPremiumRequests, registerCopilotSeatHandlers, collectCopilotSnapshots
+- Extract helpers from borderline-size components and hooks
+- Extract sub-components and compress handlers in UI layer
+- Simplisticate batch 13 — compress functions under 80-line threshold
+- Simplisticate batch 14 — more function compressions
+- Simplisticate batch 24 — compress TerminalPanel, useCopilotReviewMonitor, useAIReviewMonitor, BookmarkDialog
+- Simplisticate batch 25 — compress usePRThreadsPanel, TempoWorklogEditor, TerminalPane
+- Compress batch 26 — SettingsCopilot, users, PullRequestDetailPanel
+- Compress batch 27 — SettingsAppearance, RalphLaunchForm, useAppTabs
+- Batch-31 — extract sub-components to reduce complexity in 7 files
 
 ### Added
 

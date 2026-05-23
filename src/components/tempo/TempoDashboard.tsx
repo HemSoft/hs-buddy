@@ -230,6 +230,21 @@ function isDayUnfinished(dailyTotals: Record<string, number>, dateKey: string): 
   return (dailyTotals[dateKey] || 0) < 8
 }
 
+function updateFirstEmptyDayState(
+  firstWorkday: string | null,
+  firstUnfinished: string | null,
+  dateKey: string,
+  dailyTotals: Record<string, number>
+): { firstWorkday: string | null; firstUnfinished: string | null } {
+  let nextFirstWorkday = firstWorkday
+  if (!nextFirstWorkday) nextFirstWorkday = dateKey
+
+  let nextFirstUnfinished = firstUnfinished
+  if (!nextFirstUnfinished && isDayUnfinished(dailyTotals, dateKey)) nextFirstUnfinished = dateKey
+
+  return { firstWorkday: nextFirstWorkday, firstUnfinished: nextFirstUnfinished }
+}
+
 function findFirstEmptyDay(
   issueKeys: Set<string>,
   start: Date,
@@ -245,8 +260,12 @@ function findFirstEmptyDay(
     if (!isWorkday(date, holidaySet)) continue
 
     const dateKey = formatDateKey(date)
-    if (!firstWorkday) firstWorkday = dateKey
-    if (!firstUnfinished && isDayUnfinished(dailyTotals, dateKey)) firstUnfinished = dateKey
+    ;({ firstWorkday, firstUnfinished } = updateFirstEmptyDayState(
+      firstWorkday,
+      firstUnfinished,
+      dateKey,
+      dailyTotals
+    ))
 
     if (!dayHasIssue(hoursByIssueDate, dateKey, issueKeys)) {
       return { dateKey, firstWorkday, firstUnfinished }
@@ -384,20 +403,28 @@ function useTempoDashboardHandlers(
   return { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay }
 }
 
+function shouldReplaceTemplateWorklog(
+  existing: { summary: string; latestWorklog: TempoWorklog } | undefined,
+  worklog: TempoWorklog
+): boolean {
+  if (!existing) return true
+  if (worklog.date > existing.latestWorklog.date) return true
+  return (
+    worklog.date === existing.latestWorklog.date &&
+    worklog.startTime > existing.latestWorklog.startTime
+  )
+}
+
 // eslint-disable-next-line react-refresh/only-export-components -- exported for testing
 export function buildTemplateFromWorklogs(worklogs: TempoWorklog[]): {
   issues: TempoIssueSummary[]
   prefills: Record<string, TempoWorklog>
 } {
   const seen = new Map<string, { summary: string; latestWorklog: TempoWorklog }>()
-  for (const w of worklogs) {
-    const existing = seen.get(w.issueKey)
-    if (
-      !existing ||
-      w.date > existing.latestWorklog.date ||
-      (w.date === existing.latestWorklog.date && w.startTime > existing.latestWorklog.startTime)
-    ) {
-      seen.set(w.issueKey, { summary: w.issueSummary, latestWorklog: w })
+  for (const worklog of worklogs) {
+    const existing = seen.get(worklog.issueKey)
+    if (shouldReplaceTemplateWorklog(existing, worklog)) {
+      seen.set(worklog.issueKey, { summary: worklog.issueSummary, latestWorklog: worklog })
     }
   }
 
@@ -439,6 +466,46 @@ function computeDashboardDerived(
   return { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults }
 }
 
+interface PreviousMonthTemplateResult {
+  success: boolean
+  data?: { worklogs: TempoWorklog[] }
+  error?: string
+}
+
+function getPreviousMonthWorklogs(result: PreviousMonthTemplateResult): TempoWorklog[] {
+  if (!result.success || !result.data) return []
+  return result.data.worklogs
+}
+
+function getPreviousMonthTemplateError(result: PreviousMonthTemplateResult): string {
+  return result.error || 'Failed to load previous month data.'
+}
+
+function applyPreviousMonthTemplateResult(
+  result: PreviousMonthTemplateResult,
+  dispatch: React.Dispatch<TempoDashboardAction>
+): void {
+  const worklogs = getPreviousMonthWorklogs(result)
+  if (worklogs.length > 0) {
+    const { issues, prefills } = buildTemplateFromWorklogs(worklogs)
+    dispatch({ type: 'setTemplateIssues', issues, prefills })
+    return
+  }
+  if (result.success) {
+    dispatch({ type: 'setLoadingTemplates', loading: false })
+    dispatch({
+      type: 'setActionError',
+      error: 'No entries found in the previous month.',
+    })
+    return
+  }
+  dispatch({ type: 'setLoadingTemplates', loading: false })
+  dispatch({
+    type: 'setActionError',
+    error: getPreviousMonthTemplateError(result),
+  })
+}
+
 export function TempoDashboard() {
   const [state, dispatch] = useReducer(
     tempoDashboardReducer,
@@ -458,7 +525,6 @@ export function TempoDashboard() {
 
   const { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay } =
     useTempoDashboardHandlers(state, dispatch, month, holidays, actions, todayKey)
-
   const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
     computeDashboardDerived(state, month, today, todayKey)
 
@@ -467,38 +533,17 @@ export function TempoDashboard() {
     const m = state.viewMonth.getMonth()
     const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`
     copyMonthRef.current = monthKey
-
     dispatch({ type: 'setLoadingTemplates', loading: true })
-    const prevDate = new Date(y, m - 1, 1)
-    const { from, to } = getMonthRange(prevDate)
+    const { from, to } = getMonthRange(new Date(y, m - 1, 1))
     const result = await window.tempo.getWeek(from, to)
-
     if (copyMonthRef.current !== monthKey) return
-
-    if (result.success && result.data && result.data.worklogs.length > 0) {
-      const { issues, prefills } = buildTemplateFromWorklogs(result.data.worklogs)
-      dispatch({ type: 'setTemplateIssues', issues, prefills })
-    } else if (result.success) {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: 'No entries found in the previous month.',
-      })
-    } else {
-      dispatch({ type: 'setLoadingTemplates', loading: false })
-      dispatch({
-        type: 'setActionError',
-        error: result.error || 'Failed to load previous month data.',
-      })
-    }
+    applyPreviousMonthTemplateResult(result, dispatch)
   }, [state.viewMonth])
 
-  // Merge real issue summaries with templates (templates hidden if real data exists for that key)
   const mergedIssueSummaries = useMemo(() => {
     if (state.templateIssues.length === 0) return month.issueSummaries
     const realKeys = new Set(month.issueSummaries.map(s => s.issueKey))
-    const templates = state.templateIssues.filter(t => !realKeys.has(t.issueKey))
-    return [...month.issueSummaries, ...templates]
+    return [...month.issueSummaries, ...state.templateIssues.filter(t => !realKeys.has(t.issueKey))]
   }, [month.issueSummaries, state.templateIssues])
 
   return (
@@ -515,7 +560,6 @@ export function TempoDashboard() {
         onAddWorklog={handleAddForDate}
         onRefresh={refreshAll}
       />
-
       <TempoSummaryCards
         todayHours={todayHours}
         monthHours={month.totalHours}
@@ -525,7 +569,6 @@ export function TempoDashboard() {
         worklogs={month.worklogs}
         capexMap={capexMap}
       />
-
       {activeError && (
         <TempoDashboardErrorBanner
           error={activeError}
@@ -534,7 +577,6 @@ export function TempoDashboard() {
           onDismiss={() => dispatch({ type: 'setActionError', error: null })}
         />
       )}
-
       {state.viewMode === 'grid' ? (
         <TempoTimesheetGrid
           issueSummaries={mergedIssueSummaries}
@@ -560,7 +602,6 @@ export function TempoDashboard() {
           onDelete={handleDelete}
         />
       )}
-
       {state.editorOpen && (
         <TempoWorklogEditor
           worklog={state.editingWorklog}

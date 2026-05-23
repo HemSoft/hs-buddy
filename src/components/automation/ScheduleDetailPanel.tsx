@@ -202,6 +202,68 @@ function resolveStatusBadge(enabled: boolean) {
   }
 }
 
+async function confirmAndDeleteSchedule(
+  schedule: NonNullable<ReturnType<typeof useSchedule>>,
+  confirm: ReturnType<typeof useConfirm>['confirm'],
+  remove: ReturnType<typeof useScheduleMutations>['remove']
+): Promise<void> {
+  const confirmed = await confirm({
+    message: `Delete schedule "${schedule.name}"?`,
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  })
+  /* v8 ignore next -- user cancelled confirmation dialog */
+  if (!confirmed) return
+
+  try {
+    await remove({ id: schedule._id })
+  } catch (error: unknown) {
+    /* v8 ignore start */
+    console.error('Failed to delete schedule:', error)
+    /* v8 ignore stop */
+  }
+}
+
+function ScheduleDetailEditor({
+  editorOpen,
+  scheduleId,
+  onClose,
+}: {
+  editorOpen: boolean
+  scheduleId: string
+  onClose: () => void
+}) {
+  if (!editorOpen) return null
+  return <ScheduleEditor scheduleId={scheduleId} onClose={onClose} />
+}
+
+function ScheduleDescription({ description }: { description?: string }) {
+  /* v8 ignore next -- guard for optional description */
+  if (!description) return null
+  return <div className="schedule-detail-description">{description}</div>
+}
+
+function ScheduleDetailLoadingState() {
+  return (
+    <div className="schedule-detail">
+      <div className="schedule-detail-loading">
+        <div className="loading-spinner" />
+        <span>Loading schedule...</span>
+      </div>
+    </div>
+  )
+}
+
+function ScheduleDetailEmptyState() {
+  return (
+    <div className="schedule-detail">
+      <div className="schedule-detail-empty">
+        <p>Schedule not found.</p>
+      </div>
+    </div>
+  )
+}
+
 function ScheduleCronConfig({
   schedule,
   formatCron,
@@ -243,24 +305,11 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   const { confirm, confirmDialog } = useConfirm()
 
   if (schedule === undefined) {
-    return (
-      <div className="schedule-detail">
-        <div className="schedule-detail-loading">
-          <div className="loading-spinner" />
-          <span>Loading schedule...</span>
-        </div>
-      </div>
-    )
+    return <ScheduleDetailLoadingState />
   }
 
   if (schedule === null) {
-    return (
-      <div className="schedule-detail">
-        <div className="schedule-detail-empty">
-          <p>Schedule not found.</p>
-        </div>
-      </div>
-    )
+    return <ScheduleDetailEmptyState />
   }
 
   const handleToggle = async () => {
@@ -274,35 +323,22 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
   }
 
   const handleDelete = async () => {
-    const confirmed = await confirm({
-      message: `Delete schedule "${schedule.name}"?`,
-      confirmLabel: 'Delete',
-      variant: 'danger',
-    })
-    /* v8 ignore start */
-    if (confirmed) {
-      /* v8 ignore stop */
-      try {
-        await remove({ id: schedule._id })
-      } catch (error: unknown) {
-        /* v8 ignore start */
-        console.error('Failed to delete schedule:', error)
-        /* v8 ignore stop */
-      }
-    }
+    await confirmAndDeleteSchedule(schedule, confirm, remove)
   }
 
   const formatCron = formatCronSchedule
   const statusBadge = resolveStatusBadge(schedule.enabled)
+  /* v8 ignore next -- editor close callback */
+  const closeEditor = () => setEditorOpen(false)
 
   return (
     <>
       <div className="schedule-detail">
-        {editorOpen && (
-          /* v8 ignore start */
-          <ScheduleEditor scheduleId={scheduleId} onClose={() => setEditorOpen(false)} />
-          /* v8 ignore stop */
-        )}
+        <ScheduleDetailEditor
+          editorOpen={editorOpen}
+          scheduleId={scheduleId}
+          onClose={closeEditor}
+        />
 
         <div className="schedule-detail-header">
           <div className="schedule-detail-title-row">
@@ -320,9 +356,7 @@ export function ScheduleDetailPanel({ scheduleId }: ScheduleDetailPanelProps) {
           </div>
         </div>
 
-        {schedule.description && (
-          <div className="schedule-detail-description">{schedule.description}</div>
-        )}
+        <ScheduleDescription description={schedule.description} />
 
         <div className="schedule-detail-meta">
           <span title={new Date(schedule.createdAt).toLocaleString()}>

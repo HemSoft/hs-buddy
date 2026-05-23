@@ -24,24 +24,40 @@ interface Schedule {
   enabled: boolean
 }
 
+type WorkerType = Job['workerType']
+type JobsByType = Record<WorkerType, Job[]>
+
+interface BadgeProgress {
+  progress: number
+  color: string
+  tooltip: string
+}
+
 interface AutomationSidebarSectionProps {
   jobs: Job[] | null | undefined
   schedules: Schedule[] | null | undefined
   selectedItem: string | null
   onItemSelect: (itemId: string) => void
   counts?: Record<string, number>
-  badgeProgress?: Record<string, { progress: number; color: string; tooltip: string }>
+  badgeProgress?: Record<string, BadgeProgress>
 }
 
-const workerTypeInfo: Record<string, { label: string; icon: React.ReactNode }> = {
+const workerTypeInfo: Record<WorkerType, { label: string; icon: React.ReactNode }> = {
   exec: { label: 'Shell Commands', icon: <Terminal size={14} /> },
   ai: { label: 'AI Prompts', icon: <Brain size={14} /> },
   skill: { label: 'Claude Skills', icon: <Zap size={14} /> },
 }
 
+const AUTOMATION_JOBS_ITEM_ID = 'automation-jobs'
+const AUTOMATION_SCHEDULES_ITEM_ID = 'automation-schedules'
+const AUTOMATION_ITEMS = [
+  { id: AUTOMATION_JOBS_ITEM_ID, label: 'Jobs' },
+  { id: AUTOMATION_SCHEDULES_ITEM_ID, label: 'Schedules' },
+  { id: 'automation-runs', label: 'Runs' },
+] as const
+
 const EMPTY_COUNTS: Record<string, number> = {}
-const EMPTY_BADGE_PROGRESS: Record<string, { progress: number; color: string; tooltip: string }> =
-  {}
+const EMPTY_BADGE_PROGRESS: Record<string, BadgeProgress> = {}
 
 function DisclosureChevron({
   sectionKey,
@@ -69,17 +85,45 @@ function DisclosureChevron({
   )
 }
 
+function getScheduleItemIcon(isScheduleExpanded: boolean): React.ReactNode {
+  return isScheduleExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
 function getItemIcon(
   itemId: string,
   hasJobs: boolean,
   hasSchedules: boolean,
   isScheduleExpanded: boolean
 ): React.ReactNode {
-  if (itemId === 'automation-jobs' && hasJobs) return <FolderOpen size={14} />
-  if (itemId === 'automation-schedules' && hasSchedules) {
-    return isScheduleExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+  if (itemId === AUTOMATION_JOBS_ITEM_ID && hasJobs) return <FolderOpen size={14} />
+  if (itemId === AUTOMATION_SCHEDULES_ITEM_ID && hasSchedules) {
+    return getScheduleItemIcon(isScheduleExpanded)
   }
   return <FileText size={14} />
+}
+
+function getJobsByType(jobs: Job[] | null | undefined): JobsByType | null {
+  if (!jobs) return null
+  return {
+    exec: jobs.filter(job => job.workerType === 'exec'),
+    ai: jobs.filter(job => job.workerType === 'ai'),
+    skill: jobs.filter(job => job.workerType === 'skill'),
+  }
+}
+
+function hasItems<T>(items: T[] | null | undefined): boolean {
+  return Boolean(items && items.length > 0)
+}
+
+function hasItemDisclosure(itemId: string, hasJobs: boolean, hasSchedules: boolean): boolean {
+  return (
+    (itemId === AUTOMATION_JOBS_ITEM_ID && hasJobs) ||
+    (itemId === AUTOMATION_SCHEDULES_ITEM_ID && hasSchedules)
+  )
+}
+
+function getSidebarItemClassName(isSelected: boolean, hasDisclosure: boolean): string {
+  return `sidebar-item ${isSelected ? 'selected' : ''} ${hasDisclosure ? 'sidebar-item-disclosure' : ''}`
 }
 
 function handleItemMainClick(
@@ -87,25 +131,19 @@ function handleItemMainClick(
   toggleSubSection: (key: string) => void,
   onItemSelect: (id: string) => void
 ) {
-  if (itemId === 'automation-jobs') {
-    toggleSubSection('automation-jobs')
+  if (itemId === AUTOMATION_JOBS_ITEM_ID) {
+    toggleSubSection(AUTOMATION_JOBS_ITEM_ID)
     return
   }
-  if (itemId === 'automation-schedules') {
-    toggleSubSection('automation-schedules')
-    onItemSelect('automation-schedules')
+  if (itemId === AUTOMATION_SCHEDULES_ITEM_ID) {
+    toggleSubSection(AUTOMATION_SCHEDULES_ITEM_ID)
+    onItemSelect(AUTOMATION_SCHEDULES_ITEM_ID)
     return
   }
   onItemSelect(itemId)
 }
 
-function ProgressBadge({
-  count,
-  progress,
-}: {
-  count: number
-  progress: { progress: number; color: string; tooltip: string }
-}) {
+function ProgressBadge({ count, progress }: { count: number; progress: BadgeProgress }) {
   return (
     <span
       className="sidebar-item-count-ring"
@@ -123,8 +161,8 @@ function ProgressBadge({
 }
 
 const JOB_SCHEDULE_LISTS: Partial<Record<string, 'jobs' | 'schedules'>> = {
-  'automation-jobs': 'jobs',
-  'automation-schedules': 'schedules',
+  [AUTOMATION_JOBS_ITEM_ID]: 'jobs',
+  [AUTOMATION_SCHEDULES_ITEM_ID]: 'schedules',
 }
 
 function JobScheduleCountBadge({
@@ -151,7 +189,7 @@ function ItemCountBadge({
 }: {
   itemId: string
   counts: Record<string, number>
-  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  badgeProgress: Record<string, BadgeProgress>
   jobs: Job[] | null | undefined
   schedules: Schedule[] | null | undefined
 }) {
@@ -209,7 +247,7 @@ function JobSubTree({
   isExpanded,
   toggleSubSection,
 }: {
-  jobsByType: Record<'exec' | 'ai' | 'skill', Job[]>
+  jobsByType: JobsByType
   selectedItem: string | null
   onItemSelect: (itemId: string) => void
   isExpanded: (key: string) => boolean
@@ -262,36 +300,72 @@ function JobSubTree({
   )
 }
 
-function renderItemSubTree(
+function getScheduleSubTree(
   itemId: string,
   isExpanded: (key: string) => boolean,
   schedules: Schedule[] | null | undefined,
-  jobsByType: Record<'exec' | 'ai' | 'skill', Job[]> | null,
+  selectedItem: string | null,
+  onItemSelect: (id: string) => void
+): React.ReactNode {
+  if (
+    itemId !== AUTOMATION_SCHEDULES_ITEM_ID ||
+    !isExpanded(AUTOMATION_SCHEDULES_ITEM_ID) ||
+    !schedules
+  ) {
+    return null
+  }
+
+  return (
+    <ScheduleSubTree
+      schedules={schedules}
+      selectedItem={selectedItem}
+      onItemSelect={onItemSelect}
+    />
+  )
+}
+
+function getJobSubTree(
+  itemId: string,
+  isExpanded: (key: string) => boolean,
+  jobsByType: JobsByType | null,
   selectedItem: string | null,
   onItemSelect: (id: string) => void,
   toggleSubSection: (key: string) => void
 ): React.ReactNode {
-  if (itemId === 'automation-schedules' && isExpanded('automation-schedules') && schedules) {
-    return (
-      <ScheduleSubTree
-        schedules={schedules}
-        selectedItem={selectedItem}
-        onItemSelect={onItemSelect}
-      />
-    )
+  if (itemId !== AUTOMATION_JOBS_ITEM_ID || !isExpanded(AUTOMATION_JOBS_ITEM_ID) || !jobsByType) {
+    return null
   }
-  if (itemId === 'automation-jobs' && isExpanded('automation-jobs') && jobsByType) {
-    return (
-      <JobSubTree
-        jobsByType={jobsByType}
-        selectedItem={selectedItem}
-        onItemSelect={onItemSelect}
-        isExpanded={isExpanded}
-        toggleSubSection={toggleSubSection}
-      />
-    )
-  }
-  return null
+
+  return (
+    <JobSubTree
+      jobsByType={jobsByType}
+      selectedItem={selectedItem}
+      onItemSelect={onItemSelect}
+      isExpanded={isExpanded}
+      toggleSubSection={toggleSubSection}
+    />
+  )
+}
+
+function renderItemSubTree(
+  itemId: string,
+  isExpanded: (key: string) => boolean,
+  schedules: Schedule[] | null | undefined,
+  jobsByType: JobsByType | null,
+  selectedItem: string | null,
+  onItemSelect: (id: string) => void,
+  toggleSubSection: (key: string) => void
+): React.ReactNode {
+  const scheduleSubTree = getScheduleSubTree(
+    itemId,
+    isExpanded,
+    schedules,
+    selectedItem,
+    onItemSelect
+  )
+  if (scheduleSubTree) return scheduleSubTree
+
+  return getJobSubTree(itemId, isExpanded, jobsByType, selectedItem, onItemSelect, toggleSubSection)
 }
 
 function AutomationSidebarItem({
@@ -315,22 +389,19 @@ function AutomationSidebarItem({
   onItemSelect: (id: string) => void
   hasJobs: boolean
   hasSchedules: boolean
-  jobsByType: Record<'exec' | 'ai' | 'skill', Job[]> | null
+  jobsByType: JobsByType | null
   schedules: Schedule[] | null | undefined
   counts: Record<string, number>
-  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  badgeProgress: Record<string, BadgeProgress>
   jobs: Job[] | null | undefined
 }) {
   const isSelected = selectedItem === item.id
-  const hasDisclosure =
-    (item.id === 'automation-jobs' && hasJobs) ||
-    (item.id === 'automation-schedules' && hasSchedules)
+  const hasDisclosure = hasItemDisclosure(item.id, hasJobs, hasSchedules)
+  const isScheduleExpanded = isExpanded(AUTOMATION_SCHEDULES_ITEM_ID)
 
   return (
     <div>
-      <div
-        className={`sidebar-item ${isSelected ? 'selected' : ''} ${hasDisclosure ? 'sidebar-item-disclosure' : ''}`}
-      >
+      <div className={getSidebarItemClassName(isSelected, hasDisclosure)}>
         {hasDisclosure && (
           <DisclosureChevron
             sectionKey={item.id}
@@ -345,7 +416,7 @@ function AutomationSidebarItem({
           onClick={() => handleItemMainClick(item.id, toggleSubSection, onItemSelect)}
         >
           <span className="sidebar-item-icon">
-            {getItemIcon(item.id, hasJobs, hasSchedules, isExpanded('automation-schedules'))}
+            {getItemIcon(item.id, hasJobs, hasSchedules, isScheduleExpanded)}
           </span>
           <span className="sidebar-item-label">{item.label}</span>
           <ItemCountBadge
@@ -379,27 +450,13 @@ export function AutomationSidebarSection({
   badgeProgress = EMPTY_BADGE_PROGRESS,
 }: AutomationSidebarSectionProps) {
   const { has: isExpanded, toggle: toggleSubSection } = useToggleSet()
-
-  const jobsByType = jobs
-    ? {
-        exec: jobs.filter(j => j.workerType === 'exec'),
-        ai: jobs.filter(j => j.workerType === 'ai'),
-        skill: jobs.filter(j => j.workerType === 'skill'),
-      }
-    : null
-
-  const hasJobs = Boolean(jobsByType && jobs && jobs.length > 0)
-  const hasSchedules = Boolean(schedules && schedules.length > 0)
-
-  const items = [
-    { id: 'automation-jobs', label: 'Jobs' },
-    { id: 'automation-schedules', label: 'Schedules' },
-    { id: 'automation-runs', label: 'Runs' },
-  ]
+  const jobsByType = getJobsByType(jobs)
+  const hasJobs = hasItems(jobs)
+  const hasSchedules = hasItems(schedules)
 
   return (
     <>
-      {items.map(item => (
+      {AUTOMATION_ITEMS.map(item => (
         <AutomationSidebarItem
           key={item.id}
           item={item}

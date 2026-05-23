@@ -49,6 +49,26 @@ export type Bookmark = {
   updatedAt: number
 }
 
+function matchesLowerText(value: string | undefined, query: string): boolean {
+  return value?.toLowerCase().includes(query) ?? false
+}
+
+function matchesBookmarkTextFields(bookmark: Bookmark, query: string): boolean {
+  return [bookmark.title, bookmark.url, bookmark.description].some(value =>
+    matchesLowerText(value, query)
+  )
+}
+
+function matchesBookmarkTags(tags: string[] | undefined, query: string): boolean {
+  if (!tags) return false
+  return tags.some(tag => tag.toLowerCase().includes(query))
+}
+
+function matchesSearchQuery(bookmark: Bookmark, query: string): boolean {
+  if (matchesBookmarkTextFields(bookmark, query)) return true
+  return matchesBookmarkTags(bookmark.tags, query)
+}
+
 interface BookmarkListState {
   searchQuery: string
   selectedCategory: string
@@ -139,6 +159,16 @@ function handleFilterAction(
       return { ...state, selectedCategory: action.category }
     case 'set-tag':
       return { ...state, selectedTag: action.tag }
+    default:
+      return handleMiscFilterAction(state, action)
+  }
+}
+
+function handleMiscFilterAction(
+  state: BookmarkListState,
+  action: BookmarkListAction
+): BookmarkListState | null {
+  switch (action.type) {
     case 'clear-filters':
       return { ...state, searchQuery: '', selectedCategory: '', selectedTag: '' }
     case 'set-drag-over':
@@ -160,6 +190,41 @@ function bookmarkListReducer(
   )
 }
 
+function computeAllTags(bookmarks: Bookmark[] | undefined): string[] {
+  if (!bookmarks) return []
+  const tagSet = new Set<string>()
+  for (const b of bookmarks) {
+    if (b.tags) b.tags.forEach(t => tagSet.add(t))
+  }
+  return [...tagSet].sort()
+}
+
+function filterBookmarks(
+  bookmarks: Bookmark[] | undefined,
+  selectedCategory: string,
+  selectedTag: string,
+  searchQuery: string
+): Bookmark[] {
+  if (!bookmarks) return []
+  let result = [...bookmarks] as Bookmark[]
+
+  if (selectedCategory) {
+    result = result.filter(
+      b => b.category === selectedCategory || b.category.startsWith(selectedCategory + '/')
+    )
+  }
+  if (selectedTag) {
+    result = result.filter(b => b.tags?.includes(selectedTag))
+  }
+  if (searchQuery.trim()) {
+    const q = searchQuery.toLowerCase()
+    result = result.filter(b => matchesSearchQuery(b, q))
+  }
+
+  result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)
+  return result
+}
+
 export function useBookmarkListState(filterCategory?: string) {
   const allBookmarks = useBookmarks()
   const categories = useBookmarkCategories()
@@ -178,43 +243,13 @@ export function useBookmarkListState(filterCategory?: string) {
     dragOver: false,
   })
 
-  const allTags = useMemo(() => {
-    if (!allBookmarks) return []
-    const tagSet = new Set<string>()
-    for (const b of allBookmarks) {
-      if (b.tags) b.tags.forEach(t => tagSet.add(t))
-    }
-    return [...tagSet].sort()
-  }, [allBookmarks])
+  const allTags = useMemo(() => computeAllTags(allBookmarks), [allBookmarks])
 
-  const filteredBookmarks = useMemo(() => {
-    if (!allBookmarks) return []
-    let result = [...allBookmarks] as Bookmark[]
-
-    if (state.selectedCategory) {
-      result = result.filter(
-        b =>
-          b.category === state.selectedCategory ||
-          b.category.startsWith(state.selectedCategory + '/')
-      )
-    }
-    if (state.selectedTag) {
-      result = result.filter(b => b.tags?.includes(state.selectedTag))
-    }
-    if (state.searchQuery.trim()) {
-      const q = state.searchQuery.toLowerCase()
-      result = result.filter(
-        b =>
-          b.title.toLowerCase().includes(q) ||
-          b.url.toLowerCase().includes(q) ||
-          b.description?.toLowerCase().includes(q) ||
-          b.tags?.some(t => t.toLowerCase().includes(q))
-      )
-    }
-
-    result.sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt - b.createdAt)
-    return result
-  }, [allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery])
+  const filteredBookmarks = useMemo(
+    () =>
+      filterBookmarks(allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery),
+    [allBookmarks, state.selectedCategory, state.selectedTag, state.searchQuery]
+  )
 
   const handleDelete = useCallback(async () => {
     if (!state.deleteTarget) return

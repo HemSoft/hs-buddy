@@ -131,6 +131,57 @@ function QuotaFooter({
   )
 }
 
+function QuotaStatsBody({
+  premium,
+  metrics,
+  projection,
+}: {
+  premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
+  metrics: QuotaMetrics
+  projection: ReturnType<typeof computeProjection>
+}) {
+  return (
+    <div className="usage-account-body">
+      <UsageRing
+        percentUsed={metrics.percentUsed}
+        projectedPercent={projection?.projectedPercent}
+        size={110}
+        strokeWidth={9}
+      />
+      <div className="usage-account-stats" data-testid="quota-stats">
+        <div className="usage-stat">
+          <span className="usage-stat-value">{metrics.used.toLocaleString()}</span>
+          <span className="usage-stat-label">Used</span>
+        </div>
+        <div className="usage-stat">
+          <span className="usage-stat-value">{premium.remaining.toLocaleString()}</span>
+          <span className="usage-stat-label">Remaining</span>
+        </div>
+        <div className="usage-stat">
+          <span className="usage-stat-value">{metrics.total.toLocaleString()}</span>
+          <span className="usage-stat-label">Entitlement</span>
+        </div>
+        {metrics.overageRequests > 0 && (
+          <div className="usage-stat usage-stat-overage">
+            <span className="usage-stat-value">{formatCurrency(metrics.overageCost)}</span>
+            <span className="usage-stat-label">Overage Cost</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function QuotaOrgsSection({ orgs }: { orgs: string[] }) {
+  if (orgs.length === 0) return null
+  return (
+    <div className="usage-account-orgs">
+      <Building2 size={11} />
+      <span>{orgs.join(', ')}</span>
+    </div>
+  )
+}
+
 function QuotaDataView({
   state,
   data,
@@ -159,44 +210,12 @@ function QuotaDataView({
         {/* v8 ignore stop */}
       </div>
 
-      <div className="usage-account-body">
-        <UsageRing
-          percentUsed={metrics.percentUsed}
-          projectedPercent={projection?.projectedPercent}
-          size={110}
-          strokeWidth={9}
-        />
-        <div className="usage-account-stats" data-testid="quota-stats">
-          <div className="usage-stat">
-            <span className="usage-stat-value">{metrics.used.toLocaleString()}</span>
-            <span className="usage-stat-label">Used</span>
-          </div>
-          <div className="usage-stat">
-            <span className="usage-stat-value">{premium.remaining.toLocaleString()}</span>
-            <span className="usage-stat-label">Remaining</span>
-          </div>
-          <div className="usage-stat">
-            <span className="usage-stat-value">{metrics.total.toLocaleString()}</span>
-            <span className="usage-stat-label">Entitlement</span>
-          </div>
-          {metrics.overageRequests > 0 && (
-            <div className="usage-stat usage-stat-overage">
-              <span className="usage-stat-value">{formatCurrency(metrics.overageCost)}</span>
-              <span className="usage-stat-label">Overage Cost</span>
-            </div>
-          )}
-        </div>
-      </div>
+      <QuotaStatsBody premium={premium} metrics={metrics} projection={projection} />
 
       <QuotaProjectionView projection={projection} />
       <QuotaFooter state={state} data={data} />
 
-      {data.organization_login_list.length > 0 && (
-        <div className="usage-account-orgs">
-          <Building2 size={11} />
-          <span>{data.organization_login_list.join(', ')}</span>
-        </div>
-      )}
+      <QuotaOrgsSection orgs={data.organization_login_list} />
     </>
   )
 }
@@ -242,27 +261,39 @@ function isLoadingWithoutData(loading: boolean, data: unknown): boolean {
   return loading && !data
 }
 
+function QuotaCardContent({
+  state,
+  account,
+  quotaView,
+}: {
+  state: AccountQuotaState
+  account: AccountQuotaCardProps['account']
+  quotaView: QuotaViewData | null
+}) {
+  if (isLoadingWithoutData(state.loading, state.data)) return <QuotaLoadingView />
+  if (state.error && !state.data) {
+    return <QuotaErrorView username={account.username} error={state.error} />
+  }
+  /* v8 ignore next -- defensive null guard; quotaView derived from state.data above */
+  if (!quotaView) return null
+  return (
+    <QuotaDataView
+      state={state}
+      data={quotaView.data}
+      premium={quotaView.premium}
+      metrics={quotaView.metrics}
+      projection={quotaView.projection}
+    />
+  )
+}
+
 export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardProps) {
   const state = rawState ?? INITIAL_QUOTA_STATE
   const quotaView = prepareQuotaViewData(state)
-  const showLoading = isLoadingWithoutData(state.loading, state.data)
-  const showError = !!state.error && !state.data
 
   return (
     <div className="usage-account-card">
-      {showLoading && <QuotaLoadingView />}
-
-      {showError && <QuotaErrorView username={account.username} error={state.error!} />}
-
-      {quotaView && (
-        <QuotaDataView
-          state={state}
-          data={quotaView.data}
-          premium={quotaView.premium}
-          metrics={quotaView.metrics}
-          projection={quotaView.projection}
-        />
-      )}
+      <QuotaCardContent state={state} account={account} quotaView={quotaView} />
     </div>
   )
 }

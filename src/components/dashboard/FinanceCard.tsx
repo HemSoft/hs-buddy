@@ -78,14 +78,6 @@ function FinanceStatusMessage({
   error: string | null
   hasQuotes: boolean
 }) {
-  if (loading && !hasQuotes) {
-    return (
-      <div className="weather-loading">
-        <RefreshCw size={16} className="spin" />
-        <span>Fetching market data…</span>
-      </div>
-    )
-  }
   if (error) {
     return (
       <div className="weather-error">
@@ -93,14 +85,17 @@ function FinanceStatusMessage({
       </div>
     )
   }
-  if (!loading && !hasQuotes) {
-    return (
-      <div className="weather-error">
-        <span>No market data available. Try refreshing.</span>
-      </div>
-    )
-  }
-  return null
+  if (hasQuotes) return null
+  return loading ? (
+    <div className="weather-loading">
+      <RefreshCw size={16} className="spin" />
+      <span>Fetching market data…</span>
+    </div>
+  ) : (
+    <div className="weather-error">
+      <span>No market data available. Try refreshing.</span>
+    </div>
+  )
 }
 
 function FinanceExpandedContent({
@@ -176,6 +171,31 @@ function FinanceExpandedContent({
   )
 }
 
+function FinanceCollapsedSummary({ quotes }: { quotes: QuoteData[] }) {
+  if (quotes.length === 0) return null
+  return (
+    <div className="finance-collapsed-summary">
+      {quotes.map(q => {
+        /* v8 ignore start */
+        const qChange = q.change ?? 0
+        const qPct = q.changePercent ?? 0
+        /* v8 ignore stop */
+        const positive = qChange >= 0
+        return (
+          <div key={q.symbol} className="finance-collapsed-item">
+            <span className="finance-collapsed-symbol">{q.name}</span>
+            <span
+              className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
+            >
+              {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 export function FinanceCard() {
   const { quotes, loading, error, watchlist, refresh, addSymbol, removeSymbol, lastFetchedAt } =
     useFinance()
@@ -211,30 +231,8 @@ export function FinanceCard() {
         />
       </CardHeader>
 
-      {/* Collapsed summary */}
-      {!expanded && quotes.length > 0 && (
-        <div className="finance-collapsed-summary">
-          {topQuotes.map(q => {
-            /* v8 ignore start */
-            const qChange = q.change ?? 0
-            const qPct = q.changePercent ?? 0
-            /* v8 ignore stop */
-            const positive = qChange >= 0
-            return (
-              <div key={q.symbol} className="finance-collapsed-item">
-                <span className="finance-collapsed-symbol">{q.name}</span>
-                <span
-                  className={`finance-collapsed-change ${positive ? 'finance-up' : 'finance-down'}`}
-                >
-                  {positive ? '▲' : '▼'} {Math.abs(qPct).toFixed(2)}%
-                </span>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {!expanded && <FinanceCollapsedSummary quotes={topQuotes} />}
 
-      {/* Expanded content */}
       {expanded && (
         <FinanceExpandedContent
           quotes={quotes}

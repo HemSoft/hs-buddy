@@ -40,18 +40,25 @@ function isNonEmptyString(val: unknown): val is string {
   return typeof val === 'string' && val.length > 0
 }
 
+function isValidPRNumber(val: unknown): val is number {
+  return typeof val === 'number' && Number.isInteger(val) && val > 0
+}
+
 function extractPRMetadata(metadata: Record<string, unknown> | null) {
   if (!metadata) return null
   const { org, repo, prNumber } = metadata
-  if (
-    !isNonEmptyString(org) ||
-    !isNonEmptyString(repo) ||
-    typeof prNumber !== 'number' ||
-    !Number.isInteger(prNumber) ||
-    prNumber <= 0
-  )
-    return null
+  if (!isNonEmptyString(org) || !isNonEmptyString(repo) || !isValidPRNumber(prNumber)) return null
   return { org, repo, prNumber }
+}
+
+function buildPublishBody(resultText: string, model?: string | null): string {
+  const label = model || 'AI'
+  return `## 🤖 AI Review\n\n${resultText}\n\n---\n*Published from HS Buddy — ${label} review*`
+}
+
+function getResultTitle(category: string | undefined, prTitle: unknown): string {
+  if (category === 'pr-review' && prTitle) return `PR Review: ${prTitle as string}`
+  return 'Copilot Result'
 }
 
 export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
@@ -67,9 +74,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
 
   useEffect(() => {
     return () => {
-      if (copiedTimerRef.current) {
-        clearTimeout(copiedTimerRef.current)
-      }
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
     }
   }, [])
 
@@ -83,7 +88,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       </div>
     )
   }
-
   if (result === null) {
     return (
       <div className="copilot-result-panel">
@@ -96,7 +100,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   }
 
   const metadata = result.metadata as Record<string, unknown> | null
-
   const handleCopy = async () => {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
@@ -105,7 +108,6 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
     }
   }
-
   const handleRetry = async () => {
     try {
       await window.copilot.execute({
@@ -117,17 +119,19 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       console.error('Failed to retry prompt:', err)
     }
   }
-
   const handlePublishToPR = async () => {
     if (!result.result || publishing) return
     const prMeta = extractPRMetadata(metadata)
     if (!prMeta) return
-
     setPublishing(true)
     try {
       const client = new GitHubClient({ accounts }, 7)
-      const body = `## 🤖 AI Review\n\n${result.result}\n\n---\n*Published from HS Buddy — ${result.model || 'AI'} review*`
-      await client.addPRComment(prMeta.org, prMeta.repo, prMeta.prNumber, body)
+      await client.addPRComment(
+        prMeta.org,
+        prMeta.repo,
+        prMeta.prNumber,
+        buildPublishBody(result.result, result.model)
+      )
       setPublished(true)
     } catch (err: unknown) {
       console.error('Failed to publish review to PR:', err)
@@ -136,14 +140,12 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
     }
   }
 
-  const canPublish = canPublishToPR(result, metadata)
-
   return (
     <div className="copilot-result-panel">
       <ResultHeader
         result={result}
         metadata={metadata}
-        canPublish={canPublish}
+        canPublish={canPublishToPR(result, metadata)}
         copied={copied}
         publishing={publishing}
         published={published}
@@ -152,14 +154,10 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
         onPublish={handlePublishToPR}
         onDelete={() => remove({ id: result._id })}
       />
-
-      {/* Prompt */}
       <div className="copilot-result-prompt">
         <span className="prompt-label">Prompt</span>
         <p>{result.prompt}</p>
       </div>
-
-      {/* Content */}
       <ResultContent
         contentRef={contentRef}
         status={result.status}
@@ -199,11 +197,7 @@ function ResultHeader({
       <div className="copilot-result-header-left">
         <Sparkles size={20} className="copilot-header-icon" />
         <div className="copilot-result-title-info">
-          <h2>
-            {result.category === 'pr-review' && metadata?.prTitle
-              ? `PR Review: ${metadata.prTitle as string}`
-              : 'Copilot Result'}
-          </h2>
+          <h2>{getResultTitle(result.category, metadata?.prTitle)}</h2>
           <div className="copilot-result-meta">
             <span className="copilot-result-status">
               {getStatusIcon(result.status, 16, 'status')}
@@ -233,6 +227,19 @@ function ResultHeader({
   )
 }
 
+function PublishButtonIcon({ publishing }: { publishing: boolean }) {
+  if (publishing) return <Loader2 size={14} className="spin" />
+  return <MessageSquareShare size={14} />
+}
+
+function isPublishDisabled(publishing: boolean, published: boolean): boolean {
+  return publishing || published
+}
+
+function getPublishTitle(published: boolean): string {
+  return published ? 'Published to PR' : 'Publish review as PR comment'
+}
+
 function PublishButton({
   canPublish,
   published,
@@ -249,10 +256,10 @@ function PublishButton({
     <button
       className={`copilot-action-btn${published ? ' success' : ''}`}
       onClick={onPublish}
-      disabled={publishing || published}
-      title={published ? 'Published to PR' : 'Publish review as PR comment'}
+      disabled={isPublishDisabled(publishing, published)}
+      title={getPublishTitle(published)}
     >
-      {publishing ? <Loader2 size={14} className="spin" /> : <MessageSquareShare size={14} />}
+      <PublishButtonIcon publishing={publishing} />
       {published && <span className="copied-badge">✓</span>}
     </button>
   )
@@ -365,6 +372,11 @@ function FailedContent({ error, onRetry }: { error?: string | null; onRetry: () 
   )
 }
 
+function CompletedContent({ resultText }: { resultText?: string | null }) {
+  if (!resultText) return null
+  return <MarkdownContent source={resultText} className="copilot-result-markdown" />
+}
+
 function ResultContent({
   contentRef,
   status,
@@ -382,9 +394,7 @@ function ResultContent({
     <div ref={contentRef} className="copilot-result-content">
       {status === 'pending' && <PendingContent />}
       {status === 'running' && <RunningContent />}
-      {status === 'completed' && resultText && (
-        <MarkdownContent source={resultText} className="copilot-result-markdown" />
-      )}
+      {status === 'completed' && <CompletedContent resultText={resultText} />}
       {status === 'failed' && <FailedContent error={error} onRetry={onRetry} />}
     </div>
   )

@@ -86,6 +86,87 @@ function CommentBody({ body, bodyHtml }: { body: string; bodyHtml: string | null
   )
 }
 
+function getCommentTimestamp(comment: PRReviewComment): number {
+  const updatedAt = Date.parse(comment.updatedAt)
+  const createdAt = Date.parse(comment.createdAt)
+  return updatedAt > createdAt ? updatedAt : createdAt
+}
+
+function CommentAvatar({ comment }: { comment: PRReviewComment }) {
+  if (comment.authorAvatarUrl) {
+    return (
+      <img src={comment.authorAvatarUrl} alt={comment.author} className="thread-comment-avatar" />
+    )
+  }
+
+  return (
+    <div className="thread-comment-avatar-placeholder">
+      {comment.author.charAt(0).toUpperCase()}
+    </div>
+  )
+}
+
+function getReactionMeta(comment: PRReviewComment, content: PRCommentReactionContent) {
+  const reaction = comment.reactions.find(r => r.content === content)
+  return {
+    active: reaction?.viewerHasReacted || false,
+    count: reaction?.count || 0,
+  }
+}
+
+function CommentReactionButton({
+  comment,
+  option,
+  reacting,
+  handleReact,
+}: {
+  comment: PRReviewComment
+  option: (typeof REACTION_OPTIONS)[number]
+  reacting: PRCommentReactionContent | null
+  handleReact: (content: PRCommentReactionContent) => void
+}) {
+  const { active, count } = getReactionMeta(comment, option.content)
+
+  return (
+    <button
+      className={`thread-comment-reaction ${active ? 'active' : ''}`}
+      onClick={e => {
+        e.preventDefault()
+        handleReact(option.content)
+      }}
+      disabled={reacting !== null}
+      title={option.label}
+    >
+      <span>{option.emoji}</span>
+      {count > 0 && <span className="thread-comment-reaction-count">{count}</span>}
+    </button>
+  )
+}
+
+function CommentReactions({
+  comment,
+  reacting,
+  handleReact,
+}: {
+  comment: PRReviewComment
+  reacting: PRCommentReactionContent | null
+  handleReact: (content: PRCommentReactionContent) => void
+}) {
+  return (
+    <div className="thread-comment-reactions">
+      {REACTION_OPTIONS.map(option => (
+        <CommentReactionButton
+          key={option.content}
+          comment={comment}
+          option={option}
+          reacting={reacting}
+          handleReact={handleReact}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function CommentCard({
   comment,
   isFirst,
@@ -96,6 +177,7 @@ export function CommentCard({
   onReact?: (commentId: string, content: PRCommentReactionContent) => Promise<void>
 }) {
   const [reacting, setReacting] = useState<PRCommentReactionContent | null>(null)
+  const commentDate = getCommentTimestamp(comment)
 
   const handleReact = useCallback(
     async (content: PRCommentReactionContent) => {
@@ -121,58 +203,19 @@ export function CommentCard({
     >
       <summary className="thread-comment-summary-row">
         <div className="thread-comment-avatar-col">
-          {comment.authorAvatarUrl ? (
-            <img
-              src={comment.authorAvatarUrl}
-              alt={comment.author}
-              className="thread-comment-avatar"
-            />
-          ) : (
-            <div className="thread-comment-avatar-placeholder">
-              {comment.author.charAt(0).toUpperCase()}
-            </div>
-          )}
+          <CommentAvatar comment={comment} />
         </div>
         <div className="thread-comment-header">
           <span className="thread-comment-username">{comment.author}</span>
-          <span
-            className="thread-comment-time"
-            title={new Date(
-              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
-            ).toLocaleString()}
-          >
-            {formatDistanceToNow(
-              comment.updatedAt > comment.createdAt ? comment.updatedAt : comment.createdAt
-            )}
+          <span className="thread-comment-time" title={new Date(commentDate).toLocaleString()}>
+            {formatDistanceToNow(commentDate)}
           </span>
         </div>
       </summary>
       <div className="thread-comment-collapsible-body">
         <CommentBody body={comment.body} bodyHtml={comment.bodyHtml} />
         {onReact && (
-          <div className="thread-comment-reactions">
-            {REACTION_OPTIONS.map(option => {
-              const reaction = comment.reactions.find(r => r.content === option.content)
-              const active = reaction?.viewerHasReacted || false
-              const count = reaction?.count || 0
-
-              return (
-                <button
-                  key={option.content}
-                  className={`thread-comment-reaction ${active ? 'active' : ''}`}
-                  onClick={e => {
-                    e.preventDefault()
-                    handleReact(option.content)
-                  }}
-                  disabled={reacting !== null}
-                  title={option.label}
-                >
-                  <span>{option.emoji}</span>
-                  {count > 0 && <span className="thread-comment-reaction-count">{count}</span>}
-                </button>
-              )
-            })}
-          </div>
+          <CommentReactions comment={comment} reacting={reacting} handleReact={handleReact} />
         )}
       </div>
     </details>

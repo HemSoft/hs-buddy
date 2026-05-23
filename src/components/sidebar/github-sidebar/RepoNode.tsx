@@ -20,7 +20,7 @@ import {
 import type { OrgRepo, RepoCommit, RepoCounts, RepoIssue } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus } from '../../../types/sflStatus'
+import type { SFLRepoStatus, SFLOverallStatus, SFLWorkflowInfo } from '../../../types/sflStatus'
 import type { RalphRunInfo, RalphRunStatus } from '../../../types/ralph'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { formatUpdatedAge } from './orgRepoTreeUtils'
@@ -73,11 +73,16 @@ interface RepoNodeProps {
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
 }
 
+function DisclosureChevron({ expanded }: { expanded: boolean }) {
+  if (expanded) return <ChevronDown size={12} />
+  return <ChevronRight size={12} />
+}
+
 function DisclosureIcons({ expanded }: { expanded: boolean }) {
   return (
     <>
       <span className="sidebar-item-chevron">
-        {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <DisclosureChevron expanded={expanded} />
       </span>
       <span className="sidebar-item-icon">
         {expanded ? <FolderOpen size={12} /> : <Folder size={12} />}
@@ -113,14 +118,29 @@ function RepoHeader({
       <DisclosureIcons expanded={isRepoExpanded} />
       <span className="sidebar-item-label">{repo.name}</span>
       {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
-      <button
-        className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+      <BookmarkButton
+        isBookmarked={isBookmarked}
         onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
-        title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
-      >
-        <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
-      </button>
+      />
     </div>
+  )
+}
+
+function BookmarkButton({
+  isBookmarked,
+  onClick,
+}: {
+  isBookmarked: boolean
+  onClick: (e: React.MouseEvent) => void
+}) {
+  return (
+    <button
+      className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
+      onClick={onClick}
+      title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}
+    >
+      <Star size={12} fill={isBookmarked ? 'currentColor' : 'none'} />
+    </button>
   )
 }
 
@@ -278,7 +298,7 @@ function RepoCommitsSection({
             handleItemKeyDown(event, () => onToggleRepoCommitGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <GitCommit size={12} />
@@ -357,6 +377,10 @@ function IssueListItems({
   )
 }
 
+function isAnyLoading(isLoading: boolean, isCountLoading: boolean): boolean {
+  return isLoading || isCountLoading
+}
+
 function IssueStateCountBadge({
   isOpen,
   isLoading,
@@ -369,7 +393,7 @@ function IssueStateCountBadge({
   counts?: RepoCounts
 }) {
   if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
+    if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
     if (counts) return <span className="sidebar-item-count">{counts.issues}</span>
     return null
   }
@@ -457,6 +481,10 @@ function IssueStateGroup({
   onToggle: (org: string, repoName: string, state: 'open' | 'closed') => void
 }) {
   const { Icon, label } = ISSUE_STATE_CONFIG[state]
+  const handleClick = () => {
+    onItemSelect(viewId)
+    onToggle(org, repoName, state)
+  }
 
   return (
     <>
@@ -466,16 +494,8 @@ function IssueStateGroup({
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
-        onClick={() => {
-          onItemSelect(viewId)
-          onToggle(org, repoName, state)
-        }}
-        onKeyDown={event =>
-          handleItemKeyDown(event, () => {
-            onItemSelect(viewId)
-            onToggle(org, repoName, state)
-          })
-        }
+        onClick={handleClick}
+        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
         <span
           className="sidebar-item-chevron"
@@ -487,7 +507,7 @@ function IssueStateGroup({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Icon size={11} />
@@ -520,6 +540,10 @@ function SectionCountBadge({ isCountLoading, count }: { isCountLoading: boolean;
   return null
 }
 
+function getTreeItems<T>(data: Record<string, T[]>, key: string): T[] {
+  return data[key] || []
+}
+
 function RepoIssuesSection({
   org,
   repoName,
@@ -538,14 +562,16 @@ function RepoIssuesSection({
 }: RepoIssuesSectionProps) {
   const issuesViewId = `repo-issues:${repoKey}`
   const closedIssuesViewId = `repo-issues-closed:${repoKey}`
-  const openIssuesKey = `open:${repoKey}`
-  const closedIssuesKey = `closed:${repoKey}`
   const openIssueGroupKey = `${repoKey}:open`
   const closedIssueGroupKey = `${repoKey}:closed`
   const isExpanded = expandedRepoIssueGroups.has(repoKey)
   /* v8 ignore start */
   const isSelected = selectedItem === issuesViewId && !isExpanded
   /* v8 ignore stop */
+  const handleClick = () => {
+    onItemSelect(issuesViewId)
+    onToggleRepoIssueGroup(org, repoName)
+  }
 
   return (
     <>
@@ -558,16 +584,8 @@ function RepoIssuesSection({
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
-        onClick={() => {
-          onItemSelect(issuesViewId)
-          onToggleRepoIssueGroup(org, repoName)
-        }}
-        onKeyDown={event =>
-          handleItemKeyDown(event, () => {
-            onItemSelect(issuesViewId)
-            onToggleRepoIssueGroup(org, repoName)
-          })
-        }
+        onClick={handleClick}
+        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
         <span
           className="sidebar-item-chevron"
@@ -581,7 +599,7 @@ function RepoIssuesSection({
             handleItemKeyDown(event, () => onToggleRepoIssueGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <CircleDot size={12} />
@@ -602,7 +620,7 @@ function RepoIssuesSection({
               isLoading={isOpenIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[openIssuesKey] || []}
+              issues={getTreeItems(repoIssueTreeData, `open:${repoKey}`)}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -617,7 +635,7 @@ function RepoIssuesSection({
               isLoading={isClosedIssuesLoading}
               isCountLoading={isCountLoading}
               counts={counts}
-              issues={repoIssueTreeData[closedIssuesKey] || []}
+              issues={getTreeItems(repoIssueTreeData, `closed:${repoKey}`)}
               selectedItem={selectedItem}
               onItemSelect={onItemSelect}
               onToggle={onToggleRepoIssueStateGroup}
@@ -651,6 +669,18 @@ interface RepoPullRequestsSectionProps {
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
 }
 
+function renderOpenPRCountBadge(isLoading: boolean, isCountLoading: boolean, counts?: RepoCounts) {
+  if (isAnyLoading(isLoading, isCountLoading)) return <Loader2 size={10} className="spin" />
+  if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
+  return null
+}
+
+function renderClosedPRCountBadge(isLoading: boolean, closedCount: number) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
+  return null
+}
+
 function PRStateCountBadge({
   isOpen,
   isLoading,
@@ -665,13 +695,9 @@ function PRStateCountBadge({
   closedCount: number
 }) {
   if (isOpen) {
-    if (isLoading || isCountLoading) return <Loader2 size={10} className="spin" />
-    if (counts) return <span className="sidebar-item-count">{counts.prs}</span>
-    return null
+    return renderOpenPRCountBadge(isLoading, isCountLoading, counts)
   }
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  if (closedCount > 0) return <span className="sidebar-item-count">{closedCount}</span>
-  return null
+  return renderClosedPRCountBadge(isLoading, closedCount)
 }
 
 function PRStateGroupContent({
@@ -768,6 +794,10 @@ function PRStateGroup({
   const isOpen = state === 'open'
   const Icon = isOpen ? GitPullRequest : CheckCircle2
   const label = isOpen ? 'Open' : 'Closed'
+  const handleClick = () => {
+    onItemSelect(viewId)
+    onToggle(org, repoName, state)
+  }
 
   return (
     <>
@@ -777,16 +807,8 @@ function PRStateGroup({
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
-        onClick={() => {
-          onItemSelect(viewId)
-          onToggle(org, repoName, state)
-        }}
-        onKeyDown={event =>
-          handleItemKeyDown(event, () => {
-            onItemSelect(viewId)
-            onToggle(org, repoName, state)
-          })
-        }
+        onClick={handleClick}
+        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
         <span
           className="sidebar-item-chevron"
@@ -798,7 +820,7 @@ function PRStateGroup({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Icon size={11} />
@@ -868,14 +890,29 @@ function RepoPullRequestsSection({
 }: RepoPullRequestsSectionProps) {
   const prsViewId = `repo-prs:${repoKey}`
   const closedPrsViewId = `repo-prs-closed:${repoKey}`
-  const openPrsKey = `open:${repoKey}`
-  const closedPrsKey = `closed:${repoKey}`
   const openPrGroupKey = `${repoKey}:open`
   const closedPrGroupKey = `${repoKey}:closed`
   const isExpanded = expandedRepoPRGroups.has(repoKey)
   /* v8 ignore start */
   const isSelected = selectedItem === prsViewId && !isExpanded
   /* v8 ignore stop */
+  const handleClick = () => {
+    onItemSelect(prsViewId)
+    onToggleRepoPRGroup(org, repoName)
+  }
+  const shared = {
+    org,
+    repoName,
+    repoKey,
+    isCountLoading,
+    counts,
+    expandedPRNodes,
+    selectedItem,
+    onItemSelect,
+    onToggle: onToggleRepoPRStateGroup,
+    onTogglePRNode,
+    onContextMenu,
+  }
 
   return (
     <>
@@ -888,16 +925,8 @@ function RepoPullRequestsSection({
         /* v8 ignore stop */
         role="button"
         tabIndex={0}
-        onClick={() => {
-          onItemSelect(prsViewId)
-          onToggleRepoPRGroup(org, repoName)
-        }}
-        onKeyDown={event =>
-          handleItemKeyDown(event, () => {
-            onItemSelect(prsViewId)
-            onToggleRepoPRGroup(org, repoName)
-          })
-        }
+        onClick={handleClick}
+        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
         <span
           className="sidebar-item-chevron"
@@ -911,7 +940,7 @@ function RepoPullRequestsSection({
             handleItemKeyDown(event, () => onToggleRepoPRGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <GitPullRequest size={12} />
@@ -928,40 +957,20 @@ function RepoPullRequestsSection({
         <div className="sidebar-job-tree sidebar-repo-pr-tree">
           <div className="sidebar-job-items">
             <PRStateGroup
-              org={org}
-              repoName={repoName}
-              repoKey={repoKey}
+              {...shared}
               state="open"
               viewId={prsViewId}
               isExpanded={expandedRepoPRStateGroups.has(openPrGroupKey)}
               isLoading={isOpenPRsLoading}
-              isCountLoading={isCountLoading}
-              counts={counts}
-              prs={repoPrTreeData[openPrsKey] || []}
-              expandedPRNodes={expandedPRNodes}
-              selectedItem={selectedItem}
-              onItemSelect={onItemSelect}
-              onToggle={onToggleRepoPRStateGroup}
-              onTogglePRNode={onTogglePRNode}
-              onContextMenu={onContextMenu}
+              prs={getTreeItems(repoPrTreeData, `open:${repoKey}`)}
             />
             <PRStateGroup
-              org={org}
-              repoName={repoName}
-              repoKey={repoKey}
+              {...shared}
               state="closed"
               viewId={closedPrsViewId}
               isExpanded={expandedRepoPRStateGroups.has(closedPrGroupKey)}
               isLoading={isClosedPRsLoading}
-              isCountLoading={isCountLoading}
-              counts={counts}
-              prs={repoPrTreeData[closedPrsKey] || []}
-              expandedPRNodes={expandedPRNodes}
-              selectedItem={selectedItem}
-              onItemSelect={onItemSelect}
-              onToggle={onToggleRepoPRStateGroup}
-              onTogglePRNode={onTogglePRNode}
-              onContextMenu={onContextMenu}
+              prs={getTreeItems(repoPrTreeData, `closed:${repoKey}`)}
             />
           </div>
         </div>
@@ -977,6 +986,52 @@ interface RepoSFLSectionProps {
   isLoading: boolean
   isExpanded: boolean
   onToggleSFLGroup: (org: string, repoName: string) => void
+}
+
+function SFLStatusBadge({
+  isLoading,
+  overallStatus,
+}: {
+  isLoading: boolean
+  overallStatus: SFLOverallStatus
+}) {
+  /* v8 ignore next -- loading state guard */
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  return (
+    <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[overallStatus]}>
+      {sflOverallStatusIcon(overallStatus)}
+    </span>
+  )
+}
+
+function sflWorkflowTitle(
+  name: string,
+  state: string,
+  latestRun: SFLWorkflowInfo['latestRun']
+): string {
+  const stateLabel = state === 'active' ? 'enabled' : 'disabled'
+  /* v8 ignore start -- defensive guard for missing latestRun */
+  if (!latestRun) return `${name} — ${stateLabel}`
+  const runLabel = latestRun.conclusion || latestRun.status
+  /* v8 ignore stop */
+  return `${name} — ${stateLabel}, last: ${runLabel}`
+}
+
+function SFLWorkflowItem({ wf }: { wf: SFLWorkflowInfo }) {
+  const conclusion = wf.latestRun?.conclusion ?? null
+  return (
+    <div
+      key={wf.id}
+      className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
+      /* v8 ignore start */
+      title={sflWorkflowTitle(wf.name, wf.state, wf.latestRun)}
+      /* v8 ignore stop */
+    >
+      {sflWorkflowStateIcon(wf.state, conclusion)}
+      <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
+      {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
+    </div>
+  )
 }
 
 function RepoSFLSection({
@@ -1020,24 +1075,15 @@ function RepoSFLSection({
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onToggleSFLGroup(org, repoName), true)}
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <Activity size={12} />
         </span>
         <span className="sidebar-item-label">SFL Loop</span>
         {/* v8 ignore start */}
-        {isLoading ? (
-          <Loader2 size={10} className="spin" />
-        ) : (
-          /* v8 ignore stop */
-          <span
-            className="sidebar-sfl-status-badge"
-            title={SFL_STATUS_LABELS[sflStatus.overallStatus]}
-          >
-            {sflOverallStatusIcon(sflStatus.overallStatus)}
-          </span>
-        )}
+        <SFLStatusBadge isLoading={isLoading} overallStatus={sflStatus.overallStatus} />
+        {/* v8 ignore stop */}
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-sfl-tree">
@@ -1050,17 +1096,7 @@ function RepoSFLSection({
               <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
             </div>
             {sflStatus.workflows.map(wf => (
-              <div
-                key={wf.id}
-                className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
-                /* v8 ignore start */
-                title={`${wf.name} — ${wf.state === 'active' ? 'enabled' : 'disabled'}${wf.latestRun ? `, last: ${wf.latestRun.conclusion || wf.latestRun.status}` : ''}`}
-                /* v8 ignore stop */
-              >
-                {sflWorkflowStateIcon(wf.state, wf.latestRun?.conclusion ?? null)}
-                <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
-                {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
-              </div>
+              <SFLWorkflowItem key={wf.id} wf={wf} />
             ))}
           </div>
         </div>
@@ -1107,6 +1143,40 @@ interface RepoRalphSectionProps {
   onItemSelect: (itemId: string) => void
 }
 
+function getRalphRunDetail(run: RalphRunInfo): string {
+  const isActive = run.status === 'running' || run.status === 'pending'
+  if (!isActive) return ralphTimeAgo(run.completedAt ?? run.updatedAt)
+  return run.totalIterations ? `${run.currentIteration}/${run.totalIterations}` : run.phase
+}
+
+function RalphRunItem({
+  run,
+  selectedItem,
+  onItemSelect,
+}: {
+  run: RalphRunInfo
+  selectedItem: string | null
+  onItemSelect: (id: string) => void
+}) {
+  const Icon = RALPH_STATUS_ICON[run.status]
+  const viewId = `ralph-run:${run.runId}`
+  return (
+    <div
+      key={run.runId}
+      className={sidebarItemClass('sidebar-item sidebar-job-item', selectedItem === viewId)}
+      role="button"
+      tabIndex={0}
+      onClick={() => onItemSelect(viewId)}
+      onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
+      title={`${run.config.scriptType} — ${run.status}`}
+    >
+      <Icon size={11} className={run.status === 'running' ? 'spin' : ''} />
+      <span className="sidebar-item-label">{run.config.scriptType}</span>
+      <span className="sidebar-pr-meta">{getRalphRunDetail(run)}</span>
+    </div>
+  )
+}
+
 function RepoRalphSection({
   org,
   repoName,
@@ -1118,6 +1188,10 @@ function RepoRalphSection({
 }: RepoRalphSectionProps) {
   const activeRuns = runs.filter(r => r.status === 'running' || r.status === 'pending')
   const recentRuns = runs.filter(r => r.status !== 'running' && r.status !== 'pending').slice(0, 5)
+  const handleLaunch = () => {
+    window.dispatchEvent(new CustomEvent('ralph:prefill-repo', { detail: { org, repoName } }))
+    onItemSelect('ralph-dashboard')
+  }
 
   return (
     <>
@@ -1140,7 +1214,7 @@ function RepoRalphSection({
             handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName), true)
           }
         >
-          {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={isExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <RefreshCw size={12} />
@@ -1151,77 +1225,28 @@ function RepoRalphSection({
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-ralph-tree">
           <div className="sidebar-job-items">
-            {activeRuns.map(run => {
-              const Icon = RALPH_STATUS_ICON[run.status]
-              const viewId = `ralph-run:${run.runId}`
-              const detail = run.totalIterations
-                ? `${run.currentIteration}/${run.totalIterations}`
-                : run.phase
-              return (
-                <div
-                  key={run.runId}
-                  className={sidebarItemClass(
-                    'sidebar-item sidebar-job-item',
-                    selectedItem === viewId
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onItemSelect(viewId)}
-                  onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
-                  title={`${run.config.scriptType} — ${run.status}`}
-                >
-                  <Icon size={11} className={run.status === 'running' ? 'spin' : ''} />
-                  <span className="sidebar-item-label">{run.config.scriptType}</span>
-                  <span className="sidebar-pr-meta">{detail}</span>
-                </div>
-              )
-            })}
-            {recentRuns.map(run => {
-              const Icon = RALPH_STATUS_ICON[run.status]
-              const viewId = `ralph-run:${run.runId}`
-              return (
-                <div
-                  key={run.runId}
-                  className={sidebarItemClass(
-                    'sidebar-item sidebar-job-item',
-                    selectedItem === viewId
-                  )}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onItemSelect(viewId)}
-                  onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
-                  title={`${run.config.scriptType} — ${run.status}`}
-                >
-                  <Icon size={11} />
-                  <span className="sidebar-item-label">{run.config.scriptType}</span>
-                  <span className="sidebar-pr-meta">
-                    {ralphTimeAgo(run.completedAt ?? run.updatedAt)}
-                  </span>
-                </div>
-              )
-            })}
+            {activeRuns.map(run => (
+              <RalphRunItem
+                key={run.runId}
+                run={run}
+                selectedItem={selectedItem}
+                onItemSelect={onItemSelect}
+              />
+            ))}
+            {recentRuns.map(run => (
+              <RalphRunItem
+                key={run.runId}
+                run={run}
+                selectedItem={selectedItem}
+                onItemSelect={onItemSelect}
+              />
+            ))}
             <div
               className="sidebar-item sidebar-job-item"
               role="button"
               tabIndex={0}
-              onClick={() => {
-                window.dispatchEvent(
-                  new CustomEvent('ralph:prefill-repo', {
-                    detail: { org, repoName },
-                  })
-                )
-                onItemSelect('ralph-dashboard')
-              }}
-              onKeyDown={event =>
-                handleItemKeyDown(event, () => {
-                  window.dispatchEvent(
-                    new CustomEvent('ralph:prefill-repo', {
-                      detail: { org, repoName },
-                    })
-                  )
-                  onItemSelect('ralph-dashboard')
-                })
-              }
+              onClick={handleLaunch}
+              onKeyDown={event => handleItemKeyDown(event, handleLaunch)}
             >
               <Play size={11} />
               <span className="sidebar-item-label">Launch…</span>
@@ -1231,6 +1256,10 @@ function RepoRalphSection({
       )}
     </>
   )
+}
+
+function prNodeStatePrefix(closed: boolean): string {
+  return closed ? 'closed' : 'open'
 }
 
 function renderPRNode(
@@ -1249,7 +1278,7 @@ function renderPRNode(
 
   return (
     <div
-      key={`${closed ? 'closed' : 'open'}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
+      key={`${prNodeStatePrefix(closed)}-${repoKey}-${pr.source}-${pr.repository}-${pr.id}`}
       className="sidebar-pr-group sidebar-pr-children"
     >
       <div
@@ -1273,7 +1302,7 @@ function renderPRNode(
           }}
           onKeyDown={event => handleItemKeyDown(event, () => onTogglePRNode(prViewId), true)}
         >
-          {expandedPRNodes.has(prViewId) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          <DisclosureChevron expanded={expandedPRNodes.has(prViewId)} />
         </span>
         <span className="sidebar-item-icon">{icon}</span>
         <span className="sidebar-item-label">
@@ -1350,26 +1379,20 @@ export function RepoNode({
   onBookmarkToggle,
 }: RepoNodeProps) {
   const repoKey = `${org}/${repo.name}`
-  const isBookmarked = bookmarkedRepoKeys.has(repoKey)
   const isRepoExpanded = expandedRepos.has(repoKey)
   const counts = repoCounts[repoKey]
   const repoCountsEntry = dataCache.get<RepoCounts>(`repo-counts:${repoKey}`)
   const repoCountsUpdatedLabel = repoCountsEntry?.fetchedAt
     ? formatUpdatedAge(repoCountsEntry.fetchedAt)
     : null
-  const openIssuesKey = `open:${repoKey}`
-  const closedIssuesKey = `closed:${repoKey}`
-  const openPrsKey = `open:${repoKey}`
-  const closedPrsKey = `closed:${repoKey}`
-  const sflStatus = sflStatusData[repoKey]
-  const repoRalphRuns = ralphRuns.filter(r => matchesRepo(r, org, repo.name))
+  const isCountLoading = loadingRepoCounts.has(repoKey)
 
   return (
     <div className="sidebar-repo-group">
       <RepoHeader
         org={org}
         repo={repo}
-        isBookmarked={isBookmarked}
+        isBookmarked={bookmarkedRepoKeys.has(repoKey)}
         isRepoExpanded={isRepoExpanded}
         onToggleRepo={onToggleRepo}
         onBookmarkToggle={onBookmarkToggle}
@@ -1400,9 +1423,9 @@ export function RepoNode({
             expandedRepoIssueGroups={expandedRepoIssueGroups}
             expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
             repoIssueTreeData={repoIssueTreeData}
-            isCountLoading={loadingRepoCounts.has(repoKey)}
-            isOpenIssuesLoading={loadingRepoIssues.has(openIssuesKey)}
-            isClosedIssuesLoading={loadingRepoIssues.has(closedIssuesKey)}
+            isCountLoading={isCountLoading}
+            isOpenIssuesLoading={loadingRepoIssues.has(`open:${repoKey}`)}
+            isClosedIssuesLoading={loadingRepoIssues.has(`closed:${repoKey}`)}
             selectedItem={selectedItem}
             onItemSelect={onItemSelect}
             onToggleRepoIssueGroup={onToggleRepoIssueGroup}
@@ -1419,9 +1442,9 @@ export function RepoNode({
             expandedRepoPRStateGroups={expandedRepoPRStateGroups}
             expandedPRNodes={expandedPRNodes}
             repoPrTreeData={repoPrTreeData}
-            isCountLoading={loadingRepoCounts.has(repoKey)}
-            isOpenPRsLoading={loadingRepoPRs.has(openPrsKey)}
-            isClosedPRsLoading={loadingRepoPRs.has(closedPrsKey)}
+            isCountLoading={isCountLoading}
+            isOpenPRsLoading={loadingRepoPRs.has(`open:${repoKey}`)}
+            isClosedPRsLoading={loadingRepoPRs.has(`closed:${repoKey}`)}
             selectedItem={selectedItem}
             onItemSelect={onItemSelect}
             onToggleRepoPRGroup={onToggleRepoPRGroup}
@@ -1432,7 +1455,7 @@ export function RepoNode({
           <RepoSFLSection
             org={org}
             repoName={repo.name}
-            sflStatus={sflStatus}
+            sflStatus={sflStatusData[repoKey]}
             isLoading={loadingSFLStatus.has(repoKey)}
             isExpanded={expandedSFLGroups.has(repoKey)}
             onToggleSFLGroup={onToggleSFLGroup}
@@ -1440,7 +1463,7 @@ export function RepoNode({
           <RepoRalphSection
             org={org}
             repoName={repo.name}
-            runs={repoRalphRuns}
+            runs={ralphRuns.filter(r => matchesRepo(r, org, repo.name))}
             isExpanded={expandedRalphGroups.has(repoKey)}
             selectedItem={selectedItem}
             onToggleRalphGroup={onToggleRalphGroup}

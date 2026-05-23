@@ -121,6 +121,25 @@ afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true })
 })
 
+type ResultMetadata = {
+  promptTokens?: number
+  outputTokens?: number
+  toolCallRounds?: Array<{ toolCalls?: unknown[] }>
+}
+
+function parseResultMetadata(line: string): ResultMetadata {
+  const parsed = JSON.parse(line) as { v: { metadata?: ResultMetadata } }
+  return parsed.v.metadata ?? {}
+}
+
+function countToolCalls(rounds: ResultMetadata['toolCallRounds'] = []) {
+  let toolCallCount = 0
+  for (const round of rounds) {
+    toolCallCount += (round.toolCalls ?? []).length
+  }
+  return toolCallCount
+}
+
 // ─── Benchmarks ───────────────────────────────────────────
 
 describe('getSessionDetail (streaming JSONL parse)', () => {
@@ -189,15 +208,10 @@ describe('regex extraction (hot path)', () => {
   })
 
   bench('extractResultData JSON.parse', () => {
-    const parsed = JSON.parse(resultLine)
-    const meta = parsed.v.metadata ?? {}
+    const meta = parseResultMetadata(resultLine)
     void (meta.promptTokens ?? 0)
     void (meta.outputTokens ?? 0)
-    let toolCallCount = 0
-    for (const round of meta.toolCallRounds ?? []) {
-      toolCallCount += (round.toolCalls ?? []).length
-    }
-    void toolCallCount
+    void countToolCalls(meta.toolCallRounds)
   })
 
   const promptTokensRe = /"promptTokens":(\d+)/

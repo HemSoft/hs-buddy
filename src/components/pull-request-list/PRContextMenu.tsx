@@ -15,6 +15,20 @@ interface PRContextMenuProps {
   onClose: () => void
 }
 
+function getUnresolvedLabel(pr: PullRequest, hasUnresolved: boolean): string {
+  if (hasUnresolved) {
+    return `Address Unresolved Comments (${pr.threadsUnaddressed})`
+  }
+  return 'No Unresolved Comments'
+}
+
+function getBookmarkLabel(pr: PullRequest, isBookmarked: boolean): string {
+  if (isBookmarked) {
+    return `Unbookmark ${pr.repository}`
+  }
+  return `Bookmark ${pr.repository}`
+}
+
 export function PRContextMenu({
   x,
   y,
@@ -30,7 +44,8 @@ export function PRContextMenu({
 }: PRContextMenuProps) {
   const repoKey = `${pr.org}/${pr.repository}`
   const isBookmarked = bookmarkedRepoKeys.has(repoKey)
-  const hasUnresolved = (pr.threadsUnaddressed ?? 0) > 0
+  const unresolvedCount = pr.threadsUnaddressed ?? 0
+  const hasUnresolved = unresolvedCount > 0
 
   return (
     <>
@@ -46,9 +61,7 @@ export function PRContextMenu({
         </button>
         <button onClick={onAddressComments} disabled={!hasUnresolved}>
           <MessageSquareWarning size={14} />
-          {hasUnresolved
-            ? `Address Unresolved Comments (${pr.threadsUnaddressed})`
-            : 'No Unresolved Comments'}
+          {getUnresolvedLabel(pr, hasUnresolved)}
         </button>
         <button onClick={onApprove} disabled={!!pr.iApproved}>
           <ThumbsUp size={14} />
@@ -60,7 +73,7 @@ export function PRContextMenu({
         </button>
         <button onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
-          {isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`}
+          {getBookmarkLabel(pr, isBookmarked)}
         </button>
       </div>
     </>

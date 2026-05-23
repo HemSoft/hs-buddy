@@ -115,6 +115,25 @@ function formatHeroSubtitle(
   return `${prefix}${commitLabel}`
 }
 
+function getActivityName(activity: UserActivitySummary | null): string | null {
+  return activity?.name ?? null
+}
+
+function getStatusMessageTitle(activity: UserActivitySummary | null): string | undefined {
+  return activity?.statusMessage ?? undefined
+}
+
+function UserStatusEmoji({ activity }: { activity: UserActivitySummary | null }) {
+  const statusEmoji = activity?.statusEmoji
+  if (!statusEmoji) return null
+
+  return (
+    <span className="ud-status-emoji" title={getStatusMessageTitle(activity)}>
+      {statusEmoji}
+    </span>
+  )
+}
+
 function UserDetailHero({
   activity,
   activityPhase,
@@ -143,14 +162,10 @@ function UserDetailHero({
         </span>
         <h2 className="ud-hero-title">
           {formatDisplayName(activity, memberLogin)}
-          {activity?.statusEmoji && (
-            <span className="ud-status-emoji" title={activity.statusMessage ?? undefined}>
-              {activity.statusEmoji}
-            </span>
-          )}
+          <UserStatusEmoji activity={activity} />
         </h2>
         <p className="ud-hero-subtitle">
-          {formatHeroSubtitle(memberLogin, activity?.name, commitsToday)}
+          {formatHeroSubtitle(memberLogin, getActivityName(activity), commitsToday)}
         </p>
       </div>
       <div className="ud-hero-actions">
@@ -200,11 +215,46 @@ function MetaItem({
   )
 }
 
+function resolveTeamsLabel(teams: string[]): string | null {
+  const teamsLabel = teams.join(', ')
+  return teamsLabel || null
+}
+
+function formatJoinedDateLabel(createdAt: string | null): string | null {
+  if (!createdAt) return null
+
+  return `GitHub since ${new Date(createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
+}
+
+function UserProfileBio({ bio }: { bio: string | null }) {
+  if (!bio) return null
+
+  return <p className="ud-meta-bio">{bio}</p>
+}
+
+function resolveStatusEmoji(statusEmoji: string | null): string {
+  return statusEmoji ?? '💬'
+}
+
+function UserProfileStatusMessage({
+  statusEmoji,
+  statusMessage,
+}: {
+  statusEmoji: string | null
+  statusMessage: string | null
+}) {
+  if (!statusMessage) return null
+
+  return (
+    <span className="ud-meta-item ud-meta-status">
+      {resolveStatusEmoji(statusEmoji)} {statusMessage}
+    </span>
+  )
+}
+
 function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
-  const teamsLabel = activity.teams?.join(', ') || null
-  const joinedDate = activity.createdAt
-    ? `GitHub since ${new Date(activity.createdAt).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}`
-    : null
+  const teamsLabel = resolveTeamsLabel(activity.teams)
+  const joinedDate = formatJoinedDateLabel(activity.createdAt)
 
   return (
     <div className="ud-profile-meta">
@@ -214,12 +264,11 @@ function UserProfileMeta({ activity }: { activity: UserActivitySummary }) {
       <MetaItem icon={Building2} value={activity.company} />
       <MetaItem icon={MapPin} value={activity.location} />
       <MetaItem icon={Clock} value={joinedDate} />
-      {activity.bio && <p className="ud-meta-bio">{activity.bio}</p>}
-      {activity.statusMessage && (
-        <span className="ud-meta-item ud-meta-status">
-          {activity.statusEmoji ?? '💬'} {activity.statusMessage}
-        </span>
-      )}
+      <UserProfileBio bio={activity.bio} />
+      <UserProfileStatusMessage
+        statusEmoji={activity.statusEmoji}
+        statusMessage={activity.statusMessage}
+      />
     </div>
   )
 }
@@ -281,6 +330,15 @@ function UserMetricsGrid({
   )
 }
 
+function hasContributionData(
+  activity: UserActivitySummary | null
+): activity is UserActivitySummary & {
+  contributionWeeks: NonNullable<UserActivitySummary['contributionWeeks']>
+  totalContributions: number
+} {
+  return Boolean(activity?.contributionWeeks && activity.totalContributions != null)
+}
+
 function UserContributionSection({
   activity,
   activityPhase,
@@ -288,11 +346,7 @@ function UserContributionSection({
   activity: UserActivitySummary | null
   activityPhase: 'idle' | 'loading' | 'ready' | 'error'
 }) {
-  if (
-    activityPhase === 'ready' &&
-    activity?.contributionWeeks &&
-    activity.totalContributions != null
-  ) {
+  if (activityPhase === 'ready' && hasContributionData(activity)) {
     return (
       <section className="ud-section">
         <h3 className="ud-section-title">
@@ -406,6 +460,10 @@ function isActivityEmpty(
   return activityPhase !== 'ready' || !activity || activity.recentEvents.length === 0
 }
 
+function getRecentEvents(activity: UserActivitySummary | null): UserEvent[] {
+  return activity?.recentEvents ?? []
+}
+
 function UserActivitySection({
   activity,
   activityPhase,
@@ -417,7 +475,7 @@ function UserActivitySection({
     return null
   }
 
-  const recentEvents = activity?.recentEvents ?? []
+  const recentEvents = getRecentEvents(activity)
 
   return (
     <section className="ud-section">
@@ -582,6 +640,29 @@ function useUserDetailDerivedData(
   return { profileUrl, avatarUrl, commitsToday }
 }
 
+function getReadyActivity(
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error',
+  activity: UserActivitySummary | null
+): UserActivitySummary | null {
+  return activityPhase === 'ready' ? activity : null
+}
+
+function getActiveRepos(activity: UserActivitySummary | null): string[] {
+  return activity?.activeRepos ?? []
+}
+
+function UserDetailErrorBanner({
+  activityError,
+  activityPhase,
+}: {
+  activityError: string | null
+  activityPhase: 'idle' | 'loading' | 'ready' | 'error'
+}) {
+  if (activityPhase !== 'error' || !activityError) return null
+
+  return <div className="ud-error-banner">Failed to load activity: {activityError}</div>
+}
+
 export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
   const {
     activity,
@@ -595,7 +676,8 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
     memberLogin,
     activity
   )
-  const readyActivity = activityPhase === 'ready' ? activity : null
+  const readyActivity = getReadyActivity(activityPhase, activity)
+  const activeRepos = getActiveRepos(readyActivity)
 
   return (
     <div className="user-detail-container">
@@ -621,9 +703,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       />
 
       {/* ── Error ── */}
-      {activityPhase === 'error' && activityError && (
-        <div className="ud-error-banner">Failed to load activity: {activityError}</div>
-      )}
+      <UserDetailErrorBanner activityError={activityError} activityPhase={activityPhase} />
 
       {/* ── Contribution Graph ── */}
       <UserContributionSection activity={activity} activityPhase={activityPhase} />
@@ -635,7 +715,7 @@ export function UserDetailPanel({ org, memberLogin }: UserDetailPanelProps) {
       <UserActivitySection activity={activity} activityPhase={activityPhase} />
 
       {/* ── Active Repos ── */}
-      <UserRepositoriesSection activeRepos={readyActivity?.activeRepos ?? []} />
+      <UserRepositoriesSection activeRepos={activeRepos} />
 
       {/* ── Copilot Premium Requests ── */}
       <section className="ud-section">

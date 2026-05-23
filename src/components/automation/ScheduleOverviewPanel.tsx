@@ -214,40 +214,25 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
   })
   const { forecastDays, loaded: loadedConfig } = configState
 
-  // Load config from electron-store
   useEffect(() => {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS)
       .then((days: number) =>
-        setConfigState({
-          forecastDays: normalizeForecastDays(days),
-          loaded: true,
-        })
+        setConfigState({ forecastDays: normalizeForecastDays(days), loaded: true })
       )
-      .catch(() =>
-        setConfigState(currentState => ({
-          ...currentState,
-          loaded: true,
-        }))
-      )
+      .catch(() => setConfigState(s => ({ ...s, loaded: true })))
   }, [])
 
-  // Save config when changed
   const handleDaysChange = (value: string) => {
     const days = normalizeForecastDays(parseInt(value, 10))
-    setConfigState(currentState => ({
-      ...currentState,
-      forecastDays: days,
-    }))
+    setConfigState(s => ({ ...s, forecastDays: days }))
     window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_SCHEDULE_FORECAST_DAYS, days).catch(() => {})
   }
 
-  // Compute upcoming occurrences
   const dayGroups = useMemo(
     () => computeDayGroups(schedules, forecastDays),
     [schedules, forecastDays]
   )
-
   const totalOccurrences = sumBy(dayGroups, g => g.occurrences.length)
   const { enabledCount, disabledCount } = getScheduleCounts(schedules)
 
@@ -280,14 +265,12 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
           />
         </div>
       </div>
-
       <ScheduleOverviewSummary
         enabledCount={enabledCount}
         disabledCount={disabledCount}
         totalOccurrences={totalOccurrences}
         forecastDays={forecastDays}
       />
-
       <div className="schedule-overview-timeline">
         {dayGroups.length === 0 ? (
           <ScheduleEmptyState

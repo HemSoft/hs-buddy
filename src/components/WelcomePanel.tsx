@@ -290,14 +290,8 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   }
 
   const handleCopilotUsageAction = () => {
-    if (hasCopilotAccounts) {
-      onSectionChange('copilot')
-      onNavigate('copilot-usage')
-      return
-    }
-
-    onSectionChange('settings')
-    onNavigate('settings-accounts')
+    onSectionChange(hasCopilotAccounts ? 'copilot' : 'settings')
+    onNavigate(hasCopilotAccounts ? 'copilot-usage' : 'settings-accounts')
   }
 
   const commandCenterProps = {

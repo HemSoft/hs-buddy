@@ -138,10 +138,63 @@ async function handleLastPolicy(
 
 const DEFAULT_TIMEZONE = 'America/New_York'
 
+type SchedulePolicyHandler = (
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  startFrom: number,
+  timezone: string
+) => Promise<{ runsCreated: number; action: string }>
+
+const SCHEDULE_POLICY_HANDLERS: Record<Schedule['missedPolicy'], SchedulePolicyHandler> = {
+  skip: (client, schedule, now) => handleSkipPolicy(client, schedule, now),
+  catchup: (client, schedule, now, startFrom, timezone) =>
+    handleCatchupPolicy(client, schedule, now, startFrom, timezone),
+  last: (client, schedule, now, startFrom, timezone) =>
+    handleLastPolicy(client, schedule, now, startFrom, timezone),
+}
+
 function getScheduleDefaults(schedule: Schedule, now: number) {
   const timezone = schedule.timezone ?? DEFAULT_TIMEZONE
   const startFrom = schedule.nextRunAt ?? schedule.lastRunAt ?? now
   return { timezone, startFrom }
+}
+
+function isScheduleNotMissed(schedule: Schedule, now: number): boolean {
+  return schedule.nextRunAt !== undefined && schedule.nextRunAt > now
+}
+
+function processSchedulePolicy(
+  client: ConvexHttpClient,
+  schedule: Schedule,
+  now: number,
+  startFrom: number,
+  timezone: string
+): Promise<{ runsCreated: number; action: string }> {
+  const handler = SCHEDULE_POLICY_HANDLERS[schedule.missedPolicy]
+  if (!handler) {
+    return Promise.resolve({ runsCreated: 0, action: 'unknown-policy' })
+  }
+  return handler(client, schedule, now, startFrom, timezone)
+}
+
+async function processMissedSchedules(
+  client: ConvexHttpClient,
+  schedules: Schedule[],
+  now: number,
+  result: OfflineSyncResult
+): Promise<void> {
+  for (const schedule of schedules) {
+    try {
+      const { runsCreated, action } = await processSchedule(client, schedule, now)
+      accumulateScheduleResult(result, runsCreated, action)
+      console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
+    } catch (err: unknown) {
+      const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
+      result.errors.push(msg)
+      console.error(`[OfflineSync] ${msg}`)
+    }
+  }
 }
 
 /**
@@ -152,22 +205,12 @@ async function processSchedule(
   schedule: Schedule,
   now: number
 ): Promise<{ runsCreated: number; action: string }> {
-  if (schedule.nextRunAt && schedule.nextRunAt > now) {
+  if (isScheduleNotMissed(schedule, now)) {
     return { runsCreated: 0, action: 'not-missed' }
   }
 
   const { timezone, startFrom } = getScheduleDefaults(schedule, now)
-
-  switch (schedule.missedPolicy) {
-    case 'skip':
-      return handleSkipPolicy(client, schedule, now)
-    case 'catchup':
-      return handleCatchupPolicy(client, schedule, now, startFrom, timezone)
-    case 'last':
-      return handleLastPolicy(client, schedule, now, startFrom, timezone)
-    default:
-      return { runsCreated: 0, action: 'unknown-policy' }
-  }
+  return processSchedulePolicy(client, schedule, now, startFrom, timezone)
 }
 
 /**
@@ -191,19 +234,7 @@ export async function runOfflineSync(convexUrl?: string): Promise<OfflineSyncRes
     }
 
     console.log(`[OfflineSync] Processing ${missedSchedules.length} missed schedule(s)...`)
-
-    for (const schedule of missedSchedules) {
-      try {
-        const { runsCreated, action } = await processSchedule(client, schedule, now)
-        accumulateScheduleResult(result, runsCreated, action)
-        console.log(`[OfflineSync] "${schedule.name}" → ${action}`)
-      } catch (err: unknown) {
-        const msg = `Failed to process "${schedule.name}": ${getErrorMessage(err)}`
-        result.errors.push(msg)
-        console.error(`[OfflineSync] ${msg}`)
-      }
-    }
-
+    await processMissedSchedules(client, missedSchedules, now, result)
     console.log(`[OfflineSync] Complete: ${buildOfflineSyncSummary(result)}`)
   } catch (err: unknown) {
     const msg = `Offline sync failed: ${getErrorMessage(err)}`

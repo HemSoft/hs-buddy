@@ -21,14 +21,13 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
   const { messages, isStreaming, sendMessage, clearConversation, abortResponse } =
     useAssistantConversation(context)
   const [input, setInput] = useState('')
-  const conversationEndRef = useRef<HTMLDivElement>(null)
-  const conversationRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
+  const [conversationEndRef, conversationRef, textareaRef] = [
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLDivElement>(null),
+    useRef<HTMLTextAreaElement>(null),
+  ]
   useExternalMarkdownLinks(conversationRef)
 
-  // Listen for external prompt injection via custom event
-  // detail can be a string (prompt only) or { prompt, model } for model override
   useEffect(() => {
     const handler = (e: Event) => {
       const detail = (e as CustomEvent<string | { prompt: string; model?: string }>).detail
@@ -43,16 +42,15 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
     return () => window.removeEventListener('assistant:send-prompt', handler)
   }, [sendMessage])
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
   }, [messages])
-
-  // Auto-resize textarea
   useEffect(() => {
     const el = textareaRef.current!
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
   }, [input])
 
   const handleSend = () => {
@@ -60,23 +58,16 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
     sendMessage(input)
     setInput('')
   }
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
     }
   }
-
-  const handleSuggestion = (prompt: string) => {
-    sendMessage(prompt)
-  }
-
   const suggestions = SUGGESTED_PROMPTS[context.viewType] || SUGGESTED_PROMPTS.welcome
 
   return (
     <div className="assistant-panel">
-      {/* Header */}
       <div className="assistant-header">
         <div className="assistant-header-left">
           <Sparkles size={16} className="assistant-header-icon" />
@@ -94,8 +85,6 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           </button>
         </div>
       </div>
-
-      {/* Conversation area */}
       <div ref={conversationRef} className="assistant-conversation">
         {messages.length === 0 ? (
           <div className="assistant-empty-state">
@@ -109,7 +98,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
                 <button
                   key={prompt}
                   className="assistant-suggestion-btn"
-                  onClick={() => handleSuggestion(prompt)}
+                  onClick={() => sendMessage(prompt)}
                   disabled={isStreaming}
                 >
                   {prompt}
@@ -139,8 +128,6 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           </>
         )}
       </div>
-
-      {/* Context badge bar */}
       {context.viewId && (
         <div className="assistant-context-bar">
           <span className="assistant-context-badge" title={context.summary}>
@@ -148,8 +135,6 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           </span>
         </div>
       )}
-
-      {/* Input area */}
       <div className="assistant-input-area">
         <textarea
           ref={textareaRef}

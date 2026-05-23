@@ -13,6 +13,11 @@ const baseRun = {
   startedAt: Date.now(),
 }
 
+function expectValue<T>(value: T | null | undefined): T {
+  expect(value).toBeTruthy()
+  return value as T
+}
+
 describe('ralphRuns', () => {
   test('list returns empty array when no runs exist', async () => {
     const t = convexTest(schema, modules)
@@ -109,12 +114,12 @@ describe('ralphRuns', () => {
       duration: 60000,
     })
 
-    const run = await t.query(api.ralphRuns.get, { runId: 'run-uuid-001' })
-    expect(run?.status).toBe('completed')
-    expect(run?.phase).toBe('done')
-    expect(run?.completedIterations).toBe(3)
-    expect(run?.exitCode).toBe(0)
-    expect(run?.prUrl).toBe('https://github.com/org/repo/pull/42')
+    const run = expectValue(await t.query(api.ralphRuns.get, { runId: 'run-uuid-001' }))
+    expect(run.status).toBe('completed')
+    expect(run.phase).toBe('done')
+    expect(run.completedIterations).toBe(3)
+    expect(run.exitCode).toBe(0)
+    expect(run.prUrl).toBe('https://github.com/org/repo/pull/42')
   })
 
   test('updateStatus throws when run does not exist', async () => {

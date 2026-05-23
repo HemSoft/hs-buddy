@@ -63,6 +63,47 @@ function isFreshCopilotReview(
   return review.user?.login === 'copilot-pull-request-reviewer[bot]' && review.id > baselineReviewId
 }
 
+function isCopilotMonitorStale(monitorSessionRef: { current: number }, sessionId: number): boolean {
+  return monitorSessionRef.current !== sessionId
+}
+
+function handleCopilotPollLimitExceeded(
+  sessionId: number,
+  monitorPrUrl: string,
+  monitorSessionRef: { current: number },
+  clearCopilotReviewTimers: () => void,
+  setCopilotReviewState: (state: CopilotReviewState) => void
+) {
+  clearCopilotReviewTimers()
+  clearPendingReview(monitorPrUrl)
+  /* v8 ignore next -- stale-session guard */
+  if (monitorSessionRef.current === sessionId) {
+    setCopilotReviewState('idle')
+  }
+}
+
+function didAbortCopilotPoll(error: unknown): boolean {
+  if (isAbortError(error)) return true
+  console.debug('Copilot review poll failed:', error)
+  return false
+}
+
+async function shouldContinueCopilotPolling(
+  findFreshCopilotReview: () => Promise<unknown>,
+  onFreshReview: () => void
+): Promise<boolean> {
+  try {
+    const freshCopilotReview = await findFreshCopilotReview()
+    if (freshCopilotReview) {
+      onFreshReview()
+      return false
+    }
+  } catch (error: unknown) {
+    if (didAbortCopilotPoll(error)) return false
+  }
+  return true
+}
+
 /** Play the configured notification sound if enabled. Fire-and-forget. */
 function playReviewCompleteSound() {
   void (
@@ -120,7 +161,6 @@ export function useCopilotReviewMonitor({
   useEffect(() => {
     accountsRef.current = accounts
   }, [accounts])
-
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
@@ -178,9 +218,8 @@ export function useCopilotReviewMonitor({
       const sessionId = monitorSessionRef.current
       setCopilotReviewState('monitoring')
       monitorCountRef.current = 0
-
-      const findFreshCopilotReview = async () => {
-        return enqueueRef.current(
+      const findFreshCopilotReview = async () =>
+        enqueueRef.current(
           async signal => {
             throwIfAborted(signal)
             /* v8 ignore start */
@@ -200,86 +239,51 @@ export function useCopilotReviewMonitor({
           },
           { name: `copilot-review-poll-${prId}` }
         )
-      }
-
+      const finish = () => finishCopilotReviewMonitor(sessionId, monitorPrUrl)
       const scheduleNextPoll = () => {
-        /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
-        /* v8 ignore stop */
-        monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
+        /* v8 ignore start */ if (monitorSessionRef.current !== sessionId) return
+        /* v8 ignore stop */ monitorTimerRef.current = setTimeout(pollOnce, COPILOT_REVIEW_POLL_MS)
       }
-
       const pollOnce = async () => {
-        /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
-        /* v8 ignore stop */
-        monitorCountRef.current++
+        /* v8 ignore start */ if (isCopilotMonitorStale(monitorSessionRef, sessionId)) return
+        /* v8 ignore stop */ monitorCountRef.current++
         if (monitorCountRef.current > MAX_COPILOT_REVIEW_POLLS) {
-          clearCopilotReviewTimers()
-          clearPendingReview(monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setCopilotReviewState('idle')
-          /* v8 ignore stop */
+          handleCopilotPollLimitExceeded(
+            sessionId,
+            monitorPrUrl,
+            monitorSessionRef,
+            clearCopilotReviewTimers,
+            setCopilotReviewState
+          )
           return
         }
-        try {
-          const freshCopilotReview = await findFreshCopilotReview()
-          if (freshCopilotReview) {
-            finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-            return
-          }
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug('Copilot review poll failed:', pollErr)
-        }
+        if (!(await shouldContinueCopilotPolling(findFreshCopilotReview, finish))) return
         scheduleNextPoll()
       }
-
       if (runImmediately) {
-        void (async () => {
-          try {
-            const freshCopilotReview = await findFreshCopilotReview()
-            if (freshCopilotReview) {
-              finishCopilotReviewMonitor(sessionId, monitorPrUrl)
-              return
-            }
-            /* v8 ignore start */
-          } catch (pollErr: unknown) {
-            /* v8 ignore stop */
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug('Copilot review poll failed:', pollErr)
-          }
-          scheduleNextPoll()
-        })()
+        void shouldContinueCopilotPolling(findFreshCopilotReview, finish).then(cont => {
+          if (cont) scheduleNextPoll()
+        })
         return
       }
-
       scheduleNextPoll()
     },
     [clearCopilotReviewTimers, finishCopilotReviewMonitor, prId]
   )
 
-  // Clean up monitor timers and restore pending review on PR change
   useEffect(() => {
     requestSessionRef.current++
     stopCopilotReviewMonitor()
     setCopilotReviewState('idle')
     setCopilotReviewBanner(null)
-
     const pending = loadPendingReview(prUrl)
-    if (pending && ownerRepo) {
+    if (pending && ownerRepo)
       startCopilotReviewMonitor({
         ownerRepo,
         prUrl,
         baselineReviewId: pending.baselineReviewId,
         runImmediately: true,
       })
-    }
-
     return stopCopilotReviewMonitor
   }, [prId, prUrl, ownerRepo, startCopilotReviewMonitor, stopCopilotReviewMonitor])
 
@@ -296,34 +300,22 @@ export function useCopilotReviewMonitor({
           const baselineReviewId = existingReviews
             .filter(r => r.user?.login === 'copilot-pull-request-reviewer[bot]')
             .reduce((max, r) => Math.max(max, r.id), 0)
-
           throwIfAborted(signal)
-          /* v8 ignore start */
-          if (requestSessionRef.current !== requestId) return
-          /* v8 ignore stop */
-
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
           const c = new GitHubClient({ accounts: accountsRef.current }, 7)
           await c.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, prId)
-
           throwIfAborted(signal)
-          /* v8 ignore start */
-          if (requestSessionRef.current !== requestId) return
-          /* v8 ignore stop */
-
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
           savePendingReview(prUrl, baselineReviewId)
-          startCopilotReviewMonitor({
-            ownerRepo,
-            prUrl,
-            baselineReviewId,
-          })
+          startCopilotReviewMonitor({ ownerRepo, prUrl, baselineReviewId })
         },
         { name: `copilot-review-request-${prId}` }
       )
     } catch (err: unknown) {
-      /* v8 ignore start */
-      if (isAbortError(err)) return
-      /* v8 ignore stop */
-      console.error('Failed to request Copilot review:', err)
+      /* v8 ignore start */ if (isAbortError(err)) return
+      /* v8 ignore stop */ console.error('Failed to request Copilot review:', err)
       setCopilotReviewState('idle')
     }
   }, [prUrl, prId, copilotReviewState, ownerRepo, startCopilotReviewMonitor])

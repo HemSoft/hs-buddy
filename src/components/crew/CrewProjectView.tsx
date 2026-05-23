@@ -280,6 +280,44 @@ function SessionErrorBanner({ status }: SessionErrorBannerProps) {
   )
 }
 
+async function sendCopilotMessage(
+  project: CrewProject,
+  session: CrewSession,
+  trimmedMessage: string,
+  appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
+): Promise<void> {
+  const conversationHistory = session.conversationHistory.map(m => ({
+    role: m.role,
+    content: m.content,
+  }))
+  try {
+    const response = await window.copilot.chatSend({
+      message: trimmedMessage,
+      context: `Project: ${project.githubSlug} at ${project.localPath}`,
+      conversationHistory,
+    })
+    const responseContent =
+      typeof response === 'string' ? response : (response?.content ?? 'No response received.')
+    const assistantMsg: CrewChatMessage = {
+      role: 'assistant',
+      content: responseContent,
+      timestamp: Date.now(),
+    }
+    await window.crew.addMessage(project.id, assistantMsg)
+    await window.crew.updateSessionStatus(project.id, 'idle')
+    appendFn(assistantMsg, 'idle')
+  } catch (err: unknown) {
+    const errorMsg: CrewChatMessage = {
+      role: 'assistant',
+      content: `Error: ${getErrorMessage(err)}`,
+      timestamp: Date.now(),
+    }
+    await window.crew.addMessage(project.id, errorMsg)
+    await window.crew.updateSessionStatus(project.id, 'error')
+    appendFn(errorMsg, 'error')
+  }
+}
+
 export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   const [project, setProject] = useState<CrewProject | null>(null)
   const [session, setSession] = useState<CrewSession | null>(null)
@@ -300,18 +338,9 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
   useEffect(() => {
     loadData()
   }, [loadData])
-
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [session?.conversationHistory.length])
-
-  const handleStartSession = async () => {
-    /* v8 ignore start */
-    if (!project) return
-    /* v8 ignore stop */
-    const s = await window.crew.createSession(project.id)
-    setSession(s)
-  }
 
   const appendMessageToSession = (msg: CrewChatMessage, status: CrewSession['status']) => {
     setSession(prev =>
@@ -326,67 +355,28 @@ export function CrewProjectView({ projectId }: CrewProjectViewProps) {
     )
   }
 
-  const sendCopilotMessage = async (
-    project: CrewProject,
-    session: CrewSession,
-    trimmedMessage: string,
-    appendFn: (msg: CrewChatMessage, status: CrewSession['status']) => void
-  ) => {
-    try {
-      const response = await window.copilot.chatSend({
-        message: trimmedMessage,
-        context: `Project: ${project.githubSlug} at ${project.localPath}`,
-        conversationHistory:
-          /* v8 ignore start */
-          session.conversationHistory.map(m => ({
-            /* v8 ignore stop */
-            role: m.role,
-            content: m.content,
-          })) ?? [],
-      })
-      const responseContent =
-        typeof response === 'string' ? response : (response?.content ?? 'No response received.')
-
-      const assistantMsg: CrewChatMessage = {
-        role: 'assistant',
-        content: responseContent,
-        timestamp: Date.now(),
-      }
-
-      await window.crew.addMessage(project.id, assistantMsg)
-      await window.crew.updateSessionStatus(project.id, 'idle')
-      appendFn(assistantMsg, 'idle')
-    } catch (err: unknown) {
-      const errorMsg: CrewChatMessage = {
-        role: 'assistant',
-        content: `Error: ${getErrorMessage(err)}`,
-        timestamp: Date.now(),
-      }
-      await window.crew.addMessage(project.id, errorMsg)
-      await window.crew.updateSessionStatus(project.id, 'error')
-      appendFn(errorMsg, 'error')
-    }
+  const handleStartSession = async () => {
+    /* v8 ignore start */
+    if (!project) return
+    /* v8 ignore stop */
+    const s = await window.crew.createSession(project.id)
+    setSession(s)
   }
 
   const handleSendMessage = async () => {
     if (!project || !session || !message.trim() || sending) return
-
     const trimmedMessage = message.trim()
-
     const userMsg: CrewChatMessage = {
       role: 'user',
       content: trimmedMessage,
       timestamp: Date.now(),
     }
-
     setSending(true)
     setMessage('')
     appendMessageToSession(userMsg, 'active')
-
     try {
       await window.crew.addMessage(project.id, userMsg)
       await window.crew.updateSessionStatus(project.id, 'active')
-
       await sendCopilotMessage(project, session, trimmedMessage, appendMessageToSession)
     } finally {
       setSending(false)

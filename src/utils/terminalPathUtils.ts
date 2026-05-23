@@ -52,6 +52,33 @@ export function getCloneRoots(platform: string, home: string): string[] {
 
 const MAX_OSC_BUFFER = 512
 
+function trimOsc7Buffer(buffer: string): string {
+  return buffer.length > MAX_OSC_BUFFER ? buffer.slice(-MAX_OSC_BUFFER) : buffer
+}
+
+function findLastOsc7Match(buffer: string): RegExpExecArray | null {
+  // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
+  const osc7Regex = /\x1b\]7;file:\/\/[^/]*(\/.*?)(?:\x07|\x1b\\)/g
+  let lastMatch: RegExpExecArray | null = null
+  let match: RegExpExecArray | null
+  while ((match = osc7Regex.exec(buffer)) !== null) {
+    lastMatch = match
+  }
+  return lastMatch
+}
+
+function normalizeOsc7Path(rawPath: string): string {
+  return /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
+}
+
+function decodeOsc7Path(rawPath: string): string | null {
+  try {
+    return decodeURIComponent(normalizeOsc7Path(rawPath))
+  } catch (_: unknown) {
+    return null
+  }
+}
+
 /**
  * Process OSC 7 CWD sequences from a terminal output buffer.
  *
@@ -64,35 +91,43 @@ export function processOsc7Buffer(
   prevBuffer: string,
   chunk: string
 ): { cwd: string | null; remainingBuffer: string } {
-  let buffer = prevBuffer + chunk
-
-  if (buffer.length > MAX_OSC_BUFFER) {
-    buffer = buffer.slice(-MAX_OSC_BUFFER)
-  }
-
-  // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)
-  const osc7Regex = /\x1b\]7;file:\/\/[^/]*(\/.*?)(?:\x07|\x1b\\)/g
-  let lastMatch: RegExpExecArray | null = null
-  let match: RegExpExecArray | null
-  while ((match = osc7Regex.exec(buffer)) !== null) {
-    lastMatch = match
-  }
+  const buffer = trimOsc7Buffer(prevBuffer + chunk)
+  const lastMatch = findLastOsc7Match(buffer)
 
   if (!lastMatch) {
     return { cwd: null, remainingBuffer: buffer }
   }
 
   const remainingBuffer = buffer.slice(lastMatch.index + lastMatch[0].length)
+  return { cwd: decodeOsc7Path(lastMatch[1]), remainingBuffer }
+}
 
-  try {
-    const rawPath = lastMatch[1]
-    // On Windows, file:///C:/... yields /C:/...; strip the leading slash to get C:/...
-    const normalizedPath = /^\/[A-Za-z]:/.test(rawPath) ? rawPath.slice(1) : rawPath
-    const cwd = decodeURIComponent(normalizedPath)
-    return { cwd, remainingBuffer }
-  } catch (_: unknown) {
-    return { cwd: null, remainingBuffer }
+function resolveTerminalNumericOption(value: number | undefined, fallback: number): number {
+  return value || fallback
+}
+
+function resolveTerminalEnvValue(value: string | undefined, fallback: string): string {
+  return value || fallback
+}
+
+function buildTerminalEnv(
+  env: Record<string, string | undefined>
+): Record<string, string | undefined> {
+  return {
+    ...env,
+    COLORTERM: 'truecolor',
+    TERM_PROGRAM: 'hs-buddy',
+    COLORFGBG: '15;0',
+    WT_SESSION: resolveTerminalEnvValue(env.WT_SESSION, 'b916bc1b-75a7-4c9a-8a38-6e8d06032505'),
+    WT_PROFILE_ID: resolveTerminalEnvValue(
+      env.WT_PROFILE_ID,
+      '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}'
+    ),
   }
+}
+
+function getPlatformPtyOptions(platform: string): Record<string, unknown> {
+  return platform === 'win32' ? { useConpty: true } : {}
 }
 
 /**
@@ -107,19 +142,37 @@ export function buildPtySpawnOptions(
 ): Record<string, unknown> {
   return {
     name: 'xterm-256color',
-    cols: opts.cols || 120,
-    rows: opts.rows || 30,
+    cols: resolveTerminalNumericOption(opts.cols, 120),
+    rows: resolveTerminalNumericOption(opts.rows, 30),
     cwd,
-    env: {
-      ...env,
-      COLORTERM: 'truecolor',
-      TERM_PROGRAM: 'hs-buddy',
-      COLORFGBG: '15;0',
-      WT_SESSION: env.WT_SESSION || 'b916bc1b-75a7-4c9a-8a38-6e8d06032505',
-      WT_PROFILE_ID: env.WT_PROFILE_ID || '{61c54bbd-c2c6-5271-96e7-009a87ff44bf}',
-    },
-    ...(platform === 'win32' ? { useConpty: true } : {}),
+    env: buildTerminalEnv(env),
+    ...getPlatformPtyOptions(platform),
   }
+}
+
+function findDirectRepoPath(
+  root: string,
+  repo: string,
+  isValidDir: (dir: string) => boolean
+): string | null {
+  const directCandidate = path.join(root, repo)
+  return isValidDir(directCandidate) ? directCandidate : null
+}
+
+function findRepoPathInRoot(
+  root: string,
+  orgCandidates: string[],
+  repo: string,
+  isValidDir: (dir: string) => boolean
+): string | null {
+  if (!isValidDir(root)) return null
+
+  for (const org of orgCandidates) {
+    const candidate = path.join(root, org, repo)
+    if (isValidDir(candidate)) return candidate
+  }
+
+  return findDirectRepoPath(root, repo, isValidDir)
 }
 
 /**
@@ -133,15 +186,8 @@ export function findRepoPath(
   isValidDir: (dir: string) => boolean
 ): string | null {
   for (const root of cloneRoots) {
-    if (!isValidDir(root)) continue
-
-    for (const org of orgCandidates) {
-      const candidate = path.join(root, org, repo)
-      if (isValidDir(candidate)) return candidate
-    }
-
-    const directCandidate = path.join(root, repo)
-    if (isValidDir(directCandidate)) return directCandidate
+    const repoPath = findRepoPathInRoot(root, orgCandidates, repo, isValidDir)
+    if (repoPath) return repoPath
   }
 
   return null

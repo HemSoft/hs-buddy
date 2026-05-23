@@ -159,6 +159,137 @@ function WorkspaceSection({
   )
 }
 
+function getDefaultExpandedHashes(workspaceGroups: WorkspaceGroup[]): Set<string> {
+  return new Set(workspaceGroups.slice(0, 3).map(group => group.hash))
+}
+
+function addMissingHashes(next: Set<string>, defaultExpandedHashes: Set<string>): boolean {
+  let changed = false
+  for (const hash of defaultExpandedHashes) {
+    if (!next.has(hash)) {
+      next.add(hash)
+      changed = true
+    }
+  }
+  return changed
+}
+
+function removeUnavailableHashes(next: Set<string>, availableHashes: Set<string>): boolean {
+  let changed = false
+  for (const hash of next) {
+    if (!availableHashes.has(hash)) {
+      next.delete(hash)
+      changed = true
+    }
+  }
+  return changed
+}
+
+function syncExpandedHashes(
+  prev: Set<string>,
+  defaultExpandedHashes: Set<string>,
+  workspaceGroups: WorkspaceGroup[]
+): Set<string> {
+  const next = new Set(prev)
+  let changed = false
+  const availableHashes = new Set(workspaceGroups.map(group => group.hash))
+
+  if (addMissingHashes(next, defaultExpandedHashes)) {
+    changed = true
+  }
+
+  if (removeUnavailableHashes(next, availableHashes)) {
+    changed = true
+  }
+
+  if (changed) {
+    return next
+  }
+  return prev
+}
+
+function SessionStatsRow({
+  sessions,
+  totalCount,
+  workspaceGroups,
+  totalSize,
+}: {
+  sessions: SessionSummary[]
+  totalCount: number
+  workspaceGroups: WorkspaceGroup[]
+  totalSize: number
+}) {
+  if (sessions.length === 0) return null
+
+  return (
+    <div className="session-stats-row">
+      <div className="session-stat-card">
+        <div className="session-stat-label">Sessions</div>
+        <div className="session-stat-value">{totalCount}</div>
+      </div>
+      <div className="session-stat-card">
+        <div className="session-stat-label">
+          <FolderOpen size={12} /> Projects
+        </div>
+        <div className="session-stat-value">{workspaceGroups.length}</div>
+      </div>
+      <div className="session-stat-card">
+        <div className="session-stat-label">
+          <HardDrive size={12} /> Total Size
+        </div>
+        <div className="session-stat-value">{formatSize(totalSize)}</div>
+      </div>
+    </div>
+  )
+}
+
+function SessionExplorerContent({
+  sessions,
+  isLoading,
+  error,
+  workspaceGroups,
+  onSelectSession,
+  expandedHashes,
+  toggleWorkspace,
+}: {
+  sessions: SessionSummary[]
+  isLoading: boolean
+  error: string | null
+  workspaceGroups: WorkspaceGroup[]
+  onSelectSession: (filePath: string) => void
+  expandedHashes: Set<string>
+  toggleWorkspace: (hash: string) => void
+}) {
+  if (sessions.length === 0 && !isLoading && !error) {
+    return (
+      <div className="session-empty">
+        <Database size={24} className="session-empty-icon" />
+        <p>No Copilot sessions found.</p>
+        <p>Click Scan to search VS Code workspace storage.</p>
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {workspaceGroups.map(group => (
+        <WorkspaceSection
+          key={group.hash}
+          group={group}
+          onSelect={onSelectSession}
+          expanded={expandedHashes.has(group.hash)}
+          onToggle={() => toggleWorkspace(group.hash)}
+        />
+      ))}
+    </>
+  )
+}
+
+function SessionExplorerError({ error }: { error: string | null }) {
+  if (!error) return null
+  return <div className="session-error">{error}</div>
+}
+
 interface SessionExplorerProps {
   onSelectSession: (filePath: string) => void
 }
@@ -173,33 +304,13 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
   const totalSize = sumBy(sessions, s => s.sizeBytes)
   const workspaceGroups = useMemo(() => groupByWorkspaceThenDate(sessions), [sessions])
   const defaultExpandedHashes = useMemo(
-    () => new Set(workspaceGroups.slice(0, 3).map(group => group.hash)),
+    () => getDefaultExpandedHashes(workspaceGroups),
     [workspaceGroups]
   )
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set())
 
   useEffect(() => {
-    setExpandedHashes(prev => {
-      const next = new Set(prev)
-      let changed = false
-      const availableHashes = new Set(workspaceGroups.map(group => group.hash))
-
-      for (const hash of defaultExpandedHashes) {
-        if (!next.has(hash)) {
-          next.add(hash)
-          changed = true
-        }
-      }
-
-      for (const hash of next) {
-        if (!availableHashes.has(hash)) {
-          next.delete(hash)
-          changed = true
-        }
-      }
-
-      return changed ? next : prev
-    })
+    setExpandedHashes(prev => syncExpandedHashes(prev, defaultExpandedHashes, workspaceGroups))
   }, [defaultExpandedHashes, workspaceGroups])
 
   const toggleWorkspace = (hash: string) => {
@@ -223,46 +334,24 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
         </button>
       </div>
 
-      {error && <div className="session-error">{error}</div>}
-
-      {sessions.length > 0 && (
-        <div className="session-stats-row">
-          <div className="session-stat-card">
-            <div className="session-stat-label">Sessions</div>
-            <div className="session-stat-value">{totalCount}</div>
-          </div>
-          <div className="session-stat-card">
-            <div className="session-stat-label">
-              <FolderOpen size={12} /> Projects
-            </div>
-            <div className="session-stat-value">{workspaceGroups.length}</div>
-          </div>
-          <div className="session-stat-card">
-            <div className="session-stat-label">
-              <HardDrive size={12} /> Total Size
-            </div>
-            <div className="session-stat-value">{formatSize(totalSize)}</div>
-          </div>
-        </div>
-      )}
+      <SessionExplorerError error={error} />
+      <SessionStatsRow
+        sessions={sessions}
+        totalCount={totalCount}
+        workspaceGroups={workspaceGroups}
+        totalSize={totalSize}
+      />
 
       <div className="session-list">
-        {sessions.length === 0 && !isLoading && !error && (
-          <div className="session-empty">
-            <Database size={24} className="session-empty-icon" />
-            <p>No Copilot sessions found.</p>
-            <p>Click Scan to search VS Code workspace storage.</p>
-          </div>
-        )}
-        {workspaceGroups.map(group => (
-          <WorkspaceSection
-            key={group.hash}
-            group={group}
-            onSelect={onSelectSession}
-            expanded={expandedHashes.has(group.hash)}
-            onToggle={() => toggleWorkspace(group.hash)}
-          />
-        ))}
+        <SessionExplorerContent
+          sessions={sessions}
+          isLoading={isLoading}
+          error={error}
+          workspaceGroups={workspaceGroups}
+          onSelectSession={onSelectSession}
+          expandedHashes={expandedHashes}
+          toggleWorkspace={toggleWorkspace}
+        />
       </div>
     </div>
   )

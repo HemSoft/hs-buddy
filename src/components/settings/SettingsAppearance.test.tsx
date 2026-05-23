@@ -12,6 +12,16 @@ vi.mock('../../hooks/useConfig', () => ({
   useConfig: () => mocks.useConfig(),
 }))
 
+type ColorControl = { value: string; onChange: (color: string) => void }
+
+function getColorValue(controls: ColorControl[], index: number) {
+  return controls[index]?.value
+}
+
+function setColorValue(controls: ColorControl[], index: number, color: string) {
+  controls[index]?.onChange(color)
+}
+
 vi.mock('./AppearanceThemeSection', () => ({
   AppearanceThemeSection: ({
     theme,
@@ -39,45 +49,48 @@ vi.mock('./AppearanceColorsSection', () => ({
     statusBarColors,
     onReset,
   }: {
-    brandColors: { value: string; onChange: (color: string) => void }[]
-    backgroundColors: { value: string; onChange: (color: string) => void }[]
-    statusBarColors: { value: string; onChange: (color: string) => void }[]
+    brandColors: ColorControl[]
+    backgroundColors: ColorControl[]
+    statusBarColors: ColorControl[]
     onReset: () => Promise<void>
   }) => (
     <div data-testid="colors-section">
-      <span data-testid="accent-color">{brandColors[0]?.value}</span>
-      <span data-testid="font-color">{brandColors[1]?.value}</span>
-      <span data-testid="bg-primary">{backgroundColors[0]?.value}</span>
-      <span data-testid="bg-secondary">{backgroundColors[1]?.value}</span>
-      <span data-testid="status-bg">{statusBarColors[0]?.value}</span>
-      <span data-testid="status-fg">{statusBarColors[1]?.value}</span>
-      <button data-testid="change-accent" onClick={() => brandColors[0]?.onChange('#123456')}>
+      <span data-testid="accent-color">{getColorValue(brandColors, 0)}</span>
+      <span data-testid="font-color">{getColorValue(brandColors, 1)}</span>
+      <span data-testid="bg-primary">{getColorValue(backgroundColors, 0)}</span>
+      <span data-testid="bg-secondary">{getColorValue(backgroundColors, 1)}</span>
+      <span data-testid="status-bg">{getColorValue(statusBarColors, 0)}</span>
+      <span data-testid="status-fg">{getColorValue(statusBarColors, 1)}</span>
+      <button data-testid="change-accent" onClick={() => setColorValue(brandColors, 0, '#123456')}>
         Accent
       </button>
-      <button data-testid="change-font-color" onClick={() => brandColors[1]?.onChange('#654321')}>
+      <button
+        data-testid="change-font-color"
+        onClick={() => setColorValue(brandColors, 1, '#654321')}
+      >
         Font
       </button>
       <button
         data-testid="change-bg-primary"
-        onClick={() => backgroundColors[0]?.onChange('#101010')}
+        onClick={() => setColorValue(backgroundColors, 0, '#101010')}
       >
         Primary
       </button>
       <button
         data-testid="change-bg-secondary"
-        onClick={() => backgroundColors[1]?.onChange('#202020')}
+        onClick={() => setColorValue(backgroundColors, 1, '#202020')}
       >
         Secondary
       </button>
       <button
         data-testid="change-status-bg"
-        onClick={() => statusBarColors[0]?.onChange('#303030')}
+        onClick={() => setColorValue(statusBarColors, 0, '#303030')}
       >
         Status BG
       </button>
       <button
         data-testid="change-status-fg"
-        onClick={() => statusBarColors[1]?.onChange('#f0f0f0')}
+        onClick={() => setColorValue(statusBarColors, 1, '#f0f0f0')}
       >
         Status FG
       </button>

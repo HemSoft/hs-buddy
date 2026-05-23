@@ -228,6 +228,34 @@ function resolveItemTabIndex(isDisabled: boolean | undefined, isFocused: boolean
   return isFocused ? 0 : -1
 }
 
+function resolveStringProp(value: string | undefined, fallback: string) {
+  return value ?? fallback
+}
+
+function resolveBooleanProp(value: boolean | undefined, fallback: boolean) {
+  return value ?? fallback
+}
+
+function resolveAlignProp(value: InlineDropdownProps['align']) {
+  return value ?? 'left'
+}
+
+function buildContainerClassName(isOpen: boolean, disabled: boolean, className: string) {
+  return `idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`
+}
+
+function resolveContainerTabIndex(disabled: boolean) {
+  return disabled ? -1 : 0
+}
+
+function resolveAriaControls(isOpen: boolean, listboxId: string) {
+  return isOpen ? listboxId : undefined
+}
+
+function buildChevronClassName(isOpen: boolean) {
+  return `idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`
+}
+
 function resolveContainerAttrs(
   isOpen: boolean,
   disabled: boolean,
@@ -235,22 +263,81 @@ function resolveContainerAttrs(
   listboxId: string
 ) {
   return {
-    className: `idropdown ${isOpen ? 'idropdown-open' : ''} ${disabled ? 'idropdown-disabled' : ''} ${className}`,
-    tabIndex: disabled ? -1 : 0,
-    ariaControls: isOpen ? listboxId : undefined,
-    chevronClassName: `idropdown-chevron ${isOpen ? 'idropdown-chevron-open' : ''}`,
+    className: buildContainerClassName(isOpen, disabled, className),
+    tabIndex: resolveContainerTabIndex(disabled),
+    ariaControls: resolveAriaControls(isOpen, listboxId),
+    chevronClassName: buildChevronClassName(isOpen),
   }
 }
 
 function resolveProps(raw: InlineDropdownProps) {
   return {
     ...raw,
-    placeholder: raw.placeholder ?? 'Select...',
-    disabled: raw.disabled ?? false,
-    className: raw.className ?? '',
-    align: raw.align ?? ('left' as const),
-    openUpward: raw.openUpward ?? false,
+    placeholder: resolveStringProp(raw.placeholder, 'Select...'),
+    disabled: resolveBooleanProp(raw.disabled, false),
+    className: resolveStringProp(raw.className, ''),
+    align: resolveAlignProp(raw.align),
+    openUpward: resolveBooleanProp(raw.openUpward, false),
   }
+}
+
+function resolveDisplayLabel(selectedOption: DropdownOption | undefined, placeholder: string) {
+  if (selectedOption && selectedOption.label) {
+    return selectedOption.label
+  }
+  return placeholder
+}
+
+function resolveComboboxLabel(ariaLabel: string | undefined, title: string | undefined) {
+  return ariaLabel ?? title
+}
+
+function DropdownTriggerIcon({ icon }: { icon: React.ReactNode }) {
+  if (!icon) return null
+  return <span className="idropdown-icon">{icon}</span>
+}
+
+function DropdownMenuContent({
+  isOpen,
+  menuRef,
+  listboxId,
+  options,
+  enabledOptions,
+  value,
+  focusIndex,
+  align,
+  openUpward,
+  handleSelect,
+  setFocusIndex,
+}: {
+  isOpen: boolean
+  menuRef: React.RefObject<HTMLDivElement | null>
+  listboxId: string
+  options: DropdownOption[]
+  enabledOptions: DropdownOption[]
+  value: string
+  focusIndex: number
+  align: 'left' | 'right'
+  openUpward: boolean
+  handleSelect: (v: string) => void
+  setFocusIndex: React.Dispatch<React.SetStateAction<number>>
+}) {
+  if (!isOpen) return null
+
+  return (
+    <DropdownMenu
+      menuRef={menuRef}
+      listboxId={listboxId}
+      options={options}
+      enabledOptions={enabledOptions}
+      value={value}
+      focusIndex={focusIndex}
+      align={align}
+      openUpward={openUpward}
+      handleSelect={handleSelect}
+      setFocusIndex={setFocusIndex}
+    />
+  )
 }
 
 export function InlineDropdown(rawProps: InlineDropdownProps) {
@@ -274,9 +361,8 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
   const listboxId = useId()
 
   const selectedOption = options.find(o => o.value === value)
-  const displayLabel = selectedOption?.label ?? placeholder
+  const displayLabel = resolveDisplayLabel(selectedOption, placeholder)
 
-  // Close on click outside
   useEffect(() => {
     if (!isOpen) return
     const handleClickOutside = (e: MouseEvent) => {
@@ -288,7 +374,6 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [isOpen])
 
-  // Scroll focused item into view
   useEffect(() => {
     if (isOpen && focusIndex >= 0 && menuRef.current) {
       const items = menuRef.current.querySelectorAll('.idropdown-item')
@@ -297,21 +382,22 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
   }, [focusIndex, isOpen])
 
   const enabledOptions = options.filter(o => !o.disabled)
-
   const handleToggle = useCallback(() => {
     /* v8 ignore start -- button's disabled HTML attr prevents onClick from firing */
     if (disabled) return
     /* v8 ignore stop */
     setIsOpen(prev => {
       if (!prev) {
-        // Opening — set focus to current value
-        const idx = enabledOptions.findIndex(o => o.value === value)
-        setFocusIndex(idx >= 0 ? idx : 0)
+        setFocusIndex(
+          Math.max(
+            0,
+            enabledOptions.findIndex(o => o.value === value)
+          )
+        )
       }
       return !prev
     })
   }, [disabled, enabledOptions, value])
-
   const handleSelect = useCallback(
     (optValue: string) => {
       onChange(optValue)
@@ -319,7 +405,6 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
     },
     [onChange]
   )
-
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       handleDropdownKeyDown(e, {
@@ -345,7 +430,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
       title={title}
       tabIndex={attrs.tabIndex}
       role="combobox"
-      aria-label={ariaLabel ?? title}
+      aria-label={resolveComboboxLabel(ariaLabel, title)}
       aria-expanded={isOpen}
       aria-controls={attrs.ariaControls}
       onKeyDown={handleKeyDown}
@@ -357,25 +442,23 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
         disabled={disabled}
         tabIndex={-1}
       >
-        {icon && <span className="idropdown-icon">{icon}</span>}
+        <DropdownTriggerIcon icon={icon} />
         <span className="idropdown-label">{displayLabel}</span>
         <ChevronDown size={10} className={attrs.chevronClassName} />
       </button>
-
-      {isOpen && (
-        <DropdownMenu
-          menuRef={menuRef}
-          listboxId={listboxId}
-          options={options}
-          enabledOptions={enabledOptions}
-          value={value}
-          focusIndex={focusIndex}
-          align={align}
-          openUpward={openUpward}
-          handleSelect={handleSelect}
-          setFocusIndex={setFocusIndex}
-        />
-      )}
+      <DropdownMenuContent
+        isOpen={isOpen}
+        menuRef={menuRef}
+        listboxId={listboxId}
+        options={options}
+        enabledOptions={enabledOptions}
+        value={value}
+        focusIndex={focusIndex}
+        align={align}
+        openUpward={openUpward}
+        handleSelect={handleSelect}
+        setFocusIndex={setFocusIndex}
+      />
     </div>
   )
 }

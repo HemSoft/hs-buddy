@@ -71,6 +71,23 @@ function relocateToSavedDisplay(
   )
 }
 
+function hasResolvedWindowPosition(
+  state: WindowBounds
+): state is WindowBounds & { x: number; y: number } {
+  return state.x !== undefined && state.y !== undefined
+}
+
+function shouldRelocateToSavedDisplay(targetDisplayId: number, savedDisplayId: number): boolean {
+  return targetDisplayId !== savedDisplayId
+}
+
+function resolveWindowPosition(state: WindowBounds & { x: number; y: number }): {
+  x: number
+  y: number
+} {
+  return { x: state.x, y: state.y }
+}
+
 /**
  * Pure decision tree for resolving window bounds across displays.
  *
@@ -88,10 +105,12 @@ export function resolveWindowBounds(
     getMatchingDisplay: (bounds: Rectangle) => DisplayInfo
   }
 ): WindowBounds {
-  const { x, y, width, height } = state
+  if (!hasResolvedWindowPosition(state)) {
+    return state
+  }
 
-  if (x === undefined || y === undefined) return { x, y, width, height }
-
+  const { width, height } = state
+  const { x, y } = resolveWindowPosition(state)
   const { savedDisplayId, savedDisplayBounds, allDisplays, primaryWorkArea, getMatchingDisplay } =
     screenInfo
 
@@ -104,7 +123,7 @@ export function resolveWindowBounds(
     return centerOnDisplay(width, height, primaryWorkArea)
   }
 
-  if (targetDisplay.id !== savedDisplayId) {
+  if (shouldRelocateToSavedDisplay(targetDisplay.id, savedDisplayId)) {
     return relocateToSavedDisplay(
       x,
       y,

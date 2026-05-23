@@ -26,6 +26,41 @@ export interface TerminalTab {
   color?: string
 }
 
+function findTabBySlug(tabs: TerminalTab[], slug: string): TerminalTab | undefined {
+  return tabs.find(t => t.repoSlug === slug)
+}
+
+function resolveViewRepoContext(activeViewId: string | null | undefined): RepoContext | null {
+  return activeViewId ? getRepoContextFromViewId(activeViewId) : null
+}
+
+function isFulfilledBoolean(
+  r: PromiseSettledResult<unknown>
+): r is PromiseFulfilledResult<boolean> {
+  return r.status === 'fulfilled' && typeof r.value === 'boolean'
+}
+
+function isFulfilledNumber(r: PromiseSettledResult<unknown>): r is PromiseFulfilledResult<number> {
+  return r.status === 'fulfilled' && typeof r.value === 'number'
+}
+
+async function tryResolveRepoPath(owner: string, repo: string): Promise<string> {
+  try {
+    const result = await window.terminal.resolveRepoPath(owner, repo)
+    return result.path || ''
+  } catch (_: unknown) {
+    return ''
+  }
+}
+
+function getStoredTerminalPanelHeight(settings: ReturnType<typeof useSettings>): number | null {
+  return settings?.terminalPanelHeight ?? null
+}
+
+function getStoredTerminalTabs(settings: ReturnType<typeof useSettings>) {
+  return settings?.terminalTabs ?? []
+}
+
 interface UseTerminalPanelReturn {
   terminalOpen: boolean
   terminalTabs: TerminalTab[]
@@ -62,6 +97,8 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
 
   // Convex persistence
   const settings = useSettings()
+  const storedTerminalPanelHeight = getStoredTerminalPanelHeight(settings)
+  const storedTerminalTabs = getStoredTerminalTabs(settings)
   const { updateTerminalPanelHeight, updateTerminalTabs } = useSettingsMutations()
 
   // Load persisted state on mount (local IPC is fast/immediate)
@@ -74,10 +111,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       /* v8 ignore start */
       if (cancelled) return
       /* v8 ignore stop */
-      if (openResult.status === 'fulfilled' && typeof openResult.value === 'boolean') {
+      if (isFulfilledBoolean(openResult)) {
         setTerminalOpen(openResult.value)
       }
-      if (heightResult.status === 'fulfilled' && typeof heightResult.value === 'number') {
+      if (isFulfilledNumber(heightResult)) {
         setPanelHeight(clampPanelHeight(heightResult.value))
       }
       setLoaded(true)
@@ -92,43 +129,39 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   // Sync from Convex when available (fills in on new machines with no local config)
   /* v8 ignore start -- Convex sync only fires on new devices; tested via integration */
   useEffect(() => {
-    if (settings?.terminalPanelHeight != null && loaded) {
+    if (storedTerminalPanelHeight != null && loaded) {
       // Only apply Convex value if local didn't have one (first launch on new device)
       window.ipcRenderer
         .invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT)
         .then((local: unknown) => {
           if (local == null) {
-            setPanelHeight(clampPanelHeight(settings.terminalPanelHeight!))
+            setPanelHeight(clampPanelHeight(storedTerminalPanelHeight))
           }
         })
         .catch(() => {})
     }
-  }, [settings?.terminalPanelHeight, loaded])
+  }, [storedTerminalPanelHeight, loaded])
   /* v8 ignore stop */
 
   // Restore terminal tabs from Convex on first load (only if no tabs exist yet)
   const restoredRef = useRef(false)
+  const savedTabCount = storedTerminalTabs.length
   /* v8 ignore start -- tab restoration from Convex; hard to unit-test due to async isolation */
   useEffect(() => {
-    if (restoredRef.current || !loaded || !settings?.terminalTabs?.length) return
+    if (restoredRef.current || !loaded || !savedTabCount) return
     if (terminalTabsRef.current.length > 0) return
     restoredRef.current = true
 
     async function restoreTabs() {
-      const savedTabs = settings!.terminalTabs!
+      const savedTabs = storedTerminalTabs
       const restored: TerminalTab[] = await Promise.all(
         savedTabs.map(async saved => {
           let cwd = saved.cwd
-          // Re-resolve cwd for repo-based tabs (path may have changed or been empty)
           if (saved.repoSlug) {
             const [owner, repo] = saved.repoSlug.split('/')
             if (owner && repo) {
-              try {
-                const result = await window.terminal.resolveRepoPath(owner, repo)
-                if (result.path) cwd = result.path
-              } catch (_: unknown) {
-                /* keep saved cwd */
-              }
+              const resolved = await tryResolveRepoPath(owner, repo)
+              if (resolved) cwd = resolved
             }
           }
           return {
@@ -146,7 +179,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     }
     void restoreTabs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings?.terminalTabs, loaded])
+  }, [storedTerminalTabs, loaded])
   /* v8 ignore stop */
 
   // Auto-persist terminal tabs to Convex (debounced, skip initial mount)
@@ -192,20 +225,14 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       repoSlug = `${repoContext.owner}/${repoContext.repo}`
 
       // Optimistic dedup via ref (avoids unnecessary IPC calls)
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
+      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
       if (existing) {
         setActiveTerminalTabId(existing.id)
         return existing
       }
 
       title = repoContext.repo
-
-      try {
-        const result = await window.terminal.resolveRepoPath(repoContext.owner, repoContext.repo)
-        cwd = result.path || ''
-      } catch (_: unknown) {
-        // Fall back to empty cwd if path resolution fails
-      }
+      cwd = await tryResolveRepoPath(repoContext.owner, repoContext.repo)
     } else {
       title = `Terminal ${nextTabNumber++}`
     }
@@ -221,7 +248,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
     // Re-check against the latest ref after async work completes so dedup/add and
     // active-tab selection are derived from the same snapshot.
     if (repoSlug) {
-      const existing = terminalTabsRef.current.find(t => t.repoSlug === repoSlug)
+      const existing = findTabBySlug(terminalTabsRef.current, repoSlug)
       if (existing) {
         setActiveTerminalTabId(existing.id)
         return existing
@@ -246,7 +273,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       if (!next) return
 
       const currentTabs = terminalTabsRef.current
-      const repoContext = activeViewId ? getRepoContextFromViewId(activeViewId) : null
+      const repoContext = resolveViewRepoContext(activeViewId)
 
       if (currentTabs.length === 0) {
         void addTerminalTab(repoContext)
@@ -254,14 +281,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       }
 
       if (!repoContext) return
-
       const slug = `${repoContext.owner}/${repoContext.repo}`
-      const existing = currentTabs.find(t => t.repoSlug === slug)
-      if (existing) {
-        setActiveTerminalTabId(existing.id)
-      } else {
-        void addTerminalTab(repoContext)
-      }
+      const existing = findTabBySlug(currentTabs, slug)
+      if (existing) setActiveTerminalTabId(existing.id)
+      else void addTerminalTab(repoContext)
     },
     [addTerminalTab]
   )

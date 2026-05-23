@@ -98,9 +98,7 @@ function createIpcRendererMock() {
 
 export function installBrowserIpcMock(): void {
   if (window.ipcRenderer) return
-
   console.warn('[Browser Mock] Electron preload unavailable — installing IPC mocks')
-
   const w = window as unknown as Record<string, unknown>
   w.ipcRenderer = createIpcRendererMock()
   w.shell = {
@@ -165,12 +163,8 @@ export function installBrowserIpcMock(): void {
     deleteTask: () => Promise.resolve({ success: false }),
     getProjects: () => Promise.resolve({ success: false }),
   }
-  w.finance = {
-    fetchQuote: () => Promise.resolve({ success: false }),
-  }
-  w.slack = {
-    nudgeAuthor: () => Promise.resolve({ success: false }),
-  }
+  w.finance = { fetchQuote: () => Promise.resolve({ success: false }) }
+  w.slack = { nudgeAuthor: () => Promise.resolve({ success: false }) }
   w.filesystem = {
     readDir: () => Promise.resolve({ entries: [] }),
     readFile: () =>

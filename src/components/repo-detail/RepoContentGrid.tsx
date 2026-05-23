@@ -13,6 +13,82 @@ interface LanguageEntry {
   percentage: number
 }
 
+function LanguagesCard({ entries }: { entries: LanguageEntry[] }) {
+  if (entries.length === 0) return null
+  return (
+    <div className="repo-detail-card">
+      <div className="repo-detail-card-header">
+        <Code2 size={16} />
+        <h3>Languages</h3>
+      </div>
+      <div className="repo-lang-bar">
+        {entries.map(({ lang, percentage }) => (
+          <div
+            key={lang}
+            className="repo-lang-segment"
+            style={{
+              width: `${Math.max(percentage, 0.5)}%`,
+              backgroundColor: getLanguageColor(lang),
+            }}
+            title={`${lang}: ${percentage.toFixed(1)}%`}
+          />
+        ))}
+      </div>
+      <div className="repo-lang-list">
+        {entries.slice(0, 8).map(({ lang, percentage }) => (
+          <div key={lang} className="repo-lang-item">
+            <span className="lang-dot" style={{ backgroundColor: getLanguageColor(lang) }} />
+            <span className="repo-lang-name">{lang}</span>
+            <span className="repo-lang-pct">{percentage.toFixed(1)}%</span>
+          </div>
+        ))}
+        {entries.length > 8 && (
+          <div className="repo-lang-item repo-lang-more">+{entries.length - 8} more</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ContributorsCard({ contributors }: { contributors: RepoDetail['topContributors'] }) {
+  if (contributors.length === 0) return null
+  return (
+    <div className="repo-detail-card">
+      <div className="repo-detail-card-header">
+        <Users size={16} />
+        <h3>Top Contributors</h3>
+      </div>
+      <div className="repo-contributors-list">
+        {contributors.map(contributor => (
+          <button
+            key={contributor.login}
+            type="button"
+            className="repo-contributor-item"
+            onClick={() => window.shell?.openExternal(contributor.url)}
+            title={`${contributor.login}: ${contributor.contributions} commits`}
+          >
+            <img
+              src={contributor.avatarUrl}
+              alt={contributor.login}
+              className="repo-contributor-avatar"
+            />
+            <div className="repo-contributor-info">
+              <span className="repo-contributor-name">
+                {contributor.name
+                  ? `${contributor.name} (${contributor.login})`
+                  : contributor.login}
+              </span>
+              <span className="repo-contributor-count">
+                {contributor.contributions.toLocaleString()} commits
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function RepoContentGrid({ detail }: RepoContentGridProps) {
   const totalBytes = Object.values(detail.languages).reduce((a, b) => a + b, 0)
   const languageEntries: LanguageEntry[] = Object.entries(detail.languages)
@@ -25,81 +101,8 @@ export function RepoContentGrid({ detail }: RepoContentGridProps) {
 
   return (
     <div className="repo-detail-grid">
-      {/* Languages Card */}
-      {languageEntries.length > 0 && (
-        <div className="repo-detail-card">
-          <div className="repo-detail-card-header">
-            <Code2 size={16} />
-            <h3>Languages</h3>
-          </div>
-          <div className="repo-lang-bar">
-            {languageEntries.map(({ lang, percentage }) => (
-              <div
-                key={lang}
-                className="repo-lang-segment"
-                style={{
-                  width: `${Math.max(percentage, 0.5)}%`,
-                  backgroundColor: getLanguageColor(lang),
-                }}
-                title={`${lang}: ${percentage.toFixed(1)}%`}
-              />
-            ))}
-          </div>
-          <div className="repo-lang-list">
-            {languageEntries.slice(0, 8).map(({ lang, percentage }) => (
-              <div key={lang} className="repo-lang-item">
-                <span className="lang-dot" style={{ backgroundColor: getLanguageColor(lang) }} />
-                <span className="repo-lang-name">{lang}</span>
-                <span className="repo-lang-pct">{percentage.toFixed(1)}%</span>
-              </div>
-            ))}
-            {languageEntries.length > 8 && (
-              <div className="repo-lang-item repo-lang-more">
-                +{languageEntries.length - 8} more
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Contributors Card */}
-      {detail.topContributors.length > 0 && (
-        <div className="repo-detail-card">
-          <div className="repo-detail-card-header">
-            <Users size={16} />
-            <h3>Top Contributors</h3>
-          </div>
-          <div className="repo-contributors-list">
-            {detail.topContributors.map(contributor => (
-              <button
-                key={contributor.login}
-                type="button"
-                className="repo-contributor-item"
-                onClick={() => window.shell?.openExternal(contributor.url)}
-                title={`${contributor.login}: ${contributor.contributions} commits`}
-              >
-                <img
-                  src={contributor.avatarUrl}
-                  alt={contributor.login}
-                  className="repo-contributor-avatar"
-                />
-                <div className="repo-contributor-info">
-                  <span className="repo-contributor-name">
-                    {contributor.name
-                      ? `${contributor.name} (${contributor.login})`
-                      : contributor.login}
-                  </span>
-                  <span className="repo-contributor-count">
-                    {contributor.contributions.toLocaleString()} commits
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Repo Info Card */}
+      <LanguagesCard entries={languageEntries} />
+      <ContributorsCard contributors={detail.topContributors} />
       <div className="repo-detail-card">
         <div className="repo-detail-card-header">
           <Building2 size={16} />

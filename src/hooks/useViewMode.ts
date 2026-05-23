@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, type Dispatch, type SetStateAction } from 'react'
 import { useSettings, useSettingsMutations } from './useConvex'
 import { safeGetItem, safeSetItem } from '../utils/storage'
 
@@ -6,10 +6,38 @@ export type ViewMode = 'card' | 'list'
 
 const STORAGE_PREFIX = 'viewMode:'
 
+function isViewMode(value: string | null): value is ViewMode {
+  return value === 'card' || value === 'list'
+}
+
 function readLocal(storageKey: string): ViewMode | null {
-  const v = safeGetItem(storageKey)
-  if (v === 'card' || v === 'list') return v
+  const value = safeGetItem(storageKey)
+  if (isViewMode(value)) return value
   return null
+}
+
+function syncSeededViewMode(
+  key: string,
+  storageKey: string,
+  convexMode: ViewMode | undefined,
+  updateViewMode: (args: { pageKey: string; mode: ViewMode }) => Promise<unknown>,
+  setModeState: Dispatch<SetStateAction<ViewMode>>
+) {
+  /* v8 ignore next -- guard for undefined convexMode during loading */
+  if (!convexMode) {
+    return
+  }
+
+  const local = readLocal(storageKey)
+  if (local) {
+    if (local !== convexMode) {
+      void updateViewMode({ pageKey: key, mode: local })
+    }
+    return
+  }
+
+  setModeState(convexMode)
+  safeSetItem(storageKey, convexMode)
 }
 
 /**
@@ -33,21 +61,9 @@ export function useViewMode(key: string, defaultMode: ViewMode = 'card') {
   const seededKeyRef = useRef<string | null>(null)
   useEffect(() => {
     if (seededKeyRef.current === key) return
-    if (convexMode !== 'card' && convexMode !== 'list') return
+    if (!isViewMode(convexMode ?? null)) return
     seededKeyRef.current = key
-
-    const local = readLocal(storageKey)
-    if (local) {
-      // localStorage already has a value — push to Convex if stale
-      if (local !== convexMode) {
-        updateViewMode({ pageKey: key, mode: local })
-      }
-      return
-    }
-
-    // No localStorage value — accept Convex value as seed
-    setModeState(convexMode)
-    safeSetItem(storageKey, convexMode)
+    syncSeededViewMode(key, storageKey, convexMode, updateViewMode, setModeState)
   }, [convexMode, storageKey, key, updateViewMode])
 
   const setMode = useCallback(

@@ -128,6 +128,31 @@ function OrgRepoCount({
   )
 }
 
+function buildOrgHeaderClassName(
+  isOrgSelected: boolean,
+  org: string,
+  refreshIndicators?: RefreshIndicators
+): string {
+  return `sidebar-item sidebar-item-disclosure sidebar-org-item ${isOrgSelected ? 'selected' : ''} ${orgRefreshClass(org, refreshIndicators)}`
+}
+
+function OrgChevron({ isExpanded }: { isExpanded: boolean }) {
+  return isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />
+}
+
+function OrgFolderIcon({ isExpanded }: { isExpanded: boolean }) {
+  return isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+}
+
+function OrgNamespaceBadge({ meta }: { meta?: OrgMeta }) {
+  if (!meta || !meta.isUserNamespace) return null
+  return (
+    <span className="sidebar-namespace-badge" title="User account (not an org)">
+      user
+    </span>
+  )
+}
+
 function OrgHeader({
   org,
   isOrgExpanded,
@@ -143,7 +168,7 @@ function OrgHeader({
 }: OrgHeaderProps) {
   return (
     <div
-      className={`sidebar-item sidebar-item-disclosure sidebar-org-item ${isOrgSelected ? 'selected' : ''} ${orgRefreshClass(org, refreshIndicators)}`}
+      className={buildOrgHeaderClassName(isOrgSelected, org, refreshIndicators)}
       role="button"
       tabIndex={0}
       onClick={() => onItemSelect(`org-detail:${org}`)}
@@ -159,17 +184,13 @@ function OrgHeader({
         }}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrg(org), true)}
       >
-        {isOrgExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+        <OrgChevron isExpanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-icon">
-        {isOrgExpanded ? <FolderOpen size={14} /> : <Folder size={14} />}
+        <OrgFolderIcon isExpanded={isOrgExpanded} />
       </span>
       <span className="sidebar-item-label">{org}</span>
-      {meta?.isUserNamespace && (
-        <span className="sidebar-namespace-badge" title="User account (not an org)">
-          user
-        </span>
-      )}
+      <OrgNamespaceBadge meta={meta} />
       <OrgRepoCount
         isLoading={isLoading}
         repoCount={repoCount}
@@ -275,6 +296,23 @@ function OrgTeamNodeMembers({
   )
 }
 
+function getTeamNodeMembers(
+  teamMembers: Record<string, TeamMember[]>,
+  teamKey: string
+): TeamMember[] {
+  return teamMembers[teamKey] ?? []
+}
+
+function getTeamTitle(team: OrgTeam): string {
+  return team.description ?? team.name
+}
+
+function TeamMemberCount({ isLoading, memberCount }: { isLoading: boolean; memberCount: number }) {
+  if (isLoading) return <Loader2 size={10} className="spin" />
+  if (memberCount > 0) return <span className="sidebar-item-count">{memberCount}</span>
+  return null
+}
+
 function OrgTeamNode({
   org,
   team,
@@ -287,7 +325,7 @@ function OrgTeamNode({
 }: OrgTeamNodeProps) {
   const teamKey = `${org}/${team.slug}`
   const isTeamExpanded = expandedTeams.has(teamKey)
-  const teamUserMembers = teamMembers[teamKey] ?? []
+  const teamUserMembers = getTeamNodeMembers(teamMembers, teamKey)
   const isLoadingMembers = loadingTeamMembers.has(teamKey)
 
   return (
@@ -297,21 +335,17 @@ function OrgTeamNode({
         role="button"
         tabIndex={0}
         onClick={() => onToggleTeam(org, team.slug)}
-        title={team.description ?? team.name}
+        title={getTeamTitle(team)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleTeam(org, team.slug))}
       >
         <span className="sidebar-item-chevron">
-          {isTeamExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+          <OrgChevron isExpanded={isTeamExpanded} />
         </span>
         <span className="sidebar-item-icon">
           <UsersRound size={11} />
         </span>
         <span className="sidebar-item-label">{team.name}</span>
-        {isLoadingMembers ? (
-          <Loader2 size={10} className="spin" />
-        ) : team.memberCount > 0 ? (
-          <span className="sidebar-item-count">{team.memberCount}</span>
-        ) : null}
+        <TeamMemberCount isLoading={isLoadingMembers} memberCount={team.memberCount} />
       </div>
       <OrgTeamNodeMembers
         isExpanded={isTeamExpanded}
@@ -703,10 +737,10 @@ function OrgReposSection({
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
         role="button"
         tabIndex={0}
-        /* v8 ignore start */
-        onClick={() => onToggleOrgRepoGroup(org)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))}
-        /* v8 ignore stop */
+        /* v8 ignore start */ onClick={() => onToggleOrgRepoGroup(org)}
+        onKeyDown={event =>
+          handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))
+        } /* v8 ignore stop */
       >
         <span className="sidebar-item-chevron">
           {/* v8 ignore start */}
@@ -781,62 +815,7 @@ interface OrgTreeNodeProps extends Omit<OrgRepoTreeProps, 'uniqueOrgs'> {
   org: string
 }
 
-function OrgExpandedBody({
-  org,
-  isLoading,
-  teams,
-  isTeamGroupExpanded,
-  isTeamGroupLoading,
-  expandedTeams,
-  teamMembers,
-  loadingTeamMembers,
-  members,
-  contributorCounts,
-  favoriteUsers,
-  isUserGroupExpanded,
-  isUserGroupLoading,
-  filteredRepos,
-  showBookmarkedOnly,
-  bookmarkedRepoKeys,
-  expandedRepos,
-  expandedRepoIssueGroups,
-  expandedRepoIssueStateGroups,
-  expandedRepoPRGroups,
-  expandedRepoPRStateGroups,
-  expandedRepoCommitGroups,
-  expandedPRNodes,
-  repoCounts,
-  loadingRepoCounts,
-  repoPrTreeData,
-  repoCommitTreeData,
-  repoIssueTreeData,
-  loadingRepoCommits,
-  loadingRepoPRs,
-  loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
-  ralphRuns,
-  expandedRalphGroups,
-  selectedItem,
-  refreshTick,
-  onToggleOrgTeamGroup,
-  onToggleTeam,
-  onToggleOrgUserGroup,
-  onToggleRepo,
-  onToggleRepoIssueGroup,
-  onToggleRepoIssueStateGroup,
-  onToggleRepoPRGroup,
-  onToggleRepoPRStateGroup,
-  onToggleRepoCommitGroup,
-  onToggleSFLGroup,
-  onToggleRalphGroup,
-  onTogglePRNode,
-  onItemSelect,
-  onContextMenu,
-  onBookmarkToggle,
-  onUserContextMenu,
-}: {
+interface OrgExpandedBodyProps {
   org: string
   isLoading: boolean
   teams: OrgTeam[]
@@ -891,7 +870,66 @@ function OrgExpandedBody({
   onContextMenu: (e: React.MouseEvent, pr: PullRequest) => void
   onBookmarkToggle: (e: React.MouseEvent, org: string, repoName: string, repoUrl: string) => void
   onUserContextMenu: (e: React.MouseEvent, org: string, login: string) => void
-}) {
+}
+
+function OrgExpandedBody(props: OrgExpandedBodyProps) {
+  const {
+    org,
+    isLoading,
+    teams,
+    isTeamGroupExpanded,
+    isTeamGroupLoading,
+    expandedTeams,
+    teamMembers,
+    loadingTeamMembers,
+    members,
+    contributorCounts,
+    favoriteUsers,
+    isUserGroupExpanded,
+    isUserGroupLoading,
+    filteredRepos,
+    showBookmarkedOnly,
+    bookmarkedRepoKeys,
+    expandedRepos,
+    expandedRepoIssueGroups,
+    expandedRepoIssueStateGroups,
+    expandedRepoPRGroups,
+    expandedRepoPRStateGroups,
+    expandedRepoCommitGroups,
+    expandedPRNodes,
+    repoCounts,
+    loadingRepoCounts,
+    repoPrTreeData,
+    repoCommitTreeData,
+    repoIssueTreeData,
+    loadingRepoCommits,
+    loadingRepoPRs,
+    loadingRepoIssues,
+    sflStatusData,
+    loadingSFLStatus,
+    expandedSFLGroups,
+    ralphRuns,
+    expandedRalphGroups,
+    selectedItem,
+    refreshTick,
+    onToggleOrgTeamGroup,
+    onToggleTeam,
+    onToggleOrgUserGroup,
+    onToggleRepo,
+    onToggleRepoIssueGroup,
+    onToggleRepoIssueStateGroup,
+    onToggleRepoPRGroup,
+    onToggleRepoPRStateGroup,
+    onToggleRepoCommitGroup,
+    onToggleSFLGroup,
+    onToggleRalphGroup,
+    onTogglePRNode,
+    onItemSelect,
+    onContextMenu,
+    onBookmarkToggle,
+    onUserContextMenu,
+  } = props
+
   if (isLoading) {
     return (
       <div className="sidebar-org-repos">
@@ -999,6 +1037,35 @@ function OrgMetaLabel({
   )
 }
 
+function getOrgReposForTree(orgRepos: Record<string, OrgRepo[]>, org: string): OrgRepo[] {
+  return orgRepos[org] ?? []
+}
+
+function getOrgMembersForTree(orgMembers: Record<string, OrgMember[]>, org: string): OrgMember[] {
+  return orgMembers[org] ?? []
+}
+
+function getOrgTeamsForTree(orgTeams: Record<string, OrgTeam[]>, org: string): OrgTeam[] {
+  return orgTeams[org] ?? []
+}
+
+function getContributorCountsForTree(
+  orgContributorCounts: Record<string, Record<string, number>>,
+  org: string
+): Record<string, number> {
+  return orgContributorCounts[org] ?? {}
+}
+
+function filterTreeRepos(
+  repos: OrgRepo[],
+  org: string,
+  showBookmarkedOnly: boolean,
+  bookmarkedRepoKeys: ReadonlySet<string>
+): OrgRepo[] {
+  if (!showBookmarkedOnly) return repos
+  return repos.filter(repo => bookmarkedRepoKeys.has(`${org}/${repo.name}`))
+}
+
 function OrgTreeNode({
   org,
   orgRepos,
@@ -1062,18 +1129,16 @@ function OrgTreeNode({
   const isOrgExpanded = expandedOrgs.has(org)
   const isLoading = loadingOrgs.has(org)
   const isOrgSelected = selectedItem === `org-detail:${org}`
-  const repos = orgRepos[org] ?? []
-  const members = orgMembers[org] ?? []
+  const repos = getOrgReposForTree(orgRepos, org)
+  const members = getOrgMembersForTree(orgMembers, org)
   const meta = orgMeta[org]
   const isUserGroupExpanded = expandedOrgUserGroups.has(org)
   const isUserGroupLoading = loadingOrgMembers.has(org)
-  const teams = orgTeams[org] ?? []
+  const teams = getOrgTeamsForTree(orgTeams, org)
   const isTeamGroupExpanded = expandedOrgTeamGroups.has(org)
   const isTeamGroupLoading = loadingOrgTeams.has(org)
-  const contributorCounts = orgContributorCounts[org] ?? {}
-  const filteredRepos = showBookmarkedOnly
-    ? repos.filter(repo => bookmarkedRepoKeys.has(`${org}/${repo.name}`))
-    : repos
+  const contributorCounts = getContributorCountsForTree(orgContributorCounts, org)
+  const filteredRepos = filterTreeRepos(repos, org, showBookmarkedOnly, bookmarkedRepoKeys)
 
   return (
     <div className="sidebar-org-group">

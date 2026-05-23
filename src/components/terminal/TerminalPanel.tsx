@@ -44,6 +44,18 @@ function deriveContextMenu(
     : null
 }
 
+function getPromptTriggerClass(isOpen: boolean): string {
+  return `terminal-panel-prompt-trigger ${isOpen ? 'active' : ''}`
+}
+
+function getTabClassName(
+  tabId: string,
+  activeTabId: string | null,
+  dragOverId: string | null
+): string {
+  return `terminal-panel-tab ${tabId === activeTabId ? 'active' : ''} ${dragOverId === tabId ? 'drag-over' : ''}`
+}
+
 export function TerminalPanel({
   tabs,
   activeTabId,
@@ -67,17 +79,10 @@ export function TerminalPanel({
   const [promptLibraryOpen, setPromptLibraryOpen] = useState(false)
   const dragTabIdRef = useRef<string | null>(null)
   const promptShellRef = useRef<HTMLDivElement>(null)
-
-  // Monotonic sequence incremented on every committed activeTabId change.
-  // A ref avoids forcing a second render on each tab switch while still
-  // preventing context-menu resurrection after tab round-trips.
   const activationSeqRef = useRef(0)
   useLayoutEffect(() => {
     activationSeqRef.current += 1
   }, [activeTabId])
-
-  // Derive context menu visibility — menu is only shown when tab ID and activation
-  // sequence both match, preventing resurrection after tab round-trips.
   const contextMenu = deriveContextMenu(contextMenuState, activeTabId, activationSeqRef.current)
 
   const handleTabSelect = useCallback(
@@ -88,7 +93,6 @@ export function TerminalPanel({
     },
     [onTabSelect]
   )
-
   const handleTabClose = useCallback(
     (e: SyntheticEvent, tabId: string) => {
       e.stopPropagation()
@@ -97,7 +101,6 @@ export function TerminalPanel({
     },
     [onTabClose]
   )
-
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, tab: TerminalTab) => {
       e.preventDefault()
@@ -111,23 +114,19 @@ export function TerminalPanel({
     },
     [activeTabId]
   )
-
   const handleDragStart = useCallback((e: React.DragEvent, tabId: string) => {
     dragTabIdRef.current = tabId
     e.dataTransfer.effectAllowed = 'move'
   }, [])
-
   const handleDragOver = useCallback((e: React.DragEvent, tabId: string) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setDragOverId(tabId)
   }, [])
-
   const handleDragEnd = useCallback(() => {
     dragTabIdRef.current = null
     setDragOverId(null)
   }, [])
-
   const handleDrop = useCallback(
     (e: React.DragEvent, toId: string) => {
       e.preventDefault()
@@ -138,7 +137,6 @@ export function TerminalPanel({
     },
     [onReorderTabs]
   )
-
   const activeTab = tabs.find(t => t.id === activeTabId)
 
   return (
@@ -150,7 +148,7 @@ export function TerminalPanel({
         <div className="terminal-panel-prompt-shell" ref={promptShellRef}>
           <button
             type="button"
-            className={`terminal-panel-prompt-trigger ${promptLibraryOpen ? 'active' : ''}`}
+            className={getPromptTriggerClass(promptLibraryOpen)}
             onClick={() => setPromptLibraryOpen(open => !open)}
             title="Prompt Library"
             aria-haspopup="dialog"
@@ -172,11 +170,9 @@ export function TerminalPanel({
           {tabs.map(tab => (
             <div
               key={tab.id}
-              className={`terminal-panel-tab ${tab.id === activeTabId ? 'active' : ''} ${dragOverId === tab.id ? 'drag-over' : ''}`}
-              /* v8 ignore start */
-              title={tab.cwd || tab.title}
-              /* v8 ignore stop */
-              onContextMenu={e => handleContextMenu(e, tab)}
+              className={getTabClassName(tab.id, activeTabId, dragOverId)}
+              /* v8 ignore start */ title={tab.cwd || tab.title}
+              /* v8 ignore stop */ onContextMenu={e => handleContextMenu(e, tab)}
               style={tab.color ? ({ '--tab-color': tab.color } as React.CSSProperties) : undefined}
               draggable
               onDragStart={e => handleDragStart(e, tab.id)}
@@ -219,10 +215,8 @@ export function TerminalPanel({
             <TerminalPane
               key={activeTab.id}
               viewKey={activeTab.id}
-              /* v8 ignore start */
-              cwd={activeTab.cwd || undefined}
-              /* v8 ignore stop */
-              onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
+              /* v8 ignore start */ cwd={activeTab.cwd || undefined}
+              /* v8 ignore stop */ onCwdChange={newCwd => onTabCwdChange(activeTab.id, newCwd)}
             />
           </Suspense>
         ) : (

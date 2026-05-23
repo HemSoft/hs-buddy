@@ -10,25 +10,23 @@ Object.defineProperty(window, 'ipcRenderer', {
   configurable: true,
 })
 
+const defaultInvokeResponses = {
+  'config:get-notification-sound-enabled': false,
+  'config:get-notification-sound-path': '',
+  'config:set-notification-sound-enabled': { success: true },
+  'config:set-notification-sound-path': { success: true },
+  'config:pick-audio-file': { success: true, filePath: 'C:\\sounds\\ding.mp3' },
+} satisfies Record<string, unknown>
+
+function createInvokeMock(overrides: Record<string, unknown> = {}) {
+  const responses: Record<string, unknown> = { ...defaultInvokeResponses, ...overrides }
+  return (channel: string) => Promise.resolve(responses[channel] ?? null)
+}
+
 describe('useNotificationSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockInvoke.mockImplementation((channel: string) => {
-      switch (channel) {
-        case 'config:get-notification-sound-enabled':
-          return Promise.resolve(false)
-        case 'config:get-notification-sound-path':
-          return Promise.resolve('')
-        case 'config:set-notification-sound-enabled':
-          return Promise.resolve({ success: true })
-        case 'config:set-notification-sound-path':
-          return Promise.resolve({ success: true })
-        case 'config:pick-audio-file':
-          return Promise.resolve({ success: true, filePath: 'C:\\sounds\\ding.mp3' })
-        default:
-          return Promise.resolve(null)
-      }
-    })
+    mockInvoke.mockImplementation(createInvokeMock())
   })
 
   it('loads initial state from IPC', async () => {

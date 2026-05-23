@@ -132,6 +132,23 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
   }
 }
 
+function renderPRModeRoute(
+  activeViewId: string,
+  onPRCountChange: (viewId: string, count: number) => void,
+  onOpenTab: (viewId: string) => void
+): React.JSX.Element | null {
+  if (!activeViewId.startsWith('pr-')) return null
+  const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
+  if (!PR_MODES.includes(mode)) return null
+  return (
+    <PullRequestList
+      mode={mode}
+      onCountChange={count => onPRCountChange(activeViewId, count)}
+      onOpenPR={onOpenTab}
+    />
+  )
+}
+
 function renderExactRoute(
   activeViewId: string,
   prCounts: Record<string, number>,
@@ -145,18 +162,8 @@ function renderExactRoute(
       <WelcomePanel prCounts={prCounts} onNavigate={onNavigate} onSectionChange={onSectionChange} />
     )
   }
-  if (activeViewId.startsWith('pr-')) {
-    const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
-    if (PR_MODES.includes(mode)) {
-      return (
-        <PullRequestList
-          mode={mode}
-          onCountChange={count => onPRCountChange(activeViewId, count)}
-          onOpenPR={onOpenTab}
-        />
-      )
-    }
-  }
+  const prRoute = renderPRModeRoute(activeViewId, onPRCountChange, onOpenTab)
+  if (prRoute) return prRoute
   const ctx: ExactRouteContext = {
     prCounts,
     onNavigate,
@@ -354,6 +361,20 @@ const prefixRoutes: PrefixRouteEntry[] = [
   { prefix: 'pr-detail:', render: slug => renderPRDetailRoute(slug) },
 ]
 
+function renderPrefixRoute(
+  activeViewId: string,
+  ctx: PrefixRouteContext
+): React.JSX.Element | null {
+  for (const route of prefixRoutes) {
+    if (activeViewId.startsWith(route.prefix)) {
+      const slug = activeViewId.slice(route.prefix.length)
+      const result = route.render(slug, ctx)
+      if (result) return result
+    }
+  }
+  return null
+}
+
 export function AppContentRouter({
   activeViewId,
   prCounts,
@@ -386,13 +407,8 @@ export function AppContentRouter({
   if (exact) return exact
 
   const ctx: PrefixRouteContext = { activeViewId, onNavigate, onOpenTab, onCloseView }
-  for (const route of prefixRoutes) {
-    if (activeViewId.startsWith(route.prefix)) {
-      const slug = activeViewId.slice(route.prefix.length)
-      const result = route.render(slug, ctx)
-      if (result) return result
-    }
-  }
+  const prefixResult = renderPrefixRoute(activeViewId, ctx)
+  if (prefixResult) return prefixResult
 
   return (
     <div className="content-placeholder">

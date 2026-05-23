@@ -239,6 +239,15 @@ export async function getActiveCliAccount(): Promise<string | null> {
   }
 }
 
+function normalizeGitHubCLIToken(token: unknown): string | null {
+  if (typeof token !== 'string') {
+    return null
+  }
+  const trimmedToken = token.trim()
+  /* v8 ignore next -- defensive empty-string guard */
+  return trimmedToken.length > 0 ? trimmedToken : null
+}
+
 /**
  * Get GitHub CLI authentication token for a specific account.
  * Uses 'gh auth token --user <username>' to get account-specific tokens.
@@ -253,10 +262,10 @@ export async function getGitHubCLIToken(username: string): Promise<string | null
   try {
     // Use window.ipcRenderer to invoke a main process handler that runs 'gh auth token --user <username>'
     const token = await window.ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, username)
-    if (token && typeof token === 'string' && token.trim().length > 0) {
-      const trimmedToken = token.trim()
-      tokenCache.set(username, trimmedToken)
-      return trimmedToken
+    const normalizedToken = normalizeGitHubCLIToken(token)
+    if (normalizedToken) {
+      tokenCache.set(username, normalizedToken)
+      return normalizedToken
     }
     console.warn(`⚠️  GitHub CLI token is empty or invalid for account '${username}'`)
     return null
@@ -355,6 +364,12 @@ export async function getTokenForOwner(config: PRConfig['github'], owner: string
   throw new Error('No authenticated GitHub account available')
 }
 
+function buildUnavailableAccountMessage(label: string, triedCount: number): string {
+  return triedCount > 0
+    ? `Could not ${label} - all ${triedCount} account(s) failed`
+    : `Could not ${label} - no authenticated account available`
+}
+
 /**
  * Try each account in owner-priority order until one succeeds.
  * Logs warnings on per-account failures; throws if all accounts fail
@@ -382,11 +397,7 @@ export async function withFirstAvailableAccount<T>(
     }
   }
   if (noAccountFallback !== undefined) return noAccountFallback
-  const message =
-    triedCount > 0
-      ? `Could not ${label} - all ${triedCount} account(s) failed`
-      : `Could not ${label} - no authenticated account available`
-  throw new Error(message, { cause: lastError })
+  throw new Error(buildUnavailableAccountMessage(label, triedCount), { cause: lastError })
 }
 
 /**

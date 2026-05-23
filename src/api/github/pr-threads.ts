@@ -30,18 +30,33 @@ export function groupPrsByOwner<T extends { _owner: string }>(prs: T[]): Map<str
 
 /* v8 ignore start -- GraphQL thread counting; requires real API */
 
+interface PageInfo {
+  hasNextPage: boolean
+  endCursor: string | null
+}
+
+function extractThreadsPage<T>(result: {
+  repository: { pullRequest: { reviewThreads: { pageInfo: PageInfo; nodes: T[] } } | null } | null
+}): { pageInfo: PageInfo; nodes: T[] } | null {
+  return result.repository?.pullRequest?.reviewThreads ?? null
+}
+
+function safeNodes<T>(nodes: T[] | undefined | null): T[] {
+  return nodes || []
+}
+
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
 async function paginateReviewThreads(
   owner: string,
   repo: string,
   prNumber: number,
   firstPage: {
-    pageInfo: { hasNextPage: boolean; endCursor: string | null }
+    pageInfo: PageInfo
     nodes: Array<{ isResolved: boolean }>
   },
   token: string
 ): Promise<Array<{ isResolved: boolean }>> {
-  const allNodes = [...(firstPage.nodes || [])]
+  const allNodes = [...safeNodes(firstPage.nodes)]
   let { hasNextPage, endCursor } = firstPage.pageInfo
 
   while (hasNextPage && endCursor) {
@@ -59,15 +74,15 @@ async function paginateReviewThreads(
       repository: {
         pullRequest: {
           reviewThreads: {
-            pageInfo: { hasNextPage: boolean; endCursor: string | null }
+            pageInfo: PageInfo
             nodes: Array<{ isResolved: boolean }>
           }
         } | null
       } | null
     }>(pageQuery, { headers: { authorization: `token ${token}` } })
-    const pageThreads = pageResult.repository?.pullRequest?.reviewThreads
+    const pageThreads = extractThreadsPage(pageResult)
     if (!pageThreads) break
-    allNodes.push(...(pageThreads.nodes || []))
+    allNodes.push(...safeNodes(pageThreads.nodes))
     hasNextPage = pageThreads.pageInfo.hasNextPage
     endCursor = pageThreads.pageInfo.endCursor
   }

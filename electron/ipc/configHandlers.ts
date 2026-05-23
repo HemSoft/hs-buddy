@@ -54,14 +54,24 @@ function registerUiValueHandler<K extends UiConfigKey>(channel: string, key: K):
   )
 }
 
-export function registerConfigHandlers(): void {
-  let lastPickedNotificationSoundPath: string | null = null
-
-  for (const [channel, key] of UI_VALUE_CHANNELS) {
-    registerUiValueHandler(channel, key)
+async function readNotificationSoundAsBase64(
+  soundPath: string
+): Promise<{ base64: string; mimeType: string } | null> {
+  try {
+    const soundFile = await stat(soundPath)
+    if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) return null
+    const buffer = await readFile(soundPath)
+    if (buffer.length > MAX_NOTIFICATION_SOUND_BYTES) return null
+    return {
+      base64: buffer.toString('base64'),
+      mimeType: getNotificationSoundMimeType(soundPath),
+    }
+  } catch (_: unknown) {
+    return null
   }
+}
 
-  // Assistant Open
+function registerTerminalAndPanelHandlers(): void {
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_ASSISTANT_OPEN, () => {
     return configManager.getUiValue('assistantOpen')
   })
@@ -75,7 +85,6 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  // Terminal Panel
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_TERMINAL_OPEN, () => {
     return configManager.getUiValue('terminalOpen')
   })
@@ -102,7 +111,6 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  // Schedule Forecast Days
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_SCHEDULE_FORECAST_DAYS, () => {
     return configManager.getScheduleForecastDays()
   })
@@ -115,7 +123,6 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  // Copilot PR Review Prompt Template
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_COPILOT_PR_REVIEW_PROMPT_TEMPLATE, () => {
     return configManager.getCopilotPRReviewPromptTemplate()
   })
@@ -127,8 +134,11 @@ export function registerConfigHandlers(): void {
       return { success: true }
     }
   )
+}
 
-  // Notification Settings
+function registerNotificationHandlers(): void {
+  let lastPickedNotificationSoundPath: string | null = null
+
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_NOTIFICATION_SOUND_ENABLED, () => {
     return configManager.getNotificationSoundEnabled()
   })
@@ -198,25 +208,9 @@ export function registerConfigHandlers(): void {
     if (!isSupportedNotificationSoundPath(soundPath)) return null
     return readNotificationSoundAsBase64(soundPath)
   })
+}
 
-  async function readNotificationSoundAsBase64(
-    soundPath: string
-  ): Promise<{ base64: string; mimeType: string } | null> {
-    try {
-      const soundFile = await stat(soundPath)
-      if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) return null
-      const buffer = await readFile(soundPath)
-      if (buffer.length > MAX_NOTIFICATION_SOUND_BYTES) return null
-      return {
-        base64: buffer.toString('base64'),
-        mimeType: getNotificationSoundMimeType(soundPath),
-      }
-    } catch (_: unknown) {
-      return null
-    }
-  }
-
-  // Finance Watchlist
+function registerMiscConfigHandlers(): void {
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_FINANCE_WATCHLIST, () => {
     return configManager.getFinanceWatchlist()
   })
@@ -232,7 +226,6 @@ export function registerConfigHandlers(): void {
     }
   )
 
-  // Full Config
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_CONFIG, () => {
     return configManager.getConfig()
   })
@@ -250,4 +243,13 @@ export function registerConfigHandlers(): void {
     configManager.reset()
     return { success: true }
   })
+}
+
+export function registerConfigHandlers(): void {
+  for (const [channel, key] of UI_VALUE_CHANNELS) {
+    registerUiValueHandler(channel, key)
+  }
+  registerTerminalAndPanelHandlers()
+  registerNotificationHandlers()
+  registerMiscConfigHandlers()
 }

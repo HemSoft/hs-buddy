@@ -19,6 +19,44 @@ interface Menu {
   items: MenuItem[]
 }
 
+function getSeparatorKey(items: MenuItem[], index: number): string {
+  /* v8 ignore next -- fallback for menu separator key */
+  const nextLabel = items.slice(index + 1).find(i => i.label)?.label ?? 'end'
+  return `sep-before-${nextLabel}`
+}
+
+function MenuDropdownItem({
+  item,
+  index,
+  items,
+  onItemClick,
+}: {
+  item: MenuItem
+  index: number
+  items: MenuItem[]
+  onItemClick: (item: MenuItem) => void
+}) {
+  if (item.type === 'separator') {
+    /* v8 ignore start -- all separators are followed by labeled items in hardcoded menus */
+    return <div key={getSeparatorKey(items, index)} className="menu-separator" />
+    /* v8 ignore stop */
+  }
+  /* v8 ignore start -- no hardcoded menu items have disabled: true */
+  const itemClass = `menu-item ${item.disabled ? 'disabled' : ''}`
+  /* v8 ignore stop */
+  return (
+    <button
+      key={item.label}
+      className={itemClass}
+      onClick={() => onItemClick(item)}
+      disabled={item.disabled}
+    >
+      <span className="menu-item-label">{item.label}</span>
+      {item.accelerator && <span className="menu-item-accelerator">{item.accelerator}</span>}
+    </button>
+  )
+}
+
 interface TitleBarProps {
   assistantOpen?: boolean
   onToggleAssistant?: () => void
@@ -101,43 +139,31 @@ export function TitleBar({
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
-
   const menus = buildMenus(setShowAbout)
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuBarRef.current && !menuBarRef.current.contains(e.target as Node)) {
-        setOpenMenu(null)
-      }
+      if (menuBarRef.current && !menuBarRef.current.contains(e.target as Node)) setOpenMenu(null)
     }
-
     document.addEventListener('mousedown', handleClickOutside)
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside)
-    }
+    return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
   const handleMenuClick = (label: string) => {
     setOpenMenu(openMenu === label ? null : label)
   }
-
   const handleItemClick = (item: MenuItem) => {
     /* v8 ignore start -- no hardcoded menu items combine action + disabled */
-    if (item.action && !item.disabled) {
-      item.action()
-    }
+    if (item.action && !item.disabled) item.action()
     /* v8 ignore stop */
     setOpenMenu(null)
   }
-
   const handleMinimize = () => {
     window.ipcRenderer.send(IPC_SEND.WINDOW_MINIMIZE)
   }
-
   const handleMaximize = () => {
     window.ipcRenderer.send(IPC_SEND.WINDOW_MAXIMIZE)
   }
-
   const handleClose = () => {
     window.close()
   }
@@ -150,9 +176,7 @@ export function TitleBar({
           <div key={menu.label} className="menu-container">
             <button
               className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
-              onClick={() => {
-                handleMenuClick(menu.label)
-              }}
+              onClick={() => handleMenuClick(menu.label)}
               onMouseEnter={() => {
                 if (openMenu) setOpenMenu(menu.label)
               }}
@@ -161,32 +185,15 @@ export function TitleBar({
             </button>
             {openMenu === menu.label && (
               <div className="menu-dropdown">
-                {menu.items.map((item, index) => {
-                  if (item.type === 'separator') {
-                    /* v8 ignore start -- all separators are followed by labeled items in hardcoded menus */
-                    const nextLabel = menu.items.slice(index + 1).find(i => i.label)?.label ?? 'end'
-                    /* v8 ignore stop */
-                    return <div key={`sep-before-${nextLabel}`} className="menu-separator" />
-                  }
-                  /* v8 ignore start -- no hardcoded menu items have disabled: true */
-                  const itemClass = `menu-item ${item.disabled ? 'disabled' : ''}`
-                  /* v8 ignore stop */
-                  return (
-                    <button
-                      key={item.label}
-                      className={itemClass}
-                      onClick={() => {
-                        handleItemClick(item)
-                      }}
-                      disabled={item.disabled}
-                    >
-                      <span className="menu-item-label">{item.label}</span>
-                      {item.accelerator && (
-                        <span className="menu-item-accelerator">{item.accelerator}</span>
-                      )}
-                    </button>
-                  )
-                })}
+                {menu.items.map((item, index) => (
+                  <MenuDropdownItem
+                    key={item.label ?? `sep-${index}`}
+                    item={item}
+                    index={index}
+                    items={menu.items}
+                    onItemClick={handleItemClick}
+                  />
+                ))}
               </div>
             )}
           </div>
@@ -241,14 +248,7 @@ export function TitleBar({
           </svg>
         </button>
       </div>
-
-      {showAbout && (
-        <AboutModal
-          onClose={() => {
-            setShowAbout(false)
-          }}
-        />
-      )}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
     </div>
   )
 }

@@ -105,6 +105,52 @@ function IssueHero({
   )
 }
 
+function IssueLabelsCard({ labels }: { labels: RepoIssueDetail['labels'] }) {
+  return (
+    <div className="repo-issue-detail-facts-card">
+      <div className="repo-issue-detail-card-title">Labels</div>
+      {labels.length > 0 ? (
+        <div className="repo-issue-detail-labels">
+          {labels.map(label => (
+            <span
+              key={label.name}
+              className="repo-issue-detail-label"
+              style={getLabelStyle(label.color)}
+            >
+              <Tag size={10} />
+              {label.name}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div className="repo-issue-detail-empty-meta">No labels</div>
+      )}
+    </div>
+  )
+}
+
+function IssueAssigneesCard({ assignees }: { assignees: RepoIssueDetail['assignees'] }) {
+  return (
+    <div className="repo-issue-detail-facts-card">
+      <div className="repo-issue-detail-card-title">Assignees</div>
+      {assignees.length > 0 ? (
+        <div className="repo-issue-detail-assignees">
+          {assignees.map(assignee => (
+            <div key={assignee.login} className="repo-issue-detail-assignee">
+              <img src={assignee.avatarUrl} alt={assignee.login} />
+              <span title={assignee.login}>
+                {assignee.name ? `${assignee.name} (${assignee.login})` : assignee.login}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="repo-issue-detail-empty-meta">No assignees</div>
+      )}
+    </div>
+  )
+}
+
 function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
   return (
     <aside className="repo-issue-detail-sidebar">
@@ -129,44 +175,8 @@ function IssueSidebar({ detail }: { detail: RepoIssueDetail }) {
           </div>
         </div>
       </div>
-
-      <div className="repo-issue-detail-facts-card">
-        <div className="repo-issue-detail-card-title">Labels</div>
-        {detail.labels.length > 0 ? (
-          <div className="repo-issue-detail-labels">
-            {detail.labels.map(label => (
-              <span
-                key={label.name}
-                className="repo-issue-detail-label"
-                style={getLabelStyle(label.color)}
-              >
-                <Tag size={10} />
-                {label.name}
-              </span>
-            ))}
-          </div>
-        ) : (
-          <div className="repo-issue-detail-empty-meta">No labels</div>
-        )}
-      </div>
-
-      <div className="repo-issue-detail-facts-card">
-        <div className="repo-issue-detail-card-title">Assignees</div>
-        {detail.assignees.length > 0 ? (
-          <div className="repo-issue-detail-assignees">
-            {detail.assignees.map(assignee => (
-              <div key={assignee.login} className="repo-issue-detail-assignee">
-                <img src={assignee.avatarUrl} alt={assignee.login} />
-                <span title={assignee.login}>
-                  {assignee.name ? `${assignee.name} (${assignee.login})` : assignee.login}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="repo-issue-detail-empty-meta">No assignees</div>
-        )}
-      </div>
+      <IssueLabelsCard labels={detail.labels} />
+      <IssueAssigneesCard assignees={detail.assignees} />
     </aside>
   )
 }
@@ -209,6 +219,47 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
   )
 }
 
+function IssueNarrativeSection({ body }: { body: string }) {
+  return (
+    <section className="repo-issue-detail-main-card">
+      <div className="repo-issue-detail-card-title">Issue Narrative</div>
+      {body.trim() ? (
+        <div className="repo-issue-detail-markdown" data-color-mode="dark">
+          <MarkdownPreview
+            source={body}
+            remarkPlugins={[remarkGemoji]}
+            style={{ backgroundColor: 'transparent', color: 'inherit' }}
+          />
+        </div>
+      ) : (
+        <div className="repo-issue-detail-empty-body">
+          No description was provided for this issue.
+        </div>
+      )}
+    </section>
+  )
+}
+
+function IssueDiscussionSection({ comments }: { comments: RepoIssueDetail['comments'] }) {
+  return (
+    <section className="repo-issue-detail-comments-card">
+      <div className="repo-issue-detail-comments-header">
+        <div className="repo-issue-detail-card-title">Discussion</div>
+        <span className="repo-issue-detail-comments-count">{comments.length} replies</span>
+      </div>
+      {comments.length === 0 ? (
+        <div className="repo-issue-detail-empty-comments">No comments yet.</div>
+      ) : (
+        <div className="repo-issue-detail-comments-list">
+          {comments.map(comment => (
+            <IssueCommentItem key={comment.id} comment={comment} />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDetailPanelProps) {
   const { accounts } = useGitHubAccounts()
   const {
@@ -229,9 +280,8 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
     if (!detail) return
     /* v8 ignore stop */
     const repoRoot = accounts.find(a => a.org === owner)?.repoRoot
-    const repoPath = repoRoot
-      ? [repoRoot, repo].join(window.navigator.platform.startsWith('Win') ? '\\' : '/')
-      : ''
+    const sep = window.navigator.platform.startsWith('Win') ? '\\' : '/'
+    const repoPath = repoRoot ? [repoRoot, repo].join(sep) : ''
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
     setTimeout(() => {
       window.dispatchEvent(
@@ -250,17 +300,14 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
   }
 
   if (!detail) {
-    if (loading) {
+    if (loading)
       return (
         <PanelLoadingState message="Loading issue…" subtitle={`${owner}/${repo} #${issueNumber}`} />
       )
-    }
-    if (error) {
+    if (error)
       return <PanelErrorState title="Failed to load issue" error={error} onRetry={refresh} />
-    }
-    /* v8 ignore start */
+    /* v8 ignore next */
     return null
-    /* v8 ignore stop */
   }
 
   return (
@@ -273,44 +320,11 @@ export function RepoIssueDetailPanel({ owner, repo, issueNumber }: RepoIssueDeta
         refresh={refresh}
         onStartRalphLoop={handleStartRalphLoop}
       />
-
       <div className="repo-issue-detail-layout">
-        <section className="repo-issue-detail-main-card">
-          <div className="repo-issue-detail-card-title">Issue Narrative</div>
-          {detail.body.trim() ? (
-            <div className="repo-issue-detail-markdown" data-color-mode="dark">
-              <MarkdownPreview
-                source={detail.body}
-                remarkPlugins={[remarkGemoji]}
-                style={{ backgroundColor: 'transparent', color: 'inherit' }}
-              />
-            </div>
-          ) : (
-            <div className="repo-issue-detail-empty-body">
-              No description was provided for this issue.
-            </div>
-          )}
-        </section>
-
+        <IssueNarrativeSection body={detail.body} />
         <IssueSidebar detail={detail} />
       </div>
-
-      <section className="repo-issue-detail-comments-card">
-        <div className="repo-issue-detail-comments-header">
-          <div className="repo-issue-detail-card-title">Discussion</div>
-          <span className="repo-issue-detail-comments-count">{detail.comments.length} replies</span>
-        </div>
-
-        {detail.comments.length === 0 ? (
-          <div className="repo-issue-detail-empty-comments">No comments yet.</div>
-        ) : (
-          <div className="repo-issue-detail-comments-list">
-            {detail.comments.map(comment => (
-              <IssueCommentItem key={comment.id} comment={comment} />
-            ))}
-          </div>
-        )}
-      </section>
+      <IssueDiscussionSection comments={detail.comments} />
     </div>
   )
 }

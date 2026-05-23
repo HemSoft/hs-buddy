@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { useCallback } from 'react'
 import {
   GitPullRequest,
@@ -38,6 +39,75 @@ function mapToPRDetailId(pr: RepoPullRequest, owner: string): string {
   return createPRDetailViewId(mapRepoPRToPullRequest(pr, owner))
 }
 
+function ThreadsCell({ count }: { count: number | null }) {
+  if (count == null) return <td />
+  if (count > 0) {
+    return (
+      <td>
+        <span className="list-view-comments-unresolved">
+          <MessageSquare size={12} />
+          {count}
+        </span>
+      </td>
+    )
+  }
+  return (
+    <td>
+      <CircleCheck size={14} className="list-view-comments-clear" />
+    </td>
+  )
+}
+
+function ApprovalsCell({ count, iApproved }: { count: number | null; iApproved: boolean }) {
+  const effectiveCount = count ?? 0
+  if (effectiveCount <= 0) return <td />
+  return (
+    <td>
+      <span className={`list-view-approvals${iApproved ? ' list-view-approvals--mine' : ''}`}>
+        <ThumbsUp size={12} />
+        {effectiveCount}
+      </span>
+    </td>
+  )
+}
+
+function PRTableRow({ pr, onClick }: { pr: RepoPullRequest; onClick: () => void }) {
+  return (
+    <tr onClick={onClick}>
+      <td className="col-status">
+        {pr.draft ? (
+          <GitPullRequest size={14} className="list-view-status-draft" />
+        ) : (
+          <PRStateIcon state={pr.state} />
+        )}
+      </td>
+      <td className="col-title">
+        <span className="col-number">#{pr.number}</span> {pr.title}
+        {pr.draft && (
+          <span className="repo-pr-draft-badge" style={{ marginLeft: 6 }}>
+            Draft
+          </span>
+        )}
+      </td>
+      <td className="col-author">
+        {pr.authorAvatarUrl && (
+          <img
+            src={pr.authorAvatarUrl}
+            alt={pr.author}
+            className="list-view-avatar"
+            width={18}
+            height={18}
+          />
+        )}
+        {pr.author}
+      </td>
+      <td className="col-date">{formatDistanceToNow(pr.updatedAt)}</td>
+      <ThreadsCell count={pr.threadsUnaddressed} />
+      <ApprovalsCell count={pr.approvalCount} iApproved={pr.iApproved} />
+    </tr>
+  )
+}
+
 function PRTableView({
   prs,
   handlePRClick,
@@ -60,62 +130,71 @@ function PRTableView({
         </thead>
         <tbody>
           {prs.map(pr => (
-            <tr key={pr.number} onClick={() => handlePRClick(pr)}>
-              <td className="col-status">
-                {pr.draft ? (
-                  <GitPullRequest size={14} className="list-view-status-draft" />
-                ) : (
-                  <PRStateIcon state={pr.state} />
-                )}
-              </td>
-              <td className="col-title">
-                <span className="col-number">#{pr.number}</span> {pr.title}
-                {pr.draft && (
-                  <span className="repo-pr-draft-badge" style={{ marginLeft: 6 }}>
-                    Draft
-                  </span>
-                )}
-              </td>
-              <td className="col-author">
-                {pr.authorAvatarUrl && (
-                  <img
-                    src={pr.authorAvatarUrl}
-                    alt={pr.author}
-                    className="list-view-avatar"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {pr.author}
-              </td>
-              <td className="col-date">{formatDistanceToNow(pr.updatedAt)}</td>
-              <td>
-                {pr.threadsUnaddressed != null ? (
-                  pr.threadsUnaddressed > 0 ? (
-                    <span className="list-view-comments-unresolved">
-                      <MessageSquare size={12} />
-                      {pr.threadsUnaddressed}
-                    </span>
-                  ) : (
-                    <CircleCheck size={14} className="list-view-comments-clear" />
-                  )
-                ) : null}
-              </td>
-              <td>
-                {(pr.approvalCount ?? 0) > 0 && (
-                  <span
-                    className={`list-view-approvals${pr.iApproved ? ' list-view-approvals--mine' : ''}`}
-                  >
-                    <ThumbsUp size={12} />
-                    {pr.approvalCount}
-                  </span>
-                )}
-              </td>
-            </tr>
+            <PRTableRow key={pr.number} pr={pr} onClick={() => handlePRClick(pr)} />
           ))}
         </tbody>
       </table>
     </div>
+  )
+}
+
+function CardApprovalBadge({ count, iApproved }: { count: number | null; iApproved: boolean }) {
+  const effectiveCount = count ?? 0
+  if (effectiveCount <= 0) return null
+  return (
+    <span className={`repo-pr-approvals${iApproved ? ' repo-pr-approvals--mine' : ''}`}>
+      <ThumbsUp size={12} />
+      {effectiveCount}
+    </span>
+  )
+}
+
+function PRCard({ pr, onClick }: { pr: RepoPullRequest; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className={`repo-pr-item${pr.draft ? ' repo-pr-item--draft' : ''}`}
+      onClick={onClick}
+    >
+      <div className="repo-pr-header">
+        <div className="repo-pr-title-row">
+          <GitPullRequest size={16} className="repo-pr-icon" />
+          <span className="repo-pr-title">{pr.title}</span>
+          {pr.draft && <span className="repo-pr-draft-badge">Draft</span>}
+          <ExternalLink size={14} className="external-link-icon" />
+        </div>
+        {pr.labels.length > 0 && (
+          <div className="repo-pr-labels">
+            {pr.labels.map(label => (
+              <span key={label.name} className="repo-pr-label" style={getLabelStyle(label.color)}>
+                {label.name}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="repo-pr-branch-flow">
+        <GitBranch size={12} />
+        <span>
+          into <strong>{pr.baseBranch}</strong> from <strong>{pr.headBranch}</strong>
+        </span>
+      </div>
+      <div className="repo-pr-meta">
+        <span className="repo-pr-number">#{pr.number}</span>
+        <span className="repo-pr-author">
+          {pr.authorAvatarUrl && (
+            <img src={pr.authorAvatarUrl} alt={pr.author} className="repo-pr-avatar" />
+          )}
+          {pr.author}
+        </span>
+        <span className="repo-pr-date">
+          <Clock size={12} />
+          {formatDistanceToNow(pr.createdAt)}
+        </span>
+        <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
+        <CardApprovalBadge count={pr.approvalCount} iApproved={pr.iApproved} />
+      </div>
+    </button>
   )
 }
 
@@ -129,62 +208,7 @@ function PRCardView({
   return (
     <div className="repo-prs-list">
       {prs.map(pr => (
-        <button
-          key={pr.number}
-          type="button"
-          className={`repo-pr-item${pr.draft ? ' repo-pr-item--draft' : ''}`}
-          onClick={() => handlePRClick(pr)}
-        >
-          <div className="repo-pr-header">
-            <div className="repo-pr-title-row">
-              <GitPullRequest size={16} className="repo-pr-icon" />
-              <span className="repo-pr-title">{pr.title}</span>
-              {pr.draft && <span className="repo-pr-draft-badge">Draft</span>}
-              <ExternalLink size={14} className="external-link-icon" />
-            </div>
-            {pr.labels.length > 0 && (
-              <div className="repo-pr-labels">
-                {pr.labels.map(label => (
-                  <span
-                    key={label.name}
-                    className="repo-pr-label"
-                    style={getLabelStyle(label.color)}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="repo-pr-branch-flow">
-            <GitBranch size={12} />
-            <span>
-              into <strong>{pr.baseBranch}</strong> from <strong>{pr.headBranch}</strong>
-            </span>
-          </div>
-          <div className="repo-pr-meta">
-            <span className="repo-pr-number">#{pr.number}</span>
-            <span className="repo-pr-author">
-              {pr.authorAvatarUrl && (
-                <img src={pr.authorAvatarUrl} alt={pr.author} className="repo-pr-avatar" />
-              )}
-              {pr.author}
-            </span>
-            <span className="repo-pr-date">
-              <Clock size={12} />
-              {formatDistanceToNow(pr.createdAt)}
-            </span>
-            <span className="repo-pr-updated">updated {formatDistanceToNow(pr.updatedAt)}</span>
-            {(pr.approvalCount ?? 0) > 0 && (
-              <span
-                className={`repo-pr-approvals${pr.iApproved ? ' repo-pr-approvals--mine' : ''}`}
-              >
-                <ThumbsUp size={12} />
-                {pr.approvalCount}
-              </span>
-            )}
-          </div>
-        </button>
+        <PRCard key={pr.number} pr={pr} onClick={() => handlePRClick(pr)} />
       ))}
     </div>
   )
@@ -274,6 +298,24 @@ function RepoPRListBody({
   )
 }
 
+function renderRepoPRLoadState(
+  isEmpty: boolean,
+  loading: boolean,
+  error: string | null,
+  refresh: () => void,
+  owner: string,
+  repo: string
+): JSX.Element | null {
+  if (!isEmpty) return null
+  if (loading) {
+    return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { owner, repo, onOpenPR } = props
   const prState = props.prState ?? 'open'
@@ -297,16 +339,8 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
     [onOpenPR, owner]
   )
 
-  if (isEmpty) {
-    if (loading) {
-      return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
-    }
-    if (error) {
-      return (
-        <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-      )
-    }
-  }
+  const loadState = renderRepoPRLoadState(isEmpty, loading, error, refresh, owner, repo)
+  if (loadState) return loadState
 
   return (
     <div className="repo-prs-container">

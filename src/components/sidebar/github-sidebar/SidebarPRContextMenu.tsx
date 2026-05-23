@@ -20,6 +20,22 @@ function getApproveLabel(iApproved: boolean, isApproving: boolean): string {
   return isApproving ? 'Approving…' : 'Approve'
 }
 
+function getApproveIcon(isApproving: boolean) {
+  return isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />
+}
+
+function isApproveDisabled(iApproved: boolean, isApproving: boolean): boolean {
+  return iApproved || isApproving
+}
+
+function getBookmarkKey(pr: PullRequest): string {
+  return `${pr.org ?? ''}/${pr.repository}`
+}
+
+function getBookmarkLabel(isBookmarked: boolean, repository: string): string {
+  return isBookmarked ? `Unbookmark ${repository}` : `Bookmark ${repository}`
+}
+
 export function SidebarPRContextMenu({
   pr,
   x,
@@ -35,7 +51,8 @@ export function SidebarPRContextMenu({
 }: SidebarPRContextMenuProps) {
   const prKey = `${pr.source}-${pr.repository}-${pr.id}`
   const isApproving = approvingPrKeys.has(prKey)
-  const isBookmarked = bookmarkedRepoKeys.has(`${pr.org || ''}/${pr.repository}`)
+  const isBookmarked = bookmarkedRepoKeys.has(getBookmarkKey(pr))
+  const approveDisabled = isApproveDisabled(pr.iApproved, isApproving)
 
   return (
     <>
@@ -57,14 +74,14 @@ export function SidebarPRContextMenu({
           onClick={async () => {
             await onApprove()
           }}
-          disabled={pr.iApproved || isApproving}
+          disabled={approveDisabled}
         >
-          {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}
+          {getApproveIcon(isApproving)}
           {getApproveLabel(pr.iApproved, isApproving)}
         </button>
         <button onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
-          {isBookmarked ? `Unbookmark ${pr.repository}` : `Bookmark ${pr.repository}`}
+          {getBookmarkLabel(isBookmarked, pr.repository)}
         </button>
       </div>
     </>

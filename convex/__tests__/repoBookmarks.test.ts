@@ -5,6 +5,11 @@ import { api } from '../_generated/api'
 
 const modules = import.meta.glob('../**/*.*s')
 
+function expectValue<T>(value: T | null | undefined): T {
+  expect(value).toBeTruthy()
+  return value as T
+}
+
 describe('repoBookmarks', () => {
   test('list returns empty array when no bookmarks exist', async () => {
     const t = convexTest(schema, modules)
@@ -144,13 +149,13 @@ describe('repoBookmarks', () => {
       description: 'KeepDesc',
     })
 
-    const before = await t.query(api.repoBookmarks.get, { id: result._id })
+    const before = expectValue(await t.query(api.repoBookmarks.get, { id: result._id }))
     await t.mutation(api.repoBookmarks.update, { id: result._id })
 
-    const bm = await t.query(api.repoBookmarks.get, { id: result._id })
-    expect(bm?.folder).toBe('KeepFolder')
-    expect(bm?.description).toBe('KeepDesc')
-    expect(bm?.updatedAt).toBeGreaterThanOrEqual(before?.updatedAt ?? 0)
+    const bm = expectValue(await t.query(api.repoBookmarks.get, { id: result._id }))
+    expect(bm.folder).toBe('KeepFolder')
+    expect(bm.description).toBe('KeepDesc')
+    expect(bm.updatedAt).toBeGreaterThanOrEqual(before.updatedAt)
   })
 
   test('remove deletes a bookmark', async () => {

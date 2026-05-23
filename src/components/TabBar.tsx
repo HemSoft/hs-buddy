@@ -14,6 +14,15 @@ interface ContextMenuState {
   tabId: string
 }
 
+function clampToViewport(pos: { x: number; y: number }, rect: DOMRect): { x: number; y: number } {
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  return {
+    x: rect.right > vw ? vw - rect.width - 4 : pos.x,
+    y: rect.bottom > vh ? vh - rect.height - 4 : pos.y,
+  }
+}
+
 interface TabBarProps {
   tabs: Tab[]
   activeTabId: string | null
@@ -35,7 +44,6 @@ export function TabBar({
 }: TabBarProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
-
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tabId: string) => {
@@ -55,35 +63,18 @@ export function TabBar({
 
   useEffect(() => {
     if (!contextMenu || !menuRef.current) return
-    const menu = menuRef.current
-    const rect = menu.getBoundingClientRect()
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let adjustedX = contextMenu.x
-    let adjustedY = contextMenu.y
-
-    if (rect.right > viewportWidth) {
-      adjustedX = viewportWidth - rect.width - 4
-    }
-    if (rect.bottom > viewportHeight) {
-      adjustedY = viewportHeight - rect.height - 4
-    }
-
-    if (adjustedX !== contextMenu.x || adjustedY !== contextMenu.y) {
-      setContextMenu(prev => prev && { ...prev, x: adjustedX, y: adjustedY })
+    const rect = menuRef.current.getBoundingClientRect()
+    const clamped = clampToViewport(contextMenu, rect)
+    if (clamped.x !== contextMenu.x || clamped.y !== contextMenu.y) {
+      setContextMenu(prev => prev && { ...prev, x: clamped.x, y: clamped.y })
     }
   }, [contextMenu])
 
-  if (tabs.length === 0) {
-    return null
-  }
-
+  if (tabs.length === 0) return null
   const handleClose = (e: React.MouseEvent, tabId: string) => {
     e.stopPropagation()
     onTabClose(tabId)
   }
-
   const contextTabIndex = contextMenu ? tabs.findIndex(t => t.id === contextMenu.tabId) : -1
   const hasTabsToRight = contextTabIndex >= 0 && contextTabIndex < tabs.length - 1
 

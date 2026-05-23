@@ -12,15 +12,12 @@ export function SettingsPullRequests() {
     setAutoRefresh,
     setRecentlyMergedDays,
   } = usePRSettings()
-
   const handleAutoRefreshToggle = async () => {
     await setAutoRefresh(!autoRefresh)
   }
-
   const handleRefreshIntervalChange = async (value: number) => {
     await setRefreshInterval(value)
   }
-
   const handleMergedDaysChange = async (value: number) => {
     await setRecentlyMergedDays(value)
   }
@@ -47,7 +44,6 @@ export function SettingsPullRequests() {
           Configure how pull requests are fetched and displayed.
         </p>
       </div>
-
       <div className="settings-page-content">
         <div className="settings-section">
           <div className="section-header">
@@ -74,7 +70,6 @@ export function SettingsPullRequests() {
             </button>
           </div>
         </div>
-
         <div className="settings-section">
           <div className="section-header">
             <h3>
@@ -99,7 +94,6 @@ export function SettingsPullRequests() {
             </select>
           </div>
         </div>
-
         <div className="settings-section">
           <div className="section-header">
             <h3>

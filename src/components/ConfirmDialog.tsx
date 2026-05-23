@@ -16,6 +16,24 @@ function confirmBtnClassName(variant: 'default' | 'danger'): string {
   return `confirm-dialog-btn ${variant === 'danger' ? 'confirm-dialog-btn-danger' : 'confirm-dialog-btn-confirm'}`
 }
 
+function DangerIcon({ variant }: { variant: 'default' | 'danger' }) {
+  if (variant !== 'danger') return null
+  return (
+    <div className="confirm-dialog-icon">
+      <AlertTriangle size={20} />
+    </div>
+  )
+}
+
+function DialogDescription({ description }: { description?: string }) {
+  if (!description) return null
+  return (
+    <p id="confirm-dialog-desc" className="confirm-dialog-description">
+      {description}
+    </p>
+  )
+}
+
 export function ConfirmDialog({
   message,
   description,
@@ -53,20 +71,12 @@ export function ConfirmDialog({
         aria-describedby={description ? 'confirm-dialog-desc' : undefined}
       >
         <div className="confirm-dialog-body">
-          {variant === 'danger' && (
-            <div className="confirm-dialog-icon">
-              <AlertTriangle size={20} />
-            </div>
-          )}
+          <DangerIcon variant={variant} />
           <div className="confirm-dialog-text">
             <p id="confirm-dialog-title" className="confirm-dialog-message">
               {message}
             </p>
-            {description && (
-              <p id="confirm-dialog-desc" className="confirm-dialog-description">
-                {description}
-              </p>
-            )}
+            <DialogDescription description={description} />
           </div>
         </div>
         <div className="confirm-dialog-actions">

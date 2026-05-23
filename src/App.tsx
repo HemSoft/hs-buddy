@@ -105,35 +105,7 @@ function AppLoadingState() {
   )
 }
 
-function AppMainContent({
-  tabs,
-  activeTabId,
-  setActiveTabId,
-  closeTab,
-  closeOtherTabs,
-  closeTabsToRight,
-  closeAllTabs,
-  onPanelResize,
-  activeViewId,
-  prCounts,
-  handleItemSelect,
-  handleSectionSelect,
-  openTab,
-  closeView,
-  handlePRCountChange,
-  terminalOpen,
-  panelHeight,
-  terminalTabs,
-  activeTerminalTabId,
-  selectTerminalTab,
-  closeTerminalTab,
-  handleAddTerminalTab,
-  renameTerminalTab,
-  setTerminalTabColor,
-  reorderTerminalTabs,
-  updateTabCwd,
-  handleOpenFolderView,
-}: Pick<
+type AppMainContentProps = Pick<
   ReturnType<typeof useAppTabs>,
   | 'tabs'
   | 'activeTabId'
@@ -163,7 +135,37 @@ function AppMainContent({
   reorderTerminalTabs: ReturnType<typeof useTerminalPanel>['reorderTerminalTabs']
   updateTabCwd: ReturnType<typeof useTerminalPanel>['updateTabCwd']
   handleOpenFolderView: (cwd: string) => void
-}) {
+}
+
+function AppMainContent({
+  tabs,
+  activeTabId,
+  setActiveTabId,
+  closeTab,
+  closeOtherTabs,
+  closeTabsToRight,
+  closeAllTabs,
+  onPanelResize,
+  activeViewId,
+  prCounts,
+  handleItemSelect,
+  handleSectionSelect,
+  openTab,
+  closeView,
+  handlePRCountChange,
+  terminalOpen,
+  panelHeight,
+  terminalTabs,
+  activeTerminalTabId,
+  selectTerminalTab,
+  closeTerminalTab,
+  handleAddTerminalTab,
+  renameTerminalTab,
+  setTerminalTabColor,
+  reorderTerminalTabs,
+  updateTabCwd,
+  handleOpenFolderView,
+}: AppMainContentProps) {
   return (
     <div className="main-content-wrapper">
       <TabBar
@@ -220,7 +222,6 @@ function App() {
   useAppAppearance()
   const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
-
   const {
     activeTabId,
     activeViewId,
@@ -232,9 +233,7 @@ function App() {
     openTab,
     setActiveTabId,
     tabs,
-  } = useAppTabs({
-    onViewOpen: trackViewOpen,
-  })
+  } = useAppTabs({ onViewOpen: trackViewOpen })
   const {
     assistantOpen,
     handlePaneChange,
@@ -259,7 +258,6 @@ function App() {
     loaded: terminalLoaded,
   } = useTerminalPanel(activeViewId)
   const activeGitHubAccount = useActiveGitHubAccount()
-
   const {
     handlePRCountChange,
     handleSectionSelect,
@@ -276,7 +274,6 @@ function App() {
     addTerminalTab,
     setPRCount
   )
-
   const assistantContext = useAssistantContext(activeViewId)
   const showLoading = isAppLoading(
     layoutLoaded,

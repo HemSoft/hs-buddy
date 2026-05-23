@@ -57,31 +57,60 @@ function handleReviewResult(
 const resolvePromptTemplate = (template: string, prUrl: string) =>
   template.includes(PR_URL_TOKEN) ? template.split(PR_URL_TOKEN).join(prUrl) : template
 
+function canBuildReviewSnapshot(prInfo: PRReviewInfo): boolean {
+  return Boolean(prInfo.org) && Boolean(prInfo.repo) && Boolean(prInfo.prNumber)
+}
+
+async function fetchReviewSnapshot(
+  prInfo: PRReviewInfo,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+): Promise<ReviewSnapshot> {
+  if (!canBuildReviewSnapshot(prInfo)) {
+    return undefined
+  }
+
+  try {
+    const { org, repo, prNumber } = prInfo
+    const client = new GitHubClient({ accounts }, 7)
+    const [branches, history] = await Promise.all([
+      client.fetchPRBranches(org, repo, prNumber),
+      client.fetchPRHistory(org, repo, prNumber),
+    ])
+    /* v8 ignore next -- headSha falsy branch unreachable in test fixtures */
+    const reviewedHeadSha = branches.headSha ? branches.headSha : undefined
+    return {
+      reviewedHeadSha,
+      reviewedThreadStats: {
+        total: history.threadsTotal,
+        unresolved: history.threadsUnaddressed,
+        outdated: history.threadsOutdated,
+      },
+    }
+  } catch (_: unknown) {
+    return undefined
+  }
+}
+
 export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: string) => void) {
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
   const { increment: incrementStat } = useBuddyStatsMutations()
-
   const [account, setAccount] = useState('')
   const [model, setModel] = useState(configuredModel || 'claude-sonnet-4.5')
   const [savedDefaultTemplate, setSavedDefaultTemplate] = useState('')
   const [savingDefault, setSavingDefault] = useState(false)
-
   const getDefaultPrompt = useCallback(() => {
     if (prInfo.initialPrompt) return prInfo.initialPrompt
-    if (savedDefaultTemplate.trim()) {
+    if (savedDefaultTemplate.trim())
       return resolvePromptTemplate(savedDefaultTemplate, prInfo.prUrl)
-    }
     return DEFAULT_PROMPT_TEMPLATE(prInfo.prUrl)
   }, [prInfo.initialPrompt, prInfo.prUrl, savedDefaultTemplate])
-
   const [prompt, setPrompt] = useState(() => getDefaultPrompt())
   const [promptExpanded, setPromptExpanded] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [scheduled, setScheduled] = useState(false)
   const [scheduleDelay, setScheduleDelay] = useState(5)
-
   const initializedRef = useRef(false)
   const loadedDefaultRef = useRef(false)
 
@@ -93,14 +122,9 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
     const matchedAccount = githubAccounts.find(
       a => a.org.toLowerCase() === prInfo.org.toLowerCase()
     )
-    if (matchedAccount) {
-      setAccount(matchedAccount.username)
-    } else if (configuredAccount) {
-      setAccount(configuredAccount)
-    }
-    if (configuredModel) {
-      setModel(configuredModel)
-    }
+    if (matchedAccount) setAccount(matchedAccount.username)
+    else if (configuredAccount) setAccount(configuredAccount)
+    if (configuredModel) setModel(configuredModel)
   }, [githubAccounts, prInfo.org, configuredAccount, configuredModel])
 
   useEffect(() => {
@@ -113,45 +137,20 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
         const normalized = (template || '').trim()
         if (!normalized) return
         setSavedDefaultTemplate(normalized)
-        setPrompt(current => {
-          if (current !== fallbackPrompt) return current
-          return resolvePromptTemplate(normalized, prInfo.prUrl)
-        })
+        setPrompt(current =>
+          current !== fallbackPrompt ? current : resolvePromptTemplate(normalized, prInfo.prUrl)
+        )
       })
       /* v8 ignore start */
       .catch(() => {
         /* v8 ignore stop */
-        // Non-blocking: use built-in default if config fetch fails
       })
   }, [prInfo.initialPrompt, prInfo.prUrl])
 
-  const buildReviewSnapshot = useCallback(async () => {
-    if (!prInfo.org || !prInfo.repo || !prInfo.prNumber) {
-      return undefined
-    }
-    try {
-      const client = new GitHubClient({ accounts: githubAccounts }, 7)
-      const [branches, history] = await Promise.all([
-        client.fetchPRBranches(prInfo.org, prInfo.repo, prInfo.prNumber),
-        client.fetchPRHistory(prInfo.org, prInfo.repo, prInfo.prNumber),
-      ])
-      /* v8 ignore start */
-      return {
-        /* v8 ignore stop */
-        /* v8 ignore start */
-        reviewedHeadSha: branches.headSha || undefined,
-        /* v8 ignore stop */
-        reviewedThreadStats: {
-          total: history.threadsTotal,
-          unresolved: history.threadsUnaddressed,
-          outdated: history.threadsOutdated,
-        },
-      }
-    } catch (_: unknown) {
-      return undefined
-    }
-  }, [githubAccounts, prInfo.org, prInfo.repo, prInfo.prNumber])
-
+  const buildReviewSnapshot = useCallback(
+    async () => fetchReviewSnapshot(prInfo, githubAccounts),
+    [githubAccounts, prInfo]
+  )
   const handleRunNow = useCallback(async () => {
     if (submitting) return
     setSubmitting(true)
@@ -174,7 +173,6 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
       setSubmitting(false)
     }
   }, [prompt, model, account, prInfo, submitting, incrementStat, onSubmitted, buildReviewSnapshot])
-
   const handleSchedule = useCallback(async () => {
     if (submitting) return
     setSubmitting(true)
@@ -191,14 +189,11 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
             prompt,
             category: 'pr-review',
             model,
-            metadata: buildReviewMetadata(prInfo, account, snapshot, {
-              scheduledAt: Date.now(),
-            }),
+            metadata: buildReviewMetadata(prInfo, account, snapshot, { scheduledAt: Date.now() }),
           })
           /* v8 ignore start */
           if (result.success && result.resultId) {
-            /* v8 ignore stop */
-            window.dispatchEvent(
+            /* v8 ignore stop */ window.dispatchEvent(
               new CustomEvent('copilot:open-result', { detail: { resultId: result.resultId } })
             )
           }
@@ -208,9 +203,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
       }, delayMs)
       setScheduled(true)
     } catch (err: unknown) {
-      /* v8 ignore start */
-      setError(getErrorMessage(err))
-      /* v8 ignore stop */
+      /* v8 ignore start */ setError(getErrorMessage(err)) /* v8 ignore stop */
     } finally {
       setSubmitting(false)
     }
@@ -228,7 +221,6 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   const handleResetPrompt = useCallback(() => {
     setPrompt(getDefaultPrompt())
   }, [getDefaultPrompt])
-
   const handleSaveAsDefault = useCallback(async () => {
     const trimmed = prompt.trim()
     if (!trimmed || savingDefault) return

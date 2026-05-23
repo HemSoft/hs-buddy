@@ -49,37 +49,59 @@ function toggleInSet<T>(set: Set<T>, item: T): Set<T> {
   return next
 }
 
+type CrewSidebarDispatch = (action: CrewSidebarAction) => void
+
+type CrewAddProjectResult = {
+  success: boolean
+  project?: { id: string } | null
+  error?: string | null
+}
+
+const CREW_SIDEBAR_ACTION_HANDLERS = {
+  SET_PROJECTS: (
+    state: CrewSidebarState,
+    action: Extract<CrewSidebarAction, { type: 'SET_PROJECTS' }>
+  ): CrewSidebarState => ({
+    ...state,
+    projects: action.payload.projects,
+    sessions: action.payload.sessions,
+  }),
+  TOGGLE_SECTION: (
+    state: CrewSidebarState,
+    action: Extract<CrewSidebarAction, { type: 'TOGGLE_SECTION' }>
+  ): CrewSidebarState => ({
+    ...state,
+    expandedSections: toggleInSet(state.expandedSections, action.sectionId),
+  }),
+  START_ADDING_PROJECT: (state: CrewSidebarState): CrewSidebarState => ({
+    ...state,
+    addProjectError: null,
+    isAddingProject: true,
+  }),
+  FINISH_ADDING_PROJECT: (state: CrewSidebarState): CrewSidebarState => ({
+    ...state,
+    isAddingProject: false,
+  }),
+  SET_ADD_PROJECT_ERROR: (
+    state: CrewSidebarState,
+    action: Extract<CrewSidebarAction, { type: 'SET_ADD_PROJECT_ERROR' }>
+  ): CrewSidebarState => ({
+    ...state,
+    addProjectError: action.error,
+  }),
+} satisfies {
+  [K in CrewSidebarAction['type']]: (
+    state: CrewSidebarState,
+    action: Extract<CrewSidebarAction, { type: K }>
+  ) => CrewSidebarState
+}
+
 function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction): CrewSidebarState {
-  switch (action.type) {
-    case 'SET_PROJECTS':
-      return {
-        ...state,
-        projects: action.payload.projects,
-        sessions: action.payload.sessions,
-      }
-    case 'TOGGLE_SECTION':
-      return { ...state, expandedSections: toggleInSet(state.expandedSections, action.sectionId) }
-    case 'START_ADDING_PROJECT':
-      return {
-        ...state,
-        addProjectError: null,
-        isAddingProject: true,
-      }
-    case 'FINISH_ADDING_PROJECT':
-      return {
-        ...state,
-        isAddingProject: false,
-      }
-    case 'SET_ADD_PROJECT_ERROR':
-      return {
-        ...state,
-        addProjectError: action.error,
-      }
-    /* v8 ignore start */
-    default:
-      return state
-    /* v8 ignore stop */
-  }
+  const handler = CREW_SIDEBAR_ACTION_HANDLERS[action.type] as (
+    state: CrewSidebarState,
+    action: CrewSidebarAction
+  ) => CrewSidebarState
+  return handler(state, action)
 }
 
 function sortProjects(projects: CrewProject[]): CrewProject[] {
@@ -102,6 +124,238 @@ function getAddProjectState(isAdding: boolean) {
     style: { opacity: isAdding ? 0.45 : 0.7 },
     label: isAdding ? 'Opening folder picker…' : 'Add Project…',
   }
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
+export function resolveAddProjectError(result: CrewAddProjectResult): string | null {
+  return result.error && result.error !== 'Cancelled' ? result.error : null
+}
+
+// eslint-disable-next-line react-refresh/only-export-components -- extracted helper
+export async function applyAddProjectResult(
+  result: CrewAddProjectResult,
+  loadProjects: () => Promise<void>,
+  onItemSelect: (itemId: string) => void,
+  dispatch: CrewSidebarDispatch
+): Promise<void> {
+  if (result.success) {
+    await loadProjects()
+    if (result.project) {
+      onItemSelect(`crew-project:${result.project.id}`)
+    }
+    return
+  }
+
+  const addProjectError = resolveAddProjectError(result)
+  if (addProjectError) {
+    dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: addProjectError })
+  }
+}
+
+function dispatchAddProjectFailure(dispatch: CrewSidebarDispatch, error: unknown): void {
+  dispatch({
+    type: 'SET_ADD_PROJECT_ERROR',
+    error: getUserFacingErrorMessage(error, 'Failed to add project.'),
+  })
+}
+
+function ProjectSectionHeader({
+  isExpanded,
+  projectCount,
+  onToggle,
+}: {
+  isExpanded: boolean
+  projectCount: number
+  onToggle: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="sidebar-section-header"
+      onClick={onToggle}
+      aria-expanded={isExpanded}
+      aria-controls="crew-projects-section"
+    >
+      <div className="sidebar-section-title">
+        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <span className="sidebar-section-icon">
+          <FolderGit2 size={16} />
+        </span>
+        <span>Projects</span>
+        {projectCount > 0 ? <span className="sidebar-item-count">{projectCount}</span> : null}
+      </div>
+    </button>
+  )
+}
+
+function ProjectListItem({
+  project,
+  session,
+  selectedItem,
+  onItemSelect,
+  onRemoveProject,
+}: {
+  project: CrewProject
+  session: CrewSession | null
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  onRemoveProject: (event: React.MouseEvent, projectId: string) => Promise<void>
+}) {
+  const viewId = `crew-project:${project.id}`
+  const isActive = session?.status === 'active'
+
+  return (
+    <div className={`sidebar-item ${selectedItem === viewId ? 'selected' : ''}`}>
+      <button
+        type="button"
+        className="sidebar-item-main"
+        onClick={() => onItemSelect(viewId)}
+        title={`${project.githubSlug}\n${project.localPath}`}
+        aria-pressed={selectedItem === viewId}
+      >
+        <span className="sidebar-item-icon">
+          {isActive ? (
+            <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" />
+          ) : (
+            <FolderGit2 size={14} />
+          )}
+        </span>
+        <span className="sidebar-item-label">{project.displayName}</span>
+      </button>
+      <button
+        type="button"
+        className="sidebar-item-action crew-remove-project-btn"
+        onClick={event => onRemoveProject(event, project.id)}
+        title="Remove project"
+      >
+        <Trash2 size={12} />
+      </button>
+    </div>
+  )
+}
+
+function AddProjectButton({
+  isAddingProject,
+  onAddProject,
+}: {
+  isAddingProject: boolean
+  onAddProject: () => void
+}) {
+  const addProjectState = getAddProjectState(isAddingProject)
+
+  return (
+    <button
+      type="button"
+      className="sidebar-item sidebar-item-button"
+      onClick={onAddProject}
+      disabled={isAddingProject}
+      style={addProjectState.style}
+    >
+      <span className="sidebar-item-icon">
+        <Plus size={14} />
+      </span>
+      <span className="sidebar-item-label">{addProjectState.label}</span>
+    </button>
+  )
+}
+
+function ProjectSectionItems({
+  addProjectError,
+  isAddingProject,
+  projects,
+  sessions,
+  selectedItem,
+  onItemSelect,
+  onRemoveProject,
+  onAddProject,
+}: {
+  addProjectError: string | null
+  isAddingProject: boolean
+  projects: CrewProject[]
+  sessions: Record<string, CrewSession | null>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  onRemoveProject: (event: React.MouseEvent, projectId: string) => Promise<void>
+  onAddProject: () => void
+}) {
+  return (
+    <div className="sidebar-section-items" id="crew-projects-section">
+      {addProjectError ? (
+        <div
+          className="sidebar-item sidebar-item-empty"
+          role="alert"
+          style={{ color: '#e85d5d', whiteSpace: 'normal' }}
+        >
+          <span className="sidebar-item-label">{addProjectError}</span>
+        </div>
+      ) : null}
+      {projects.length === 0 ? (
+        <div className="sidebar-item sidebar-item-empty">
+          <span className="sidebar-item-label">No projects yet</span>
+        </div>
+      ) : (
+        projects.map(project => (
+          <ProjectListItem
+            key={project.id}
+            project={project}
+            session={sessions[project.id]}
+            selectedItem={selectedItem}
+            onItemSelect={onItemSelect}
+            onRemoveProject={onRemoveProject}
+          />
+        ))
+      )}
+      <AddProjectButton isAddingProject={isAddingProject} onAddProject={onAddProject} />
+    </div>
+  )
+}
+
+function ProjectsSection({
+  expandedSections,
+  projects,
+  sessions,
+  addProjectError,
+  isAddingProject,
+  selectedItem,
+  onItemSelect,
+  onRemoveProject,
+  onToggle,
+  onAddProject,
+}: {
+  expandedSections: Set<string>
+  projects: CrewProject[]
+  sessions: Record<string, CrewSession | null>
+  addProjectError: string | null
+  isAddingProject: boolean
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+  onRemoveProject: (event: React.MouseEvent, projectId: string) => Promise<void>
+  onToggle: () => void
+  onAddProject: () => void
+}) {
+  const isExpanded = expandedSections.has('crew-projects')
+
+  return (
+    <div className="sidebar-section">
+      <ProjectSectionHeader
+        isExpanded={isExpanded}
+        projectCount={projects.length}
+        onToggle={onToggle}
+      />
+      {isExpanded ? (
+        <ProjectSectionItems
+          addProjectError={addProjectError}
+          isAddingProject={isAddingProject}
+          projects={projects}
+          sessions={sessions}
+          selectedItem={selectedItem}
+          onItemSelect={onItemSelect}
+          onRemoveProject={onRemoveProject}
+          onAddProject={onAddProject}
+        />
+      ) : null}
+    </div>
+  )
 }
 
 export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
@@ -136,42 +390,23 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
     dispatch({ type: 'START_ADDING_PROJECT' })
 
     try {
-      const result = await window.crew.addProject()
-      if (result.success) {
-        await loadProjects()
-        /* v8 ignore start */
-        if (result.project) {
-          /* v8 ignore stop */
-          onItemSelect(`crew-project:${result.project.id}`)
-        }
-        return
-      }
-
-      /* v8 ignore start */
-      if (result.error && result.error !== 'Cancelled') {
-        /* v8 ignore stop */
-        dispatch({ type: 'SET_ADD_PROJECT_ERROR', error: result.error })
-      }
+      const result: CrewAddProjectResult = await window.crew.addProject()
+      await applyAddProjectResult(result, loadProjects, onItemSelect, dispatch)
     } catch (error: unknown) {
-      dispatch({
-        type: 'SET_ADD_PROJECT_ERROR',
-        /* v8 ignore start */
-        error: getUserFacingErrorMessage(error, 'Failed to add project.'),
-        /* v8 ignore stop */
-      })
+      dispatchAddProjectFailure(dispatch, error)
     } finally {
       dispatch({ type: 'FINISH_ADDING_PROJECT' })
     }
   }
 
-  const handleRemoveProject = async (e: React.MouseEvent, projectId: string) => {
-    e.stopPropagation()
+  const handleRemoveProject = async (event: React.MouseEvent, projectId: string) => {
+    event.stopPropagation()
     await window.crew.removeProject(projectId)
     await loadProjects()
   }
 
-  const toggleSection = (sectionId: string) => {
-    dispatch({ type: 'TOGGLE_SECTION', sectionId })
+  const toggleProjectSection = () => {
+    dispatch({ type: 'TOGGLE_SECTION', sectionId: 'crew-projects' })
   }
 
   return (
@@ -189,97 +424,18 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
         </button>
       </div>
       <div className="sidebar-panel-content">
-        <div className="sidebar-section">
-          <button
-            type="button"
-            className="sidebar-section-header"
-            onClick={() => toggleSection('crew-projects')}
-            aria-expanded={expandedSections.has('crew-projects')}
-            aria-controls="crew-projects-section"
-          >
-            <div className="sidebar-section-title">
-              {expandedSections.has('crew-projects') ? (
-                <ChevronDown size={14} />
-              ) : (
-                <ChevronRight size={14} />
-              )}
-              <span className="sidebar-section-icon">
-                <FolderGit2 size={16} />
-              </span>
-              <span>Projects</span>
-              {projects.length > 0 && <span className="sidebar-item-count">{projects.length}</span>}
-            </div>
-          </button>
-          {expandedSections.has('crew-projects') && (
-            <div className="sidebar-section-items" id="crew-projects-section">
-              {addProjectError && (
-                <div
-                  className="sidebar-item sidebar-item-empty"
-                  role="alert"
-                  style={{ color: '#e85d5d', whiteSpace: 'normal' }}
-                >
-                  <span className="sidebar-item-label">{addProjectError}</span>
-                </div>
-              )}
-              {projects.length === 0 ? (
-                <div className="sidebar-item sidebar-item-empty">
-                  <span className="sidebar-item-label">No projects yet</span>
-                </div>
-              ) : (
-                projects.map(project => {
-                  const viewId = `crew-project:${project.id}`
-                  const session = sessions[project.id]
-                  const isActive = session?.status === 'active'
-                  return (
-                    <div
-                      key={project.id}
-                      className={`sidebar-item ${selectedItem === viewId ? 'selected' : ''}`}
-                    >
-                      <button
-                        type="button"
-                        className="sidebar-item-main"
-                        onClick={() => onItemSelect(viewId)}
-                        title={`${project.githubSlug}\n${project.localPath}`}
-                        aria-pressed={selectedItem === viewId}
-                      >
-                        <span className="sidebar-item-icon">
-                          {isActive ? (
-                            <Circle size={10} fill="#4ec9b0" stroke="#4ec9b0" />
-                          ) : (
-                            <FolderGit2 size={14} />
-                          )}
-                        </span>
-                        <span className="sidebar-item-label">{project.displayName}</span>
-                      </button>
-                      <button
-                        type="button"
-                        className="sidebar-item-action crew-remove-project-btn"
-                        onClick={e => handleRemoveProject(e, project.id)}
-                        title="Remove project"
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                    </div>
-                  )
-                })
-              )}
-              <button
-                type="button"
-                className="sidebar-item sidebar-item-button"
-                onClick={handleAddProject}
-                disabled={isAddingProject}
-                style={getAddProjectState(isAddingProject).style}
-              >
-                <span className="sidebar-item-icon">
-                  <Plus size={14} />
-                </span>
-                <span className="sidebar-item-label">
-                  {getAddProjectState(isAddingProject).label}
-                </span>
-              </button>
-            </div>
-          )}
-        </div>
+        <ProjectsSection
+          expandedSections={expandedSections}
+          projects={projects}
+          sessions={sessions}
+          addProjectError={addProjectError}
+          isAddingProject={isAddingProject}
+          selectedItem={selectedItem}
+          onItemSelect={onItemSelect}
+          onRemoveProject={handleRemoveProject}
+          onToggle={toggleProjectSection}
+          onAddProject={handleAddProject}
+        />
       </div>
     </div>
   )

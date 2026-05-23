@@ -19,6 +19,36 @@ interface CopilotSidebarProps {
   selectedItem: string | null
 }
 
+type RecentCopilotResult = NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+type CopilotActiveResult = ReturnType<typeof useCopilotActiveCount>
+
+function getPRReviewTitle(metadata: Record<string, unknown> | null): string {
+  return (metadata?.prTitle as string) || 'Untitled'
+}
+
+function getResultPromptLabel(prompt: string): string {
+  return prompt.length > 40 ? `${prompt.slice(0, 40)}...` : prompt
+}
+
+function getRecentResultLabel(result: RecentCopilotResult): string {
+  if (result.category === 'pr-review') {
+    return `PR Review: ${getPRReviewTitle(result.metadata as Record<string, unknown> | null)}`
+  }
+  return getResultPromptLabel(result.prompt)
+}
+
+function getTotalActiveCount(activeCount: CopilotActiveResult): number {
+  const pending = activeCount?.pending ?? 0
+  const running = activeCount?.running ?? 0
+  return pending + running
+}
+
+function getRecentResultsCount(
+  recentResults: ReturnType<typeof useCopilotResultsRecent>
+): number | undefined {
+  return recentResults?.length
+}
+
 function SidebarNavItem({
   id,
   icon,
@@ -54,17 +84,12 @@ function RecentResultItem({
   selectedItem,
   onItemSelect,
 }: {
-  result: NonNullable<ReturnType<typeof useCopilotResultsRecent>>[number]
+  result: RecentCopilotResult
   selectedItem: string | null
   onItemSelect: (itemId: string) => void
 }) {
   const viewId = `copilot-result:${result._id}`
-  const label =
-    result.category === 'pr-review'
-      ? `PR Review: ${((result.metadata as Record<string, unknown> | null)?.prTitle as string) || 'Untitled'}`
-      : result.prompt.length > 40
-        ? result.prompt.slice(0, 40) + '...'
-        : result.prompt
+  const label = getRecentResultLabel(result)
 
   return (
     <div
@@ -206,7 +231,8 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
   const recentResults = useCopilotResultsRecent(15)
   const activeCount = useCopilotActiveCount()
 
-  const totalActive = (activeCount?.pending ?? 0) + (activeCount?.running ?? 0)
+  const totalActive = getTotalActiveCount(activeCount)
+  const recentResultsCount = getRecentResultsCount(recentResults)
 
   return (
     <div className="sidebar-panel">
@@ -220,7 +246,7 @@ export function CopilotSidebar({ onItemSelect, selectedItem }: CopilotSidebarPro
           toggleSection={toggleSection}
           selectedItem={selectedItem}
           onItemSelect={onItemSelect}
-          recentResultsCount={recentResults?.length}
+          recentResultsCount={recentResultsCount}
         />
         <RecentResultsSection
           isExpanded={isExpanded('copilot-results')}

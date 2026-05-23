@@ -14,6 +14,41 @@ const STORAGE_KEY = 'hs-buddy:pending-ai-reviews'
 const DEFAULT_POLL_MS = 15_000
 const DEFAULT_MAX_POLLS = 40
 
+function isPollCompleted(result: PollResult | undefined): boolean {
+  return result?.status === 'completed'
+}
+
+function isPollFailed(result: PollResult | undefined): boolean {
+  return result?.status === 'failed'
+}
+
+function isAIReviewMonitorStale(
+  monitorSessionRef: { current: number },
+  sessionId: number
+): boolean {
+  return monitorSessionRef.current !== sessionId
+}
+
+function didAbortAIReviewPoll(providerName: string, error: unknown): boolean {
+  if (isAbortError(error)) return true
+  console.debug(`${providerName} review poll failed:`, error)
+  return false
+}
+
+async function shouldContinueAIReviewPolling(
+  doPoll: () => Promise<PollResult | undefined>,
+  handlePollResult: (result: PollResult | undefined) => 'stop' | 'continue',
+  providerName: string
+): Promise<boolean> {
+  try {
+    const result = await doPoll()
+    return handlePollResult(result) !== 'stop'
+  } catch (error: unknown) {
+    if (didAbortAIReviewPoll(providerName, error)) return false
+  }
+  return true
+}
+
 interface PendingReview {
   providerId: string
   prUrl: string
@@ -119,11 +154,9 @@ export function useAIReviewMonitor({
   const monitorCountRef = useRef(0)
   const monitorSessionRef = useRef(0)
   const requestSessionRef = useRef(0)
-
   useEffect(() => {
     accountsRef.current = accounts
   }, [accounts])
-
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
@@ -151,10 +184,8 @@ export function useAIReviewMonitor({
       playReviewCompleteSound()
       setRefreshKey(k => k + 1)
       monitorTimeoutRef.current = setTimeout(() => {
-        /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
-        /* v8 ignore stop */
-        setReviewState('idle')
+        /* v8 ignore start */ if (monitorSessionRef.current !== sessionId) return
+        /* v8 ignore stop */ setReviewState('idle')
         monitorTimeoutRef.current = null
       }, 3000)
     },
@@ -181,9 +212,8 @@ export function useAIReviewMonitor({
       const sessionId = monitorSessionRef.current
       setReviewState('monitoring')
       monitorCountRef.current = 0
-
-      const doPoll = async () => {
-        return enqueueRef.current(
+      const doPoll = async () =>
+        enqueueRef.current(
           async signal => {
             throwIfAborted(signal)
             /* v8 ignore start */
@@ -205,93 +235,54 @@ export function useAIReviewMonitor({
           },
           { name: `${provider.id}-review-poll-${prId}` }
         )
-      }
-
-      const scheduleNextPoll = () => {
-        /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
-        /* v8 ignore stop */
-        monitorTimerRef.current = setTimeout(pollOnce, pollIntervalMs)
-      }
-
       const handlePollResult = (result: PollResult | undefined): 'stop' | 'continue' => {
-        if (result?.status === 'completed') {
+        if (isPollCompleted(result)) {
           finishMonitor(sessionId, monitorPrUrl)
           return 'stop'
         }
-        if (result?.status === 'failed') {
+        if (isPollFailed(result)) {
           clearTimers()
           clearPendingAIReview(provider.id, monitorPrUrl)
-          /* v8 ignore next */
-          if (monitorSessionRef.current === sessionId) setReviewState('idle')
+          /* v8 ignore next */ if (monitorSessionRef.current === sessionId) setReviewState('idle')
           return 'stop'
         }
         return 'continue'
       }
-
+      const scheduleNextPoll = () => {
+        /* v8 ignore start */ if (monitorSessionRef.current !== sessionId) return
+        /* v8 ignore stop */ monitorTimerRef.current = setTimeout(pollOnce, pollIntervalMs)
+      }
       const pollOnce = async () => {
-        /* v8 ignore start */
-        if (monitorSessionRef.current !== sessionId) return
-        /* v8 ignore stop */
-        monitorCountRef.current++
+        /* v8 ignore start */ if (isAIReviewMonitorStale(monitorSessionRef, sessionId)) return
+        /* v8 ignore stop */ monitorCountRef.current++
         if (monitorCountRef.current > maxPolls) {
           clearTimers()
           clearPendingAIReview(provider.id, monitorPrUrl)
-          /* v8 ignore start */
-          if (monitorSessionRef.current === sessionId) setReviewState('idle')
-          /* v8 ignore stop */
-          return
+          /* v8 ignore start */ if (monitorSessionRef.current === sessionId) setReviewState('idle')
+          /* v8 ignore stop */ return
         }
-        try {
-          const result = await doPoll()
-          if (handlePollResult(result) === 'stop') return
-        } catch (pollErr: unknown) {
-          /* v8 ignore start */
-          if (isAbortError(pollErr)) return
-          /* v8 ignore stop */
-          console.debug(`${provider.name} review poll failed:`, pollErr)
-        }
+        if (!(await shouldContinueAIReviewPolling(doPoll, handlePollResult, provider.name))) return
         scheduleNextPoll()
       }
-
       if (runImmediately) {
-        void (async () => {
-          try {
-            const result = await doPoll()
-            if (handlePollResult(result) === 'stop') return
-          } catch (pollErr: unknown) {
-            /* v8 ignore start */
-            if (isAbortError(pollErr)) return
-            /* v8 ignore stop */
-            console.debug(`${provider.name} review poll failed:`, pollErr)
-          }
-          scheduleNextPoll()
-        })()
+        void shouldContinueAIReviewPolling(doPoll, handlePollResult, provider.name).then(cont => {
+          if (cont) scheduleNextPoll()
+        })
         return
       }
-
       scheduleNextPoll()
     },
     [clearTimers, finishMonitor, prId, provider, pollIntervalMs, maxPolls]
   )
 
-  // Clean up monitor timers and restore pending review on PR/provider change
   useEffect(() => {
     requestSessionRef.current++
     stopMonitor()
     setReviewState('idle')
     setReviewBanner(null)
-
     const pending = loadPendingReview(provider.id, prUrl)
-    if (pending && ownerRepo) {
-      startMonitor({
-        ownerRepo,
-        prUrl,
-        checkpoint: pending.checkpoint,
-        runImmediately: true,
-      })
-    }
-
+    if (pending && ownerRepo)
+      startMonitor({ ownerRepo, prUrl, checkpoint: pending.checkpoint, runImmediately: true })
     return stopMonitor
   }, [prId, prUrl, ownerRepo, provider.id, startMonitor, stopMonitor])
 
@@ -304,39 +295,27 @@ export function useAIReviewMonitor({
         async signal => {
           throwIfAborted(signal)
           const client = new GitHubClient({ accounts: accountsRef.current }, 7)
-
-          // Capture checkpoint before triggering
           const checkpoint = await provider.getCheckpoint(
             client,
             ownerRepo.owner,
             ownerRepo.repo,
             prId
           )
-
           throwIfAborted(signal)
-          /* v8 ignore start */
-          if (requestSessionRef.current !== requestId) return
-          /* v8 ignore stop */
-
-          // Trigger the review
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
           await provider.trigger(client, ownerRepo.owner, ownerRepo.repo, prId)
-
           throwIfAborted(signal)
-          /* v8 ignore start */
-          if (requestSessionRef.current !== requestId) return
-          /* v8 ignore stop */
-
-          // Persist and start monitoring
+          /* v8 ignore start */ if (requestSessionRef.current !== requestId)
+            return /* v8 ignore stop */
           savePendingReview(provider.id, prUrl, checkpoint)
           startMonitor({ ownerRepo, prUrl, checkpoint })
         },
         { name: `${provider.id}-review-request-${prId}` }
       )
     } catch (err: unknown) {
-      /* v8 ignore start */
-      if (isAbortError(err)) return
-      /* v8 ignore stop */
-      console.error(`Failed to request ${provider.name} review:`, err)
+      /* v8 ignore start */ if (isAbortError(err)) return
+      /* v8 ignore stop */ console.error(`Failed to request ${provider.name} review:`, err)
       setReviewState('idle')
     }
   }, [prUrl, prId, reviewState, ownerRepo, provider, startMonitor])

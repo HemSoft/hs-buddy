@@ -15,6 +15,27 @@ import { GithubIcon } from './icons/GithubIcon'
 import { useState } from 'react'
 import './ActivityBar.css'
 
+function getTooltipLabel(hoveredItem: string): string {
+  if (hoveredItem === 'home') return 'Dashboard'
+  /* v8 ignore next -- fallback for sections lookup */
+  return sections.find(s => s.id === hoveredItem)?.label ?? ''
+}
+
+function ActivityBarTooltip({
+  hoveredItem,
+  tooltipPosition,
+}: {
+  hoveredItem: string | null
+  tooltipPosition: { top: number } | null
+}) {
+  if (!hoveredItem || !tooltipPosition) return null
+  return (
+    <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
+      {getTooltipLabel(hoveredItem)}
+    </div>
+  )
+}
+
 interface ActivityBarProps {
   selectedSection: string
   onSectionSelect: (sectionId: string) => void
@@ -89,11 +110,7 @@ export function ActivityBar({
       </div>
 
       {/* Custom Tooltip */}
-      {hoveredItem && tooltipPosition && (
-        <div className="activity-bar-tooltip" style={{ top: tooltipPosition.top }}>
-          {hoveredItem === 'home' ? 'Dashboard' : sections.find(s => s.id === hoveredItem)?.label}
-        </div>
-      )}
+      <ActivityBarTooltip hoveredItem={hoveredItem} tooltipPosition={tooltipPosition} />
     </div>
   )
 }

@@ -182,7 +182,21 @@ export function buildContributionCalendar(commitDates: string[]): {
 
   const quartiles = computeQuartiles(allDays.map(d => d.count))
 
-  // Second pass — build weeks with colors
+  return { totalContributions: commitDates.length, weeks: buildWeeks(allDays, quartiles) }
+}
+
+function resolveGraphqlCalendar(userProfile: GraphQLUserProfile | null) {
+  return userProfile?.user?.contributionsCollection?.contributionCalendar ?? null
+}
+
+function resolveGraphqlTotal(calendar: { totalContributions?: number } | null): number {
+  return calendar?.totalContributions ?? 0
+}
+
+function buildWeeks(
+  allDays: Array<{ date: string; count: number }>,
+  quartiles: number[]
+): ContributionWeek[] {
   const weeks: ContributionWeek[] = []
   let weekDays: ContributionDay[] = []
   for (const { date, count } of allDays) {
@@ -199,12 +213,7 @@ export function buildContributionCalendar(commitDates: string[]): {
   if (weekDays.length > 0) {
     weeks.push({ contributionDays: weekDays })
   }
-
-  return { totalContributions: commitDates.length, weeks }
-}
-
-function resolveGraphqlCalendar(userProfile: GraphQLUserProfile | null) {
-  return userProfile?.user?.contributionsCollection?.contributionCalendar ?? null
+  return weeks
 }
 
 /** Build contribution calendar/source data from search dates and GraphQL profile. */
@@ -217,7 +226,7 @@ export function buildContributionData(
   contributionSource: 'graphql' | 'org-activity'
 } {
   const graphqlCalendar = resolveGraphqlCalendar(userProfile)
-  const graphqlTotal = graphqlCalendar?.totalContributions ?? 0
+  const graphqlTotal = resolveGraphqlTotal(graphqlCalendar)
 
   if (contributionDates.length > 0 && contributionDates.length >= graphqlTotal) {
     const derived = buildContributionCalendar(contributionDates)
@@ -271,6 +280,16 @@ export function buildEventId(evt: Record<string, unknown>, repoName: string): st
   return String(evt.id ?? `${evt.type ?? 'Unknown'}:${repoName}:${evt.created_at ?? ''}`)
 }
 
+function resolveEventFields(ghEvent: GitHubEvent): {
+  type: string
+  createdAt: string
+} {
+  return {
+    type: ghEvent.type ?? 'Unknown',
+    createdAt: ghEvent.created_at ?? '',
+  }
+}
+
 export function mapRawEventToUserEvent(
   evt: Record<string, unknown>,
   orgPrefix: string
@@ -285,13 +304,34 @@ export function mapRawEventToUserEvent(
     payload: evt.payload as GitHubEventPayload | undefined,
     created_at: evt.created_at as string | undefined,
   }
+  const fields = resolveEventFields(ghEvent)
   return {
     id: buildEventId(evt, repoName),
-    type: ghEvent.type ?? 'Unknown',
+    ...fields,
     repo: repoName,
-    createdAt: ghEvent.created_at ?? '',
     summary: eventSummary(ghEvent),
   }
+}
+
+function hasOrgPushEventRepo(repo: { name?: string } | undefined, orgPrefix: string): boolean {
+  return repo?.name?.startsWith(orgPrefix) === true
+}
+
+function isEventOnOrAfterStartOfDay(evt: Record<string, unknown>, startOfDayIso: string): boolean {
+  return typeof evt.created_at === 'string' && evt.created_at >= startOfDayIso
+}
+
+function isOrgPushEvent(
+  evt: Record<string, unknown>,
+  orgPrefix: string,
+  startOfDayIso: string
+): boolean {
+  const repo = evt.repo as { name?: string } | undefined
+  return (
+    evt.type === 'PushEvent' &&
+    hasOrgPushEventRepo(repo, orgPrefix) &&
+    isEventOnOrAfterStartOfDay(evt, startOfDayIso)
+  )
 }
 
 /** Count commits from PushEvents that occurred today in the org. */
@@ -301,15 +341,7 @@ export function countEventCommitsToday(
   startOfDayIso: string
 ): number {
   return events
-    .filter(evt => {
-      const repo = evt.repo as { name?: string } | undefined
-      return (
-        evt.type === 'PushEvent' &&
-        repo?.name?.startsWith(orgPrefix) &&
-        typeof evt.created_at === 'string' &&
-        evt.created_at >= startOfDayIso
-      )
-    })
+    .filter(evt => isOrgPushEvent(evt, orgPrefix, startOfDayIso))
     .reduce((sum, evt) => {
       const size = (evt.payload as Record<string, unknown> | undefined)?.size
       return sum + (typeof size === 'number' ? size : 1)
@@ -336,6 +368,15 @@ export function extractUserBasicInfo(
   location: string | null
 } {
   if (!user) return { name: null, bio: null, company: null, location: null }
+  return resolveUserFields(user)
+}
+
+function resolveUserFields(user: {
+  name?: string | null
+  bio?: string | null
+  company?: string | null
+  location?: string | null
+}): { name: string | null; bio: string | null; company: string | null; location: string | null } {
   return {
     name: user.name ?? null,
     bio: user.bio ?? null,

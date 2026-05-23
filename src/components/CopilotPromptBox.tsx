@@ -22,6 +22,14 @@ function buildCopilotMetadata(account: string | null): { ghAccount: string } | u
   return account ? { ghAccount: account } : undefined
 }
 
+function extractGitHubOrgsFromText(text: string): string[] {
+  const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
+  const orgs: string[] = []
+  let match: RegExpExecArray | null
+  while ((match = urlPattern.exec(text)) !== null) orgs.push(match[1].toLowerCase())
+  return orgs
+}
+
 interface CopilotPromptBoxProps {
   /** Called when user opens a result tab */
   onOpenResult?: (resultId: string) => void
@@ -177,23 +185,16 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const recentResults = useCopilotResultsRecent(10)
   const activeCount = useCopilotActiveCount()
-  // Track whether the account was auto-detected (vs. manually chosen)
   const autoDetectedRef = useRef(false)
-
-  // Sync local state from Convex once it loads (one-time initialization)
   const initializedRef = useRef(false)
+
   useEffect(() => {
     if (!initializedRef.current && configuredModel) {
       initializedRef.current = true
-      setState(previousState => ({
-        ...previousState,
-        localAccount: ghAccount,
-        localModel: configuredModel,
-      }))
+      setState(prev => ({ ...prev, localAccount: ghAccount, localModel: configuredModel }))
     }
   }, [ghAccount, configuredModel])
 
-  // Auto-resize textarea
   useEffect(() => {
     /* v8 ignore start */
     if (textareaRef.current) {
@@ -203,67 +204,52 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
     }
   }, [prompt])
 
-  /**
-   * Auto-detect the correct GitHub account from org/owner in the prompt text.
-   * Only auto-switches if the user hasn't manually picked a different account.
-   */
   const resolveAccountFromPrompt = useCallback(
     (text: string) => {
-      const urlPattern = /github\.com\/([a-zA-Z0-9_.-]+)(?:\/[a-zA-Z0-9_.-]+)?/gi
-      const orgs: string[] = []
-      let match: RegExpExecArray | null
-      while ((match = urlPattern.exec(text)) !== null) {
-        orgs.push(match[1].toLowerCase())
-      }
-
+      const orgs = extractGitHubOrgsFromText(text)
       if (orgs.length === 0) {
-        // No GitHub URL — if we previously auto-detected, revert to default
         /* v8 ignore start */
         if (autoDetectedRef.current) {
-          /* v8 ignore stop */
           autoDetectedRef.current = false
-          setState(previousState => ({
-            ...previousState,
-            localAccount: ghAccount,
-          }))
+          setState(prev => ({ ...prev, localAccount: ghAccount }))
         }
+        /* v8 ignore stop */
         return
       }
-
-      // Find the first org that matches a configured account
-      for (const org of orgs) {
-        const acct = githubAccounts.find(a => a.org.toLowerCase() === org)
-        if (acct) {
-          if (localAccount !== acct.username) {
-            autoDetectedRef.current = true
-            setState(previousState => ({
-              ...previousState,
-              localAccount: acct.username,
-            }))
-          }
-          return
-        }
+      const matchedAcct = orgs
+        .map(org => githubAccounts.find(a => a.org.toLowerCase() === org))
+        .find(Boolean)
+      if (!matchedAcct) return
+      if (localAccount !== matchedAcct.username) {
+        autoDetectedRef.current = true
+        setState(prev => ({ ...prev, localAccount: matchedAcct.username }))
       }
     },
     [githubAccounts, ghAccount, localAccount]
   )
 
-  // Run auto-detection when prompt text changes (debounced)
   useEffect(() => {
-    const timer = setTimeout(() => resolveAccountFromPrompt(prompt), 300)
-    return () => clearTimeout(timer)
+    const t = setTimeout(() => resolveAccountFromPrompt(prompt), 300)
+    return () => clearTimeout(t)
   }, [prompt, resolveAccountFromPrompt])
+
+  const handleSubmitResult = (result: {
+    success?: boolean
+    resultId?: string | null
+    error?: string
+  }) => {
+    if (result.success && result.resultId) {
+      setState(prev => ({ ...prev, prompt: '', error: null }))
+      onOpenResult?.(result.resultId)
+    } else {
+      setState(prev => ({ ...prev, error: result.error ?? 'Unknown error' }))
+    }
+  }
 
   const handleSubmit = async () => {
     const trimmed = prompt.trim()
     if (!trimmed || submitting) return
-
-    setState(previousState => ({
-      ...previousState,
-      submitting: true,
-      error: null,
-    }))
-
+    setState(prev => ({ ...prev, submitting: true, error: null }))
     try {
       const result = await window.copilot.execute({
         prompt: trimmed,
@@ -271,31 +257,11 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         model: localModel,
         metadata: buildCopilotMetadata(localAccount),
       })
-
-      if (result.success && result.resultId) {
-        setState(previousState => ({
-          ...previousState,
-          prompt: '',
-          error: null,
-        }))
-        // Open the result tab
-        onOpenResult?.(result.resultId)
-      } else {
-        setState(previousState => ({
-          ...previousState,
-          error: result.error ?? 'Unknown error',
-        }))
-      }
+      handleSubmitResult(result)
     } catch (err: unknown) {
-      setState(previousState => ({
-        ...previousState,
-        error: getErrorMessage(err),
-      }))
+      setState(prev => ({ ...prev, error: getErrorMessage(err) }))
     } finally {
-      setState(previousState => ({
-        ...previousState,
-        submitting: false,
-      }))
+      setState(prev => ({ ...prev, submitting: false }))
     }
   }
 
@@ -305,12 +271,10 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
       handleSubmit()
     }
   }
-
   const { totalActive } = computeActiveStats(activeCount)
 
   return (
     <div className="copilot-prompt-box">
-      {/* Header */}
       <div className="copilot-prompt-header">
         <div className="copilot-prompt-title">
           <Sparkles size={18} />
@@ -323,8 +287,6 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
           </span>
         )}
       </div>
-
-      {/* Prompt input area */}
       <PromptInputArea
         state={state}
         setState={setState}
@@ -337,10 +299,7 @@ export function CopilotPromptBox({ onOpenResult }: CopilotPromptBoxProps) {
         category={category}
         autoDetectedRef={autoDetectedRef}
       />
-
       {error && <div className="copilot-prompt-error">{error}</div>}
-
-      {/* Recent results */}
       {recentResults && recentResults.length > 0 && (
         <RecentResults results={recentResults} onOpenResult={onOpenResult} />
       )}

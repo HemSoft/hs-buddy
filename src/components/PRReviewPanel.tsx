@@ -18,6 +18,20 @@ interface PRReviewPanelProps {
   onClose?: () => void
 }
 
+function PRReviewCloseButton({ onClose }: { onClose?: () => void }) {
+  if (!onClose) return null
+  return (
+    <button className="pr-review-close-btn" onClick={onClose} title="Close">
+      <X size={16} />
+    </button>
+  )
+}
+
+function PRReviewError({ error }: { error: string | null }) {
+  if (!error) return null
+  return <div className="pr-review-error">{error}</div>
+}
+
 export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelProps) {
   const {
     account,
@@ -48,19 +62,13 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
 
   return (
     <div className="pr-review-panel">
-      {/* Header */}
       <div className="pr-review-panel-header">
         <div className="pr-review-panel-title">
           <Sparkles size={18} />
           <h2>PR Review</h2>
         </div>
-        {onClose && (
-          <button className="pr-review-close-btn" onClick={onClose} title="Close">
-            <X size={16} />
-          </button>
-        )}
+        <PRReviewCloseButton onClose={onClose} />
       </div>
-
       <PRInfoCard
         prTitle={prInfo.prTitle}
         org={prInfo.org}
@@ -69,8 +77,6 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         author={prInfo.author}
         prUrl={prInfo.prUrl}
       />
-
-      {/* Configuration Section */}
       <div className="pr-review-config">
         <div className="pr-review-config-row">
           <label htmlFor="pr-review-account" className="pr-review-label">
@@ -89,7 +95,6 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
             {account && <PremiumUsageBadge username={account} />}
           </div>
         </div>
-
         <div className="pr-review-config-row">
           <label htmlFor="pr-review-model" className="pr-review-label">
             <Cpu size={14} />
@@ -109,7 +114,6 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           </div>
         </div>
       </div>
-
       <PromptSection
         prompt={prompt}
         promptExpanded={promptExpanded}
@@ -120,11 +124,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         onResetPrompt={handleResetPrompt}
         onSaveAsDefault={handleSaveAsDefault}
       />
-
-      {/* Error */}
-      {error && <div className="pr-review-error">{error}</div>}
-
-      {/* Action Buttons */}
+      <PRReviewError error={error} />
       <div className="pr-review-actions">
         <button
           className="pr-review-btn pr-review-btn-primary"
@@ -134,7 +134,6 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           <Play size={14} />
           Run Now
         </button>
-
         <div className="pr-review-schedule-group">
           <button
             className="pr-review-btn pr-review-btn-secondary"

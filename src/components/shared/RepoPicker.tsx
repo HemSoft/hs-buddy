@@ -87,6 +87,28 @@ function buildRepoOptions(
   return { options: opts, selectGroups: groupByFolder(sorted) }
 }
 
+function RepoOptionGroup({ group }: { group: { folder: string; repos: RepoBookmarkList } }) {
+  return (
+    <optgroup label={group.folder}>
+      {group.repos.map(bm => {
+        const repoKey = `${bm.owner}/${bm.repo}`
+        return (
+          <option key={repoKey} value={repoKey}>
+            {repoKey}
+          </option>
+        )
+      })}
+    </optgroup>
+  )
+}
+
+function shouldShowRepoPickerHint(
+  bookmarks: ReturnType<typeof useRepoBookmarks>,
+  loading: boolean
+): boolean {
+  return !loading && !!bookmarks && bookmarks.length === 0
+}
+
 function SelectVariant({
   id,
   value,
@@ -110,6 +132,8 @@ function SelectVariant({
   bookmarks: ReturnType<typeof useRepoBookmarks>
   className: string
 }) {
+  const showHint = shouldShowRepoPickerHint(bookmarks, loading)
+
   return (
     <div className={`select-control ${className}`}>
       <select
@@ -121,25 +145,14 @@ function SelectVariant({
       >
         {allowNone && <option value="">{placeholder}</option>}
         {selectGroups.map(group => (
-          <optgroup key={group.folder} label={group.folder}>
-            {/* v8 ignore start */}
-            {(group.repos ?? []).map(bm => {
-              const repoKey = `${bm.owner}/${bm.repo}`
-              return (
-                <option key={repoKey} value={repoKey}>
-                  {repoKey}
-                </option>
-              )
-            })}
-            {/* v8 ignore stop */}
-          </optgroup>
+          <RepoOptionGroup key={group.folder} group={group} />
         ))}
       </select>
-      {!loading && bookmarks && bookmarks.length === 0 && (
+      {showHint ? (
         <p className="hint" style={{ marginTop: '4px' }}>
           No bookmarked repos. Add repos from the Repos view.
         </p>
-      )}
+      ) : null}
     </div>
   )
 }

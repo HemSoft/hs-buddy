@@ -171,6 +171,135 @@ export function getMissedPolicyHint(policy: string): string {
   return MISSED_POLICY_HINTS[policy] ?? ''
 }
 
+function getOptionalText(value: string): string | undefined {
+  return value.trim() || undefined
+}
+
+async function persistScheduleChanges({
+  isEditing,
+  scheduleId,
+  name,
+  description,
+  jobId,
+  cron,
+  enabled,
+  missedPolicy,
+  create,
+  update,
+  incrementStat,
+}: {
+  isEditing: boolean
+  scheduleId?: string
+  name: string
+  description: string
+  jobId: string
+  cron: string
+  enabled: boolean
+  missedPolicy: MissedPolicy
+  create: ReturnType<typeof useScheduleMutations>['create']
+  update: ReturnType<typeof useScheduleMutations>['update']
+  incrementStat: ReturnType<typeof useBuddyStatsMutations>['increment']
+}) {
+  const trimmedDescription = getOptionalText(description)
+  if (isEditing && scheduleId) {
+    await update({
+      id: scheduleId as Id<'schedules'>,
+      name: name.trim(),
+      /* v8 ignore start */
+      description: trimmedDescription,
+      /* v8 ignore stop */
+      cron,
+      enabled,
+      missedPolicy,
+    })
+    return
+  }
+
+  await create({
+    name: name.trim(),
+    description: trimmedDescription,
+    jobId: jobId as JobId,
+    cron,
+    enabled,
+    missedPolicy,
+  })
+  /* v8 ignore start */
+  incrementStat({ field: 'schedulesCreated' }).catch(() => {})
+  /* v8 ignore stop */
+}
+
+function getDefaultJobId(jobs: ScheduleOption[] | undefined): string {
+  return jobs?.[0]?._id ?? ''
+}
+
+function getScheduleEditorTitle(isEditing: boolean): string {
+  return isEditing ? 'Edit Schedule' : 'Create Schedule'
+}
+
+function shouldWaitForExistingSchedule(
+  isEditing: boolean,
+  existingSchedule: ExistingScheduleData | null | undefined
+): boolean {
+  return Boolean(isEditing && !existingSchedule)
+}
+
+function closeOnOverlayClick(e: React.MouseEvent, onClose: () => void) {
+  if (e.target === e.currentTarget) {
+    onClose()
+  }
+}
+
+function ScheduleEditorBody({
+  waitingForExistingSchedule,
+  onClose,
+  scheduleId,
+  isEditing,
+  jobs,
+  initialFormState,
+  formKey,
+  onSaved,
+}: {
+  waitingForExistingSchedule: boolean
+  onClose: () => void
+  scheduleId?: string
+  isEditing: boolean
+  jobs: ScheduleOption[] | undefined
+  initialFormState: ScheduleFormState
+  formKey: string
+  onSaved?: () => void
+}) {
+  if (waitingForExistingSchedule) {
+    return (
+      <>
+        <div className="schedule-editor-content">
+          <div className="form-loading">Loading schedule...</div>
+        </div>
+        <div className="schedule-editor-footer">
+          <button className="btn-secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn-primary" disabled>
+            <Save size={16} />
+            Update Schedule
+          </button>
+        </div>
+      </>
+    )
+  }
+
+  return (
+    <ScheduleEditorForm
+      key={formKey}
+      scheduleId={scheduleId}
+      isEditing={isEditing}
+      jobs={jobs}
+      initialFormState={initialFormState}
+      onClose={onClose}
+      onSaved={onSaved}
+    />
+  )
+}
+
 function ScheduleEditorForm({
   scheduleId,
   isEditing,
@@ -194,42 +323,28 @@ function ScheduleEditorForm({
       setError(validationError)
       return
     }
-
-    const trimmedDesc = description.trim() || undefined
     setError(null)
     setSaving(true)
-
     try {
-      if (isEditing && scheduleId) {
-        await update({
-          id: scheduleId as Id<'schedules'>,
-          name: name.trim(),
-          /* v8 ignore start */
-          description: trimmedDesc,
-          /* v8 ignore stop */
-          cron,
-          enabled,
-          missedPolicy,
-        })
-      } else {
-        await create({
-          name: name.trim(),
-          description: trimmedDesc,
-          jobId: jobId as JobId,
-          cron,
-          enabled,
-          missedPolicy,
-        })
-        /* v8 ignore start */
-        incrementStat({ field: 'schedulesCreated' }).catch(() => {})
-        /* v8 ignore stop */
-      }
+      await persistScheduleChanges({
+        isEditing,
+        scheduleId,
+        name,
+        description,
+        jobId,
+        cron,
+        enabled,
+        missedPolicy,
+        create,
+        update,
+        incrementStat,
+      })
       onSaved?.()
       onClose()
     } catch (err: unknown) {
-      /* v8 ignore start */
-      setError(getUserFacingErrorMessage(err, 'Failed to save schedule'))
-      /* v8 ignore stop */
+      /* v8 ignore start */ setError(
+        getUserFacingErrorMessage(err, 'Failed to save schedule')
+      ) /* v8 ignore stop */
     } finally {
       setSaving(false)
     }
@@ -244,7 +359,6 @@ function ScheduleEditorForm({
             <span>{error}</span>
           </div>
         )}
-
         <div className="form-group">
           <label htmlFor="schedule-name">Name</label>
           <input
@@ -255,7 +369,6 @@ function ScheduleEditorForm({
             placeholder="e.g., Daily PR Check"
           />
         </div>
-
         <div className="form-group">
           <label htmlFor="schedule-description">Description</label>
           <textarea
@@ -268,7 +381,6 @@ function ScheduleEditorForm({
             rows={2}
           />
         </div>
-
         <div className="form-group">
           <label htmlFor="schedule-job">Job</label>
           <JobSelector
@@ -279,7 +391,6 @@ function ScheduleEditorForm({
             dispatch={dispatch}
           />
         </div>
-
         <div className="form-group">
           <span id={scheduleCronLabelId} className="form-label">
             Schedule
@@ -291,7 +402,6 @@ function ScheduleEditorForm({
             />
           </div>
         </div>
-
         <div className="form-group">
           <label htmlFor="missed-policy">When Missed</label>
           <select
@@ -307,7 +417,6 @@ function ScheduleEditorForm({
           </select>
           <div className="form-hint">{getMissedPolicyHint(missedPolicy)}</div>
         </div>
-
         <div className="form-group form-row">
           <label htmlFor="schedule-enabled" className="checkbox-label">
             <input
@@ -322,7 +431,6 @@ function ScheduleEditorForm({
           </label>
         </div>
       </div>
-
       <div className="schedule-editor-footer">
         <button className="btn-secondary" onClick={onClose} disabled={saving}>
           Cancel
@@ -340,55 +448,38 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
   const jobs = useJobs()
   const existingSchedule = useSchedule(scheduleId as Id<'schedules'> | undefined)
   const isEditing = !!scheduleId
-  const defaultJobId = jobs?.[0]?._id ?? ''
+  const defaultJobId = getDefaultJobId(jobs)
   const initialFormState = buildInitialScheduleFormState(existingSchedule, defaultJobId)
   const formKey = computeFormKey(isEditing, existingSchedule, scheduleId, defaultJobId)
-  const waitingForExistingSchedule = isEditing && !existingSchedule
-
-  const handleOverlayClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      onClose()
-    }
-  }
+  const waitingForExistingSchedule = shouldWaitForExistingSchedule(isEditing, existingSchedule)
+  const editorTitle = getScheduleEditorTitle(isEditing)
 
   return (
-    <div className="schedule-editor-overlay" role="presentation" onClick={handleOverlayClick}>
+    <div
+      className="schedule-editor-overlay"
+      role="presentation"
+      onClick={e => closeOnOverlayClick(e, onClose)}
+    >
       <div className="schedule-editor">
         <div className="schedule-editor-header">
           <div className="schedule-editor-title">
             <Calendar size={20} />
-            <h2>{isEditing ? 'Edit Schedule' : 'Create Schedule'}</h2>
+            <h2>{editorTitle}</h2>
           </div>
           <button className="btn-close" onClick={onClose} title="Close">
             <X size={18} />
           </button>
         </div>
-        {waitingForExistingSchedule ? (
-          <>
-            <div className="schedule-editor-content">
-              <div className="form-loading">Loading schedule...</div>
-            </div>
-            <div className="schedule-editor-footer">
-              <button className="btn-secondary" onClick={onClose}>
-                Cancel
-              </button>
-              <button className="btn-primary" disabled>
-                <Save size={16} />
-                Update Schedule
-              </button>
-            </div>
-          </>
-        ) : (
-          <ScheduleEditorForm
-            key={formKey}
-            scheduleId={scheduleId}
-            isEditing={isEditing}
-            jobs={jobs}
-            initialFormState={initialFormState}
-            onClose={onClose}
-            onSaved={onSaved}
-          />
-        )}
+        <ScheduleEditorBody
+          waitingForExistingSchedule={waitingForExistingSchedule}
+          onClose={onClose}
+          scheduleId={scheduleId}
+          isEditing={isEditing}
+          jobs={jobs}
+          initialFormState={initialFormState}
+          formKey={formKey}
+          onSaved={onSaved}
+        />
       </div>
     </div>
   )

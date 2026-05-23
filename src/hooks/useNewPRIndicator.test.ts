@@ -21,6 +21,45 @@ function makePR(id: number, repo = 'repo'): PullRequest {
   }
 }
 
+type CacheEntry = ReturnType<typeof dataCache.get>
+
+function createCacheEntry(data: unknown): NonNullable<CacheEntry> {
+  return { data, fetchedAt: Date.now() }
+}
+
+function createNeedsReviewSeenEntry(seen: string[] | null): CacheEntry {
+  return seen ? createCacheEntry(seen) : null
+}
+
+function createTrackedCacheGetter(options: {
+  needsReview: () => CacheEntry
+  needsReviewSeen: () => string[] | null
+}) {
+  return (key: string): CacheEntry => {
+    if (key === 'my-prs') return createCacheEntry([makePR(1)])
+    if (key === 'needs-review') return options.needsReview()
+    if (key === 'seen-prs:my-prs') {
+      return createCacheEntry(['https://github.com/org/repo/pull/1'])
+    }
+    if (key === 'seen-prs:needs-review') {
+      return createNeedsReviewSeenEntry(options.needsReviewSeen())
+    }
+    return null
+  }
+}
+
+function createNeedsReviewWhenLoaded(data: PullRequest[] | null): CacheEntry {
+  return data !== null ? createCacheEntry(data) : null
+}
+
+function createNeedsReviewWhenNonEmpty(data: PullRequest[]): CacheEntry {
+  return data.length > 0 ? createCacheEntry(data) : null
+}
+
+function createNeedsReviewEntry(data: PullRequest[]): NonNullable<CacheEntry> {
+  return createCacheEntry(data)
+}
+
 describe('useNewPRIndicator', () => {
   let getSpy: ReturnType<typeof vi.spyOn>
   let setSpy: ReturnType<typeof vi.spyOn>
@@ -153,18 +192,12 @@ describe('useNewPRIndicator', () => {
       return () => {}
     })
 
-    getSpy.mockImplementation((key: string) => {
-      if (key === 'my-prs') return { data: [makePR(1)], fetchedAt: Date.now() }
-      if (key === 'needs-review') {
-        return needsReviewData.length > 0 ? { data: needsReviewData, fetchedAt: Date.now() } : null
-      }
-      if (key === 'seen-prs:my-prs')
-        return { data: ['https://github.com/org/repo/pull/1'], fetchedAt: Date.now() }
-      if (key === 'seen-prs:needs-review') {
-        return needsReviewSeen ? { data: needsReviewSeen, fetchedAt: Date.now() } : null
-      }
-      return null
-    })
+    getSpy.mockImplementation(
+      createTrackedCacheGetter({
+        needsReview: () => createNeedsReviewWhenNonEmpty(needsReviewData),
+        needsReviewSeen: () => needsReviewSeen,
+      })
+    )
 
     setSpy.mockImplementation((key: string, data: unknown) => {
       if (key === 'seen-prs:needs-review') {
@@ -202,18 +235,12 @@ describe('useNewPRIndicator', () => {
       return () => {}
     })
 
-    getSpy.mockImplementation((key: string) => {
-      if (key === 'my-prs') return { data: [makePR(1)], fetchedAt: Date.now() }
-      if (key === 'needs-review') {
-        return needsReviewData !== null ? { data: needsReviewData, fetchedAt: Date.now() } : null
-      }
-      if (key === 'seen-prs:my-prs')
-        return { data: ['https://github.com/org/repo/pull/1'], fetchedAt: Date.now() }
-      if (key === 'seen-prs:needs-review') {
-        return needsReviewSeen ? { data: needsReviewSeen, fetchedAt: Date.now() } : null
-      }
-      return null
-    })
+    getSpy.mockImplementation(
+      createTrackedCacheGetter({
+        needsReview: () => createNeedsReviewWhenLoaded(needsReviewData),
+        needsReviewSeen: () => needsReviewSeen,
+      })
+    )
 
     setSpy.mockImplementation((key: string, data: unknown) => {
       if (key === 'seen-prs:needs-review') {
@@ -296,19 +323,12 @@ describe('useNewPRIndicator', () => {
       return () => {}
     })
 
-    getSpy.mockImplementation((key: string) => {
-      if (key === 'my-prs') return { data: [makePR(1)], fetchedAt: Date.now() }
-      // needs-review starts loaded but empty (not null — cache entry exists)
-      if (key === 'needs-review') {
-        return { data: needsReviewData, fetchedAt: Date.now() }
-      }
-      if (key === 'seen-prs:my-prs')
-        return { data: ['https://github.com/org/repo/pull/1'], fetchedAt: Date.now() }
-      if (key === 'seen-prs:needs-review') {
-        return needsReviewSeen ? { data: needsReviewSeen, fetchedAt: Date.now() } : null
-      }
-      return null
-    })
+    getSpy.mockImplementation(
+      createTrackedCacheGetter({
+        needsReview: () => createNeedsReviewEntry(needsReviewData),
+        needsReviewSeen: () => needsReviewSeen,
+      })
+    )
 
     setSpy.mockImplementation((key: string, data: unknown) => {
       if (key === 'seen-prs:needs-review') {

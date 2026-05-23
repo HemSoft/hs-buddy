@@ -12,26 +12,28 @@ const defaultStatusCounts: Record<string, number> = {
   cancelled: 0,
 }
 
-function renderFilterBar(
-  overrides: Partial<{
-    statusFilter: StatusFilter
-    totalCount: number
-    statusCounts: Record<string, number>
-    onFilterChange: (filter: StatusFilter) => void
-  }> = {}
-) {
-  const onFilterChange = overrides.onFilterChange ?? vi.fn()
+type RenderFilterBarOptions = Partial<{
+  statusFilter: StatusFilter
+  totalCount: number
+  statusCounts: Record<string, number>
+  onFilterChange: (filter: StatusFilter) => void
+}>
 
-  const result = render(
-    <RunFilterBar
-      statusFilter={overrides.statusFilter ?? 'all'}
-      totalCount={overrides.totalCount ?? 9}
-      statusCounts={overrides.statusCounts ?? defaultStatusCounts}
-      onFilterChange={onFilterChange}
-    />
-  )
+function createFilterBarProps(overrides: RenderFilterBarOptions = {}) {
+  return {
+    statusFilter: 'all' as StatusFilter,
+    totalCount: 9,
+    statusCounts: defaultStatusCounts,
+    onFilterChange: vi.fn(),
+    ...overrides,
+  }
+}
 
-  return { ...result, onFilterChange }
+function renderFilterBar(overrides: RenderFilterBarOptions = {}) {
+  const props = createFilterBarProps(overrides)
+  const result = render(<RunFilterBar {...props} />)
+
+  return { ...result, onFilterChange: props.onFilterChange }
 }
 
 function getFilterButton(label: string) {

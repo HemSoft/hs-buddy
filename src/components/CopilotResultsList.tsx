@@ -34,6 +34,31 @@ function PromptResultLabel({
   return <span className="result-prompt-text">{label}</span>
 }
 
+function PRLinkButton({ metadata }: { metadata: Record<string, unknown> | null }) {
+  const hasPrUrl = !!metadata?.prUrl
+  /* v8 ignore next -- guard for missing PR URL in result metadata */
+  if (!hasPrUrl) return null
+  return (
+    <button
+      className="result-action-btn"
+      onClick={e => {
+        e.stopPropagation()
+        window.shell.openExternal(metadata!.prUrl as string)
+      }}
+      title="Open PR"
+    >
+      <ExternalLink size={12} />
+    </button>
+  )
+}
+
+function shouldShowPRLink(
+  category: string | undefined,
+  metadata: Record<string, unknown> | null
+): boolean {
+  return category === 'pr-review' && !!metadata?.prUrl
+}
+
 function CopilotResultRow({
   r,
   onOpenResult,
@@ -59,18 +84,7 @@ function CopilotResultRow({
       <td className="result-duration-cell">{r.duration ? formatDuration(r.duration) : '—'}</td>
       <td className="result-date-cell">{formatDateCompact(r.createdAt)}</td>
       <td className="result-actions-cell">
-        {r.category === 'pr-review' && !!metadata?.prUrl && (
-          <button
-            className="result-action-btn"
-            onClick={e => {
-              e.stopPropagation()
-              window.shell.openExternal(metadata.prUrl as string)
-            }}
-            title="Open PR"
-          >
-            <ExternalLink size={12} />
-          </button>
-        )}
+        {shouldShowPRLink(r.category, metadata) && <PRLinkButton metadata={metadata} />}
         <button
           className="result-action-btn danger"
           onClick={e => onDelete(e, r._id)}
@@ -83,16 +97,21 @@ function CopilotResultRow({
   )
 }
 
+function filterResults(
+  results: ReturnType<typeof useCopilotResultsRecent>,
+  statusFilter: string
+): NonNullable<ReturnType<typeof useCopilotResultsRecent>> {
+  if (!results) return []
+  if (statusFilter === 'all') return results
+  return results.filter(r => r.status === statusFilter)
+}
+
 export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
   const [statusFilter, setStatusFilter] = useState('all')
   const results = useCopilotResultsRecent(50)
   const { remove } = useCopilotResultMutations()
 
-  const filteredResults = results
-    ? statusFilter === 'all'
-      ? results
-      : results.filter(r => r.status === statusFilter)
-    : []
+  const filteredResults = filterResults(results, statusFilter)
 
   const handleDelete = async (e: React.MouseEvent, resultId: string) => {
     e.stopPropagation()

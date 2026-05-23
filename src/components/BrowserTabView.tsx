@@ -35,36 +35,61 @@ function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): Br
   }
 }
 
+function getWebviewShortcutInput(event: Event) {
+  const input = (
+    event as Event & {
+      input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean }
+    }
+  ).input
+  if (!input || input.type !== 'keyDown') return null
+  if (!input.control && !input.meta) return null
+  return input
+}
+
+function handleWebviewBeforeInput(event: Event, shortcuts: Record<string, (s: boolean) => string>) {
+  const input = getWebviewShortcutInput(event)
+  if (!input) return
+  const fn = shortcuts[input.key]
+  if (fn) {
+    event.preventDefault()
+    window.dispatchEvent(new Event(fn(input.shift)))
+  }
+}
+
+function handleZoomKeydown(e: KeyboardEvent, zoomIn: () => void, zoomOut: () => void) {
+  if (!e.altKey) return
+  if (e.key === '=' || e.key === '+') {
+    e.preventDefault()
+    zoomIn()
+  } else if (e.key === '-') {
+    e.preventDefault()
+    zoomOut()
+  }
+}
+
 export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
   const [{ navigatedUrl, loading }, dispatch] = useReducer(browserTabReducer, {
     navigatedUrl: null,
     loading: true,
   })
-  const zoomLevelRef = useRef(
-    (() => {
-      const stored = localStorage.getItem(ZOOM_STORAGE_KEY)
-      return stored ? Number(stored) : 0
-    })()
-  )
+  const zoomLevelRef = useRef(Number(localStorage.getItem(ZOOM_STORAGE_KEY)) || 0)
   const currentUrl = navigatedUrl ?? url
 
-  const zoomIn = useCallback(() => {
-    const next = Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)
+  const applyZoom = (next: number) => {
     zoomLevelRef.current = next
     localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
     webviewRef.current?.setZoomLevel(next)
-  }, [])
+  }
+  const zoomIn = useCallback(
+    () => applyZoom(Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)),
+    []
+  )
+  const zoomOut = useCallback(
+    () => applyZoom(Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)),
+    []
+  )
 
-  const zoomOut = useCallback(() => {
-    const next = Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)
-    zoomLevelRef.current = next
-    localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
-    webviewRef.current?.setZoomLevel(next)
-  }, [])
-
-  // Set webview-specific attributes and src together before first paint
-  // to ensure partition is established before navigation starts
   useLayoutEffect(() => {
     const wv = webviewRef.current
     /* v8 ignore start -- ref is always set after initial render */
@@ -84,7 +109,6 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     /* v8 ignore start -- ref is always set after initial render */
     if (!webview) return
     /* v8 ignore stop */
-
     const handleTitleUpdate = (e: Electron.PageTitleUpdatedEvent) => {
       onTitleChange?.(e.title)
     }
@@ -94,41 +118,20 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     const handleStartLoad = () => dispatch({ type: 'start-loading' })
     const handleStopLoad = () => {
       dispatch({ type: 'stop-loading' })
-      if (zoomLevelRef.current !== 0) {
-        webview.setZoomLevel(zoomLevelRef.current)
-      }
+      if (zoomLevelRef.current !== 0) webview.setZoomLevel(zoomLevelRef.current)
     }
-
-    type WebviewInput = {
-      type: string
-      key: string
-      control: boolean
-      meta: boolean
-      shift: boolean
-    }
-
-    const WEBVIEW_SHORTCUTS: Record<string, (shift: boolean) => string> = {
-      Tab: shift => (shift ? 'app:tab-prev' : 'app:tab-next'),
+    const SHORTCUTS: Record<string, (s: boolean) => string> = {
+      Tab: s => (s ? 'app:tab-prev' : 'app:tab-next'),
       F4: () => 'app:tab-close',
     }
-
     const handleBeforeInput = (event: Event) => {
-      const input = (event as Event & { input?: WebviewInput }).input
-      if (!input || input.type !== 'keyDown') return
-      const ctrlOrCmd = input.control || input.meta
-      if (!ctrlOrCmd) return
-      const eventName = WEBVIEW_SHORTCUTS[input.key]
-      if (!eventName) return
-      event.preventDefault()
-      window.dispatchEvent(new Event(eventName(input.shift)))
+      handleWebviewBeforeInput(event, SHORTCUTS)
     }
-
     webview.addEventListener('before-input-event', handleBeforeInput)
     webview.addEventListener('page-title-updated', handleTitleUpdate)
     webview.addEventListener('did-navigate', handleNavigate)
     webview.addEventListener('did-start-loading', handleStartLoad)
     webview.addEventListener('did-stop-loading', handleStopLoad)
-
     return () => {
       webview.removeEventListener('before-input-event', handleBeforeInput)
       webview.removeEventListener('page-title-updated', handleTitleUpdate)
@@ -139,18 +142,9 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   }, [onTitleChange])
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!e.altKey) return
-      if (e.key === '=' || e.key === '+') {
-        e.preventDefault()
-        zoomIn()
-      } else if (e.key === '-') {
-        e.preventDefault()
-        zoomOut()
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    const h = (e: KeyboardEvent) => handleZoomKeydown(e, zoomIn, zoomOut)
+    window.addEventListener('keydown', h)
+    return () => window.removeEventListener('keydown', h)
   }, [zoomIn, zoomOut])
 
   return (

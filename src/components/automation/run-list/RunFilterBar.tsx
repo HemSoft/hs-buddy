@@ -19,6 +19,52 @@ const filterButtons: { label: string; value: StatusFilter }[] = [
   { label: 'Cancelled', value: 'cancelled' },
 ]
 
+function getFilterButtonCount(
+  value: StatusFilter,
+  totalCount: number,
+  statusCounts: Record<string, number>
+): number {
+  if (value === 'all') return totalCount
+  return statusCounts[value as RunStatus] || 0
+}
+
+function getFilterButtonClassName(statusFilter: StatusFilter, value: StatusFilter): string {
+  const stateClass = statusFilter === value ? 'active' : ''
+  const variantClass = value === 'all' ? '' : `filter-${value}`
+  return `filter-btn ${stateClass} ${variantClass}`.trim()
+}
+
+function FilterCount({ count }: { count: number }) {
+  if (count <= 0) return null
+  return <span className="filter-count">{count}</span>
+}
+
+function FilterButton({
+  label,
+  value,
+  statusFilter,
+  totalCount,
+  statusCounts,
+  onFilterChange,
+}: {
+  label: string
+  value: StatusFilter
+  statusFilter: StatusFilter
+  totalCount: number
+  statusCounts: Record<string, number>
+  onFilterChange: (filter: StatusFilter) => void
+}) {
+  const count = getFilterButtonCount(value, totalCount, statusCounts)
+  const className = getFilterButtonClassName(statusFilter, value)
+
+  return (
+    <button className={className} onClick={() => onFilterChange(value)}>
+      {label}
+      <FilterCount count={count} />
+    </button>
+  )
+}
+
 export function RunFilterBar({
   statusFilter,
   totalCount,
@@ -28,19 +74,17 @@ export function RunFilterBar({
   return (
     <div className="run-filter-bar">
       <Filter size={14} className="filter-icon" />
-      {filterButtons.map(({ label, value }) => {
-        const count = value === 'all' ? totalCount : statusCounts[value as RunStatus] || 0
-        return (
-          <button
-            key={value}
-            className={`filter-btn ${statusFilter === value ? 'active' : ''} ${value !== 'all' ? `filter-${value}` : ''}`}
-            onClick={() => onFilterChange(value)}
-          >
-            {label}
-            {count > 0 && <span className="filter-count">{count}</span>}
-          </button>
-        )
-      })}
+      {filterButtons.map(({ label, value }) => (
+        <FilterButton
+          key={value}
+          label={label}
+          value={value}
+          statusFilter={statusFilter}
+          totalCount={totalCount}
+          statusCounts={statusCounts}
+          onFilterChange={onFilterChange}
+        />
+      ))}
     </div>
   )
 }

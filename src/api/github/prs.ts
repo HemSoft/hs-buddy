@@ -181,12 +181,16 @@ function isNewerReview(
   return !existing || (submittedAt || '') > (existing.submittedAt || '')
 }
 
+function getReviewAuthorLogin(review: ReviewNodeForMap): string | undefined {
+  return review.author?.login
+}
+
 export function buildLatestReviewsMap(
   reviews: ReviewNodeForMap[] | undefined
 ): Map<string, ReviewEntryForMap> {
   const map = new Map<string, ReviewEntryForMap>()
   for (const review of reviews ?? []) {
-    const login = review.author?.login
+    const login = getReviewAuthorLogin(review)
     if (!login) continue
     if (isNewerReview(review.submittedAt, map.get(login))) {
       map.set(login, buildReviewEntry(review))
@@ -204,14 +208,25 @@ function isUserReviewer(
   return r.__typename === 'User' && 'login' in r && 'avatarUrl' in r
 }
 
+function buildReviewerEntry(r: {
+  login: string
+  avatarUrl?: string | null
+  name?: string | null
+}): {
+  login: string
+  data: { avatarUrl: string | null; name: string | null }
+} {
+  return { login: r.login, data: { avatarUrl: r.avatarUrl || null, name: r.name || null } }
+}
+
 export function buildRequestedReviewersMap(
   reviewRequests: ReviewRequestNode[] | undefined
 ): Map<string, { avatarUrl: string | null; name: string | null }> {
   const map = new Map<string, { avatarUrl: string | null; name: string | null }>()
   for (const req of reviewRequests ?? []) {
     if (isUserReviewer(req.requestedReviewer)) {
-      const r = req.requestedReviewer
-      map.set(r.login, { avatarUrl: r.avatarUrl || null, name: r.name || null })
+      const { login, data } = buildReviewerEntry(req.requestedReviewer)
+      map.set(login, data)
     }
   }
   return map
@@ -233,6 +248,20 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 }
 /* v8 ignore stop */
 
+/* v8 ignore start -- only called from GraphQL fallback path (also ignored) */
+function resolvePRDates(node: ViewerPRNode): {
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    created: node.createdAt ? new Date(node.createdAt) : null,
+    updatedAt: node.updatedAt || null,
+    date: node.closedAt || node.mergedAt || null,
+  }
+}
+/* v8 ignore stop */
+
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */
 function mapGraphQLNodeToPullRequest(
@@ -242,6 +271,7 @@ function mapGraphQLNodeToPullRequest(
 ): PullRequest & { _owner: string; _repo: string; _prNumber: number } {
   const [owner, repo] = node.repository.nameWithOwner.split('/')
   const { login: author, avatarUrl: authorAvatarUrl } = resolveGraphQLAuthor(node.author)
+  const dates = resolvePRDates(node)
 
   return {
     source: 'GitHub' as const,
@@ -251,9 +281,7 @@ function mapGraphQLNodeToPullRequest(
     author,
     authorAvatarUrl,
     assigneeCount: node.assignees.totalCount,
-    created: node.createdAt ? new Date(node.createdAt) : null,
-    updatedAt: node.updatedAt || null,
-    date: node.closedAt || node.mergedAt || null,
+    ...dates,
     url: node.url,
     state: node.state.toLowerCase(),
     approvalCount: 0,
@@ -278,6 +306,21 @@ function resolveAssigneeCount(item: any): number {
   return item.assignees?.length || 0
 }
 
+/* v8 ignore start -- only called from buildSearchPRFields (also ignored) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function resolveSearchDates(item: any): {
+  created: Date | null
+  updatedAt: string | null
+  date: string | null
+} {
+  return {
+    created: item.created_at ? new Date(item.created_at) : null,
+    updatedAt: item.updated_at || null,
+    date: item.closed_at || null,
+  }
+}
+/* v8 ignore stop */
+
 /** Extract nullable author/date/assignee fields for a search-result PR. */
 /* v8 ignore start -- API response null-guards in issue/PR field mapping */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -294,10 +337,14 @@ function buildSearchPRFields(item: any): {
     author: user.login || 'unknown',
     authorAvatarUrl: user.avatar_url,
     assigneeCount: resolveAssigneeCount(item),
-    created: item.created_at ? new Date(item.created_at) : null,
-    updatedAt: item.updated_at || null,
-    date: item.closed_at || null,
+    ...resolveSearchDates(item),
   }
+}
+
+function parseOwnerRepoFromUrl(url: string): { owner: string; repo: string } | null {
+  const match = url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
+  if (!match?.[1] || !match?.[2]) return null
+  return { owner: match[1], repo: match[2] }
 }
 
 /** Map a GitHub search item to a PullRequest (with temp metadata fields). */
@@ -307,15 +354,12 @@ function mapSearchItemToPullRequest(
   orgAvatarUrl: string | null,
   org: string
 ): (PullRequest & { _owner: string; _repo: string; _prNumber: number }) | null {
-  const urlMatch = item.html_url.match(/github\.com\/([^/]+)\/([^/]+)\/pull/)
-  if (!urlMatch?.[1] || !urlMatch?.[2]) return null
-
-  const owner: string = urlMatch[1]
-  const repo: string = urlMatch[2]
+  const parsed = parseOwnerRepoFromUrl(item.html_url)
+  if (!parsed) return null
 
   return {
     source: 'GitHub' as const,
-    repository: repo,
+    repository: parsed.repo,
     id: item.number,
     title: item.title,
     ...buildSearchPRFields(item),
@@ -330,8 +374,8 @@ function mapSearchItemToPullRequest(
     threadsUnaddressed: null,
     orgAvatarUrl: orgAvatarUrl ?? undefined,
     org,
-    _owner: owner,
-    _repo: repo,
+    _owner: parsed.owner,
+    _repo: parsed.repo,
     _prNumber: item.number,
   }
 }
@@ -359,6 +403,10 @@ function extractBranchRefs(
   return { headBranch: head.ref || '', baseBranch: base.ref || '', headSha: head.sha || '' }
 }
 
+function getRestReviewLogin(review: { user?: { login?: string } | null }): string | undefined {
+  return review.user?.login
+}
+
 /** Build the latest-review-by-user map from a list of REST reviews. */
 function buildLatestReviewByUser(
   reviews: Array<{
@@ -369,7 +417,7 @@ function buildLatestReviewByUser(
 ): Map<string, { state: string; submittedAt: string }> {
   const map = new Map<string, { state: string; submittedAt: string }>()
   for (const review of reviews) {
-    const login = review.user?.login
+    const login = getRestReviewLogin(review)
     if (!login) continue
     const submittedAt = review.submitted_at || ''
     if (isNewerReview(submittedAt, map.get(login))) {
@@ -482,6 +530,26 @@ async function executeSingleSearchQuery(
   return prs
 }
 
+type PullRequestWithMeta = PullRequest & { _owner: string; _repo: string; _prNumber: number }
+type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
+
+function appendUniquePRs(target: PullRequest[], prs: PullRequest[], seenUrls: Set<string>): void {
+  for (const pr of prs) {
+    if (seenUrls.has(pr.url)) continue
+    seenUrls.add(pr.url)
+    target.push(pr)
+  }
+}
+
+function logSearchQueryFailure(query: string, error: unknown): void {
+  const errorMsg = getErrorMessage(error)
+  if (!errorMsg.includes('404')) {
+    console.warn(`Search query failed: ${query}`, error)
+    return
+  }
+  console.debug(`No search results (404) for: ${query}`)
+}
+
 /** Execute PR search queries and collect unique results. */
 async function executeSearchQueries(
   _config: PRConfig['github'],
@@ -495,22 +563,23 @@ async function executeSearchQueries(
   for (const query of queries) {
     try {
       const prs = await executeSingleSearchQuery(_config, octokit, query, orgAvatarUrl, org)
-      for (const pr of prs) {
-        if (!seenUrls.has(pr.url)) {
-          seenUrls.add(pr.url)
-          allPrs.push(pr)
-        }
-      }
+      appendUniquePRs(allPrs, prs, seenUrls)
     } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      if (!errorMsg.includes('404')) {
-        console.warn(`Search query failed: ${query}`, error)
-      } else {
-        console.debug(`No search results (404) for: ${query}`)
-      }
+      logSearchQueryFailure(query, error)
     }
   }
   return allPrs
+}
+
+function collectOrgPRsFromPage(
+  nodes: ViewerPRNode[],
+  orgLower: string,
+  orgAvatarUrl: string | null,
+  org: string
+): Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }> {
+  return nodes
+    .filter(node => node.repository.owner.login.toLowerCase() === orgLower)
+    .map(node => mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
 }
 
 /**
@@ -540,11 +609,7 @@ async function fetchPRsViaGraphQLFallback(
     })
 
     const page = response.viewer.pullRequests
-    for (const node of page.nodes) {
-      if (node.repository.owner.login.toLowerCase() === orgLower) {
-        result.push(mapGraphQLNodeToPullRequest(node, orgAvatarUrl, org))
-      }
-    }
+    result.push(...collectOrgPRsFromPage(page.nodes, orgLower, orgAvatarUrl, org))
 
     hasNextPage = page.pageInfo.hasNextPage
     cursor = hasNextPage ? page.pageInfo.endCursor : null
@@ -553,55 +618,52 @@ async function fetchPRsViaGraphQLFallback(
   return result
 }
 
-async function fetchPRsForAccount(
+function computeMergedAfter(mode: PRSearchMode, recentlyMergedDays: number): string | undefined {
+  if (mode !== 'recently-merged') return undefined
+  const mergedAfterDate = new Date()
+  mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
+  return mergedAfterDate.toISOString().split('T')[0]
+}
+
+function filterByMode(prs: PullRequest[], mode: PRSearchMode): PullRequest[] {
+  if (mode === 'needs-review') return prs.filter(pr => !pr.iApproved)
+  if (mode === 'need-a-nudge') return prs.filter(pr => pr.iApproved)
+  return prs
+}
+
+function shouldUsePRSearchFallback(prs: PullRequest[], mode: PRSearchMode): boolean {
+  return prs.length === 0 && mode === 'my-prs'
+}
+
+async function applyGraphQLFallback(
   config: PRConfig['github'],
-  recentlyMergedDays: number,
   username: string,
   org: string,
-  mode: PRSearchMode = 'my-prs'
-): Promise<PullRequest[]> {
-  const octokit = await getOctokit(username)
-  if (!octokit) return []
+  orgAvatarUrl: string | null,
+  mode: PRSearchMode,
+  allPrs: PullRequest[]
+): Promise<void> {
+  if (!shouldUsePRSearchFallback(allPrs, mode)) return
 
-  const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
-
-  // Compute mergedAfter date for recently-merged mode
-  let mergedAfter: string | undefined
-  if (mode === 'recently-merged') {
-    const mergedAfterDate = new Date()
-    mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
-    mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-  }
-
-  const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
-  const allPrs = await executeSearchQueries(config, octokit, queries, org)
-
-  // Fallback: when search returns 0 results for my-prs, try GraphQL viewer.pullRequests
-  // which bypasses the search index (resilient to GitHub Search API outages)
-  if (allPrs.length === 0 && mode === 'my-prs') {
-    console.debug(
-      `[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`
-    )
-    try {
-      const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
-      if (fallbackPrs.length > 0) {
-        console.info(
-          `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
-        )
-        allPrs.push(...fallbackPrs)
-      }
-    } catch (error: unknown) {
-      console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
+  console.debug(`[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`)
+  try {
+    const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
+    if (fallbackPrs.length > 0) {
+      console.info(
+        `[PR Fallback] GraphQL found ${fallbackPrs.length} PRs (search API may be degraded)`
+      )
+      allPrs.push(...fallbackPrs)
     }
+  } catch (error: unknown) {
+    console.debug(`[PR Fallback] GraphQL fallback failed:`, error)
   }
+}
 
-  // Batch fetch reviews in parallel (with concurrency limit)
-  const prsWithMeta = allPrs as (PullRequest & {
-    _owner: string
-    _repo: string
-    _prNumber: number
-  })[]
-
+async function enrichPullRequestsWithMetadata(
+  octokit: Octokit,
+  username: string,
+  prsWithMeta: PullRequestWithMeta[]
+): Promise<void> {
   await batchProcess(prsWithMeta, async pr => {
     try {
       const [reviewsData, prData] = await Promise.all([
@@ -623,55 +685,67 @@ async function fetchPRsForAccount(
 
       pr.approvalCount = approvalCount
       pr.iApproved = iApproved
-      pr.headBranch = prData.data.head?.ref || ''
-      pr.baseBranch = prData.data.base?.ref || ''
+      const refs = extractBranchRefs(prData.data.head, prData.data.base)
+      pr.headBranch = refs.headBranch
+      pr.baseBranch = refs.baseBranch
     } catch (error: unknown) {
       console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
     }
   })
+}
+
+function stripPRMetadata(prs: PullRequest[]): PullRequest[] {
+  return prs.map(pr => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequestWithMeta & {
+      _owner?: string
+      _repo?: string
+      _prNumber?: number
+    }
+    return cleanPr
+  })
+}
+
+async function fetchPRsForAccount(
+  config: PRConfig['github'],
+  recentlyMergedDays: number,
+  username: string,
+  org: string,
+  mode: PRSearchMode = 'my-prs'
+): Promise<PullRequest[]> {
+  const octokit = await getOctokit(username)
+  if (!octokit) return []
+
+  const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
+  const mergedAfter = computeMergedAfter(mode, recentlyMergedDays)
+  const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
+  const allPrs = await executeSearchQueries(config, octokit, queries, org)
+
+  await applyGraphQLFallback(config, username, org, orgAvatarUrl, mode, allPrs)
+
+  const prsWithMeta = allPrs as PullRequestWithMeta[]
+  await enrichPullRequestsWithMetadata(octokit, username, prsWithMeta)
 
   // Batch-fetch thread stats via a single GraphQL query per owner (more reliable than per-PR calls)
   await fetchBatchThreadStats(config, prsWithMeta)
 
-  // Clean up metadata and filter by mode
-  return allPrs
-    .map(pr => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
-        _owner?: string
-        _repo?: string
-        _prNumber?: number
-      }
-      return cleanPr
-    })
-    .filter(pr => {
-      if (mode === 'needs-review') return !pr.iApproved
-      if (mode === 'need-a-nudge') return pr.iApproved
-      return true
-    })
+  return stripPRMetadata(filterByMode(allPrs, mode))
 }
 
 /**
  * Core fetch method with mode support — orchestrates multi-account PR fetching.
  */
 /* v8 ignore start -- multi-account orchestration; requires real API */
-async function fetchPRs(
+function createAccountReport(
   config: PRConfig['github'],
-  recentlyMergedDays: number,
-  mode: PRSearchMode,
-  onProgress?: ProgressCallback
-): Promise<PullRequest[]> {
-  const allPrs: PullRequest[] = []
-  let authenticationErrors = 0
-  const totalAccounts = config.accounts.length
-  const report: ProgressCallback = ensureCallback(onProgress)
-
-  type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
-  const accountReport = (
-    index: number,
-    status: PRProgressStatus,
-    extra?: { prsFound?: number; error?: string }
-  ) => {
+  totalAccounts: number,
+  report: ProgressCallback
+): (
+  index: number,
+  status: PRProgressStatus,
+  extra?: { prsFound?: number; error?: string }
+) => void {
+  return (index, status, extra) => {
     const { username, org } = config.accounts[index]
     report({
       currentAccount: index + 1,
@@ -682,69 +756,109 @@ async function fetchPRs(
       ...extra,
     })
   }
+}
 
-  // Process each configured GitHub account with its own token
-  for (let i = 0; i < config.accounts.length; i++) {
-    const { username, org } = config.accounts[i]
+function logAccountFetchError(username: string, org: string, errorMsg: string): void {
+  if (!errorMsg.includes('404')) {
+    console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
+    return
+  }
+  console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
+}
 
-    console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
-    accountReport(i, 'authenticating')
+async function fetchConfiguredAccountPRs(
+  config: PRConfig['github'],
+  recentlyMergedDays: number,
+  username: string,
+  org: string,
+  mode: PRSearchMode,
+  index: number,
+  accountReport: (
+    index: number,
+    status: PRProgressStatus,
+    extra?: { prsFound?: number; error?: string }
+  ) => void
+): Promise<{ prs: PullRequest[]; authFailed: boolean }> {
+  console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
+  accountReport(index, 'authenticating')
 
-    // Get Octokit instance for this specific account
-    const octokit = await getOctokit(username)
-    if (!octokit) {
-      console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)
-      accountReport(i, 'error', { error: 'No GitHub CLI authentication found' })
-      authenticationErrors++
-      continue
-    }
-
-    accountReport(i, 'fetching')
-
-    try {
-      const prs = await fetchPRsForAccount(config, recentlyMergedDays, username, org, mode)
-      allPrs.push(...prs)
-
-      console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
-      accountReport(i, 'done', { prsFound: prs.length })
-    } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      // Only warn for non-404 errors (404s likely mean no access or org doesn't exist)
-      if (!errorMsg.includes('404')) {
-        console.warn(`⚠️  Error fetching PRs for ${username} in ${org}:`, errorMsg)
-      } else {
-        console.debug(`ℹ️  No access or org not found for ${username} in ${org}`)
-      }
-      accountReport(i, 'error', { error: errorMsg })
-      continue
-    }
+  const octokit = await getOctokit(username)
+  if (!octokit) {
+    console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)
+    accountReport(index, 'error', { error: 'No GitHub CLI authentication found' })
+    return { prs: [], authFailed: true }
   }
 
-  // If all accounts failed due to auth, throw error
+  accountReport(index, 'fetching')
+
+  try {
+    const prs = await fetchPRsForAccount(config, recentlyMergedDays, username, org, mode)
+    console.debug(`✓ Found ${prs.length} PRs for ${username} in ${org}`)
+    accountReport(index, 'done', { prsFound: prs.length })
+    return { prs, authFailed: false }
+  } catch (error: unknown) {
+    const errorMsg = getErrorMessage(error)
+    logAccountFetchError(username, org, errorMsg)
+    accountReport(index, 'error', { error: errorMsg })
+    return { prs: [], authFailed: false }
+  }
+}
+
+function sortMergedPRs(prs: PullRequest[]): PullRequest[] {
+  return [...prs].sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0
+    const dateB = b.date ? new Date(b.date).getTime() : 0
+    return dateB - dateA
+  })
+}
+
+function dedupePullRequests(prs: PullRequest[]): PullRequest[] {
+  const seenUrls = new Set<string>()
+  return prs.filter(pr => {
+    if (seenUrls.has(pr.url)) return false
+    seenUrls.add(pr.url)
+    return true
+  })
+}
+
+function finalizeFetchedPRs(prs: PullRequest[], mode: PRSearchMode): PullRequest[] {
+  const sortedPrs = mode === 'recently-merged' ? sortMergedPRs(prs) : prs
+  return dedupePullRequests(sortedPrs)
+}
+
+async function fetchPRs(
+  config: PRConfig['github'],
+  recentlyMergedDays: number,
+  mode: PRSearchMode,
+  onProgress?: ProgressCallback
+): Promise<PullRequest[]> {
+  const allPrs: PullRequest[] = []
+  let authenticationErrors = 0
+  const totalAccounts = config.accounts.length
+  const report: ProgressCallback = ensureCallback(onProgress)
+  const accountReport = createAccountReport(config, totalAccounts, report)
+
+  for (const [index, account] of config.accounts.entries()) {
+    const accountResult = await fetchConfiguredAccountPRs(
+      config,
+      recentlyMergedDays,
+      account.username,
+      account.org,
+      mode,
+      index,
+      accountReport
+    )
+    allPrs.push(...accountResult.prs)
+    authenticationErrors += Number(accountResult.authFailed)
+  }
+
   if (authenticationErrors === config.accounts.length) {
     throw new Error(
       'GitHub CLI authentication not available for any configured account. Please run: gh auth login'
     )
   }
 
-  // Sort recently-merged PRs by merge date (newest first) after combining all accounts
-  if (mode === 'recently-merged') {
-    allPrs.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateB - dateA // Descending (newest first)
-    })
-  }
-
-  // Deduplicate across accounts — the same PR can appear from multiple accounts
-  const seenUrls = new Set<string>()
-  const dedupedPrs = allPrs.filter(pr => {
-    if (seenUrls.has(pr.url)) return false
-    seenUrls.add(pr.url)
-    return true
-  })
-
-  return dedupedPrs
+  return finalizeFetchedPRs(allPrs, mode)
 }
 /* v8 ignore stop */
 
@@ -784,6 +898,10 @@ export async function fetchNeedANudge(
   return fetchPRs(config, recentlyMergedDays, 'need-a-nudge', onProgress)
 }
 
+function resolveViewerLogin(viewer: { data?: { login?: string } } | null): string | null {
+  return viewer?.data?.login?.toLowerCase() || null
+}
+
 /** Fetch open pull requests for a specific repository. */
 /* v8 ignore start -- repo PR listing; requires real API */
 export async function fetchRepoPRs(
@@ -805,7 +923,7 @@ export async function fetchRepoPRs(
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+  const viewerLogin = resolveViewerLogin(viewer)
 
   const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
 

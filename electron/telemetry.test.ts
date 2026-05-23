@@ -507,11 +507,12 @@ describe('telemetry', () => {
         logs: { getLogger: vi.fn(() => ({ emit: vi.fn() })), setGlobalLoggerProvider: vi.fn() },
         SeverityNumber: { DEBUG: 5, INFO: 9, WARN: 13, ERROR: 17 },
       }))
-      function MockNodeSDK() {
-        return mockNodeSDK
+      class MockNodeSDK {
+        start = mockNodeSDK.start
+        shutdown = mockNodeSDK.shutdown
       }
-      function MockLoggerProvider() {
-        return mockLoggerProvider
+      class MockLoggerProvider {
+        shutdown = mockLoggerProvider.shutdown
       }
 
       vi.doMock('@opentelemetry/sdk-node', () => ({ NodeSDK: MockNodeSDK }))

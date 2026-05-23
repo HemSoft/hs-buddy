@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react'
 import type {
   RalphRunInfo,
   RalphLaunchConfig,
@@ -7,6 +15,44 @@ import type {
 } from '../types/ralph'
 
 const POLL_INTERVAL_MS = 3_000
+
+function setRalphRunsIfMounted(
+  mountedRef: MutableRefObject<boolean>,
+  result: unknown,
+  setRuns: Dispatch<SetStateAction<RalphRunInfo[]>>,
+  setError: Dispatch<SetStateAction<string | null>>
+) {
+  if (!mountedRef.current || !Array.isArray(result)) {
+    return
+  }
+
+  setRuns(result)
+  setError(null)
+}
+
+function setRalphErrorIfMounted(
+  mountedRef: MutableRefObject<boolean>,
+  error: unknown,
+  setError: Dispatch<SetStateAction<string | null>>
+) {
+  if (!mountedRef.current) {
+    return
+  }
+  setError(error instanceof Error ? error.message : 'Failed to list loops')
+}
+
+function finishRalphRefresh(
+  mountedRef: MutableRefObject<boolean>,
+  setLoading: Dispatch<SetStateAction<boolean>>
+) {
+  if (mountedRef.current) {
+    setLoading(false)
+  }
+}
+
+function hasActiveRalphRun(runs: RalphRunInfo[]): boolean {
+  return runs.some(run => run.status === 'running' || run.status === 'pending')
+}
 
 /** Hook for managing ralph loop state with IPC + real-time push events. */
 export function useRalphLoops() {
@@ -18,16 +64,11 @@ export function useRalphLoops() {
   const refresh = useCallback(async () => {
     try {
       const result = await window.ralph.list()
-      if (!mountedRef.current) return
-      if (Array.isArray(result)) {
-        setRuns(result)
-        setError(null)
-      }
+      setRalphRunsIfMounted(mountedRef, result, setRuns, setError)
     } catch (err: unknown) {
-      if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to list loops')
+      setRalphErrorIfMounted(mountedRef, err, setError)
     } finally {
-      if (mountedRef.current) setLoading(false)
+      finishRalphRefresh(mountedRef, setLoading)
     }
   }, [])
 
@@ -64,8 +105,7 @@ export function useRalphLoops() {
 
   // Fallback polling for any missed events
   useEffect(() => {
-    const hasActive = runs.some(r => r.status === 'running' || r.status === 'pending')
-    if (!hasActive) return
+    if (!hasActiveRalphRun(runs)) return
 
     const timer = setInterval(refresh, POLL_INTERVAL_MS)
     return () => {

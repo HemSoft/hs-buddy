@@ -1,5 +1,43 @@
 import { useEffect, type RefObject } from 'react'
 
+function resolveMarkdownAnchor(
+  target: EventTarget | null,
+  container: HTMLElement
+): HTMLAnchorElement | null {
+  if (!(target instanceof HTMLElement)) {
+    return null
+  }
+
+  const anchor = target.closest('a')
+  if (!(anchor instanceof HTMLAnchorElement)) {
+    return null
+  }
+
+  /* v8 ignore next -- container.contains always true in non-portal contexts */
+  return container.contains(anchor) ? anchor : null
+}
+
+function readExternalMarkdownHref(anchor: HTMLAnchorElement): string | null {
+  const href = anchor.getAttribute('href')?.trim()
+  if (!href) {
+    return null
+  }
+
+  return /^(https?:|mailto:)/i.test(href) ? href : null
+}
+
+function resolveExternalMarkdownHref(
+  target: EventTarget | null,
+  container: HTMLElement
+): string | null {
+  const anchor = resolveMarkdownAnchor(target, container)
+  if (!anchor) {
+    return null
+  }
+
+  return readExternalMarkdownHref(anchor)
+}
+
 export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const container = containerRef.current
@@ -8,18 +46,8 @@ export function useExternalMarkdownLinks(containerRef: RefObject<HTMLElement | n
     }
 
     const handleClick = (event: MouseEvent) => {
-      const target = event.target
-      if (!(target instanceof HTMLElement)) {
-        return
-      }
-
-      const anchor = target.closest('a')
-      if (!(anchor instanceof HTMLAnchorElement) || !container.contains(anchor)) {
-        return
-      }
-
-      const href = anchor.getAttribute('href')?.trim()
-      if (!href || !/^(https?:|mailto:)/i.test(href)) {
+      const href = resolveExternalMarkdownHref(event.target, container)
+      if (!href) {
         return
       }
 

@@ -33,6 +33,11 @@ function decodePRDetailViewId(viewId: string) {
   return JSON.parse(decodeURIComponent(encoded))
 }
 
+function expectParsedRoute(value: ReturnType<typeof parsePRDetailRoute>) {
+  expect(value).not.toBeNull()
+  return value as NonNullable<ReturnType<typeof parsePRDetailRoute>>
+}
+
 describe('createPRDetailViewId', () => {
   it('returns a pr-detail view id without a section by default', () => {
     const result = createPRDetailViewId(basePR)
@@ -120,14 +125,13 @@ describe('parsePRDetailRoute', () => {
   })
 
   it('parses a valid view id into PR details', () => {
-    const result = parsePRDetailRoute(createPRDetailViewId(basePR))
+    const result = expectParsedRoute(parsePRDetailRoute(createPRDetailViewId(basePR)))
 
-    expect(result).not.toBeNull()
-    expect(result?.pr.repository).toBe('owner/repo')
-    expect(result?.pr.id).toBe(42)
-    expect(result?.pr.title).toBe('Fix bug')
-    expect(result?.pr.author).toBe('testuser')
-    expect(result?.pr.state).toBe('open')
+    expect(result.pr.repository).toBe('owner/repo')
+    expect(result.pr.id).toBe(42)
+    expect(result.pr.title).toBe('Fix bug')
+    expect(result.pr.author).toBe('testuser')
+    expect(result.pr.state).toBe('open')
   })
 
   it('returns a null section when no section parameter is present', () => {

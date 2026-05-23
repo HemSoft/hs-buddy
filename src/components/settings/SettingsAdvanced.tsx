@@ -10,6 +10,35 @@ import {
 } from 'lucide-react'
 import './SettingsShared.css'
 
+function ResetButtonLabel({
+  isResetting,
+  resetConfirm,
+}: {
+  isResetting: boolean
+  resetConfirm: boolean
+}) {
+  if (isResetting)
+    return (
+      <>
+        <RefreshCw className="spin" size={14} />
+        Resetting...
+      </>
+    )
+  if (resetConfirm)
+    return (
+      <>
+        <AlertTriangle size={14} />
+        Click Again to Confirm
+      </>
+    )
+  return (
+    <>
+      <RotateCcw size={14} />
+      Reset to Defaults
+    </>
+  )
+}
+
 export function SettingsAdvanced() {
   const { api, refresh, loading } = useConfig()
   const [storePath, setStorePath] = useState<string>('')
@@ -26,14 +55,12 @@ export function SettingsAdvanced() {
     setOpenSuccess(true)
     setTimeout(() => setOpenSuccess(false), 2000)
   }
-
   const handleReset = async () => {
     if (!resetConfirm) {
       setResetConfirm(true)
       setTimeout(() => setResetConfirm(false), 3000)
       return
     }
-
     setIsResetting(true)
     await api.reset()
     await refresh()
@@ -58,7 +85,6 @@ export function SettingsAdvanced() {
         <h2>Advanced</h2>
         <p className="settings-page-description">Access raw configuration and advanced options.</p>
       </div>
-
       <div className="settings-page-content">
         <div className="settings-section">
           <div className="section-header">
@@ -93,7 +119,6 @@ export function SettingsAdvanced() {
             The configuration file uses JSON Schema validation to ensure correctness.
           </p>
         </div>
-
         <div className="settings-section">
           <div className="section-header">
             <h3>
@@ -112,26 +137,10 @@ export function SettingsAdvanced() {
               onClick={handleReset}
               disabled={isResetting}
             >
-              {isResetting ? (
-                <>
-                  <RefreshCw className="spin" size={14} />
-                  Resetting...
-                </>
-              ) : resetConfirm ? (
-                <>
-                  <AlertTriangle size={14} />
-                  Click Again to Confirm
-                </>
-              ) : (
-                <>
-                  <RotateCcw size={14} />
-                  Reset to Defaults
-                </>
-              )}
+              <ResetButtonLabel isResetting={isResetting} resetConfirm={resetConfirm} />
             </button>
           </div>
         </div>
-
         <div className="settings-section">
           <h3>About Storage</h3>
           <div className="info-box">

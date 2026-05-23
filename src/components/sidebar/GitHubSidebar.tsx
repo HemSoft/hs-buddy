@@ -129,6 +129,210 @@ interface GitHubSidebarProps {
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
 }
 
+function SectionHeader({
+  expanded,
+  icon,
+  label,
+  onToggle,
+  action,
+}: {
+  expanded: boolean
+  icon: React.ReactNode
+  label: string
+  onToggle: () => void
+  action?: React.ReactNode
+}) {
+  return (
+    <div
+      className="sidebar-section-header"
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onToggle()
+        }
+      }}
+    >
+      <div className="sidebar-section-title">
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        <span className="sidebar-section-icon">{icon}</span>
+        <span>{label}</span>
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function PullRequestsSection({
+  sidebarData,
+  counts,
+  badgeProgress,
+  refreshIndicators,
+  selectedItem,
+  onItemSelect,
+}: {
+  sidebarData: SidebarData
+  counts: Record<string, number>
+  badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
+  refreshIndicators: ReturnType<typeof useRefreshIndicators>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+}) {
+  const isExpanded = sidebarData.expandedSections.has('pull-requests')
+
+  return (
+    <div className="sidebar-section">
+      <SectionHeader
+        expanded={isExpanded}
+        icon={<GitPullRequest size={16} />}
+        label="Pull Requests"
+        onToggle={() => sidebarData.toggleSection('pull-requests')}
+      />
+      {isExpanded && (
+        <div className="sidebar-section-items">
+          <PRTreeSection
+            prItems={sidebarData.prItems}
+            prTreeData={sidebarData.prTreeData}
+            expandedPrGroups={sidebarData.expandedPrGroups}
+            expandedPRNodes={sidebarData.expandedPRNodes}
+            counts={counts}
+            badgeProgress={badgeProgress}
+            newCounts={sidebarData.newPRCounts}
+            newUrls={sidebarData.newPRUrls}
+            refreshIndicators={refreshIndicators}
+            selectedItem={selectedItem}
+            onItemSelect={onItemSelect}
+            onTogglePRGroup={sidebarData.togglePRGroup}
+            onTogglePRNode={sidebarData.togglePRNode}
+            onContextMenu={sidebarData.openTreePRContextMenu}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function getBookmarkedOnlyButtonClass(showBookmarkedOnly: boolean): string {
+  return `sidebar-filter-btn ${showBookmarkedOnly ? 'active' : ''}`
+}
+
+function getBookmarkedOnlyTitle(showBookmarkedOnly: boolean): string {
+  return showBookmarkedOnly ? 'Showing bookmarked only' : 'Showing all repos'
+}
+
+function toggleBookmarkedOnly(setShowBookmarkedOnly: SidebarData['setShowBookmarkedOnly']): void {
+  setShowBookmarkedOnly(prev => {
+    const next = !prev
+    window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_SHOW_BOOKMARKED_ONLY, next).catch(() => {})
+    return next
+  })
+}
+
+function OrganizationsSection({
+  sidebarData,
+  ralphRuns,
+  refreshIndicators,
+  selectedItem,
+  onItemSelect,
+}: {
+  sidebarData: SidebarData
+  ralphRuns: ReturnType<typeof useRalphLoops>['runs']
+  refreshIndicators: ReturnType<typeof useRefreshIndicators>
+  selectedItem: string | null
+  onItemSelect: (itemId: string) => void
+}) {
+  const isExpanded = sidebarData.expandedSections.has('organizations')
+  const filterButton = (
+    <button
+      className={getBookmarkedOnlyButtonClass(sidebarData.showBookmarkedOnly)}
+      onClick={e => {
+        e.stopPropagation()
+        toggleBookmarkedOnly(sidebarData.setShowBookmarkedOnly)
+      }}
+      title={getBookmarkedOnlyTitle(sidebarData.showBookmarkedOnly)}
+    >
+      <Filter size={14} />
+    </button>
+  )
+  const sd = sidebarData
+
+  return (
+    <div className="sidebar-section">
+      <SectionHeader
+        expanded={isExpanded}
+        icon={<Building2 size={16} />}
+        label="Organizations"
+        onToggle={() => sd.toggleSection('organizations')}
+        action={filterButton}
+      />
+      {isExpanded && (
+        <OrgRepoTree
+          uniqueOrgs={sd.uniqueOrgs}
+          orgRepos={sd.orgRepos}
+          orgMeta={sd.orgMeta}
+          orgMembers={sd.orgMembers}
+          loadingOrgMembers={sd.loadingOrgMembers}
+          expandedOrgUserGroups={sd.expandedOrgUserGroups}
+          orgTeams={sd.orgTeams}
+          loadingOrgTeams={sd.loadingOrgTeams}
+          expandedOrgTeamGroups={sd.expandedOrgTeamGroups}
+          expandedTeams={sd.expandedTeams}
+          teamMembers={sd.teamMembers}
+          loadingTeamMembers={sd.loadingTeamMembers}
+          orgContributorCounts={sd.orgContributorCounts}
+          loadingOrgs={sd.loadingOrgs}
+          expandedOrgs={sd.expandedOrgs}
+          expandedRepos={sd.expandedRepos}
+          expandedRepoIssueGroups={sd.expandedRepoIssueGroups}
+          expandedRepoIssueStateGroups={sd.expandedRepoIssueStateGroups}
+          expandedRepoPRGroups={sd.expandedRepoPRGroups}
+          expandedRepoPRStateGroups={sd.expandedRepoPRStateGroups}
+          expandedRepoCommitGroups={sd.expandedRepoCommitGroups}
+          expandedPRNodes={sd.expandedPRNodes}
+          repoCounts={sd.repoCounts}
+          loadingRepoCounts={sd.loadingRepoCounts}
+          repoPrTreeData={sd.repoPrTreeData}
+          repoCommitTreeData={sd.repoCommitTreeData}
+          repoIssueTreeData={sd.repoIssueTreeData}
+          loadingRepoCommits={sd.loadingRepoCommits}
+          loadingRepoPRs={sd.loadingRepoPRs}
+          loadingRepoIssues={sd.loadingRepoIssues}
+          sflStatusData={sd.sflStatusData}
+          loadingSFLStatus={sd.loadingSFLStatus}
+          expandedSFLGroups={sd.expandedSFLGroups}
+          ralphRuns={ralphRuns}
+          expandedRalphGroups={sd.expandedRalphGroups}
+          bookmarkedRepoKeys={sd.bookmarkedRepoKeys}
+          showBookmarkedOnly={sd.showBookmarkedOnly}
+          selectedItem={selectedItem}
+          refreshTick={sd.refreshTick}
+          onToggleOrg={sd.toggleOrg}
+          onToggleOrgUserGroup={sd.toggleOrgUserGroup}
+          onToggleOrgTeamGroup={sd.toggleOrgTeamGroup}
+          onToggleTeam={sd.toggleTeam}
+          onToggleRepo={sd.toggleRepo}
+          onToggleRepoIssueGroup={sd.toggleRepoIssueGroup}
+          onToggleRepoIssueStateGroup={sd.toggleRepoIssueStateGroup}
+          onToggleRepoPRGroup={sd.toggleRepoPRGroup}
+          onToggleRepoPRStateGroup={sd.toggleRepoPRStateGroup}
+          onToggleRepoCommitGroup={sd.toggleRepoCommitGroup}
+          onToggleSFLGroup={sd.toggleSFLGroup}
+          onToggleRalphGroup={sd.toggleRalphGroup}
+          onTogglePRNode={sd.togglePRNode}
+          onItemSelect={onItemSelect}
+          onContextMenu={sd.openTreePRContextMenu}
+          onBookmarkToggle={sd.handleBookmarkToggle}
+          favoriteUsers={sd.favoriteUsers}
+          onUserContextMenu={sd.openUserContextMenu}
+          refreshIndicators={refreshIndicators}
+        />
+      )}
+    </div>
+  )
+}
+
 export function GitHubSidebar({
   onItemSelect,
   selectedItem,
@@ -138,79 +342,13 @@ export function GitHubSidebar({
   const refreshIndicators = useRefreshIndicators()
   const sidebarData = useGitHubSidebarData()
   const { runs: ralphRuns } = useRalphLoops()
-  const {
-    bookmarkedRepoKeys,
-    expandedSections,
-    prItems,
-    prTreeData,
-    expandedPrGroups,
-    expandedPRNodes,
-    uniqueOrgs,
-    orgRepos,
-    orgMeta,
-    orgMembers,
-    loadingOrgMembers,
-    expandedOrgUserGroups,
-    orgTeams,
-    loadingOrgTeams,
-    expandedOrgTeamGroups,
-    expandedTeams,
-    teamMembers,
-    loadingTeamMembers,
-    orgContributorCounts,
-    loadingOrgs,
-    expandedOrgs,
-    expandedRepos,
-    expandedRepoIssueGroups,
-    expandedRepoIssueStateGroups,
-    expandedRepoPRGroups,
-    expandedRepoPRStateGroups,
-    expandedRepoCommitGroups,
-    repoCounts,
-    loadingRepoCounts,
-    repoPrTreeData,
-    repoCommitTreeData,
-    repoIssueTreeData,
-    loadingRepoCommits,
-    loadingRepoPRs,
-    loadingRepoIssues,
-    sflStatusData,
-    loadingSFLStatus,
-    expandedSFLGroups,
-    expandedRalphGroups,
-    showBookmarkedOnly,
-    setShowBookmarkedOnly,
-    refreshTick,
-    toggleSection,
-    toggleOrg,
-    toggleOrgUserGroup,
-    toggleOrgTeamGroup,
-    toggleTeam,
-    toggleRepo,
-    toggleRepoIssueGroup,
-    toggleRepoIssueStateGroup,
-    toggleRepoPRGroup,
-    toggleRepoPRStateGroup,
-    toggleRepoCommitGroup,
-    toggleSFLGroup,
-    toggleRalphGroup,
-    togglePRGroup,
-    togglePRNode,
-    newPRCounts,
-    newPRUrls,
-    markPRsAsSeen,
-    openTreePRContextMenu,
-    handleBookmarkToggle,
-    favoriteUsers,
-    openUserContextMenu,
-  } = sidebarData
 
   const handleItemSelect = useCallback(
     (viewId: string) => {
-      markPRsAsSeen(viewId)
+      sidebarData.markPRsAsSeen(viewId)
       onItemSelect(viewId)
     },
-    [markPRsAsSeen, onItemSelect]
+    [sidebarData, onItemSelect]
   )
 
   return (
@@ -221,159 +359,21 @@ export function GitHubSidebar({
         <h2>GITHUB</h2>
       </div>
       <div className="sidebar-panel-content">
-        {/* Pull Requests group */}
-        <div className="sidebar-section">
-          <div
-            className="sidebar-section-header"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleSection('pull-requests')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('pull-requests')
-              }
-            }}
-          >
-            <div className="sidebar-section-title">
-              {expandedSections.has('pull-requests') ? (
-                <ChevronDown size={14} />
-              ) : (
-                <ChevronRight size={14} />
-              )}
-              <span className="sidebar-section-icon">
-                <GitPullRequest size={16} />
-              </span>
-              <span>Pull Requests</span>
-            </div>
-          </div>
-          {expandedSections.has('pull-requests') && (
-            <div className="sidebar-section-items">
-              <PRTreeSection
-                prItems={prItems}
-                prTreeData={prTreeData}
-                expandedPrGroups={expandedPrGroups}
-                expandedPRNodes={expandedPRNodes}
-                counts={counts}
-                badgeProgress={badgeProgress}
-                newCounts={newPRCounts}
-                newUrls={newPRUrls}
-                refreshIndicators={refreshIndicators}
-                selectedItem={selectedItem}
-                onItemSelect={handleItemSelect}
-                onTogglePRGroup={togglePRGroup}
-                onTogglePRNode={togglePRNode}
-                onContextMenu={openTreePRContextMenu}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Organizations group */}
-        <div className="sidebar-section">
-          <div
-            className="sidebar-section-header"
-            role="button"
-            tabIndex={0}
-            onClick={() => toggleSection('organizations')}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                toggleSection('organizations')
-              }
-            }}
-          >
-            <div className="sidebar-section-title">
-              {expandedSections.has('organizations') ? (
-                <ChevronDown size={14} />
-              ) : (
-                <ChevronRight size={14} />
-              )}
-              <span className="sidebar-section-icon">
-                <Building2 size={16} />
-              </span>
-              <span>Organizations</span>
-            </div>
-            <button
-              className={`sidebar-filter-btn ${showBookmarkedOnly ? 'active' : ''}`}
-              onClick={e => {
-                e.stopPropagation()
-                setShowBookmarkedOnly(prev => {
-                  const next = !prev
-                  window.ipcRenderer
-                    .invoke(IPC_INVOKE.CONFIG_SET_SHOW_BOOKMARKED_ONLY, next)
-                    .catch(() => {})
-                  return next
-                })
-              }}
-              title={showBookmarkedOnly ? 'Showing bookmarked only' : 'Showing all repos'}
-            >
-              <Filter size={14} />
-            </button>
-          </div>
-          {expandedSections.has('organizations') && (
-            <OrgRepoTree
-              uniqueOrgs={uniqueOrgs}
-              orgRepos={orgRepos}
-              orgMeta={orgMeta}
-              orgMembers={orgMembers}
-              loadingOrgMembers={loadingOrgMembers}
-              expandedOrgUserGroups={expandedOrgUserGroups}
-              orgTeams={orgTeams}
-              loadingOrgTeams={loadingOrgTeams}
-              expandedOrgTeamGroups={expandedOrgTeamGroups}
-              expandedTeams={expandedTeams}
-              teamMembers={teamMembers}
-              loadingTeamMembers={loadingTeamMembers}
-              orgContributorCounts={orgContributorCounts}
-              loadingOrgs={loadingOrgs}
-              expandedOrgs={expandedOrgs}
-              expandedRepos={expandedRepos}
-              expandedRepoIssueGroups={expandedRepoIssueGroups}
-              expandedRepoIssueStateGroups={expandedRepoIssueStateGroups}
-              expandedRepoPRGroups={expandedRepoPRGroups}
-              expandedRepoPRStateGroups={expandedRepoPRStateGroups}
-              expandedRepoCommitGroups={expandedRepoCommitGroups}
-              expandedPRNodes={expandedPRNodes}
-              repoCounts={repoCounts}
-              loadingRepoCounts={loadingRepoCounts}
-              repoPrTreeData={repoPrTreeData}
-              repoCommitTreeData={repoCommitTreeData}
-              repoIssueTreeData={repoIssueTreeData}
-              loadingRepoCommits={loadingRepoCommits}
-              loadingRepoPRs={loadingRepoPRs}
-              loadingRepoIssues={loadingRepoIssues}
-              sflStatusData={sflStatusData}
-              loadingSFLStatus={loadingSFLStatus}
-              expandedSFLGroups={expandedSFLGroups}
-              ralphRuns={ralphRuns}
-              expandedRalphGroups={expandedRalphGroups}
-              bookmarkedRepoKeys={bookmarkedRepoKeys}
-              showBookmarkedOnly={showBookmarkedOnly}
-              selectedItem={selectedItem}
-              refreshTick={refreshTick}
-              onToggleOrg={toggleOrg}
-              onToggleOrgUserGroup={toggleOrgUserGroup}
-              onToggleOrgTeamGroup={toggleOrgTeamGroup}
-              onToggleTeam={toggleTeam}
-              onToggleRepo={toggleRepo}
-              onToggleRepoIssueGroup={toggleRepoIssueGroup}
-              onToggleRepoIssueStateGroup={toggleRepoIssueStateGroup}
-              onToggleRepoPRGroup={toggleRepoPRGroup}
-              onToggleRepoPRStateGroup={toggleRepoPRStateGroup}
-              onToggleRepoCommitGroup={toggleRepoCommitGroup}
-              onToggleSFLGroup={toggleSFLGroup}
-              onToggleRalphGroup={toggleRalphGroup}
-              onTogglePRNode={togglePRNode}
-              onItemSelect={onItemSelect}
-              onContextMenu={openTreePRContextMenu}
-              onBookmarkToggle={handleBookmarkToggle}
-              favoriteUsers={favoriteUsers}
-              onUserContextMenu={openUserContextMenu}
-              refreshIndicators={refreshIndicators}
-            />
-          )}
-        </div>
+        <PullRequestsSection
+          sidebarData={sidebarData}
+          counts={counts}
+          badgeProgress={badgeProgress}
+          refreshIndicators={refreshIndicators}
+          selectedItem={selectedItem}
+          onItemSelect={handleItemSelect}
+        />
+        <OrganizationsSection
+          sidebarData={sidebarData}
+          ralphRuns={ralphRuns}
+          refreshIndicators={refreshIndicators}
+          selectedItem={selectedItem}
+          onItemSelect={onItemSelect}
+        />
       </div>
     </div>
   )

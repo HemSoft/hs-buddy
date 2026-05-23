@@ -27,6 +27,49 @@ function formatOverageCostValue(cost: number | null | undefined): string {
   return cost != null && cost > 0 ? formatCurrency(cost) : '$0.00'
 }
 
+function CommandCenterStats({
+  totalUsed,
+  totalOverage,
+  projectedTotal,
+  projectedOverageCost,
+}: Pick<
+  CommandCenterCardProps,
+  'totalUsed' | 'totalOverage' | 'projectedTotal' | 'projectedOverageCost'
+>) {
+  return (
+    <div className="welcome-usage-stats" aria-live="polite">
+      <StatCard
+        icon={<Zap size={18} />}
+        value={totalUsed.toLocaleString()}
+        label="Total Used"
+        cardClassName="welcome-usage-stat-card"
+        iconClassName="welcome-stat-icon-copilot-soft"
+      />
+      <StatCard
+        icon={<Sparkles size={18} />}
+        value={formatCurrency(totalOverage)}
+        label="Total Overage"
+        cardClassName="welcome-usage-stat-card"
+        iconClassName="welcome-stat-icon-copilot-soft"
+      />
+      <StatCard
+        icon={<Activity size={18} />}
+        value={formatProjectedValue(projectedTotal)}
+        label="Projected"
+        cardClassName="welcome-usage-stat-card"
+        iconClassName="welcome-stat-icon-copilot-soft"
+      />
+      <StatCard
+        icon={<ArrowRight size={18} />}
+        value={formatOverageCostValue(projectedOverageCost)}
+        label="Est. Overage"
+        cardClassName="welcome-usage-stat-card welcome-usage-stat-card-accent"
+        iconClassName="welcome-stat-icon-overage"
+      />
+    </div>
+  )
+}
+
 export function CommandCenterCard({
   accountCount,
   hasCopilotAccounts,
@@ -80,36 +123,12 @@ export function CommandCenterCard({
         </div>
       </div>
 
-      <div className="welcome-usage-stats" aria-live="polite">
-        <StatCard
-          icon={<Zap size={18} />}
-          value={totalUsed.toLocaleString()}
-          label="Total Used"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <StatCard
-          icon={<Sparkles size={18} />}
-          value={formatCurrency(totalOverage)}
-          label="Total Overage"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <StatCard
-          icon={<Activity size={18} />}
-          value={formatProjectedValue(projectedTotal)}
-          label="Projected"
-          cardClassName="welcome-usage-stat-card"
-          iconClassName="welcome-stat-icon-copilot-soft"
-        />
-        <StatCard
-          icon={<ArrowRight size={18} />}
-          value={formatOverageCostValue(projectedOverageCost)}
-          label="Est. Overage"
-          cardClassName="welcome-usage-stat-card welcome-usage-stat-card-accent"
-          iconClassName="welcome-stat-icon-overage"
-        />
-      </div>
+      <CommandCenterStats
+        totalUsed={totalUsed}
+        totalOverage={totalOverage}
+        projectedTotal={projectedTotal}
+        projectedOverageCost={projectedOverageCost}
+      />
     </section>
   )
 }

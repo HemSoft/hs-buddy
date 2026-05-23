@@ -20,6 +20,114 @@ function basename(filePath: string): string {
   return filePath.replace(/^.*[\\/]/, '')
 }
 
+function cleanupAudioRef(
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>,
+  audio: HTMLAudioElement
+) {
+  if (audioRef.current === audio) audioRef.current = null
+}
+
+function handleAudioSuccess(
+  sound: NotificationSoundAsset | null,
+  setPreviewError: (e: string | null) => void,
+  previewUrlRef: React.MutableRefObject<string | null>,
+  audioRef: React.MutableRefObject<HTMLAudioElement | null>,
+  revokePreviewUrl: () => void
+) {
+  if (!sound) {
+    setPreviewError('Could not read the audio file.')
+    return
+  }
+  const blob = createNotificationSoundBlob(sound)
+  const url = URL.createObjectURL(blob)
+  previewUrlRef.current = url
+  const audio = new Audio(url)
+  audioRef.current = audio
+  const cleanup = () => {
+    cleanupAudioRef(audioRef, audio)
+    if (previewUrlRef.current === url) revokePreviewUrl()
+  }
+  audio.onended = cleanup
+  audio.onerror = () => {
+    cleanup()
+    setPreviewError('Could not play this file. Make sure it is a valid audio file.')
+  }
+  audio.play().catch(() => {
+    cleanup()
+    setPreviewError('Could not play this file. Make sure it is a valid audio file.')
+  })
+}
+
+function SoundFileSection({
+  soundPath,
+  onPreview,
+  onClear,
+  onBrowse,
+  previewError,
+}: {
+  soundPath: string
+  onPreview: () => void
+  onClear: () => void
+  onBrowse: () => void
+  previewError: string | null
+}) {
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h3>
+          <Volume2 size={16} />
+          Sound File
+        </h3>
+      </div>
+      <p className="section-description">
+        Select a local audio file (MP3, WAV, OGG, FLAC, AAC, M4A) to play as the notification sound.
+      </p>
+      <div className="sound-file-row">
+        {soundPath ? (
+          <div className="sound-file-info">
+            <code className="sound-file-name" title={soundPath}>
+              {basename(soundPath)}
+            </code>
+            <div className="sound-file-actions">
+              <button
+                className="settings-btn settings-btn-secondary"
+                onClick={onPreview}
+                title="Preview sound"
+              >
+                <Play size={14} />
+                Preview
+              </button>
+              <button
+                className="settings-btn settings-btn-secondary"
+                onClick={onClear}
+                title="Remove sound file"
+              >
+                <X size={14} />
+                Clear
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="hint" style={{ margin: 0 }}>
+            No sound file selected.
+          </p>
+        )}
+      </div>
+      <div className="button-group" style={{ marginTop: '8px' }}>
+        <button className="settings-btn settings-btn-primary" onClick={onBrowse}>
+          <FolderOpen size={14} />
+          Browse…
+        </button>
+      </div>
+      {previewError && (
+        <p className="form-error" style={{ marginTop: '8px' }}>
+          {previewError}
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function SettingsNotifications() {
   const { enabled, soundPath, loading, setEnabled, setSoundPath, pickSoundFile } =
     useNotificationSettings()
@@ -32,7 +140,6 @@ export function SettingsNotifications() {
     URL.revokeObjectURL(previewUrlRef.current)
     previewUrlRef.current = null
   }, [])
-
   const stopPreview = useCallback(() => {
     if (audioRef.current) {
       audioRef.current.pause()
@@ -40,22 +147,19 @@ export function SettingsNotifications() {
     }
     revokePreviewUrl()
   }, [revokePreviewUrl])
-
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       stopPreview()
-    }
-  }, [stopPreview])
-
+    },
+    [stopPreview]
+  )
   const handleToggle = async () => {
     await setEnabled(!enabled)
   }
-
   const handleBrowse = async () => {
     setPreviewError(null)
     await pickSoundFile()
   }
-
   const handleClear = async () => {
     setPreviewError(null)
     stopPreview()
@@ -64,39 +168,15 @@ export function SettingsNotifications() {
 
   const handlePreview = useCallback(() => {
     setPreviewError(null)
-
     stopPreview()
-
     void (
       window.ipcRenderer.invoke(
         'config:play-notification-sound'
       ) as Promise<NotificationSoundAsset | null>
     )
-      .then(sound => {
-        if (!sound) {
-          setPreviewError('Could not read the audio file.')
-          return
-        }
-        const blob = createNotificationSoundBlob(sound)
-        const url = URL.createObjectURL(blob)
-        previewUrlRef.current = url
-        const audio = new Audio(url)
-        audioRef.current = audio
-        audio.onended = () => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
-        }
-        audio.onerror = () => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
-          setPreviewError('Could not play this file. Make sure it is a valid audio file.')
-        }
-        audio.play().catch(() => {
-          if (audioRef.current === audio) audioRef.current = null
-          if (previewUrlRef.current === url) revokePreviewUrl()
-          setPreviewError('Could not play this file. Make sure it is a valid audio file.')
-        })
-      })
+      .then(sound =>
+        handleAudioSuccess(sound, setPreviewError, previewUrlRef, audioRef, revokePreviewUrl)
+      )
       .catch(() => {
         setPreviewError('Could not play this file.')
       })
@@ -121,7 +201,6 @@ export function SettingsNotifications() {
           Configure audio notifications for background events.
         </p>
       </div>
-
       <div className="settings-page-content">
         <div className="settings-section">
           <div className="section-header">
@@ -134,7 +213,6 @@ export function SettingsNotifications() {
             Play a sound when a Copilot PR review finishes. Useful when you navigate away while
             waiting for results.
           </p>
-
           <div className="setting-row">
             <div className="setting-info">
               <label htmlFor="notification-sound-toggle">Enable Sound Notification</label>
@@ -153,64 +231,13 @@ export function SettingsNotifications() {
             </button>
           </div>
         </div>
-
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Volume2 size={16} />
-              Sound File
-            </h3>
-          </div>
-          <p className="section-description">
-            Select a local audio file (MP3, WAV, OGG, FLAC, AAC, M4A) to play as the notification
-            sound.
-          </p>
-
-          <div className="sound-file-row">
-            {soundPath ? (
-              <div className="sound-file-info">
-                <code className="sound-file-name" title={soundPath}>
-                  {basename(soundPath)}
-                </code>
-                <div className="sound-file-actions">
-                  <button
-                    className="settings-btn settings-btn-secondary"
-                    onClick={handlePreview}
-                    title="Preview sound"
-                  >
-                    <Play size={14} />
-                    Preview
-                  </button>
-                  <button
-                    className="settings-btn settings-btn-secondary"
-                    onClick={handleClear}
-                    title="Remove sound file"
-                  >
-                    <X size={14} />
-                    Clear
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="hint" style={{ margin: 0 }}>
-                No sound file selected.
-              </p>
-            )}
-          </div>
-
-          <div className="button-group" style={{ marginTop: '8px' }}>
-            <button className="settings-btn settings-btn-primary" onClick={handleBrowse}>
-              <FolderOpen size={14} />
-              Browse…
-            </button>
-          </div>
-
-          {previewError && (
-            <p className="form-error" style={{ marginTop: '8px' }}>
-              {previewError}
-            </p>
-          )}
-        </div>
+        <SoundFileSection
+          soundPath={soundPath}
+          onPreview={handlePreview}
+          onClear={handleClear}
+          onBrowse={handleBrowse}
+          previewError={previewError}
+        />
       </div>
     </div>
   )

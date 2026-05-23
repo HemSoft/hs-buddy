@@ -226,6 +226,20 @@ describe('TerminalPane', () => {
     })
   })
 
+  it('handles attach failure gracefully after successful spawn', async () => {
+    mockSpawn.mockResolvedValue({ success: true, sessionId: 'new-sess-456' })
+    mockAttach.mockResolvedValue({ success: false, error: 'attach failed' })
+
+    render(<TerminalPane viewKey="test-key" />)
+
+    await vi.waitFor(() => {
+      expect(mockAttach).toHaveBeenCalledWith('new-sess-456')
+    })
+
+    // Session is still set even though attach failed (terminal is usable via IPC data events)
+    expect(setSessionId).toHaveBeenCalledWith('test-key', 'new-sess-456')
+  })
+
   it('shows error when spawn fails', async () => {
     mockSpawn.mockResolvedValue({ success: false, error: 'No PTY available' })
 

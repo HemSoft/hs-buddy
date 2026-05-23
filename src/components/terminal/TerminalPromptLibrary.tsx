@@ -203,12 +203,7 @@ async function persistPrompt(
   await updatePrompt({ id: editorState.id, title, content })
 }
 
-async function pastePromptToActiveTerminal(
-  activeTabId: string | null,
-  prompt: TerminalPrompt,
-  markUsed: TerminalPromptMutations['markUsed'],
-  onClose: () => void
-) {
+function ensureActiveTerminalReady(activeTabId: string | null, prompt: TerminalPrompt) {
   /* v8 ignore next -- the use button is disabled whenever no active tab is available */
   if (!activeTabId) {
     throw new Error('Open a terminal tab to use a prompt.')
@@ -221,7 +216,15 @@ async function pastePromptToActiveTerminal(
   if (!pasteIntoTerminal(activeTabId, prompt.content)) {
     throw new Error('The active terminal is still connecting. Try again in a moment.')
   }
+}
 
+async function pastePromptToActiveTerminal(
+  activeTabId: string | null,
+  prompt: TerminalPrompt,
+  markUsed: TerminalPromptMutations['markUsed'],
+  onClose: () => void
+) {
+  ensureActiveTerminalReady(activeTabId, prompt)
   await markUsed({ id: prompt._id })
 
   try {
@@ -234,6 +237,31 @@ async function pastePromptToActiveTerminal(
   }
 }
 
+function isPromptLibraryOwnerTarget(
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  rootRef: RefObject<HTMLDivElement | null>,
+  target: Node
+): boolean {
+  return Boolean(ownerRef?.current?.contains(target) || rootRef.current?.contains(target))
+}
+
+function shouldDismissPromptLibrary(
+  ownerRef: RefObject<HTMLElement | null> | undefined,
+  rootRef: RefObject<HTMLDivElement | null>,
+  target: Node
+): boolean {
+  /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
+  if (!rootRef.current) {
+    return false
+  }
+
+  if (isPromptLibraryOwnerTarget(ownerRef, rootRef, target)) {
+    return false
+  }
+
+  return true
+}
+
 function usePromptLibraryDismiss(
   ownerRef: RefObject<HTMLElement | null> | undefined,
   rootRef: RefObject<HTMLDivElement | null>,
@@ -242,16 +270,9 @@ function usePromptLibraryDismiss(
   useEffect(() => {
     const handleMouseDown = (event: MouseEvent) => {
       const target = event.target as Node
-      /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
-      if (!rootRef.current) {
-        return
+      if (shouldDismissPromptLibrary(ownerRef, rootRef, target)) {
+        onClose()
       }
-
-      if (ownerRef?.current?.contains(target) || rootRef.current.contains(target)) {
-        return
-      }
-
-      onClose()
     }
 
     document.addEventListener('mousedown', handleMouseDown)
@@ -306,22 +327,13 @@ function usePromptEditorActions(params: {
 
   const openCreateEditor = useCallback(() => {
     setErrorMessage(null)
-    setEditorState({
-      mode: 'create',
-      title: '',
-      content: '',
-    })
+    setEditorState({ mode: 'create', title: '', content: '' })
   }, [setEditorState, setErrorMessage])
 
   const openEditEditor = useCallback(
     (prompt: TerminalPrompt) => {
       setErrorMessage(null)
-      setEditorState({
-        mode: 'edit',
-        id: prompt._id,
-        title: prompt.title,
-        content: prompt.content,
-      })
+      setEditorState({ mode: 'edit', id: prompt._id, title: prompt.title, content: prompt.content })
     },
     [setEditorState, setErrorMessage]
   )
@@ -336,10 +348,8 @@ function usePromptEditorActions(params: {
       event.preventDefault()
       /* v8 ignore next -- submit comes from the mounted editor form */
       if (!editorState) return
-
       setSaving(true)
       setErrorMessage(null)
-
       try {
         await persistPrompt(editorState, createPrompt, updatePrompt)
         setEditorState(null)
@@ -355,7 +365,6 @@ function usePromptEditorActions(params: {
   const handleDelete = useCallback(async () => {
     /* v8 ignore next -- delete is only available from the mounted edit view */
     if (!editorState || editorState.mode !== 'edit') return
-
     const confirmed = await confirm({
       message: `Delete "${editorState.title}"?`,
       description: 'This prompt will be removed from Convex for every synced client.',
@@ -363,12 +372,9 @@ function usePromptEditorActions(params: {
       cancelLabel: 'Keep',
       variant: 'danger',
     })
-
     if (!confirmed) return
-
     setSaving(true)
     setErrorMessage(null)
-
     try {
       await removePrompt({ id: editorState.id })
       setEditorState(null)
@@ -379,13 +385,7 @@ function usePromptEditorActions(params: {
     }
   }, [confirm, editorState, removePrompt, setEditorState, setErrorMessage, setSaving])
 
-  return {
-    openCreateEditor,
-    openEditEditor,
-    closeEditor,
-    handleSave,
-    handleDelete,
-  }
+  return { openCreateEditor, openEditEditor, closeEditor, handleSave, handleDelete }
 }
 
 function usePromptUseAction(params: {
@@ -706,6 +706,7 @@ export function TerminalPromptLibrary({
     setErrorMessage,
     setUsingPromptId,
   })
+
   const updateEditorState = useCallback(
     (updater: (current: EditorState) => EditorState) => {
       setEditorState(current => {
@@ -713,22 +714,17 @@ export function TerminalPromptLibrary({
         if (!current) {
           return current
         }
-
         return updater(current)
       })
     },
     [setEditorState]
   )
   const handleTitleChange = useCallback(
-    (value: string) => {
-      updateEditorState(current => ({ ...current, title: value }))
-    },
+    (value: string) => updateEditorState(c => ({ ...c, title: value })),
     [updateEditorState]
   )
   const handleContentChange = useCallback(
-    (value: string) => {
-      updateEditorState(current => ({ ...current, content: value }))
-    },
+    (value: string) => updateEditorState(c => ({ ...c, content: value })),
     [updateEditorState]
   )
 
@@ -761,7 +757,6 @@ export function TerminalPromptLibrary({
           onContentChange={handleContentChange}
         />
       </div>
-
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>
   )

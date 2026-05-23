@@ -104,8 +104,7 @@ function PullRequestHistoryOverview({
   const handleRequestCopilotReview = useCallback(() => {
     const parsed = parseOwnerRepoFromUrl(pr.url)
     if (!parsed) return
-    const client = new GitHubClient({ accounts }, 7)
-    void client.requestCopilotReview(parsed.owner, parsed.repo, pr.id)
+    void new GitHubClient({ accounts }, 7).requestCopilotReview(parsed.owner, parsed.repo, pr.id)
     setMenu(null)
   }, [pr.url, pr.id, accounts])
 
@@ -125,7 +124,6 @@ function PullRequestHistoryOverview({
           <div className="value">{formatDateFull(history.mergedAt)}</div>
         </div>
       </div>
-
       <div className="pr-history-metrics">
         <div className="metric-row">
           <span className="metric-label">
@@ -148,7 +146,6 @@ function PullRequestHistoryOverview({
           <span className="metric-value">{history.reviewCommentCount}</span>
         </div>
       </div>
-
       <div className="pr-history-thread-status">
         <h3>Review Thread Status</h3>
         <div className="thread-grid">
@@ -188,7 +185,6 @@ function PullRequestHistoryOverview({
             <div className="thread-value">{history.threadsUnaddressed}</div>
           </div>
         </div>
-
         {menu && (
           <>
             <div
@@ -313,6 +309,124 @@ function handleHistoryFetchError(
   setError(getErrorMessage(err))
 }
 
+function resolveHistoryOwnerRepo(pr: PRDetailInfo) {
+  const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+  if (!ownerRepo) {
+    throw new Error(PR_URL_PARSE_ERROR)
+  }
+  return ownerRepo
+}
+
+function applyFetchedHistory(
+  result: PRHistorySummary,
+  requestId: number,
+  latestRef: { current: number },
+  setHistory: (history: PRHistorySummary) => void,
+  onLoaded?: (history: PRHistorySummary) => void
+) {
+  if (requestId !== latestRef.current) return
+  setHistory(result)
+  if (onLoaded) {
+    onLoaded(result)
+  }
+}
+
+function shouldFinalizeHistoryRequest(requestId: number, latestRef: { current: number }) {
+  return requestId === latestRef.current
+}
+
+function resolveHistoryTimeline(history: PRHistorySummary) {
+  return history.timeline ?? []
+}
+
+function filterTimelineByFocus(
+  focus: 'all' | 'commits',
+  timeline: NonNullable<PRHistorySummary['timeline']>
+) {
+  if (focus !== 'commits') return timeline
+  return timeline.filter(event => event.type === 'commit')
+}
+
+function resolveHistoryContainerClassName(embedded: boolean) {
+  return `pr-history-container ${embedded ? 'embedded' : ''}`
+}
+
+function HistoryAllSections({
+  history,
+  pr,
+}: {
+  history: PRHistorySummary
+  pr: PullRequestHistoryPanelProps['pr']
+}) {
+  return (
+    <>
+      <PullRequestHistoryOverview history={history} pr={pr} />
+      <PullRequestReviewers history={history} />
+      <div className="pr-history-footer">
+        <Clock size={13} />
+        Thread status is derived from GitHub review thread resolution/outdated state.
+      </div>
+    </>
+  )
+}
+
+function HistoryFocusSections({
+  focus,
+  history,
+  pr,
+  activeTimeline,
+}: {
+  focus: 'all' | 'commits'
+  history: PRHistorySummary
+  pr: PullRequestHistoryPanelProps['pr']
+  activeTimeline: NonNullable<PRHistorySummary['timeline']>
+}) {
+  if (focus === 'commits') {
+    return <CommitsFocusView history={history} activeTimeline={activeTimeline} focus={focus} />
+  }
+
+  return <HistoryAllSections history={history} pr={pr} />
+}
+
+function renderPullRequestHistoryPanelState({
+  loading,
+  error,
+  history,
+  fetchHistory,
+  pr,
+  embedded,
+  focus,
+}: {
+  loading: boolean
+  error: string | null
+  history: PRHistorySummary | null
+  fetchHistory: () => void
+  pr: PullRequestHistoryPanelProps['pr']
+  embedded: boolean
+  focus: 'all' | 'commits'
+}) {
+  if (loading && !history) {
+    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
+  }
+
+  if (error) {
+    return (
+      <PanelErrorState
+        title="Failed to load PR history"
+        error={error}
+        onRetry={fetchHistory}
+        className="pr-history-error"
+      />
+    )
+  }
+
+  if (!history) {
+    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
+  }
+
+  return <PRHistoryContent pr={pr} embedded={embedded} focus={focus} history={history} />
+}
+
 function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySummary) => void) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -330,11 +444,7 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
     setError(null)
 
     try {
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) {
-        throw new Error(PR_URL_PARSE_ERROR)
-      }
-
+      const ownerRepo = resolveHistoryOwnerRepo(pr)
       const result = await enqueueRef.current(
         async signal => {
           throwIfAborted(signal)
@@ -344,18 +454,15 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
         { name: `pr-history-${pr.repository}-${pr.id}` }
       )
 
-      if (requestId !== latestRequestRef.current) return
-
-      setHistory(result)
-      onLoaded?.(result)
+      applyFetchedHistory(result, requestId, latestRequestRef, setHistory, onLoaded)
     } catch (err: unknown) {
       handleHistoryFetchError(err, requestId, latestRequestRef, setError)
     } finally {
-      if (requestId === latestRequestRef.current) {
+      if (shouldFinalizeHistoryRequest(requestId, latestRequestRef)) {
         setLoading(false)
       }
     }
-  }, [accounts, pr.id, pr.repository, pr.url, onLoaded, enqueueRef])
+  }, [accounts, pr, onLoaded, enqueueRef])
 
   useEffect(() => {
     fetchHistory()
@@ -396,34 +503,21 @@ function PRHistoryContent({
 }: {
   pr: PullRequestHistoryPanelProps['pr']
   embedded: boolean
-  focus: string
+  focus: 'all' | 'commits'
   history: PRHistorySummary
 }) {
-  const timeline = history.timeline ?? []
-  const activeTimeline =
-    focus === 'commits' ? timeline.filter(event => event.type === 'commit') : timeline
+  const timeline = resolveHistoryTimeline(history)
+  const activeTimeline = filterTimelineByFocus(focus, timeline)
 
   return (
-    <div className={`pr-history-container ${embedded ? 'embedded' : ''}`}>
+    <div className={resolveHistoryContainerClassName(embedded)}>
       <PullRequestHistoryHeader pr={pr} embedded={embedded} />
-
-      {focus === 'all' && (
-        <>
-          <PullRequestHistoryOverview history={history} pr={pr} />
-          <PullRequestReviewers history={history} />
-        </>
-      )}
-
-      {focus === 'commits' && (
-        <CommitsFocusView history={history} activeTimeline={activeTimeline} focus={focus} />
-      )}
-
-      {focus === 'all' && (
-        <div className="pr-history-footer">
-          <Clock size={13} />
-          Thread status is derived from GitHub review thread resolution/outdated state.
-        </div>
-      )}
+      <HistoryFocusSections
+        focus={focus}
+        history={history}
+        pr={pr}
+        activeTimeline={activeTimeline}
+      />
     </div>
   )
 }
@@ -436,24 +530,13 @@ export function PullRequestHistoryPanel({
 }: PullRequestHistoryPanelProps) {
   const { loading, error, history, fetchHistory } = usePRHistoryFetch(pr, onLoaded)
 
-  if (loading && !history) {
-    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
-  }
-
-  if (error) {
-    return (
-      <PanelErrorState
-        title="Failed to load PR history"
-        error={error}
-        onRetry={fetchHistory}
-        className="pr-history-error"
-      />
-    )
-  }
-
-  if (!history) {
-    return <PanelLoadingState message="Loading PR history…" className="pr-history-loading" />
-  }
-
-  return <PRHistoryContent pr={pr} embedded={embedded} focus={focus} history={history} />
+  return renderPullRequestHistoryPanelState({
+    loading,
+    error,
+    history,
+    fetchHistory,
+    pr,
+    embedded,
+    focus,
+  })
 }

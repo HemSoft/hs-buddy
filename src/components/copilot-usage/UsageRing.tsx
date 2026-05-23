@@ -1,5 +1,40 @@
 import { getQuotaColor } from './quotaUtils'
 
+function clampPercent(value: number | undefined): number {
+  return Math.min(value ?? 0, 100)
+}
+
+function ProjectedArc({
+  size,
+  radius,
+  circumference,
+  strokeWidth,
+  projectedCapped,
+}: {
+  size: number
+  radius: number
+  circumference: number
+  strokeWidth: number
+  projectedCapped: number
+}) {
+  return (
+    <circle
+      cx={size / 2}
+      cy={size / 2}
+      r={radius}
+      fill="none"
+      stroke={getQuotaColor(projectedCapped)}
+      strokeWidth={strokeWidth}
+      strokeDasharray={`${circumference * 0.015} ${circumference * 0.01}`}
+      strokeDashoffset={circumference - (projectedCapped / 100) * circumference}
+      strokeLinecap="butt"
+      opacity={0.3}
+      transform={`rotate(-90 ${size / 2} ${size / 2})`}
+      style={{ transition: 'stroke-dashoffset 0.6s ease, stroke 0.3s ease' }}
+    />
+  )
+}
+
 /** SVG circular progress ring with optional projected ghost arc */
 export function UsageRing({
   percentUsed,
@@ -14,19 +49,13 @@ export function UsageRing({
 }) {
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (Math.min(percentUsed, 100) / 100) * circumference
-
+  const offset = circumference - (clampPercent(percentUsed) / 100) * circumference
   const color = getQuotaColor(percentUsed)
-
-  // Projected arc: show where usage will be at month-end (capped at 100% visually)
+  const projectedCapped = clampPercent(projectedPercent)
   const showProjected = projectedPercent != null && projectedPercent > percentUsed
-  const projectedCapped = Math.min(projectedPercent ?? 0, 100)
-  const projectedOffset = circumference - (projectedCapped / 100) * circumference
-  const projectedColor = getQuotaColor(projectedCapped)
 
   return (
     <svg width={size} height={size} className="usage-ring">
-      {/* Background track */}
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -35,24 +64,15 @@ export function UsageRing({
         stroke="rgba(255,255,255,0.08)"
         strokeWidth={strokeWidth}
       />
-      {/* Projected ghost arc (dashed, behind actual) */}
       {showProjected && (
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke={projectedColor}
+        <ProjectedArc
+          size={size}
+          radius={radius}
+          circumference={circumference}
           strokeWidth={strokeWidth}
-          strokeDasharray={`${circumference * 0.015} ${circumference * 0.01}`}
-          strokeDashoffset={projectedOffset}
-          strokeLinecap="butt"
-          opacity={0.3}
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-          style={{ transition: 'stroke-dashoffset 0.6s ease, stroke 0.3s ease' }}
+          projectedCapped={projectedCapped}
         />
       )}
-      {/* Actual usage arc */}
       <circle
         cx={size / 2}
         cy={size / 2}

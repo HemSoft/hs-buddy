@@ -46,29 +46,38 @@ export function getPollenLabel(index: number): PollenLevel {
   return POLLEN_LABELS[clamped]
 }
 
+const POLLEN_COLORS = [
+  'var(--text-muted)', // 0: none
+  '#4caf50', // 1: green
+  '#8bc34a', // 2: light green
+  '#ffc107', // 3: amber
+  '#ff9800', // 4: orange
+  '#f44336', // 5: red
+]
+
 export function getPollenColor(index: number): string {
-  if (index <= 0) return 'var(--text-muted)'
-  if (index <= 1) return '#4caf50' // green
-  if (index <= 2) return '#8bc34a' // light green
-  if (index <= 3) return '#ffc107' // amber
-  if (index <= 4) return '#ff9800' // orange
-  return '#f44336' // red
+  const clamped = Math.max(0, Math.min(5, Math.round(index)))
+  return POLLEN_COLORS[clamped]
 }
 
 const COORD_TOLERANCE = 0.01 // ~1km
 
+function isCacheLocationValid(cached: PollenCache, lat: number, lon: number): boolean {
+  return (
+    Math.abs(cached.location.latitude - lat) <= COORD_TOLERANCE &&
+    Math.abs(cached.location.longitude - lon) <= COORD_TOLERANCE
+  )
+}
+
+function isUsablePollenCache(cached: PollenCache, lat: number, lon: number): boolean {
+  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return false
+  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return false
+  return isCacheLocationValid(cached, lat, lon)
+}
+
 function readPollenCache(lat: number, lon: number): PollenData | null {
   const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
-  if (!cached) return null
-  if ((cached.version ?? 0) < POLLEN_CACHE_VERSION) return null
-  if (Date.now() - cached.timestamp > POLLEN_CACHE_TTL_MS) return null
-  // Invalidate if location changed
-  if (
-    Math.abs(cached.location.latitude - lat) > COORD_TOLERANCE ||
-    Math.abs(cached.location.longitude - lon) > COORD_TOLERANCE
-  ) {
-    return null
-  }
+  if (!cached || !isUsablePollenCache(cached, lat, lon)) return null
   return cached.data
 }
 
@@ -89,6 +98,41 @@ interface PollenFetchResult {
   success: boolean
   data?: PollenData
   error?: string
+}
+
+function handlePollenResult(
+  result: PollenFetchResult,
+  latitude: number,
+  longitude: number
+): PollenState {
+  if (result.success && result.data) {
+    writePollenCache(result.data, latitude, longitude)
+    return { data: result.data, loading: false, error: null }
+  }
+  if (result.error === 'no-api-key') return { data: null, loading: false, error: null }
+  return { data: null, loading: false, error: result.error ?? 'Pollen fetch failed' }
+}
+
+function applyCachedPollenData(
+  cached: PollenData | null,
+  setState: (state: PollenState) => void
+): boolean {
+  if (!cached) {
+    return false
+  }
+
+  setState({ data: cached, loading: false, error: null })
+  return true
+}
+
+function setPollenStateIfMounted(
+  mountedRef: { current: boolean },
+  nextState: PollenState,
+  setState: (state: PollenState) => void
+) {
+  if (mountedRef.current) {
+    setState(nextState)
+  }
 }
 
 /**
@@ -112,10 +156,8 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
     const { latitude, longitude } = location
 
-    // Check cache first
     const cached = readPollenCache(latitude, longitude)
-    if (cached) {
-      setState({ data: cached, loading: false, error: null })
+    if (applyCachedPollenData(cached, setState)) {
       return
     }
 
@@ -128,25 +170,9 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
       })) as PollenFetchResult
 
       if (!mountedRef.current) return
-
-      if (result.success && result.data) {
-        writePollenCache(result.data, latitude, longitude)
-        setState({ data: result.data, loading: false, error: null })
-      } else if (result.error === 'no-api-key') {
-        // No API key → silent no-op (not an error state)
-        setState({ data: null, loading: false, error: null })
-      } else {
-        setState(prev => ({
-          data: prev.data,
-          loading: false,
-          error: result.error ?? 'Pollen fetch failed',
-        }))
-      }
+      setState(prev => ({ ...prev, ...handlePollenResult(result, latitude, longitude) }))
     } catch (_: unknown) {
-      // IPC unavailable (test env, non-Electron) → silent no-op
-      if (mountedRef.current) {
-        setState({ data: null, loading: false, error: null })
-      }
+      setPollenStateIfMounted(mountedRef, { data: null, loading: false, error: null }, setState)
     }
   }, [location])
 

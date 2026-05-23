@@ -142,6 +142,97 @@ function shouldInitializeAccounts(
   )
 }
 
+function buildAccountsContentKey(
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+): string {
+  return JSON.stringify(
+    resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(
+      account => [account.username, account.org, account.repoRoot]
+    )
+  )
+}
+
+function syncAccountsRef(
+  prevKeyRef: { current: string },
+  accountsRef: { current: GitHubAccount[] },
+  contentKey: string,
+  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  electronStoreAccounts: GitHubAccount[],
+  convexConnected: boolean
+) {
+  if (prevKeyRef.current !== contentKey) {
+    prevKeyRef.current = contentKey
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
+    return
+  }
+
+  if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
+    accountsRef.current = resolveAccountsFromSources(
+      convexAccounts,
+      electronStoreAccounts,
+      convexConnected
+    )
+  }
+}
+
+function computeAccountsLoading(convexConnected: boolean, fallbackLoaded: boolean): boolean {
+  return !convexConnected && !fallbackLoaded
+}
+
+export function resolvePRFallback(config: AppConfig) {
+  if (!config.pr)
+    return {
+      refreshInterval: 15,
+      autoRefresh: false,
+      recentlyMergedDays: DEFAULT_RECENTLY_MERGED_DAYS,
+    }
+  return {
+    refreshInterval: config.pr.refreshInterval ?? 15,
+    autoRefresh: config.pr.autoRefresh ?? false,
+    recentlyMergedDays: config.pr.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+  }
+}
+
+function resolvePRValues(s: {
+  refreshInterval?: number | null
+  autoRefresh?: boolean | null
+  recentlyMergedDays?: number | null
+}) {
+  return {
+    refreshInterval: s.refreshInterval ?? 15,
+    autoRefresh: s.autoRefresh ?? false,
+    recentlyMergedDays: s.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+  }
+}
+
+export function resolveCopilotFallback(config: AppConfig) {
+  if (!config.copilot)
+    return { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
+  return {
+    ghAccount: config.copilot.ghAccount ?? '',
+    model: config.copilot.model ?? 'claude-sonnet-4.5',
+    premiumModel: config.copilot.premiumModel ?? 'claude-opus-4.6',
+  }
+}
+
+function resolveCopilotValues(s: {
+  ghAccount?: string | null
+  model?: string | null
+  premiumModel?: string | null
+}) {
+  return {
+    ghAccount: s.ghAccount ?? '',
+    model: s.model ?? 'claude-sonnet-4.5',
+    premiumModel: s.premiumModel ?? 'claude-opus-4.6',
+  }
+}
+
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const { create, update, remove } = useGitHubAccountMutations()
@@ -163,39 +254,32 @@ export function useGitHubAccounts() {
   const convexConnected = convexAccounts !== undefined
 
   // Build content key for comparison (include repoRoot so edits trigger refresh)
-  const contentKey =
-    convexConnected && convexAccounts
-      ? JSON.stringify(convexAccounts.map(a => [a.username, a.org, a.repoRoot]))
-      : JSON.stringify(electronStoreAccounts.map(a => [a.username, a.org, a.repoRoot]))
+  const contentKey = buildAccountsContentKey(convexAccounts, electronStoreAccounts, convexConnected)
 
   // Use ref to track previous key and accounts
   const prevKeyRef = useRef(contentKey)
   const accountsRef = useRef<GitHubAccount[]>([])
 
   // Only update accounts if content actually changed
-  if (prevKeyRef.current !== contentKey) {
-    prevKeyRef.current = contentKey
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  } else if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
-    // Initialize on first valid data
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  }
+  syncAccountsRef(
+    prevKeyRef,
+    accountsRef,
+    contentKey,
+    convexAccounts,
+    electronStoreAccounts,
+    convexConnected
+  )
 
   const accounts = accountsRef.current
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
 
-  const loading = !convexConnected && !fallbackLoaded
+  const loading = computeAccountsLoading(convexConnected, fallbackLoaded)
 
-  const findAccount = (username: string, org: string) =>
-    convexAccounts?.find(account => account.username === username && account.org === org)
+  const findAccount = (username: string, org: string) => {
+    /* v8 ignore next -- defensive guard during convex loading */
+    if (!convexAccounts) return undefined
+    return convexAccounts.find(account => account.username === username && account.org === org)
+  }
 
   const addAccount = async (account: GitHubAccount) => {
     try {
@@ -251,11 +335,7 @@ export function usePRSettings() {
   const { updatePR } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.pr,
-    config => ({
-      refreshInterval: config.pr?.refreshInterval ?? 15,
-      autoRefresh: config.pr?.autoRefresh ?? false,
-      recentlyMergedDays: config.pr?.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
-    }),
+    resolvePRFallback,
     {
       refreshInterval: 15,
       autoRefresh: true,
@@ -275,10 +355,11 @@ export function usePRSettings() {
     await updatePR({ recentlyMergedDays: days })
   }
 
+  const { refreshInterval, autoRefresh, recentlyMergedDays } = resolvePRValues(currentSettings)
   return {
-    refreshInterval: currentSettings.refreshInterval ?? 15,
-    autoRefresh: currentSettings.autoRefresh ?? false,
-    recentlyMergedDays: currentSettings.recentlyMergedDays ?? DEFAULT_RECENTLY_MERGED_DAYS,
+    refreshInterval,
+    autoRefresh,
+    recentlyMergedDays,
     loading,
     setRefreshInterval,
     setAutoRefresh,
@@ -295,11 +376,7 @@ export function useCopilotSettings() {
   const { updateCopilot } = useSettingsMutations()
   const { value: currentSettings, loading } = useElectronStoreFallback(
     settings?.copilot ?? undefined,
-    config => ({
-      ghAccount: config.copilot?.ghAccount ?? '',
-      model: config.copilot?.model ?? 'claude-sonnet-4.5',
-      premiumModel: config.copilot?.premiumModel ?? 'claude-opus-4.6',
-    }),
+    resolveCopilotFallback,
     { ghAccount: '', model: 'claude-sonnet-4.5', premiumModel: 'claude-opus-4.6' }
   )
 
@@ -315,10 +392,11 @@ export function useCopilotSettings() {
     await updateCopilot({ premiumModel })
   }
 
+  const { ghAccount, model, premiumModel } = resolveCopilotValues(currentSettings)
   return {
-    ghAccount: currentSettings.ghAccount ?? '',
-    model: currentSettings.model ?? 'claude-sonnet-4.5',
-    premiumModel: currentSettings.premiumModel ?? 'claude-opus-4.6',
+    ghAccount,
+    model,
+    premiumModel,
     loading,
     setGhAccount,
     setModel,

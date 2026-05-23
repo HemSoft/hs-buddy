@@ -12,13 +12,12 @@ import {
 import { ipcHandler } from './ipcHandler'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 
-export function registerTodoistHandlers(): void {
+function registerTodoistReadHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.TODOIST_GET_UPCOMING,
     ipcHandler(async (_event, days?: number) => {
       const safeDays = Math.max(1, Math.min(days ?? 7, 30))
       const grouped = await fetchUpcoming(safeDays)
-      // Convert Map to plain object for IPC serialization
       const result: Record<string, unknown[]> = {}
       for (const [date, tasks] of grouped) result[date] = tasks
       return { success: true, data: result }
@@ -33,6 +32,16 @@ export function registerTodoistHandlers(): void {
     })
   )
 
+  ipcMain.handle(
+    IPC_INVOKE.TODOIST_GET_PROJECTS,
+    ipcHandler(async () => {
+      const projects = await fetchProjects()
+      return { success: true, data: projects }
+    })
+  )
+}
+
+function registerTodoistWriteHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.TODOIST_COMPLETE_TASK,
     ipcHandler(async (_event, taskId: string) => {
@@ -94,12 +103,9 @@ export function registerTodoistHandlers(): void {
       return { success: true }
     })
   )
+}
 
-  ipcMain.handle(
-    IPC_INVOKE.TODOIST_GET_PROJECTS,
-    ipcHandler(async () => {
-      const projects = await fetchProjects()
-      return { success: true, data: projects }
-    })
-  )
+export function registerTodoistHandlers(): void {
+  registerTodoistReadHandlers()
+  registerTodoistWriteHandlers()
 }

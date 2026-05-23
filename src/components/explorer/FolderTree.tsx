@@ -81,7 +81,6 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
   useLayoutEffect(() => {
     nodesRef.current = nodes
   }, [nodes])
-
   useEffect(() => {
     return () => {
       mountedRef.current = false
@@ -103,25 +102,20 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
     }))
   }, [])
 
-  // Load root directory
   useEffect(() => {
     /* v8 ignore start */
     if (!rootPath) return
     /* v8 ignore stop */
-
     let cancelled = false
     dispatch({ type: 'root-load-start' })
     loadDirectory(rootPath)
       .then(loaded => {
-        /* v8 ignore start */
-        if (!cancelled) dispatch({ type: 'root-load-success', nodes: loaded })
-        /* v8 ignore stop */
+        /* v8 ignore start */ if (!cancelled)
+          dispatch({ type: 'root-load-success', nodes: loaded }) /* v8 ignore stop */
       })
       .catch(err => {
-        /* v8 ignore start */
-        if (!cancelled)
-          /* v8 ignore stop */
-          dispatch({
+        /* v8 ignore start */ if (!cancelled)
+          /* v8 ignore stop */ dispatch({
             type: 'root-load-error',
             error: getErrorMessageWithFallback(err, 'Failed to load directory'),
           })
@@ -133,15 +127,12 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
 
   const toggleExpand = useCallback(
     async (nodePath: string) => {
-      // Derive load decision outside the updater to keep it pure (React StrictMode safe)
       const findNode = (items: TreeNode[]): TreeNode | undefined => {
         for (const item of items) {
           if (item.path === nodePath) return item
           if (item.children) {
             const found = findNode(item.children)
-            /* v8 ignore start */
-            if (found) return found
-            /* v8 ignore stop */
+            /* v8 ignore start */ if (found) return found /* v8 ignore stop */
           }
         }
         /* v8 ignore start */
@@ -150,27 +141,21 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
       }
       const target = findNode(nodesRef.current)
       const needsLoad = shouldLoadChildren(target, pendingLoads.current.has(nodePath))
-
       dispatch({
         type: 'update-nodes',
         updater: prev => {
           const update = (items: TreeNode[]): TreeNode[] =>
             items.map(node => {
               if (node.path === nodePath) {
-                /* v8 ignore start */
-                if (node.type !== 'directory') return node
-                /* v8 ignore stop */
-                return { ...node, expanded: !node.expanded }
+                /* v8 ignore start */ if (node.type !== 'directory') return node
+                /* v8 ignore stop */ return { ...node, expanded: !node.expanded }
               }
-              if (node.children) {
-                return { ...node, children: update(node.children) }
-              }
+              if (node.children) return { ...node, children: update(node.children) }
               return node
             })
           return update(prev)
         },
       })
-
       if (needsLoad) {
         pendingLoads.current.add(nodePath)
         try {
@@ -183,19 +168,15 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
             updater: prev => {
               const update = (items: TreeNode[]): TreeNode[] =>
                 items.map(node => {
-                  if (node.path === nodePath) {
-                    return { ...node, children, loaded: true }
-                  }
-                  if (node.children) {
-                    return { ...node, children: update(node.children) }
-                  }
+                  if (node.path === nodePath) return { ...node, children, loaded: true }
+                  if (node.children) return { ...node, children: update(node.children) }
                   return node
                 })
               return update(prev)
             },
           })
         } catch (_: unknown) {
-          // Silently fail on subdirectory load errors
+          /* silently fail */
         } finally {
           pendingLoads.current.delete(nodePath)
         }
@@ -271,6 +252,49 @@ function getTypeIcon(isDir: boolean, expanded: boolean) {
   return expanded ? <FolderOpen size={14} /> : <Folder size={14} />
 }
 
+function activateTreeNode(
+  isDir: boolean,
+  path: string,
+  onToggle: (path: string) => void,
+  onFileClick: (path: string) => void
+) {
+  if (isDir) {
+    onToggle(path)
+    return
+  }
+  onFileClick(path)
+}
+
+function TreeNodeChildren({
+  isDir,
+  node,
+  depth,
+  onToggle,
+  onFileClick,
+  selectedFile,
+}: {
+  isDir: boolean
+  node: TreeNode
+  depth: number
+  onToggle: (path: string) => void
+  onFileClick: (path: string) => void
+  selectedFile?: string
+}) {
+  if (!isDir || !node.expanded || !node.children) {
+    return null
+  }
+
+  return (
+    <TreeNodeList
+      nodes={node.children}
+      depth={depth + 1}
+      onToggle={onToggle}
+      onFileClick={onFileClick}
+      selectedFile={selectedFile}
+    />
+  )
+}
+
 function TreeNodeItem({
   node,
   depth,
@@ -288,11 +312,7 @@ function TreeNodeItem({
   const isSelected = selectedFile === node.path
 
   const activate = useCallback(() => {
-    if (isDir) {
-      onToggle(node.path)
-    } else {
-      onFileClick(node.path)
-    }
+    activateTreeNode(isDir, node.path, onToggle, onFileClick)
   }, [isDir, node.path, onToggle, onFileClick])
 
   const handleClick = useCallback(
@@ -334,15 +354,14 @@ function TreeNodeItem({
           {node.name}
         </span>
       </div>
-      {isDir && node.expanded && node.children && (
-        <TreeNodeList
-          nodes={node.children}
-          depth={depth + 1}
-          onToggle={onToggle}
-          onFileClick={onFileClick}
-          selectedFile={selectedFile}
-        />
-      )}
+      <TreeNodeChildren
+        isDir={isDir}
+        node={node}
+        depth={depth}
+        onToggle={onToggle}
+        onFileClick={onFileClick}
+        selectedFile={selectedFile}
+      />
     </li>
   )
 }

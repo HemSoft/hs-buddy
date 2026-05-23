@@ -405,4 +405,30 @@ describe('useAIReviewMonitor', () => {
     expect(result.current.reviewState).toBe('idle')
     expect(provider.poll).not.toHaveBeenCalled()
   })
+
+  it('stops polling when poll throws an abort error', async () => {
+    const abortError = new DOMException('The operation was aborted', 'AbortError')
+    const pollFn = vi.fn().mockRejectedValue(abortError)
+    const provider = makeProvider({ poll: pollFn })
+
+    const { result } = renderHook(() => useAIReviewMonitor({ provider, ...defaultOptions }))
+
+    await act(async () => {
+      await result.current.handleRequestReview()
+    })
+
+    // First poll throws abort error — should stop scheduling more polls
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_MS)
+    })
+
+    expect(pollFn).toHaveBeenCalledTimes(1)
+
+    // Advance time again — no second poll scheduled because abort stopped the loop
+    await act(async () => {
+      vi.advanceTimersByTime(POLL_MS)
+    })
+
+    expect(pollFn).toHaveBeenCalledTimes(1)
+  })
 })

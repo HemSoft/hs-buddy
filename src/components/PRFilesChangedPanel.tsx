@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { FileCode2, RefreshCw } from 'lucide-react'
 import type { PRFilesChangedSummary } from '../api/github'
 import { usePRPanelData } from '../hooks/usePRPanelData'
@@ -12,6 +13,25 @@ interface PRFilesChangedPanelProps {
   pr: PRDetailInfo
 }
 
+function renderEmptyState(
+  loading: boolean,
+  error: string | null,
+  cacheKey: string | null,
+  refresh: () => void
+): JSX.Element | null {
+  if (loading) return <PanelLoadingState message="Loading changed files..." />
+  if (error) {
+    return (
+      <PanelErrorState
+        title="Failed to load changed files"
+        error={error}
+        onRetry={cacheKey ? refresh : undefined}
+      />
+    )
+  }
+  return null
+}
+
 export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   const {
     data: detail,
@@ -24,17 +44,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
   )
 
   if (!detail) {
-    if (loading) return <PanelLoadingState message="Loading changed files..." />
-    if (error) {
-      return (
-        <PanelErrorState
-          title="Failed to load changed files"
-          error={error}
-          onRetry={cacheKey ? refresh : undefined}
-        />
-      )
-    }
-    return null
+    return renderEmptyState(loading, error, cacheKey, refresh)
   }
 
   return (

@@ -37,6 +37,14 @@ interface PRDetailRoute {
   section: PRDetailSection | null
 }
 
+function resolvePRDetailText(value: string | undefined): string {
+  return value || ''
+}
+
+function resolvePRDetailNumber(value: number | null | undefined): number | null {
+  return value ?? null
+}
+
 function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
   return {
     source: pr.source,
@@ -51,14 +59,14 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     assigneeCount: pr.assigneeCount,
     iApproved: pr.iApproved,
     created: toIsoOrNull(pr.created),
-    updatedAt: pr.updatedAt || null,
-    headBranch: pr.headBranch || '',
-    baseBranch: pr.baseBranch || '',
+    updatedAt: pr.updatedAt ?? null,
+    headBranch: resolvePRDetailText(pr.headBranch),
+    baseBranch: resolvePRDetailText(pr.baseBranch),
     date: pr.date,
     orgAvatarUrl: pr.orgAvatarUrl,
     org: pr.org,
-    threadsTotal: pr.threadsTotal ?? null,
-    threadsUnaddressed: pr.threadsUnaddressed ?? null,
+    threadsTotal: resolvePRDetailNumber(pr.threadsTotal),
+    threadsUnaddressed: resolvePRDetailNumber(pr.threadsUnaddressed),
   }
 }
 

@@ -1,3 +1,4 @@
+import type React from 'react'
 import { useEffect, useReducer, useRef } from 'react'
 import { useLatest } from '../../hooks/useLatest'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
@@ -60,20 +61,163 @@ export function settingsReducer(state: SettingsState, action: SettingsAction): S
   return handler(state, action)
 }
 
+function CopilotSavedBadge({ saveStatus }: { saveStatus: string }) {
+  if (saveStatus !== 'saved') return null
+  return (
+    <span
+      style={{
+        color: 'var(--text-success, #4ec9b0)',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '12px',
+      }}
+    >
+      <CheckCircle size={14} /> Saved
+    </span>
+  )
+}
+
+function CopilotAccountSection({
+  localAccount,
+  handleAccountChange,
+  uniqueAccounts,
+}: {
+  localAccount: string
+  handleAccountChange: (v: string) => void
+  uniqueAccounts: string[]
+}) {
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h3>
+          <User size={16} />
+          GitHub Account
+        </h3>
+      </div>
+      <p className="section-description">
+        Choose which GitHub CLI account to use when running Copilot SDK prompts. The selected
+        account determines billing and available models.
+      </p>
+      <AccountPicker value={localAccount} onChange={handleAccountChange} variant="select" />
+      <p className="hint">
+        When set to a specific account, Buddy will switch the active <code>gh</code> CLI account
+        before executing Copilot prompts. Leave empty to use whichever account is currently active.
+      </p>
+      {uniqueAccounts.length === 0 && (
+        <div className="form-error" style={{ marginTop: '8px' }}>
+          <AlertCircle size={14} />
+          No GitHub accounts configured. Add accounts in the Accounts settings page.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CopilotModelSection({
+  localModel,
+  isCustomModel,
+  customModel,
+  handleModelChange,
+  handleCustomModelSave,
+  handleCustomModelKeyDown,
+  localAccount,
+  dispatch,
+}: {
+  localModel: string
+  isCustomModel: boolean
+  customModel: string
+  handleModelChange: (v: string) => void
+  handleCustomModelSave: () => void
+  handleCustomModelKeyDown: (e: React.KeyboardEvent) => void
+  localAccount: string
+  dispatch: React.Dispatch<SettingsAction>
+}) {
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h3>
+          <Cpu size={16} />
+          Model
+        </h3>
+      </div>
+      <p className="section-description">
+        Select the LLM model for Copilot SDK prompts. Models are fetched live from the Copilot SDK.
+        Different models vary in speed, quality, and cost.
+      </p>
+      <ModelPicker
+        value={isCustomModel ? '' : localModel}
+        onChange={handleModelChange}
+        ghAccount={localAccount}
+        variant="select"
+        showRefresh
+      />
+      {isCustomModel && (
+        <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={customModel}
+            onChange={e => dispatch({ type: 'set_custom_model', value: e.target.value })}
+            onKeyDown={handleCustomModelKeyDown}
+            placeholder="Enter custom model name"
+            className="settings-input"
+            style={{ flex: 1 }}
+          />
+          <button
+            className="settings-btn settings-btn-primary"
+            onClick={() => void handleCustomModelSave()}
+            disabled={!customModel.trim()}
+          >
+            Apply
+          </button>
+        </div>
+      )}
+      <p className="hint">
+        The model is passed to the Copilot SDK&apos;s <code>createSession()</code> call. Available
+        models depend on your GitHub Copilot subscription tier.
+      </p>
+    </div>
+  )
+}
+
+function CopilotConfigSummary({
+  localAccount,
+  localModel,
+}: {
+  localAccount: string
+  localModel: string
+}) {
+  return (
+    <div className="settings-section">
+      <div className="section-header">
+        <h3>
+          <Sparkles size={16} />
+          Current Configuration
+        </h3>
+      </div>
+      <div className="info-box">
+        <p>
+          <strong>Account:</strong> {localAccount || 'Active CLI account'}
+        </p>
+        <p>
+          <strong>Model:</strong> <code>{localModel}</code>
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsCopilot() {
   const { ghAccount, model, loading, setGhAccount, setModel } = useCopilotSettings()
-
   const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
   const [state, dispatch] = useReducer(settingsReducer, {
     localAccount: ghAccount,
     localModel: model,
     customModel: '',
     isCustomModel: false,
-    saveStatus: 'idle',
+    saveStatus: 'idle' as const,
   })
   const { localAccount, localModel, customModel, isCustomModel, saveStatus } = state
-
-  // Sync local state from Convex once it loads (one-time initialization)
   const initializedRef = useRef(false)
   const saveResetTimerRef = useRef<number | null>(null)
   const accountRequestRef = useRef(0)
@@ -87,19 +231,15 @@ export function SettingsCopilot() {
       dispatch({ type: 'initialize', account: ghAccount, model })
     }
   }, [loading, ghAccount, model])
-
-  useEffect(() => {
-    return () => {
-      if (saveResetTimerRef.current != null) {
-        window.clearTimeout(saveResetTimerRef.current)
-      }
-    }
-  }, [])
+  useEffect(
+    () => () => {
+      if (saveResetTimerRef.current != null) window.clearTimeout(saveResetTimerRef.current)
+    },
+    []
+  )
 
   const scheduleSaveStatusReset = () => {
-    if (saveResetTimerRef.current != null) {
-      window.clearTimeout(saveResetTimerRef.current)
-    }
+    if (saveResetTimerRef.current != null) window.clearTimeout(saveResetTimerRef.current)
     saveResetTimerRef.current = window.setTimeout(() => {
       dispatch({ type: 'reset_save' })
       saveResetTimerRef.current = null
@@ -129,7 +269,6 @@ export function SettingsCopilot() {
       dispatch({ type: 'toggle_custom_model', enabled: true })
       return
     }
-
     const requestId = ++modelRequestRef.current
     dispatch({ type: 'toggle_custom_model', enabled: false })
     dispatch({ type: 'set_model', value })
@@ -150,10 +289,8 @@ export function SettingsCopilot() {
 
   const handleCustomModelSave = async () => {
     const trimmed = customModel.trim()
-    /* v8 ignore start -- button is disabled, but keyboard Enter can bypass */
-    if (!trimmed) return
-    /* v8 ignore stop */
-
+    /* v8 ignore start -- button is disabled, but keyboard Enter can bypass */ if (!trimmed)
+      return /* v8 ignore stop */
     const requestId = ++modelRequestRef.current
     dispatch({ type: 'set_model', value: trimmed })
     dispatch({ type: 'saving' })
@@ -178,7 +315,7 @@ export function SettingsCopilot() {
     }
   }
 
-  if (loading) {
+  if (loading)
     return (
       <div className="settings-page">
         <div className="settings-loading">
@@ -187,7 +324,6 @@ export function SettingsCopilot() {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="settings-page">
@@ -196,116 +332,25 @@ export function SettingsCopilot() {
         <p className="settings-page-description">
           Configure the GitHub account and model used for Copilot SDK interactions.
         </p>
-        {saveStatus === 'saved' && (
-          <span
-            style={{
-              color: 'var(--text-success, #4ec9b0)',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '4px',
-              fontSize: '12px',
-            }}
-          >
-            <CheckCircle size={14} /> Saved
-          </span>
-        )}
+        <CopilotSavedBadge saveStatus={saveStatus} />
       </div>
-
       <div className="settings-page-content">
-        {/* GitHub Account Section */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <User size={16} />
-              GitHub Account
-            </h3>
-          </div>
-          <p className="section-description">
-            Choose which GitHub CLI account to use when running Copilot SDK prompts. The selected
-            account determines billing and available models.
-          </p>
-
-          <AccountPicker value={localAccount} onChange={handleAccountChange} variant="select" />
-
-          <p className="hint">
-            When set to a specific account, Buddy will switch the active <code>gh</code> CLI account
-            before executing Copilot prompts. Leave empty to use whichever account is currently
-            active.
-          </p>
-
-          {uniqueAccounts.length === 0 && (
-            <div className="form-error" style={{ marginTop: '8px' }}>
-              <AlertCircle size={14} />
-              No GitHub accounts configured. Add accounts in the Accounts settings page.
-            </div>
-          )}
-        </div>
-
-        {/* Model Section */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Cpu size={16} />
-              Model
-            </h3>
-          </div>
-          <p className="section-description">
-            Select the LLM model for Copilot SDK prompts. Models are fetched live from the Copilot
-            SDK. Different models vary in speed, quality, and cost.
-          </p>
-
-          <ModelPicker
-            value={isCustomModel ? '' : localModel}
-            onChange={handleModelChange}
-            ghAccount={localAccount}
-            variant="select"
-            showRefresh
-          />
-
-          {isCustomModel && (
-            <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={customModel}
-                onChange={e => dispatch({ type: 'set_custom_model', value: e.target.value })}
-                onKeyDown={handleCustomModelKeyDown}
-                placeholder="Enter custom model name"
-                className="settings-input"
-                style={{ flex: 1 }}
-              />
-              <button
-                className="settings-btn settings-btn-primary"
-                onClick={() => void handleCustomModelSave()}
-                disabled={!customModel.trim()}
-              >
-                Apply
-              </button>
-            </div>
-          )}
-
-          <p className="hint">
-            The model is passed to the Copilot SDK&apos;s <code>createSession()</code> call.
-            Available models depend on your GitHub Copilot subscription tier.
-          </p>
-        </div>
-
-        {/* Current Configuration Summary */}
-        <div className="settings-section">
-          <div className="section-header">
-            <h3>
-              <Sparkles size={16} />
-              Current Configuration
-            </h3>
-          </div>
-          <div className="info-box">
-            <p>
-              <strong>Account:</strong> {localAccount || 'Active CLI account'}
-            </p>
-            <p>
-              <strong>Model:</strong> <code>{localModel}</code>
-            </p>
-          </div>
-        </div>
+        <CopilotAccountSection
+          localAccount={localAccount}
+          handleAccountChange={handleAccountChange}
+          uniqueAccounts={uniqueAccounts}
+        />
+        <CopilotModelSection
+          localModel={localModel}
+          isCustomModel={isCustomModel}
+          customModel={customModel}
+          handleModelChange={handleModelChange}
+          handleCustomModelSave={handleCustomModelSave}
+          handleCustomModelKeyDown={handleCustomModelKeyDown}
+          localAccount={localAccount}
+          dispatch={dispatch}
+        />
+        <CopilotConfigSummary localAccount={localAccount} localModel={localModel} />
       </div>
     </div>
   )

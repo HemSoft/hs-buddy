@@ -42,8 +42,6 @@ export function TerminalTabContextMenu({
   useEffect(() => {
     if (mode === 'rename') inputRef.current?.select()
   }, [mode])
-
-  // Close on Escape
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
@@ -59,7 +57,6 @@ export function TerminalTabContextMenu({
     }
     onClose()
   }, [renameValue, tab, onRename, onClose])
-
   const handleRenameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter') handleRenameSubmit()

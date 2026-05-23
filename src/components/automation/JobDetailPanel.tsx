@@ -169,6 +169,72 @@ function getEditorProps(duplicating: boolean, jobId: string | undefined, job: Do
   }
 }
 
+async function confirmAndDeleteJob(
+  job: Doc<'jobs'>,
+  confirm: ReturnType<typeof useConfirm>['confirm'],
+  remove: ReturnType<typeof useJobMutations>['remove']
+): Promise<void> {
+  const confirmed = await confirm({
+    message: `Delete job "${job.name}"?`,
+    description: 'This will also delete all associated schedules.',
+    confirmLabel: 'Delete',
+    variant: 'danger',
+  })
+  /* v8 ignore next -- user cancelled confirmation dialog */
+  if (!confirmed) return
+
+  try {
+    await remove({ id: job._id })
+  } catch (error: unknown) {
+    /* v8 ignore start */
+    console.error('Failed to delete job:', error)
+    /* v8 ignore stop */
+  }
+}
+
+function JobDetailEditor({
+  editorOpen,
+  duplicating,
+  jobId,
+  job,
+  onClose,
+}: {
+  editorOpen: boolean
+  duplicating: boolean
+  jobId: string
+  job: Doc<'jobs'>
+  onClose: () => void
+}) {
+  if (!editorOpen) return null
+  return <JobEditor {...getEditorProps(duplicating, jobId, job)} onClose={onClose} />
+}
+
+function JobDescription({ description }: { description?: string }) {
+  if (!description) return null
+  return <div className="job-detail-description">{description}</div>
+}
+
+function JobDetailLoadingState() {
+  return (
+    <div className="job-detail">
+      <div className="job-detail-loading">
+        <div className="loading-spinner" />
+        <span>Loading job...</span>
+      </div>
+    </div>
+  )
+}
+
+function JobDetailEmptyState() {
+  return (
+    <div className="job-detail">
+      <div className="job-detail-empty">
+        <p>Job not found.</p>
+      </div>
+    </div>
+  )
+}
+
 export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const job = useJob(jobId as JobId)
   const runs = useJobRuns(jobId as JobId, 10)
@@ -179,33 +245,18 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
   const { confirm, confirmDialog } = useConfirm()
 
   if (job === undefined) {
-    return (
-      <div className="job-detail">
-        <div className="job-detail-loading">
-          <div className="loading-spinner" />
-          <span>Loading job...</span>
-        </div>
-      </div>
-    )
+    return <JobDetailLoadingState />
   }
 
   if (job === null) {
-    return (
-      <div className="job-detail">
-        <div className="job-detail-empty">
-          <p>Job not found.</p>
-        </div>
-      </div>
-    )
+    return <JobDetailEmptyState />
   }
 
   const handleRunNow = async () => {
     try {
       await createRun({ jobId: job._id, triggeredBy: 'manual' })
     } catch (error: unknown) {
-      /* v8 ignore start */
-      console.error('Failed to create run:', error)
-      /* v8 ignore stop */
+      /* v8 ignore start */ console.error('Failed to create run:', error) /* v8 ignore stop */
     }
   }
 
@@ -213,43 +264,24 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
     setDuplicating(false)
     setEditorOpen(true)
   }
-
   const handleDuplicate = () => {
     setDuplicating(true)
     setEditorOpen(true)
   }
-
   const handleDelete = async () => {
-    const confirmed = await confirm({
-      message: `Delete job "${job.name}"?`,
-      description: 'This will also delete all associated schedules.',
-      confirmLabel: 'Delete',
-      variant: 'danger',
-    })
-    /* v8 ignore start */
-    if (confirmed) {
-      /* v8 ignore stop */
-      try {
-        await remove({ id: job._id })
-      } catch (error: unknown) {
-        /* v8 ignore start */
-        console.error('Failed to delete job:', error)
-        /* v8 ignore stop */
-      }
-    }
+    await confirmAndDeleteJob(job, confirm, remove)
   }
 
   return (
     <>
       <div className="job-detail">
-        {editorOpen && (
-          <JobEditor
-            {...getEditorProps(duplicating, jobId, job)}
-            /* v8 ignore start */
-            onClose={() => setEditorOpen(false)}
-            /* v8 ignore stop */
-          />
-        )}
+        <JobDetailEditor
+          editorOpen={editorOpen}
+          duplicating={duplicating}
+          jobId={jobId}
+          job={job}
+          onClose={() => setEditorOpen(false)}
+        />
 
         <div className="job-detail-header">
           <div className="job-detail-title-row">
@@ -275,7 +307,7 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
           </div>
         </div>
 
-        {job.description && <div className="job-detail-description">{job.description}</div>}
+        <JobDescription description={job.description} />
 
         <div className="job-detail-meta">
           <span title={new Date(job.createdAt).toLocaleString()}>

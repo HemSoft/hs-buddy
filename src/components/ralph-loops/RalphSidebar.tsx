@@ -146,19 +146,60 @@ function ScriptItem({
   )
 }
 
+function buildDefaultRunName(run: RalphRunInfo, repo: string): string {
+  return `${repo} · ${run.runId.slice(0, 6)}`
+}
+
+function buildPullRequestRunName(run: RalphRunInfo, repo: string): string {
+  /* v8 ignore next -- defensive guard; prNumber always set for PR runs */
+  if (run.config.prNumber == null) {
+    return buildDefaultRunName(run, repo)
+  }
+  return `${repo} #${run.config.prNumber}`
+}
+
+function buildTemplateRunName(run: RalphRunInfo, repo: string): string {
+  /* v8 ignore next -- defensive guard; templateScript always set for template runs */
+  if (!run.config.templateScript) {
+    return buildDefaultRunName(run, repo)
+  }
+  const tpl = run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
+  return `${repo} · ${tpl}`
+}
+
+const RUN_NAME_BUILDERS: Partial<
+  Record<RalphRunInfo['config']['scriptType'], (run: RalphRunInfo, repo: string) => string>
+> = {
+  'ralph-pr': buildPullRequestRunName,
+  'ralph-issues': (_run, repo) => `${repo} · issues`,
+  template: buildTemplateRunName,
+}
+
 function runDisplayName(run: RalphRunInfo): string {
   const repo = repoName(run.config.repoPath)
-  if (run.config.scriptType === 'ralph-pr' && run.config.prNumber) {
-    return `${repo} #${run.config.prNumber}`
+  const builder = RUN_NAME_BUILDERS[run.config.scriptType]
+  if (builder) {
+    return builder(run, repo)
   }
-  if (run.config.scriptType === 'ralph-issues') {
-    return `${repo} · issues`
+  return buildDefaultRunName(run, repo)
+}
+
+function isActiveRun(run: RalphRunInfo): boolean {
+  return run.status === 'running' || run.status === 'pending'
+}
+
+function activeRunDetail(run: RalphRunInfo): string {
+  if (run.totalIterations) {
+    return `${run.currentIteration}/${run.totalIterations}`
   }
-  if (run.config.scriptType === 'template' && run.config.templateScript) {
-    const tpl = run.config.templateScript.replace(/\.ps1$/i, '').replace(/^ralph-/, '')
-    return `${repo} · ${tpl}`
+  return run.phase
+}
+
+function runDetail(run: RalphRunInfo): string {
+  if (isActiveRun(run)) {
+    return activeRunDetail(run)
   }
-  return `${repo} · ${run.runId.slice(0, 6)}`
+  return timeAgo(run.completedAt ?? run.updatedAt)
 }
 
 /* ── Run item (for Runs section) ─────────────────────────────── */
@@ -173,12 +214,6 @@ function RunItem({
   onClick: () => void
 }) {
   const Icon = RUN_STATUS_ICON[run.status]
-  const active = run.status === 'running' || run.status === 'pending'
-  const detail = active
-    ? run.totalIterations
-      ? `${run.currentIteration}/${run.totalIterations}`
-      : run.phase
-    : timeAgo(run.completedAt ?? run.updatedAt)
 
   return (
     <div
@@ -193,7 +228,7 @@ function RunItem({
     >
       <Icon size={12} className={run.status === 'running' ? 'ralph-spin' : ''} />
       <span className="ralph-sidebar-run-label">{runDisplayName(run)}</span>
-      <span className="ralph-sidebar-run-detail">{detail}</span>
+      <span className="ralph-sidebar-run-detail">{runDetail(run)}</span>
     </div>
   )
 }
@@ -250,7 +285,6 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
   const { runs } = useRalphLoops()
   const { active: activeRuns, recent: recentRuns } = useMemo(() => partitionRuns(runs), [runs])
 
-  // Auto-expand Runs section when runs exist
   useEffect(() => {
     if (activeRuns.length > 0 || recentRuns.length > 0) expanded.add('runs')
   }, [activeRuns.length, recentRuns.length, expanded])
@@ -258,8 +292,8 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
   useEffect(() => {
     window.ralph
       .listTemplates()
-      .then(result => {
-        if (Array.isArray(result)) setTemplates(result)
+      .then(r => {
+        if (Array.isArray(r)) setTemplates(r)
       })
       .catch(() => {})
   }, [])
@@ -269,6 +303,11 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
     window.dispatchEvent(new CustomEvent('ralph:select-script', { detail: id }))
     onItemSelect('ralph-dashboard')
   }
+  const goToDashboard = () => {
+    setActiveScript(null)
+    onItemSelect('ralph-dashboard')
+  }
+  const dashClass = `ralph-sidebar-item ${selectedItem === 'ralph-dashboard' && !activeScript ? 'selected' : ''}`
 
   return (
     <div className="sidebar-panel">
@@ -276,27 +315,18 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
         <h2>RALPH LOOPS</h2>
       </div>
       <div className="sidebar-panel-content">
-        {/* Dashboard */}
         <div
-          className={`ralph-sidebar-item ${selectedItem === 'ralph-dashboard' && !activeScript ? 'selected' : ''}`}
+          className={dashClass}
           role="button"
           tabIndex={0}
-          onClick={() => {
-            setActiveScript(null)
-            onItemSelect('ralph-dashboard')
-          }}
+          onClick={goToDashboard}
           onKeyDown={e => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setActiveScript(null)
-              onItemSelect('ralph-dashboard')
-            }
+            if (e.key === 'Enter' || e.key === ' ') goToDashboard()
           }}
         >
           <LayoutGrid size={14} />
           <span>Dashboard</span>
         </div>
-
-        {/* Core Scripts */}
         <SidebarSection
           id="core"
           icon={<Terminal size={16} />}
@@ -316,8 +346,6 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
             />
           ))}
         </SidebarSection>
-
-        {/* Templates */}
         <SidebarSection
           id="scripts"
           icon={<FileCode2 size={16} />}
@@ -342,8 +370,6 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
             ))
           )}
         </SidebarSection>
-
-        {/* Runs */}
         <SidebarSection
           id="runs"
           icon={<Activity size={16} />}

@@ -2,6 +2,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { MutationCtx } from './_generated/server'
+import type { Id } from './_generated/dataModel'
 import {
   normalizeWhitespace,
   toCanonicalKey,
@@ -78,9 +79,9 @@ export const getBySourceExternal = query({
 })
 
 function buildNormalizeResult(
-  intakeId: string,
+  intakeId: Id<'featureIntakes'>,
   existingByCanonical: {
-    _id: string
+    _id: Id<'featureIntakes'>
     canonicalIssueNumber?: number
     canonicalIssueUrl?: string
   } | null,
@@ -101,7 +102,7 @@ function buildNormalizeResult(
 }
 
 function buildExternalDuplicateResult(existing: {
-  _id: unknown
+  _id: Id<'featureIntakes'>
   canonicalKey: string
   canonicalIssueTitle: string
   canonicalIssueBody: string
@@ -119,6 +120,83 @@ function buildExternalDuplicateResult(existing: {
 
 type IntakeSource = 'jira' | 'github-issue' | 'manual' | 'other'
 type RiskLabel = 'risk:trivial' | 'risk:low' | 'risk:medium' | 'risk:high' | 'risk:critical'
+
+function resolveRiskLabel(riskLabel: RiskLabel | undefined): RiskLabel {
+  return riskLabel ?? 'risk:low'
+}
+
+function getExistingCanonicalFields(existingByCanonical: {
+  _id: Id<'featureIntakes'>
+  canonicalIssueNumber?: number
+  canonicalIssueUrl?: string
+} | null): {
+  duplicateOfId?: Id<'featureIntakes'>
+  canonicalIssueNumber?: number
+  canonicalIssueUrl?: string
+} {
+  if (!existingByCanonical) {
+    return {
+      duplicateOfId: undefined,
+      canonicalIssueNumber: undefined,
+      canonicalIssueUrl: undefined,
+    }
+  }
+  return {
+    duplicateOfId: existingByCanonical._id,
+    canonicalIssueNumber: existingByCanonical.canonicalIssueNumber,
+    canonicalIssueUrl: existingByCanonical.canonicalIssueUrl,
+  }
+}
+
+function buildFeatureIntakeInsertDoc(
+  normalizedArgs: {
+    source: IntakeSource
+    externalId: string
+    externalUrl?: string
+    requestedBy?: string
+    title: string
+    problem: string
+    requestedOutcome?: string
+    acceptanceCriteria: string[]
+    riskLabel?: RiskLabel
+    metadata?: unknown
+  },
+  existingByCanonical: {
+    _id: Id<'featureIntakes'>
+    canonicalIssueNumber?: number
+    canonicalIssueUrl?: string
+  } | null,
+  canonicalData: {
+    canonicalKey: string
+    canonicalIssueTitle: string
+    canonicalIssueBody: string
+    canonicalIssueLabels: string[]
+    riskLabel: RiskLabel
+  },
+  now: number
+) {
+  const status: 'draft' | 'duplicate' = existingByCanonical ? 'duplicate' : 'draft'
+  return {
+    source: normalizedArgs.source,
+    externalId: normalizedArgs.externalId,
+    externalUrl: normalizedArgs.externalUrl,
+    requestedBy: normalizedArgs.requestedBy,
+    title: normalizedArgs.title,
+    problem: normalizedArgs.problem,
+    requestedOutcome: normalizedArgs.requestedOutcome,
+    acceptanceCriteria: normalizedArgs.acceptanceCriteria,
+    riskLabel: canonicalData.riskLabel,
+    canonicalKey: canonicalData.canonicalKey,
+    canonicalIssueTitle: canonicalData.canonicalIssueTitle,
+    canonicalIssueBody: canonicalData.canonicalIssueBody,
+    canonicalIssueLabels: canonicalData.canonicalIssueLabels,
+    status,
+    metadata: normalizedArgs.metadata,
+    createdAt: now,
+    updatedAt: now,
+    ...getExistingCanonicalFields(existingByCanonical),
+  }
+}
 
 async function insertAndResolve(
   ctx: MutationCtx,
@@ -151,7 +229,7 @@ async function insertAndResolve(
     .withIndex('by_canonical_key', q => q.eq('canonicalKey', canonicalKey))
     .first()
 
-  const riskLabel: RiskLabel = normalizedArgs.riskLabel ?? 'risk:low'
+  const riskLabel = resolveRiskLabel(normalizedArgs.riskLabel)
   const canonicalIssueTitle = buildIssueTitle(title)
   const canonicalIssueLabels = ['agent:fixable', sourceToLabel(source), riskLabel]
 
@@ -169,30 +247,22 @@ async function insertAndResolve(
   })
 
   const now = Date.now()
-  const status = existingByCanonical ? 'duplicate' : 'draft'
 
-  const intakeId = await ctx.db.insert('featureIntakes', {
-    source,
-    externalId,
-    externalUrl: normalizedArgs.externalUrl,
-    requestedBy: normalizedArgs.requestedBy,
-    title,
-    problem,
-    requestedOutcome,
-    acceptanceCriteria,
-    riskLabel,
-    canonicalKey,
-    canonicalIssueTitle,
-    canonicalIssueBody,
-    canonicalIssueLabels,
-    status,
-    duplicateOfId: existingByCanonical?._id,
-    canonicalIssueNumber: existingByCanonical?.canonicalIssueNumber,
-    canonicalIssueUrl: existingByCanonical?.canonicalIssueUrl,
-    metadata: normalizedArgs.metadata,
-    createdAt: now,
-    updatedAt: now,
-  })
+  const intakeId = await ctx.db.insert(
+    'featureIntakes',
+    buildFeatureIntakeInsertDoc(
+      normalizedArgs,
+      existingByCanonical,
+      {
+        canonicalKey,
+        canonicalIssueTitle,
+        canonicalIssueBody,
+        canonicalIssueLabels,
+        riskLabel,
+      },
+      now
+    )
+  )
 
   return buildNormalizeResult(
     intakeId,

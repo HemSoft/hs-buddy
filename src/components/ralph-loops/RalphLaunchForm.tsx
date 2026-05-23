@@ -8,6 +8,7 @@ import type {
   RalphModelsConfig,
   RalphProvider,
   RalphProviderEntry,
+  RalphProvidersConfig,
   RalphTemplateInfo,
 } from '../../types/ralph'
 
@@ -33,23 +34,65 @@ interface ReviewerModelGroup {
   options: { value: string; label: string }[]
 }
 
+function buildAliasOptions(
+  models: RalphModelsConfig,
+  supported: string[],
+  provKey: string
+): { value: string; label: string }[] {
+  return Object.entries(models.aliases)
+    .filter(
+      ([, target]) => models.models[target] && supported.includes(models.models[target].provider)
+    )
+    .map(([alias, target]) => ({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` }))
+}
+
+function isModelSupported(
+  models: RalphModelsConfig,
+  supported: string[] | undefined,
+  target: string
+): boolean {
+  const targetModel = models.models[target]
+  return !supported || (!!targetModel && supported.includes(targetModel.provider))
+}
+
+function isCurrentModelIncompatible(
+  model: string,
+  provider: string,
+  providers: RalphProvidersConfig,
+  models: RalphModelsConfig
+): boolean {
+  const supported = providers.providers[provider]?.supportedModelProviders
+  if (!supported) return false
+  const resolvedKey = models.aliases[model] ?? model
+  const entry = models.models[resolvedKey]
+  return !!entry && !supported.includes(entry.provider)
+}
+
+function computeModelOptions(
+  models: RalphModelsConfig | null | undefined,
+  supported: string[] | undefined
+): { value: string; label: string }[] {
+  if (!models) return []
+  const filteredModels = Object.entries(models.models)
+    .filter(([, m]) => !supported || supported.includes(m.provider))
+    .map(([key, m]) => ({ value: key, label: `${m.label} (${m.reasoningEffort})` }))
+  const filteredAliases = Object.entries(models.aliases)
+    .filter(([, target]) => isModelSupported(models, supported, target))
+    .map(([alias, target]) => ({ value: alias, label: `${alias} → ${target}` }))
+  return [...filteredModels, ...filteredAliases]
+}
+
 function buildProviderModelGroup(
   provKey: string,
   prov: RalphProviderEntry,
   models: RalphModelsConfig
 ): ReviewerModelGroup | null {
   const supported = prov.supportedModelProviders ?? []
-  const opts: { value: string; label: string }[] = []
-  for (const [modelKey, m] of Object.entries(models.models)) {
-    if (supported.includes(m.provider)) {
-      opts.push({ value: `${provKey}:${modelKey}`, label: `${m.label} (${m.reasoningEffort})` })
-    }
-  }
-  for (const [alias, target] of Object.entries(models.aliases)) {
-    if (models.models[target] && supported.includes(models.models[target].provider)) {
-      opts.push({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` })
-    }
-  }
+  const modelOpts = Object.entries(models.models)
+    .filter(([, m]) => supported.includes(m.provider))
+    .map(([key, m]) => ({ value: `${provKey}:${key}`, label: `${m.label} (${m.reasoningEffort})` }))
+  const aliasOpts = buildAliasOptions(models, supported, provKey)
+  const opts = [...modelOpts, ...aliasOpts]
   return opts.length > 0
     ? { provider: provKey, label: prov.description ?? provKey, options: opts }
     : null
@@ -84,16 +127,22 @@ function resolveScriptType(choice: ScriptChoice): {
     : { scriptType: choice as RalphLaunchConfig['scriptType'] }
 }
 
+interface RunFieldCondition {
+  condition: boolean
+  field: Partial<RalphLaunchConfig>
+}
+
 function buildRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
   const trimmedPrompt = opts.prompt.trim()
-  return {
-    ...(opts.repeats > 1 && { repeats: opts.repeats }),
-    ...(opts.branch && { branch: opts.branch }),
-    ...(trimmedPrompt && { prompt: trimmedPrompt }),
-    ...(opts.labels.trim() && { labels: opts.labels.trim() }),
-    ...(opts.dryRun && { dryRun: true }),
-    ...(opts.autoApprove && { autoApprove: true }),
-  }
+  const conditions: RunFieldCondition[] = [
+    { condition: opts.repeats > 1, field: { repeats: opts.repeats } },
+    { condition: !!opts.branch, field: { branch: opts.branch } },
+    { condition: !!trimmedPrompt, field: { prompt: trimmedPrompt } },
+    { condition: !!opts.labels.trim(), field: { labels: opts.labels.trim() } },
+    { condition: opts.dryRun, field: { dryRun: true } },
+    { condition: opts.autoApprove, field: { autoApprove: true } },
+  ]
+  return Object.assign({}, ...conditions.filter(c => c.condition).map(c => c.field))
 }
 
 function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
@@ -121,6 +170,37 @@ function buildLaunchConfig(opts: LaunchFormValues): RalphLaunchConfig {
     ...(issueNum && { issueNumber: issueNum }),
     ...buildOptionalFields(opts),
   }
+}
+
+function shouldResetModelForProvider(params: {
+  model: string
+  provider: string
+  providers: RalphProvidersConfig | null | undefined
+  models: RalphModelsConfig | null | undefined
+}): boolean {
+  const { model, provider, providers, models } = params
+  if (!model || !provider || !providers || !models) {
+    return false
+  }
+  return isCurrentModelIncompatible(model, provider, providers, models)
+}
+
+async function launchLoop(
+  onLaunch: RalphLaunchFormProps['onLaunch'],
+  config: RalphLaunchConfig
+): Promise<RalphLaunchResult | undefined> {
+  /* v8 ignore next -- defensive guard; onLaunch always provided */
+  if (!onLaunch) {
+    return undefined
+  }
+  return onLaunch(config)
+}
+
+function getLaunchFailure(result: RalphLaunchResult | undefined): string | null {
+  if (!result || result.success) {
+    return null
+  }
+  return result.error ?? 'Launch failed'
 }
 
 /* ── Extracted form sub-components ────────────────────────────── */
@@ -329,6 +409,86 @@ function ScriptSelect({
   )
 }
 
+function ReviewAgentsSection({
+  reviewAgentOptions,
+  reviewAgents,
+  reviewerModels,
+  reviewerModelOptions,
+  onToggle,
+  onModelChange,
+}: {
+  reviewAgentOptions: { value: string; label: string }[]
+  reviewAgents: string[]
+  reviewerModels: Record<string, string>
+  reviewerModelOptions: ReviewerModelGroup[]
+  onToggle: (key: string) => void
+  onModelChange: (role: string, model: string) => void
+}) {
+  if (reviewAgentOptions.length === 0) return null
+  return (
+    <div className="ralph-form-field">
+      <span className="ralph-form-label">PR Review Agents</span>
+      <div className="ralph-agent-chips">
+        {reviewAgentOptions.map(o => {
+          const isSelected = reviewAgents.includes(o.value)
+          return (
+            <div key={o.value} className="ralph-agent-chip-wrapper">
+              <button
+                type="button"
+                className={`ralph-agent-chip ${isSelected ? 'selected' : ''}`}
+                onClick={() => onToggle(o.value)}
+                title={o.label}
+              >
+                {o.value}
+              </button>
+              {isSelected && (
+                <select
+                  className="ralph-agent-model-select"
+                  value={reviewerModels[o.value] ?? ''}
+                  onChange={e => onModelChange(o.value, e.target.value)}
+                  title={`Model for ${o.value}`}
+                >
+                  <option value="">Default model</option>
+                  {reviewerModelOptions.map(g => (
+                    <optgroup key={g.provider} label={g.label}>
+                      {g.options.map(m => (
+                        <option key={m.value} value={m.value}>
+                          {m.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function LaunchButton({ launching, disabled }: { launching: boolean; disabled: boolean }) {
+  return (
+    <button type="submit" className="ralph-launch-btn" disabled={launching || disabled}>
+      <Play size={14} />
+      {launching ? 'Launching…' : 'Launch'}
+    </button>
+  )
+}
+
+const PRESET_EXCLUDE = new Set<string>(['ralph', 'ralph-pr', 'ralph-issues'])
+
+const PROMPT_PLACEHOLDERS: Record<string, string> = {
+  ralph: 'Enter a prompt for the loop (required for ralph core)',
+  'ralph-issues': 'Scan instructions (e.g. "Find security vulnerabilities")',
+}
+const DEFAULT_PROMPT_PLACEHOLDER = 'Prompt will be auto-filled from script, or enter a custom one'
+
+function getPromptPlaceholder(scriptChoice: ScriptChoice): string {
+  return PROMPT_PLACEHOLDERS[scriptChoice] ?? DEFAULT_PROMPT_PLACEHOLDER
+}
+
 function PromptField({
   scriptChoice,
   prompt,
@@ -338,11 +498,7 @@ function PromptField({
   prompt: string
   onChange: (v: string) => void
 }) {
-  const hasPreset =
-    !!prompt &&
-    scriptChoice !== 'ralph' &&
-    scriptChoice !== 'ralph-pr' &&
-    scriptChoice !== 'ralph-issues'
+  const hasPreset = !!prompt && !PRESET_EXCLUDE.has(scriptChoice)
   return (
     <div className="ralph-form-field">
       <label htmlFor="ralph-prompt">
@@ -352,13 +508,7 @@ function PromptField({
         id="ralph-prompt"
         value={prompt}
         onChange={e => onChange(e.target.value)}
-        placeholder={
-          scriptChoice === 'ralph'
-            ? 'Enter a prompt for the loop (required for ralph core)'
-            : scriptChoice === 'ralph-issues'
-              ? 'Scan instructions (e.g. "Find security vulnerabilities")'
-              : 'Prompt will be auto-filled from script, or enter a custom one'
-        }
+        placeholder={getPromptPlaceholder(scriptChoice)}
         rows={5}
       />
     </div>
@@ -374,16 +524,12 @@ export function RalphLaunchForm({
   const { data: models } = useRalphModels()
   const { data: agents } = useRalphAgents()
   const { data: providers } = useRalphProviders()
-
   const [repoPath, setRepoPath] = useState(() => safeGetItem('ralph-last-repo') ?? '')
   const [scriptChoice, setScriptChoice] = useState<ScriptChoice>(initialScript ?? 'ralph')
 
-  // Sync when sidebar changes the selected script
   useEffect(() => {
     if (initialScript) setScriptChoice(initialScript)
   }, [initialScript])
-
-  // Pre-populate from PR detail context menu
   useEffect(() => {
     if (initialPR) {
       setScriptChoice('ralph-pr')
@@ -391,24 +537,24 @@ export function RalphLaunchForm({
       if (initialPR.repoPath) setRepoPath(initialPR.repoPath)
     }
   }, [initialPR])
-
-  // Pre-populate from Issue detail "Start Ralph Loop" action
   useEffect(() => {
     if (initialIssue) {
       setScriptChoice('ralph')
       if (initialIssue.repoPath) setRepoPath(initialIssue.repoPath)
       setIssueNumber(String(initialIssue.issueNumber))
       setBranch(`fix/issue-${initialIssue.issueNumber}`)
-      const issuePrompt = [
-        `Fix GitHub Issue #${initialIssue.issueNumber}: ${initialIssue.issueTitle}`,
-        '',
-        initialIssue.issueBody || '(no description provided)',
-        '',
-        'Implement the fix, run tests, commit, and push.',
-      ].join('\n')
-      setPrompt(issuePrompt)
+      setPrompt(
+        [
+          `Fix GitHub Issue #${initialIssue.issueNumber}: ${initialIssue.issueTitle}`,
+          '',
+          initialIssue.issueBody || '(no description provided)',
+          '',
+          'Implement the fix, run tests, commit, and push.',
+        ].join('\n')
+      )
     }
   }, [initialIssue])
+
   const [model, setModel] = useState('claude-opus-4.6')
   const [provider, setProvider] = useState('')
   const [devAgent, setDevAgent] = useState('anvil')
@@ -433,55 +579,27 @@ export function RalphLaunchForm({
       .then(setTemplates)
       .catch(() => {})
   }, [])
-
-  // Auto-populate prompt from the script's embedded default prompt
   useEffect(() => {
     const key = scriptChoice.replace(/\.ps1$/, '')
     const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
     setPrompt(template?.defaultPrompt ?? '')
   }, [scriptChoice, templates])
-
-  // Reset model when provider changes and current model is incompatible
   useEffect(() => {
-    if (!model || !provider || !providers || !models) return
-    const supported = providers.providers[provider]?.supportedModelProviders
-    if (!supported) return
-    const resolvedKey = models.aliases[model] ?? model
-    const entry = models.models[resolvedKey]
-    if (entry && !supported.includes(entry.provider)) setModel('')
+    if (shouldResetModelForProvider({ model, provider, providers, models })) setModel('')
   }, [provider, providers, models, model])
 
   const modelOptions = useMemo(() => {
-    if (!models) return []
     const supported = provider
       ? providers?.providers?.[provider]?.supportedModelProviders
       : undefined
-    const filteredModels = Object.entries(models.models)
-      .filter(([, m]) => !supported || supported.includes(m.provider))
-      .map(([key, m]) => ({
-        value: key,
-        label: `${m.label} (${m.reasoningEffort})`,
-      }))
-    const filteredAliases = Object.entries(models.aliases)
-      .filter(([, target]) => {
-        const targetModel = models.models[target]
-        return !supported || (targetModel && supported.includes(targetModel.provider))
-      })
-      .map(([alias, target]) => ({
-        value: alias,
-        label: `${alias} → ${target}`,
-      }))
-    return [...filteredModels, ...filteredAliases]
+    return computeModelOptions(models, supported)
   }, [models, provider, providers])
-
-  // Per-reviewer options: Account: Model list across ALL providers (not filtered by main)
   const reviewerModelOptions = useMemo(() => {
     if (!models || !providers) return []
     return Object.entries(providers.providers)
       .map(([key, prov]) => buildProviderModelGroup(key, prov, models))
       .filter((g): g is ReviewerModelGroup => g !== null)
   }, [models, providers])
-
   const providerOptions = useMemo(() => {
     if (!providers) return []
     return Object.entries(providers.providers).map(([key, p]) => ({
@@ -489,14 +607,12 @@ export function RalphLaunchForm({
       label: `${key} — ${p.description}`,
     }))
   }, [providers])
-
   const devAgentOptions = useMemo(() => {
     if (!agents) return []
     return Object.entries(agents.roles)
       .filter(([, role]) => role.category === 'dev')
       .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
   }, [agents])
-
   const reviewAgentOptions = useMemo(() => {
     if (!agents) return []
     return Object.entries(agents.roles)
@@ -517,11 +633,9 @@ export function RalphLaunchForm({
       return [...prev, key]
     })
   }
-
   const setReviewerModel = (role: string, m: string) => {
     setReviewerModels(prev => ({ ...prev, [role]: m }))
   }
-
   const handleBrowse = async () => {
     try {
       const result = await window.ralph.selectDirectory()
@@ -530,25 +644,25 @@ export function RalphLaunchForm({
         safeSetItem('ralph-last-repo', result)
       }
     } catch (_: unknown) {
-      // user cancelled
+      /* user cancelled */
     }
+  }
+  const validateForm = (): string | null => {
+    if (!repoPath) return 'Select a repository path'
+    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    return null
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!repoPath) {
-      setError('Select a repository path')
+    const validationError = validateForm()
+    if (validationError) {
+      setError(validationError)
       return
     }
-    if (scriptChoice === 'ralph-pr' && !prNumber) {
-      setError('PR number is required for ralph-pr')
-      return
-    }
-
     setLaunching(true)
     setError(null)
     safeSetItem('ralph-last-repo', repoPath)
-
     const config = buildLaunchConfig({
       repoPath,
       scriptChoice,
@@ -567,19 +681,16 @@ export function RalphLaunchForm({
       dryRun,
       autoApprove,
     })
-    const result = await onLaunch?.(config)
-    if (result && !result.success) {
-      setError(result.error ?? 'Launch failed')
-    }
+    const result = await launchLoop(onLaunch, config)
+    const launchFailure = getLaunchFailure(result)
+    if (launchFailure) setError(launchFailure)
     setLaunching(false)
   }
 
   return (
     <form className="ralph-launch-form" onSubmit={handleSubmit}>
       <h3 className="ralph-form-title">Launch Loop</h3>
-
       {error && <div className="ralph-form-error">{error}</div>}
-
       <div className="ralph-form-field">
         <label htmlFor="ralph-repo">Repository</label>
         <div className="ralph-input-row">
@@ -595,9 +706,7 @@ export function RalphLaunchForm({
           </button>
         </div>
       </div>
-
       <ScriptSelect value={scriptChoice} onChange={setScriptChoice} templates={templates} />
-
       <ScriptSpecificFields
         scriptChoice={scriptChoice}
         prNumber={prNumber}
@@ -607,7 +716,6 @@ export function RalphLaunchForm({
         dryRun={dryRun}
         onDryRunChange={setDryRun}
       />
-
       <IterationsRow
         scriptChoice={scriptChoice}
         iterations={iterations}
@@ -615,7 +723,6 @@ export function RalphLaunchForm({
         repeats={repeats}
         onRepeatsChange={setRepeats}
       />
-
       <ModelProviderRow
         model={model}
         onModelChange={setModel}
@@ -626,7 +733,6 @@ export function RalphLaunchForm({
         defaultModel={models?.default}
         defaultProvider={providers?.default}
       />
-
       <div className="ralph-form-row">
         <div className="ralph-form-field">
           <label htmlFor="ralph-dev-agent">Work Agent</label>
@@ -639,7 +745,6 @@ export function RalphLaunchForm({
             ))}
           </select>
         </div>
-
         <div className="ralph-form-field">
           <label htmlFor="ralph-branch">Branch (optional)</label>
           <input
@@ -651,7 +756,6 @@ export function RalphLaunchForm({
           />
         </div>
       </div>
-
       <div className="ralph-form-row">
         <label className="ralph-toggle-label">
           <input
@@ -662,55 +766,16 @@ export function RalphLaunchForm({
           <span className="ralph-toggle-text">Auto-approve PR when reviews pass</span>
         </label>
       </div>
-
-      {reviewAgentOptions.length > 0 && (
-        <div className="ralph-form-field">
-          <span className="ralph-form-label">PR Review Agents</span>
-          <div className="ralph-agent-chips">
-            {reviewAgentOptions.map(o => {
-              const isSelected = reviewAgents.includes(o.value)
-              return (
-                <div key={o.value} className="ralph-agent-chip-wrapper">
-                  <button
-                    type="button"
-                    className={`ralph-agent-chip ${isSelected ? 'selected' : ''}`}
-                    onClick={() => toggleReviewAgent(o.value)}
-                    title={o.label}
-                  >
-                    {o.value}
-                  </button>
-                  {isSelected && (
-                    <select
-                      className="ralph-agent-model-select"
-                      value={reviewerModels[o.value] ?? ''}
-                      onChange={e => setReviewerModel(o.value, e.target.value)}
-                      title={`Model for ${o.value}`}
-                    >
-                      <option value="">Default model</option>
-                      {reviewerModelOptions.map(g => (
-                        <optgroup key={g.provider} label={g.label}>
-                          {g.options.map(m => (
-                            <option key={m.value} value={m.value}>
-                              {m.label}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
+      <ReviewAgentsSection
+        reviewAgentOptions={reviewAgentOptions}
+        reviewAgents={reviewAgents}
+        reviewerModels={reviewerModels}
+        reviewerModelOptions={reviewerModelOptions}
+        onToggle={toggleReviewAgent}
+        onModelChange={setReviewerModel}
+      />
       <PromptField scriptChoice={scriptChoice} prompt={prompt} onChange={setPrompt} />
-
-      <button type="submit" className="ralph-launch-btn" disabled={launching || !repoPath}>
-        <Play size={14} />
-        {launching ? 'Launching…' : 'Launch'}
-      </button>
+      <LaunchButton launching={launching} disabled={!repoPath} />
     </form>
   )
 }

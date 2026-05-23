@@ -25,6 +25,66 @@ function handleFetchError(
   setError(getErrorMessage(err))
 }
 
+function resolveNextCacheState<T>(cacheKey: string | null): { data: T | null; hasCache: boolean } {
+  const next = cacheKey ? dataCache.get<T>(cacheKey) : null
+  return { data: next?.data ?? null, hasCache: next !== null }
+}
+
+function tryServeFromCache<T>(
+  cacheKey: string,
+  setData: (d: T) => void,
+  setLoading: (v: boolean) => void,
+  setError: (v: string | null) => void
+): boolean {
+  const cached = dataCache.get<T>(cacheKey)
+  if (cached !== null) {
+    setData(cached.data)
+    setLoading(false)
+    setError(null)
+    return true
+  }
+  return false
+}
+
+function shouldServeGitHubDataFromCache<T>(
+  forceRefresh: boolean,
+  cacheKey: string,
+  setData: (d: T) => void,
+  setLoading: (v: boolean) => void,
+  setError: (v: string | null) => void
+): boolean {
+  if (forceRefresh) {
+    return false
+  }
+  return tryServeFromCache(cacheKey, setData, setLoading, setError)
+}
+
+function isActiveGitHubRequest(requestId: number, requestIdRef: { current: number }): boolean {
+  return requestId === requestIdRef.current
+}
+
+function storeGitHubDataResult<T>(
+  requestId: number,
+  requestIdRef: { current: number },
+  cacheKey: string,
+  result: T,
+  setData: (data: T) => void
+): void {
+  if (!isActiveGitHubRequest(requestId, requestIdRef)) return
+  setData(result)
+  dataCache.set(cacheKey, result)
+}
+
+function finishGitHubLoading(
+  requestId: number,
+  requestIdRef: { current: number },
+  setLoading: (value: boolean) => void
+): void {
+  if (isActiveGitHubRequest(requestId, requestIdRef)) {
+    setLoading(false)
+  }
+}
+
 interface UseGitHubDataOptions<T> {
   /**
    * Cache key for dataCache. When this changes, data resets and a new fetch starts.
@@ -75,9 +135,9 @@ export function useGitHubData<T>({
       prevKeyRef.current = cacheKey
       // Invalidate any in-flight request from the previous cacheKey
       requestIdRef.current += 1
-      const next = cacheKey ? dataCache.get<T>(cacheKey) : null
-      setData(next?.data ?? null)
-      setLoading(cacheKey !== null && !next)
+      const { data: nextData, hasCache } = resolveNextCacheState<T>(cacheKey)
+      setData(nextData)
+      setLoading(cacheKey !== null && !hasCache)
       setError(null)
     }
   }, [cacheKey])
@@ -89,14 +149,8 @@ export function useGitHubData<T>({
       // Stale-request protection: only the latest request writes state
       const requestId = ++requestIdRef.current
 
-      if (!forceRefresh) {
-        const cached = dataCache.get<T>(cacheKey)
-        if (cached !== null) {
-          setData(cached.data)
-          setLoading(false)
-          setError(null)
-          return
-        }
+      if (shouldServeGitHubDataFromCache(forceRefresh, cacheKey, setData, setLoading, setError)) {
+        return
       }
 
       setLoading(true)
@@ -112,17 +166,11 @@ export function useGitHubData<T>({
           { name: taskName }
         )
 
-        // Guard: discard results from stale requests
-        if (requestId !== requestIdRef.current) return
-
-        setData(result)
-        dataCache.set(cacheKey, result)
+        storeGitHubDataResult(requestId, requestIdRef, cacheKey, result, setData)
       } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
-        if (requestId === requestIdRef.current) {
-          setLoading(false)
-        }
+        finishGitHubLoading(requestId, requestIdRef, setLoading)
       }
     },
     [accounts, cacheKey, taskName, enqueueRef, fetchFnRef]

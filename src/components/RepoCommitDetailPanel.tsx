@@ -1,3 +1,4 @@
+import type { JSX } from 'react'
 import { Clock, ExternalLink, FileCode2, GitCommit, GitMerge, RefreshCw } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
 import type { RepoCommitDetail } from '../api/github'
@@ -154,6 +155,29 @@ function CommitDetailContent({
   )
 }
 
+function renderDetailLoadState(
+  loading: boolean,
+  error: string | null,
+  detail: RepoCommitDetail | null,
+  refresh: () => void,
+  owner: string,
+  repo: string,
+  sha: string
+): JSX.Element | null {
+  if (loading && !detail) {
+    return (
+      <PanelLoadingState
+        message="Loading commit..."
+        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
+      />
+    )
+  }
+  if (error && !detail) {
+    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
 export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPanelProps) {
   const {
     data: detail,
@@ -166,19 +190,8 @@ export function RepoCommitDetailPanel({ owner, repo, sha }: RepoCommitDetailPane
     fetchFn: client => client.fetchRepoCommitDetail(owner, repo, sha),
   })
 
-  if (loading && !detail) {
-    return (
-      <PanelLoadingState
-        message="Loading commit..."
-        subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
-      />
-    )
-  }
-
-  if (error && !detail) {
-    return <PanelErrorState title="Failed to load commit" error={error} onRetry={refresh} />
-  }
-
+  const earlyReturn = renderDetailLoadState(loading, error, detail, refresh, owner, repo, sha)
+  if (earlyReturn) return earlyReturn
   if (!detail) return null
 
   return (

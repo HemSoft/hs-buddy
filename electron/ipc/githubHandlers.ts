@@ -46,6 +46,13 @@ const ENTERPRISE_SLUG = 'Bertelsmann'
  *  Billing API calls are skipped entirely for these orgs. */
 const PERSONAL_BUDGETS: Record<string, number> = {}
 
+type ExecAsyncSettledResult = PromiseSettledResult<Awaited<ReturnType<typeof execAsync>>>
+type CliStdoutSettledResult = PromiseSettledResult<{ stdout: string }>
+
+function asCliStdoutSettledResult(result: ExecAsyncSettledResult): CliStdoutSettledResult {
+  return result as CliStdoutSettledResult
+}
+
 async function tryGetCliToken(username?: string): Promise<string | null> {
   if (!username) {
     return null
@@ -245,6 +252,58 @@ async function fetchPersonalAccountSpend(
   }
 }
 
+function getSettledCommandError(
+  org: string,
+  label: 'Budget' | 'Usage',
+  result: ExecAsyncSettledResult
+): string | null {
+  if (result.status === 'fulfilled') return null
+  const errorMessage = getErrorMessage(result.reason)
+  console.warn(`${label} fetch failed for '${org}':`, errorMessage)
+  return errorMessage
+}
+
+async function resolveEnterpriseBudgetFallback(
+  org: string,
+  budgetAmount: number | null,
+  preventFurtherUsage: boolean,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{ budgetAmount: number | null; preventFurtherUsage: boolean }> {
+  if (budgetAmount !== null) {
+    return { budgetAmount, preventFurtherUsage }
+  }
+
+  try {
+    const match = await findBudgetAcrossPages(async page => {
+      const entResult = await execAsync(
+        `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+        { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+      )
+      return JSON.parse(entResult.stdout.trim())
+    }, org)
+    if (match) {
+      return {
+        budgetAmount: match.budget_amount,
+        preventFurtherUsage: match.prevent_further_usage,
+      }
+    }
+  } catch (entError: unknown) {
+    console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
+  }
+
+  return { budgetAmount, preventFurtherUsage }
+}
+
+function resolveSpendState(
+  org: string,
+  usageResult: ExecAsyncSettledResult
+): { spent: number; spentError: string | null } {
+  return {
+    spent: extractUsageSpend(asCliStdoutSettledResult(usageResult)),
+    spentError: getSettledCommandError(org, 'Usage', usageResult),
+  }
+}
+
 /** Fetch budget + spend for an org via billing APIs, with enterprise budget fallback. */
 async function fetchOrgBudgetAndSpend(
   org: string,
@@ -269,42 +328,20 @@ async function fetchOrgBudgetAndSpend(
     ),
   ])
 
-  let { budgetAmount, preventFurtherUsage } = extractBudgetFromResult(budgetResult)
-  let budgetError: string | null = null
+  const extractedBudget = extractBudgetFromResult(asCliStdoutSettledResult(budgetResult))
+  const budgetState = await resolveEnterpriseBudgetFallback(
+    org,
+    extractedBudget.budgetAmount,
+    extractedBudget.preventFurtherUsage,
+    execEnv
+  )
+  const spentState = resolveSpendState(org, usageResult)
 
-  if (budgetResult.status !== 'fulfilled') {
-    budgetError = getErrorMessage(budgetResult.reason)
-    console.warn(`Budget fetch failed for '${org}':`, budgetError)
+  return {
+    ...budgetState,
+    budgetError: getSettledCommandError(org, 'Budget', budgetResult),
+    ...spentState,
   }
-
-  // Fall back to enterprise-level budget if still no copilot budget found
-  if (budgetAmount === null) {
-    try {
-      const match = await findBudgetAcrossPages(async page => {
-        const entResult = await execAsync(
-          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-        )
-        return JSON.parse(entResult.stdout.trim())
-      }, org)
-      if (match) {
-        budgetAmount = match.budget_amount
-        preventFurtherUsage = match.prevent_further_usage
-      }
-    } catch (entError: unknown) {
-      console.warn(`Enterprise budget fallback failed:`, getErrorMessage(entError))
-    }
-  }
-
-  const spent = extractUsageSpend(usageResult)
-  let spentError: string | null = null
-
-  if (usageResult.status !== 'fulfilled') {
-    spentError = getErrorMessage(usageResult.reason)
-    console.warn(`Usage fetch failed for '${org}':`, spentError)
-  }
-
-  return { budgetAmount, preventFurtherUsage, budgetError, spent, spentError }
 }
 
 async function resolveBudgetData(
@@ -414,6 +451,67 @@ async function fetchMonthlyTotals(
   return results
 }
 
+function getRemainingActiveLogins(results: BatchResult): string[] {
+  return Object.entries(results)
+    .filter(([, value]) => value.requests > 0)
+    .map(([login]) => login)
+}
+
+function buildUsageDateString(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function hasRequestsForDay(
+  result: PromiseSettledResult<{ login: string; dayRequests: number }>
+): result is PromiseFulfilledResult<{ login: string; dayRequests: number }> {
+  return result.status === 'fulfilled' && result.value.dayRequests > 0
+}
+
+function assignLastActiveDate(results: BatchResult, logins: string[], dateStr: string): void {
+  for (const login of logins) {
+    results[login].lastActiveDate = dateStr
+  }
+}
+
+async function probeBatchDayActivity(
+  batch: string[],
+  year: number,
+  month: number,
+  day: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<string[]> {
+  const settled = await Promise.allSettled(
+    batch.map(async login => {
+      const encoded = encodeURIComponent(login)
+      const { stdout } = await execAsync(
+        `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+      )
+      const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+      return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
+    })
+  )
+
+  return settled.flatMap(result => (hasRequestsForDay(result) ? [result.value.login] : []))
+}
+
+async function probeDateActivity(
+  remaining: string[],
+  year: number,
+  month: number,
+  day: number,
+  execEnv: NodeJS.ProcessEnv
+): Promise<string[]> {
+  const foundThisDay: string[] = []
+
+  for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
+    const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
+    foundThisDay.push(...(await probeBatchDayActivity(batch, year, month, day, execEnv)))
+  }
+
+  return foundThisDay
+}
+
 async function probeDayActivity(
   results: BatchResult,
   year: number,
@@ -421,45 +519,70 @@ async function probeDayActivity(
   today: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<void> {
-  let remaining = Object.entries(results)
-    .filter(([, v]) => v.requests > 0)
-    .map(([login]) => login)
+  let remaining = getRemainingActiveLogins(results)
+  const maxLookback = Math.min(today, 14)
 
-  const MAX_LOOKBACK = Math.min(today, 14)
-
-  for (let offset = 0; offset < MAX_LOOKBACK && remaining.length > 0; offset++) {
+  for (let offset = 0; offset < maxLookback && remaining.length > 0; offset++) {
     const day = today - offset
-    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const foundThisDay: string[] = []
-
-    for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
-      const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
-      const settled = await Promise.allSettled(
-        batch.map(async login => {
-          const encoded = encodeURIComponent(login)
-          const { stdout } = await execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          )
-          const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
-          return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
-        })
-      )
-
-      for (const result of settled) {
-        if (result.status === 'fulfilled' && result.value.dayRequests > 0) {
-          results[result.value.login].lastActiveDate = dateStr
-          foundThisDay.push(result.value.login)
-        }
-      }
-    }
-
-    remaining = remaining.filter(l => !foundThisDay.includes(l))
+    const dateStr = buildUsageDateString(year, month, day)
+    const foundThisDay = await probeDateActivity(remaining, year, month, day, execEnv)
+    assignLastActiveDate(results, foundThisDay, dateStr)
+    remaining = remaining.filter(login => !foundThisDay.includes(login))
   }
 }
 
-export function registerGitHubHandlers(): void {
-  // Get a GitHub CLI auth token for a specific account
+type CopilotSeatResponse = {
+  total_seats: number
+  seats: RawCopilotSeat[]
+}
+
+function getSeatFallbackLogin(seat: RawCopilotSeat): string {
+  return seat.assignee?.login ?? 'unknown'
+}
+
+function mapCopilotSeats(seats: RawCopilotSeat[]): ReturnType<typeof mapCopilotSeatData>[] {
+  return seats.map(seat => mapCopilotSeatData(seat, getSeatFallbackLogin(seat)))
+}
+
+function hasLoadedAllCopilotSeats(
+  fetchedSeatCount: number,
+  totalSeats: number,
+  seats: RawCopilotSeat[]
+): boolean {
+  return fetchedSeatCount >= totalSeats || seats.length < 100
+}
+
+async function fetchCopilotSeats(
+  org: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<{
+  totalSeats: number
+  fetchedSeats: number
+  seats: ReturnType<typeof mapCopilotSeatData>[]
+}> {
+  const seats: ReturnType<typeof mapCopilotSeatData>[] = []
+  let page = 1
+  const maxPages = 10
+  let totalSeats = 0
+
+  while (page <= maxPages) {
+    const { stdout } = await execAsync(
+      `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+    )
+    const data = JSON.parse(stdout.trim()) as CopilotSeatResponse
+
+    totalSeats = data.total_seats
+    seats.push(...mapCopilotSeats(data.seats))
+
+    if (hasLoadedAllCopilotSeats(seats.length, totalSeats, data.seats)) break
+    page++
+  }
+
+  return { totalSeats, fetchedSeats: seats.length, seats }
+}
+
+function registerGitHubAuthHandlers(): void {
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, async (_event, username?: string) => {
     try {
       const args = buildGhAuthTokenArgs(username)
@@ -476,10 +599,8 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get the currently-active GitHub CLI account (used for Copilot CLI, git ops, etc.)
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_ACTIVE_ACCOUNT, async () => {
     try {
-      // `gh auth status` outputs account info to stderr; parse for "Active account: true"
       const { stderr } = await execAsync('gh auth status', {
         encoding: 'utf8',
         timeout: CLI_TIMEOUT_MS,
@@ -491,7 +612,22 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get Copilot premium request usage for an org via gh api
+  ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
+    try {
+      await execAsync(`gh auth switch --user ${username}`, {
+        encoding: 'utf8',
+        timeout: CLI_TIMEOUT_MS,
+      })
+      return { success: true }
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error)
+      console.error(`Failed to switch to account '${username}':`, errorMessage)
+      return { success: false, error: errorMessage }
+    }
+  })
+}
+
+function registerCopilotUsageHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
     async (_event, org: string, username?: string) => {
@@ -507,7 +643,6 @@ export function registerGitHubHandlers(): void {
           data: {
             org,
             ...parsed,
-            // Include raw items for detailed view
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),
           },
@@ -520,10 +655,8 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Get per-account Copilot quota via the internal endpoint
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_COPILOT_QUOTA, async (_event, username: string) => {
     try {
-      // Get a per-account token
       const token = await tryGetCliToken(username)
       if (!token) {
         return { success: false, error: `No token for account '${username}'` }
@@ -544,7 +677,6 @@ export function registerGitHubHandlers(): void {
     }
   })
 
-  // Get Copilot budget and current-month spend for an org
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET,
     async (_event, org: string, username?: string) => {
@@ -574,8 +706,9 @@ export function registerGitHubHandlers(): void {
       }
     }
   )
+}
 
-  // Get Copilot seat/usage data for a specific org member
+function registerCopilotMemberHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE,
     async (_event, org: string, memberLogin: string, username?: string) => {
@@ -587,123 +720,90 @@ export function registerGitHubHandlers(): void {
           env: execEnv,
         })
         const seat = JSON.parse(stdout.trim()) as RawCopilotSeat
-        return {
-          success: true,
-          data: mapCopilotSeatData(seat, memberLogin),
-        }
+        return { success: true, data: mapCopilotSeatData(seat, memberLogin) }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        // 404 means user doesn't have a Copilot seat
-        if (isNotFoundError(error)) {
-          return { success: true, data: null }
-        }
-        console.error(
-          `Failed to get Copilot member usage for '${memberLogin}' in '${org}':`,
-          errorMessage
-        )
+        if (isNotFoundError(error)) return { success: true, data: null }
+        console.error(`Failed to get Copilot member usage for '${memberLogin}' in '${org}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
     }
   )
 
-  // Get per-user premium request usage from enterprise billing API (this month + today)
-  // Also returns org-level totals for context.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
-        const execEnv = await getTokenEnv(username)
-        const now = new Date()
-        const year = now.getUTCFullYear()
-        const month = now.getUTCMonth() + 1
-        const day = now.getUTCDate()
-        const encodedLogin = encodeURIComponent(memberLogin)
-
-        // Fetch per-user month + per-user today + org month in parallel
-        const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
-          execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-          execAsync(
-            `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-          execAsync(
-            `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-          ),
-        ])
-
-        const userMonthItems = extractPremiumUsageItems(userMonthResult)
-        const userMonthlyRequests = sumGrossRequests(userMonthItems)
-        const userMonthlyModels = userMonthItems
-          .filter(i => i.grossQuantity > 0)
-          .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
-          .sort((a, b) => b.requests - a.requests)
-
-        const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))
-
-        const orgMonthItems = extractPremiumUsageItems(orgMonthResult)
-        const orgMonthlyRequests = sumGrossRequests(orgMonthItems)
-        const orgMonthlyNetCost = sumNetCost(orgMonthItems)
-
-        return {
-          success: true,
-          data: {
-            memberLogin,
-            org,
-            userMonthlyRequests,
-            userTodayRequests,
-            userMonthlyModels,
-            orgMonthlyRequests,
-            orgMonthlyNetCost,
-            billingYear: year,
-            billingMonth: month,
-          },
-        }
+        return { success: true, data: await fetchUserPremiumRequests(org, memberLogin, username) }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
-        console.error(
-          `Failed to get user premium requests for '${memberLogin}' in '${org}':`,
-          errorMessage
-        )
+        console.error(`Failed to get user premium requests for '${memberLogin}' in '${org}':`, errorMessage)
         return { success: false, error: errorMessage }
       }
     }
   )
 
-  // Get all Copilot seat assignments for an org (paginated)
+  registerCopilotSeatHandlers()
+}
+
+async function fetchUserPremiumRequests(org: string, memberLogin: string, username?: string) {
+  const execEnv = await getTokenEnv(username)
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1
+  const day = now.getUTCDate()
+  const encodedLogin = encodeURIComponent(memberLogin)
+
+  const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
+    execAsync(
+      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+    execAsync(
+      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    ),
+  ])
+
+  const userMonthItems = extractPremiumUsageItems(userMonthResult)
+  const userMonthlyRequests = sumGrossRequests(userMonthItems)
+  const userMonthlyModels = userMonthItems
+    .filter(i => i.grossQuantity > 0)
+    .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
+    .sort((a, b) => b.requests - a.requests)
+
+  const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))
+
+  const orgMonthItems = extractPremiumUsageItems(orgMonthResult)
+  const orgMonthlyRequests = sumGrossRequests(orgMonthItems)
+  const orgMonthlyNetCost = sumNetCost(orgMonthItems)
+
+  return {
+    memberLogin,
+    org,
+    userMonthlyRequests,
+    userTodayRequests,
+    userMonthlyModels,
+    orgMonthlyRequests,
+    orgMonthlyNetCost,
+    billingYear: year,
+    billingMonth: month,
+  }
+}
+
+function registerCopilotSeatHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
     async (_event, org: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
-        const seats: ReturnType<typeof mapCopilotSeatData>[] = []
-        let page = 1
-        const maxPages = 10
-        let totalSeats = 0
-
-        while (page <= maxPages) {
-          const { stdout } = await execAsync(
-            `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-            { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
-          )
-          const data = JSON.parse(stdout.trim()) as {
-            total_seats: number
-            seats: RawCopilotSeat[]
-          }
-
-          totalSeats = data.total_seats
-          seats.push(...data.seats.map(s => mapCopilotSeatData(s, s.assignee?.login ?? 'unknown')))
-
-          if (seats.length >= totalSeats || data.seats.length < 100) break
-          page++
-        }
-
         return {
           success: true,
-          data: { totalSeats, fetchedSeats: seats.length, seats },
+          data: await fetchCopilotSeats(org, execEnv),
         }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
@@ -716,7 +816,6 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Batch-fetch monthly premium request counts and last active dates for multiple users.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
     async (_event, logins: string[], username?: string, skipDayProbing?: boolean) => {
@@ -743,71 +842,61 @@ export function registerGitHubHandlers(): void {
     }
   )
 
-  // Switch the active GitHub CLI account
-  ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
-    try {
-      await execAsync(`gh auth switch --user ${username}`, {
-        encoding: 'utf8',
-        timeout: CLI_TIMEOUT_MS,
-      })
-      return { success: true }
-    } catch (error: unknown) {
-      const errorMessage = getErrorMessage(error)
-      console.error(`Failed to switch to account '${username}':`, errorMessage)
-      return { success: false, error: errorMessage }
-    }
-  })
-
-  // Collect Copilot usage snapshots for a list of accounts.
-  // Returns an array of per-account results; failures are reported per-account
-  // without corrupting previously stored history.
   ipcMain.handle(
     IPC_INVOKE.GITHUB_COLLECT_COPILOT_SNAPSHOTS,
-    async (
-      _event,
-      accounts: Array<{ username: string; org: string }>
-    ): Promise<{
-      results: Array<
-        | { success: true; data: CopilotUsageMetrics }
-        | { success: false; username: string; org: string; error: string }
-      >
-    }> => {
-      const results: Array<
-        | { success: true; data: CopilotUsageMetrics }
-        | { success: false; username: string; org: string; error: string }
-      > = []
-
-      const client = new ConvexHttpClient(CONVEX_URL)
-
-      for (const { username, org } of accounts) {
-        const result = await fetchCopilotMetrics(org, username)
-        if (result.success) {
-          try {
-            await client.mutation(api.copilotUsageHistory.store, {
-              accountUsername: username,
-              org: result.data.org,
-              billingYear: result.data.billingYear,
-              billingMonth: result.data.billingMonth,
-              premiumRequests: result.data.premiumRequests,
-              grossCost: result.data.grossCost,
-              discount: result.data.discount,
-              netCost: result.data.netCost,
-              businessSeats: result.data.businessSeats,
-              ...(result.data.budgetAmount != null
-                ? { budgetAmount: result.data.budgetAmount }
-                : {}),
-              spent: result.data.spent,
-            })
-          } catch (storeErr: unknown) {
-            console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
-          }
-          results.push(result)
-        } else {
-          results.push({ success: false, username, org, error: result.error })
-        }
-      }
-
-      return { results }
-    }
+    async (_event, accounts: Array<{ username: string; org: string }>) =>
+      collectCopilotSnapshots(accounts)
   )
+}
+
+async function collectCopilotSnapshots(
+  accounts: Array<{ username: string; org: string }>
+): Promise<{
+  results: Array<
+    | { success: true; data: CopilotUsageMetrics }
+    | { success: false; username: string; org: string; error: string }
+  >
+}> {
+  const results: Array<
+    | { success: true; data: CopilotUsageMetrics }
+    | { success: false; username: string; org: string; error: string }
+  > = []
+
+  const client = new ConvexHttpClient(CONVEX_URL)
+
+  for (const { username, org } of accounts) {
+    const result = await fetchCopilotMetrics(org, username)
+    if (result.success) {
+      try {
+        await client.mutation(api.copilotUsageHistory.store, {
+          accountUsername: username,
+          org: result.data.org,
+          billingYear: result.data.billingYear,
+          billingMonth: result.data.billingMonth,
+          premiumRequests: result.data.premiumRequests,
+          grossCost: result.data.grossCost,
+          discount: result.data.discount,
+          netCost: result.data.netCost,
+          businessSeats: result.data.businessSeats,
+          ...(result.data.budgetAmount != null
+            ? { budgetAmount: result.data.budgetAmount }
+            : {}),
+          spent: result.data.spent,
+        })
+      } catch (storeErr: unknown) {
+        console.error(`[Snapshot] Failed to persist for ${username}@${org}:`, storeErr)
+      }
+      results.push(result)
+    } else {
+      results.push({ success: false, username, org, error: result.error })
+    }
+  }
+
+  return { results }
+}
+
+export function registerGitHubHandlers(): void {
+  registerGitHubAuthHandlers()
+  registerCopilotUsageHandlers()
+  registerCopilotMemberHandlers()
 }

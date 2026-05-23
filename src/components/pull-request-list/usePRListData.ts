@@ -159,9 +159,11 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
 
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
+    if (bookmarks == null) return
     const { pr } = contextMenu
     const org = pr.org || ''
     const repoName = pr.repository
+    if (!org || !repoName) return
     const key = `${org}/${repoName}`
     if (bookmarkedRepoKeys.has(key)) {
       /* v8 ignore start */

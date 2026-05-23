@@ -38,15 +38,19 @@ async function toggleBookmark(
   removeBookmark: UsePRContextMenuOptions['removeBookmark']
 ) {
   const org = pr.org || ''
+  if (!org || !pr.repository) {
+    console.warn('toggleBookmark: missing org or repository', pr)
+    return
+  }
   const repoName = pr.repository
   const key = `${org}/${repoName}`
   if (bookmarkedRepoKeys.has(key)) {
-    /* v8 ignore start */
     const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-    /* v8 ignore stop */
-    /* v8 ignore start */
-    if (bookmark) await removeBookmark({ id: bookmark._id })
-    /* v8 ignore stop */
+    if (bookmark) {
+      await removeBookmark({ id: bookmark._id })
+    } else {
+      console.error('toggleBookmark: key in Set but bookmark not found', { org, repoName })
+    }
   } else {
     await createBookmark({
       folder: org,

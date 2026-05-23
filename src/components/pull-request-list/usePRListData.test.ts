@@ -925,9 +925,7 @@ describe('usePRListData', () => {
       await result.current.handleBookmarkRepo()
     })
 
-    expect(createBookmark).toHaveBeenCalledWith(
-      expect.objectContaining({ owner: '', repo: 'hs-buddy' })
-    )
+    expect(createBookmark).not.toHaveBeenCalled()
   })
 
   it('handleRequestCopilotReview returns early when URL cannot be parsed', async () => {

@@ -233,7 +233,7 @@ function setupTerminalEffect(
   }) {
     if (!attachResult.success) return
     const cursor = applyReattachData(term, attachResult)
-    if (cursor) refs.attachCursorRef.current = cursor
+    if (cursor != null) refs.attachCursorRef.current = cursor
   }
 
   async function handleExistingSession(existingSessionId: string) {

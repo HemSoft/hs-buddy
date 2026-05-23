@@ -33,7 +33,7 @@ function removeFromLoadingSet(setter: LoadingSetSetter, key: string) {
   })
 }
 
-async function fetchCachedOrgData<TRaw>(opts: {
+async function executeFetchWithLoading<TRaw>(opts: {
   key: string
   cacheKey: string
   loadingSetter: LoadingSetSetter
@@ -42,14 +42,7 @@ async function fetchCachedOrgData<TRaw>(opts: {
   logLabel: string
   apiFn: () => Promise<TRaw>
   onData: (data: TRaw) => void
-  forceRefresh?: boolean
 }): Promise<void> {
-  const cached = dataCache.get<TRaw>(opts.cacheKey)
-  if (cached?.data && !opts.forceRefresh) {
-    opts.onData(cached.data)
-    return
-  }
-  addToLoadingSet(opts.loadingSetter, opts.key)
   try {
     const result = (await opts.enqueue(
       async signal => {
@@ -68,6 +61,26 @@ async function fetchCachedOrgData<TRaw>(opts: {
   } finally {
     removeFromLoadingSet(opts.loadingSetter, opts.key)
   }
+}
+
+async function fetchCachedOrgData<TRaw>(opts: {
+  key: string
+  cacheKey: string
+  loadingSetter: LoadingSetSetter
+  enqueue: EnqueueFn
+  taskName: string
+  logLabel: string
+  apiFn: () => Promise<TRaw>
+  onData: (data: TRaw) => void
+  forceRefresh?: boolean
+}): Promise<void> {
+  const cached = dataCache.get<TRaw>(opts.cacheKey)
+  if (cached?.data && !opts.forceRefresh) {
+    opts.onData(cached.data)
+    return
+  }
+  addToLoadingSet(opts.loadingSetter, opts.key)
+  await executeFetchWithLoading(opts)
 }
 
 function toContributorMap(overview: OrgOverviewResult): Record<string, number> {

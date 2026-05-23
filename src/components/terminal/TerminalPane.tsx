@@ -52,6 +52,13 @@ function isDimensionChanged(
   return last.cols !== d.cols || last.rows !== d.rows
 }
 
+function proposeValidDimensions(fit: FitAddon): { cols: number; rows: number } | null {
+  fit.fit()
+  const d = fit.proposeDimensions()
+  /* v8 ignore start */ if (!d || !d.cols || !d.rows) return null
+  /* v8 ignore stop */ return { cols: d.cols, rows: d.rows }
+}
+
 function getSpawnErrorMessage(error: string | undefined): string {
   return error || 'Unknown error'
 }
@@ -152,6 +159,13 @@ function createIpcHandlers(
   return { onData, onSessionExit, onCwdChanged }
 }
 
+function applyResizeIfChanged(fit: FitAddon, sessionId: string, refs: TerminalEffectRefs) {
+  const d = proposeValidDimensions(fit)
+  if (!d || !isDimensionChanged(d, refs.lastResizeRef.current)) return
+  refs.lastResizeRef.current = d
+  window.terminal.resize(sessionId, d.cols, d.rows)
+}
+
 function setupResizeObserver(
   container: HTMLElement,
   refs: TerminalEffectRefs
@@ -164,15 +178,7 @@ function setupResizeObserver(
     if (!fit || !sid) return
     /* v8 ignore stop */
     try {
-      fit.fit()
-      const d = fit.proposeDimensions()
-      /* v8 ignore start */ if (!d || !d.cols || !d.rows) return
-      /* v8 ignore stop */ if (
-        !isDimensionChanged({ cols: d.cols, rows: d.rows }, refs.lastResizeRef.current)
-      )
-        return
-      refs.lastResizeRef.current = { cols: d.cols, rows: d.rows }
-      window.terminal.resize(sid, d.cols, d.rows)
+      applyResizeIfChanged(fit, sid, refs)
     } catch (_: unknown) {
       /* ignore */
     }
@@ -219,6 +225,17 @@ function setupTerminalEffect(
   })
   const dims = fitAddon.proposeDimensions()
 
+  function applyAttachResult(attachResult: {
+    success: boolean
+    buffer?: string
+    cursor?: number
+    alive?: boolean
+  }) {
+    if (!attachResult.success) return
+    const cursor = applyReattachData(term, attachResult)
+    refs.attachCursorRef.current = cursor
+  }
+
   async function handleExistingSession(existingSessionId: string) {
     refs.sessionIdRef.current = existingSessionId
     const result = await window.terminal.attach(existingSessionId)
@@ -231,8 +248,7 @@ function setupTerminalEffect(
       /* v8 ignore stop */ await spawnNew()
       return
     }
-    const cursor = applyReattachData(term, result)
-    if (cursor) refs.attachCursorRef.current = cursor
+    applyAttachResult(result)
     if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
   }
 
@@ -281,10 +297,7 @@ function setupTerminalEffect(
     /* v8 ignore start */
     if (!active) return
     /* v8 ignore stop */
-    if (attachResult.success) {
-      const cursor = applyReattachData(term, attachResult)
-      if (cursor) refs.attachCursorRef.current = cursor
-    }
+    applyAttachResult(attachResult)
   }
 
   const inputDisposable = term.onData((data: string) => {

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.760] - 2026-05-23
+
 ### Changed
 
 - Extract sub-hooks to reduce CRAP scores
@@ -17,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove unused exports flagged by knip
 - Remove unused exports and address review findings
+- Achieve 100% test coverage for CRAP score improvements
 
 ## [0.1.759] - 2026-05-11
 
@@ -35,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review comments
 - Reduce handleSpawn complexity and stabilize TempoWorklogEditor test
 - Resolve CI failures (typecheck, lint, test coverage)
+- Address PR review feedback for CRAP score improvements
 
 ### Changed
 
@@ -61,6 +65,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Batch-31 — extract sub-components to reduce complexity in 7 files
 - Improve CRAP scores for terminalHandlers and githubHandlers
 - Reduce CRAP scores below 30 for all critical methods
+- Reduce cyclomatic complexity across 5 files to improve CRAP scores
 
 ### Added
 

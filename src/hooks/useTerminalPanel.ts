@@ -2,10 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { type RepoContext } from '../utils/repoContext'
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
 import { isModKey } from '../utils/platform'
-import {
-  useTerminalPersistence,
-  DEFAULT_TERMINAL_PANEL_HEIGHT,
-} from './useTerminalPersistence'
+import { useTerminalPersistence, DEFAULT_TERMINAL_PANEL_HEIGHT } from './useTerminalPersistence'
 import { useTerminalTabActions } from './useTerminalTabActions'
 import { useTerminalTabLifecycle } from './useTerminalTabLifecycle'
 
@@ -48,15 +45,14 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const activeViewIdRef = useRef(activeViewId)
   activeViewIdRef.current = activeViewId
 
-  const { loaded, onPanelResize } =
-    useTerminalPersistence({
-      terminalTabs,
-      terminalTabsRef,
-      setTerminalOpen,
-      setTerminalTabs,
-      setActiveTerminalTabId,
-      setPanelHeight,
-    })
+  const { loaded, onPanelResize } = useTerminalPersistence({
+    terminalTabs,
+    terminalTabsRef,
+    setTerminalOpen,
+    setTerminalTabs,
+    setActiveTerminalTabId,
+    setPanelHeight,
+  })
 
   const { addTerminalTab, toggleTerminal, closeTerminalTab } = useTerminalTabLifecycle({
     terminalTabsRef,

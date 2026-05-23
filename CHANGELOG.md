@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Extract sub-hooks to reduce CRAP scores
 
+### Fixed
+
+- Remove unused exports flagged by knip
+- Remove unused exports and address review findings
+
 ## [0.1.759] - 2026-05-11
 
 ### Fixed
@@ -26,8 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove unused export on RepoBookmarkRecord type
 - Resolve prettier formatting and eslint lint errors
 - Resolve CI failures (security check + branch coverage)
-- Remove unused exports flagged by knip
-- Remove unused exports and address review findings
+- Resolve CI failures (prettier, flaky telemetry test, changelog)
 
 ### Changed
 
@@ -52,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compress batch 26 — SettingsCopilot, users, PullRequestDetailPanel
 - Compress batch 27 — SettingsAppearance, RalphLaunchForm, useAppTabs
 - Batch-31 — extract sub-components to reduce complexity in 7 files
+
 ### Added
 
 - Add pollen data to weather card via Tomorrow.io API

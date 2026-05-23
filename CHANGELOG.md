@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI failures (security check + branch coverage)
 - Resolve CI failures (prettier, flaky telemetry test, changelog)
 - Address PR review comments
+- Reduce handleSpawn complexity and stabilize TempoWorklogEditor test
 
 ### Changed
 

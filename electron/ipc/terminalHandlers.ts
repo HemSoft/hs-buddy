@@ -263,10 +263,14 @@ function handleResolveRepoPath(_event: unknown, opts: unknown) {
   return { path: resolveRepoPath(owner, repo) }
 }
 
-async function handleSpawn(
-  event: { sender: WebContents },
-  rawOpts: unknown
-) {
+interface ParsedSpawnOpts {
+  cwd: string
+  cols: number | undefined
+  rows: number | undefined
+  startupCommand: string | undefined
+}
+
+function parseSpawnOpts(rawOpts: unknown): ParsedSpawnOpts {
   const opts =
     rawOpts && typeof rawOpts === 'object'
       ? (rawOpts as { cwd?: unknown; cols?: unknown; rows?: unknown; startupCommand?: unknown })
@@ -274,10 +278,19 @@ async function handleSpawn(
   const defaultCwd = resolveDefaultCwd()
   const cwdInput = typeof opts.cwd === 'string' ? opts.cwd : undefined
   const cwd = cwdInput && isValidCwd(cwdInput) ? path.resolve(cwdInput) : defaultCwd
-  const sessionId = randomUUID()
-
   const cols = typeof opts.cols === 'number' ? opts.cols : undefined
   const rows = typeof opts.rows === 'number' ? opts.rows : undefined
+  const startupCommand =
+    typeof opts.startupCommand === 'string' && opts.startupCommand.length > 0
+      ? opts.startupCommand
+      : undefined
+  return { cwd, cols, rows, startupCommand }
+}
+
+async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
+  const { cwd, cols, rows, startupCommand } = parseSpawnOpts(rawOpts)
+  const sessionId = randomUUID()
+
   const { shell, shellArgs } = resolveSpawnShell()
   const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
 
@@ -293,8 +306,8 @@ async function handleSpawn(
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  if (typeof opts.startupCommand === 'string' && opts.startupCommand.length > 0) {
-    scheduleStartupCommand(sessionId, opts.startupCommand)
+  if (startupCommand) {
+    scheduleStartupCommand(sessionId, startupCommand)
   }
 
   return { success: true, sessionId, cwd }

@@ -238,6 +238,8 @@ export function registerShellHandlers(): void {
       try {
         const parsed = await validateUrlWithDns(url)
         const browserWin = createInAppBrowserWindow(parsed, title)
+        // Security: attachNavigationGuards installs will-redirect + will-navigate
+        // handlers that re-validate every subsequent navigation via validateUrlWithDns.
         attachNavigationGuards(browserWin)
 
         try {

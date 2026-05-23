@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve all CI failures (lint, typecheck, tests, coverage)
 - Remove unused export on RepoBookmarkRecord type
 - Resolve prettier formatting and eslint lint errors
+- Resolve CI failures (security check + branch coverage)
 
 ### Changed
 

@@ -301,10 +301,13 @@ function TodayTaskList({
 
 const PLANNER_DEFAULTS = { mode: 'upcoming' as PlannerMode }
 
+function resolvePlannerConfig(mode: PlannerMode) {
+  return mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
+}
+
 export function TaskPlannerView(props: { mode?: PlannerMode }) {
   const { mode } = { ...PLANNER_DEFAULTS, ...props }
-  const { days, heading } =
-    mode === 'today' ? { days: 1, heading: 'Today' } : { days: 7, heading: 'Upcoming' }
+  const { days, heading } = resolvePlannerConfig(mode)
   const { dayGroups, isLoading, error, refresh } = useTodoistUpcoming(days)
   const { projects, load: loadProjects } = useTodoistProjects()
   const { complete, create } = useTaskActions(refresh)

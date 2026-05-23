@@ -3,6 +3,7 @@ import { CircleDot, ExternalLink, RefreshCw, MessageSquare, Clock } from 'lucide
 import { useGitHubData } from '../hooks/useGitHubData'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import type { RepoIssue } from '../api/github'
+import type { GitHubAccount } from '../types/config'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { getLabelStyle } from '../utils/labelStyle'
 import { ViewModeToggle } from './shared/ViewModeToggle'
@@ -113,7 +114,9 @@ function IssueCardMeta({ issue }: { issue: RepoIssue }) {
         <span className="repo-issue-assignees">
           {issue.assignees.slice(0, 3).map(a => (
             <img
-              key={a.login} src={a.avatarUrl} alt={a.login}
+              key={a.login}
+              src={a.avatarUrl}
+              alt={a.login}
               className="repo-issue-assignee-avatar"
               title={a.name ? `${a.name} (${a.login})` : a.login}
             />
@@ -141,7 +144,13 @@ function IssueCardItem({
       <button
         type="button"
         className="repo-issue-main"
-        onClick={() => { if (onOpenIssue) { onOpenIssue(issue.number) } else { window.shell?.openExternal(issue.url) } }}
+        onClick={() => {
+          if (onOpenIssue) {
+            onOpenIssue(issue.number)
+          } else {
+            window.shell?.openExternal(issue.url)
+          }
+        }}
         title={issue.title}
       >
         <span className="repo-issue-header">
@@ -152,7 +161,11 @@ function IssueCardItem({
           {issue.labels.length > 0 && (
             <span className="repo-issue-labels">
               {issue.labels.map(label => (
-                <span key={label.name} className="repo-issue-label" style={getLabelStyle(label.color)}>
+                <span
+                  key={label.name}
+                  className="repo-issue-label"
+                  style={getLabelStyle(label.color)}
+                >
                   {label.name}
                 </span>
               ))}
@@ -311,6 +324,54 @@ function dispatchRalphLaunch(
   }, 100)
 }
 
+function useIssueContextMenuActions(
+  contextMenu: { x: number; y: number; issue: RepoIssue } | null,
+  setContextMenu: (menu: null) => void,
+  owner: string,
+  repo: string,
+  accounts: GitHubAccount[],
+  onOpenIssue?: (issueNumber: number) => void
+) {
+  const handleStartRalphLoop = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    dispatchRalphLaunch(contextMenu.issue, owner, repo, accounts)
+    setContextMenu(null)
+  }
+
+  const handleViewDetails = () => {
+    /* v8 ignore start -- defensive guard: handler only callable from context menu */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    const { issue } = contextMenu
+    setContextMenu(null)
+    if (onOpenIssue) {
+      onOpenIssue(issue.number)
+    } else {
+      window.shell?.openExternal(issue.url)
+    }
+  }
+
+  const handleCopyLink = () => {
+    /* v8 ignore start */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    navigator.clipboard.writeText(contextMenu.issue.url)
+    setContextMenu(null)
+  }
+
+  const handleOpenOnGitHub = () => {
+    /* v8 ignore start */
+    if (!contextMenu) return
+    /* v8 ignore stop */
+    window.shell?.openExternal(contextMenu.issue.url)
+    setContextMenu(null)
+  }
+
+  return { handleStartRalphLoop, handleViewDetails, handleCopyLink, handleOpenOnGitHub }
+}
+
 export function RepoIssueList(props: RepoIssueListProps) {
   const { owner, repo, onOpenIssue } = props
   const issueState = props.issueState ?? 'open'
@@ -334,41 +395,23 @@ export function RepoIssueList(props: RepoIssueListProps) {
     setContextMenu({ x: e.clientX, y: e.clientY, issue })
   }
 
-  const handleStartRalphLoop = () => {
-    /* v8 ignore start -- defensive guard: handler only callable from context menu */
-    if (!contextMenu) return
-    /* v8 ignore stop */
-    dispatchRalphLaunch(contextMenu.issue, owner, repo, accounts)
-    setContextMenu(null)
-  }
-
-  const handleViewDetails = () => {
-    /* v8 ignore start -- defensive guard: handler only callable from context menu */
-    if (!contextMenu) return
-    /* v8 ignore stop */
-    const { issue } = contextMenu
-    setContextMenu(null)
-    if (onOpenIssue) { onOpenIssue(issue.number) } else { window.shell?.openExternal(issue.url) }
-  }
-
-  const handleCopyLink = () => {
-    /* v8 ignore start */
-    if (!contextMenu) return
-    /* v8 ignore stop */
-    navigator.clipboard.writeText(contextMenu.issue.url)
-    setContextMenu(null)
-  }
-
-  const handleOpenOnGitHub = () => {
-    /* v8 ignore start */
-    if (!contextMenu) return
-    /* v8 ignore stop */
-    window.shell?.openExternal(contextMenu.issue.url)
-    setContextMenu(null)
-  }
+  const { handleStartRalphLoop, handleViewDetails, handleCopyLink, handleOpenOnGitHub } =
+    useIssueContextMenuActions(
+      contextMenu,
+      () => setContextMenu(null),
+      owner,
+      repo,
+      accounts,
+      onOpenIssue
+    )
 
   if (isEmpty && loading) {
-    return <PanelLoadingState message="Loading issues..." subtitle={`${owner}/${repo} · ${issueState}`} />
+    return (
+      <PanelLoadingState
+        message="Loading issues..."
+        subtitle={`${owner}/${repo} · ${issueState}`}
+      />
+    )
   }
   if (isEmpty && error) {
     return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
@@ -377,9 +420,14 @@ export function RepoIssueList(props: RepoIssueListProps) {
   return (
     <div className="repo-issues-container">
       <IssueListHeader
-        owner={owner} repo={repo} issueState={issueState}
-        issueCount={issues.length} loading={loading} refresh={refresh}
-        viewMode={viewMode} setViewMode={setViewMode}
+        owner={owner}
+        repo={repo}
+        issueState={issueState}
+        issueCount={issues.length}
+        loading={loading}
+        refresh={refresh}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
       />
 
       <IssueListBody

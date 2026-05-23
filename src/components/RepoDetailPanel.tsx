@@ -37,6 +37,27 @@ function getVisibilityIcon(visibility: string) {
   return <Icon size={14} />
 }
 
+function WorkflowBadge({ run }: { run: NonNullable<RepoDetail['latestWorkflowRun']> }) {
+  const info = getWorkflowStatusInfo(run.status, run.conclusion)
+  const StatusIcon = info.icon
+  return (
+    <span
+      className="repo-badge repo-badge-ci"
+      style={{ borderColor: info.color, color: info.color }}
+      title={`${run.name} — ${info.label}`}
+      role="button"
+      tabIndex={0}
+      onClick={() => window.shell?.openExternal(run.url)}
+      onKeyDown={onKeyboardActivate(() => window.shell?.openExternal(run.url))}
+    >
+      {/* v8 ignore start */}
+      <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
+      {/* v8 ignore stop */}
+      {info.label}
+    </span>
+  )
+}
+
 function RepoBadges({ detail }: { detail: RepoDetail }) {
   return (
     <div className="repo-detail-badges">
@@ -71,32 +92,7 @@ function RepoBadges({ detail }: { detail: RepoDetail }) {
           {detail.license}
         </span>
       )}
-      {detail.latestWorkflowRun &&
-        (() => {
-          const info = getWorkflowStatusInfo(
-            detail.latestWorkflowRun.status,
-            detail.latestWorkflowRun.conclusion
-          )
-          const StatusIcon = info.icon
-          return (
-            <span
-              className="repo-badge repo-badge-ci"
-              style={{ borderColor: info.color, color: info.color }}
-              title={`${detail.latestWorkflowRun.name} — ${info.label}`}
-              role="button"
-              tabIndex={0}
-              onClick={() => window.shell?.openExternal(detail.latestWorkflowRun!.url)}
-              onKeyDown={onKeyboardActivate(() =>
-                window.shell?.openExternal(detail.latestWorkflowRun!.url)
-              )}
-            >
-              {/* v8 ignore start */}
-              <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
-              {/* v8 ignore stop */}
-              {info.label}
-            </span>
-          )
-        })()}
+      {detail.latestWorkflowRun && <WorkflowBadge run={detail.latestWorkflowRun} />}
     </div>
   )
 }
@@ -142,6 +138,28 @@ function RepoHeaderActions({
   )
 }
 
+function RepoDetailPanelFallback({
+  loading,
+  error,
+  owner,
+  repo,
+  refresh,
+}: {
+  loading: boolean
+  error: string | null
+  owner: string
+  repo: string
+  refresh: () => void
+}) {
+  if (loading)
+    return (
+      <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
+    )
+  if (error)
+    return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
+  return null
+}
+
 export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
   const {
     data: detail,
@@ -163,17 +181,16 @@ export function RepoDetailPanel({ owner, repo }: RepoDetailPanelProps) {
     return () => clearInterval(timer)
   }, [refreshInterval, refresh])
 
-  if (!detail) {
-    if (loading) {
-      return (
-        <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
-      )
-    }
-    if (error) {
-      return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
-    }
-    return null
-  }
+  if (!detail)
+    return (
+      <RepoDetailPanelFallback
+        loading={loading}
+        error={error}
+        owner={owner}
+        repo={repo}
+        refresh={refresh}
+      />
+    )
 
   return (
     <div className="repo-detail-container">

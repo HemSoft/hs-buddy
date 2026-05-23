@@ -35,15 +35,53 @@ function browserTabReducer(state: BrowserTabState, action: BrowserTabAction): Br
   }
 }
 
+function handleWebviewBeforeInput(event: Event, shortcuts: Record<string, (s: boolean) => string>) {
+  const input = (
+    event as Event & {
+      input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean }
+    }
+  ).input
+  if (!input || input.type !== 'keyDown' || !(input.control || input.meta)) return
+  const fn = shortcuts[input.key]
+  if (fn) {
+    event.preventDefault()
+    window.dispatchEvent(new Event(fn(input.shift)))
+  }
+}
+
+function handleZoomKeydown(e: KeyboardEvent, zoomIn: () => void, zoomOut: () => void) {
+  if (!e.altKey) return
+  if (e.key === '=' || e.key === '+') {
+    e.preventDefault()
+    zoomIn()
+  } else if (e.key === '-') {
+    e.preventDefault()
+    zoomOut()
+  }
+}
+
 export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   const webviewRef = useRef<Electron.WebviewTag | null>(null)
-  const [{ navigatedUrl, loading }, dispatch] = useReducer(browserTabReducer, { navigatedUrl: null, loading: true })
+  const [{ navigatedUrl, loading }, dispatch] = useReducer(browserTabReducer, {
+    navigatedUrl: null,
+    loading: true,
+  })
   const zoomLevelRef = useRef(Number(localStorage.getItem(ZOOM_STORAGE_KEY)) || 0)
   const currentUrl = navigatedUrl ?? url
 
-  const applyZoom = (next: number) => { zoomLevelRef.current = next; localStorage.setItem(ZOOM_STORAGE_KEY, String(next)); webviewRef.current?.setZoomLevel(next) }
-  const zoomIn = useCallback(() => applyZoom(Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)), [])
-  const zoomOut = useCallback(() => applyZoom(Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)), [])
+  const applyZoom = (next: number) => {
+    zoomLevelRef.current = next
+    localStorage.setItem(ZOOM_STORAGE_KEY, String(next))
+    webviewRef.current?.setZoomLevel(next)
+  }
+  const zoomIn = useCallback(
+    () => applyZoom(Math.min(zoomLevelRef.current + ZOOM_STEP, ZOOM_MAX)),
+    []
+  )
+  const zoomOut = useCallback(
+    () => applyZoom(Math.max(zoomLevelRef.current - ZOOM_STEP, ZOOM_MIN)),
+    []
+  )
 
   useLayoutEffect(() => {
     const wv = webviewRef.current
@@ -55,23 +93,32 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
     wv.setAttribute('src', url)
   }, [url])
 
-  useEffect(() => { dispatch({ type: 'reset' }) }, [url])
+  useEffect(() => {
+    dispatch({ type: 'reset' })
+  }, [url])
 
   useEffect(() => {
     const webview = webviewRef.current
     /* v8 ignore start -- ref is always set after initial render */
     if (!webview) return
     /* v8 ignore stop */
-    const handleTitleUpdate = (e: Electron.PageTitleUpdatedEvent) => { onTitleChange?.(e.title) }
-    const handleNavigate = (e: Electron.DidNavigateEvent) => { dispatch({ type: 'navigate', url: e.url }) }
+    const handleTitleUpdate = (e: Electron.PageTitleUpdatedEvent) => {
+      onTitleChange?.(e.title)
+    }
+    const handleNavigate = (e: Electron.DidNavigateEvent) => {
+      dispatch({ type: 'navigate', url: e.url })
+    }
     const handleStartLoad = () => dispatch({ type: 'start-loading' })
-    const handleStopLoad = () => { dispatch({ type: 'stop-loading' }); if (zoomLevelRef.current !== 0) webview.setZoomLevel(zoomLevelRef.current) }
-    const SHORTCUTS: Record<string, (s: boolean) => string> = { Tab: s => (s ? 'app:tab-prev' : 'app:tab-next'), F4: () => 'app:tab-close' }
+    const handleStopLoad = () => {
+      dispatch({ type: 'stop-loading' })
+      if (zoomLevelRef.current !== 0) webview.setZoomLevel(zoomLevelRef.current)
+    }
+    const SHORTCUTS: Record<string, (s: boolean) => string> = {
+      Tab: s => (s ? 'app:tab-prev' : 'app:tab-next'),
+      F4: () => 'app:tab-close',
+    }
     const handleBeforeInput = (event: Event) => {
-      const input = (event as Event & { input?: { type: string; key: string; control: boolean; meta: boolean; shift: boolean } }).input
-      if (!input || input.type !== 'keyDown' || !(input.control || input.meta)) return
-      const fn = SHORTCUTS[input.key]
-      if (fn) { event.preventDefault(); window.dispatchEvent(new Event(fn(input.shift))) }
+      handleWebviewBeforeInput(event, SHORTCUTS)
     }
     webview.addEventListener('before-input-event', handleBeforeInput)
     webview.addEventListener('page-title-updated', handleTitleUpdate)
@@ -88,7 +135,7 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   }, [onTitleChange])
 
   useEffect(() => {
-    const h = (e: KeyboardEvent) => { if (!e.altKey) return; if (e.key === '=' || e.key === '+') { e.preventDefault(); zoomIn() } else if (e.key === '-') { e.preventDefault(); zoomOut() } }
+    const h = (e: KeyboardEvent) => handleZoomKeydown(e, zoomIn, zoomOut)
     window.addEventListener('keydown', h)
     return () => window.removeEventListener('keydown', h)
   }, [zoomIn, zoomOut])
@@ -96,18 +143,51 @@ export function BrowserTabView({ url, onTitleChange }: BrowserTabViewProps) {
   return (
     <div className="browser-tab-view">
       <div className="browser-tab-toolbar">
-        <button className="browser-tab-btn" onClick={() => webviewRef.current?.goBack()} title="Back" disabled={loading}>←</button>
-        <button className="browser-tab-btn" onClick={() => webviewRef.current?.goForward()} title="Forward" disabled={loading}>→</button>
-        <button className="browser-tab-btn" onClick={() => (loading ? webviewRef.current?.stop() : webviewRef.current?.reload())} title={loading ? 'Stop' : 'Reload'}>{loading ? '✕' : '↻'}</button>
+        <button
+          className="browser-tab-btn"
+          onClick={() => webviewRef.current?.goBack()}
+          title="Back"
+          disabled={loading}
+        >
+          ←
+        </button>
+        <button
+          className="browser-tab-btn"
+          onClick={() => webviewRef.current?.goForward()}
+          title="Forward"
+          disabled={loading}
+        >
+          →
+        </button>
+        <button
+          className="browser-tab-btn"
+          onClick={() => (loading ? webviewRef.current?.stop() : webviewRef.current?.reload())}
+          title={loading ? 'Stop' : 'Reload'}
+        >
+          {loading ? '✕' : '↻'}
+        </button>
         <div className="browser-tab-url" title={currentUrl}>
           {loading && <span className="browser-tab-spinner" />}
           <span className="browser-tab-url-text">{currentUrl}</span>
         </div>
-        <button className="browser-tab-btn" onClick={zoomOut} title="Zoom out (Alt + -)">−</button>
-        <button className="browser-tab-btn" onClick={zoomIn} title="Zoom in (Alt + =)">+</button>
-        <button className="browser-tab-btn" onClick={() => window.shell.openExternal(currentUrl)} title="Open in external browser">↗</button>
+        <button className="browser-tab-btn" onClick={zoomOut} title="Zoom out (Alt + -)">
+          −
+        </button>
+        <button className="browser-tab-btn" onClick={zoomIn} title="Zoom in (Alt + =)">
+          +
+        </button>
+        <button
+          className="browser-tab-btn"
+          onClick={() => window.shell.openExternal(currentUrl)}
+          title="Open in external browser"
+        >
+          ↗
+        </button>
       </div>
-      <webview ref={webviewRef as React.RefObject<Electron.WebviewTag>} className="browser-tab-webview" />
+      <webview
+        ref={webviewRef as React.RefObject<Electron.WebviewTag>}
+        className="browser-tab-webview"
+      />
     </div>
   )
 }

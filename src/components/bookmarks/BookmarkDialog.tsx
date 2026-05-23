@@ -248,8 +248,14 @@ interface BookmarkFormFieldsProps {
   userEditedTags: MutableRefObject<boolean>
 }
 
-function NewCategoryRow({ state, categories, dispatch }: {
-  state: BookmarkDialogState; categories: string[]; dispatch: Dispatch<BookmarkDialogAction>
+function NewCategoryRow({
+  state,
+  categories,
+  dispatch,
+}: {
+  state: BookmarkDialogState
+  categories: string[]
+  dispatch: Dispatch<BookmarkDialogAction>
 }) {
   return (
     <div className="bookmark-category-row">
@@ -257,18 +263,33 @@ function NewCategoryRow({ state, categories, dispatch }: {
         className="bookmark-dialog-select"
         style={{ flex: '0 0 auto', minWidth: 120 }}
         value=""
-        onChange={e => { if (e.target.value) { dispatch({ type: 'setParentCategory', parent: e.target.value }) } }}
+        onChange={e => {
+          if (e.target.value) {
+            dispatch({ type: 'setParentCategory', parent: e.target.value })
+          }
+        }}
       >
         <option value="">Parent…</option>
-        {categories.map(c => <option key={c} value={c}>{c}</option>)}
+        {categories.map(c => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
       </select>
       <input
-        type="text" className="bookmark-dialog-input" value={state.newCategory}
+        type="text"
+        className="bookmark-dialog-input"
+        value={state.newCategory}
         onChange={e => dispatch({ type: 'setNewCategory', value: e.target.value })}
         placeholder="Category/Subcategory"
       />
-      <button type="button" className="bookmark-new-category-btn"
-        onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}>Existing</button>
+      <button
+        type="button"
+        className="bookmark-new-category-btn"
+        onClick={() => dispatch({ type: 'setUseNewCategory', value: false })}
+      >
+        Existing
+      </button>
     </div>
   )
 }
@@ -286,10 +307,14 @@ function BookmarkCategoryField({
 }) {
   return (
     <label className="bookmark-dialog-label">
-      <span>Category <span className="bookmark-required">*</span></span>
+      <span>
+        Category <span className="bookmark-required">*</span>
+      </span>
       {isEdit ? (
         <input
-          type="text" className="bookmark-dialog-input" value={state.category}
+          type="text"
+          className="bookmark-dialog-input"
+          value={state.category}
           /* v8 ignore start */
           onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
           /* v8 ignore stop */
@@ -297,17 +322,27 @@ function BookmarkCategoryField({
         />
       ) : !state.useNewCategory ? (
         <div className="bookmark-category-row">
-          <select className="bookmark-dialog-select" value={state.category}
-            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}>
+          <select
+            className="bookmark-dialog-select"
+            value={state.category}
+            onChange={e => dispatch({ type: 'setCategory', value: e.target.value })}
+          >
             <option value="">Select category…</option>
             {categories.map(c => (
               <option key={c} value={c}>
-                {c.includes('/') ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop() : c}
+                {c.includes('/')
+                  ? '\u00A0\u00A0'.repeat(c.split('/').length - 1) + c.split('/').pop()
+                  : c}
               </option>
             ))}
           </select>
-          <button type="button" className="bookmark-new-category-btn"
-            onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}>New</button>
+          <button
+            type="button"
+            className="bookmark-new-category-btn"
+            onClick={() => dispatch({ type: 'setUseNewCategory', value: true })}
+          >
+            New
+          </button>
         </div>
       ) : (
         <NewCategoryRow state={state} categories={categories} dispatch={dispatch} />
@@ -340,36 +375,83 @@ function BookmarkAiSuggestingHint({ aiSuggesting }: { aiSuggesting: boolean }) {
 }
 
 function BookmarkFormFields({
-  state, isEdit, categories, dispatch, setUrlInputRef,
-  setTitleInputRef, userEditedTitle, userEditedDescription, userEditedTags,
+  state,
+  isEdit,
+  categories,
+  dispatch,
+  setUrlInputRef,
+  setTitleInputRef,
+  userEditedTitle,
+  userEditedDescription,
+  userEditedTags,
 }: BookmarkFormFieldsProps) {
   return (
     <>
       <label className="bookmark-dialog-label">
-        <span>URL <span className="bookmark-required">*</span></span>
-        <input ref={setUrlInputRef} type="text" className="bookmark-dialog-input"
-          value={state.url} onChange={e => dispatch({ type: 'setUrl', value: e.target.value })}
-          placeholder="https://example.com" />
+        <span>
+          URL <span className="bookmark-required">*</span>
+        </span>
+        <input
+          ref={setUrlInputRef}
+          type="text"
+          className="bookmark-dialog-input"
+          value={state.url}
+          onChange={e => dispatch({ type: 'setUrl', value: e.target.value })}
+          placeholder="https://example.com"
+        />
       </label>
       <label className="bookmark-dialog-label">
-        <span>Title <span className="bookmark-required">*</span>
-          <BookmarkFetchingTitleHint fetchingTitle={state.fetchingTitle} /></span>
-        <input ref={setTitleInputRef} type="text" className="bookmark-dialog-input"
-          value={state.title} placeholder={getTitlePlaceholder(state.fetchingTitle)}
-          onChange={e => { dispatch({ type: 'setTitle', value: e.target.value }); userEditedTitle.current = true }} />
+        <span>
+          Title <span className="bookmark-required">*</span>
+          <BookmarkFetchingTitleHint fetchingTitle={state.fetchingTitle} />
+        </span>
+        <input
+          ref={setTitleInputRef}
+          type="text"
+          className="bookmark-dialog-input"
+          value={state.title}
+          placeholder={getTitlePlaceholder(state.fetchingTitle)}
+          onChange={e => {
+            dispatch({ type: 'setTitle', value: e.target.value })
+            userEditedTitle.current = true
+          }}
+        />
       </label>
       <label className="bookmark-dialog-label">
-        <span>Description <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} /></span>
-        <textarea className="bookmark-dialog-textarea" value={state.description} rows={2}
+        <span>
+          Description <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
+        </span>
+        <textarea
+          className="bookmark-dialog-textarea"
+          value={state.description}
+          rows={2}
           placeholder={getDescriptionPlaceholder(state.aiSuggesting)}
-          onChange={e => { dispatch({ type: 'setDescription', value: e.target.value }); userEditedDescription.current = true }} />
+          onChange={e => {
+            dispatch({ type: 'setDescription', value: e.target.value })
+            userEditedDescription.current = true
+          }}
+        />
       </label>
-      <BookmarkCategoryField state={state} isEdit={isEdit} categories={categories} dispatch={dispatch} />
+      <BookmarkCategoryField
+        state={state}
+        isEdit={isEdit}
+        categories={categories}
+        dispatch={dispatch}
+      />
       <label className="bookmark-dialog-label">
-        <span>Tags <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} /></span>
-        <input type="text" className="bookmark-dialog-input" value={state.tagsInput}
+        <span>
+          Tags <BookmarkAiSuggestingHint aiSuggesting={state.aiSuggesting} />
+        </span>
+        <input
+          type="text"
+          className="bookmark-dialog-input"
+          value={state.tagsInput}
           placeholder={getTagsPlaceholder(state.aiSuggesting)}
-          onChange={e => { dispatch({ type: 'setTagsInput', value: e.target.value }); userEditedTags.current = true }} />
+          onChange={e => {
+            dispatch({ type: 'setTagsInput', value: e.target.value })
+            userEditedTags.current = true
+          }}
+        />
         <span className="bookmark-dialog-hint">Comma-separated</span>
       </label>
     </>
@@ -449,6 +531,24 @@ const MAX_BOOKMARK_TAGS = 50
 
 function resolveCategory(state: BookmarkDialogState): string {
   return (state.useNewCategory ? state.newCategory : state.category).trim()
+}
+
+function buildBookmarkPayload(state: BookmarkDialogState) {
+  const trimmedUrl = state.url.trim()
+  const trimmedTitle = state.title.trim()
+  const trimmedDescription = state.description.trim()
+  const resolvedCat = resolveCategory(state)
+  const tags = state.tagsInput.split(',').flatMap(t => {
+    const trimmed = t.trim()
+    return trimmed ? [trimmed] : []
+  })
+  return {
+    url: trimmedUrl,
+    title: trimmedTitle,
+    description: trimmedDescription || undefined,
+    category: resolvedCat,
+    tags: tags.length > 0 ? tags : undefined,
+  }
 }
 
 function validateRequiredBookmarkFields(
@@ -542,26 +642,64 @@ function shouldSkipAiSuggest(
   return isEdit || !initialUrl || !initialTitleReady || url !== initialUrl
 }
 
-export function BookmarkDialog({ bookmark, categories, initialUrl, initialTitle, onClose }: BookmarkDialogProps) {
+export function BookmarkDialog({
+  bookmark,
+  categories,
+  initialUrl,
+  initialTitle,
+  onClose,
+}: BookmarkDialogProps) {
   const { create, update } = useBookmarkMutations()
   const isEdit = bookmark !== null
-  const [state, dispatch] = useReducer(bookmarkDialogReducer, { bookmark, initialUrl, initialTitle }, ({ bookmark, initialUrl, initialTitle }) => createInitialState(bookmark, initialUrl, initialTitle))
-  const urlRef = useRef<HTMLInputElement | null>(null); const titleRef = useRef<HTMLInputElement | null>(null)
-  const userEditedTitle = useRef(false); const userEditedDescription = useRef(false); const userEditedTags = useRef(false)
+  const [state, dispatch] = useReducer(
+    bookmarkDialogReducer,
+    { bookmark, initialUrl, initialTitle },
+    ({ bookmark, initialUrl, initialTitle }) =>
+      createInitialState(bookmark, initialUrl, initialTitle)
+  )
+  const urlRef = useRef<HTMLInputElement | null>(null)
+  const titleRef = useRef<HTMLInputElement | null>(null)
+  const userEditedTitle = useRef(false)
+  const userEditedDescription = useRef(false)
+  const userEditedTags = useRef(false)
   const aiRequestedFor = useRef<string | null>(null)
-  const setUrlInputRef = useCallback((node: HTMLInputElement | null) => { urlRef.current = node; if (node && !isEdit) node.focus() }, [isEdit])
-  const setTitleInputRef = useCallback((node: HTMLInputElement | null) => { titleRef.current = node; if (node && isEdit) node.focus() }, [isEdit])
+  const setUrlInputRef = useCallback(
+    (node: HTMLInputElement | null) => {
+      urlRef.current = node
+      if (node && !isEdit) node.focus()
+    },
+    [isEdit]
+  )
+  const setTitleInputRef = useCallback(
+    (node: HTMLInputElement | null) => {
+      titleRef.current = node
+      if (node && isEdit) node.focus()
+    },
+    [isEdit]
+  )
 
   useEffect(() => {
     if (isEdit || !initialUrl || initialTitle || state.url !== initialUrl) return
     let cancelled = false
     dispatch({ type: 'titleFetch:start' })
-    window.shell.fetchPageTitle(initialUrl).then(result => {
-      if (cancelled) return
-      if (!userEditedTitle.current && result.success && result.title) { dispatch({ type: 'titleFetch:finish', title: result.title }); return }
-      dispatch({ type: 'titleFetch:finish' })
-    }).catch(() => { /* v8 ignore start */ if (!cancelled) dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */ })
-    return () => { cancelled = true; dispatch({ type: 'titleFetch:cancel' }) }
+    window.shell
+      .fetchPageTitle(initialUrl)
+      .then(result => {
+        if (cancelled) return
+        if (!userEditedTitle.current && result.success && result.title) {
+          dispatch({ type: 'titleFetch:finish', title: result.title })
+          return
+        }
+        dispatch({ type: 'titleFetch:finish' })
+      })
+      .catch(() => {
+        /* v8 ignore start */ if (!cancelled)
+          dispatch({ type: 'titleFetch:finish' }) /* v8 ignore stop */
+      })
+    return () => {
+      cancelled = true
+      dispatch({ type: 'titleFetch:cancel' })
+    }
   }, [isEdit, initialUrl, initialTitle, state.url])
 
   useEffect(() => {
@@ -575,34 +713,91 @@ export function BookmarkDialog({ bookmark, categories, initialUrl, initialTitle,
     let cancelled = false
     dispatch({ type: 'ai:start' })
     const titleLine = resolvedTitle ? `\nTitle: ${resolvedTitle}` : ''
-    window.copilot.quickPrompt({ prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):\n{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}\n\nURL: ${initialUrl}${titleLine}\n\nRules:\n- description: 1 short sentence, max 120 chars\n- tags: 3-5 lowercase single-word tags relevant to the content\n- Respond with ONLY the JSON object, nothing else`, model: 'gpt-4o-mini' }).then(text => {
-      if (cancelled || !text) { if (!cancelled) dispatch({ type: 'ai:finish' }); return }
-      const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(text, userEditedDescription.current, userEditedTags.current)
-      /* v8 ignore start */
-      if (!cancelled) { /* v8 ignore stop */ dispatch({ type: 'ai:finish', description: nextDescription, tagsInput: nextTagsInput }) }
-    }).catch(err => { console.warn('[BookmarkDialog] AI suggestion failed:', err); /* v8 ignore start */ if (!cancelled) dispatch({ type: 'ai:finish' }) /* v8 ignore stop */ })
-    return () => { /* v8 ignore start */ if (aiRequestedFor.current === key) { /* v8 ignore stop */ dispatch({ type: 'ai:finish' }); aiRequestedFor.current = null } cancelled = true }
+    window.copilot
+      .quickPrompt({
+        prompt: `Given this bookmark URL${resolvedTitle ? ' and title' : ''}, respond with ONLY a JSON object (no markdown, no code fences):\n{"description": "one-sentence summary of what this page is about", "tags": ["tag1", "tag2", "tag3"]}\n\nURL: ${initialUrl}${titleLine}\n\nRules:\n- description: 1 short sentence, max 120 chars\n- tags: 3-5 lowercase single-word tags relevant to the content\n- Respond with ONLY the JSON object, nothing else`,
+        model: 'gpt-4o-mini',
+      })
+      .then(text => {
+        if (cancelled || !text) {
+          if (!cancelled) dispatch({ type: 'ai:finish' })
+          return
+        }
+        const { description: nextDescription, tagsInput: nextTagsInput } = parseAIResponse(
+          text,
+          userEditedDescription.current,
+          userEditedTags.current
+        )
+        /* v8 ignore start */
+        if (!cancelled) {
+          /* v8 ignore stop */ dispatch({
+            type: 'ai:finish',
+            description: nextDescription,
+            tagsInput: nextTagsInput,
+          })
+        }
+      })
+      .catch(err => {
+        console.warn('[BookmarkDialog] AI suggestion failed:', err)
+        /* v8 ignore start */ if (!cancelled) dispatch({ type: 'ai:finish' }) /* v8 ignore stop */
+      })
+    return () => {
+      /* v8 ignore start */ if (aiRequestedFor.current === key) {
+        /* v8 ignore stop */ dispatch({ type: 'ai:finish' })
+        aiRequestedFor.current = null
+      }
+      cancelled = true
+    }
   }, [isEdit, initialUrl, state.initialTitleReady, state.title, state.url])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const validationError = validateBookmarkForm(state)
-    if (validationError) { dispatch({ type: 'setError', value: validationError }); return }
-    const trimmedUrl = state.url.trim(); const trimmedTitle = state.title.trim(); const trimmedDescription = state.description.trim()
-    const resolvedCat = resolveCategory(state); const tags = state.tagsInput.split(',').flatMap(t => { const trimmed = t.trim(); return trimmed ? [trimmed] : [] })
-    const payload = { url: trimmedUrl, title: trimmedTitle, description: trimmedDescription || undefined, category: resolvedCat, tags: tags.length > 0 ? tags : undefined }
+    if (validationError) {
+      dispatch({ type: 'setError', value: validationError })
+      return
+    }
+    const payload = buildBookmarkPayload(state)
     dispatch({ type: 'submit:start' })
-    try { if (isEdit && bookmark) { await update({ id: bookmark._id, ...payload }) } else { await create(payload) } onClose() } catch (err: unknown) { dispatch({ type: 'setError', value: getUserFacingErrorMessage(err, 'Failed to save bookmark') }) } finally { dispatch({ type: 'submit:finish' }) }
+    try {
+      if (isEdit && bookmark) {
+        await update({ id: bookmark._id, ...payload })
+      } else {
+        await create(payload)
+      }
+      onClose()
+    } catch (err: unknown) {
+      dispatch({
+        type: 'setError',
+        value: getUserFacingErrorMessage(err, 'Failed to save bookmark'),
+      })
+    } finally {
+      dispatch({ type: 'submit:finish' })
+    }
   }
 
   return (
     <BookmarkDialogShell isEdit={isEdit} onClose={onClose}>
       <form className="bookmark-dialog-form" onSubmit={handleSubmit}>
         {state.error && <div className="bookmark-dialog-error">{state.error}</div>}
-        <BookmarkFormFields state={state} isEdit={isEdit} categories={categories} dispatch={dispatch} setUrlInputRef={setUrlInputRef} setTitleInputRef={setTitleInputRef} userEditedTitle={userEditedTitle} userEditedDescription={userEditedDescription} userEditedTags={userEditedTags} />
+        <BookmarkFormFields
+          state={state}
+          isEdit={isEdit}
+          categories={categories}
+          dispatch={dispatch}
+          setUrlInputRef={setUrlInputRef}
+          setTitleInputRef={setTitleInputRef}
+          userEditedTitle={userEditedTitle}
+          userEditedDescription={userEditedDescription}
+          userEditedTags={userEditedTags}
+        />
         <div className="bookmark-dialog-actions">
-          <button type="button" className="bookmark-dialog-btn-cancel" onClick={onClose}>Cancel</button>
-          <button type="submit" className="bookmark-dialog-btn-save" disabled={state.saving}>{state.saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Bookmark'}</button>
+          <button type="button" className="bookmark-dialog-btn-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="submit" className="bookmark-dialog-btn-save" disabled={state.saving}>
+            {state.saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Add Bookmark'}
+          </button>
         </div>
       </form>
     </BookmarkDialogShell>

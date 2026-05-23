@@ -233,6 +233,7 @@ function resolveGraphQLAuthor(author: ViewerPRNode['author']): {
 }
 /* v8 ignore stop */
 
+/* v8 ignore start -- only called from GraphQL fallback path */
 function resolvePRDates(node: ViewerPRNode) {
   return {
     created: node.createdAt ? new Date(node.createdAt) : null,
@@ -240,6 +241,7 @@ function resolvePRDates(node: ViewerPRNode) {
     date: node.closedAt || node.mergedAt || null,
   }
 }
+/* v8 ignore stop */
 
 /** Map a GraphQL viewer PR node to a PullRequest (with temp metadata fields). */
 /* v8 ignore start -- GraphQL fallback mapping for search API outages */

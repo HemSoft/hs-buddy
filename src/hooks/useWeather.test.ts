@@ -835,6 +835,43 @@ describe('useWeather', () => {
         expect(result.current.savedLocation).toBe('New York, NY')
       })
     })
+
+    it('rejects stored location with non-finite latitude', async () => {
+      localStorage.clear()
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-weather-location')
+          return Promise.resolve({ latitude: NaN, longitude: -80.19, name: 'Bad' })
+        return Promise.resolve({ success: true })
+      })
+
+      const { result } = renderHook(() => useWeather())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+      // Invalid location should not be synced to localStorage
+      expect(localStorage.getItem('weather:location')).toBeNull()
+      // savedLocation falls back to the default
+      expect(result.current.savedLocation).toBe('Morrisville, NC')
+    })
+
+    it('rejects stored location with non-finite longitude', async () => {
+      localStorage.clear()
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-weather-location')
+          return Promise.resolve({ latitude: 25.76, longitude: Infinity, name: 'Bad' })
+        return Promise.resolve({ success: true })
+      })
+
+      const { result } = renderHook(() => useWeather())
+
+      await waitFor(() => {
+        expect(result.current.loading).toBe(false)
+      })
+      // Invalid location should not be synced to localStorage
+      expect(localStorage.getItem('weather:location')).toBeNull()
+      expect(result.current.savedLocation).toBe('Morrisville, NC')
+    })
   })
 
   it('successful fetch does not update state when signal is aborted', async () => {

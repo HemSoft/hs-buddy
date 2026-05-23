@@ -79,13 +79,12 @@ function partitionRuns(runs: RalphRunInfo[]): {
   return { active, recent }
 }
 
-function buildResetKey(
-  renderErrorResetKey: number,
-  state: DashboardState
-): string {
+function buildResetKey(renderErrorResetKey: number, state: DashboardState): string {
   const prNum = state.prLaunchData ? String(state.prLaunchData.prNumber) : ''
   const issueNum = state.issueLaunchData ? String(state.issueLaunchData.issueNumber) : ''
-  return [renderErrorResetKey, state.viewMode, state.selectedScript ?? '', prNum, issueNum].join('|')
+  return [renderErrorResetKey, state.viewMode, state.selectedScript ?? '', prNum, issueNum].join(
+    '|'
+  )
 }
 
 interface RalphDashboardProps {

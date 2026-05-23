@@ -139,13 +139,7 @@ function PRApprovalBadge({ pr }: { pr: RepoPullRequest }) {
   )
 }
 
-function PRCardItem({
-  pr,
-  onClick,
-}: {
-  pr: RepoPullRequest
-  onClick: () => void
-}) {
+function PRCardItem({ pr, onClick }: { pr: RepoPullRequest; onClick: () => void }) {
   return (
     <button
       key={pr.number}
@@ -163,11 +157,7 @@ function PRCardItem({
         {pr.labels.length > 0 && (
           <div className="repo-pr-labels">
             {pr.labels.map(label => (
-              <span
-                key={label.name}
-                className="repo-pr-label"
-                style={getLabelStyle(label.color)}
-              >
+              <span key={label.name} className="repo-pr-label" style={getLabelStyle(label.color)}>
                 {label.name}
               </span>
             ))}

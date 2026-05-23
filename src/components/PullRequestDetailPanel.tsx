@@ -125,7 +125,8 @@ function ApproveButton({
 
 function nudgeButtonTitle(nudgeState: string, nudgeError: string | null): string {
   if (nudgeState === 'sent') return 'Nudge sent!'
-  if (nudgeState === 'error') return `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
+  if (nudgeState === 'error')
+    return `Nudge failed: ${/* v8 ignore start */ nudgeError || 'unknown error' /* v8 ignore stop */}`
   return 'Nudge author via Slack'
 }
 
@@ -640,9 +641,7 @@ function resolveLabelsAndIssue(
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
-function initialBranches(
-  pr: PRDetailInfo
-): { headBranch: string; baseBranch: string } | null {
+function initialBranches(pr: PRDetailInfo): { headBranch: string; baseBranch: string } | null {
   if (pr.headBranch && pr.baseBranch) {
     return { headBranch: pr.headBranch, baseBranch: pr.baseBranch }
   }
@@ -673,7 +672,10 @@ function PRDetailBanners({
   return (
     <>
       {copilotReviewBanner && (
-        <CopilotReviewBanner completedAt={copilotReviewBanner.completedAt} onDismiss={onDismissCopilot} />
+        <CopilotReviewBanner
+          completedAt={copilotReviewBanner.completedAt}
+          onDismiss={onDismissCopilot}
+        />
       )}
       {codeRabbitReviewBanner && (
         <AIReviewBanner
@@ -683,7 +685,12 @@ function PRDetailBanners({
         />
       )}
       {(nudgeState === 'sent' || nudgeState === 'error') && (
-        <NudgeBanner state={nudgeState} error={nudgeError} author={author} onDismiss={onDismissNudge} />
+        <NudgeBanner
+          state={nudgeState}
+          error={nudgeError}
+          author={author}
+          onDismiss={onDismissNudge}
+        />
       )}
     </>
   )

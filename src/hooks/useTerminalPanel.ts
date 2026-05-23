@@ -90,6 +90,7 @@ function selectOrAddTabForContext(
   }
 }
 
+/* v8 ignore start -- only called from the v8-ignored tab-restoration useEffect */
 function shouldSkipRestore(
   restored: boolean,
   loaded: boolean,
@@ -100,6 +101,7 @@ function shouldSkipRestore(
   if (savedTabCount === 0) return true
   return currentTabCount > 0
 }
+/* v8 ignore stop */
 
 /* v8 ignore start -- IPC-dependent path resolution */
 async function resolveTabCwd(repoSlug: string | undefined, savedCwd: string): Promise<string> {

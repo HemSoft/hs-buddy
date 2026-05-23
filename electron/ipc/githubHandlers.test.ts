@@ -919,6 +919,103 @@ describe('githubHandlers', () => {
 
       warnSpy.mockRestore()
     })
+
+    it('github:get-copilot-budget uses personal account spend when org is in PERSONAL_BUDGETS', async () => {
+      const { PERSONAL_BUDGETS } = await import('./githubHandlers')
+      const { computeOverageSpend } = await import('../../src/utils/billingParsers')
+
+      // Temporarily add a personal budget entry
+      PERSONAL_BUDGETS['personal-org'] = 100
+      vi.mocked(computeOverageSpend).mockReturnValueOnce(42)
+
+      try {
+        // tryGetCliToken for getTokenEnv (username provided)
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_personal\n', stderr: '' })
+        // tryGetCliToken inside fetchPersonalAccountSpend
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_personal\n', stderr: '' })
+        // gh api /copilot_internal/user
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ premium_usage: { current_month: 42 } }),
+          stderr: '',
+        })
+
+        const handler = handlers.get('github:get-copilot-budget')!
+        const result = await handler({}, 'personal-org', 'testuser')
+
+        expect(result.success).toBe(true)
+        expect(result.data).toEqual(
+          expect.objectContaining({
+            org: 'personal-org',
+            budgetAmount: 100,
+            spent: 42,
+            spentUnavailable: false,
+            useQuotaOverage: false,
+          })
+        )
+      } finally {
+        delete PERSONAL_BUDGETS['personal-org']
+      }
+    })
+
+    it('github:get-copilot-budget handles personal account spend failure gracefully', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { PERSONAL_BUDGETS } = await import('./githubHandlers')
+
+      PERSONAL_BUDGETS['personal-org'] = 200
+
+      try {
+        // tryGetCliToken for getTokenEnv
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_personal\n', stderr: '' })
+        // tryGetCliToken inside fetchPersonalAccountSpend
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_personal\n', stderr: '' })
+        // gh api /copilot_internal/user — failure
+        mockExecAsync.mockRejectedValueOnce(new Error('Quota API down'))
+
+        const handler = handlers.get('github:get-copilot-budget')!
+        const result = await handler({}, 'personal-org', 'testuser')
+
+        expect(result.success).toBe(true)
+        expect(result.data).toEqual(
+          expect.objectContaining({
+            org: 'personal-org',
+            budgetAmount: 200,
+            spent: 0,
+            spentUnavailable: true,
+          })
+        )
+      } finally {
+        delete PERSONAL_BUDGETS['personal-org']
+        warnSpy.mockRestore()
+      }
+    })
+
+    it('github:get-copilot-budget handles personal account with no token', async () => {
+      const { PERSONAL_BUDGETS } = await import('./githubHandlers')
+
+      PERSONAL_BUDGETS['personal-org'] = 50
+
+      try {
+        // tryGetCliToken for getTokenEnv
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_personal\n', stderr: '' })
+        // tryGetCliToken inside fetchPersonalAccountSpend — no username provided so returns null
+        mockExecAsync.mockRejectedValueOnce(new Error('no auth'))
+
+        const handler = handlers.get('github:get-copilot-budget')!
+        const result = await handler({}, 'personal-org', 'testuser')
+
+        expect(result.success).toBe(true)
+        expect(result.data).toEqual(
+          expect.objectContaining({
+            org: 'personal-org',
+            budgetAmount: 50,
+            spent: 0,
+            spentUnavailable: false,
+          })
+        )
+      } finally {
+        delete PERSONAL_BUDGETS['personal-org']
+      }
+    })
   })
 
   describe('github:get-copilot-seats', () => {

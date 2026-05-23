@@ -256,71 +256,94 @@ function cleanupTerminalSession(session: TerminalSession): void {
   }
 }
 
-export function registerTerminalHandlers(): void {
-  // Resolve owner/repo to a local directory path
-  ipcMain.handle(IPC_INVOKE.TERMINAL_RESOLVE_REPO_PATH, async (_event, opts: unknown) => {
-    if (!opts || typeof opts !== 'object') return { path: null }
-    const { owner, repo } = opts as { owner?: unknown; repo?: unknown }
-    if (!isValidRepoSlug(owner) || !isValidRepoSlug(repo)) return { path: null }
-    const resolved = resolveRepoPath(owner, repo)
-    return { path: resolved }
-  })
+function handleResolveRepoPath(_event: unknown, opts: unknown) {
+  if (!opts || typeof opts !== 'object') return { path: null }
+  const { owner, repo } = opts as { owner?: unknown; repo?: unknown }
+  if (!isValidRepoSlug(owner) || !isValidRepoSlug(repo)) return { path: null }
+  return { path: resolveRepoPath(owner, repo) }
+}
 
-  ipcMain.handle(
-    IPC_INVOKE.TERMINAL_SPAWN,
-    async (
-      event,
-      opts: { cwd?: string; cols?: number; rows?: number; startupCommand?: string }
-    ) => {
-      const defaultCwd = resolveDefaultCwd()
-      const cwd = opts.cwd && isValidCwd(opts.cwd) ? path.resolve(opts.cwd) : defaultCwd
-      const sessionId = randomUUID()
+interface ParsedSpawnOpts {
+  cwd: string
+  cols: number | undefined
+  rows: number | undefined
+  startupCommand: string | undefined
+}
 
-      const { shell, shellArgs } = resolveSpawnShell()
-      const spawnOptions = buildSpawnOptions(opts, cwd)
+function parseSpawnOpts(rawOpts: unknown): ParsedSpawnOpts {
+  const opts =
+    rawOpts && typeof rawOpts === 'object'
+      ? (rawOpts as { cwd?: unknown; cols?: unknown; rows?: unknown; startupCommand?: unknown })
+      : {}
+  const defaultCwd = resolveDefaultCwd()
+  const cwdInput = typeof opts.cwd === 'string' ? opts.cwd : undefined
+  const cwd = cwdInput && isValidCwd(cwdInput) ? path.resolve(cwdInput) : defaultCwd
+  const cols = typeof opts.cols === 'number' ? opts.cols : undefined
+  const rows = typeof opts.rows === 'number' ? opts.rows : undefined
+  const startupCommand =
+    typeof opts.startupCommand === 'string' && opts.startupCommand.length > 0
+      ? opts.startupCommand
+      : undefined
+  return { cwd, cols, rows, startupCommand }
+}
 
-      let ptyProcess
-      try {
-        ptyProcess = getPty().spawn(shell, shellArgs, spawnOptions)
-      } catch (error: unknown) {
-        return {
-          success: false,
-          error: getErrorMessageWithFallback(error, 'Failed to spawn terminal'),
-        }
-      }
+async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
+  const { cwd, cols, rows, startupCommand } = parseSpawnOpts(rawOpts)
+  const sessionId = randomUUID()
 
-      createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
+  const { shell, shellArgs } = resolveSpawnShell()
+  const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
 
-      if (opts.startupCommand) {
-        scheduleStartupCommand(sessionId, opts.startupCommand)
-      }
-
-      return { success: true, sessionId, cwd }
-    }
-  )
-
-  // Reconnect to an existing session (e.g. after tab switch re-mount)
-  ipcMain.handle(IPC_INVOKE.TERMINAL_ATTACH, async (event, sessionId: string) => {
-    const session = sessions.get(sessionId)
-    if (!session) return { success: false, error: 'Session not found' }
-    // Update sender so live PTY output routes to the current renderer
-    // (handles renderer reload / WebContents replacement)
-    session.sender = event.sender
+  let ptyProcess
+  try {
+    ptyProcess = getPty().spawn(shell, shellArgs, spawnOptions)
+  } catch (error: unknown) {
     return {
-      success: true,
-      buffer: session.outputBuffer,
-      cursor: session.outputSeq,
-      alive: session.alive,
+      success: false,
+      error: getErrorMessageWithFallback(error, 'Failed to spawn terminal'),
     }
-  })
+  }
 
-  // Fire-and-forget: high-frequency keystroke forwarding (no OTel span noise)
+  createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
+
+  if (startupCommand) {
+    scheduleStartupCommand(sessionId, startupCommand)
+  }
+
+  return { success: true, sessionId, cwd }
+}
+
+async function handleAttach(event: { sender: WebContents }, sessionId: string) {
+  const session = sessions.get(sessionId)
+  if (!session) return { success: false, error: 'Session not found' }
+  session.sender = event.sender
+  return {
+    success: true,
+    buffer: session.outputBuffer,
+    cursor: session.outputSeq,
+    alive: session.alive,
+  }
+}
+
+async function handleKill(_event: unknown, sessionId: string) {
+  const session = sessions.get(sessionId)
+  if (!session) return { success: false, error: 'Session not found' }
+  cleanupTerminalSession(session)
+  sessions.delete(sessionId)
+  return { success: true }
+}
+
+export function registerTerminalHandlers(): void {
+  ipcMain.handle(IPC_INVOKE.TERMINAL_RESOLVE_REPO_PATH, handleResolveRepoPath)
+  ipcMain.handle(IPC_INVOKE.TERMINAL_SPAWN, handleSpawn)
+  ipcMain.handle(IPC_INVOKE.TERMINAL_ATTACH, handleAttach)
+  ipcMain.handle(IPC_INVOKE.TERMINAL_KILL, handleKill)
+
   ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
     if (session?.alive) session.pty.write(data)
   })
 
-  // Fire-and-forget: resize
   ipcMain.on(IPC_SEND.TERMINAL_RESIZE, (_event, sessionId: string, cols: number, rows: number) => {
     const session = sessions.get(sessionId)
     if (!session?.alive) return
@@ -331,15 +354,6 @@ export function registerTerminalHandlers(): void {
     }
   })
 
-  ipcMain.handle(IPC_INVOKE.TERMINAL_KILL, async (_event, sessionId: string) => {
-    const session = sessions.get(sessionId)
-    if (!session) return { success: false, error: 'Session not found' }
-    cleanupTerminalSession(session)
-    sessions.delete(sessionId)
-    return { success: true }
-  })
-
-  // Clean up all PTY sessions on app quit
   app.on('before-quit', () => {
     for (const [id, session] of sessions) {
       cleanupTerminalSession(session)

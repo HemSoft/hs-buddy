@@ -211,6 +211,11 @@ describe('TempoWorklogEditor', () => {
       expect(screen.getByText('Error: Save failed')).toBeInTheDocument()
     })
 
+    // Allow useEffect to re-register keydown listener after saving→false transition
+    await act(async () => {
+      await flushPromises()
+    })
+
     await act(async () => {
       fireEvent.keyDown(document, { key: 'Escape' })
     })

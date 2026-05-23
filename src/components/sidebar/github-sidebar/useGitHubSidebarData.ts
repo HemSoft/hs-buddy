@@ -101,7 +101,7 @@ async function fetchOrgOverviewData(
   )) as OrgOverviewResult
 }
 
-export type RepoBookmarkRecord = {
+type RepoBookmarkRecord = {
   _id: Id<'repoBookmarks'>
   owner?: string | null
   repo?: string | null
@@ -112,7 +112,9 @@ export function findRepoBookmark(
   org: string,
   repoName: string
 ): RepoBookmarkRecord | null {
-  return (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+  return (
+    (bookmarks ?? []).find(bookmark => bookmark.owner === org && bookmark.repo === repoName) ?? null
+  )
 }
 
 export async function removeRepoBookmarkByValues(

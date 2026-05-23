@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Surface pollen API errors instead of silently hiding
 - Resolve knip, test-electron crash, and coverage failures
 - Resolve all CI failures (lint, typecheck, tests, coverage)
+- Remove unused export on RepoBookmarkRecord type
 
 ### Changed
 

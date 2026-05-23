@@ -652,7 +652,7 @@ describe('usePRContextMenu – handleAddressComments', () => {
   })
 
   it('falls back to pr.source when pr.org is falsy', () => {
-    const pr = makePR({ org: '', source: 'FallbackSource', repository: 'hs-buddy', id: 9 })
+    const pr = makePR({ org: '', source: 'GitHub', repository: 'hs-buddy', id: 9 })
     const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
 
     const { result } = renderHook(() =>
@@ -679,7 +679,7 @@ describe('usePRContextMenu – handleAddressComments', () => {
       result.current.handleAddressComments()
     })
 
-    expect(mockBuildPrompt).toHaveBeenCalledWith(expect.objectContaining({ org: 'FallbackSource' }))
+    expect(mockBuildPrompt).toHaveBeenCalledWith(expect.objectContaining({ org: 'GitHub' }))
     dispatchSpy.mockRestore()
   })
 })

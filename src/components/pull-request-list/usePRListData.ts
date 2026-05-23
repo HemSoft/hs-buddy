@@ -6,13 +6,12 @@ import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConve
 import { useLatest } from '../../hooks/useLatest'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import { parseOwnerRepoFromUrl } from '../../utils/githubUrl'
-import { buildAddressCommentsPrompt } from '../../utils/assistantPrompts'
 import { getProgressColor } from '../../utils/progressColors'
 import { dataCache } from '../../services/dataCache'
 import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
-import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
+import { usePRContextMenu } from './usePRContextMenu'
 
 function applyCachedPRs(
   data: PullRequest[],
@@ -124,10 +123,6 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
   })
 }
 
-function resolveOrgName(pr: PullRequest): string {
-  return pr.org || ''
-}
-
 function updateApprovedCache(mode: PRSearchMode, pr: PullRequest): void {
   const cached = dataCache.get<PullRequest[]>(mode)
   if (cached?.data) {
@@ -179,9 +174,6 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     nextUpdate: string
     progress: number
   } | null>(null)
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; pr: PullRequest } | null>(
-    null
-  )
   const [approving, setApproving] = useState<string | null>(null)
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
@@ -254,99 +246,16 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     setForceRefresh(prev => prev + 1)
   }, [])
 
-  const handleContextMenu = useCallback((e: React.MouseEvent, pr: PullRequest) => {
-    e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, pr })
-  }, [])
-
-  const handleBookmarkRepo = useCallback(async () => {
-    if (!contextMenu) return
-    const { pr } = contextMenu
-    const org = resolveOrgName(pr)
-    const repoName = pr.repository
-    const key = `${org}/${repoName}`
-    if (bookmarkedRepoKeys.has(key)) {
-      /* v8 ignore start */
-      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      if (bookmark) await removeBookmark({ id: bookmark._id })
-      /* v8 ignore stop */
-    } else {
-      await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: pr.url.replace(/\/pull\/\d+$/, ''),
-        description: '',
-      })
-    }
-    setContextMenu(null)
-  }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark])
-
-  const handleAIReview = useCallback(async () => {
-    if (!contextMenu) return
-    const { pr } = contextMenu
-    dispatchPRReviewOpen({
-      prUrl: pr.url,
-      prTitle: pr.title,
-      prNumber: pr.id,
-      repo: pr.repository,
-      /* v8 ignore start */
-      org: pr.org || '',
-      /* v8 ignore stop */
-      author: pr.author,
-    })
-    setContextMenu(null)
-  }, [contextMenu])
-
-  const handleRequestCopilotReview = useCallback(async () => {
-    if (!contextMenu) return
-    const { pr } = contextMenu
-    const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-    if (!ownerRepo) return
-    try {
-      await enqueueRef.current(
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, recentlyMergedDays)
-          await client.requestCopilotReview(ownerRepo.owner, ownerRepo.repo, pr.id)
-        },
-        { name: `copilot-review-${pr.repository}-${pr.id}` }
-      )
-    } catch (err: unknown) {
-      console.error('Failed to request Copilot review:', err)
-    }
-    setContextMenu(null)
-  }, [contextMenu, accounts, recentlyMergedDays, enqueueRef])
-
-  const handleAddressComments = useCallback(() => {
-    if (!contextMenu) return
-    const { pr } = contextMenu
-    const org = pr.org || pr.source
-    const prompt = buildAddressCommentsPrompt({
-      prId: pr.id,
-      org,
-      repository: pr.repository,
-      url: pr.url,
-    })
-    window.dispatchEvent(
-      new CustomEvent('assistant:send-prompt', { detail: { prompt, model: premiumModel } })
-    )
-    setContextMenu(null)
-  }, [contextMenu, premiumModel])
-
-  const handleCopyLink = useCallback(async () => {
-    if (!contextMenu) return
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(contextMenu.pr.url)
-      }
-    } catch (error: unknown) {
-      console.error('Failed to copy PR link:', error)
-    }
-    setContextMenu(null)
-  }, [contextMenu])
+  const ctxMenu = usePRContextMenu({
+    accounts,
+    bookmarks,
+    bookmarkedRepoKeys,
+    recentlyMergedDays,
+    premiumModel,
+    createBookmark,
+    removeBookmark,
+    enqueueRef,
+  })
 
   const handleApprove = useCallback(
     async (pr: PullRequest) => {
@@ -376,25 +285,21 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   )
 
   const handleApproveFromMenu = useCallback(async () => {
-    if (!contextMenu) return
-    await handleApprove(contextMenu.pr)
-    setContextMenu(null)
-  }, [contextMenu, handleApprove])
-
-  const closeContextMenu = useCallback(() => {
-    setContextMenu(null)
-  }, [])
+    if (!ctxMenu.contextMenu) return
+    await handleApprove(ctxMenu.contextMenu.pr)
+    ctxMenu.closeContextMenu()
+  }, [ctxMenu, handleApprove])
 
   useEffect(() => {
-    if (!contextMenu) return
+    if (!ctxMenu.contextMenu) return
     const handleKeyDown = (e: KeyboardEvent) => {
       /* v8 ignore start */
-      if (e.key === 'Escape') closeContextMenu()
+      if (e.key === 'Escape') ctxMenu.closeContextMenu()
       /* v8 ignore stop */
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [contextMenu, closeContextMenu])
+  }, [ctxMenu])
 
   useEffect(() => {
     if (accountsLoading || prSettingsLoading) {
@@ -539,22 +444,22 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     progress,
     totalPrsFound,
     updateTimes,
-    contextMenu,
+    contextMenu: ctxMenu.contextMenu,
     approving,
     accounts,
     bookmarks,
     bookmarkedRepoKeys,
     getProgressColor,
     handleManualRefresh,
-    handleContextMenu,
-    handleBookmarkRepo,
-    handleAIReview,
-    handleRequestCopilotReview,
-    handleAddressComments,
-    handleCopyLink,
+    handleContextMenu: ctxMenu.handleContextMenu,
+    handleBookmarkRepo: ctxMenu.handleBookmarkRepo,
+    handleAIReview: ctxMenu.handleAIReview,
+    handleRequestCopilotReview: ctxMenu.handleRequestCopilotReview,
+    handleAddressComments: ctxMenu.handleAddressComments,
+    handleCopyLink: ctxMenu.handleCopyLink,
     handleApprove,
     handleApproveFromMenu,
-    closeContextMenu,
+    closeContextMenu: ctxMenu.closeContextMenu,
     getTitle,
   }
 }

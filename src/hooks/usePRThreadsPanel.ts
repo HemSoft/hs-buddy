@@ -84,23 +84,14 @@ function finishPRThreadsLoading(
   }
 }
 
-export function usePRThreadsPanel(pr: PRDetailInfo) {
-  const { accounts } = useGitHubAccounts()
-  const { enqueue } = useTaskQueue('github')
-  const enqueueRef = useLatest(enqueue)
-  const latestThreadsRequestRef = useRef(0)
-  const headShaRequestRef = useRef(0)
-  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = resolvePRThreadsOwner(pr.org, ownerRepo)
-  const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [data, setData] = useState<PRThreadsResult | null>(null)
+function useHeadShaTracker(
+  owner: string | undefined,
+  pr: PRDetailInfo,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] }
+) {
   const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
-  const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
-  const [commentText, setCommentText] = useState('')
-  const [sendingComment, setSendingComment] = useState(false)
-  const [showResolved, setShowResolved] = useState(true)
+  const headShaRequestRef = useRef(0)
 
   useEffect(() => {
     if (!owner || !pr.repository || !pr.id) {
@@ -127,6 +118,26 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         setCurrentHeadSha(null)
       })
   }, [accounts, owner, pr.repository, pr.id, enqueueRef])
+
+  return currentHeadSha
+}
+
+export function usePRThreadsPanel(pr: PRDetailInfo) {
+  const { accounts } = useGitHubAccounts()
+  const { enqueue } = useTaskQueue('github')
+  const enqueueRef = useLatest(enqueue)
+  const latestThreadsRequestRef = useRef(0)
+  const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
+  const owner = resolvePRThreadsOwner(pr.org, ownerRepo)
+  const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<PRThreadsResult | null>(null)
+  const currentHeadSha = useHeadShaTracker(owner, pr, accounts, enqueueRef)
+  const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
+  const [commentText, setCommentText] = useState('')
+  const [sendingComment, setSendingComment] = useState(false)
+  const [showResolved, setShowResolved] = useState(true)
 
   const fetchThreads = useCallback(async () => {
     const requestId = ++latestThreadsRequestRef.current

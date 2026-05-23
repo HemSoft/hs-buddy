@@ -12,32 +12,18 @@ import { IPC_INVOKE } from '../../../ipc/contracts'
 import {
   GitHubClient,
   type OrgRepo,
-  type OrgMember,
-  type OrgTeam,
-  type OrgTeamResult,
-  type TeamMember,
-  type TeamMembersResult,
-  type RepoCommit,
-  type RepoIssue,
   type OrgRepoResult,
-  type OrgMemberResult,
   type OrgOverviewResult,
-  type RepoCounts,
-  type RepoPullRequest,
 } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
-import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { MS_PER_MINUTE } from '../../../constants'
-import { getUniqueOrgs, mapRepoPRToPullRequest } from './githubSidebarUtils'
+import { getUniqueOrgs } from './githubSidebarUtils'
 import { useSidebarUserMenu } from './useSidebarUserMenu'
 import { useSidebarPRTree } from './useSidebarPRTree'
-
-function getMaxAgeMs(refreshInterval: number): number | null {
-  return refreshInterval > 0 ? refreshInterval * MS_PER_MINUTE : null
-}
+import { useSidebarRepoActions } from './useSidebarRepoActions'
+import { useSidebarOrgActions } from './useSidebarOrgActions'
 
 function isValidOrgRepoResult(data: unknown): data is OrgRepoResult {
   return (
@@ -60,45 +46,10 @@ function getValidCachedOrgRepos(org: string): OrgRepoResult | null {
   return null
 }
 
-function toContributorMap(overview: OrgOverviewResult): Record<string, number> {
-  return Object.fromEntries(overview.metrics.topContributorsToday.map(c => [c.login, c.commits]))
-}
-
-function applyOrgContributorCounts(
-  setter: React.Dispatch<React.SetStateAction<Record<string, Record<string, number>>>>,
-  org: string,
-  overview: OrgOverviewResult
-) {
-  setter(prev => ({
-    ...prev,
-    [org]: toContributorMap(overview),
-  }))
-}
-
 export function getCachedOrgOverview(org: string, forceRefresh: boolean): OrgOverviewResult | null {
   if (forceRefresh) return null
   const cached = dataCache.get<OrgOverviewResult>(`org-overview:${org}`)
   return cached?.data ?? null
-}
-
-async function fetchOrgOverviewData(
-  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
-  enqueue: (
-    fn: (signal?: AbortSignal) => Promise<unknown>,
-    meta: { name: string; priority?: number }
-  ) => Promise<unknown>,
-  org: string
-): Promise<OrgOverviewResult> {
-  return (await enqueue(
-    /* v8 ignore start -- callback executed by queue system */
-    async signal => {
-      if (signal) throwIfAborted(signal)
-      const client = new GitHubClient({ accounts }, 7)
-      return await client.fetchOrgOverview(org)
-    },
-    /* v8 ignore stop */
-    { name: `org-overview-${org}`, priority: -1 }
-  )) as OrgOverviewResult
 }
 
 type RepoBookmarkRecord = {
@@ -187,96 +138,6 @@ function removeFromLoadingSet(setter: LoadingSetSetter, key: string) {
   })
 }
 
-/**
- * Wraps the common enqueue → set state → cache → loading boilerplate used by
- * every sidebar data-fetch callback. Each caller still owns cache-hit logic,
- * transforms, and side effects.
- */
-async function fetchWithLoading<T>(opts: {
-  key: string
-  loadingSetter: LoadingSetSetter
-  enqueue: (
-    fn: (signal?: AbortSignal) => Promise<T>,
-    meta: { name: string; priority: number }
-  ) => Promise<T>
-  taskName: string
-  logLabel: string
-  apiFn: () => Promise<T>
-  onSuccess: (result: T) => void
-}): Promise<void> {
-  addToLoadingSet(opts.loadingSetter, opts.key)
-  try {
-    const result = await opts.enqueue(
-      async signal => {
-        /* v8 ignore start */
-        if (signal) throwIfAborted(signal)
-        /* v8 ignore stop */
-        return await opts.apiFn()
-      },
-      { name: opts.taskName, priority: -1 }
-    )
-    opts.onSuccess(result)
-  } catch (error: unknown) {
-    if (isAbortError(error)) return
-    console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)
-  } finally {
-    removeFromLoadingSet(opts.loadingSetter, opts.key)
-  }
-}
-
-/**
- * Determine if a cache hit is fresh enough to skip re-fetching.
- * - undefined → simple cache, always trust the hit
- * - null     → stale-while-revalidate with no max age, always re-fetch
- * - number   → stale-while-revalidate, re-fetch only when stale
- */
-function isCacheHitFresh(maxAgeMs: number | null | undefined, cacheKey: string): boolean {
-  if (maxAgeMs === undefined) return true
-  return typeof maxAgeMs === 'number' && dataCache.isFresh(cacheKey, maxAgeMs)
-}
-
-/**
- * Wraps the common cache-check → stale-while-revalidate → fetchWithLoading
- * pattern used by most sidebar data-fetch callbacks.  When {@link maxAgeMs}
- * is unset, a cache hit returns immediately; when set, stale entries trigger
- * a background re-fetch after hydrating state.
- */
-async function fetchCachedData<TRaw>(opts: {
-  key: string
-  cacheKey: string
-  loadingSetter: LoadingSetSetter
-  enqueue: (
-    fn: (signal?: AbortSignal) => Promise<TRaw>,
-    meta: { name: string; priority: number }
-  ) => Promise<TRaw>
-  taskName: string
-  logLabel: string
-  apiFn: () => Promise<TRaw>
-  onData: (data: TRaw) => void
-  afterFetch?: (result: TRaw) => void
-  forceRefresh?: boolean
-  maxAgeMs?: number | null
-}): Promise<void> {
-  const cached = dataCache.get<TRaw>(opts.cacheKey)
-  if (cached?.data && !opts.forceRefresh) {
-    opts.onData(cached.data)
-    if (isCacheHitFresh(opts.maxAgeMs, opts.cacheKey)) return
-  }
-  await fetchWithLoading({
-    key: opts.key,
-    loadingSetter: opts.loadingSetter,
-    enqueue: opts.enqueue,
-    taskName: opts.taskName,
-    logLabel: opts.logLabel,
-    apiFn: opts.apiFn,
-    onSuccess: result => {
-      opts.onData(result)
-      dataCache.set(opts.cacheKey, result)
-      opts.afterFetch?.(result)
-    },
-  })
-}
-
 export interface SidebarItem {
   id: string
   label: string
@@ -305,18 +166,6 @@ export function useGitHubSidebarData() {
   const [orgMeta, setOrgMeta] = useState<
     Record<string, { authenticatedAs: string; isUserNamespace: boolean }>
   >({})
-  const [orgMembers, setOrgMembers] = useState<Record<string, OrgMember[]>>({})
-  const [loadingOrgMembers, setLoadingOrgMembers] = useState<Set<string>>(new Set())
-  const orgUserGroups = useToggleSet()
-  const [orgTeams, setOrgTeams] = useState<Record<string, OrgTeam[]>>({})
-  const [loadingOrgTeams, setLoadingOrgTeams] = useState<Set<string>>(new Set())
-  const orgTeamGroups = useToggleSet()
-  const teams = useToggleSet()
-  const [teamMembers, setTeamMembers] = useState<Record<string, TeamMember[]>>({})
-  const [loadingTeamMembers, setLoadingTeamMembers] = useState<Set<string>>(new Set())
-  const [orgContributorCounts, setOrgContributorCounts] = useState<
-    Record<string, Record<string, number>>
-  >({})
   const [loadingOrgs, setLoadingOrgs] = useState<Set<string>>(new Set())
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -332,47 +181,7 @@ export function useGitHubSidebarData() {
 
   const prTree = useSidebarPRTree({ accounts, enqueueRef })
 
-  const applyOrgRepoResult = useCallback((org: string, result: OrgRepoResult) => {
-    setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
-    setOrgMeta(prev => ({
-      ...prev,
-      [org]: {
-        authenticatedAs: result.authenticatedAs,
-        isUserNamespace: result.isUserNamespace,
-      },
-    }))
-  }, [])
-
-  const repos = useToggleSet()
-  const fetchedOrgMembersRef = useRef<Set<string>>(new Set())
-  const fetchedOrgOverviewRef = useRef<Set<string>>(new Set())
-  const fetchedOrgTeamsRef = useRef<Set<string>>(new Set())
-  const fetchedTeamMembersRef = useRef<Set<string>>(new Set())
-  const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
-  const [loadingRepoCounts, setLoadingRepoCounts] = useState<Set<string>>(new Set())
-  const fetchedCountsRef = useRef<Set<string>>(new Set())
-  const repoIssueGroups = useToggleSet()
-  const repoIssueStateGroups = useToggleSet()
-  const repoPRGroups = useToggleSet()
-  const repoPRStateGroups = useToggleSet()
-  const repoCommitGroups = useToggleSet()
   const [refreshTick, setRefreshTick] = useState(() => Date.now())
-  const [repoPrTreeData, setRepoPrTreeData] = useState<Record<string, PullRequest[]>>({})
-  const [repoCommitTreeData, setRepoCommitTreeData] = useState<Record<string, RepoCommit[]>>({})
-  const [repoIssueTreeData, setRepoIssueTreeData] = useState<Record<string, RepoIssue[]>>({})
-  const fetchedRepoPRsRef = useRef<Set<string>>(new Set())
-  const fetchedRepoCommitsRef = useRef<Set<string>>(new Set())
-  const fetchedRepoIssuesRef = useRef<Set<string>>(new Set())
-  const [loadingRepoCommits, setLoadingRepoCommits] = useState<Set<string>>(new Set())
-  const [loadingRepoPRs, setLoadingRepoPRs] = useState<Set<string>>(new Set())
-  const [loadingRepoIssues, setLoadingRepoIssues] = useState<Set<string>>(new Set())
-  const [sflStatusData, setSflStatusData] = useState<Record<string, SFLRepoStatus>>({})
-  const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
-  const sflGroups = useToggleSet()
-  const ralphGroups = useToggleSet()
-  const fetchedSFLRef = useRef<Set<string>>(new Set())
-
-  const uniqueOrgs = getUniqueOrgs(accounts)
 
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -390,6 +199,32 @@ export function useGitHubSidebarData() {
     [bookmarks]
   )
 
+  const repoActions = useSidebarRepoActions({
+    accounts,
+    enqueueRef,
+    refreshInterval,
+    bookmarkedRepoKeys,
+    bookmarks,
+    createBookmark,
+    removeBookmark,
+    incrementStat,
+  })
+
+  const orgActions = useSidebarOrgActions({ accounts, enqueueRef })
+
+  const applyOrgRepoResult = useCallback((org: string, result: OrgRepoResult) => {
+    setOrgRepos(prev => ({ ...prev, [org]: result.repos }))
+    setOrgMeta(prev => ({
+      ...prev,
+      [org]: {
+        authenticatedAs: result.authenticatedAs,
+        isUserNamespace: result.isUserNamespace,
+      },
+    }))
+  }, [])
+
+  const uniqueOrgs = getUniqueOrgs(accounts)
+
   useEffect(() => {
     for (const org of uniqueOrgs) {
       const cachedResult = getValidCachedOrgRepos(org)
@@ -401,54 +236,6 @@ export function useGitHubSidebarData() {
   }, [uniqueOrgs.join(',')])
 
   useEffect(() => {
-    /** Simple cache subscriptions: prefix → extract key → update state with data. */
-    const simpleSubs: Array<{ prefix: string; handle: (repoKey: string) => void }> = [
-      {
-        prefix: 'repo-counts:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoCounts>(`repo-counts:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoCounts(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
-      },
-      {
-        prefix: 'repo-commits:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoCommit[]>(`repo-commits:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoCommitTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
-      },
-      {
-        prefix: 'repo-issues:',
-        handle: repoKey => {
-          const updated = dataCache.get<RepoIssue[]>(`repo-issues:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
-      },
-      {
-        prefix: 'sfl-status:',
-        handle: repoKey => {
-          const updated = dataCache.get<SFLRepoStatus>(`sfl-status:${repoKey}`)
-          /* v8 ignore start */
-          if (updated?.data) {
-            /* v8 ignore stop */
-            setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
-          }
-        },
-      },
-    ]
-
     const handleOrgReposCacheUpdate = (key: string) => {
       const org = key.replace('org-repos:', '')
       const validResult = getValidCachedOrgRepos(org)
@@ -457,47 +244,15 @@ export function useGitHubSidebarData() {
       }
     }
 
-    const handleRepoPRsCacheUpdate = (key: string) => {
-      const repoKey = key.replace('repo-prs:', '')
-      const updated = dataCache.get<RepoPullRequest[]>(key)
-      /* v8 ignore start */
-      if (!updated?.data) return
-      /* v8 ignore stop */
-      const [, ownerRepo] = repoKey.split(':', 2)
-      if (!ownerRepo) return
-      const parsed = parseOwnerRepoKey(ownerRepo)
-      /* v8 ignore start */
-      if (!parsed) return
-      /* v8 ignore stop */
-      setRepoPrTreeData(prev => ({
-        ...prev,
-        [repoKey]: updated.data.map(repoPr => mapRepoPRToPullRequest(repoPr, parsed.owner)),
-      }))
-    }
-
     const unsubscribe = dataCache.subscribe(key => {
-      // org-repos: complex handler (updates two state slices with validation)
       if (key.startsWith('org-repos:')) {
         handleOrgReposCacheUpdate(key)
         return
       }
-
-      // repo-prs: complex handler (parses state:owner/repo and maps data)
-      if (key.startsWith('repo-prs:')) {
-        handleRepoPRsCacheUpdate(key)
-        return
-      }
-
-      // Table-driven simple subscriptions
-      for (const sub of simpleSubs) {
-        if (key.startsWith(sub.prefix)) {
-          sub.handle(key.replace(sub.prefix, ''))
-          return
-        }
-      }
+      repoActions.handleRepoCacheUpdate(key)
     })
     return unsubscribe
-  }, [applyOrgRepoResult])
+  }, [applyOrgRepoResult, repoActions])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
@@ -570,7 +325,6 @@ export function useGitHubSidebarData() {
         if (isAbortError(error)) return
         /* v8 ignore stop */
         console.error(`Failed to fetch repos for ${org}:`, error)
-        setOrgRepos(prev => ({ ...prev, [org]: [] }))
       } finally {
         removeFromLoadingSet(setLoadingOrgs, org)
       }
@@ -593,386 +347,43 @@ export function useGitHubSidebarData() {
     [orgs, orgRepos, fetchOrgRepos, incrementStat]
   )
 
-  const fetchOrgMembers = useCallback(
-    async (org: string, forceRefresh = false) => {
-      await fetchCachedData<OrgMemberResult>({
-        key: org,
-        cacheKey: `org-members:${org}`,
-        loadingSetter: setLoadingOrgMembers,
-        enqueue: enqueueRef.current,
-        taskName: `org-members-${org}`,
-        logLabel: 'OrgMembers',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchOrgMembers(org),
-        onData: result => setOrgMembers(prev => ({ ...prev, [org]: result.members })),
-        forceRefresh,
-      })
-    },
-    [accounts]
-  )
-
-  const fetchOrgOverview = useCallback(
-    async (org: string, forceRefresh = false) => {
-      const cacheKey = `org-overview:${org}`
-      const cached = getCachedOrgOverview(org, forceRefresh)
-
-      if (cached) {
-        applyOrgContributorCounts(setOrgContributorCounts, org, cached)
-        return
-      }
-
-      try {
-        const result = await fetchOrgOverviewData(accounts, enqueueRef.current, org)
-        applyOrgContributorCounts(setOrgContributorCounts, org, result)
-        dataCache.set(cacheKey, result)
-      } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.warn(`[OrgOverview] ${org} failed:`, error)
-      }
-    },
-    [accounts]
-  )
-
-  const toggleOrgUserGroup = useCallback(
-    (org: string) => {
-      const shouldFetchMembers = !fetchedOrgMembersRef.current.has(org)
-      const shouldFetchOverview = !fetchedOrgOverviewRef.current.has(org)
-
-      orgUserGroups.toggle(org)
-
-      if (shouldFetchMembers) {
-        fetchedOrgMembersRef.current.add(org)
-        fetchOrgMembers(org)
-      }
-      if (shouldFetchOverview) {
-        fetchedOrgOverviewRef.current.add(org)
-        fetchOrgOverview(org)
-      }
-    },
-    [orgUserGroups, fetchOrgMembers, fetchOrgOverview]
-  )
-
-  const fetchOrgTeams = useCallback(
-    async (org: string, forceRefresh = false) => {
-      await fetchCachedData<OrgTeamResult>({
-        key: org,
-        cacheKey: `org-teams:${org}`,
-        loadingSetter: setLoadingOrgTeams,
-        enqueue: enqueueRef.current,
-        taskName: `org-teams-${org}`,
-        logLabel: 'OrgTeams',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchOrgTeams(org),
-        onData: result => setOrgTeams(prev => ({ ...prev, [org]: result.teams })),
-        forceRefresh,
-      })
-    },
-    [accounts]
-  )
-
-  const toggleOrgTeamGroup = useCallback(
-    (org: string) => {
-      const shouldFetch = !fetchedOrgTeamsRef.current.has(org)
-
-      orgTeamGroups.toggle(org)
-
-      if (shouldFetch) {
-        fetchedOrgTeamsRef.current.add(org)
-        fetchOrgTeams(org)
-      }
-    },
-    [orgTeamGroups, fetchOrgTeams]
-  )
-
-  const fetchTeamMembers = useCallback(
-    async (org: string, teamSlug: string) => {
-      const key = `${org}/${teamSlug}`
-      await fetchCachedData<TeamMembersResult>({
-        key,
-        cacheKey: `team-members:${key}`,
-        loadingSetter: setLoadingTeamMembers,
-        enqueue: enqueueRef.current,
-        taskName: `team-members-${key}`,
-        logLabel: 'TeamMembers',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchTeamMembers(org, teamSlug),
-        onData: result => setTeamMembers(prev => ({ ...prev, [key]: result.members })),
-      })
-    },
-    [accounts]
-  )
-
-  const toggleTeam = useCallback(
-    (org: string, teamSlug: string) => {
-      const key = `${org}/${teamSlug}`
-      const shouldFetch = !fetchedTeamMembersRef.current.has(key)
-
-      teams.toggle(key)
-
-      if (shouldFetch) {
-        fetchedTeamMembersRef.current.add(key)
-        fetchTeamMembers(org, teamSlug)
-      }
-    },
-    [teams, fetchTeamMembers]
-  )
-
-  const toggleBookmarkRepoByValues = useCallback(
-    async (org: string, repoName: string, repoUrl: string) => {
-      const key = `${org}/${repoName}`
-      if (bookmarkedRepoKeys.has(key)) {
-        await removeRepoBookmarkByValues(bookmarks, org, repoName, removeBookmark)
-        return
-      }
-      const result = await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: repoUrl,
-        description: '',
-      })
-      recordBookmarkInsert(result, incrementStat)
-    },
-    [bookmarkedRepoKeys, bookmarks, createBookmark, removeBookmark, incrementStat]
-  )
-
-  const handleBookmarkToggle = async (
-    e: React.MouseEvent,
-    org: string,
-    repoName: string,
-    repoUrl: string
-  ) => {
-    e.stopPropagation()
-    try {
-      await toggleBookmarkRepoByValues(org, repoName, repoUrl)
-    } catch (err: unknown) {
-      console.error(`[Bookmark] toggle failed for ${org}/${repoName}:`, err)
-    }
-  }
-
-  const fetchRepoCountsForRepo = useCallback(
-    async (org: string, repoName: string, forceRefresh = false) => {
-      const key = `${org}/${repoName}`
-      await fetchCachedData<RepoCounts>({
-        key,
-        cacheKey: `repo-counts:${key}`,
-        loadingSetter: setLoadingRepoCounts,
-        enqueue: enqueueRef.current,
-        taskName: `repo-counts-${key}`,
-        logLabel: 'RepoCounts',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoCounts(org, repoName),
-        onData: result => setRepoCounts(prev => ({ ...prev, [key]: result })),
-        forceRefresh,
-      })
-    },
-    [accounts]
-  )
-
-  const fetchSFLStatusForRepo = useCallback(
-    async (org: string, repoName: string, isRefresh = false) => {
-      const key = `${org}/${repoName}`
-      await fetchCachedData<SFLRepoStatus>({
-        key,
-        cacheKey: `sfl-status:${key}`,
-        loadingSetter: setLoadingSFLStatus,
-        enqueue: enqueueRef.current,
-        taskName: `sfl-status-${key}`,
-        logLabel: 'SFLStatus',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchSFLStatus(org, repoName),
-        onData: result => setSflStatusData(prev => ({ ...prev, [key]: result })),
-        forceRefresh: isRefresh,
-      })
-    },
-    [accounts]
-  )
-
-  const toggleRepo = useCallback(
-    (org: string, repoName: string) => {
-      const key = `${org}/${repoName}`
-      const shouldFetchCounts = !fetchedCountsRef.current.has(key)
-      const shouldFetchSFL = !fetchedSFLRef.current.has(key)
-      repos.toggle(key)
-      if (shouldFetchCounts) {
-        fetchedCountsRef.current.add(key)
-        fetchRepoCountsForRepo(org, repoName)
-      }
-      if (shouldFetchSFL) {
-        fetchedSFLRef.current.add(key)
-        fetchSFLStatusForRepo(org, repoName)
-      }
-    },
-    [repos, fetchRepoCountsForRepo, fetchSFLStatusForRepo]
-  )
-
-  /** When open PRs are fetched, sync the repo-counts cache entry for PR count. */
-  function syncOpenPRCounts(state: string, org: string, repoName: string, prCount: number) {
-    if (state !== 'open') return
-    const countsCacheKey = `repo-counts:${org}/${repoName}`
-    const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
-    dataCache.set(countsCacheKey, {
-      issues: existingCounts?.data?.issues ?? 0,
-      prs: prCount,
-    })
-  }
-
-  const fetchRepoPRsForRepo = useCallback(
-    async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
-      const key = `${state}:${org}/${repoName}`
-      await fetchCachedData<RepoPullRequest[]>({
-        key,
-        cacheKey: `repo-prs:${key}`,
-        loadingSetter: setLoadingRepoPRs,
-        enqueue: enqueueRef.current,
-        taskName: `repo-pr-tree-${state}-${org}-${repoName}`,
-        logLabel: 'RepoPRTree',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoPRs(org, repoName, state),
-        onData: prs =>
-          setRepoPrTreeData(prev => ({
-            ...prev,
-            [key]: prs.map(pr => mapRepoPRToPullRequest(pr, org)),
-          })),
-        afterFetch: result => syncOpenPRCounts(state, org, repoName, result.length),
-        forceRefresh,
-        maxAgeMs: getMaxAgeMs(refreshInterval),
-      })
-    },
-    [accounts, refreshInterval]
-  )
-
-  const toggleRepoPRStateGroup = useCallback(
-    (org: string, repoName: string, state: 'open' | 'closed') => {
-      const key = `${org}/${repoName}:${state}`
-      const fetchKey = `${state}:${org}/${repoName}`
-      const shouldFetch = !fetchedRepoPRsRef.current.has(fetchKey)
-      repoPRStateGroups.toggle(key)
-      if (shouldFetch) {
-        fetchedRepoPRsRef.current.add(fetchKey)
-        fetchRepoPRsForRepo(org, repoName, state)
-      }
-    },
-    [repoPRStateGroups, fetchRepoPRsForRepo]
-  )
-
-  const fetchRepoIssuesForRepo = useCallback(
-    async (org: string, repoName: string, state: 'open' | 'closed', forceRefresh = false) => {
-      const key = `${state}:${org}/${repoName}`
-      await fetchCachedData<RepoIssue[]>({
-        key,
-        cacheKey: `repo-issues:${key}`,
-        loadingSetter: setLoadingRepoIssues,
-        enqueue: enqueueRef.current,
-        taskName: `repo-issues-tree-${state}-${org}-${repoName}`,
-        logLabel: 'RepoIssueTree',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoIssues(org, repoName, state),
-        onData: issues => setRepoIssueTreeData(prev => ({ ...prev, [key]: issues })),
-        forceRefresh,
-        maxAgeMs: getMaxAgeMs(refreshInterval),
-      })
-    },
-    [accounts, refreshInterval]
-  )
-
-  const toggleRepoIssueStateGroup = useCallback(
-    (org: string, repoName: string, state: 'open' | 'closed') => {
-      const key = `${org}/${repoName}:${state}`
-      const fetchKey = `${state}:${org}/${repoName}`
-      const shouldFetch = !fetchedRepoIssuesRef.current.has(fetchKey)
-      repoIssueStateGroups.toggle(key)
-      if (shouldFetch) {
-        fetchedRepoIssuesRef.current.add(fetchKey)
-        fetchRepoIssuesForRepo(org, repoName, state)
-      }
-    },
-    [repoIssueStateGroups, fetchRepoIssuesForRepo]
-  )
-
-  const fetchRepoCommitsForRepo = useCallback(
-    async (org: string, repoName: string, forceRefresh = false) => {
-      const key = `${org}/${repoName}`
-      await fetchCachedData<RepoCommit[]>({
-        key,
-        cacheKey: `repo-commits:${key}`,
-        loadingSetter: setLoadingRepoCommits,
-        enqueue: enqueueRef.current,
-        taskName: `repo-commit-tree-${org}-${repoName}`,
-        logLabel: 'RepoCommitTree',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoCommits(org, repoName),
-        onData: commits => setRepoCommitTreeData(prev => ({ ...prev, [key]: commits })),
-        forceRefresh,
-        maxAgeMs: getMaxAgeMs(refreshInterval),
-      })
-    },
-    [accounts, refreshInterval]
-  )
-
-  const toggleRepoCommitGroup = useCallback(
-    (org: string, repoName: string) => {
-      const key = `${org}/${repoName}`
-      const shouldFetch = !fetchedRepoCommitsRef.current.has(key)
-      repoCommitGroups.toggle(key)
-      if (shouldFetch) {
-        fetchedRepoCommitsRef.current.add(key)
-        fetchRepoCommitsForRepo(org, repoName)
-      }
-    },
-    [repoCommitGroups, fetchRepoCommitsForRepo]
-  )
-
-  const toggleSFLGroup = useCallback(
-    (org: string, repoName: string) => {
-      const key = `${org}/${repoName}`
-      const shouldFetch = !fetchedSFLRef.current.has(key)
-      sflGroups.toggle(key)
-      if (shouldFetch) {
-        fetchedSFLRef.current.add(key)
-        fetchSFLStatusForRepo(org, repoName)
-      }
-    },
-    [sflGroups, fetchSFLStatusForRepo]
-  )
-
-  const toggleRalphGroup = useCallback(
-    (org: string, repoName: string) => {
-      ralphGroups.toggle(`${org}/${repoName}`)
-    },
-    [ralphGroups]
-  )
-
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     const intervalId = setInterval(() => {
-      forEachStaleEntry(fetchedRepoPRsRef, 'repo-prs', intervalMs, parseStateOwnerRepoKey, p =>
-        fetchRepoPRsForRepo(p.owner, p.repo, p.state, true)
-      )
-      forEachStaleEntry(fetchedRepoCommitsRef, 'repo-commits', intervalMs, parseOwnerRepoKey, p =>
-        fetchRepoCommitsForRepo(p.owner, p.repo, true)
-      )
-      forEachStaleEntry(fetchedSFLRef, 'sfl-status', intervalMs, parseOwnerRepoKey, p =>
-        fetchSFLStatusForRepo(p.owner, p.repo, true)
+      forEachStaleEntry(
+        repoActions.fetchedRepoPRsRef,
+        'repo-prs',
+        intervalMs,
+        parseStateOwnerRepoKey,
+        p => repoActions.fetchRepoPRsForRepo(p.owner, p.repo, p.state, true)
       )
       forEachStaleEntry(
-        fetchedRepoIssuesRef,
+        repoActions.fetchedRepoCommitsRef,
+        'repo-commits',
+        intervalMs,
+        parseOwnerRepoKey,
+        p => repoActions.fetchRepoCommitsForRepo(p.owner, p.repo, true)
+      )
+      forEachStaleEntry(repoActions.fetchedSFLRef, 'sfl-status', intervalMs, parseOwnerRepoKey, p =>
+        repoActions.fetchSFLStatusForRepo(p.owner, p.repo, true)
+      )
+      forEachStaleEntry(
+        repoActions.fetchedRepoIssuesRef,
         'repo-issues',
         intervalMs,
         parseStateOwnerRepoKey,
-        p => fetchRepoIssuesForRepo(p.owner, p.repo, p.state, true)
+        p => repoActions.fetchRepoIssuesForRepo(p.owner, p.repo, p.state, true)
       )
     }, intervalMs)
     return () => clearInterval(intervalId)
-  }, [
-    accounts.length,
-    fetchRepoPRsForRepo,
-    fetchRepoCommitsForRepo,
-    fetchSFLStatusForRepo,
-    fetchRepoIssuesForRepo,
-    refreshInterval,
-  ])
+  }, [accounts.length, repoActions, refreshInterval])
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0 || accounts.length === 0) return
     const intervalMs = refreshInterval * MS_PER_MINUTE
     const refreshRepoCounts = () => {
-      for (const key of fetchedCountsRef.current) {
+      for (const key of repoActions.fetchedCountsRef.current) {
         const cacheKey = `repo-counts:${key}`
         /* v8 ignore start */
         if (dataCache.isFresh(cacheKey, intervalMs)) {
@@ -1003,7 +414,7 @@ export function useGitHubSidebarData() {
     }
     const intervalId = setInterval(refreshRepoCounts, intervalMs)
     return () => clearInterval(intervalId)
-  }, [accounts, refreshInterval])
+  }, [accounts, refreshInterval, repoActions.fetchedCountsRef])
 
   return {
     ...prTree,
@@ -1012,54 +423,15 @@ export function useGitHubSidebarData() {
     uniqueOrgs,
     orgRepos,
     orgMeta,
-    orgMembers,
-    loadingOrgMembers,
-    expandedOrgUserGroups: orgUserGroups.set,
-    orgTeams,
-    loadingOrgTeams,
-    expandedOrgTeamGroups: orgTeamGroups.set,
-    expandedTeams: teams.set,
-    teamMembers,
-    loadingTeamMembers,
-    orgContributorCounts,
+    ...orgActions,
     loadingOrgs,
     expandedOrgs: orgs.set,
-    expandedRepos: repos.set,
-    expandedRepoIssueGroups: repoIssueGroups.set,
-    expandedRepoIssueStateGroups: repoIssueStateGroups.set,
-    expandedRepoPRGroups: repoPRGroups.set,
-    expandedRepoPRStateGroups: repoPRStateGroups.set,
-    expandedRepoCommitGroups: repoCommitGroups.set,
-    repoCounts,
-    loadingRepoCounts,
-    repoPrTreeData,
-    repoCommitTreeData,
-    repoIssueTreeData,
-    loadingRepoCommits,
-    loadingRepoPRs,
-    loadingRepoIssues,
-    sflStatusData,
-    loadingSFLStatus,
-    expandedSFLGroups: sflGroups.set,
-    expandedRalphGroups: ralphGroups.set,
+    ...repoActions,
     showBookmarkedOnly,
     setShowBookmarkedOnly,
     refreshTick,
     toggleSection: sections.toggle,
     toggleOrg,
-    toggleOrgUserGroup,
-    toggleOrgTeamGroup,
-    toggleTeam,
-    toggleRepo,
-    toggleRepoIssueGroup: (org: string, repo: string) => repoIssueGroups.toggle(`${org}/${repo}`),
-    toggleRepoIssueStateGroup,
-    toggleRepoPRGroup: (org: string, repo: string) => repoPRGroups.toggle(`${org}/${repo}`),
-    toggleRepoPRStateGroup,
-    toggleRepoCommitGroup,
-    toggleSFLGroup,
-    toggleRalphGroup,
-    handleBookmarkToggle,
-    toggleBookmarkRepoByValues,
     ...userMenu,
   }
 }

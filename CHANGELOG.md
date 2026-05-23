@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI failures (prettier, flaky telemetry test, changelog)
 - Address PR review comments
 - Reduce handleSpawn complexity and stabilize TempoWorklogEditor test
+- Resolve CI failures (typecheck, lint, test coverage)
 
 ### Changed
 
@@ -59,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compress batch 27 — SettingsAppearance, RalphLaunchForm, useAppTabs
 - Batch-31 — extract sub-components to reduce complexity in 7 files
 - Improve CRAP scores for terminalHandlers and githubHandlers
+- Reduce CRAP scores below 30 for all critical methods
 
 ### Added
 

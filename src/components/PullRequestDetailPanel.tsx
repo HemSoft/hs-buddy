@@ -885,8 +885,8 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         aiReviewProviders={aiReviewProviders}
         onStartRalphReview={() => {
           const org = pr.org || ownerRepo?.owner || ''
-          const repoRoot = accounts.find(a => a.org === org)?.repoRoot
-          const repoPath = repoRoot ? `${repoRoot}\\${pr.repository}` : ''
+          const repoRoot = accounts.find(a => a.org.toLowerCase() === org.toLowerCase())?.repoRoot
+          const repoPath = repoRoot ? `${repoRoot.replace(/[\\/]$/, '')}/${pr.repository}` : ''
           window.dispatchEvent(
             new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
           )

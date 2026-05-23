@@ -236,7 +236,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
       const result = await window.ralph.getStatus(runId)
       if (!mountedRef.current) return
       setRun(result)
-      if (!result) setError('Run not found')
+      setError(result ? null : 'Run not found')
     } catch (err: unknown) {
       if (!mountedRef.current) return
       setError(err instanceof Error ? err.message : 'Failed to load run')
@@ -257,7 +257,10 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     const handleUpdate = (...args: unknown[]) => {
       if (!mountedRef.current) return
       const updated = args[0] as RalphRunInfo
-      if (updated.runId === runId) setRun(updated)
+      if (updated.runId === runId) {
+        setRun(updated)
+        setError(null)
+      }
     }
     window.ralph.onStatusChange(handleUpdate)
     return () => {

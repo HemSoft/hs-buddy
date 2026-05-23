@@ -315,18 +315,39 @@ function parseArgs(): {
   update: boolean
 } {
   const args = process.argv.slice(2)
-  const result = { baselinePath: DEFAULT_BASELINE_PATH, currentPath: DEFAULT_CURRENT_PATH, threshold: DEFAULT_THRESHOLD, update: false }
+  const result = {
+    baselinePath: DEFAULT_BASELINE_PATH,
+    currentPath: DEFAULT_CURRENT_PATH,
+    threshold: DEFAULT_THRESHOLD,
+    update: false,
+  }
 
   const handlers: Record<string, (i: number) => number> = {
-    '--baseline': (i) => { result.baselinePath = resolve(ROOT, requireArgValue(args, i, '--baseline')); return i + 1 },
-    '--current': (i) => { result.currentPath = resolve(ROOT, requireArgValue(args, i, '--current')); return i + 1 },
-    '--threshold': (i) => { result.threshold = parseThreshold(requireArgValue(args, i, '--threshold')); return i + 1 },
-    '--update': (i) => { result.update = true; return i },
+    '--baseline': i => {
+      result.baselinePath = resolve(ROOT, requireArgValue(args, i, '--baseline'))
+      return i + 1
+    },
+    '--current': i => {
+      result.currentPath = resolve(ROOT, requireArgValue(args, i, '--current'))
+      return i + 1
+    },
+    '--threshold': i => {
+      result.threshold = parseThreshold(requireArgValue(args, i, '--threshold'))
+      return i + 1
+    },
+    '--update': i => {
+      result.update = true
+      return i
+    },
   }
 
   for (let i = 0; i < args.length; i++) {
     const handler = handlers[args[i]]
-    if (handler) i = handler(i)
+    if (!handler) {
+      console.error(`❌ Unknown argument: ${args[i]}`)
+      process.exit(1)
+    }
+    i = handler(i)
   }
 
   return result

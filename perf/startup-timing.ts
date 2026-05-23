@@ -43,7 +43,9 @@ export const STARTUP_SENTINEL = '::PERF_STARTUP_REPORT::'
 const DEFAULT_TARGET_MS = 3000
 
 function resolveStartupTarget(explicit?: number): number {
-  if (explicit != null) return explicit
+  if (explicit != null) {
+    return Number.isFinite(explicit) && explicit > 0 ? explicit : DEFAULT_TARGET_MS
+  }
   const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
   return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
 }

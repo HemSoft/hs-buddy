@@ -80,9 +80,13 @@ function partitionRuns(runs: RalphRunInfo[]): {
 }
 
 function buildResetKey(renderErrorResetKey: number, state: DashboardState): string {
-  const prNum = state.prLaunchData ? String(state.prLaunchData.prNumber) : ''
-  const issueNum = state.issueLaunchData ? String(state.issueLaunchData.issueNumber) : ''
-  return [renderErrorResetKey, state.viewMode, state.selectedScript ?? '', prNum, issueNum].join(
+  const prKey = state.prLaunchData
+    ? `${state.prLaunchData.org}/${state.prLaunchData.repository}#${state.prLaunchData.prNumber}`
+    : ''
+  const issueKey = state.issueLaunchData
+    ? `${state.issueLaunchData.org}/${state.issueLaunchData.repository}#${state.issueLaunchData.issueNumber}`
+    : ''
+  return [renderErrorResetKey, state.viewMode, state.selectedScript ?? '', prKey, issueKey].join(
     '|'
   )
 }

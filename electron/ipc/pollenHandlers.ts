@@ -119,13 +119,18 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
-function validatePollenRequest(location: {
-  latitude: number
-  longitude: number
-}): string | null {
+function validatePollenRequest(location: { latitude: number; longitude: number }): string | null {
   const apiKey = configManager.getUiValue('pollenApiKey') as string
   if (!apiKey) return 'no-api-key'
   if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
+    return 'Invalid location'
+  }
+  if (
+    location.latitude < -90 ||
+    location.latitude > 90 ||
+    location.longitude < -180 ||
+    location.longitude > 180
+  ) {
     return 'Invalid location'
   }
   return null

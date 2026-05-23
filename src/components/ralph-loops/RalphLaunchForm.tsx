@@ -534,9 +534,18 @@ function useRalphFormSync(
   }, [])
 
   useEffect(() => {
+    if (
+      deps.scriptChoice === 'ralph' ||
+      deps.scriptChoice === 'ralph-pr' ||
+      deps.scriptChoice === 'ralph-issues'
+    ) {
+      return
+    }
     const key = deps.scriptChoice.replace(/\.ps1$/, '')
     const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
-    setPrompt(template?.defaultPrompt ?? '')
+    if (template?.defaultPrompt != null) {
+      setPrompt(template.defaultPrompt)
+    }
   }, [deps.scriptChoice, templates, setPrompt])
 
   useEffect(() => {

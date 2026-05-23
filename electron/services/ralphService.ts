@@ -7,7 +7,7 @@
 
 import { spawn, execSync, type ChildProcess } from 'node:child_process'
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
-import { join, resolve, isAbsolute, dirname } from 'node:path'
+import { join, resolve, isAbsolute, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -249,7 +249,7 @@ function outOfRange(value: number | undefined, min: number, max: number): boolea
 function validateTimingConfig(config: RalphLaunchConfig): string | null {
   if (outOfRange(config.iterations, 1, 100)) return 'iterations must be between 1 and 100'
   if (outOfRange(config.repeats, 1, 50)) return 'repeats must be between 1 and 50'
-  if (config.workUntil && !/^\d{2}:\d{2}$/.test(config.workUntil)) {
+  if (config.workUntil && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(config.workUntil)) {
     return 'workUntil must be HH:mm format'
   }
   return null
@@ -268,6 +268,13 @@ function resolveScriptPath(config: RalphLaunchConfig): string {
   if (config.scriptType === 'ralph-issues') return join(scriptsDir, 'ralph-issues.ps1')
   // Template scripts: check vendored scripts/ dir first, then repo's scripts/ dir
   if (config.templateScript) {
+    if (
+      basename(config.templateScript) !== config.templateScript ||
+      !config.templateScript.endsWith('.ps1')
+    ) {
+      throw new Error(`Invalid template script: ${config.templateScript}`)
+    }
+
     const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
     if (existsSync(vendoredPath)) return vendoredPath
     const repoPath = join(config.repoPath, 'scripts', config.templateScript)

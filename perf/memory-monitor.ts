@@ -279,18 +279,35 @@ function parseCliArgs(): { cycles: number; warmupCycles: number; thresholdMB: nu
   const result = { cycles: 50, warmupCycles: 5, thresholdMB: 5 }
 
   const handlers: Record<string, (i: number) => number | null> = {
-    '--cycles': (i) => { result.cycles = requireNumericArg(args, i + 1, '--cycles', 1); return i + 1 },
-    '--warmup': (i) => { result.warmupCycles = requireNumericArg(args, i + 1, '--warmup', 0); return i + 1 },
-    '--threshold': (i) => { result.thresholdMB = requireNumericArg(args, i + 1, '--threshold', 0); return i + 1 },
-    '--help': () => { console.log(HELP_TEXT); return null },
+    '--cycles': i => {
+      result.cycles = requireNumericArg(args, i + 1, '--cycles', 1)
+      return i + 1
+    },
+    '--warmup': i => {
+      result.warmupCycles = requireNumericArg(args, i + 1, '--warmup', 0)
+      return i + 1
+    },
+    '--threshold': i => {
+      result.thresholdMB = requireNumericArg(args, i + 1, '--threshold', 0)
+      return i + 1
+    },
+    '--help': () => {
+      console.log(HELP_TEXT)
+      return null
+    },
   }
 
   for (let i = 0; i < args.length; i++) {
-    const handler = handlers[args[i]]
+    const arg = args[i]
+    const handler = handlers[arg]
     if (handler) {
       const next = handler(i)
       if (next === null) return null
       i = next
+    } else {
+      console.error(`❌ Unknown option: ${arg}`)
+      console.log(HELP_TEXT)
+      process.exit(1)
     }
   }
 

@@ -144,9 +144,13 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
       if (!mountedRef.current) return
       setState(prev => resolvePollenState(result, prev, latitude, longitude))
-    } catch (_: unknown) {
+    } catch (err: unknown) {
       if (mountedRef.current) {
-        setState({ data: null, loading: false, error: null })
+        setState(prev => ({
+          data: prev.data,
+          loading: false,
+          error: err instanceof Error ? err.message : 'Pollen fetch failed',
+        }))
       }
     }
   }, [location])

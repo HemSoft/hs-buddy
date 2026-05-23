@@ -140,6 +140,10 @@ vi.mock('./tempo/TempoDashboard', () => ({
   TempoDashboard: () => <div>TempoDashboard</div>,
 }))
 
+vi.mock('./terminal-workspace/TerminalWorkspaceView', () => ({
+  TerminalWorkspaceView: () => <div>TerminalWorkspaceView</div>,
+}))
+
 vi.mock('./sessions/SessionExplorer', () => ({
   SessionExplorer: (props: { onSelectSession: (filePath: string) => void }) => {
     capturedCallbacks.onSelectSession = props.onSelectSession
@@ -274,6 +278,7 @@ describe('AppContentRouter', () => {
     ['copilot-all-results', 'CopilotResultsList'],
     ['copilot-usage', 'CopilotUsagePanel'],
     ['copilot-sessions', 'SessionExplorer'],
+    ['terminal-workspace', 'TerminalWorkspaceView'],
     ['tempo-timesheet', 'TempoDashboard'],
   ])('renders %s route', (viewId, expectedText) => {
     renderRouter(viewId)

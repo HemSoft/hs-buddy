@@ -22,6 +22,7 @@ import { useAppLayout } from './hooks/useAppLayout'
 import { useAppSessionStats } from './hooks/useAppSessionStats'
 import { useAppTabs, DASHBOARD_VIEW_ID } from './hooks/useAppTabs'
 import { useTerminalPanel } from './hooks/useTerminalPanel'
+import { TerminalWorkspaceProvider } from './hooks/useTerminalWorkspace'
 import { computeAppMetrics, isAppLoading } from './appUtils'
 import { getRepoContextFromViewId, type RepoContext } from './utils/repoContext'
 import './App.css'
@@ -48,6 +49,8 @@ function useAppCallbacks(
         openTab('bookmarks-all')
       } else if (sectionId === 'ralph') {
         openTab('ralph-dashboard')
+      } else if (sectionId === 'terminal') {
+        openTab('terminal-workspace')
       }
     },
     [openTab, setSelectedSection]
@@ -295,61 +298,63 @@ function App() {
       {showLoading ? (
         <AppLoadingState />
       ) : (
-        <div className="app-body">
-          <ActivityBar
-            selectedSection={selectedSection}
-            onSectionSelect={handleSectionSelect}
-            isDashboardActive={activeViewId === DASHBOARD_VIEW_ID}
-            onHomeClick={handleHomeClick}
-          />
-          <Allotment onChange={handlePaneChange} defaultSizes={defaultSizes}>
-            <Allotment.Pane minSize={200}>
-              <SidebarPanel
-                section={selectedSection}
-                onItemSelect={handleItemSelect}
-                selectedItem={activeViewId}
-                counts={prCounts}
-                badgeProgress={badgeProgress}
-              />
-            </Allotment.Pane>
-            <Allotment.Pane minSize={400}>
-              <AppMainContent
-                tabs={tabs}
-                activeTabId={activeTabId}
-                setActiveTabId={setActiveTabId}
-                closeTab={closeTab}
-                closeOtherTabs={closeOtherTabs}
-                closeTabsToRight={closeTabsToRight}
-                closeAllTabs={closeAllTabs}
-                onPanelResize={onPanelResize}
-                activeViewId={activeViewId}
-                prCounts={prCounts}
-                handleItemSelect={handleItemSelect}
-                handleSectionSelect={handleSectionSelect}
-                openTab={openTab}
-                closeView={closeView}
-                handlePRCountChange={handlePRCountChange}
-                terminalOpen={terminalOpen}
-                panelHeight={panelHeight}
-                terminalTabs={terminalTabs}
-                activeTerminalTabId={activeTerminalTabId}
-                selectTerminalTab={selectTerminalTab}
-                closeTerminalTab={closeTerminalTab}
-                handleAddTerminalTab={handleAddTerminalTab}
-                renameTerminalTab={renameTerminalTab}
-                setTerminalTabColor={setTerminalTabColor}
-                reorderTerminalTabs={reorderTerminalTabs}
-                updateTabCwd={updateTabCwd}
-                handleOpenFolderView={handleOpenFolderView}
-              />
-            </Allotment.Pane>
-            {assistantOpen && (
-              <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
-                <AssistantPanel context={assistantContext} />
+        <TerminalWorkspaceProvider>
+          <div className="app-body">
+            <ActivityBar
+              selectedSection={selectedSection}
+              onSectionSelect={handleSectionSelect}
+              isDashboardActive={activeViewId === DASHBOARD_VIEW_ID}
+              onHomeClick={handleHomeClick}
+            />
+            <Allotment onChange={handlePaneChange} defaultSizes={defaultSizes}>
+              <Allotment.Pane minSize={200}>
+                <SidebarPanel
+                  section={selectedSection}
+                  onItemSelect={handleItemSelect}
+                  selectedItem={activeViewId}
+                  counts={prCounts}
+                  badgeProgress={badgeProgress}
+                />
               </Allotment.Pane>
-            )}
-          </Allotment>
-        </div>
+              <Allotment.Pane minSize={400}>
+                <AppMainContent
+                  tabs={tabs}
+                  activeTabId={activeTabId}
+                  setActiveTabId={setActiveTabId}
+                  closeTab={closeTab}
+                  closeOtherTabs={closeOtherTabs}
+                  closeTabsToRight={closeTabsToRight}
+                  closeAllTabs={closeAllTabs}
+                  onPanelResize={onPanelResize}
+                  activeViewId={activeViewId}
+                  prCounts={prCounts}
+                  handleItemSelect={handleItemSelect}
+                  handleSectionSelect={handleSectionSelect}
+                  openTab={openTab}
+                  closeView={closeView}
+                  handlePRCountChange={handlePRCountChange}
+                  terminalOpen={terminalOpen}
+                  panelHeight={panelHeight}
+                  terminalTabs={terminalTabs}
+                  activeTerminalTabId={activeTerminalTabId}
+                  selectTerminalTab={selectTerminalTab}
+                  closeTerminalTab={closeTerminalTab}
+                  handleAddTerminalTab={handleAddTerminalTab}
+                  renameTerminalTab={renameTerminalTab}
+                  setTerminalTabColor={setTerminalTabColor}
+                  reorderTerminalTabs={reorderTerminalTabs}
+                  updateTabCwd={updateTabCwd}
+                  handleOpenFolderView={handleOpenFolderView}
+                />
+              </Allotment.Pane>
+              {assistantOpen && (
+                <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
+                  <AssistantPanel context={assistantContext} />
+                </Allotment.Pane>
+              )}
+            </Allotment>
+          </div>
+        </TerminalWorkspaceProvider>
       )}
       <StatusBar
         prCount={totalPRCount}

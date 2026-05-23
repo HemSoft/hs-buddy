@@ -1,0 +1,152 @@
+.terminal-workspace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+
+.terminal-workspace-header {
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 12px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.terminal-workspace-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.terminal-workspace-title span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.terminal-workspace-color-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.terminal-workspace-body {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.terminal-workspace-split {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  gap: 1px;
+  background: var(--border-color);
+}
+
+.terminal-workspace-split.horizontal {
+  flex-direction: row;
+}
+
+.terminal-workspace-split.vertical {
+  flex-direction: column;
+}
+
+.terminal-workspace-split-child {
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-primary);
+}
+
+.terminal-workspace-pane {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  background: #0c0c0c;
+}
+
+.terminal-workspace-pane-toolbar {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.terminal-workspace-pane:hover .terminal-workspace-pane-toolbar,
+.terminal-workspace-pane-toolbar:focus-within {
+  opacity: 1;
+}
+
+.terminal-workspace-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.terminal-workspace-tool:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-hover);
+}
+
+.terminal-workspace-tool:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.terminal-workspace-loading,
+.terminal-workspace-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.terminal-workspace-empty-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.terminal-workspace-empty-action:hover {
+  background: var(--bg-hover);
+}

@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Verify copy proceeds after today loading resolves
 
+### Added
+
+- Revive terminal workspace
+
 ## [0.1.765] - 2026-05-25
 
 ### Changed
@@ -44,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Show bookmark title in tab headers instead of hostname
+- Revive terminal workspace
 
 ### Fixed
 

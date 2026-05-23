@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Compress batch 26 — SettingsCopilot, users, PullRequestDetailPanel
 - Compress batch 27 — SettingsAppearance, RalphLaunchForm, useAppTabs
 - Batch-31 — extract sub-components to reduce complexity in 7 files
+- Extract sub-hooks to reduce CRAP scores
 
 ### Added
 

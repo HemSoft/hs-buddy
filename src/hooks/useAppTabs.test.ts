@@ -939,6 +939,18 @@ describe('useAppTabs', () => {
       })
 
       expect(result.current.tabs).toHaveLength(3) // dashboard + 2 browser tabs
+      expect(
+        result.current.tabs.some(
+          t => t.viewId === `browser:${encoded}|${encodeURIComponent('Title A')}`
+        )
+      ).toBe(true)
+      expect(
+        result.current.tabs.some(
+          t =>
+            t.viewId ===
+            `browser:${encodeURIComponent('https://other.com')}|${encodeURIComponent('Title B')}`
+        )
+      ).toBe(true)
     })
   })
 })

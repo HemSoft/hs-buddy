@@ -25,6 +25,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stabilize branch coverage and restore changelog entries
 - Stabilize useWeather abort coverage test for CI
 
+### Changed
+
+- Strengthen distinct-URL test with identity assertions
+
 ## [0.1.760] - 2026-05-23
 
 ### Changed

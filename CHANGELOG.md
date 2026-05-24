@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Match browser tabs by URL identity to prevent duplicates on bookmark rename
 - Remove dead branches in browser tab matching for 100% coverage
 - Address PR review feedback - changelog and test assertions
+- Stabilize branch coverage and restore changelog entries
 
 ## [0.1.760] - 2026-05-23
 
@@ -31,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Reduce cyclomatic complexity in toggleBookmark and parseSpawnOpts
 - Add coverage for nullish coalescing branch in resolveBookmarkTarget
 - Cover missing branches in RalphLaunchForm and usePollen
-- Assert viewId updates on browser tab reuse
+- Disable CodeRabbit auto-pause after reviewed commits
 
 ### Fixed
 
@@ -42,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI failures (lint + coverage)
 - Correct type error in usePRContextMenu test
 - Address all 11 PR review comments
-- Address PR review feedback
+- Fallback to github.token when GH_AW_GITHUB_TOKEN secret missing
 
 ## [0.1.759] - 2026-05-11
 

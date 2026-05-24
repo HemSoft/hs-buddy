@@ -160,11 +160,10 @@ async function fetchReverseGeocode(
       `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`,
       { headers: { 'User-Agent': 'hs-buddy/1.0' } }
     )
-    return resp.ok
-      ? ((await resp.json()) as {
-          address?: { city?: string; town?: string; village?: string; state?: string }
-        })
-      : null
+    if (!resp.ok) return null
+    return (await resp.json()) as {
+      address?: { city?: string; town?: string; village?: string; state?: string }
+    }
   } catch (_: unknown) {
     return null
   }
@@ -266,13 +265,14 @@ export function useWeather() {
         }
       })
       .catch(err => {
-        if (!controller.signal.aborted) {
-          setState(prev => ({
-            data: prev.data, // keep stale data visible
-            loading: false,
-            error: getErrorMessageWithFallback(err, 'Failed to fetch weather'),
-          }))
+        if (controller.signal.aborted) {
+          throw err
         }
+        setState(prev => ({
+          data: prev.data, // keep stale data visible
+          loading: false,
+          error: getErrorMessageWithFallback(err, 'Failed to fetch weather'),
+        }))
         throw err
       })
   }, [])

@@ -29,7 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI failures (lint + coverage)
 - Correct type error in usePRContextMenu test
 - Address all 11 PR review comments
-- Fallback to github.token when GH_AW_GITHUB_TOKEN secret missing
 - Remove phantom terminalWorkspaces reference from generated api.d.ts
 - Address PR review feedback
 - Guard browser route against malformed URLs and empty titles

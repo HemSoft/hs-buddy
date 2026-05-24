@@ -163,11 +163,9 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
         // Match browser tabs by URL identity only (ignore mutable title after pipe)
         const browserMatch = findExistingBrowserTab(previousState.tabs, viewId)
         if (browserMatch) {
-          const needsUpdate = browserMatch.viewId !== viewId
-          const updatedTabs = needsUpdate
-            ? previousState.tabs.map(t => (t.id === browserMatch.id ? { ...t, viewId, label } : t))
-            : previousState.tabs
-          if (previousState.activeTabId === browserMatch.id && !needsUpdate) return previousState
+          const updatedTabs = previousState.tabs.map(t =>
+            t.id === browserMatch.id ? { ...t, viewId, label } : t
+          )
           return { ...previousState, tabs: updatedTabs, activeTabId: browserMatch.id }
         }
         return {

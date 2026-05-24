@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address PR review feedback
 - Guard browser route against malformed URLs and empty titles
 - Match browser tabs by URL identity to prevent duplicates on bookmark rename
+- Remove dead branches in browser tab matching for 100% coverage
 
 ### Added
 

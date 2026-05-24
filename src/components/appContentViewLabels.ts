@@ -48,7 +48,9 @@ function getBrowserLabel(viewId: string): string {
     const raw = viewId.slice('browser:'.length)
     const pipeIndex = raw.indexOf('|')
     if (pipeIndex >= 0) {
-      return decodeURIComponent(raw.slice(pipeIndex + 1))
+      const title = decodeURIComponent(raw.slice(pipeIndex + 1)).trim()
+      if (title) return title
+      return new URL(decodeURIComponent(raw.slice(0, pipeIndex))).hostname
     }
     return new URL(decodeURIComponent(raw)).hostname
   } catch (_: unknown) {

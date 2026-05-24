@@ -156,6 +156,11 @@ describe('getViewLabel', () => {
       expect(getViewLabel(`browser:${encoded}|${title}`)).toBe('My Bookmark')
     })
 
+    it('falls back to hostname when pipe-separated title is empty', () => {
+      const encoded = encodeURIComponent('https://example.com/path')
+      expect(getViewLabel(`browser:${encoded}|`)).toBe('example.com')
+    })
+
     it('returns "Browser" for an invalid URL', () => {
       expect(getViewLabel('browser:not-a-valid-url')).toBe('Browser')
     })

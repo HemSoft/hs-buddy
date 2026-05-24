@@ -312,6 +312,11 @@ describe('AppContentRouter', () => {
     expect(screen.getByText('BrowserTab:https://example.com')).toBeInTheDocument()
   })
 
+  it('renders null for browser tab route with malformed encoded URL', () => {
+    renderRouter('browser:%ZZ-invalid')
+    expect(screen.queryByText(/BrowserTab/)).toBeNull()
+  })
+
   it('renders crew-project route', () => {
     renderRouter('crew-project:proj-123')
     expect(screen.getByText('CrewProject:proj-123')).toBeInTheDocument()

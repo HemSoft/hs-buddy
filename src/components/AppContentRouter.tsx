@@ -241,7 +241,11 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: slug => {
       const pipeIndex = slug.indexOf('|')
       const encodedUrl = pipeIndex >= 0 ? slug.slice(0, pipeIndex) : slug
-      return <BrowserTabView key={`browser:${encodedUrl}`} url={decodeURIComponent(encodedUrl)} />
+      try {
+        return <BrowserTabView key={`browser:${encodedUrl}`} url={decodeURIComponent(encodedUrl)} />
+      } catch (_: unknown) {
+        return null
+      }
     },
   },
   { prefix: 'crew-project:', render: slug => <CrewProjectView projectId={slug} /> },

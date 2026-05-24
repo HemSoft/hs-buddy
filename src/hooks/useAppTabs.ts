@@ -61,6 +61,25 @@ function resolveRemainingActiveTabId(nextTabs: Tab[], activeTabId: string | null
   /* v8 ignore stop */
 }
 
+/** Extract the URL identity portion of a browser: viewId (before the pipe). */
+function getBrowserUrlIdentity(viewId: string): string | null {
+  if (!viewId.startsWith('browser:')) return null
+  const slug = viewId.slice('browser:'.length)
+  const pipeIndex = slug.indexOf('|')
+  return pipeIndex >= 0 ? `browser:${slug.slice(0, pipeIndex)}` : viewId
+}
+
+/**
+ * Find an existing browser tab that matches by URL identity, ignoring the
+ * mutable title segment after the pipe. This prevents duplicate tabs when
+ * a bookmark is renamed.
+ */
+function findExistingBrowserTab(tabs: Tab[], viewId: string): Tab | undefined {
+  const identity = getBrowserUrlIdentity(viewId)
+  if (!identity) return undefined
+  return tabs.find(tab => getBrowserUrlIdentity(tab.viewId) === identity)
+}
+
 function resolveActiveTabAfterClose(
   previousState: TabState,
   tabId: string,
@@ -140,6 +159,16 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
         if (existingTab) {
           if (previousState.activeTabId === existingTab.id) return previousState
           return { ...previousState, activeTabId: existingTab.id }
+        }
+        // Match browser tabs by URL identity only (ignore mutable title after pipe)
+        const browserMatch = findExistingBrowserTab(previousState.tabs, viewId)
+        if (browserMatch) {
+          const needsUpdate = browserMatch.viewId !== viewId
+          const updatedTabs = needsUpdate
+            ? previousState.tabs.map(t => (t.id === browserMatch.id ? { ...t, viewId, label } : t))
+            : previousState.tabs
+          if (previousState.activeTabId === browserMatch.id && !needsUpdate) return previousState
+          return { ...previousState, tabs: updatedTabs, activeTabId: browserMatch.id }
         }
         return {
           tabs: [...previousState.tabs, { id: newTabId, label, viewId }],

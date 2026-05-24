@@ -877,4 +877,61 @@ describe('useAppTabs', () => {
       expect(result.current.tabs).toBe(tabsBefore)
     })
   })
+
+  describe('browser tab URL-based identity matching', () => {
+    const url = 'https://example.com/page'
+    const encoded = encodeURIComponent(url)
+
+    it('reuses existing browser tab when title changes (bookmark rename)', async () => {
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab(`browser:${encoded}|${encodeURIComponent('Old Title')}`)
+      })
+
+      expect(result.current.tabs).toHaveLength(2) // dashboard + browser
+
+      await act(async () => {
+        await result.current.openTab(`browser:${encoded}|${encodeURIComponent('New Title')}`)
+      })
+
+      // Should NOT create a duplicate tab
+      expect(result.current.tabs).toHaveLength(2)
+      // The tab's viewId and label should be updated
+      const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
+      expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('New Title')}`)
+      expect(browserTab.label).toBe('New Title')
+    })
+
+    it('reuses browser tab opened without title when opened again with title', async () => {
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab(`browser:${encoded}`)
+      })
+
+      expect(result.current.tabs).toHaveLength(2)
+
+      await act(async () => {
+        await result.current.openTab(`browser:${encoded}|${encodeURIComponent('Bookmark Name')}`)
+      })
+
+      expect(result.current.tabs).toHaveLength(2)
+      const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
+      expect(browserTab.label).toBe('Bookmark Name')
+    })
+
+    it('does not match different browser URLs', async () => {
+      const { result } = renderHook(() => useAppTabs({ onViewOpen: vi.fn() }))
+
+      await act(async () => {
+        await result.current.openTab(`browser:${encoded}|${encodeURIComponent('Title A')}`)
+        await result.current.openTab(
+          `browser:${encodeURIComponent('https://other.com')}|${encodeURIComponent('Title B')}`
+        )
+      })
+
+      expect(result.current.tabs).toHaveLength(3) // dashboard + 2 browser tabs
+    })
+  })
 })

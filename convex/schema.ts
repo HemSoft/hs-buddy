@@ -453,4 +453,27 @@ export default defineSchema({
     .index('by_status', ['status'])
     .index('by_repo', ['repoPath', 'startedAt'])
     .index('by_started', ['startedAt']),
+
+  /**
+   * Terminal workspaces — tree-based terminal session organizer.
+   * Singleton keyed "default". Stores the full tree structure with
+   * recursive split layouts (via v.any() since Convex lacks recursive validators).
+   */
+  terminalWorkspaces: defineTable({
+    key: v.literal('default'),
+    /** Flat array of tree nodes with parentId references. Layout is recursive TerminalLayout. */
+    nodes: v.array(
+      v.object({
+        id: v.string(),
+        name: v.string(),
+        color: v.optional(v.string()),
+        parentId: v.optional(v.string()),
+        sortOrder: v.number(),
+        layout: v.any(), // Recursive TerminalLayout (pane | split)
+      })
+    ),
+    activeNodeId: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index('by_key', ['key']),
 })

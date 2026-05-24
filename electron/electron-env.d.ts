@@ -165,6 +165,35 @@ interface Window {
         billingMonth: number
       }
     }>
+    getCopilotSeats: (
+      org: string,
+      username?: string
+    ) => Promise<{
+      success: boolean
+      error?: string
+      data?: {
+        totalSeats: number
+        fetchedSeats: number
+        seats: Array<{
+          login: string
+          displayName: string | null
+          planType: string | null
+          lastActivityAt: string | null
+          lastActivityEditor: string | null
+          createdAt: string | null
+          pendingCancellation: string | null
+        }>
+      }
+    }>
+    getBatchMonthlyRequests: (
+      logins: string[],
+      username?: string,
+      skipDayProbing?: boolean
+    ) => Promise<{
+      success: boolean
+      error?: string
+      data?: Record<string, { requests: number; lastActiveDate: string | null }>
+    }>
   }
   finance: {
     fetchQuote: (symbol: string) => Promise<{

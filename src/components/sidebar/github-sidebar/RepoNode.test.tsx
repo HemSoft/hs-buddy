@@ -1549,6 +1549,40 @@ describe('RepoNode component', () => {
     expect(screen.getByText('PR Router')).toBeDefined()
   })
 
+  it('shows workflow status in title when conclusion is null', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const expandedSFL = new Set(['org/hs-buddy'])
+    const sflData: Record<string, SFLRepoStatus> = {
+      'org/hs-buddy': {
+        isSFLEnabled: true,
+        overallStatus: 'healthy',
+        workflows: [
+          {
+            id: 1,
+            name: 'SFL: Auditor',
+            state: 'active',
+            latestRun: {
+              status: 'in_progress',
+              conclusion: null,
+              createdAt: '2026-04-10',
+              url: 'https://example.com',
+            },
+          },
+        ],
+      },
+    }
+    render(
+      <RepoNode
+        {...baseProps}
+        expandedRepos={expanded}
+        expandedSFLGroups={expandedSFL}
+        sflStatusData={sflData}
+      />
+    )
+    expect(screen.getByText('Auditor')).toBeDefined()
+    expect(screen.getByTitle(/in_progress/i)).toBeDefined()
+  })
+
   it('shows spinner on Closed issues label row when closed issues are loading', () => {
     const expanded = new Set(['org/hs-buddy'])
     const expandedIssueGroups = new Set(['org/hs-buddy'])

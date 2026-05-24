@@ -332,6 +332,18 @@ describe('useConfig', () => {
       expect(result.current.autoRefresh).toBe(false)
       expect(result.current.recentlyMergedDays).toBe(7)
     })
+
+    it('electron-store fallback applies null-coalescing defaults for PR fields', async () => {
+      mockSettings = undefined
+      mockInvoke.mockResolvedValue({
+        pr: { refreshInterval: null, autoRefresh: null, recentlyMergedDays: null },
+      })
+      const { result } = renderHook(() => usePRSettings())
+      // Default has autoRefresh: true; after IPC resolves extractor applies ?? false
+      await waitFor(() => expect(result.current.autoRefresh).toBe(false))
+      expect(result.current.refreshInterval).toBe(15)
+      expect(result.current.recentlyMergedDays).toBe(7)
+    })
   })
 
   describe('useCopilotSettings', () => {
@@ -386,6 +398,17 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useCopilotSettings())
       expect(result.current.ghAccount).toBe('')
       expect(result.current.model).toBe('claude-sonnet-4.5')
+      expect(result.current.premiumModel).toBe('claude-opus-4.6')
+    })
+
+    it('electron-store fallback applies null-coalescing defaults for copilot fields', async () => {
+      mockSettings = undefined
+      mockInvoke.mockResolvedValue({
+        copilot: { ghAccount: null, model: 'gpt-4o', premiumModel: null },
+      })
+      const { result } = renderHook(() => useCopilotSettings())
+      await waitFor(() => expect(result.current.model).toBe('gpt-4o'))
+      expect(result.current.ghAccount).toBe('')
       expect(result.current.premiumModel).toBe('claude-opus-4.6')
     })
   })

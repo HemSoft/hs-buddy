@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Resolve CI failures (lint + coverage)
 - Correct type error in usePRContextMenu test
 - Address all 11 PR review comments
+- Remove phantom terminalWorkspaces reference from generated api.d.ts
+- Address PR review feedback
 
 ## [0.1.759] - 2026-05-11
 

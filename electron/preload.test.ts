@@ -412,6 +412,25 @@ describe('preload', () => {
         'user1'
       )
     })
+
+    it('getCopilotSeats invokes github:get-copilot-seats', () => {
+      exposedApis.github.getCopilotSeats('my-org', 'user1')
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
+        'my-org',
+        'user1'
+      )
+    })
+
+    it('getBatchMonthlyRequests invokes github:get-batch-monthly-requests', () => {
+      exposedApis.github.getBatchMonthlyRequests(['user1', 'user2'], 'owner', true)
+      expect(mockInvoke).toHaveBeenCalledWith(
+        IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
+        ['user1', 'user2'],
+        'owner',
+        true
+      )
+    })
   })
 
   describe('crew bridge - additional methods', () => {

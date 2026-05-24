@@ -60,6 +60,8 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
     )
   }
 
+  const submitDisabled = submitting || !prompt.trim()
+
   return (
     <div className="pr-review-panel">
       <div className="pr-review-panel-header">
@@ -129,7 +131,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         <button
           className="pr-review-btn pr-review-btn-primary"
           onClick={handleRunNow}
-          disabled={submitting || !prompt.trim()}
+          disabled={submitDisabled}
         >
           <Play size={14} />
           Run Now
@@ -138,7 +140,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           <button
             className="pr-review-btn pr-review-btn-secondary"
             onClick={handleSchedule}
-            disabled={submitting || !prompt.trim()}
+            disabled={submitDisabled}
           >
             <Clock size={14} />
             Schedule

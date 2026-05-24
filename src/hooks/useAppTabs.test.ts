@@ -890,6 +890,7 @@ describe('useAppTabs', () => {
       })
 
       expect(result.current.tabs).toHaveLength(2) // dashboard + browser
+      const initialBrowserTabId = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!.id
 
       await act(async () => {
         await result.current.openTab(`browser:${encoded}|${encodeURIComponent('New Title')}`)
@@ -899,6 +900,7 @@ describe('useAppTabs', () => {
       expect(result.current.tabs).toHaveLength(2)
       // The tab's viewId and label should be updated
       const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
+      expect(browserTab.id).toBe(initialBrowserTabId)
       expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('New Title')}`)
       expect(browserTab.label).toBe('New Title')
       expect(result.current.activeViewId).toBe(browserTab.viewId)
@@ -912,6 +914,7 @@ describe('useAppTabs', () => {
       })
 
       expect(result.current.tabs).toHaveLength(2)
+      const initialBrowserTabId = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!.id
 
       await act(async () => {
         await result.current.openTab(`browser:${encoded}|${encodeURIComponent('Bookmark Name')}`)
@@ -919,6 +922,7 @@ describe('useAppTabs', () => {
 
       expect(result.current.tabs).toHaveLength(2)
       const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
+      expect(browserTab.id).toBe(initialBrowserTabId)
       expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('Bookmark Name')}`)
       expect(browserTab.label).toBe('Bookmark Name')
       expect(result.current.activeViewId).toBe(browserTab.viewId)

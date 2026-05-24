@@ -11,9 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.761] - 2026-05-24
 
+### Added
+
+- Show bookmark title in tab headers instead of hostname
+
 ### Fixed
 
 - Remove unrelated CodeRabbit changelog entry
+- Guard browser route against malformed URLs and empty titles
+- Match browser tabs by URL identity to prevent duplicates on bookmark rename
+- Remove dead branches in browser tab matching for 100% coverage
+- Address PR review feedback - changelog and test assertions
 
 ## [0.1.760] - 2026-05-23
 
@@ -35,13 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correct type error in usePRContextMenu test
 - Address all 11 PR review comments
 - Address PR review feedback
-- Guard browser route against malformed URLs and empty titles
-- Match browser tabs by URL identity to prevent duplicates on bookmark rename
-- Remove dead branches in browser tab matching for 100% coverage
-
-### Added
-
-- Show bookmark title in tab headers instead of hostname
 
 ## [0.1.759] - 2026-05-11
 

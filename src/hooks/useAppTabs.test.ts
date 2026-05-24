@@ -901,6 +901,7 @@ describe('useAppTabs', () => {
       const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
       expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('New Title')}`)
       expect(browserTab.label).toBe('New Title')
+      expect(result.current.activeViewId).toBe(browserTab.viewId)
     })
 
     it('reuses browser tab opened without title when opened again with title', async () => {
@@ -920,6 +921,7 @@ describe('useAppTabs', () => {
       const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
       expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('Bookmark Name')}`)
       expect(browserTab.label).toBe('Bookmark Name')
+      expect(result.current.activeViewId).toBe(browserTab.viewId)
     })
 
     it('does not match different browser URLs', async () => {

@@ -113,9 +113,12 @@ describe('BookmarksSidebar', () => {
     const onItemSelect = vi.fn()
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     expandCategory('Dev Tools')
-    // Component renders without crashing; empty title produces empty label
-    const labels = document.querySelectorAll('.sidebar-item-label')
-    expect(labels.length).toBeGreaterThan(0)
+    const row = document.querySelector('[title="https://example.com"]') as HTMLElement
+    expect(row).toBeInTheDocument()
+    fireEvent.click(row)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('')}`
+    )
   })
 
   it('handles bookmarks with empty URL', () => {

@@ -819,33 +819,6 @@ describe('PullRequestDetailPanel', () => {
     })
   })
 
-  describe('linked issue keyboard navigation', () => {
-    it('opens linked issue on Enter key', () => {
-      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
-      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
-      fireEvent.keyDown(issueCard, { key: 'Enter' })
-      expect(window.shell.openExternal).toHaveBeenCalledWith(
-        'https://github.com/octo-org/test-repo/issues/99'
-      )
-    })
-
-    it('opens linked issue on Space key', () => {
-      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
-      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
-      fireEvent.keyDown(issueCard, { key: ' ' })
-      expect(window.shell.openExternal).toHaveBeenCalledWith(
-        'https://github.com/octo-org/test-repo/issues/99'
-      )
-    })
-
-    it('does not open issue on other keys', () => {
-      render(<PullRequestDetailPanel pr={makePR({ headBranch: 'agent-fix/issue-99' })} />)
-      const issueCard = screen.getByTitle('Open Issue #99 on GitHub')
-      fireEvent.keyDown(issueCard, { key: 'Tab' })
-      expect(window.shell.openExternal).not.toHaveBeenCalled()
-    })
-  })
-
   describe('fetchBranches error paths', () => {
     it('sets branches to null when parseOwnerRepoFromUrl returns null and PR has no branches', async () => {
       prDetailMocks.parseOwnerRepoFromUrl.mockReturnValue(null)

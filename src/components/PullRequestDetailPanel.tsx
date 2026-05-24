@@ -33,7 +33,6 @@ import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
-import { onKeyboardActivate } from '../utils/keyboard'
 import { MarkdownContent } from './shared/MarkdownContent'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
@@ -204,8 +203,7 @@ function PRHeaderSubtitle({
           <span className="pr-detail-dot">·</span>
           <span className="pr-detail-branch-flow">
             <GitBranch size={12} />
-            into <strong>{branches.baseBranch}</strong> from{' '}
-            <strong>{branches.headBranch}</strong>
+            into <strong>{branches.baseBranch}</strong> from <strong>{branches.headBranch}</strong>
           </span>
         </>
       )}
@@ -417,7 +415,6 @@ function LinkedIssueCard({ issue }: { issue: { number: number; url: string } | n
         type="button"
         className="pr-detail-card pr-detail-card-interactive"
         onClick={() => window.shell.openExternal(issue.url)}
-        onKeyDown={onKeyboardActivate(() => window.shell.openExternal(issue.url))}
         title={`Open Issue #${issue.number} on GitHub`}
       >
         <div className="pr-detail-card-title">

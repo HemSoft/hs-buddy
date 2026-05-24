@@ -61,9 +61,23 @@ contextBridge.exposeInMainWorld('github', {
   getUserPremiumRequests: (org: string, memberLogin: string, username?: string) =>
     ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS, org, memberLogin, username),
   getCopilotSeats: (org: string, username?: string) =>
-    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_SEATS, org, username),
+    typeof org === 'string' &&
+    org.trim().length > 0 &&
+    (username == null || typeof username === 'string')
+      ? ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_SEATS, org, username)
+      : Promise.resolve({ success: false, error: 'Invalid arguments' }),
   getBatchMonthlyRequests: (logins: string[], username?: string, skipDayProbing?: boolean) =>
-    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS, logins, username, skipDayProbing),
+    Array.isArray(logins) &&
+    logins.every(login => typeof login === 'string' && login.trim().length > 0) &&
+    (username == null || typeof username === 'string') &&
+    (skipDayProbing == null || typeof skipDayProbing === 'boolean')
+      ? ipcRenderer.invoke(
+          IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
+          logins,
+          username,
+          skipDayProbing
+        )
+      : Promise.resolve({ success: false, error: 'Invalid arguments' }),
 })
 
 contextBridge.exposeInMainWorld('crew', {

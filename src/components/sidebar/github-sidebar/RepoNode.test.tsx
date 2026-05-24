@@ -1559,7 +1559,7 @@ describe('RepoNode component', () => {
         workflows: [
           {
             id: 1,
-            name: 'SFL: In-Progress',
+            name: 'SFL: Auditor',
             state: 'active',
             latestRun: {
               status: 'in_progress',
@@ -1579,7 +1579,8 @@ describe('RepoNode component', () => {
         sflStatusData={sflData}
       />
     )
-    expect(screen.getByText('In-Progress')).toBeDefined()
+    expect(screen.getByText('Auditor')).toBeDefined()
+    expect(screen.getByTitle(/in_progress/i)).toBeDefined()
   })
 
   it('shows spinner on Closed issues label row when closed issues are loading', () => {

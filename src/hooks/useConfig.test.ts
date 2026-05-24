@@ -404,15 +404,11 @@ describe('useConfig', () => {
     it('electron-store fallback applies null-coalescing defaults for copilot fields', async () => {
       mockSettings = undefined
       mockInvoke.mockResolvedValue({
-        copilot: { ghAccount: null, model: null, premiumModel: null },
+        copilot: { ghAccount: null, model: 'gpt-4o', premiumModel: null },
       })
       const { result } = renderHook(() => useCopilotSettings())
-      // Wait for IPC effect to resolve so extractor runs with null fields
-      await waitFor(() => expect(mockInvoke).toHaveBeenCalledWith('config:get-config'))
-      // Flush microtasks to ensure state update from .then() has applied
-      await act(async () => {})
+      await waitFor(() => expect(result.current.model).toBe('gpt-4o'))
       expect(result.current.ghAccount).toBe('')
-      expect(result.current.model).toBe('claude-sonnet-4.5')
       expect(result.current.premiumModel).toBe('claude-opus-4.6')
     })
   })

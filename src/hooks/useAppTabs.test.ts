@@ -918,6 +918,7 @@ describe('useAppTabs', () => {
 
       expect(result.current.tabs).toHaveLength(2)
       const browserTab = result.current.tabs.find(t => t.viewId.startsWith('browser:'))!
+      expect(browserTab.viewId).toBe(`browser:${encoded}|${encodeURIComponent('Bookmark Name')}`)
       expect(browserTab.label).toBe('Bookmark Name')
     })
 

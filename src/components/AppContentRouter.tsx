@@ -238,7 +238,11 @@ const prefixRoutes: PrefixRouteEntry[] = [
   { prefix: 'bookmarks-category:', render: (slug, ctx) => renderBookmarkCategory(slug, ctx) },
   {
     prefix: 'browser:',
-    render: slug => <BrowserTabView key={`browser:${slug}`} url={decodeURIComponent(slug)} />,
+    render: slug => {
+      const pipeIndex = slug.indexOf('|')
+      const encodedUrl = pipeIndex >= 0 ? slug.slice(0, pipeIndex) : slug
+      return <BrowserTabView key={`browser:${encodedUrl}`} url={decodeURIComponent(encodedUrl)} />
+    },
   },
   { prefix: 'crew-project:', render: slug => <CrewProjectView projectId={slug} /> },
   {

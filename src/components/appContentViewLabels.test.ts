@@ -150,6 +150,12 @@ describe('getViewLabel', () => {
       expect(getViewLabel(`browser:${encoded}`)).toBe('example.com')
     })
 
+    it('returns bookmark title when pipe-separated title is present', () => {
+      const encoded = encodeURIComponent('https://example.com/path')
+      const title = encodeURIComponent('My Bookmark')
+      expect(getViewLabel(`browser:${encoded}|${title}`)).toBe('My Bookmark')
+    })
+
     it('returns "Browser" for an invalid URL', () => {
       expect(getViewLabel('browser:not-a-valid-url')).toBe('Browser')
     })

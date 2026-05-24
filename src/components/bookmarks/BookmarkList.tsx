@@ -393,7 +393,9 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
     (bookmark: Bookmark) => {
       recordVisit({ id: bookmark._id })
       if (onOpenTab) {
-        onOpenTab(`browser:${encodeURIComponent(bookmark.url)}`)
+        onOpenTab(
+          `browser:${encodeURIComponent(bookmark.url)}|${encodeURIComponent(bookmark.title)}`
+        )
       } else {
         window.shell.openInAppBrowser(bookmark.url, bookmark.title)
       }

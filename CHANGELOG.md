@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Address all 11 PR review comments
 - Fallback to github.token when GH_AW_GITHUB_TOKEN secret missing
 
+### Added
+
+- Show bookmark title in tab headers instead of hostname
+
 ## [0.1.759] - 2026-05-11
 
 ### Fixed

@@ -301,6 +301,13 @@ describe('AppContentRouter', () => {
 
   it('renders browser tab route', () => {
     const encoded = encodeURIComponent('https://example.com')
+    const title = encodeURIComponent('My Page')
+    renderRouter(`browser:${encoded}|${title}`)
+    expect(screen.getByText('BrowserTab:https://example.com')).toBeInTheDocument()
+  })
+
+  it('renders browser tab route without title (backwards compat)', () => {
+    const encoded = encodeURIComponent('https://example.com')
     renderRouter(`browser:${encoded}`)
     expect(screen.getByText('BrowserTab:https://example.com')).toBeInTheDocument()
   })

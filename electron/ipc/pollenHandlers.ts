@@ -54,19 +54,11 @@ interface GoogleForecastResponse {
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
-function readIndexValue(indexInfo: GoogleIndexInfo | undefined): number {
-  return indexInfo?.value ?? 0
-}
-
-function readIndexCategory(indexInfo: GoogleIndexInfo | undefined): string {
-  return indexInfo?.category ?? 'None'
-}
-
 function parsePollenTypes(types: GooglePollenTypeInfo[], result: PollenData): void {
   const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
   for (const t of types) {
     const key = codeToKey[t.code ?? '']
-    if (key) result[key] = readIndexValue(t.indexInfo)
+    if (key) result[key] = t.indexInfo?.value ?? 0
     if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
   }
 }
@@ -82,8 +74,8 @@ function buildSpeciesFromPlant(plant: GooglePlantInfo): PollenSpecies {
   return {
     code: plant.code!,
     displayName: plant.displayName!,
-    index: readIndexValue(plant.indexInfo),
-    category: readIndexCategory(plant.indexInfo),
+    index: plant.indexInfo?.value ?? 0,
+    category: plant.indexInfo?.category ?? 'None',
     inSeason: plant.inSeason ?? false,
     type: normalizePollenType(plant.plantDescription?.type),
   }
@@ -97,10 +89,6 @@ function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
 function extractDayData(json: GoogleForecastResponse) {
   const day = json.dailyInfo?.[0]
   if (!day) return null
-  return buildDayPollenData(day)
-}
-
-function buildDayPollenData(day: { pollenTypeInfo?: GooglePollenTypeInfo[]; plantInfo?: GooglePlantInfo[] }) {
   const types = day.pollenTypeInfo ?? []
   const plants = day.plantInfo ?? []
   return types.length === 0 && plants.length === 0 ? null : { types, plants }

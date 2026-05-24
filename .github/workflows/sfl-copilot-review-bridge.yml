@@ -34,7 +34,7 @@ jobs:
     steps:
       - name: Process unprocessed Copilot reviews
         env:
-          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail

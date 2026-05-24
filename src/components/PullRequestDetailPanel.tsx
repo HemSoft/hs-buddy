@@ -33,6 +33,7 @@ import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
+import { onKeyboardActivate } from '../utils/keyboard'
 import { MarkdownContent } from './shared/MarkdownContent'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
 import { PRChecksPanel } from './PRChecksPanel'
@@ -184,33 +185,6 @@ interface PRDetailHeaderProps {
   aiReviewProviders: AIReviewProviderEntry[]
 }
 
-function PRHeaderSubtitle({
-  pr,
-  branches,
-}: {
-  pr: PRDetailInfo
-  branches: { baseBranch: string; headBranch: string } | null
-}) {
-  return (
-    <div className="pr-detail-subtitle">
-      <span className="pr-detail-author">{pr.author}</span>
-      <span className="pr-detail-dot">·</span>
-      <span>{pr.org || pr.source}</span>
-      <span className="pr-detail-dot">·</span>
-      <span>{pr.repository}</span>
-      {branches?.baseBranch && branches?.headBranch && (
-        <>
-          <span className="pr-detail-dot">·</span>
-          <span className="pr-detail-branch-flow">
-            <GitBranch size={12} />
-            into <strong>{branches.baseBranch}</strong> from <strong>{branches.headBranch}</strong>
-          </span>
-        </>
-      )}
-    </div>
-  )
-}
-
 function PRDetailHeader({
   pr,
   stateLabel,
@@ -247,7 +221,23 @@ function PRDetailHeader({
             {stateLabel}
           </span>
         </div>
-        <PRHeaderSubtitle pr={pr} branches={branches} />
+        <div className="pr-detail-subtitle">
+          <span className="pr-detail-author">{pr.author}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{pr.org || pr.source}</span>
+          <span className="pr-detail-dot">·</span>
+          <span>{pr.repository}</span>
+          {branches?.baseBranch && branches?.headBranch && (
+            <>
+              <span className="pr-detail-dot">·</span>
+              <span className="pr-detail-branch-flow">
+                <GitBranch size={12} />
+                into <strong>{branches.baseBranch}</strong> from{' '}
+                <strong>{branches.headBranch}</strong>
+              </span>
+            </>
+          )}
+        </div>
       </div>
       <div className="pr-detail-header-actions">
         <button
@@ -408,38 +398,6 @@ interface PROverviewSectionProps {
   activityAt: string | null
 }
 
-function LinkedIssueCard({ issue }: { issue: { number: number; url: string } | null }) {
-  if (issue) {
-    return (
-      <button
-        type="button"
-        className="pr-detail-card pr-detail-card-interactive"
-        onClick={() => window.shell.openExternal(issue.url)}
-        title={`Open Issue #${issue.number} on GitHub`}
-      >
-        <div className="pr-detail-card-title">
-          <CircleDot size={12} />
-          Linked Issue
-        </div>
-        <div className="pr-detail-card-value">
-          <span className="pr-detail-linked-issue">#{issue.number}</span>
-        </div>
-      </button>
-    )
-  }
-  return (
-    <div className="pr-detail-card" title="No linked issue">
-      <div className="pr-detail-card-title">
-        <CircleDot size={12} />
-        Linked Issue
-      </div>
-      <div className="pr-detail-card-value">
-        <span className="pr-detail-card-secondary">None</span>
-      </div>
-    </div>
-  )
-}
-
 function PROverviewSection({
   pr,
   youApproved,
@@ -465,7 +423,33 @@ function PROverviewSection({
           <div className="pr-detail-card-title">You Approved</div>
           <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
         </div>
-        <LinkedIssueCard issue={effectiveIssue} />
+        {effectiveIssue ? (
+          <button
+            type="button"
+            className="pr-detail-card pr-detail-card-interactive"
+            onClick={() => window.shell.openExternal(effectiveIssue.url)}
+            onKeyDown={onKeyboardActivate(() => window.shell.openExternal(effectiveIssue.url))}
+            title={`Open Issue #${effectiveIssue.number} on GitHub`}
+          >
+            <div className="pr-detail-card-title">
+              <CircleDot size={12} />
+              Linked Issue
+            </div>
+            <div className="pr-detail-card-value">
+              <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
+            </div>
+          </button>
+        ) : (
+          <div className="pr-detail-card" title="No linked issue">
+            <div className="pr-detail-card-title">
+              <CircleDot size={12} />
+              Linked Issue
+            </div>
+            <div className="pr-detail-card-value">
+              <span className="pr-detail-card-secondary">None</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="pr-detail-meta-list">

@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stabilize branch coverage and restore changelog entries
 - Refactor useWeather error handling and stabilize abort coverage tests
 - Migrate to @eslint-react/eslint-plugin for ESLint 10 compat
+- Pin convex to restore dev startup
 
 ### Changed
 

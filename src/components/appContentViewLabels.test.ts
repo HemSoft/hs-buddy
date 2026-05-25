@@ -150,6 +150,26 @@ describe('getViewLabel', () => {
       expect(getViewLabel(`browser:${encoded}`)).toBe('example.com')
     })
 
+    it('returns bookmark title when pipe-separated title is present', () => {
+      const encoded = encodeURIComponent('https://example.com/path')
+      const title = encodeURIComponent('My Bookmark')
+      expect(getViewLabel(`browser:${encoded}|${title}`)).toBe('My Bookmark')
+    })
+
+    it('falls back to hostname when pipe-separated title is empty', () => {
+      const encoded = encodeURIComponent('https://example.com/path')
+      expect(getViewLabel(`browser:${encoded}|`)).toBe('example.com')
+    })
+
+    it('returns title when URL before pipe is empty but title exists', () => {
+      const title = encodeURIComponent('My Title')
+      expect(getViewLabel(`browser:|${title}`)).toBe('My Title')
+    })
+
+    it('returns "Browser" when both URL and title are empty', () => {
+      expect(getViewLabel('browser:|')).toBe('Browser')
+    })
+
     it('returns "Browser" for an invalid URL', () => {
       expect(getViewLabel('browser:not-a-valid-url')).toBe('Browser')
     })

@@ -94,7 +94,45 @@ describe('BookmarksSidebar', () => {
     expandCategory('Dev Tools')
     fireEvent.click(screen.getByText('Example').closest('[role="button"]') as HTMLElement)
     expect(onItemSelect).toHaveBeenCalledWith(
-      `browser:${encodeURIComponent('https://example.com')}`
+      `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Example')}`
+    )
+  })
+
+  it('handles bookmarks with empty title', () => {
+    mockUseBookmarks.mockReturnValue([
+      {
+        _id: '1',
+        url: 'https://example.com',
+        title: '',
+        category: 'Dev Tools',
+        tags: [],
+        sortOrder: 0,
+      },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+    const onItemSelect = vi.fn()
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    expandCategory('Dev Tools')
+    const row = document.querySelector('[title="https://example.com"]') as HTMLElement
+    expect(row).toBeInTheDocument()
+    fireEvent.click(row)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('')}`
+    )
+  })
+
+  it('handles bookmarks with empty URL', () => {
+    mockUseBookmarks.mockReturnValue([
+      { _id: '1', url: '', title: 'Example', category: 'Dev Tools', tags: [], sortOrder: 0 },
+    ])
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools'])
+    const onItemSelect = vi.fn()
+    render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+    expandCategory('Dev Tools')
+    expect(screen.getByText('Example')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('Example').closest('[role="button"]') as HTMLElement)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('')}|${encodeURIComponent('Example')}`
     )
   })
 
@@ -119,7 +157,7 @@ describe('BookmarksSidebar', () => {
       key: 'Enter',
     })
     expect(onItemSelect).toHaveBeenCalledWith(
-      `browser:${encodeURIComponent('https://example.com')}`
+      `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Example')}`
     )
   })
 
@@ -136,7 +174,7 @@ describe('BookmarksSidebar', () => {
   })
 
   it('applies selected class to a selected bookmark', () => {
-    const selectedItem = `browser:${encodeURIComponent('https://example.com')}`
+    const selectedItem = `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Example')}`
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={selectedItem} />)
 
     expandCategory('Dev Tools')
@@ -307,7 +345,9 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
     fireEvent.keyDown(item, { key: ' ' })
-    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
+    )
   })
 
   it('selects a category via keyboard Enter', () => {
@@ -461,7 +501,7 @@ describe('BookmarksSidebar', () => {
   })
 
   it('applies selected class on uncategorized bookmark', () => {
-    const selectedUrl = `browser:${encodeURIComponent('https://orphan.com')}`
+    const selectedUrl = `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
     mockUseBookmarks.mockReturnValue([
       {
         _id: '10',
@@ -676,7 +716,9 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
     fireEvent.keyDown(item, { key: 'Enter' })
-    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
+    )
   })
 
   it('supports drag-and-drop reorder on uncategorized bookmarks', () => {
@@ -844,7 +886,9 @@ describe('BookmarksSidebar', () => {
 
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     fireEvent.click(screen.getByText('Orphan').closest('[role="button"]') as HTMLElement)
-    expect(onItemSelect).toHaveBeenCalledWith(`browser:${encodeURIComponent('https://orphan.com')}`)
+    expect(onItemSelect).toHaveBeenCalledWith(
+      `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
+    )
   })
 
   it('renders children of empty-name root node via renderCategoryNode', () => {

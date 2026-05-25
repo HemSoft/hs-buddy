@@ -272,7 +272,7 @@ function BookmarkItem({
   onDragEnd,
   onDrop,
 }: BookmarkItemProps) {
-  const bmViewId = `browser:${encodeURIComponent(bm.url)}`
+  const bmViewId = `browser:${encodeURIComponent(bm.url || '')}|${encodeURIComponent(bm.title || '')}`
   return (
     <div
       key={bm._id}

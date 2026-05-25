@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.761] - 2026-05-24
+
+### Added
+
+- Show bookmark title in tab headers instead of hostname
+
+### Fixed
+
+- Remove unrelated CodeRabbit changelog entry
+- Guard browser route against malformed URLs and empty titles
+- Match browser tabs by URL identity to prevent duplicates on bookmark rename
+- Remove dead branches in browser tab matching for 100% coverage
+- Address PR review feedback - changelog and test assertions
+- Stabilize branch coverage and restore changelog entries
+- Refactor useWeather error handling and stabilize abort coverage tests
+
+### Changed
+
+- Strengthen distinct-URL test with identity assertions
+- Improve useWeather changelog entry to reflect full scope
+
 ## [0.1.760] - 2026-05-23
 
 ### Changed

@@ -452,10 +452,10 @@ describe('useWeather', () => {
     fetchPromise.catch(() => {})
     mockFetch.mockReturnValueOnce(fetchPromise)
 
-    const { result, unmount } = renderHook(() => useWeather())
+    const { unmount } = renderHook(() => useWeather())
 
-    // Wait for hydration to complete and refresh() to be called (enters loading)
-    await waitFor(() => expect(result.current.loading).toBe(true))
+    // Wait for hydration to complete and refresh() to actually call fetch
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
     // Unmount aborts the signal
     unmount()
@@ -881,10 +881,10 @@ describe('useWeather', () => {
     })
     mockFetch.mockReturnValueOnce(fetchPromise)
 
-    const { result, unmount } = renderHook(() => useWeather())
+    const { unmount } = renderHook(() => useWeather())
 
-    // Wait for the effect to fire (hydration) and enter loading
-    await waitFor(() => expect(result.current.loading).toBe(true))
+    // Wait for the effect to fire (hydration) and fetch to actually be called
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled())
 
     // Unmount aborts the signal
     unmount()

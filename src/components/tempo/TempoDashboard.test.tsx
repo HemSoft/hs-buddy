@@ -198,10 +198,12 @@ const issueSummaries: TempoIssueSummary[] = [
   },
 ]
 
+const todayKey = formatDateKey(new Date())
+
 const todaySummary: TempoDaySummary = {
-  date: formatDateKey(new Date()),
+  date: todayKey,
   totalHours: 2,
-  worklogs: [{ ...dashboardMocks.todayWorklog, date: formatDateKey(new Date()) }],
+  worklogs: [{ ...dashboardMocks.todayWorklog, date: todayKey }],
 }
 
 function configureDashboard({
@@ -213,7 +215,6 @@ function configureDashboard({
   monthError?: string | null
   removeResult?: { success: boolean; error?: string }
 } = {}) {
-  const todayKey = formatDateKey(new Date())
   const effectiveWorklogs = worklogs.map(currentWorklog =>
     currentWorklog.id === dashboardMocks.todayWorklog.id
       ? { ...currentWorklog, date: todayKey }
@@ -302,7 +303,6 @@ describe('TempoDashboard', () => {
 
   it('opens the create editor and saves a new worklog', async () => {
     const { create } = configureDashboard()
-    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
@@ -358,7 +358,6 @@ describe('TempoDashboard', () => {
     const { update, remove } = configureDashboard({
       removeResult: { success: false, error: 'Delete blocked' },
     })
-    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
@@ -393,7 +392,6 @@ describe('TempoDashboard', () => {
 
   it('copies a prior day to today using sequential start times', async () => {
     const { create } = configureDashboard()
-    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
@@ -716,7 +714,6 @@ describe('TempoDashboard', () => {
 
   it('copies from Friday to today instead of the next workday', async () => {
     const { create } = configureDashboard()
-    const todayKey = formatDateKey(new Date())
     render(<TempoDashboard />)
     fireEvent.click(screen.getByRole('button', { name: 'grid copy friday' }))
     await waitFor(() => {
@@ -731,7 +728,6 @@ describe('TempoDashboard', () => {
 
   it('copies to today even when the next workday is a holiday', async () => {
     const { create } = configureDashboard()
-    const todayKey = formatDateKey(new Date())
     dashboardMocks.useUserSchedule.mockReturnValue({
       schedule: [
         { date: '2026-03-20', requiredSeconds: 28800, type: 'WORKING_DAY' },
@@ -768,7 +764,6 @@ describe('TempoDashboard', () => {
     const { create } = configureDashboard({
       worklogs: [dashboardMocks.editWorklog, dashboardMocks.todayWorklog, existingOnMonday],
     })
-    const todayKey = formatDateKey(new Date())
     render(<TempoDashboard />)
     fireEvent.click(screen.getByRole('button', { name: 'grid copy friday' }))
     await waitFor(() => {
@@ -782,7 +777,6 @@ describe('TempoDashboard', () => {
   })
 
   it('falls back to month worklogs when today data is unavailable', async () => {
-    const todayKey = formatDateKey(new Date())
     const todayWorklog: TempoWorklog = {
       ...dashboardMocks.todayWorklog,
       date: todayKey,

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.764] - 2026-05-25
+
+### Fixed
+
+- Guard copy-to-today when today data is still loading
+
 ## [0.1.763] - 2026-05-25
 
 ### Fixed

@@ -642,6 +642,22 @@ describe('TempoDashboard', () => {
     })
   })
 
+  it('defers copy when today data is still loading', async () => {
+    const { create } = configureDashboard()
+    dashboardMocks.useTempoToday.mockReturnValue({
+      data: null,
+      loading: true,
+      error: null,
+      refresh: vi.fn(),
+    })
+    render(<TempoDashboard />)
+    fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
+    await waitFor(() => {
+      expect(screen.getByText('⚠ Today data is still loading, please wait')).toBeInTheDocument()
+    })
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it('prefills editor when opening create with matching issueKey', () => {
     configureDashboard()
     render(<TempoDashboard />)

@@ -259,6 +259,7 @@ function useTempoDashboardHandlers(
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
     const targetDate = todayKey
+    // today.data null means service unavailable; empty worklogs is intentional
     const targetWorklogs = today.data?.worklogs ?? month.worklogs.filter(w => w.date === targetDate)
     let offset = targetWorklogs.slice()
 

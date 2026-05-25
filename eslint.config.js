@@ -1,7 +1,7 @@
 /* global process */
 import eslint from '@eslint/js'
 import tseslint from 'typescript-eslint'
-import react from 'eslint-plugin-react'
+import eslintReact from '@eslint-react/eslint-plugin'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import jsxA11y from 'eslint-plugin-jsx-a11y'
@@ -62,11 +62,9 @@ export default tseslint.config(
   },
   {
     files: ['**/*.{ts,tsx}'],
-    ...react.configs.flat.recommended,
-    ...react.configs.flat['jsx-runtime'],
+    ...eslintReact.configs['recommended-typescript'],
     plugins: {
-      ...react.configs.flat.recommended.plugins,
-      ...react.configs.flat['jsx-runtime'].plugins,
+      ...eslintReact.configs['recommended-typescript'].plugins,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
       'jsx-a11y': jsxA11y,
@@ -79,12 +77,22 @@ export default tseslint.config(
         ecmaFeatures: { jsx: true },
       },
     },
-    settings: { react: { version: 'detect' } },
     rules: {
-      ...react.configs.flat.recommended.rules,
-      ...react.configs.flat['jsx-runtime'].rules,
+      ...eslintReact.configs['recommended-typescript'].rules,
       ...reactHooks.configs['recommended-latest'].rules,
       ...jsxA11y.flatConfigs.recommended.rules,
+      // Disable @eslint-react hooks rules — using eslint-plugin-react-hooks instead
+      '@eslint-react/rules-of-hooks': 'off',
+      '@eslint-react/exhaustive-deps': 'off',
+      // Disable new rules not in old config — adopt incrementally via dedicated PRs
+      '@eslint-react/static-components': 'off',
+      '@eslint-react/unsupported-syntax': 'off',
+      '@eslint-react/purity': 'off',
+      '@eslint-react/no-array-index-key': 'off',
+      '@eslint-react/use-state': 'off',
+      '@eslint-react/set-state-in-effect': 'off',
+      '@eslint-react/no-unnecessary-use-prefix': 'off',
+      '@eslint-react/naming-convention-ref-name': 'off',
       // v7 new rules — disabled for now; adopt incrementally via dedicated PRs
       'react-hooks/refs': 'off',
       'react-hooks/set-state-in-effect': 'off',

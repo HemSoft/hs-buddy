@@ -23,11 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Remove dead branches in browser tab matching for 100% coverage
 - Address PR review feedback - changelog and test assertions
 - Stabilize branch coverage and restore changelog entries
-- Stabilize useWeather abort coverage test for CI
+- Refactor useWeather error handling and stabilize abort coverage tests
 
 ### Changed
 
 - Strengthen distinct-URL test with identity assertions
+- Improve useWeather changelog entry to reflect full scope
 
 ## [0.1.760] - 2026-05-23
 

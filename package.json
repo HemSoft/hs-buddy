@@ -95,7 +95,7 @@
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",
     "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "^20.5.0",
+    "@commitlint/config-conventional": "^21.0.1",
     "@edge-runtime/vm": "^5.0.0",
     "@eslint/js": "^10.0.1",
     "@lhci/cli": "^0.15.1",

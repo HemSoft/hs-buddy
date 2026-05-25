@@ -90,6 +90,15 @@ missing, and what the fix would be. Wait for user approval.
 Default all CLI and workflow token usage to the **`fhemmerrelias`** identity
 unless explicitly overridden by a human.
 
+For GitHub CLI work against **`HemSoft/hs-buddy`**, first run `gh auth status`
+and verify the active account. Repository write operations such as creating
+pull requests, dispatching workflows, or other collaborator-required actions
+must temporarily use the **`HemSoft`** GitHub account because `fhemmerrelias`
+can read the repository but is not a collaborator. After completing the GitHub
+CLI operation, switch back to the previous active account before continuing;
+multiple local processes may be using `gh` concurrently and expect the default
+identity.
+
 ### 6. Risk Acknowledgment for Agent Fixes
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.

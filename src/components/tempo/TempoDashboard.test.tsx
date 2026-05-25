@@ -391,31 +391,28 @@ describe('TempoDashboard', () => {
     })
   })
 
-  it('copies a prior day to the next empty day using sequential start times', async () => {
+  it('copies a prior day to today using sequential start times', async () => {
     const { create } = configureDashboard()
+    const todayKey = formatDateKey(new Date())
 
     render(<TempoDashboard />)
 
     fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
 
-    // Source worklogs are dated 2026-03-19 (Thu); next workday is 2026-03-20 (Fri)
-    // and neither PE-201 nor PE-202 has hours there, so that's the target.
-    const expectedTarget = '2026-03-20'
-
     await waitFor(() => {
       expect(create).toHaveBeenNthCalledWith(1, {
         issueKey: 'PE-201',
         hours: 1,
-        date: expectedTarget,
-        startTime: '08:00',
+        date: todayKey,
+        startTime: '10:00',
         description: 'Copied once',
         accountKey: 'OPS',
       })
       expect(create).toHaveBeenNthCalledWith(2, {
         issueKey: 'PE-202',
         hours: 0.5,
-        date: expectedTarget,
-        startTime: '09:00',
+        date: todayKey,
+        startTime: '11:00',
         description: 'Copied twice',
         accountKey: 'DEV',
       })
@@ -701,24 +698,24 @@ describe('TempoDashboard', () => {
     )
   })
 
-  it('selectNextEmptyDay skips weekends when copying from Friday', async () => {
-    // 2026-03-20 is a Friday; next workday is 2026-03-23 (Monday)
+  it('copies from Friday to today instead of the next workday', async () => {
     const { create } = configureDashboard()
+    const todayKey = formatDateKey(new Date())
     render(<TempoDashboard />)
     fireEvent.click(screen.getByRole('button', { name: 'grid copy friday' }))
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({
           issueKey: 'PE-301',
-          date: '2026-03-23',
+          date: todayKey,
         })
       )
     })
   })
 
-  it('selectNextEmptyDay skips holidays', async () => {
-    // Configure 2026-03-23 (Monday) as holiday so copy from Friday lands on Tuesday
+  it('copies to today even when the next workday is a holiday', async () => {
     const { create } = configureDashboard()
+    const todayKey = formatDateKey(new Date())
     dashboardMocks.useUserSchedule.mockReturnValue({
       schedule: [
         { date: '2026-03-20', requiredSeconds: 28800, type: 'WORKING_DAY' },
@@ -734,14 +731,13 @@ describe('TempoDashboard', () => {
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({
           issueKey: 'PE-301',
-          date: '2026-03-24',
+          date: todayKey,
         })
       )
     })
   })
 
-  it('selectNextEmptyDay skips days that already have the same issue', async () => {
-    // Add PE-301 worklog on 2026-03-23 so it skips to 2026-03-24
+  it('copies to today even when a future day already has the same issue', async () => {
     const existingOnMonday: TempoWorklog = {
       id: 20,
       issueKey: 'PE-301',
@@ -756,13 +752,14 @@ describe('TempoDashboard', () => {
     const { create } = configureDashboard({
       worklogs: [dashboardMocks.editWorklog, dashboardMocks.todayWorklog, existingOnMonday],
     })
+    const todayKey = formatDateKey(new Date())
     render(<TempoDashboard />)
     fireEvent.click(screen.getByRole('button', { name: 'grid copy friday' }))
     await waitFor(() => {
       expect(create).toHaveBeenCalledWith(
         expect.objectContaining({
           issueKey: 'PE-301',
-          date: '2026-03-24',
+          date: todayKey,
         })
       )
     })

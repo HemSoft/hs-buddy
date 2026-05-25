@@ -25,6 +25,15 @@ Compare two benchmark runs side-by-side. Pass two sets of results and report:
 - Benchmarks that regressed (red, >5% drop below baseline)
 - Benchmarks within noise (≤5% variance)
 
+### CI Gating
+
+- Never gate hosted CI against a cached benchmark result from another runner.
+  Host variance can present as broad false regressions across unrelated suites.
+- Benchmark the base revision and candidate revision in the same CI job on the
+  same runner. Cached results are suitable for artifacts and trends, not gates.
+- Keep using five-run medians for performance decisions and baseline refreshes,
+  even when CI uses a quicker paired comparison.
+
 ### Gaps
 
 Scan the codebase for functions that should have benchmarks but don't. Check:

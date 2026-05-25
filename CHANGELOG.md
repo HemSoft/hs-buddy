@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve useWeather changelog entry to reflect full scope
 - Bump eslint from 9.39.4 to 10.4.0
 - Update bun.lock for dependabot PR
+- Make benchmarks reliable PR gate
 
 ## [0.1.760] - 2026-05-23
 

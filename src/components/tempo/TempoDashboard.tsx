@@ -218,6 +218,7 @@ function useTempoDashboardHandlers(
   dispatch: React.Dispatch<TempoDashboardAction>,
   month: ReturnType<typeof useTempoMonth>,
   actions: ReturnType<typeof useTempoActions>,
+  today: ReturnType<typeof useTempoToday>,
   todayKey: string
 ) {
   const handleEdit = (worklog: TempoWorklog) => {
@@ -258,7 +259,7 @@ function useTempoDashboardHandlers(
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
     const targetDate = todayKey
-    const targetWorklogs = month.worklogs.filter(w => w.date === targetDate)
+    const targetWorklogs = today.data?.worklogs ?? month.worklogs.filter(w => w.date === targetDate)
     let offset = targetWorklogs.slice()
 
     for (const src of sourceWorklogs) {
@@ -403,7 +404,7 @@ export function TempoDashboard() {
   const goToCurrentMonth = () => dispatch({ type: 'goToCurrentMonth' })
 
   const { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay } =
-    useTempoDashboardHandlers(state, dispatch, month, actions, todayKey)
+    useTempoDashboardHandlers(state, dispatch, month, actions, today, todayKey)
   const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
     computeDashboardDerived(state, month, today, todayKey)
 

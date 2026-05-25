@@ -765,6 +765,32 @@ describe('TempoDashboard', () => {
     })
   })
 
+  it('falls back to month worklogs when today data is unavailable', async () => {
+    dashboardMocks.useTempoToday.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    })
+    const todayKey = formatDateKey(new Date())
+    const todayWorklog: TempoWorklog = {
+      ...dashboardMocks.todayWorklog,
+      date: todayKey,
+    }
+    const { create } = configureDashboard({ worklogs: [dashboardMocks.editWorklog, todayWorklog] })
+    dashboardMocks.useTempoToday.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    })
+    render(<TempoDashboard />)
+    fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
+    await waitFor(() => {
+      expect(create).toHaveBeenCalled()
+    })
+  })
+
   describe('handleCopyFromPreviousMonth', () => {
     it('dispatches setTemplateIssues when getWeek returns worklogs', async () => {
       const prevMonthWorklogs: TempoWorklog[] = [

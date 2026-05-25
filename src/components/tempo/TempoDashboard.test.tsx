@@ -640,7 +640,7 @@ describe('TempoDashboard', () => {
     })
   })
 
-  it('defers copy when today data is still loading', async () => {
+  it('defers copy when today data is still loading, then succeeds after load', async () => {
     const { create } = configureDashboard()
     dashboardMocks.useTempoToday.mockReturnValue({
       data: null,
@@ -648,12 +648,25 @@ describe('TempoDashboard', () => {
       error: null,
       refresh: vi.fn(),
     })
-    render(<TempoDashboard />)
+    const { rerender } = render(<TempoDashboard />)
     fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
     await waitFor(() => {
       expect(screen.getByText('⚠ Today data is still loading, please wait')).toBeInTheDocument()
     })
     expect(create).not.toHaveBeenCalled()
+
+    // Simulate loading completing, then retry the copy
+    dashboardMocks.useTempoToday.mockReturnValue({
+      data: todaySummary,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    })
+    rerender(<TempoDashboard />)
+    fireEvent.click(screen.getByRole('button', { name: 'grid copy' }))
+    await waitFor(() => {
+      expect(create).toHaveBeenCalled()
+    })
   })
 
   it('prefills editor when opening create with matching issueKey', () => {

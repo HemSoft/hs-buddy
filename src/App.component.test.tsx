@@ -114,6 +114,10 @@ vi.mock('./hooks/useTerminalPanel', () => ({
   }),
 }))
 
+vi.mock('./hooks/useTerminalWorkspace', () => ({
+  TerminalWorkspaceProvider: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
 vi.mock('./components/terminal/TerminalPanel', () => ({
   TerminalPanel: vi.fn(() => <div data-testid="terminal-panel" />),
 }))
@@ -365,6 +369,16 @@ describe('App callbacks', () => {
       ;(props.onSectionSelect as (id: string) => void)('github')
     })
     expect(mockOpenTab).not.toHaveBeenCalled()
+  })
+
+  it('handleSectionSelect opens terminal workspace for terminal section', () => {
+    render(<App />)
+    mockOpenTab.mockClear()
+    const props = getLastCallProps(MockActivityBar)
+    act(() => {
+      ;(props.onSectionSelect as (id: string) => void)('terminal')
+    })
+    expect(mockOpenTab).toHaveBeenCalledWith('terminal-workspace')
   })
 
   it('renders assistant panel when assistantOpen is true with paneSizes[2]', () => {

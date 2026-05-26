@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { BookmarksSidebar } from './sidebar/BookmarksSidebar'
 import { CopilotSidebar } from './sidebar/CopilotSidebar'
 import { GitHubSidebar } from './sidebar/GitHubSidebar'
+import { TerminalSidebar } from './sidebar/TerminalSidebar'
 import { CrewSidebar } from './crew/CrewSidebar'
 import { RalphSidebar } from './ralph-loops/RalphSidebar'
 import { useJobs, useSchedules } from '../hooks/useConvex'
@@ -23,14 +24,7 @@ interface SidebarPanelProps {
 
 const sectionData: Record<string, { title: string; items: SidebarItem[] }> = {
   github: { title: 'GitHub', items: [] },
-  skills: {
-    title: 'Skills',
-    items: [
-      { id: 'skills-browser', label: 'Browse Skills' },
-      { id: 'skills-recent', label: 'Recently Used' },
-      { id: 'skills-favorites', label: 'Favorites' },
-    ],
-  },
+  terminal: { title: 'Terminal', items: [] },
   tasks: {
     title: 'Tasks',
     items: [
@@ -129,6 +123,7 @@ const SIMPLE_SIDEBARS: Record<
   crew: CrewSidebar,
   ralph: RalphSidebar,
   bookmarks: BookmarksSidebar,
+  terminal: TerminalSidebar,
 }
 
 function GenericSidebarSection({

@@ -26,7 +26,7 @@ describe('ActivityBar', () => {
     const expectedLabels = [
       'Dashboard',
       'GitHub',
-      'Skills',
+      'Terminal',
       'Tasks',
       'Insights',
       'Automation',
@@ -46,9 +46,9 @@ describe('ActivityBar', () => {
   })
 
   it('marks the selected section as active', () => {
-    renderActivityBar('skills')
+    renderActivityBar('terminal')
 
-    expect(screen.getByRole('button', { name: 'Skills' })).toHaveClass('active')
+    expect(screen.getByRole('button', { name: 'Terminal' })).toHaveClass('active')
     expect(screen.getByRole('button', { name: 'GitHub' })).not.toHaveClass('active')
   })
 

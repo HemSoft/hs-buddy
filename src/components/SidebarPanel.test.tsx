@@ -18,6 +18,10 @@ vi.mock('./sidebar/GitHubSidebar', () => ({
   GitHubSidebar: () => <div data-testid="github-sidebar" />,
 }))
 
+vi.mock('./sidebar/TerminalSidebar', () => ({
+  TerminalSidebar: () => <div data-testid="terminal-sidebar" />,
+}))
+
 vi.mock('./crew/CrewSidebar', () => ({
   CrewSidebar: () => <div data-testid="crew-sidebar" />,
 }))
@@ -199,9 +203,9 @@ describe('SidebarPanel', () => {
     expect(screen.getByText('Activity')).toBeTruthy()
   })
 
-  it('renders skills section', () => {
-    render(<SidebarPanel section="skills" onItemSelect={onItemSelect} selectedItem={null} />)
-    expect(screen.getByText('Browse Skills')).toBeTruthy()
+  it('renders terminal sidebar for terminal section', () => {
+    render(<SidebarPanel section="terminal" onItemSelect={onItemSelect} selectedItem={null} />)
+    expect(screen.getByTestId('terminal-sidebar')).toBeTruthy()
   })
 
   it('shows badge count when provided', () => {

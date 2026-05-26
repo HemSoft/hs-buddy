@@ -35,6 +35,7 @@ import { TaskPlannerView } from './planner/TaskPlannerView'
 import { BookmarkList } from './bookmarks/BookmarkList'
 import { BrowserTabView } from './BrowserTabView'
 import { FolderExplorerView } from './explorer/FolderExplorerView'
+import { TerminalWorkspaceView } from './terminal-workspace/TerminalWorkspaceView'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -126,6 +127,7 @@ function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => Reac
     'tasks-today': () => <TaskPlannerView mode="today" />,
     'tasks-upcoming': () => <TaskPlannerView mode="upcoming" />,
     'tasks-projects': () => <TaskPlannerView />,
+    'terminal-workspace': () => <TerminalWorkspaceView />,
     'tempo-timesheet': () => <TempoDashboard />,
     'ralph-dashboard': () => <RalphDashboard onOpenTab={ctx.onOpenTab} />,
     'bookmarks-all': () => <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,

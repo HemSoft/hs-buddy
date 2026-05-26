@@ -191,117 +191,6 @@ function findPrefillWorklog(worklogs: TempoWorklog[], issueKey: string): TempoWo
   return issueWorklogs.reduce((latest, worklog) => (worklog.date > latest.date ? worklog : latest))
 }
 
-function buildWorklogIndexes(worklogs: TempoWorklog[]): {
-  hoursByIssueDate: Record<string, Set<string>>
-  dailyTotals: Record<string, number>
-} {
-  const hoursByIssueDate: Record<string, Set<string>> = {}
-  const dailyTotals: Record<string, number> = {}
-  for (const worklog of worklogs) {
-    /* v8 ignore start */
-    if (!hoursByIssueDate[worklog.date]) {
-      /* v8 ignore stop */
-      hoursByIssueDate[worklog.date] = new Set()
-    }
-    hoursByIssueDate[worklog.date].add(worklog.issueKey)
-    dailyTotals[worklog.date] = (dailyTotals[worklog.date] || 0) + worklog.hours
-  }
-  return { hoursByIssueDate, dailyTotals }
-}
-
-function isWorkday(date: Date, holidaySet: Set<string>): boolean {
-  const dow = date.getDay()
-  if (dow === 0 || dow === 6) return false
-  return !holidaySet.has(formatDateKey(date))
-}
-
-/** Check whether a day has entries for any of the given issue keys. */
-function dayHasIssue(
-  hoursByIssueDate: Record<string, Set<string>>,
-  dateKey: string,
-  issueKeys: Set<string>
-): boolean {
-  const dayIssues = hoursByIssueDate[dateKey]
-  return !!dayIssues && [...issueKeys].some(issueKey => dayIssues.has(issueKey))
-}
-
-/** Check whether a day's total is below 8h. */
-function isDayUnfinished(dailyTotals: Record<string, number>, dateKey: string): boolean {
-  return (dailyTotals[dateKey] || 0) < 8
-}
-
-function updateFirstEmptyDayState(
-  firstWorkday: string | null,
-  firstUnfinished: string | null,
-  dateKey: string,
-  dailyTotals: Record<string, number>
-): { firstWorkday: string | null; firstUnfinished: string | null } {
-  let nextFirstWorkday = firstWorkday
-  if (!nextFirstWorkday) nextFirstWorkday = dateKey
-
-  let nextFirstUnfinished = firstUnfinished
-  if (!nextFirstUnfinished && isDayUnfinished(dailyTotals, dateKey)) nextFirstUnfinished = dateKey
-
-  return { firstWorkday: nextFirstWorkday, firstUnfinished: nextFirstUnfinished }
-}
-
-function findFirstEmptyDay(
-  issueKeys: Set<string>,
-  start: Date,
-  holidaySet: Set<string>,
-  hoursByIssueDate: Record<string, Set<string>>,
-  dailyTotals: Record<string, number>
-): { dateKey: string | null; firstWorkday: string | null; firstUnfinished: string | null } {
-  let firstWorkday: string | null = null
-  let firstUnfinished: string | null = null
-
-  for (let i = 0; i < 60; i++) {
-    const date = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
-    if (!isWorkday(date, holidaySet)) continue
-
-    const dateKey = formatDateKey(date)
-    ;({ firstWorkday, firstUnfinished } = updateFirstEmptyDayState(
-      firstWorkday,
-      firstUnfinished,
-      dateKey,
-      dailyTotals
-    ))
-
-    if (!dayHasIssue(hoursByIssueDate, dateKey, issueKeys)) {
-      return { dateKey, firstWorkday, firstUnfinished }
-    }
-  }
-
-  /* v8 ignore start -- defensive fallback when no empty day found within 60-day window */
-  return { dateKey: null, firstWorkday, firstUnfinished }
-  /* v8 ignore stop */
-}
-
-function selectNextEmptyDay(
-  issueKeys: Set<string>,
-  sourceDate: string,
-  worklogs: TempoWorklog[],
-  holidays: Record<string, string>,
-  todayKey: string
-): string {
-  const { hoursByIssueDate, dailyTotals } = buildWorklogIndexes(worklogs)
-  const holidaySet = new Set(Object.keys(holidays))
-  const start = new Date(sourceDate + 'T00:00:00')
-  start.setDate(start.getDate() + 1)
-
-  const { dateKey, firstWorkday, firstUnfinished } = findFirstEmptyDay(
-    issueKeys,
-    start,
-    holidaySet,
-    hoursByIssueDate,
-    dailyTotals
-  )
-
-  /* v8 ignore start */
-  return dateKey ?? firstUnfinished ?? firstWorkday ?? todayKey
-  /* v8 ignore stop */
-}
-
 function useTempoDashboardData(viewMonth: Date) {
   const { from, to } = useMemo(() => getMonthRange(viewMonth), [viewMonth])
   const month = useTempoMonth(from, to)
@@ -328,8 +217,8 @@ function useTempoDashboardHandlers(
   state: TempoDashboardState,
   dispatch: React.Dispatch<TempoDashboardAction>,
   month: ReturnType<typeof useTempoMonth>,
-  holidays: Record<string, string>,
   actions: ReturnType<typeof useTempoActions>,
+  today: ReturnType<typeof useTempoToday>,
   todayKey: string
 ) {
   const handleEdit = (worklog: TempoWorklog) => {
@@ -367,19 +256,14 @@ function useTempoDashboardHandlers(
     dispatch({ type: 'closeEditor' })
   }
 
-  const findNextEmptyDay = useCallback(
-    (issueKeys: Set<string>, sourceDate: string): string => {
-      return selectNextEmptyDay(issueKeys, sourceDate, month.worklogs, holidays, todayKey)
-    },
-    [month.worklogs, holidays, todayKey]
-  )
-
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
     dispatch({ type: 'setActionError', error: null })
-    const issueKeys = new Set(sourceWorklogs.map(w => w.issueKey))
-    const sourceDate = sourceWorklogs[0].date
-    const targetDate = findNextEmptyDay(issueKeys, sourceDate)
-    const targetWorklogs = month.worklogs.filter(w => w.date === targetDate)
+    if (today.loading) {
+      dispatch({ type: 'setActionError', error: 'Today data is still loading, please wait' })
+      return
+    }
+    const targetDate = todayKey
+    const targetWorklogs = today.data?.worklogs ?? month.worklogs.filter(w => w.date === targetDate)
     let offset = targetWorklogs.slice()
 
     for (const src of sourceWorklogs) {
@@ -524,7 +408,7 @@ export function TempoDashboard() {
   const goToCurrentMonth = () => dispatch({ type: 'goToCurrentMonth' })
 
   const { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay } =
-    useTempoDashboardHandlers(state, dispatch, month, holidays, actions, todayKey)
+    useTempoDashboardHandlers(state, dispatch, month, actions, today, todayKey)
   const { activeEditorDate, isCurrentMonth, activeError, todayHours, editorDefaults } =
     computeDashboardDerived(state, month, today, todayKey)
 

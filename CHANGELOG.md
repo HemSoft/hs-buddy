@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.766] - 2026-05-25
+
+### Changed
+
+- Verify copy proceeds after today loading resolves
+
+## [0.1.765] - 2026-05-25
+
+### Changed
+
+- Extract shared todayKey constant in TempoDashboard tests
+
+## [0.1.764] - 2026-05-25
+
+### Fixed
+
+- Guard copy-to-today when today data is still loading
+
+## [0.1.763] - 2026-05-25
+
+### Fixed
+
+- Remove redundant mock and strengthen fallback assertion
+
+## [0.1.762] - 2026-05-25
+
+### Changed
+
+- Add inline comment clarifying null-coalescing fallback intent
+
 ## [0.1.761] - 2026-05-24
 
 ### Added
@@ -26,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refactor useWeather error handling and stabilize abort coverage tests
 - Migrate to @eslint-react/eslint-plugin for ESLint 10 compat
 - Pin convex to restore dev startup
+- Use today's worklogs for copy-to-today sequencing
 
 ### Changed
 

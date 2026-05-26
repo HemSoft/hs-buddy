@@ -137,7 +137,7 @@ function buildCellTooltip(
   if (hours === 0) return `Click — log time on ${col.date}`
   const lines = [`${issueKey} · ${hours}h on ${col.date}`, 'Click — edit worklog']
   if (cellWorklogCount === 1) lines.push('Right-click — delete')
-  lines.push(`${modLabel}+click — copy to next empty day`)
+  lines.push(`${modLabel}+click — copy to today`)
   return lines.join('\n')
 }
 
@@ -208,7 +208,7 @@ function TimesheetRow({
             className={getCellClassName(col, hours, isCapex)}
             title={
               hours > 0
-                ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to next empty day`
+                ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to today`
                 : `Click to log time on ${col.date}`
             }
             onClick={e => {
@@ -275,10 +275,7 @@ function TimesheetFooterRow({
             }}
             onMouseEnter={e => {
               if (dayTotal > 0) {
-                showTooltip(
-                  e,
-                  `${dayTotal}h total\n${modLabel}+click — copy all worklogs to next empty day`
-                )
+                showTooltip(e, `${dayTotal}h total\n${modLabel}+click — copy all worklogs to today`)
               }
             }}
             onMouseLeave={hideTooltip}

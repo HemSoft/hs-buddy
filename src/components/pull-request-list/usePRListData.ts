@@ -140,6 +140,70 @@ interface PRContextMenuDeps {
   mode: PRSearchMode
 }
 
+type RepoBookmark = NonNullable<ReturnType<typeof useRepoBookmarks>>[number]
+
+interface BookmarkRepoTarget {
+  org: string
+  repoName: string
+  key: string
+  url: string
+}
+
+function getBookmarkRepoTarget(pr: PullRequest): BookmarkRepoTarget | null {
+  const org = pr.org || ''
+  const repoName = pr.repository
+  if (!org || !repoName) return null
+  return {
+    org,
+    repoName,
+    key: `${org}/${repoName}`,
+    url: pr.url.replace(/\/pull\/\d+$/, ''),
+  }
+}
+
+function findRepoBookmark(
+  bookmarks: RepoBookmark[],
+  target: BookmarkRepoTarget
+): RepoBookmark | undefined {
+  return bookmarks.find(b => b.owner === target.org && b.repo === target.repoName)
+}
+
+async function createRepoBookmark(
+  target: BookmarkRepoTarget,
+  createBookmark: ReturnType<typeof useRepoBookmarkMutations>['create']
+): Promise<void> {
+  await createBookmark({
+    folder: target.org,
+    owner: target.org,
+    repo: target.repoName,
+    url: target.url,
+    description: '',
+  })
+}
+
+async function removeRepoBookmark(
+  bookmarks: RepoBookmark[],
+  target: BookmarkRepoTarget,
+  removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
+): Promise<void> {
+  const bookmark = findRepoBookmark(bookmarks, target)
+  if (bookmark) await removeBookmark({ id: bookmark._id })
+}
+
+async function toggleRepoBookmark(
+  bookmarks: RepoBookmark[],
+  target: BookmarkRepoTarget,
+  bookmarkedRepoKeys: Set<string>,
+  createBookmark: ReturnType<typeof useRepoBookmarkMutations>['create'],
+  removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
+): Promise<void> {
+  if (bookmarkedRepoKeys.has(target.key)) {
+    await removeRepoBookmark(bookmarks, target, removeBookmark)
+    return
+  }
+  await createRepoBookmark(target, createBookmark)
+}
+
 function usePRContextMenuActions(deps: PRContextMenuDeps) {
   const {
     contextMenu,
@@ -160,27 +224,9 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
   const handleBookmarkRepo = useCallback(async () => {
     if (!contextMenu) return
     if (bookmarks == null) return
-    const { pr } = contextMenu
-    const org = pr.org || ''
-    const repoName = pr.repository
-    if (!org || !repoName) return
-    const key = `${org}/${repoName}`
-    if (bookmarkedRepoKeys.has(key)) {
-      /* v8 ignore start */
-      const bookmark = (bookmarks ?? []).find(b => b.owner === org && b.repo === repoName)
-      /* v8 ignore stop */
-      /* v8 ignore start */
-      if (bookmark) await removeBookmark({ id: bookmark._id })
-      /* v8 ignore stop */
-    } else {
-      await createBookmark({
-        folder: org,
-        owner: org,
-        repo: repoName,
-        url: pr.url.replace(/\/pull\/\d+$/, ''),
-        description: '',
-      })
-    }
+    const target = getBookmarkRepoTarget(contextMenu.pr)
+    if (!target) return
+    await toggleRepoBookmark(bookmarks, target, bookmarkedRepoKeys, createBookmark, removeBookmark)
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark, setContextMenu])
 

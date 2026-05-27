@@ -14,6 +14,7 @@ import {
 import { useTerminalWorkspace } from '../../hooks/useTerminalWorkspace'
 import { useToggleSet } from '../../hooks/useToggleSet'
 import { onKeyboardActivate } from '../../utils/keyboard'
+import type { TerminalTreeNode } from '../terminal-workspace/types'
 import './TerminalSidebar.css'
 
 interface TerminalSidebarProps {
@@ -33,6 +34,347 @@ const NODE_COLORS = [
   '#23d18b',
   '#3b8eea',
 ]
+
+interface EditableNodeNameControls {
+  editingId: string | null
+  editValue: string
+  inputRef: React.RefObject<HTMLInputElement | null>
+  setEditValue: React.Dispatch<React.SetStateAction<string>>
+  commitEdit: () => void
+  handleKeyDown: (e: React.KeyboardEvent) => void
+}
+
+interface EditableNodeNameProps extends EditableNodeNameControls {
+  node: TerminalTreeNode
+}
+
+function EditableNodeName({
+  node,
+  editingId,
+  editValue,
+  inputRef,
+  setEditValue,
+  commitEdit,
+  handleKeyDown,
+}: EditableNodeNameProps) {
+  if (editingId !== node.id) return <span className="terminal-sidebar-label">{node.name}</span>
+
+  return (
+    <input
+      ref={inputRef}
+      className="terminal-sidebar-input"
+      value={editValue}
+      onChange={e => setEditValue(e.target.value)}
+      onBlur={commitEdit}
+      onKeyDown={handleKeyDown}
+      onClick={e => e.stopPropagation()}
+    />
+  )
+}
+
+function folderRowStyle(folder: TerminalTreeNode) {
+  return folder.color
+    ? { backgroundColor: `${folder.color}22`, borderLeftColor: folder.color }
+    : undefined
+}
+
+function selectedClass(base: string, selected: boolean): string {
+  return selected ? `${base} selected` : base
+}
+
+function TerminalSidebarLoading() {
+  return (
+    <div className="terminal-sidebar">
+      <div className="terminal-sidebar-header">
+        <span className="terminal-sidebar-title">Projects</span>
+      </div>
+      <div className="terminal-sidebar-loading">Loading…</div>
+    </div>
+  )
+}
+
+function TerminalSidebarHeader({ onAddFolder }: { onAddFolder: () => void }) {
+  return (
+    <div className="terminal-sidebar-header">
+      <span className="terminal-sidebar-title">Projects</span>
+      <button
+        className="terminal-sidebar-add-btn"
+        onClick={onAddFolder}
+        title="Add Project"
+        aria-label="Add Project"
+      >
+        <Plus size={14} />
+      </button>
+    </div>
+  )
+}
+
+interface TerminalFolderRowProps extends EditableNodeNameControls {
+  folder: TerminalTreeNode
+  expanded: boolean
+  selected: boolean
+  handleSelectTerminal: (nodeId: string) => void
+  startEditing: (nodeId: string, currentName: string) => void
+  handleContextMenu: (e: React.MouseEvent, nodeId: string) => void
+  toggleFolder: (folderId: string) => boolean
+  handleAddTerminal: (folderId: string) => void
+}
+
+function TerminalFolderRow({
+  folder,
+  expanded,
+  selected,
+  handleSelectTerminal,
+  startEditing,
+  handleContextMenu,
+  toggleFolder,
+  handleAddTerminal,
+  ...editableProps
+}: TerminalFolderRowProps) {
+  return (
+    <div
+      className={selectedClass('terminal-sidebar-folder-row', selected)}
+      style={folderRowStyle(folder)}
+      onClick={() => handleSelectTerminal(folder.id)}
+      onDoubleClick={() => startEditing(folder.id, folder.name)}
+      onContextMenu={e => handleContextMenu(e, folder.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onKeyboardActivate(() => handleSelectTerminal(folder.id))}
+      aria-label={`Project: ${folder.name}`}
+      aria-expanded={expanded}
+    >
+      <button
+        type="button"
+        className="terminal-sidebar-chevron"
+        onClick={e => {
+          e.stopPropagation()
+          toggleFolder(folder.id)
+        }}
+        aria-label={expanded ? 'Collapse' : 'Expand'}
+      >
+        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+      </button>
+      {expanded ? (
+        <FolderOpen size={14} className="terminal-sidebar-folder-icon" />
+      ) : (
+        <Folder size={14} className="terminal-sidebar-folder-icon" />
+      )}
+      <EditableNodeName node={folder} {...editableProps} />
+      <button
+        className="terminal-sidebar-folder-add"
+        onClick={e => {
+          e.stopPropagation()
+          handleAddTerminal(folder.id)
+        }}
+        title="Add Terminal"
+        aria-label="Add Terminal"
+      >
+        <Plus size={12} />
+      </button>
+    </div>
+  )
+}
+
+interface TerminalNodeRowProps extends EditableNodeNameControls {
+  child: TerminalTreeNode
+  selected: boolean
+  handleSelectTerminal: (nodeId: string) => void
+  startEditing: (nodeId: string, currentName: string) => void
+  handleContextMenu: (e: React.MouseEvent, nodeId: string) => void
+  handleDragStart: (e: React.DragEvent, nodeId: string) => void
+  handleDragOver: (e: React.DragEvent) => void
+  handleDrop: (e: React.DragEvent, targetNodeId: string) => void
+}
+
+function TerminalNodeRow({
+  child,
+  selected,
+  handleSelectTerminal,
+  startEditing,
+  handleContextMenu,
+  handleDragStart,
+  handleDragOver,
+  handleDrop,
+  ...editableProps
+}: TerminalNodeRowProps) {
+  return (
+    <div
+      className={selectedClass('terminal-sidebar-node', selected)}
+      onClick={() => handleSelectTerminal(child.id)}
+      onDoubleClick={() => startEditing(child.id, child.name)}
+      onContextMenu={e => handleContextMenu(e, child.id)}
+      draggable
+      onDragStart={e => handleDragStart(e, child.id)}
+      onDragOver={handleDragOver}
+      onDrop={e => handleDrop(e, child.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={onKeyboardActivate(() => handleSelectTerminal(child.id))}
+      aria-label={`Terminal: ${child.name}`}
+    >
+      <GripVertical size={12} className="terminal-sidebar-grip" />
+      <TerminalSquare size={14} className="terminal-sidebar-icon" />
+      <EditableNodeName node={child} {...editableProps} />
+    </div>
+  )
+}
+
+interface TerminalChildrenListProps extends EditableNodeNameControls {
+  expanded: boolean
+  terminalChildren: TerminalTreeNode[]
+  activeNodeId: string | null
+  selectedItem: string | null
+  handleAddTerminal: (folderId: string) => void
+  folderId: string
+  handleSelectTerminal: (nodeId: string) => void
+  startEditing: (nodeId: string, currentName: string) => void
+  handleContextMenu: (e: React.MouseEvent, nodeId: string) => void
+  handleDragStart: (e: React.DragEvent, nodeId: string) => void
+  handleDragOver: (e: React.DragEvent) => void
+  handleDrop: (e: React.DragEvent, targetNodeId: string) => void
+}
+
+function TerminalChildrenList({
+  expanded,
+  terminalChildren,
+  activeNodeId,
+  selectedItem,
+  handleAddTerminal,
+  folderId,
+  ...rowProps
+}: TerminalChildrenListProps) {
+  if (!expanded) return null
+
+  return (
+    <div className="terminal-sidebar-children">
+      {terminalChildren.map(child => (
+        <TerminalNodeRow
+          key={child.id}
+          child={child}
+          selected={activeNodeId === child.id && selectedItem === 'terminal-workspace'}
+          {...rowProps}
+        />
+      ))}
+      {terminalChildren.length === 0 && (
+        <div className="terminal-sidebar-no-terminals">
+          <button
+            className="terminal-sidebar-empty-btn"
+            onClick={() => handleAddTerminal(folderId)}
+          >
+            + Add Terminal
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+interface TerminalFolderProps extends EditableNodeNameControls {
+  folder: TerminalTreeNode
+  terminalChildren: TerminalTreeNode[]
+  expanded: boolean
+  activeNodeId: string | null
+  selectedItem: string | null
+  handleSelectTerminal: (nodeId: string) => void
+  startEditing: (nodeId: string, currentName: string) => void
+  handleContextMenu: (e: React.MouseEvent, nodeId: string) => void
+  toggleFolder: (folderId: string) => boolean
+  handleAddTerminal: (folderId: string) => void
+  handleDragStart: (e: React.DragEvent, nodeId: string) => void
+  handleDragOver: (e: React.DragEvent) => void
+  handleDrop: (e: React.DragEvent, targetNodeId: string) => void
+}
+
+function TerminalFolder({
+  folder,
+  terminalChildren,
+  expanded,
+  activeNodeId,
+  selectedItem,
+  ...handlers
+}: TerminalFolderProps) {
+  const editableProps = {
+    editingId: handlers.editingId,
+    editValue: handlers.editValue,
+    inputRef: handlers.inputRef,
+    setEditValue: handlers.setEditValue,
+    commitEdit: handlers.commitEdit,
+    handleKeyDown: handlers.handleKeyDown,
+  }
+
+  return (
+    <div className="terminal-sidebar-folder">
+      <TerminalFolderRow
+        folder={folder}
+        expanded={expanded}
+        selected={activeNodeId === folder.id && selectedItem === 'terminal-workspace'}
+        {...handlers}
+        {...editableProps}
+      />
+      <TerminalChildrenList
+        expanded={expanded}
+        terminalChildren={terminalChildren}
+        activeNodeId={activeNodeId}
+        selectedItem={selectedItem}
+        folderId={folder.id}
+        {...handlers}
+        {...editableProps}
+      />
+    </div>
+  )
+}
+
+interface TerminalFolderListProps extends EditableNodeNameControls {
+  folders: TerminalTreeNode[]
+  activeNodeId: string | null
+  selectedItem: string | null
+  getChildren: (folderId: string) => TerminalTreeNode[]
+  isFolderExpanded: (folderId: string) => boolean
+  handleAddFolder: () => void
+  handleSelectTerminal: (nodeId: string) => void
+  startEditing: (nodeId: string, currentName: string) => void
+  handleContextMenu: (e: React.MouseEvent, nodeId: string) => void
+  toggleFolder: (folderId: string) => boolean
+  handleAddTerminal: (folderId: string) => void
+  handleDragStart: (e: React.DragEvent, nodeId: string) => void
+  handleDragOver: (e: React.DragEvent) => void
+  handleDrop: (e: React.DragEvent, targetNodeId: string) => void
+}
+
+function TerminalFolderList({
+  folders,
+  activeNodeId,
+  selectedItem,
+  getChildren,
+  isFolderExpanded,
+  handleAddFolder,
+  ...folderProps
+}: TerminalFolderListProps) {
+  return (
+    <div className="terminal-sidebar-list">
+      {folders.map(folder => (
+        <TerminalFolder
+          key={folder.id}
+          folder={folder}
+          terminalChildren={getChildren(folder.id)}
+          expanded={isFolderExpanded(folder.id)}
+          activeNodeId={activeNodeId}
+          selectedItem={selectedItem}
+          {...folderProps}
+        />
+      ))}
+
+      {folders.length === 0 && (
+        <div className="terminal-sidebar-empty">
+          <button className="terminal-sidebar-empty-btn" onClick={handleAddFolder}>
+            + New Project
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarProps) {
   const {
@@ -156,161 +498,34 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
     setShowColorPicker(null)
   }, [])
 
-  if (!loaded) {
-    return (
-      <div className="terminal-sidebar">
-        <div className="terminal-sidebar-header">
-          <span className="terminal-sidebar-title">Projects</span>
-        </div>
-        <div className="terminal-sidebar-loading">Loading…</div>
-      </div>
-    )
-  }
+  if (!loaded) return <TerminalSidebarLoading />
 
   return (
     <div className="terminal-sidebar" onClick={closeContextMenu} role="presentation">
-      <div className="terminal-sidebar-header">
-        <span className="terminal-sidebar-title">Projects</span>
-        <button
-          className="terminal-sidebar-add-btn"
-          onClick={handleAddFolder}
-          title="Add Project"
-          aria-label="Add Project"
-        >
-          <Plus size={14} />
-        </button>
-      </div>
+      <TerminalSidebarHeader onAddFolder={handleAddFolder} />
 
-      <div className="terminal-sidebar-list">
-        {folders.map(folder => {
-          const children = getChildren(folder.id)
-          const expanded = isFolderExpanded(folder.id)
-          /* v8 ignore next */
-          const folderSelected = activeNodeId === folder.id && selectedItem === 'terminal-workspace'
-          /* v8 ignore next */
-          const folderClassName = `terminal-sidebar-folder-row ${folderSelected ? 'selected' : ''}`
-
-          return (
-            <div key={folder.id} className="terminal-sidebar-folder">
-              {/* Folder row — clicking selects this as active terminal */}
-              <div
-                className={folderClassName}
-                style={
-                  folder.color
-                    ? { backgroundColor: `${folder.color}22`, borderLeftColor: folder.color }
-                    : undefined
-                }
-                onClick={() => handleSelectTerminal(folder.id)}
-                onDoubleClick={() => startEditing(folder.id, folder.name)}
-                onContextMenu={e => handleContextMenu(e, folder.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={onKeyboardActivate(() => handleSelectTerminal(folder.id))}
-                aria-label={`Project: ${folder.name}`}
-                aria-expanded={expanded}
-              >
-                <button
-                  type="button"
-                  className="terminal-sidebar-chevron"
-                  onClick={e => {
-                    e.stopPropagation()
-                    toggleFolder(folder.id)
-                  }}
-                  aria-label={expanded ? 'Collapse' : 'Expand'}
-                >
-                  {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                {expanded ? (
-                  <FolderOpen size={14} className="terminal-sidebar-folder-icon" />
-                ) : (
-                  <Folder size={14} className="terminal-sidebar-folder-icon" />
-                )}
-                {editingId === folder.id ? (
-                  <input
-                    ref={inputRef}
-                    className="terminal-sidebar-input"
-                    value={editValue}
-                    onChange={e => setEditValue(e.target.value)}
-                    onBlur={commitEdit}
-                    onKeyDown={handleKeyDown}
-                    onClick={e => e.stopPropagation()}
-                  />
-                ) : (
-                  <span className="terminal-sidebar-label">{folder.name}</span>
-                )}
-                <button
-                  className="terminal-sidebar-folder-add"
-                  onClick={e => {
-                    e.stopPropagation()
-                    handleAddTerminal(folder.id)
-                  }}
-                  title="Add Terminal"
-                  aria-label="Add Terminal"
-                >
-                  <Plus size={12} />
-                </button>
-              </div>
-
-              {/* Terminal children */}
-              {expanded && (
-                <div className="terminal-sidebar-children">
-                  {children.map(child => (
-                    <div
-                      key={child.id}
-                      className={`terminal-sidebar-node ${activeNodeId === child.id && selectedItem === 'terminal-workspace' ? 'selected' : ''}`}
-                      onClick={() => handleSelectTerminal(child.id)}
-                      onDoubleClick={() => startEditing(child.id, child.name)}
-                      onContextMenu={e => handleContextMenu(e, child.id)}
-                      draggable
-                      onDragStart={e => handleDragStart(e, child.id)}
-                      onDragOver={handleDragOver}
-                      onDrop={e => handleDrop(e, child.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={onKeyboardActivate(() => handleSelectTerminal(child.id))}
-                      aria-label={`Terminal: ${child.name}`}
-                    >
-                      <GripVertical size={12} className="terminal-sidebar-grip" />
-                      <TerminalSquare size={14} className="terminal-sidebar-icon" />
-                      {editingId === child.id ? (
-                        <input
-                          ref={inputRef}
-                          className="terminal-sidebar-input"
-                          value={editValue}
-                          onChange={e => setEditValue(e.target.value)}
-                          onBlur={commitEdit}
-                          onKeyDown={handleKeyDown}
-                          onClick={e => e.stopPropagation()}
-                        />
-                      ) : (
-                        <span className="terminal-sidebar-label">{child.name}</span>
-                      )}
-                    </div>
-                  ))}
-                  {children.length === 0 && (
-                    <div className="terminal-sidebar-no-terminals">
-                      <button
-                        className="terminal-sidebar-empty-btn"
-                        onClick={() => handleAddTerminal(folder.id)}
-                      >
-                        + Add Terminal
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )
-        })}
-
-        {folders.length === 0 && (
-          <div className="terminal-sidebar-empty">
-            <button className="terminal-sidebar-empty-btn" onClick={handleAddFolder}>
-              + New Project
-            </button>
-          </div>
-        )}
-      </div>
+      <TerminalFolderList
+        folders={folders}
+        activeNodeId={activeNodeId}
+        selectedItem={selectedItem}
+        getChildren={getChildren}
+        isFolderExpanded={isFolderExpanded}
+        handleAddFolder={handleAddFolder}
+        editingId={editingId}
+        editValue={editValue}
+        inputRef={inputRef}
+        setEditValue={setEditValue}
+        commitEdit={commitEdit}
+        handleKeyDown={handleKeyDown}
+        handleSelectTerminal={handleSelectTerminal}
+        startEditing={startEditing}
+        handleContextMenu={handleContextMenu}
+        toggleFolder={toggleFolder}
+        handleAddTerminal={handleAddTerminal}
+        handleDragStart={handleDragStart}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+      />
 
       {/* Context Menu */}
       {contextMenu && (

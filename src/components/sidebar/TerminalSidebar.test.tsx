@@ -239,4 +239,104 @@ describe('TerminalSidebar', () => {
     fireEvent.click(screen.getByRole('button', { name: /Rename/ }))
     expect(workspace.renameNode).not.toHaveBeenCalled()
   })
+
+  describe('EditableNodeName sub-component', () => {
+    it('shows a plain label when not in edit mode', () => {
+      workspace.nodes = [folder('folder-1', 'My Project', 1)]
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      expect(screen.getByText('My Project')).toBeInTheDocument()
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+
+    it('shows an input when entering edit mode and commits on Enter', () => {
+      workspace.nodes = [folder('folder-1', 'My Project', 1)]
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      fireEvent.doubleClick(screen.getByRole('button', { name: 'Project: My Project' }))
+      const input = screen.getByDisplayValue('My Project')
+      expect(input).toBeInTheDocument()
+
+      fireEvent.change(input, { target: { value: 'Renamed' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(workspace.renameNode).toHaveBeenCalledWith('folder-1', 'Renamed')
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+
+    it('cancels edit on Escape without renaming', () => {
+      workspace.nodes = [folder('folder-1', 'My Project', 1)]
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      fireEvent.doubleClick(screen.getByRole('button', { name: 'Project: My Project' }))
+      const input = screen.getByDisplayValue('My Project')
+      fireEvent.change(input, { target: { value: 'Something' } })
+      fireEvent.keyDown(input, { key: 'Escape' })
+
+      expect(workspace.renameNode).not.toHaveBeenCalled()
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
+  })
+
+  describe('TerminalChildrenList sub-component', () => {
+    it('shows empty-state button when folder has no children', () => {
+      workspace.nodes = [folder('folder-1', 'Empty Project', 1)]
+      workspace.addNode.mockReturnValue(terminal('t-new', 'Terminal 1', 'folder-1', 1))
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      const addBtn = screen.getByRole('button', { name: '+ Add Terminal' })
+      expect(addBtn).toBeInTheDocument()
+
+      fireEvent.click(addBtn)
+      expect(workspace.addNode).toHaveBeenCalledWith('Terminal 1', { parentId: 'folder-1' })
+    })
+
+    it('hides children when folder is collapsed', () => {
+      workspace.nodes = [
+        folder('folder-1', 'Project 1', 1),
+        terminal('terminal-1', 'Shell', 'folder-1', 1),
+      ]
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+      expect(screen.getByRole('button', { name: 'Terminal: Shell' })).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Collapse' }))
+      expect(screen.queryByRole('button', { name: 'Terminal: Shell' })).toBeNull()
+    })
+  })
+
+  describe('TerminalSidebarLoading sub-component', () => {
+    it('renders loading indicator when workspace is not loaded', () => {
+      workspace.loaded = false
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      expect(screen.getByText('Loading…')).toBeInTheDocument()
+      expect(screen.getByText('Projects')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Add Project' })).toBeNull()
+    })
+  })
+
+  describe('TerminalFolderList sub-component', () => {
+    it('renders new project button when no folders exist', () => {
+      workspace.nodes = []
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      expect(screen.getByRole('button', { name: '+ New Project' })).toBeInTheDocument()
+    })
+
+    it('renders multiple folders sorted by sortOrder', () => {
+      workspace.nodes = [folder('folder-b', 'Beta', 2), folder('folder-a', 'Alpha', 1)]
+
+      render(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
+
+      const buttons = screen.getAllByRole('button', { name: /Project:/ })
+      expect(buttons[0]).toHaveAttribute('aria-label', 'Project: Alpha')
+      expect(buttons[1]).toHaveAttribute('aria-label', 'Project: Beta')
+    })
+  })
 })

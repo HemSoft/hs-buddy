@@ -64,14 +64,23 @@ describe('pollenHandlers', () => {
       expect(result).toEqual({ success: false, error: 'no-api-key' })
     })
 
-    it('returns no-api-key error when API key becomes invalid between validation and fetch', async () => {
-      mockConfigManager.getUiValue
-        .mockReturnValueOnce('valid-key')
-        .mockReturnValueOnce(123 as unknown as string)
+    it('reads the API key only once per fetch (no race condition)', async () => {
+      mockConfigManager.getUiValue.mockReturnValue('valid-key')
+      mockNetFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          dailyInfo: [
+            {
+              pollenTypeInfo: [{ code: 'TREE', indexInfo: { value: 1 } }],
+              plantInfo: [],
+            },
+          ],
+        }),
+      } as Response)
 
-      const result = await invoke(location)
+      await invoke(location)
 
-      expect(result).toEqual({ success: false, error: 'no-api-key' })
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledTimes(1)
     })
 
     it('returns invalid location error for non-finite latitude', async () => {
@@ -443,6 +452,54 @@ describe('pollenHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data.species).toHaveLength(1)
       expect(result.data.species[0].code).toBe('B')
+    })
+  })
+
+  describe('getTrimmedPollenApiKey edge cases', () => {
+    const event = {} as Electron.IpcMainInvokeEvent
+    const location = { latitude: 35.82, longitude: -78.82 }
+
+    function invoke(loc: { latitude: number; longitude: number }) {
+      return handlers.get(IPC_INVOKE.POLLEN_FETCH_CURRENT)!(event, loc)
+    }
+
+    it('returns no-api-key when value is a non-string type (number)', async () => {
+      mockConfigManager.getUiValue.mockReturnValue(42 as unknown as string)
+
+      const result = await invoke(location)
+
+      expect(result).toEqual({ success: false, error: 'no-api-key' })
+    })
+
+    it('returns no-api-key when value is whitespace-only', async () => {
+      mockConfigManager.getUiValue.mockReturnValue('   \t  ')
+
+      const result = await invoke(location)
+
+      expect(result).toEqual({ success: false, error: 'no-api-key' })
+    })
+
+    it('trims surrounding whitespace from a valid key', async () => {
+      mockConfigManager.getUiValue.mockReturnValue('  my-key  ')
+      mockNetFetch.mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          dailyInfo: [
+            {
+              pollenTypeInfo: [{ code: 'TREE', indexInfo: { value: 1 } }],
+              plantInfo: [],
+            },
+          ],
+        }),
+      } as Response)
+
+      const result = await invoke(location)
+
+      expect(result.success).toBe(true)
+      expect(mockNetFetch).toHaveBeenCalledWith(
+        expect.stringContaining('key=my-key'),
+        expect.anything()
+      )
     })
   })
 })

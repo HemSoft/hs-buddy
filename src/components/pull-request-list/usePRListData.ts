@@ -202,14 +202,16 @@ async function toggleRepoBookmark(
   bookmarks: RepoBookmark[],
   target: BookmarkRepoTarget,
   bookmarkedRepoKeys: Set<string>,
-  createBookmark: ReturnType<typeof useRepoBookmarkMutations>['create'],
-  removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
+  mutations: {
+    create: ReturnType<typeof useRepoBookmarkMutations>['create']
+    remove: ReturnType<typeof useRepoBookmarkMutations>['remove']
+  }
 ): Promise<void> {
   if (bookmarkedRepoKeys.has(target.key)) {
-    await removeRepoBookmark(bookmarks, target, removeBookmark)
+    await removeRepoBookmark(bookmarks, target, mutations.remove)
     return
   }
-  await createRepoBookmark(target, createBookmark)
+  await createRepoBookmark(target, mutations.create)
 }
 
 function usePRContextMenuActions(deps: PRContextMenuDeps) {
@@ -237,7 +239,10 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
       setContextMenu(null)
       return
     }
-    await toggleRepoBookmark(bookmarks, target, bookmarkedRepoKeys, createBookmark, removeBookmark)
+    await toggleRepoBookmark(bookmarks, target, bookmarkedRepoKeys, {
+      create: createBookmark,
+      remove: removeBookmark,
+    })
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark, setContextMenu])
 

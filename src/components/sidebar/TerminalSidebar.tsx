@@ -44,6 +44,21 @@ interface EditableNodeNameControls {
   handleKeyDown: (e: React.KeyboardEvent) => void
 }
 
+const EDITABLE_KEYS: readonly (keyof EditableNodeNameControls)[] = [
+  'editingId',
+  'editValue',
+  'inputRef',
+  'setEditValue',
+  'commitEdit',
+  'handleKeyDown',
+] as const
+
+function pickEditableProps(source: EditableNodeNameControls): EditableNodeNameControls {
+  return Object.fromEntries(
+    EDITABLE_KEYS.map(k => [k, source[k]])
+  ) as unknown as EditableNodeNameControls
+}
+
 interface EditableNodeNameProps extends EditableNodeNameControls {
   node: TerminalTreeNode
 }
@@ -294,14 +309,7 @@ function TerminalFolder({
   selectedItem,
   ...handlers
 }: TerminalFolderProps) {
-  const editableProps = {
-    editingId: handlers.editingId,
-    editValue: handlers.editValue,
-    inputRef: handlers.inputRef,
-    setEditValue: handlers.setEditValue,
-    commitEdit: handlers.commitEdit,
-    handleKeyDown: handlers.handleKeyDown,
-  }
+  const editableProps = pickEditableProps(handlers)
 
   return (
     <div className="terminal-sidebar-folder">

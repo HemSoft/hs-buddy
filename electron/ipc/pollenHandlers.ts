@@ -154,12 +154,11 @@ function getTrimmedPollenApiKey(): string | null {
   return trimmed.length > 0 ? trimmed : null
 }
 
-function hasPollenApiKey(): boolean {
-  return getTrimmedPollenApiKey() !== null
-}
-
-function validatePollenRequest(location: { latitude: number; longitude: number }): string | null {
-  if (!hasPollenApiKey()) return 'no-api-key'
+function validatePollenRequest(
+  location: { latitude: number; longitude: number },
+  apiKey: string | null
+): string | null {
+  if (!apiKey) return 'no-api-key'
   if (!isFiniteLocation(location)) return 'Invalid location'
   return isInCoordinateRange(location) ? null : 'Invalid location'
 }
@@ -168,11 +167,9 @@ async function fetchPollenData(location: {
   latitude: number
   longitude: number
 }): Promise<PollenFetchResult> {
-  const validationError = validatePollenRequest(location)
-  if (validationError) return { success: false, error: validationError }
-
   const apiKey = getTrimmedPollenApiKey()
-  if (!apiKey) return { success: false, error: 'no-api-key' }
+  const validationError = validatePollenRequest(location, apiKey)
+  if (validationError) return { success: false, error: validationError }
 
   try {
     const url =

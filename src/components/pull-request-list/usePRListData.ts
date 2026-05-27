@@ -192,7 +192,10 @@ async function removeRepoBookmark(
   removeBookmark: ReturnType<typeof useRepoBookmarkMutations>['remove']
 ): Promise<void> {
   const bookmark = findRepoBookmark(bookmarks, target)
-  if (bookmark) await removeBookmark({ id: bookmark._id })
+  // bookmarkedRepoKeys is derived from the same array, so bookmark is always found here
+  /* v8 ignore next -- defensive guard for race condition; unreachable in normal flow */
+  if (!bookmark) return
+  await removeBookmark({ id: bookmark._id })
 }
 
 async function toggleRepoBookmark(

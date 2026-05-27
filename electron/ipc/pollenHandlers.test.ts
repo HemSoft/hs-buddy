@@ -64,6 +64,16 @@ describe('pollenHandlers', () => {
       expect(result).toEqual({ success: false, error: 'no-api-key' })
     })
 
+    it('returns no-api-key error when API key becomes invalid between validation and fetch', async () => {
+      mockConfigManager.getUiValue
+        .mockReturnValueOnce('valid-key')
+        .mockReturnValueOnce(123 as unknown as string)
+
+      const result = await invoke(location)
+
+      expect(result).toEqual({ success: false, error: 'no-api-key' })
+    })
+
     it('returns invalid location error for non-finite latitude', async () => {
       mockConfigManager.getUiValue.mockReturnValue('test-key')
 

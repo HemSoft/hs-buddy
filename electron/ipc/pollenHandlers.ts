@@ -147,9 +147,15 @@ function isInCoordinateRange(location: { latitude: number; longitude: number }):
   )
 }
 
+function getTrimmedPollenApiKey(): string | null {
+  const raw = configManager.getUiValue('pollenApiKey')
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
 function hasPollenApiKey(): boolean {
-  const apiKey = (configManager.getUiValue('pollenApiKey') as string | undefined)?.trim()
-  return Boolean(apiKey)
+  return getTrimmedPollenApiKey() !== null
 }
 
 function validatePollenRequest(location: { latitude: number; longitude: number }): string | null {
@@ -165,7 +171,8 @@ async function fetchPollenData(location: {
   const validationError = validatePollenRequest(location)
   if (validationError) return { success: false, error: validationError }
 
-  const apiKey = (configManager.getUiValue('pollenApiKey') as string).trim()
+  const apiKey = getTrimmedPollenApiKey()
+  if (!apiKey) return { success: false, error: 'no-api-key' }
 
   try {
     const url =

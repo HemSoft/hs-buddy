@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.770] - 2026-05-27
+
+### Changed
+
+- Address PR review suggestions for CRAP-score reduction
+
 ## [0.1.769] - 2026-05-27
 
 ### Changed

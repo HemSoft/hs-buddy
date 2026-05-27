@@ -292,15 +292,34 @@ function TerminalFolder({
   expanded,
   activeNodeId,
   selectedItem,
-  ...handlers
+  editingId,
+  editValue,
+  inputRef,
+  setEditValue,
+  commitEdit,
+  handleKeyDown,
+  handleSelectTerminal,
+  startEditing,
+  handleContextMenu,
+  toggleFolder,
+  handleAddTerminal,
+  handleDragStart,
+  handleDragOver,
+  handleDrop,
 }: TerminalFolderProps) {
+  const editableProps = { editingId, editValue, inputRef, setEditValue, commitEdit, handleKeyDown }
   return (
     <div className="terminal-sidebar-folder">
       <TerminalFolderRow
         folder={folder}
         expanded={expanded}
         selected={activeNodeId === folder.id && selectedItem === 'terminal-workspace'}
-        {...handlers}
+        handleSelectTerminal={handleSelectTerminal}
+        startEditing={startEditing}
+        handleContextMenu={handleContextMenu}
+        toggleFolder={toggleFolder}
+        handleAddTerminal={handleAddTerminal}
+        {...editableProps}
       />
       <TerminalChildrenList
         expanded={expanded}
@@ -308,7 +327,14 @@ function TerminalFolder({
         activeNodeId={activeNodeId}
         selectedItem={selectedItem}
         folderId={folder.id}
-        {...handlers}
+        handleSelectTerminal={handleSelectTerminal}
+        startEditing={startEditing}
+        handleContextMenu={handleContextMenu}
+        handleAddTerminal={handleAddTerminal}
+        handleDragStart={handleDragStart}
+        handleDragOver={handleDragOver}
+        handleDrop={handleDrop}
+        {...editableProps}
       />
     </div>
   )

@@ -274,8 +274,7 @@ function assertTemplateScriptName(templateScript: string): void {
 }
 
 function resolveTemplateScriptPath(config: RalphLaunchConfig, scriptsDir: string): string {
-  const templateScript = config.templateScript
-  if (!templateScript) throw new Error('Cannot resolve script path')
+  const templateScript = config.templateScript!
   assertTemplateScriptName(templateScript)
 
   const candidatePaths = [

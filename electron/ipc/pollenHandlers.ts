@@ -132,10 +132,8 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
-function isFiniteLocation(
-  location: { latitude: number; longitude: number } | null | undefined
-): boolean {
-  return !!location && Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+function isFiniteLocation(location: { latitude: number; longitude: number }): boolean {
+  return Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
 }
 
 function isInCoordinateRange(location: { latitude: number; longitude: number }): boolean {

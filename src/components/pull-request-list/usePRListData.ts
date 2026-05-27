@@ -149,8 +149,13 @@ interface BookmarkRepoTarget {
   url: string
 }
 
+function parseOwnerFromUrl(url: string): string | undefined {
+  const match = url.match(/\/([^/]+)\/[^/]+\/pull\/\d+$/)
+  return match?.[1]
+}
+
 function getBookmarkRepoTarget(pr: PullRequest): BookmarkRepoTarget | null {
-  const org = pr.org || ''
+  const org = pr.org || parseOwnerFromUrl(pr.url) || ''
   const repoName = pr.repository
   if (!org || !repoName) return null
   return {
@@ -225,7 +230,10 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
     if (!contextMenu) return
     if (bookmarks == null) return
     const target = getBookmarkRepoTarget(contextMenu.pr)
-    if (!target) return
+    if (!target) {
+      setContextMenu(null)
+      return
+    }
     await toggleRepoBookmark(bookmarks, target, bookmarkedRepoKeys, createBookmark, removeBookmark)
     setContextMenu(null)
   }, [contextMenu, bookmarks, bookmarkedRepoKeys, createBookmark, removeBookmark, setContextMenu])

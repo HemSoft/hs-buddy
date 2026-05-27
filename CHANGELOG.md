@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Revive terminal workspace
 
+### Fixed
+
+- Address PR review comments for whitespace API keys and bookmark fallback
+
 ## [0.1.765] - 2026-05-25
 
 ### Changed

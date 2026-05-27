@@ -812,8 +812,8 @@ describe('usePRListData', () => {
     expect(result.current.contextMenu).toBeNull()
   })
 
-  it('handleBookmarkRepo returns early when PR has no org', async () => {
-    mockFetchMyPRs.mockResolvedValue([makePR({ org: '' })])
+  it('handleBookmarkRepo returns early when PR has no org and URL cannot be parsed', async () => {
+    mockFetchMyPRs.mockResolvedValue([makePR({ org: '', url: 'https://example.com/invalid' })])
     const { result } = renderHook(() => usePRListData('my-prs'))
     await waitFor(() => expect(result.current.prs).toHaveLength(1))
 
@@ -827,8 +827,8 @@ describe('usePRListData', () => {
     await act(async () => {
       await result.current.handleBookmarkRepo()
     })
-    // contextMenu not cleared because early return happened before setContextMenu(null)
-    expect(result.current.contextMenu).not.toBeNull()
+    // contextMenu cleared because early return now calls setContextMenu(null)
+    expect(result.current.contextMenu).toBeNull()
   })
 
   it('handleBookmarkRepo returns early when PR has no repository', async () => {
@@ -846,7 +846,7 @@ describe('usePRListData', () => {
     await act(async () => {
       await result.current.handleBookmarkRepo()
     })
-    expect(result.current.contextMenu).not.toBeNull()
+    expect(result.current.contextMenu).toBeNull()
   })
 
   it('handleAIReview does nothing without context menu', async () => {

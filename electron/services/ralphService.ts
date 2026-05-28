@@ -261,26 +261,36 @@ function validateLaunchConfig(config: RalphLaunchConfig): string | null {
 
 // ── Process Spawning ────────────────────────────────────────────
 
+const SCRIPT_BY_TYPE: Partial<Record<RalphLaunchConfig['scriptType'], string>> = {
+  ralph: 'ralph.ps1',
+  'ralph-pr': 'ralph-pr.ps1',
+  'ralph-issues': 'ralph-issues.ps1',
+}
+
+function assertTemplateScriptName(templateScript: string): void {
+  if (basename(templateScript) !== templateScript || !templateScript.endsWith('.ps1')) {
+    throw new Error(`Invalid template script: ${templateScript}`)
+  }
+}
+
+function resolveTemplateScriptPath(config: RalphLaunchConfig, scriptsDir: string): string {
+  const templateScript = config.templateScript!
+  assertTemplateScriptName(templateScript)
+
+  const candidatePaths = [
+    join(scriptsDir, 'scripts', templateScript),
+    join(config.repoPath, 'scripts', templateScript),
+  ]
+  const resolved = candidatePaths.find(existsSync)
+  if (resolved) return resolved
+  throw new Error(`Template script not found: ${templateScript}`)
+}
+
 function resolveScriptPath(config: RalphLaunchConfig): string {
   const scriptsDir = getScriptsDir()
-  if (config.scriptType === 'ralph') return join(scriptsDir, 'ralph.ps1')
-  if (config.scriptType === 'ralph-pr') return join(scriptsDir, 'ralph-pr.ps1')
-  if (config.scriptType === 'ralph-issues') return join(scriptsDir, 'ralph-issues.ps1')
-  // Template scripts: check vendored scripts/ dir first, then repo's scripts/ dir
-  if (config.templateScript) {
-    if (
-      basename(config.templateScript) !== config.templateScript ||
-      !config.templateScript.endsWith('.ps1')
-    ) {
-      throw new Error(`Invalid template script: ${config.templateScript}`)
-    }
-
-    const vendoredPath = join(scriptsDir, 'scripts', config.templateScript)
-    if (existsSync(vendoredPath)) return vendoredPath
-    const repoPath = join(config.repoPath, 'scripts', config.templateScript)
-    if (existsSync(repoPath)) return repoPath
-    throw new Error(`Template script not found: ${config.templateScript}`)
-  }
+  const scriptName = SCRIPT_BY_TYPE[config.scriptType]
+  if (scriptName) return join(scriptsDir, scriptName)
+  if (config.templateScript) return resolveTemplateScriptPath(config, scriptsDir)
   throw new Error('Cannot resolve script path')
 }
 

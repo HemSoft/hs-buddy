@@ -54,12 +54,25 @@ interface GoogleForecastResponse {
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
 
+const POLLEN_TYPE_KEYS: Record<string, PollenTypeKey> = {
+  TREE: 'tree',
+  GRASS: 'grass',
+  WEED: 'weed',
+}
+
+function applyPollenTypeIndex(type: GooglePollenTypeInfo, result: PollenData): void {
+  const key = POLLEN_TYPE_KEYS[type.code ?? '']
+  if (key) result[key] = type.indexInfo?.value ?? 0
+}
+
+function appendHealthRecommendations(type: GooglePollenTypeInfo, result: PollenData): void {
+  result.healthRecommendations.push(...(type.healthRecommendations ?? []))
+}
+
 function parsePollenTypes(types: GooglePollenTypeInfo[], result: PollenData): void {
-  const codeToKey: Record<string, PollenTypeKey> = { TREE: 'tree', GRASS: 'grass', WEED: 'weed' }
   for (const t of types) {
-    const key = codeToKey[t.code ?? '']
-    if (key) result[key] = t.indexInfo?.value ?? 0
-    if (t.healthRecommendations) result.healthRecommendations.push(...t.healthRecommendations)
+    applyPollenTypeIndex(t, result)
+    appendHealthRecommendations(t, result)
   }
 }
 
@@ -119,31 +132,42 @@ async function extractGoogleErrorDetail(res: Response): Promise<string> {
   return `HTTP ${res.status}`
 }
 
-function validatePollenRequest(location: { latitude: number; longitude: number }): string | null {
-  const apiKey = configManager.getUiValue('pollenApiKey') as string
+function isFiniteLocation(location: { latitude: number; longitude: number }): boolean {
+  return Number.isFinite(location.latitude) && Number.isFinite(location.longitude)
+}
+
+function isInCoordinateRange(location: { latitude: number; longitude: number }): boolean {
+  return (
+    location.latitude >= -90 &&
+    location.latitude <= 90 &&
+    location.longitude >= -180 &&
+    location.longitude <= 180
+  )
+}
+
+function getTrimmedPollenApiKey(): string | null {
+  const raw = configManager.getUiValue('pollenApiKey')
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  return trimmed.length > 0 ? trimmed : null
+}
+
+function validatePollenRequest(
+  location: { latitude: number; longitude: number },
+  apiKey: string | null
+): string | null {
   if (!apiKey) return 'no-api-key'
-  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) {
-    return 'Invalid location'
-  }
-  if (
-    location.latitude < -90 ||
-    location.latitude > 90 ||
-    location.longitude < -180 ||
-    location.longitude > 180
-  ) {
-    return 'Invalid location'
-  }
-  return null
+  if (!isFiniteLocation(location)) return 'Invalid location'
+  return isInCoordinateRange(location) ? null : 'Invalid location'
 }
 
 async function fetchPollenData(location: {
   latitude: number
   longitude: number
 }): Promise<PollenFetchResult> {
-  const validationError = validatePollenRequest(location)
+  const apiKey = getTrimmedPollenApiKey()
+  const validationError = validatePollenRequest(location, apiKey)
   if (validationError) return { success: false, error: validationError }
-
-  const apiKey = configManager.getUiValue('pollenApiKey') as string
 
   try {
     const url =

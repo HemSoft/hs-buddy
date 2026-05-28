@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.771] - 2026-05-27
+
+### Changed
+
+- Add unit tests for extracted sub-components and getTrimmedPollenApiKey
+
+## [0.1.770] - 2026-05-27
+
+### Changed
+
+- Address PR review suggestions for CRAP-score reduction
+
+## [0.1.769] - 2026-05-27
+
+### Changed
+
+- Remove redundant pickEditableProps and eliminate double config read
+
+## [0.1.768] - 2026-05-27
+
+### Changed
+
+- Address PR review suggestions for reduced arity and maintainability
+
+## [0.1.767] - 2026-05-27
+
+### Fixed
+
+- Guard pollenApiKey against non-string runtime values
+
 ## [0.1.766] - 2026-05-25
 
 ### Changed
@@ -18,6 +48,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Revive terminal workspace
+
+### Fixed
+
+- Address PR review comments for whitespace API keys and bookmark fallback
 
 ## [0.1.765] - 2026-05-25
 

@@ -102,6 +102,7 @@ async function fetchFirstPremiumUsage(
   if (!hasLookupInputs(allLogins, usernames)) return null
 
   for (const username of usernames) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Accounts are tried in order and stop at the first premium usage response.
     const usageResult = await window.github.getBatchMonthlyRequests(allLogins, username, true)
     if (usageResult.success && hasPremiumUsageData(usageResult.data)) return usageResult.data
   }

@@ -365,10 +365,12 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
   const loadProjects = useCallback(async () => {
     const list: CrewProject[] = await window.crew.listProjects()
     const sortedProjects = sortProjects(list)
-    const sessionMap: Record<string, CrewSession | null> = {}
-    for (const p of sortedProjects) {
-      sessionMap[p.id] = await window.crew.getSession(p.id)
-    }
+    const sessionEntries = await Promise.all(
+      sortedProjects.map(
+        async project => [project.id, await window.crew.getSession(project.id)] as const
+      )
+    )
+    const sessionMap: Record<string, CrewSession | null> = Object.fromEntries(sessionEntries)
     dispatch({
       type: 'SET_PROJECTS',
       payload: {

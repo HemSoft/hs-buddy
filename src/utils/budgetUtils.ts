@@ -56,6 +56,7 @@ export async function findBudgetAcrossPages(
   maxPages = 10
 ): Promise<BudgetMatch | null> {
   for (let page = 1; page <= maxPages; page++) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Budget pages are searched sequentially until the matching org budget is found.
     const data = await fetchPage(page)
     const match = findCopilotBudget(data.budgets ?? [], org)
     if (match) {

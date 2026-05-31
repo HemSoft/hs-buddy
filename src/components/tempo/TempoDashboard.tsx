@@ -268,6 +268,7 @@ function useTempoDashboardHandlers(
 
     for (const src of sourceWorklogs) {
       const startTime = nextStartTime(offset)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Copying worklogs is sequential because each created entry determines the next start time.
       const result = await actions.create({
         issueKey: src.issueKey,
         hours: src.hours,

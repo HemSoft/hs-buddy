@@ -431,6 +431,7 @@ async function fetchMonthlyTotals(
   const results: BatchResult = {}
   for (let i = 0; i < logins.length; i += BATCH_CONCURRENCY) {
     const batch = logins.slice(i, i + BATCH_CONCURRENCY)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent GitHub CLI calls.
     const settled = await Promise.allSettled(
       batch.map(async login => {
         const encoded = encodeURIComponent(login)
@@ -506,6 +507,7 @@ async function probeDateActivity(
 
   for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
     const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-user day probes.
     foundThisDay.push(...(await probeBatchDayActivity(batch, year, month, day, execEnv)))
   }
 
@@ -525,6 +527,7 @@ async function probeDayActivity(
   for (let offset = 0; offset < maxLookback && remaining.length > 0; offset++) {
     const day = today - offset
     const dateStr = buildUsageDateString(year, month, day)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Day probes are sequential because each day removes found users from the remaining set.
     const foundThisDay = await probeDateActivity(remaining, year, month, day, execEnv)
     assignLastActiveDate(results, foundThisDay, dateStr)
     remaining = remaining.filter(login => !foundThisDay.includes(login))
@@ -566,6 +569,7 @@ async function fetchCopilotSeats(
   let totalSeats = 0
 
   while (page <= maxPages) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Copilot seats are paginated until the API reports all seats loaded.
     const { stdout } = await execAsync(
       `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
       { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
@@ -871,6 +875,7 @@ async function collectCopilotSnapshots(
   const client = new ConvexHttpClient(CONVEX_URL)
 
   for (const { username, org } of accounts) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Snapshot collection switches GitHub accounts and stores each result sequentially.
     const result = await fetchCopilotMetrics(org, username)
     if (result.success) {
       try {

@@ -125,6 +125,15 @@ function playReviewCompleteSound() {
 
 export type AIReviewState = 'idle' | 'requesting' | 'monitoring' | 'done'
 
+function buildAIReviewMonitorResetKey(
+  providerId: string,
+  prId: number,
+  prUrl: string,
+  ownerRepo: { owner: string; repo: string } | null
+): string {
+  return `${providerId}:${prId}:${prUrl}:${ownerRepo?.owner ?? ''}:${ownerRepo?.repo ?? ''}`
+}
+
 function useResetAIReviewMonitorState(
   monitorResetKey: string,
   setReviewState: (state: AIReviewState) => void,
@@ -170,7 +179,7 @@ export function useAIReviewMonitor({
   const monitorCountRef = useRef(0)
   const monitorSessionRef = useRef(0)
   const requestSessionRef = useRef(0)
-  const monitorResetKey = `${provider.id}:${prId}:${prUrl}:${ownerRepo?.owner ?? ''}:${ownerRepo?.repo ?? ''}`
+  const monitorResetKey = buildAIReviewMonitorResetKey(provider.id, prId, prUrl, ownerRepo)
   useResetAIReviewMonitorState(monitorResetKey, setReviewState, setReviewBanner)
 
   useEffect(() => {

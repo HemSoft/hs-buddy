@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.774] - 2026-05-31
+
+### Changed
+
+- Reduce review hook complexity
+
 ## [0.1.773] - 2026-05-31
 
 ### Changed

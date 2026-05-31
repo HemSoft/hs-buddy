@@ -138,6 +138,48 @@ function useResetHeadShaWhenUnavailable(
   /* v8 ignore stop */
 }
 
+function resolvePRThreadOwner(
+  prOrg: string | undefined,
+  ownerRepo: ReturnType<typeof parseOwnerRepoFromUrl>
+): string | undefined {
+  return prOrg || ownerRepo?.owner
+}
+
+function canFetchPRHeadSha(owner: string | undefined, pr: PRDetailInfo): boolean {
+  return Boolean(owner && pr.repository && pr.id)
+}
+
+async function fetchPRThreadsResult(
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  ownerRepo: ReturnType<typeof parseOwnerRepoFromUrl>,
+  prId: number,
+  prRepository: string,
+  enqueueRef: React.RefObject<ReturnType<typeof useTaskQueue>['enqueue']>
+): Promise<PRThreadsResult> {
+  if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
+
+  return await enqueueRef.current(
+    /* v8 ignore start */
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, prId)
+      /* v8 ignore stop */
+    },
+    { name: `pr-threads-${prRepository}-${prId}` }
+  )
+}
+
+function finishPRThreadsRequest(
+  requestId: number,
+  latestThreadsRequestRef: React.RefObject<number>,
+  setLoading: (loading: boolean) => void
+) {
+  if (requestId === latestThreadsRequestRef.current) {
+    setLoading(false)
+  }
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -145,7 +187,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const latestThreadsRequestRef = useRef(0)
   const headShaRequestRef = useRef(0)
   const ownerRepo = useMemo(() => parseOwnerRepoFromUrl(pr.url), [pr.url])
-  const owner = pr.org || ownerRepo?.owner
+  const owner = resolvePRThreadOwner(pr.org, ownerRepo)
   const latestReview = useLatestPRReviewRun(owner, pr.repository, pr.id)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -153,7 +195,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const [showResolved, setShowResolved] = useState(true)
-  const canFetchHeadSha = Boolean(owner && pr.repository && pr.id)
+  const canFetchHeadSha = canFetchPRHeadSha(owner, pr)
   useResetHeadShaWhenUnavailable(canFetchHeadSha, currentHeadSha, setCurrentHeadSha)
 
   useEffect(() => {
@@ -194,17 +236,12 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     setLoading(true)
     setError(null)
     try {
-      if (!ownerRepo) throw new Error(PR_URL_PARSE_ERROR)
-
-      const result = await enqueueRef.current(
-        /* v8 ignore start */
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRThreads(ownerRepo.owner, ownerRepo.repo, pr.id)
-          /* v8 ignore stop */
-        },
-        { name: `pr-threads-${pr.repository}-${pr.id}` }
+      const result = await fetchPRThreadsResult(
+        accounts,
+        ownerRepo,
+        pr.id,
+        pr.repository,
+        enqueueRef
       )
 
       if (requestId !== latestThreadsRequestRef.current) {
@@ -216,18 +253,12 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
     } catch (err: unknown) {
       /* v8 ignore stop */
       /* v8 ignore start */
-      if (isAbortError(err)) return
+      if (isAbortError(err) || requestId !== latestThreadsRequestRef.current) return
       /* v8 ignore stop */
-
-      if (requestId !== latestThreadsRequestRef.current) {
-        return
-      }
 
       setError(getErrorMessage(err))
     } finally {
-      if (requestId === latestThreadsRequestRef.current) {
-        setLoading(false)
-      }
+      finishPRThreadsRequest(requestId, latestThreadsRequestRef, setLoading)
     }
   }, [accounts, pr.id, pr.repository, ownerRepo, enqueueRef])
 

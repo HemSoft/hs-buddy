@@ -91,22 +91,21 @@ function SidebarSection({
 }) {
   return (
     <div className="sidebar-section">
-      <div
+      <button
+        type="button"
         className="sidebar-section-header"
-        role="button"
-        tabIndex={0}
         onClick={() => onToggle(id)}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') onToggle(id)
         }}
       >
-        <div className="sidebar-section-title">
+        <span className="sidebar-section-title">
           {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span className="sidebar-section-icon">{icon}</span>
           <span>{label}</span>
           {badge != null && badge > 0 && <span className="ralph-sidebar-badge">{badge}</span>}
-        </div>
-      </div>
+        </span>
+      </button>
       {expanded && <div className="sidebar-section-items">{children}</div>}
     </div>
   )
@@ -130,10 +129,9 @@ function ScriptItem({
   onSelect: (id: string) => void
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={`ralph-sidebar-item ralph-sidebar-script ${selected ? 'selected' : ''}`}
-      role="button"
-      tabIndex={0}
       onClick={() => onSelect(id)}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') onSelect(id)
@@ -142,7 +140,7 @@ function ScriptItem({
     >
       {icon}
       <span>{label}</span>
-    </div>
+    </button>
   )
 }
 
@@ -216,10 +214,9 @@ function RunItem({
   const Icon = RUN_STATUS_ICON[run.status]
 
   return (
-    <div
+    <button
+      type="button"
       className={`ralph-sidebar-item ralph-sidebar-run ${selected ? 'selected' : ''}`}
-      role="button"
-      tabIndex={0}
       onClick={onClick}
       onKeyDown={e => {
         if (e.key === 'Enter' || e.key === ' ') onClick()
@@ -229,7 +226,7 @@ function RunItem({
       <Icon size={12} className={run.status === 'running' ? 'ralph-spin' : ''} />
       <span className="ralph-sidebar-run-label">{runDisplayName(run)}</span>
       <span className="ralph-sidebar-run-detail">{runDetail(run)}</span>
-    </div>
+    </button>
   )
 }
 
@@ -315,10 +312,9 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
         <h2>RALPH LOOPS</h2>
       </div>
       <div className="sidebar-panel-content">
-        <div
+        <button
+          type="button"
           className={dashClass}
-          role="button"
-          tabIndex={0}
           onClick={goToDashboard}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') goToDashboard()
@@ -326,7 +322,7 @@ export function RalphSidebar({ onItemSelect, selectedItem }: RalphSidebarProps) 
         >
           <LayoutGrid size={14} />
           <span>Dashboard</span>
-        </div>
+        </button>
         <SidebarSection
           id="core"
           icon={<Terminal size={16} />}

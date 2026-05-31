@@ -41,12 +41,11 @@ function WorkflowBadge({ run }: { run: NonNullable<RepoDetail['latestWorkflowRun
   const info = getWorkflowStatusInfo(run.status, run.conclusion)
   const StatusIcon = info.icon
   return (
-    <span
+    <button
+      type="button"
       className="repo-badge repo-badge-ci"
       style={{ borderColor: info.color, color: info.color }}
       title={`${run.name} — ${info.label}`}
-      role="button"
-      tabIndex={0}
       onClick={() => window.shell?.openExternal(run.url)}
       onKeyDown={onKeyboardActivate(() => window.shell?.openExternal(run.url))}
     >
@@ -54,7 +53,7 @@ function WorkflowBadge({ run }: { run: NonNullable<RepoDetail['latestWorkflowRun
       <StatusIcon size={12} className={info.label === 'Running' ? 'spin' : ''} />
       {/* v8 ignore stop */}
       {info.label}
-    </span>
+    </button>
   )
 }
 

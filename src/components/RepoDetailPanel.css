@@ -147,6 +147,7 @@
   border: 1px solid var(--border-primary);
   background: var(--bg-secondary);
   color: var(--text-secondary);
+  font-family: inherit;
   text-transform: capitalize;
 }
 

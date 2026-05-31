@@ -89,42 +89,42 @@ describe('PromptSection', () => {
 
   it('calls onToggleExpanded when header receives Enter keydown', () => {
     render(<PromptSection {...defaultProps} />)
-    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    const header = screen.getByText('Prompt').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
   })
 
   it('calls onToggleExpanded when header receives Space keydown', () => {
     render(<PromptSection {...defaultProps} />)
-    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    const header = screen.getByText('Prompt').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
   })
 
   it('does not call onToggleExpanded for non-activating keys on header', () => {
     render(<PromptSection {...defaultProps} />)
-    const header = screen.getByText('Prompt').closest('[role="button"]')!
+    const header = screen.getByText('Prompt').closest('button')!
     fireEvent.keyDown(header, { key: 'Tab' })
     expect(defaultProps.onToggleExpanded).not.toHaveBeenCalled()
   })
 
   it('calls onToggleExpanded when collapsed preview receives Enter keydown', () => {
     render(<PromptSection {...defaultProps} />)
-    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    const preview = screen.getByText(defaultProps.prompt).closest('button')!
     fireEvent.keyDown(preview, { key: 'Enter' })
     expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
   })
 
   it('calls onToggleExpanded when collapsed preview receives Space keydown', () => {
     render(<PromptSection {...defaultProps} />)
-    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    const preview = screen.getByText(defaultProps.prompt).closest('button')!
     fireEvent.keyDown(preview, { key: ' ' })
     expect(defaultProps.onToggleExpanded).toHaveBeenCalledOnce()
   })
 
   it('does not call onToggleExpanded for non-activating keys on preview', () => {
     render(<PromptSection {...defaultProps} />)
-    const preview = screen.getByText(defaultProps.prompt).closest('[role="button"]')!
+    const preview = screen.getByText(defaultProps.prompt).closest('button')!
     fireEvent.keyDown(preview, { key: 'Escape' })
     expect(defaultProps.onToggleExpanded).not.toHaveBeenCalled()
   })

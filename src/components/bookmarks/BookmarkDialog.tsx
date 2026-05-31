@@ -495,9 +495,9 @@ function BookmarkDialogShell({ isEdit, onClose, children }: BookmarkDialogShellP
       onMouseDown={handleOverlayMouseDown}
       onClick={handleOverlayClick}
     >
-      <div
+      <dialog
+        open
         className="bookmark-dialog"
-        role="dialog"
         aria-modal="true"
         aria-labelledby="bookmark-dialog-title"
       >
@@ -514,7 +514,7 @@ function BookmarkDialogShell({ isEdit, onClose, children }: BookmarkDialogShellP
           </button>
         </div>
         {children}
-      </div>
+      </dialog>
     </div>
   )
 }

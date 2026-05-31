@@ -168,6 +168,7 @@ function DropdownMenu({
   )
 
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Custom listbox supports styled options and keyboard focus; native datalist cannot match this behavior.
     <div
       ref={menuRef}
       id={listboxId}
@@ -178,6 +179,7 @@ function DropdownMenu({
         const enabledIdx = enabledIndexMap.get(opt.value) ?? -1
         const isFocused = enabledIdx >= 0 && enabledIdx === focusIndex
         return (
+          // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Option rows belong to the custom ARIA listbox above.
           <div
             key={opt.value}
             className={buildItemClassName(opt.value, value, opt.disabled, isFocused)}
@@ -424,6 +426,7 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
   const attrs = resolveContainerAttrs(isOpen, disabled, className, listboxId)
 
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- This is a composite ARIA combobox backed by a custom popup, not a native input.
     <div
       ref={containerRef}
       className={attrs.className}

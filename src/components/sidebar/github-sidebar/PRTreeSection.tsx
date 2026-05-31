@@ -32,7 +32,7 @@ function hasNewPullRequest(newUrls: ReadonlySet<string> | undefined, url: string
 
 function NewPRDot({ isNew }: { isNew: boolean }) {
   if (!isNew) return null
-  return <span className="sidebar-new-dot" title="New" role="img" aria-label="New pull request" />
+  return <span className="sidebar-new-dot" title="New" aria-hidden="true" />
 }
 
 function PRChildNodes({
@@ -53,11 +53,10 @@ function PRChildNodes({
         const childViewId = createPRDetailViewId(pr, node.key)
         const Icon = sectionIcons[node.key]
         return (
-          <div
+          <button
+            type="button"
             key={childViewId}
             className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
-            role="button"
-            tabIndex={0}
             onClick={() => onItemSelect(childViewId)}
             onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -70,7 +69,7 @@ function PRChildNodes({
               <Icon size={12} />
             </span>
             <span className="sidebar-item-label">{node.label}</span>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -114,7 +113,12 @@ function PRItemNode({
         >
           <DisclosureChevron isExpanded={isExpanded} size={12} />
         </button>
-        <button type="button" className="sidebar-item-main" onClick={() => onItemSelect(prViewId)}>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => onItemSelect(prViewId)}
+          aria-label={`Pull request #${pr.id}: ${pr.title}${isNew ? ', new pull request' : ''}`}
+        >
           <span className="sidebar-item-icon">
             <GitPullRequest size={12} />
           </span>
@@ -218,15 +222,14 @@ function NewCountBadge({
   const newCount = getNewCount(newCounts, itemId)
   if (newCount <= 0) return null
   return (
-    <span
+    <output
       className="sidebar-new-badge"
       title={getNewCountTitle(newCount)}
-      role="status"
       aria-live="polite"
       aria-label={getNewCountAriaLabel(newCount)}
     >
       {newCount}
-    </span>
+    </output>
   )
 }
 

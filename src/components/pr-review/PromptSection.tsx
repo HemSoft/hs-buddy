@@ -71,10 +71,9 @@ export function PromptSection({
 
   return (
     <div className="pr-review-prompt-section">
-      <div
+      <button
+        type="button"
         className="pr-review-prompt-header"
-        role="button"
-        tabIndex={0}
         onClick={onToggleExpanded}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -83,17 +82,17 @@ export function PromptSection({
           }
         }}
       >
-        <div className="pr-review-prompt-label">
+        <span className="pr-review-prompt-label">
           <FileText size={14} />
           <span>Prompt</span>
-        </div>
-        <div className="pr-review-prompt-toggle">
+        </span>
+        <span className="pr-review-prompt-toggle">
           <span className="pr-review-prompt-hint">
             {promptExpanded ? 'Click to collapse' : 'Click to edit'}
           </span>
           {promptExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-        </div>
-      </div>
+        </span>
+      </button>
       {promptExpanded ? (
         <div className="pr-review-prompt-editor">
           <textarea
@@ -114,11 +113,10 @@ export function PromptSection({
           />
         </div>
       ) : (
-        <div
+        <button
+          type="button"
           className="pr-review-prompt-preview"
           onClick={onToggleExpanded}
-          role="button"
-          tabIndex={0}
           onKeyDown={e => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
@@ -127,7 +125,7 @@ export function PromptSection({
           }}
         >
           {prompt.length > 200 ? prompt.slice(0, 200) + '…' : prompt}
-        </div>
+        </button>
       )}
     </div>
   )

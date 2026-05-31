@@ -43,7 +43,7 @@ function WorkerTypeSelector({
       <span id={workerTypeLabelId} className="form-label">
         Worker Type
       </span>
-      <div className="worker-type-selector" role="group" aria-labelledby={workerTypeLabelId}>
+      <fieldset className="worker-type-selector" aria-labelledby={workerTypeLabelId}>
         <button
           type="button"
           className={`worker-type-btn ${workerType === 'exec' ? 'active' : ''}`}
@@ -74,7 +74,7 @@ function WorkerTypeSelector({
           <span>Skill</span>
           <small>Claude skills</small>
         </button>
-      </div>
+      </fieldset>
       {isEditing && <div className="form-hint">Worker type cannot be changed after creation</div>}
     </div>
   )

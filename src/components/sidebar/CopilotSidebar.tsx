@@ -65,17 +65,16 @@ function SidebarNavItem({
   count?: number
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={`sidebar-item ${selectedItem === id ? 'selected' : ''}`}
-      role="button"
-      tabIndex={0}
       onClick={() => onItemSelect(id)}
       onKeyDown={onKeyboardActivate(() => onItemSelect(id))}
     >
       <span className="sidebar-item-icon">{icon}</span>
       <span className="sidebar-item-label">{label}</span>
       {count != null && count > 0 && <span className="sidebar-item-count">{count}</span>}
-    </div>
+    </button>
   )
 }
 
@@ -92,10 +91,9 @@ function RecentResultItem({
   const label = getRecentResultLabel(result)
 
   return (
-    <div
+    <button
+      type="button"
       className={`sidebar-item ${selectedItem === viewId ? 'selected' : ''}`}
-      role="button"
-      tabIndex={0}
       onClick={() => onItemSelect(viewId)}
       onKeyDown={onKeyboardActivate(() => onItemSelect(viewId))}
       title={result.prompt}
@@ -103,7 +101,7 @@ function RecentResultItem({
       <span className="sidebar-item-icon">{getStatusIcon(result.status, 12)}</span>
       <span className="sidebar-item-label">{label}</span>
       <span className="sidebar-repo-lang">{formatDistanceToNow(result.createdAt)}</span>
-    </div>
+    </button>
   )
 }
 
@@ -122,10 +120,9 @@ function PromptSection({
 }) {
   return (
     <div className="sidebar-section">
-      <div
+      <button
+        type="button"
         className="sidebar-section-header"
-        role="button"
-        tabIndex={0}
         onClick={() => toggleSection('copilot-prompt')}
         onKeyDown={onKeyboardActivate(() => toggleSection('copilot-prompt'))}
       >
@@ -136,7 +133,7 @@ function PromptSection({
           </span>
           <span>Prompt</span>
         </div>
-      </div>
+      </button>
       {isExpanded && (
         <div className="sidebar-section-items">
           <SidebarNavItem
@@ -189,10 +186,9 @@ function RecentResultsSection({
 }) {
   return (
     <div className="sidebar-section">
-      <div
+      <button
+        type="button"
         className="sidebar-section-header"
-        role="button"
-        tabIndex={0}
         onClick={() => toggleSection('copilot-results')}
         onKeyDown={onKeyboardActivate(() => toggleSection('copilot-results'))}
       >
@@ -203,7 +199,7 @@ function RecentResultsSection({
           </span>
           <span>Recent Results</span>
         </div>
-      </div>
+      </button>
       {isExpanded && (
         <div className="sidebar-section-items">
           {!recentResults || recentResults.length === 0 ? (

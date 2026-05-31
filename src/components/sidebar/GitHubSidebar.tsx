@@ -143,23 +143,24 @@ function SectionHeader({
   action?: React.ReactNode
 }) {
   return (
-    <div
-      className="sidebar-section-header"
-      role="button"
-      tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={e => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onToggle()
-        }
-      }}
-    >
-      <div className="sidebar-section-title">
-        {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-        <span className="sidebar-section-icon">{icon}</span>
-        <span>{label}</span>
-      </div>
+    <div className="sidebar-section-header">
+      <button
+        type="button"
+        className="sidebar-section-toggle"
+        onClick={onToggle}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+      >
+        <span className="sidebar-section-title">
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+          <span className="sidebar-section-icon">{icon}</span>
+          <span>{label}</span>
+        </span>
+      </button>
       {action}
     </div>
   )

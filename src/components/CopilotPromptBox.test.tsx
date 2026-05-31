@@ -273,13 +273,13 @@ describe('CopilotPromptBox', () => {
   it('opens result tab on recent result click', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
     const resultItem = screen.getByText('Review this PR')
-    fireEvent.click(resultItem.closest('[role="button"]')!)
+    fireEvent.click(resultItem.closest('button')!)
     expect(onOpenResult).toHaveBeenCalledWith('r1')
   })
 
   it('opens result tab on Enter keydown on recent result', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
-    const resultItem = screen.getByText('Review this PR').closest('[role="button"]')!
+    const resultItem = screen.getByText('Review this PR').closest('button')!
     fireEvent.keyDown(resultItem, { key: 'Enter' })
     expect(onOpenResult).toHaveBeenCalledWith('r1')
   })
@@ -342,14 +342,14 @@ describe('CopilotPromptBox', () => {
 
   it('opens result via Space key on recent result', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
-    const resultItem = screen.getByText('Review this PR').closest('[role="button"]')!
+    const resultItem = screen.getByText('Review this PR').closest('button')!
     fireEvent.keyDown(resultItem, { key: ' ' })
     expect(onOpenResult).toHaveBeenCalledWith('r1')
   })
 
   it('does not open result on unrelated key', () => {
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
-    const resultItem = screen.getByText('Review this PR').closest('[role="button"]')!
+    const resultItem = screen.getByText('Review this PR').closest('button')!
     fireEvent.keyDown(resultItem, { key: 'Tab' })
     expect(onOpenResult).not.toHaveBeenCalled()
   })
@@ -462,14 +462,14 @@ describe('CopilotPromptBox', () => {
 
   it('renders without onOpenResult and handles recent item click', () => {
     render(<CopilotPromptBox />)
-    const resultItem = screen.getByText('Review this PR').closest('[role="button"]')!
+    const resultItem = screen.getByText('Review this PR').closest('button')!
     fireEvent.click(resultItem)
     // Should not throw — optional chaining handles undefined onOpenResult
   })
 
   it('renders without onOpenResult and handles recent item keydown', () => {
     render(<CopilotPromptBox />)
-    const resultItem = screen.getByText('Review this PR').closest('[role="button"]')!
+    const resultItem = screen.getByText('Review this PR').closest('button')!
     fireEvent.keyDown(resultItem, { key: 'Enter' })
     // Should not throw — optional chaining handles undefined onOpenResult
   })

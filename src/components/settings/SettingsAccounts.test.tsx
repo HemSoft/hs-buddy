@@ -227,7 +227,7 @@ describe('SettingsAccounts account editing', () => {
   it('expands account item when clicked', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     // Should show the repo root editing panel
@@ -237,7 +237,7 @@ describe('SettingsAccounts account editing', () => {
   it('shows repoRoot input field when account is expanded', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     expect(screen.getByLabelText('Repository Root Path')).toBeInTheDocument()
@@ -246,7 +246,7 @@ describe('SettingsAccounts account editing', () => {
   it('collapses account item when X is clicked', async () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     // Verify it's expanded
@@ -268,7 +268,7 @@ describe('SettingsAccounts account editing', () => {
 
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     // Change the repo root value
@@ -297,7 +297,7 @@ describe('SettingsAccounts account editing', () => {
 
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     // Click Browse button
@@ -323,7 +323,7 @@ describe('SettingsAccounts account editing', () => {
   it('does not expand item when already editing', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     // Click again while editing should not collapse
@@ -357,7 +357,7 @@ describe('SettingsAccounts account editing', () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org' }]
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -371,7 +371,7 @@ describe('SettingsAccounts account editing', () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -398,7 +398,7 @@ describe('SettingsAccounts account editing', () => {
     })
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -433,7 +433,7 @@ describe('SettingsAccounts account editing', () => {
     })
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -468,7 +468,7 @@ describe('SettingsAccounts account editing', () => {
     })
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -503,7 +503,7 @@ describe('SettingsAccounts account editing', () => {
     })
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {
@@ -524,7 +524,7 @@ describe('SettingsAccounts account editing', () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org' }]
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    const accountItem = screen.getByText('test-user').closest('button')!
     fireEvent.keyDown(accountItem, { key: 'Enter' })
 
     expect(screen.getByLabelText('Repository Root Path')).toHaveValue('')
@@ -533,7 +533,7 @@ describe('SettingsAccounts account editing', () => {
   it('expands account item via Space key', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    const accountItem = screen.getByText('test-user').closest('button')!
     fireEvent.keyDown(accountItem, { key: ' ' })
 
     expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
@@ -542,7 +542,7 @@ describe('SettingsAccounts account editing', () => {
   it('does not expand via keyboard when already editing', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    const accountItem = screen.getByText('test-user').closest('button')!
     fireEvent.click(accountItem!)
 
     // Already editing — Enter should not collapse
@@ -553,7 +553,7 @@ describe('SettingsAccounts account editing', () => {
   it('edit panel stops keyDown propagation', () => {
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')!
+    const accountItem = screen.getByText('test-user').closest('button')!
     fireEvent.click(accountItem!)
 
     const editPanel = document.querySelector('.list-item-edit-panel')!
@@ -583,7 +583,7 @@ describe('SettingsAccounts account editing', () => {
     })
     render(<SettingsAccounts />)
 
-    const accountItem = screen.getByText('test-user').closest('.list-item-expandable')
+    const accountItem = screen.getByText('test-user').closest('button')
     fireEvent.click(accountItem!)
 
     await waitFor(() => {

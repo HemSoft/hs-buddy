@@ -127,6 +127,7 @@ export function PRItem({ pr, mode, approving, onApprove, onContextMenu, onOpen }
   const isApproving = approving === approveKey
 
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- The card opens like a link but also contains an approve button, so a native anchor would create invalid nested controls.
     <div
       className="pr-item"
       onClick={() => onOpen(pr)}

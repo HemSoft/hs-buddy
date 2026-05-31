@@ -444,7 +444,7 @@ describe('OrgRepoTree', () => {
       onItemSelect,
     })
     render(<OrgRepoTree {...props} />)
-    const orgHeader = screen.getByText('my-org').closest('[role="button"]')!
+    const orgHeader = screen.getByText('my-org').closest('button')!
     fireEvent.keyDown(orgHeader, { key: 'Tab' })
     expect(onItemSelect).not.toHaveBeenCalled()
   })
@@ -476,7 +476,7 @@ describe('OrgRepoTree', () => {
       onToggleOrgTeamGroup,
     })
     render(<OrgRepoTree {...props} />)
-    const teamsHeader = screen.getByText('Teams').closest('[role="button"]')!
+    const teamsHeader = screen.getByText('Teams').closest('button')!
     fireEvent.keyDown(teamsHeader, { key: 'Enter' })
     expect(onToggleOrgTeamGroup).toHaveBeenCalledWith('my-org')
   })
@@ -491,7 +491,7 @@ describe('OrgRepoTree', () => {
       onToggleOrgUserGroup,
     })
     render(<OrgRepoTree {...props} />)
-    const usersHeader = screen.getByText('Users').closest('[role="button"]')!
+    const usersHeader = screen.getByText('Users').closest('button')!
     fireEvent.keyDown(usersHeader, { key: 'Enter' })
     expect(onToggleOrgUserGroup).toHaveBeenCalledWith('my-org')
   })

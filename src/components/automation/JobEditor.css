@@ -175,6 +175,10 @@
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+  min-inline-size: 0;
+  padding: 0;
+  border: 0;
+  margin: 0;
 }
 
 .worker-type-btn {

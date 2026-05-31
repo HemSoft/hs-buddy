@@ -43,7 +43,7 @@ describe('ExpandableFileList', () => {
 
   it('expands a file on click to show diff', () => {
     render(<ExpandableFileList files={mockFiles} resetKey="test-1" />)
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.click(header)
     expect(screen.getByRole('presentation')).toBeInTheDocument()
     expect(screen.getByText('+import foo')).toBeInTheDocument()
@@ -51,21 +51,21 @@ describe('ExpandableFileList', () => {
 
   it('expands a file on Enter key', () => {
     render(<ExpandableFileList files={mockFiles} resetKey="test-1" />)
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(screen.getByRole('presentation')).toBeInTheDocument()
   })
 
   it('expands a file on Space key', () => {
     render(<ExpandableFileList files={mockFiles} resetKey="test-1" />)
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     expect(screen.getByRole('presentation')).toBeInTheDocument()
   })
 
   it('shows no-patch fallback message for files without patch', () => {
     render(<ExpandableFileList files={mockFiles} resetKey="test-1" />)
-    const header = screen.getByText('src/utils.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/utils.ts').closest('button')!
     fireEvent.click(header)
     expect(screen.getByText(/did not provide a patch preview/)).toBeInTheDocument()
   })
@@ -95,7 +95,7 @@ describe('ExpandableFileList', () => {
 
   it('collapses all files when resetKey changes', () => {
     const { rerender } = render(<ExpandableFileList files={mockFiles} resetKey="key-1" />)
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.click(header)
     expect(screen.getByRole('presentation')).toBeInTheDocument()
 

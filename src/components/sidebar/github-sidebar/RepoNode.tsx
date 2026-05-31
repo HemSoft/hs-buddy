@@ -109,15 +109,18 @@ function RepoHeader({
   return (
     <div
       className="sidebar-item sidebar-item-disclosure sidebar-repo-item"
-      role="button"
-      tabIndex={0}
-      onClick={() => onToggleRepo(org, repo.name)}
-      onKeyDown={event => handleItemKeyDown(event, () => onToggleRepo(org, repo.name))}
       title={repo.description || repo.fullName}
     >
-      <DisclosureIcons expanded={isRepoExpanded} />
-      <span className="sidebar-item-label">{repo.name}</span>
-      {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
+      <button
+        type="button"
+        className="sidebar-item-main"
+        onClick={() => onToggleRepo(org, repo.name)}
+        onKeyDown={event => handleItemKeyDown(event, () => onToggleRepo(org, repo.name))}
+      >
+        <DisclosureIcons expanded={isRepoExpanded} />
+        <span className="sidebar-item-label">{repo.name}</span>
+        {repo.language && <span className="sidebar-repo-lang">{repo.language}</span>}
+      </button>
       <BookmarkButton
         isBookmarked={isBookmarked}
         onClick={event => onBookmarkToggle(event, org, repo.name, repo.url)}
@@ -155,10 +158,9 @@ function RepoOverviewItem({ repoKey, selectedItem, onItemSelect }: RepoOverviewI
   const detailViewId = `repo-detail:${repoKey}`
 
   return (
-    <div
+    <button
+      type="button"
       className={`sidebar-item sidebar-repo-child ${selectedItem === detailViewId ? 'selected' : ''}`}
-      role="button"
-      tabIndex={0}
       onClick={() => onItemSelect(detailViewId)}
       onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(detailViewId))}
     >
@@ -166,7 +168,7 @@ function RepoOverviewItem({ repoKey, selectedItem, onItemSelect }: RepoOverviewI
         <FileText size={12} />
       </span>
       <span className="sidebar-item-label">Overview</span>
-    </div>
+    </button>
   )
 }
 
@@ -225,14 +227,13 @@ function CommitsSectionContent({
         {commits.slice(0, 10).map(commit => {
           const childViewId = `repo-commit:${repoKey}/${commit.sha}`
           return (
-            <div
+            <button
+              type="button"
               key={childViewId}
               className={sidebarItemClass(
                 'sidebar-item sidebar-pr-child',
                 selectedItem === childViewId
               )}
-              role="button"
-              tabIndex={0}
               onClick={() => onItemSelect(childViewId)}
               onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
               title={commit.message}
@@ -242,7 +243,7 @@ function CommitsSectionContent({
               </span>
               <span className="sidebar-item-label">{commit.message}</span>
               <span className="sidebar-pr-meta">{commit.sha.slice(0, 7)}</span>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -274,23 +275,10 @@ function RepoCommitsSection({
           selectedItem === commitViewId
         )}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={() => {
-          onItemSelect(commitViewId)
-          onToggleRepoCommitGroup(org, repoName)
-        }}
-        onKeyDown={event =>
-          handleItemKeyDown(event, () => {
-            onItemSelect(commitViewId)
-            onToggleRepoCommitGroup(org, repoName)
-          })
-        }
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggleRepoCommitGroup(org, repoName)
@@ -300,12 +288,27 @@ function RepoCommitsSection({
           }
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <GitCommit size={12} />
-        </span>
-        <span className="sidebar-item-label">Commits</span>
-        <CommitCountBadge loading={loading} count={commits.length} />
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => {
+            onItemSelect(commitViewId)
+            onToggleRepoCommitGroup(org, repoName)
+          }}
+          onKeyDown={event =>
+            handleItemKeyDown(event, () => {
+              onItemSelect(commitViewId)
+              onToggleRepoCommitGroup(org, repoName)
+            })
+          }
+        >
+          <span className="sidebar-item-icon">
+            <GitCommit size={12} />
+          </span>
+          <span className="sidebar-item-label">Commits</span>
+          <CommitCountBadge loading={loading} count={commits.length} />
+        </button>
       </div>
       <CommitsSectionContent
         isExpanded={isExpanded}
@@ -356,11 +359,10 @@ function IssueListItems({
       {issues.slice(0, 15).map(issue => {
         const issueViewId = `repo-issue:${repoKey}/${issue.number}`
         return (
-          <div
+          <button
+            type="button"
             key={`${keyPrefix}-${issue.number}`}
             className={`sidebar-item sidebar-pr-child sidebar-issue-leaf ${selectedItem === issueViewId ? 'selected' : ''}`}
-            role="button"
-            tabIndex={0}
             onClick={() => onItemSelect(issueViewId)}
             onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(issueViewId))}
             title={issue.title}
@@ -371,7 +373,7 @@ function IssueListItems({
             <span className="sidebar-item-label">
               #{issue.number} {issue.title}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -493,15 +495,10 @@ function IssueStateGroup({
         /* v8 ignore start */
         className={`sidebar-item sidebar-pr-child ${selectedItem === viewId ? 'selected' : ''}`}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggle(org, repoName, state)
@@ -509,17 +506,24 @@ function IssueStateGroup({
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <Icon size={11} />
-        </span>
-        <span className="sidebar-item-label">{label}</span>
-        <IssueStateCountBadge
-          isOpen={state === 'open'}
-          isLoading={isLoading}
-          isCountLoading={isCountLoading}
-          counts={counts}
-        />
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={handleClick}
+          onKeyDown={event => handleItemKeyDown(event, handleClick)}
+        >
+          <span className="sidebar-item-icon">
+            <Icon size={11} />
+          </span>
+          <span className="sidebar-item-label">{label}</span>
+          <IssueStateCountBadge
+            isOpen={state === 'open'}
+            isLoading={isLoading}
+            isCountLoading={isCountLoading}
+            counts={counts}
+          />
+        </button>
       </div>
       <IssueStateGroupExpanded
         isExpanded={isExpanded}
@@ -583,15 +587,10 @@ function RepoIssuesSection({
           isSelected
         )}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggleRepoIssueGroup(org, repoName)
@@ -601,12 +600,19 @@ function RepoIssuesSection({
           }
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <CircleDot size={12} />
-        </span>
-        <span className="sidebar-item-label">Issues</span>
-        <SectionCountBadge isCountLoading={isCountLoading} count={counts?.issues} />
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={handleClick}
+          onKeyDown={event => handleItemKeyDown(event, handleClick)}
+        >
+          <span className="sidebar-item-icon">
+            <CircleDot size={12} />
+          </span>
+          <span className="sidebar-item-label">Issues</span>
+          <SectionCountBadge isCountLoading={isCountLoading} count={counts?.issues} />
+        </button>
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-repo-pr-tree">
@@ -806,15 +812,10 @@ function PRStateGroup({
         /* v8 ignore start */
         className={sidebarItemClass('sidebar-item sidebar-pr-child', selectedItem === viewId)}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggle(org, repoName, state)
@@ -822,18 +823,25 @@ function PRStateGroup({
           onKeyDown={event => handleItemKeyDown(event, () => onToggle(org, repoName, state), true)}
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <Icon size={11} />
-        </span>
-        <span className="sidebar-item-label">{label}</span>
-        <PRStateCountBadge
-          isOpen={isOpen}
-          isLoading={isLoading}
-          isCountLoading={isCountLoading}
-          counts={counts}
-          closedCount={prs.length}
-        />
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={handleClick}
+          onKeyDown={event => handleItemKeyDown(event, handleClick)}
+        >
+          <span className="sidebar-item-icon">
+            <Icon size={11} />
+          </span>
+          <span className="sidebar-item-label">{label}</span>
+          <PRStateCountBadge
+            isOpen={isOpen}
+            isLoading={isLoading}
+            isCountLoading={isCountLoading}
+            counts={counts}
+            closedCount={prs.length}
+          />
+        </button>
       </div>
       <PRStateGroupContent
         isExpanded={isExpanded}
@@ -924,15 +932,10 @@ function RepoPullRequestsSection({
           isSelected
         )}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={handleClick}
-        onKeyDown={event => handleItemKeyDown(event, handleClick)}
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggleRepoPRGroup(org, repoName)
@@ -942,17 +945,24 @@ function RepoPullRequestsSection({
           }
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <GitPullRequest size={12} />
-        </span>
-        <span className="sidebar-item-label">Pull Requests</span>
-        <SectionCountBadge isCountLoading={isCountLoading} count={counts?.prs} />
-        <UpdatedAgeLabel
-          isCountLoading={isCountLoading}
-          label={repoCountsUpdatedLabel}
-          refreshTick={refreshTick}
-        />
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={handleClick}
+          onKeyDown={event => handleItemKeyDown(event, handleClick)}
+        >
+          <span className="sidebar-item-icon">
+            <GitPullRequest size={12} />
+          </span>
+          <span className="sidebar-item-label">Pull Requests</span>
+          <SectionCountBadge isCountLoading={isCountLoading} count={counts?.prs} />
+          <UpdatedAgeLabel
+            isCountLoading={isCountLoading}
+            label={repoCountsUpdatedLabel}
+            refreshTick={refreshTick}
+          />
+        </button>
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-repo-pr-tree">
@@ -1059,17 +1069,10 @@ function RepoSFLSection({
 
   return (
     <>
-      <div
-        className="sidebar-item sidebar-item-disclosure sidebar-repo-child"
-        role="button"
-        tabIndex={0}
-        onClick={() => onToggleSFLGroup(org, repoName)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleSFLGroup(org, repoName))}
-      >
-        <span
+      <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggleSFLGroup(org, repoName)
@@ -1077,14 +1080,21 @@ function RepoSFLSection({
           onKeyDown={event => handleItemKeyDown(event, () => onToggleSFLGroup(org, repoName), true)}
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <Activity size={12} />
-        </span>
-        <span className="sidebar-item-label">SFL Loop</span>
-        {/* v8 ignore start */}
-        <SFLStatusBadge isLoading={isLoading} overallStatus={sflStatus.overallStatus} />
-        {/* v8 ignore stop */}
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => onToggleSFLGroup(org, repoName)}
+          onKeyDown={event => handleItemKeyDown(event, () => onToggleSFLGroup(org, repoName))}
+        >
+          <span className="sidebar-item-icon">
+            <Activity size={12} />
+          </span>
+          <span className="sidebar-item-label">SFL Loop</span>
+          {/* v8 ignore start */}
+          <SFLStatusBadge isLoading={isLoading} overallStatus={sflStatus.overallStatus} />
+          {/* v8 ignore stop */}
+        </button>
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-sfl-tree">
@@ -1162,11 +1172,10 @@ function RalphRunItem({
   const Icon = RALPH_STATUS_ICON[run.status]
   const viewId = `ralph-run:${run.runId}`
   return (
-    <div
+    <button
+      type="button"
       key={run.runId}
       className={sidebarItemClass('sidebar-item sidebar-job-item', selectedItem === viewId)}
-      role="button"
-      tabIndex={0}
       onClick={() => onItemSelect(viewId)}
       onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(viewId))}
       title={`${run.config.scriptType} — ${run.status}`}
@@ -1174,7 +1183,7 @@ function RalphRunItem({
       <Icon size={11} className={run.status === 'running' ? 'spin' : ''} />
       <span className="sidebar-item-label">{run.config.scriptType}</span>
       <span className="sidebar-pr-meta">{getRalphRunDetail(run)}</span>
-    </div>
+    </button>
   )
 }
 
@@ -1196,17 +1205,10 @@ function RepoRalphSection({
 
   return (
     <>
-      <div
-        className="sidebar-item sidebar-item-disclosure sidebar-repo-child"
-        role="button"
-        tabIndex={0}
-        onClick={() => onToggleRalphGroup(org, repoName)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName))}
-      >
-        <span
+      <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onToggleRalphGroup(org, repoName)
@@ -1216,12 +1218,19 @@ function RepoRalphSection({
           }
         >
           <DisclosureChevron expanded={isExpanded} />
-        </span>
-        <span className="sidebar-item-icon">
-          <RefreshCw size={12} />
-        </span>
-        <span className="sidebar-item-label">Ralph Loops</span>
-        {activeRuns.length > 0 && <span className="sidebar-item-count">{activeRuns.length}</span>}
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => onToggleRalphGroup(org, repoName)}
+          onKeyDown={event => handleItemKeyDown(event, () => onToggleRalphGroup(org, repoName))}
+        >
+          <span className="sidebar-item-icon">
+            <RefreshCw size={12} />
+          </span>
+          <span className="sidebar-item-label">Ralph Loops</span>
+          {activeRuns.length > 0 && <span className="sidebar-item-count">{activeRuns.length}</span>}
+        </button>
       </div>
       {isExpanded && (
         <div className="sidebar-job-tree sidebar-ralph-tree">
@@ -1242,16 +1251,15 @@ function RepoRalphSection({
                 onItemSelect={onItemSelect}
               />
             ))}
-            <div
+            <button
+              type="button"
               className="sidebar-item sidebar-job-item"
-              role="button"
-              tabIndex={0}
               onClick={handleLaunch}
               onKeyDown={event => handleItemKeyDown(event, handleLaunch)}
             >
               <Play size={11} />
               <span className="sidebar-item-label">Launch…</span>
-            </div>
+            </button>
           </div>
         </div>
       )}
@@ -1286,17 +1294,12 @@ function renderPRNode(
         /* v8 ignore start */
         className={`sidebar-item sidebar-item-disclosure sidebar-pr-item sidebar-repo-pr-item ${isSelected ? 'selected' : ''}`}
         /* v8 ignore stop */
-        role="button"
-        tabIndex={0}
-        onClick={() => onItemSelect(prViewId)}
-        onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(prViewId))}
         onContextMenu={event => onContextMenu(event, pr)}
         title={pr.title}
       >
-        <span
+        <button
+          type="button"
           className="sidebar-item-chevron"
-          role="button"
-          tabIndex={0}
           onClick={event => {
             event.stopPropagation()
             onTogglePRNode(prViewId)
@@ -1304,12 +1307,19 @@ function renderPRNode(
           onKeyDown={event => handleItemKeyDown(event, () => onTogglePRNode(prViewId), true)}
         >
           <DisclosureChevron expanded={expandedPRNodes.has(prViewId)} />
-        </span>
-        <span className="sidebar-item-icon">{icon}</span>
-        <span className="sidebar-item-label">
-          #{pr.id} {pr.title}
-        </span>
-        <span className="sidebar-pr-meta">{pr.repository}</span>
+        </button>
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => onItemSelect(prViewId)}
+          onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(prViewId))}
+        >
+          <span className="sidebar-item-icon">{icon}</span>
+          <span className="sidebar-item-label">
+            #{pr.id} {pr.title}
+          </span>
+          <span className="sidebar-pr-meta">{pr.repository}</span>
+        </button>
       </div>
       {expandedPRNodes.has(prViewId) && (
         <div className="sidebar-pr-children">
@@ -1317,13 +1327,12 @@ function renderPRNode(
             const childViewId = createPRDetailViewId(pr, node.key)
             const Icon = sectionIcons[node.key]
             return (
-              <div
+              <button
+                type="button"
                 key={childViewId}
                 /* v8 ignore start */
                 className={`sidebar-item sidebar-pr-child ${selectedItem === childViewId ? 'selected' : ''}`}
                 /* v8 ignore stop */
-                role="button"
-                tabIndex={0}
                 onClick={() => onItemSelect(childViewId)}
                 onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(childViewId))}
               >
@@ -1331,7 +1340,7 @@ function renderPRNode(
                   <Icon size={12} />
                 </span>
                 <span className="sidebar-item-label">{node.label}</span>
-              </div>
+              </button>
             )
           })}
         </div>

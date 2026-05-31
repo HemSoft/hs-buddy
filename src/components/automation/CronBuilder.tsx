@@ -234,7 +234,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         <span id={cronFreqLabelId} className="cron-label">
           Run Frequency
         </span>
-        <div className="frequency-buttons" role="group" aria-labelledby={cronFreqLabelId}>
+        <fieldset className="frequency-buttons" aria-labelledby={cronFreqLabelId}>
           <button
             type="button"
             className={freqBtnClass(frequency, 'minute')}
@@ -277,7 +277,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
           >
             Custom
           </button>
-        </div>
+        </fieldset>
       </div>
       <div className="cron-options">
         <CronOptions

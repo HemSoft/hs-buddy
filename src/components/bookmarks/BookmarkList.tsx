@@ -16,7 +16,7 @@ interface BookmarkCardProps {
 }
 
 function handleBookmarkCardKeyDown(
-  e: React.KeyboardEvent<HTMLDivElement>,
+  e: React.KeyboardEvent<HTMLElement>,
   bookmark: Bookmark,
   onOpen: (bookmark: Bookmark) => void
 ) {
@@ -56,7 +56,7 @@ function BookmarkCardIcon({ faviconUrl }: { faviconUrl?: string }) {
 
 function BookmarkDescription({ description }: { description?: string }) {
   if (!description) return null
-  return <div className="bookmark-card-desc">{description}</div>
+  return <span className="bookmark-card-desc">{description}</span>
 }
 
 function BookmarkTags({ tags }: { tags?: string[] }) {
@@ -71,32 +71,33 @@ function BookmarkTags({ tags }: { tags?: string[] }) {
 
 function BookmarkMeta({ bookmark }: { bookmark: Bookmark }) {
   return (
-    <div className="bookmark-card-meta">
+    <span className="bookmark-card-meta">
       <span className="bookmark-card-category" title={bookmark.category}>
         <FolderOpen size={12} />
         {getBookmarkCategoryLabel(bookmark.category)}
       </span>
       <BookmarkTags tags={bookmark.tags} />
-    </div>
+    </span>
   )
 }
 
 function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: BookmarkCardProps) {
   return (
-    <div
-      className="bookmark-card"
-      onClick={() => onOpen(bookmark)}
-      onKeyDown={e => handleBookmarkCardKeyDown(e, bookmark, onOpen)}
-      role="button"
-      tabIndex={0}
-    >
-      <BookmarkCardIcon faviconUrl={bookmark.faviconUrl} />
-      <div className="bookmark-card-content">
-        <div className="bookmark-card-title">{bookmark.title}</div>
-        <div className="bookmark-card-url">{bookmark.url}</div>
-        <BookmarkDescription description={bookmark.description} />
-        <BookmarkMeta bookmark={bookmark} />
-      </div>
+    <div className="bookmark-card">
+      <button
+        type="button"
+        className="bookmark-card-main"
+        onClick={() => onOpen(bookmark)}
+        onKeyDown={e => handleBookmarkCardKeyDown(e, bookmark, onOpen)}
+      >
+        <BookmarkCardIcon faviconUrl={bookmark.faviconUrl} />
+        <span className="bookmark-card-content">
+          <span className="bookmark-card-title">{bookmark.title}</span>
+          <span className="bookmark-card-url">{bookmark.url}</span>
+          <BookmarkDescription description={bookmark.description} />
+          <BookmarkMeta bookmark={bookmark} />
+        </span>
+      </button>
       <div className="bookmark-card-actions">
         <button
           type="button"

@@ -183,9 +183,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 10px 14px;
+  border: none;
   cursor: pointer;
   background: var(--bg-secondary);
+  color: inherit;
+  font: inherit;
+  text-align: left;
   transition: background 0.1s;
   user-select: none;
 }
@@ -218,9 +223,14 @@
 }
 
 .pr-review-prompt-preview {
+  display: block;
+  width: 100%;
   padding: 10px 14px;
+  border: none;
+  background: transparent;
   font-size: 12px;
   color: var(--text-secondary);
+  text-align: left;
   line-height: 1.5;
   cursor: pointer;
   transition: background 0.1s;

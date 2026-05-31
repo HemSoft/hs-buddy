@@ -9,9 +9,12 @@
 }
 
 .bookmark-dialog {
+  margin: 0;
+  padding: 0;
   background: var(--bg-secondary);
   border: 1px solid var(--border-secondary);
   border-radius: 8px;
+  color: inherit;
   width: 480px;
   max-width: 90vw;
   max-height: 85vh;

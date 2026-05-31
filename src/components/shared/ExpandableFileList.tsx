@@ -82,39 +82,40 @@ function ExpandableFileCard({
     <div
       className={`repo-detail-card repo-commit-file-card ${isExpanded ? 'repo-commit-file-card-expanded' : 'repo-commit-file-card-collapsed'}`}
     >
-      <div
-        className="repo-commit-file-header repo-commit-file-toggle"
-        onClick={() => toggleFile(file.filename)}
-        onKeyDown={event => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            toggleFile(file.filename)
-          }
-        }}
-        role="button"
-        tabIndex={0}
-        aria-expanded={isExpanded}
-      >
-        <div className="repo-commit-file-header-main">
-          <span className="repo-commit-file-chevron">
-            <FileChevron isExpanded={isExpanded} />
+      <div className="repo-commit-file-header">
+        <button
+          type="button"
+          className="repo-commit-file-toggle"
+          onClick={() => toggleFile(file.filename)}
+          onKeyDown={event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              toggleFile(file.filename)
+            }
+          }}
+          aria-expanded={isExpanded}
+        >
+          <span className="repo-commit-file-header-main">
+            <span className="repo-commit-file-chevron">
+              <FileChevron isExpanded={isExpanded} />
+            </span>
+            <span className={`repo-commit-file-status repo-commit-file-status-${file.status}`}>
+              {formatFileStatus(file.status)}
+            </span>
+            <span className="repo-commit-file-title">{file.filename}</span>
+            <PreviousFilenameLabel previousFilename={file.previousFilename} />
           </span>
-          <span className={`repo-commit-file-status repo-commit-file-status-${file.status}`}>
-            {formatFileStatus(file.status)}
+          <span className="repo-commit-file-header-meta">
+            <span className="repo-commit-file-stat repo-commit-file-stat-added">
+              +{file.additions}
+            </span>
+            <span className="repo-commit-file-stat repo-commit-file-stat-removed">
+              -{file.deletions}
+            </span>
+            <span className="repo-commit-file-stat">{file.changes} changes</span>
           </span>
-          <h3>{file.filename}</h3>
-          <PreviousFilenameLabel previousFilename={file.previousFilename} />
-        </div>
-        <div className="repo-commit-file-header-meta">
-          <span className="repo-commit-file-stat repo-commit-file-stat-added">
-            +{file.additions}
-          </span>
-          <span className="repo-commit-file-stat repo-commit-file-stat-removed">
-            -{file.deletions}
-          </span>
-          <span className="repo-commit-file-stat">{file.changes} changes</span>
-          <OpenBlobButton blobUrl={file.blobUrl} />
-        </div>
+        </button>
+        <OpenBlobButton blobUrl={file.blobUrl} />
       </div>
 
       {isExpanded ? <DiffPatchView file={file} /> : null}

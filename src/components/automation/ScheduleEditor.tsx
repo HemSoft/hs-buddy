@@ -395,7 +395,7 @@ function ScheduleEditorForm({
           <span id={scheduleCronLabelId} className="form-label">
             Schedule
           </span>
-          <div role="group" aria-labelledby={scheduleCronLabelId}>
+          <div>
             <CronBuilder
               value={cron}
               onChange={value => dispatch({ type: 'SET_FIELD', field: 'cron', value })}

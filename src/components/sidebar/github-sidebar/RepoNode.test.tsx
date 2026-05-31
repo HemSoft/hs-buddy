@@ -659,7 +659,7 @@ describe('RepoNode component', () => {
   it('handles keyboard Enter on repo header', () => {
     const onToggleRepo = vi.fn()
     render(<RepoNode {...baseProps} onToggleRepo={onToggleRepo} />)
-    const header = screen.getByText('hs-buddy').closest('[role="button"]')!
+    const header = screen.getByText('hs-buddy').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(onToggleRepo).toHaveBeenCalledWith('org', 'hs-buddy')
   })
@@ -933,7 +933,7 @@ describe('RepoNode component', () => {
     const openRow = screen.getByText('Open', {
       selector: '.sidebar-repo-pr-row ~ .sidebar-job-tree .sidebar-item-label',
     })
-    fireEvent.click(openRow.closest('.sidebar-pr-child')!)
+    fireEvent.click(openRow.closest('button')!)
     expect(onToggleRepoPRStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'open')
   })
 
@@ -956,7 +956,7 @@ describe('RepoNode component', () => {
     // The Issues section, when expanded, shows Open and Closed sub-items.
     // Click on "Open" to trigger state group toggle
     const openItem = screen.getByText('Open')
-    fireEvent.click(openItem.closest('.sidebar-pr-child')!)
+    fireEvent.click(openItem.closest('button')!)
     expect(onToggleRepoIssueStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'open')
   })
 
@@ -1014,7 +1014,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const commitEl = screen.getByText('Keyboard commit').closest('[role="button"]')!
+    const commitEl = screen.getByText('Keyboard commit').closest('button')!
     fireEvent.keyDown(commitEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-commit:org/hs-buddy/def9876543210')
   })
@@ -1265,7 +1265,7 @@ describe('RepoNode component', () => {
     const expanded = new Set(['org/hs-buddy'])
     const onItemSelect = vi.fn()
     render(<RepoNode {...baseProps} expandedRepos={expanded} onItemSelect={onItemSelect} />)
-    const overview = screen.getByText('Overview').closest('[role="button"]')!
+    const overview = screen.getByText('Overview').closest('button')!
     fireEvent.keyDown(overview, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-detail:org/hs-buddy')
   })
@@ -1282,7 +1282,7 @@ describe('RepoNode component', () => {
         onToggleRepoCommitGroup={onToggleRepoCommitGroup}
       />
     )
-    const commits = screen.getByText('Commits').closest('[role="button"]')!
+    const commits = screen.getByText('Commits').closest('button')!
     fireEvent.keyDown(commits, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-commits:org/hs-buddy')
     expect(onToggleRepoCommitGroup).toHaveBeenCalledWith('org', 'hs-buddy')
@@ -1364,7 +1364,7 @@ describe('RepoNode component', () => {
       />
     )
     const closedItem = screen.getByText('Closed')
-    const closedRow = closedItem.closest('.sidebar-pr-child')!
+    const closedRow = closedItem.closest('button')!
     fireEvent.keyDown(closedRow, { key: 'Enter' })
     expect(onToggleRepoIssueStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'closed')
   })
@@ -1388,7 +1388,7 @@ describe('RepoNode component', () => {
     // The "Closed" item inside the PR tree
     const closedItems = screen.getAllByText('Closed')
     // The last "Closed" should be in the PR tree (Issues has one too)
-    const prClosedRow = closedItems[closedItems.length - 1].closest('.sidebar-pr-child')!
+    const prClosedRow = closedItems[closedItems.length - 1].closest('button')!
     fireEvent.keyDown(prClosedRow, { key: 'Enter' })
     expect(onToggleRepoPRStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'closed')
   })
@@ -1648,7 +1648,7 @@ describe('RepoNode component', () => {
         onToggleRepoIssueGroup={onToggleRepoIssueGroup}
       />
     )
-    const issuesRow = screen.getByText('Issues').closest('[role="button"]')!
+    const issuesRow = screen.getByText('Issues').closest('button')!
     fireEvent.keyDown(issuesRow, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-issues:org/hs-buddy')
     expect(onToggleRepoIssueGroup).toHaveBeenCalledWith('org', 'hs-buddy')
@@ -1688,7 +1688,7 @@ describe('RepoNode component', () => {
         onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
       />
     )
-    const openRow = screen.getByText('Open').closest('.sidebar-pr-child')!
+    const openRow = screen.getByText('Open').closest('button')!
     fireEvent.keyDown(openRow, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-issues:org/hs-buddy')
     expect(onToggleRepoIssueStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'open')
@@ -1748,7 +1748,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const issueEl = screen.getByText(/#5 Keyboard issue/).closest('[role="button"]')!
+    const issueEl = screen.getByText(/#5 Keyboard issue/).closest('button')!
     fireEvent.keyDown(issueEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-issue:org/hs-buddy/5')
   })
@@ -1771,7 +1771,7 @@ describe('RepoNode component', () => {
         onToggleRepoIssueStateGroup={onToggleRepoIssueStateGroup}
       />
     )
-    const closedRow = screen.getByText('Closed').closest('.sidebar-pr-child')!
+    const closedRow = screen.getByText('Closed').closest('button')!
     fireEvent.click(closedRow)
     expect(onItemSelect).toHaveBeenCalledWith('repo-issues-closed:org/hs-buddy')
     expect(onToggleRepoIssueStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'closed')
@@ -1853,7 +1853,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const issueEl = screen.getByText(/#20 Closed keyboard issue/).closest('[role="button"]')!
+    const issueEl = screen.getByText(/#20 Closed keyboard issue/).closest('button')!
     fireEvent.keyDown(issueEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-issue:org/hs-buddy/20')
   })
@@ -1870,7 +1870,7 @@ describe('RepoNode component', () => {
         onToggleRepoPRGroup={onToggleRepoPRGroup}
       />
     )
-    const prRow = screen.getByText('Pull Requests').closest('[role="button"]')!
+    const prRow = screen.getByText('Pull Requests').closest('button')!
     fireEvent.keyDown(prRow, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-prs:org/hs-buddy')
     expect(onToggleRepoPRGroup).toHaveBeenCalledWith('org', 'hs-buddy')
@@ -1906,7 +1906,7 @@ describe('RepoNode component', () => {
         onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
       />
     )
-    const openRow = screen.getByText('Open').closest('.sidebar-pr-child')!
+    const openRow = screen.getByText('Open').closest('button')!
     fireEvent.keyDown(openRow, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('repo-prs:org/hs-buddy')
     expect(onToggleRepoPRStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'open')
@@ -1974,7 +1974,7 @@ describe('RepoNode component', () => {
         onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
       />
     )
-    const closedRow = screen.getByText('Closed').closest('.sidebar-pr-child')!
+    const closedRow = screen.getByText('Closed').closest('button')!
     fireEvent.click(closedRow)
     expect(onItemSelect).toHaveBeenCalledWith('repo-prs-closed:org/hs-buddy')
     expect(onToggleRepoPRStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'closed')
@@ -2042,7 +2042,7 @@ describe('RepoNode component', () => {
         onToggleSFLGroup={onToggleSFLGroup}
       />
     )
-    const sflRow = screen.getByText('SFL Loop').closest('[role="button"]')!
+    const sflRow = screen.getByText('SFL Loop').closest('button')!
     fireEvent.keyDown(sflRow, { key: 'Enter' })
     expect(onToggleSFLGroup).toHaveBeenCalledWith('org', 'hs-buddy')
   })
@@ -2105,7 +2105,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const prItem = screen.getByText(/#100 Click PR/).closest('.sidebar-pr-item')!
+    const prItem = screen.getByText(/#100 Click PR/).closest('button')!
     fireEvent.click(prItem)
     expect(onItemSelect).toHaveBeenCalledWith(createPRDetailViewId(pr))
   })
@@ -2144,7 +2144,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const prItem = screen.getByText(/#100 Key PR/).closest('.sidebar-pr-item')!
+    const prItem = screen.getByText(/#100 Key PR/).closest('button')!
     fireEvent.keyDown(prItem, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith(createPRDetailViewId(pr))
   })
@@ -2225,7 +2225,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const conversationEl = screen.getByText('Conversation').closest('[role="button"]')!
+    const conversationEl = screen.getByText('Conversation').closest('button')!
     fireEvent.keyDown(conversationEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith(expect.stringContaining('conversation'))
   })
@@ -2287,7 +2287,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('[role="button"]')!
+    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('button')!
     fireEvent.click(runItem)
     expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-completed')
   })
@@ -2333,7 +2333,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('[role="button"]')!
+    const runItem = screen.getByTitle(/ralph-pr — completed/i).closest('button')!
     fireEvent.keyDown(runItem, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-completed-key')
   })
@@ -2677,7 +2677,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const runItem = screen.getByTitle(/ralph — running/i).closest('[role="button"]')!
+    const runItem = screen.getByTitle(/ralph — running/i).closest('button')!
     fireEvent.click(runItem)
     expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-active')
   })
@@ -2723,7 +2723,7 @@ describe('RepoNode component', () => {
         onItemSelect={onItemSelect}
       />
     )
-    const runItem = screen.getByTitle(/ralph — running/i).closest('[role="button"]')!
+    const runItem = screen.getByTitle(/ralph — running/i).closest('button')!
     fireEvent.keyDown(runItem, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('ralph-run:run-keyboard')
   })
@@ -2744,7 +2744,7 @@ describe('RepoNode component', () => {
       />
     )
 
-    const launchBtn = screen.getByText('Launch…').closest('[role="button"]')!
+    const launchBtn = screen.getByText('Launch…').closest('button')!
     fireEvent.click(launchBtn)
 
     expect(dispatchEventSpy).toHaveBeenCalledWith(
@@ -2773,7 +2773,7 @@ describe('RepoNode component', () => {
       />
     )
 
-    const launchBtn = screen.getByText('Launch…').closest('[role="button"]')!
+    const launchBtn = screen.getByText('Launch…').closest('button')!
     fireEvent.keyDown(launchBtn, { key: 'Enter' })
 
     expect(dispatchEventSpy).toHaveBeenCalledWith(
@@ -2825,7 +2825,7 @@ describe('RepoNode component', () => {
         onToggleRalphGroup={onToggleRalphGroup}
       />
     )
-    const ralphHeader = screen.getByText('Ralph Loops').closest('.sidebar-item-disclosure')!
+    const ralphHeader = screen.getByText('Ralph Loops').closest('button')!
     fireEvent.click(ralphHeader)
     expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
   })
@@ -2869,7 +2869,7 @@ describe('RepoNode component', () => {
         onToggleRalphGroup={onToggleRalphGroup}
       />
     )
-    const ralphHeader = screen.getByText('Ralph Loops').closest('[role="button"]')!
+    const ralphHeader = screen.getByText('Ralph Loops').closest('button')!
     fireEvent.keyDown(ralphHeader, { key: 'Enter' })
     expect(onToggleRalphGroup).toHaveBeenCalledWith('org', 'hs-buddy')
   })

@@ -218,7 +218,7 @@ function ThreadHeaderBadges({ thread }: { thread: PRReviewThread }) {
 
 function ThreadPathGroup({ thread }: { thread: PRReviewThread }) {
   return (
-    <div className="review-thread-path-group">
+    <span className="review-thread-path-group">
       <span className="review-thread-path">{thread.path || 'General review comment'}</span>
       {thread.line != null && (
         <span className="review-thread-line-label">
@@ -227,7 +227,7 @@ function ThreadPathGroup({ thread }: { thread: PRReviewThread }) {
             : `Comment on line ${thread.line}`}
         </span>
       )}
-    </div>
+    </span>
   )
 }
 
@@ -453,10 +453,9 @@ export function ReviewThreadCard({
 
   return (
     <div className={`review-thread ${statusClass}`}>
-      <div
+      <button
+        type="button"
         className="review-thread-header"
-        role="button"
-        tabIndex={0}
         onClick={() => dispatch({ type: 'toggle_expand' })}
         onKeyDown={handleHeaderKeyDown}
       >
@@ -466,7 +465,7 @@ export function ReviewThreadCard({
         <FileCode size={13} className="review-thread-file-icon" />
         <ThreadPathGroup thread={thread} />
         <ThreadHeaderBadges thread={thread} />
-      </div>
+      </button>
       <ReviewThreadBody
         expanded={expanded}
         diffHunk={diffHunk ?? undefined}

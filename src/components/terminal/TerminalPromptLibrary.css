@@ -2,6 +2,7 @@
   position: absolute;
   top: calc(100% + 10px);
   left: 0;
+  margin: 0;
   overflow: auto;
   z-index: 80;
   color: var(--text-primary, #d6dbe0);

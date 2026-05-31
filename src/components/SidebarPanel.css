@@ -64,6 +64,20 @@
   font-weight: 500;
 }
 
+.sidebar-section-toggle {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
 .sidebar-section-title svg {
   color: var(--text-secondary);
 }

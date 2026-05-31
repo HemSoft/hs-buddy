@@ -161,13 +161,13 @@ describe('PRFilesChangedPanel', () => {
     })
 
     // Click file header to expand
-    fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('src/app.ts').closest('button')!)
     // Diff content should be visible
     expect(screen.getByText('-old')).toBeInTheDocument()
     expect(screen.getByText('+new')).toBeInTheDocument()
 
     // Click again to collapse
-    fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('src/app.ts').closest('button')!)
     expect(screen.queryByText('-old')).not.toBeInTheDocument()
   })
 
@@ -179,7 +179,7 @@ describe('PRFilesChangedPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(screen.getByText('-old')).toBeInTheDocument()
   })
@@ -193,7 +193,7 @@ describe('PRFilesChangedPanel', () => {
     })
 
     // Expand the file without a patch
-    fireEvent.click(screen.getByText('src/utils.ts').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('src/utils.ts').closest('button')!)
     expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
   })
 
@@ -309,7 +309,7 @@ describe('PRFilesChangedPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     expect(screen.getByText('-old')).toBeInTheDocument()
   })
@@ -322,7 +322,7 @@ describe('PRFilesChangedPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: 'Tab' })
     expect(screen.queryByText('-old')).not.toBeInTheDocument()
   })
@@ -401,7 +401,7 @@ describe('PRFilesChangedPanel', () => {
       expect(screen.getByText('src/empty.ts')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('src/empty.ts').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('src/empty.ts').closest('button')!)
 
     const diffContainer = document.querySelector('.repo-commit-diff')
     expect(diffContainer).toBeInTheDocument()

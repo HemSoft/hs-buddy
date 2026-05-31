@@ -57,10 +57,10 @@ interface InlineRefreshIndicatorProps {
 
 export function InlineRefreshIndicator({ message = 'Refreshing…' }: InlineRefreshIndicatorProps) {
   return (
-    <div className="panel-inline-refresh" role="status" aria-live="polite">
+    <output className="panel-inline-refresh" aria-live="polite">
       <Loader2 size={14} className="spin" />
       <span>{message}</span>
-    </div>
+    </output>
   )
 }
 

@@ -116,21 +116,21 @@ describe('SidebarPanel', () => {
 
   it('toggles section via keyboard (Enter)', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const header = screen.getByText('Settings').closest('[role="button"]')!
+    const header = screen.getByText('Settings').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(screen.queryByText('Accounts')).toBeNull()
   })
 
   it('toggles section via keyboard (Space)', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const header = screen.getByText('Settings').closest('[role="button"]')!
+    const header = screen.getByText('Settings').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     expect(screen.queryByText('Accounts')).toBeNull()
   })
 
   it('selects item via keyboard (Enter)', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    const item = screen.getByText('Accounts').closest('button')!
     fireEvent.keyDown(item, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('settings-accounts')
   })
@@ -255,7 +255,7 @@ describe('SidebarPanel', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
     expect(screen.getByText('Accounts')).toBeTruthy()
 
-    const header = screen.getByText('Settings').closest('[role="button"]')!
+    const header = screen.getByText('Settings').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     expect(screen.queryByText('Accounts')).toBeFalsy()
 
@@ -267,21 +267,21 @@ describe('SidebarPanel', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
     expect(screen.getByText('Accounts')).toBeTruthy()
 
-    const header = screen.getByText('Settings').closest('[role="button"]')!
+    const header = screen.getByText('Settings').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     expect(screen.queryByText('Accounts')).toBeFalsy()
   })
 
   it('selects item via Enter key', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    const item = screen.getByText('Accounts').closest('button')!
     fireEvent.keyDown(item, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('settings-accounts')
   })
 
   it('selects item via Space key', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Appearance').closest('[role="button"]')!
+    const item = screen.getByText('Appearance').closest('button')!
     fireEvent.keyDown(item, { key: ' ' })
     expect(onItemSelect).toHaveBeenCalledWith('settings-appearance')
   })
@@ -367,14 +367,14 @@ describe('SidebarPanel', () => {
 
   it('selects item via Space key on sidebar item', () => {
     render(<SidebarPanel section="tasks" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Today').closest('[role="button"]')!
+    const item = screen.getByText('Today').closest('button')!
     fireEvent.keyDown(item, { key: ' ' })
     expect(onItemSelect).toHaveBeenCalledWith('tasks-today')
   })
 
   it('does not respond to non-Enter/Space keys on section header', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const header = screen.getByText('Settings').closest('[role="button"]')!
+    const header = screen.getByText('Settings').closest('button')!
     fireEvent.keyDown(header, { key: 'Tab' })
     // Items should still be visible (not toggled)
     expect(screen.getByText('Accounts')).toBeTruthy()
@@ -382,7 +382,7 @@ describe('SidebarPanel', () => {
 
   it('does not respond to non-Enter/Space keys on sidebar items', () => {
     render(<SidebarPanel section="settings" onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Accounts').closest('[role="button"]')!
+    const item = screen.getByText('Accounts').closest('button')!
     fireEvent.keyDown(item, { key: 'Tab' })
     expect(onItemSelect).not.toHaveBeenCalled()
   })

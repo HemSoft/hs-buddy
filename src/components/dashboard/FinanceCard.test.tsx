@@ -48,9 +48,9 @@ vi.mock('./DashboardPrimitives', () => ({
     </div>
   ),
   CardHeader: ({ children, onToggle }: { children: React.ReactNode; onToggle: () => void }) => (
-    <div role="button" tabIndex={0} onClick={onToggle} onKeyDown={onToggle}>
+    <button type="button" onClick={onToggle} onKeyDown={onToggle}>
       {children}
-    </div>
+    </button>
   ),
   CardActionBar: () => <div data-testid="card-action-bar" />,
 }))

@@ -167,17 +167,10 @@ function OrgHeader({
   onItemSelect,
 }: OrgHeaderProps) {
   return (
-    <div
-      className={buildOrgHeaderClassName(isOrgSelected, org, refreshIndicators)}
-      role="button"
-      tabIndex={0}
-      onClick={() => onItemSelect(`org-detail:${org}`)}
-      onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(`org-detail:${org}`))}
-    >
-      <span
+    <div className={buildOrgHeaderClassName(isOrgSelected, org, refreshIndicators)}>
+      <button
+        type="button"
         className="sidebar-item-chevron"
-        role="button"
-        tabIndex={0}
         onClick={event => {
           event.stopPropagation()
           onToggleOrg(org)
@@ -185,18 +178,25 @@ function OrgHeader({
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrg(org), true)}
       >
         <OrgChevron isExpanded={isOrgExpanded} />
-      </span>
-      <span className="sidebar-item-icon">
-        <OrgFolderIcon isExpanded={isOrgExpanded} />
-      </span>
-      <span className="sidebar-item-label">{org}</span>
-      <OrgNamespaceBadge meta={meta} />
-      <OrgRepoCount
-        isLoading={isLoading}
-        repoCount={repoCount}
-        visibleRepoCount={visibleRepoCount}
-        showBookmarkedOnly={showBookmarkedOnly}
-      />
+      </button>
+      <button
+        type="button"
+        className="sidebar-item-main"
+        onClick={() => onItemSelect(`org-detail:${org}`)}
+        onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(`org-detail:${org}`))}
+      >
+        <span className="sidebar-item-icon">
+          <OrgFolderIcon isExpanded={isOrgExpanded} />
+        </span>
+        <span className="sidebar-item-label">{org}</span>
+        <OrgNamespaceBadge meta={meta} />
+        <OrgRepoCount
+          isLoading={isLoading}
+          repoCount={repoCount}
+          visibleRepoCount={visibleRepoCount}
+          showBookmarkedOnly={showBookmarkedOnly}
+        />
+      </button>
     </div>
   )
 }
@@ -217,11 +217,10 @@ function TeamMembersList({
       {members.map(member => {
         const userViewId = `org-user:${org}/${member.login}`
         return (
-          <div
+          <button
+            type="button"
             key={member.login}
             className={`sidebar-item sidebar-team-member-child ${selectedItem === userViewId ? 'selected' : ''}`}
-            role="button"
-            tabIndex={0}
             onClick={() => onItemSelect(userViewId)}
             onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
           >
@@ -231,7 +230,7 @@ function TeamMembersList({
             <span className="sidebar-item-label" title={member.login}>
               {member.name ? `${member.name} (${member.login})` : member.login}
             </span>
-          </div>
+          </button>
         )
       })}
     </div>
@@ -330,10 +329,9 @@ function OrgTeamNode({
 
   return (
     <div>
-      <div
+      <button
+        type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-user-child"
-        role="button"
-        tabIndex={0}
         onClick={() => onToggleTeam(org, team.slug)}
         title={getTeamTitle(team)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleTeam(org, team.slug))}
@@ -346,7 +344,7 @@ function OrgTeamNode({
         </span>
         <span className="sidebar-item-label">{team.name}</span>
         <TeamMemberCount isLoading={isLoadingMembers} memberCount={team.memberCount} />
-      </div>
+      </button>
       <OrgTeamNodeMembers
         isExpanded={isTeamExpanded}
         isLoading={isLoadingMembers}
@@ -451,10 +449,9 @@ function OrgTeamsSection({
 }: OrgTeamsSectionProps) {
   return (
     <>
-      <div
+      <button
+        type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        role="button"
-        tabIndex={0}
         onClick={() => onToggleOrgTeamGroup(org)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgTeamGroup(org))}
       >
@@ -470,7 +467,7 @@ function OrgTeamsSection({
         ) : teams.length > 0 ? (
           <span className="sidebar-item-count">{teams.length}</span>
         ) : null}
-      </div>
+      </button>
       {isExpanded && (
         <TeamsSectionContent
           isLoading={isLoading}
@@ -550,14 +547,13 @@ function UsersSectionContent({
         const isFavorite = favoriteUsers.has(`${org}/${member.login}`)
 
         return (
-          <div
+          <button
+            type="button"
             key={userViewId}
             className={sidebarItemClass(
               'sidebar-item sidebar-org-user-child',
               selectedItem === userViewId
             )}
-            role="button"
-            tabIndex={0}
             onClick={() => onItemSelect(userViewId)}
             onContextMenu={event => onUserContextMenu(event, org, member.login)}
             onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
@@ -573,7 +569,7 @@ function UsersSectionContent({
               {member.name ? `${member.name} (${member.login})` : member.login}
             </span>
             {userCommitCount > 0 && <span className="sidebar-item-count">{userCommitCount}</span>}
-          </div>
+          </button>
         )
       })}
     </div>
@@ -601,10 +597,9 @@ function OrgUsersSection({
 
   return (
     <>
-      <div
+      <button
+        type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        role="button"
-        tabIndex={0}
         onClick={() => onToggleOrgUserGroup(org)}
         onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgUserGroup(org))}
       >
@@ -616,7 +611,7 @@ function OrgUsersSection({
         </span>
         <span className="sidebar-item-label">Users</span>
         <UserCountBadge isLoading={isLoading} count={members.length} />
-      </div>
+      </button>
       <UsersSectionContent
         isExpanded={isExpanded}
         isLoading={isLoading}
@@ -733,10 +728,9 @@ function OrgReposSection({
   return (
     /* v8 ignore stop */
     <>
-      <div
+      <button
+        type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        role="button"
-        tabIndex={0}
         /* v8 ignore start */ onClick={() => onToggleOrgRepoGroup(org)}
         onKeyDown={event =>
           handleItemKeyDown(event, () => onToggleOrgRepoGroup(org))
@@ -753,7 +747,7 @@ function OrgReposSection({
         <span className="sidebar-item-label">Repositories</span>
         {/* v8 ignore start */}
         {repos.length > 0 && <span className="sidebar-item-count">{repos.length}</span>}
-      </div>
+      </button>
       {isExpanded && (
         <div className="sidebar-org-users-list">
           {sortedRepos.length === 0 ? (

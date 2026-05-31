@@ -153,8 +153,13 @@ describe('PRTreeSection', () => {
       newUrls: new Set([basePr.url]),
     })
 
-    const dot = screen.getByRole('img', { name: /new pull request/i })
+    const dot = document.querySelector('.sidebar-new-dot') as HTMLElement
     expect(dot).toHaveClass('sidebar-new-dot')
+    expect(
+      screen.getByRole('button', {
+        name: /pull request #423: add sidebar tree coverage, new pull request/i,
+      })
+    ).toBeTruthy()
   })
 
   it('handles Space key on PR child node', () => {

@@ -245,18 +245,17 @@ function CategoryChevron({
   }
 
   return (
-    <span
+    <button
+      type="button"
       className="sidebar-item-chevron"
       onClick={e => {
         e.stopPropagation()
         toggleSection(sectionId)
       }}
-      role="button"
-      tabIndex={0}
       onKeyDown={e => handleCategoryChevronKeyDown(e, sectionId, toggleSection)}
     >
       {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-    </span>
+    </button>
   )
 }
 
@@ -274,7 +273,8 @@ function BookmarkItem({
 }: BookmarkItemProps) {
   const bmViewId = `browser:${encodeURIComponent(bm.url || '')}|${encodeURIComponent(bm.title || '')}`
   return (
-    <div
+    <button
+      type="button"
       key={bm._id}
       className={bookmarkItemClassName(selectedItem, bmViewId, dragOver, bm._id)}
       style={{ paddingLeft }}
@@ -285,8 +285,6 @@ function BookmarkItem({
       onDragOver={e => onDragOver(e, bm._id)}
       onDragEnd={onDragEnd}
       onDrop={e => onDrop(e, bm._id)}
-      role="button"
-      tabIndex={0}
       title={bm.url}
       onKeyDown={onKeyboardActivate(() => onItemSelect(bmViewId))}
     >
@@ -295,7 +293,7 @@ function BookmarkItem({
         <BookmarkIcon faviconUrl={bm.faviconUrl} />
       </span>
       <span className="sidebar-item-label">{bm.title}</span>
-    </div>
+    </button>
   )
 }
 
@@ -411,10 +409,6 @@ function CategoryTreeNodeItem({
       <div
         className={categoryItemClassName(selectedItem, catViewId)}
         style={{ paddingLeft: `${12 + depth * 16}px` }}
-        onClick={() => onItemSelect(catViewId)}
-        role="button"
-        tabIndex={0}
-        onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
       >
         <CategoryChevron
           hasChildren={hasChildren}
@@ -422,11 +416,18 @@ function CategoryTreeNodeItem({
           sectionId={sectionId}
           toggleSection={toggleSection}
         />
-        <span className="sidebar-item-icon">
-          <FolderOpen size={14} />
-        </span>
-        <span className="sidebar-item-label">{categoryLabel(node.name)}</span>
-        <CategoryCount count={node.totalCount} />
+        <button
+          type="button"
+          className="sidebar-item-main"
+          onClick={() => onItemSelect(catViewId)}
+          onKeyDown={onKeyboardActivate(() => onItemSelect(catViewId))}
+        >
+          <span className="sidebar-item-icon">
+            <FolderOpen size={14} />
+          </span>
+          <span className="sidebar-item-label">{categoryLabel(node.name)}</span>
+          <CategoryCount count={node.totalCount} />
+        </button>
       </div>
       <CategoryNodeChildren
         node={node}

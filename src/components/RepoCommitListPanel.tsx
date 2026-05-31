@@ -44,13 +44,12 @@ function CommitListBody({
       {loading && <InlineRefreshIndicator message="Refreshing commit list…" />}
       <div className="repo-commits-page-list">
         {commits.map(commit => (
-          <div
+          <button
+            type="button"
             key={commit.sha}
             className="repo-commit-item repo-commit-item-page"
             onClick={() => handleCommitClick(commit)}
             title={commit.message}
-            role="button"
-            tabIndex={0}
             onKeyDown={onKeyboardActivate(() => handleCommitClick(commit))}
           >
             <div className="repo-commit-main">
@@ -69,7 +68,7 @@ function CommitListBody({
               <span className="repo-commit-author">{commit.author}</span>
               <span className="repo-commit-date">{formatDistanceToNow(commit.date)}</span>
             </div>
-          </div>
+          </button>
         ))}
       </div>
     </>

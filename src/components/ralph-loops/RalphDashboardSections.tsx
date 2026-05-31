@@ -170,10 +170,9 @@ function ScriptCard({
   onLaunch: () => void
 }) {
   return (
-    <div
+    <button
+      type="button"
       className="ralph-script-card"
-      role="button"
-      tabIndex={0}
       onClick={onLaunch}
       onKeyDown={event => {
         if (event.key === ' ') {
@@ -187,15 +186,15 @@ function ScriptCard({
         }
       }}
     >
-      <div className="ralph-script-card-header">
+      <span className="ralph-script-card-header">
         <FileCode2 size={16} className="ralph-script-icon" />
         <span className="ralph-script-name">{name}</span>
-      </div>
-      <p className="ralph-script-desc">{description}</p>
-      <div className="ralph-script-card-footer">
+      </span>
+      <span className="ralph-script-desc">{description}</span>
+      <span className="ralph-script-card-footer">
         <span className="ralph-script-filename">{filename}</span>
         <Play size={12} />
-      </div>
-    </div>
+      </span>
+    </button>
   )
 }

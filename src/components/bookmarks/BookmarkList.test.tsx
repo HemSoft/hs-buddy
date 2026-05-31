@@ -148,7 +148,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = screen.getByText('GitHub').closest('.bookmark-card')!
+    const card = screen.getByText('GitHub').closest('button')!
     fireEvent.click(card)
     expect(mockRecordVisit).toHaveBeenCalledWith({ id: 'bm1' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
@@ -225,7 +225,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = screen.getByText('GitHub').closest('[role="button"]')!
+    const card = screen.getByText('GitHub').closest('button')!
     fireEvent.keyDown(card, { key: 'Enter' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
   })
@@ -234,7 +234,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = screen.getByText('GitHub').closest('[role="button"]')!
+    const card = screen.getByText('GitHub').closest('button')!
     fireEvent.keyDown(card, { key: ' ' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith('https://github.com', 'GitHub')
   })
@@ -283,7 +283,7 @@ describe('BookmarkList', () => {
   it('calls onOpenTab when prop is provided', () => {
     const onOpenTab = vi.fn()
     render(<BookmarkList onOpenTab={onOpenTab} />)
-    const card = screen.getByText('GitHub').closest('.bookmark-card')!
+    const card = screen.getByText('GitHub').closest('button')!
     fireEvent.click(card)
     expect(onOpenTab).toHaveBeenCalled()
   })
@@ -345,7 +345,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    const card = document.querySelector('.bookmark-card-main') as HTMLElement
     fireEvent.keyDown(card, { key: ' ' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith(mockBookmarks[0].url, mockBookmarks[0].title)
   })
@@ -382,7 +382,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    const card = document.querySelector('.bookmark-card-main') as HTMLElement
     fireEvent.keyDown(card, { key: 'Enter' })
     expect(openInAppBrowserSpy).toHaveBeenCalledWith(mockBookmarks[0].url, mockBookmarks[0].title)
   })
@@ -391,7 +391,7 @@ describe('BookmarkList', () => {
     const openInAppBrowserSpy = vi.fn()
     window.shell.openInAppBrowser = openInAppBrowserSpy as never
     render(<BookmarkList />)
-    const card = document.querySelectorAll('.bookmark-card')[0] as HTMLElement
+    const card = document.querySelector('.bookmark-card-main') as HTMLElement
     fireEvent.keyDown(card, { key: 'Tab' })
     expect(openInAppBrowserSpy).not.toHaveBeenCalled()
   })

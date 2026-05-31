@@ -185,7 +185,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    fireEvent.click(screen.getByText('src/app.ts').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('src/app.ts').closest('button')!)
     await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
 
@@ -235,7 +235,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: 'Enter' })
     await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
@@ -248,7 +248,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: ' ' })
     await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
   })
@@ -261,7 +261,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.keyDown(header, { key: 'Tab' })
 
     // Flush microtasks/macrotasks so any async expansion would have occurred
@@ -277,7 +277,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.click(header)
     await waitFor(() => expect(screen.getByText('-old')).toBeInTheDocument())
 
@@ -414,7 +414,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('binary.png')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('binary.png').closest('[role="button"]')!
+    const header = screen.getByText('binary.png').closest('button')!
     fireEvent.click(header)
     await waitFor(() =>
       expect(screen.getByText(/GitHub did not provide a patch preview/)).toBeInTheDocument()
@@ -508,7 +508,7 @@ describe('RepoCommitDetailPanel', () => {
       expect(screen.getByText('src/app.ts')).toBeInTheDocument()
     })
 
-    const header = screen.getByText('src/app.ts').closest('[role="button"]')!
+    const header = screen.getByText('src/app.ts').closest('button')!
     fireEvent.click(header)
 
     await waitFor(() => {

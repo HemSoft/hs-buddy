@@ -61,7 +61,7 @@ describe('RalphDashboardSections', () => {
     expect(screen.getByText('Ralph Issues')).toBeInTheDocument()
     expect(screen.getByText('Template improvement loop')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByText('Custom').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('Custom').closest('button')!)
 
     expect(onLaunchScript).toHaveBeenCalledWith('custom-script.ps1')
   })
@@ -88,7 +88,7 @@ describe('RalphDashboardSections', () => {
     const onLaunchScript = vi.fn()
     render(<RalphDashboardAvailableScripts templates={[]} onLaunchScript={onLaunchScript} />)
 
-    const card = screen.getByText('Ralph Loop').closest('[role="button"]')
+    const card = screen.getByText('Ralph Loop').closest('button')
 
     expect(card).not.toBeNull()
 
@@ -108,7 +108,7 @@ describe('RalphDashboardSections', () => {
     const onLaunchScript = vi.fn()
     render(<RalphDashboardAvailableScripts templates={[]} onLaunchScript={onLaunchScript} />)
 
-    const card = screen.getByText('Ralph PR').closest('[role="button"]')
+    const card = screen.getByText('Ralph PR').closest('button')
 
     expect(card).not.toBeNull()
 

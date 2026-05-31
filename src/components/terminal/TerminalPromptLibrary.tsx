@@ -239,7 +239,7 @@ async function pastePromptToActiveTerminal(
 
 function isPromptLibraryOwnerTarget(
   ownerRef: RefObject<HTMLElement | null> | undefined,
-  rootRef: RefObject<HTMLDivElement | null>,
+  rootRef: RefObject<HTMLElement | null>,
   target: Node
 ): boolean {
   return Boolean(ownerRef?.current?.contains(target) || rootRef.current?.contains(target))
@@ -247,7 +247,7 @@ function isPromptLibraryOwnerTarget(
 
 function shouldDismissPromptLibrary(
   ownerRef: RefObject<HTMLElement | null> | undefined,
-  rootRef: RefObject<HTMLDivElement | null>,
+  rootRef: RefObject<HTMLElement | null>,
   target: Node
 ): boolean {
   /* v8 ignore next -- the dismiss listener only runs while the dialog root is mounted */
@@ -264,7 +264,7 @@ function shouldDismissPromptLibrary(
 
 function usePromptLibraryDismiss(
   ownerRef: RefObject<HTMLElement | null> | undefined,
-  rootRef: RefObject<HTMLDivElement | null>,
+  rootRef: RefObject<HTMLElement | null>,
   onClose: () => void
 ) {
   useEffect(() => {
@@ -672,7 +672,7 @@ export function TerminalPromptLibrary({
   const prompts = useTerminalPrompts()
   const { create, update, remove, markUsed } = useTerminalPromptMutations()
   const { confirm, confirmDialog } = useConfirm()
-  const rootRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDialogElement>(null)
   const titleInputRef = useRef<HTMLInputElement>(null)
   const [editorState, setEditorState] = useState<EditorState | null>(null)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
@@ -730,10 +730,10 @@ export function TerminalPromptLibrary({
 
   return (
     <>
-      <div
+      <dialog
+        open
         className={getLibraryClassName(editorState)}
         ref={rootRef}
-        role="dialog"
         aria-modal="false"
         aria-label={getLibraryAriaLabel(editorState)}
       >
@@ -756,7 +756,7 @@ export function TerminalPromptLibrary({
           onTitleChange={handleTitleChange}
           onContentChange={handleContentChange}
         />
-      </div>
+      </dialog>
       {confirmDialog && <ConfirmDialog {...confirmDialog} />}
     </>
   )

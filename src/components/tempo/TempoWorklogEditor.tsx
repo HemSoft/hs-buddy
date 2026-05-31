@@ -319,9 +319,9 @@ export function TempoWorklogEditor({
         onClick={getBackdropClickHandler(state.saving, onCancel)}
         aria-label="Close worklog editor"
       />
-      <div
+      <dialog
+        open
         className="tempo-editor-modal"
-        role="dialog"
         aria-modal="true"
         aria-labelledby="tempo-editor-title"
       >
@@ -409,7 +409,7 @@ export function TempoWorklogEditor({
             </button>
           </div>
         </form>
-      </div>
+      </dialog>
     </div>
   )
 }

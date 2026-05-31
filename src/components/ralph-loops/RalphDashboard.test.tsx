@@ -210,33 +210,33 @@ describe('RalphDashboard', () => {
 
   it('script card click opens launch form', () => {
     render(<RalphDashboard />)
-    fireEvent.click(screen.getByText('Ralph Loop').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('Ralph Loop').closest('button')!)
     expect(screen.getByTestId('launch-form')).toBeInTheDocument()
   })
 
   it('Ralph Issues script card click opens launch form', () => {
     render(<RalphDashboard />)
-    fireEvent.click(screen.getByText('Ralph Issues').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('Ralph Issues').closest('button')!)
     expect(screen.getByTestId('launch-form')).toBeInTheDocument()
   })
 
   it('script card keyboard Enter key opens launch form', () => {
     render(<RalphDashboard />)
-    const card = screen.getByText('Ralph Loop').closest('[role="button"]')!
+    const card = screen.getByText('Ralph Loop').closest('button')!
     fireEvent.keyDown(card, { key: 'Enter' })
     expect(screen.getByTestId('launch-form')).toBeInTheDocument()
   })
 
   it('script card keyboard Space key opens launch form', () => {
     render(<RalphDashboard />)
-    const card = screen.getByText('Ralph PR').closest('[role="button"]')!
+    const card = screen.getByText('Ralph PR').closest('button')!
     fireEvent.keyDown(card, { key: ' ' })
     expect(screen.getByTestId('launch-form')).toBeInTheDocument()
   })
 
   it('script card keyboard does not trigger on other keys', () => {
     render(<RalphDashboard />)
-    const card = screen.getByText('Ralph Issues').closest('[role="button"]')!
+    const card = screen.getByText('Ralph Issues').closest('button')!
     fireEvent.keyDown(card, { key: 'Escape' })
     expect(screen.queryByTestId('launch-form')).not.toBeInTheDocument()
   })
@@ -328,7 +328,7 @@ describe('RalphDashboard', () => {
     await waitFor(() => {
       expect(screen.getByText('Coverage')).toBeInTheDocument()
     })
-    fireEvent.click(screen.getByText('Coverage').closest('[role="button"]')!)
+    fireEvent.click(screen.getByText('Coverage').closest('button')!)
     expect(screen.getByTestId('launch-form')).toBeInTheDocument()
   })
 

@@ -84,11 +84,10 @@ function SidebarItemRow({
   badgeProgress: Record<string, { progress: number; color: string; tooltip: string }>
 }) {
   return (
-    <div
+    <button
+      type="button"
       className={`sidebar-item ${selectedItem === item.id ? 'selected' : ''}`}
       onClick={() => onItemSelect(item.id)}
-      role="button"
-      tabIndex={0}
       onKeyDown={onKeyboardActivate(() => onItemSelect(item.id))}
     >
       <span className="sidebar-item-icon">
@@ -112,7 +111,7 @@ function SidebarItemRow({
         ) : (
           <span className="sidebar-item-count">{counts[item.id]}</span>
         ))}
-    </div>
+    </button>
   )
 }
 
@@ -156,10 +155,9 @@ function GenericSidebarSection({
       </div>
       <div className="sidebar-panel-content">
         <div className="sidebar-section">
-          <div
+          <button
+            type="button"
             className="sidebar-section-header"
-            role="button"
-            tabIndex={0}
             onClick={() => toggleSection(section)}
             onKeyDown={onKeyboardActivate(() => toggleSection(section))}
           >
@@ -170,7 +168,7 @@ function GenericSidebarSection({
               </span>
               <span>{data.title}</span>
             </div>
-          </div>
+          </button>
           {isExpanded && (
             <div className="sidebar-section-items">
               {section === 'automation' ? (

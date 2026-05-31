@@ -58,7 +58,7 @@ function expandCategory(categoryName: string) {
   const chevron = screen
     .getByText(categoryName)
     .closest('.sidebar-item')!
-    .querySelector('.sidebar-item-chevron[role="button"]') as HTMLElement
+    .querySelector('button.sidebar-item-chevron') as HTMLElement
   fireEvent.click(chevron)
 }
 
@@ -92,7 +92,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    fireEvent.click(screen.getByText('Example').closest('[role="button"]') as HTMLElement)
+    fireEvent.click(screen.getByText('Example').closest('button') as HTMLElement)
     expect(onItemSelect).toHaveBeenCalledWith(
       `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Example')}`
     )
@@ -130,7 +130,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     expandCategory('Dev Tools')
     expect(screen.getByText('Example')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('Example').closest('[role="button"]') as HTMLElement)
+    fireEvent.click(screen.getByText('Example').closest('button') as HTMLElement)
     expect(onItemSelect).toHaveBeenCalledWith(
       `browser:${encodeURIComponent('')}|${encodeURIComponent('Example')}`
     )
@@ -153,7 +153,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    fireEvent.keyDown(screen.getByText('Example').closest('[role="button"]') as HTMLElement, {
+    fireEvent.keyDown(screen.getByText('Example').closest('button') as HTMLElement, {
       key: 'Enter',
     })
     expect(onItemSelect).toHaveBeenCalledWith(
@@ -167,7 +167,7 @@ describe('BookmarksSidebar', () => {
     const chevron = screen
       .getByText('Dev Tools')
       .closest('.sidebar-item')!
-      .querySelector('.sidebar-item-chevron[role="button"]') as HTMLElement
+      .querySelector('button.sidebar-item-chevron') as HTMLElement
 
     fireEvent.keyDown(chevron, { key: ' ' })
     expect(screen.getByText('Example')).toBeInTheDocument()
@@ -213,7 +213,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     expect(screen.getByText('Edit')).toBeInTheDocument()
 
@@ -227,7 +227,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     fireEvent.click(screen.getByText('Edit'))
   })
@@ -273,7 +273,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     expect(screen.getByText('Edit')).toBeInTheDocument()
 
@@ -296,7 +296,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
 
     expandCategory('Dev Tools')
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
 
     fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.dragEnd(item)
@@ -343,7 +343,7 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Orphan').closest('button') as HTMLElement
     fireEvent.keyDown(item, { key: ' ' })
     expect(onItemSelect).toHaveBeenCalledWith(
       `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
@@ -353,7 +353,7 @@ describe('BookmarksSidebar', () => {
   it('selects a category via keyboard Enter', () => {
     const onItemSelect = vi.fn()
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
-    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    const categoryItem = screen.getByText('Dev Tools').closest('button') as HTMLElement
     fireEvent.keyDown(categoryItem, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('bookmarks-category:Dev Tools')
   })
@@ -361,7 +361,7 @@ describe('BookmarksSidebar', () => {
   it('selects a category via keyboard Space', () => {
     const onItemSelect = vi.fn()
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
-    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    const categoryItem = screen.getByText('Dev Tools').closest('button') as HTMLElement
     fireEvent.keyDown(categoryItem, { key: ' ' })
     expect(onItemSelect).toHaveBeenCalledWith('bookmarks-category:Dev Tools')
   })
@@ -376,8 +376,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     // Start dragging A
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
@@ -454,7 +454,7 @@ describe('BookmarksSidebar', () => {
     const chevron = screen
       .getByText('Dev Tools')
       .closest('.sidebar-item')!
-      .querySelector('.sidebar-item-chevron[role="button"]') as HTMLElement
+      .querySelector('button.sidebar-item-chevron') as HTMLElement
 
     fireEvent.keyDown(chevron, { key: 'Enter' })
     expect(screen.getByText('Example')).toBeInTheDocument()
@@ -475,7 +475,7 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
-    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Orphan').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     expect(screen.getByText('Edit')).toBeInTheDocument()
   })
@@ -495,7 +495,7 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
-    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Orphan').closest('button') as HTMLElement
     fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.dragEnd(item)
   })
@@ -532,8 +532,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
@@ -553,7 +553,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.drop(item, { dataTransfer: { dropEffect: '' }, clientY: 0 })
 
@@ -567,7 +567,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.drop(item, { dataTransfer: { dropEffect: '' }, clientY: 0 })
 
     expect(mockReorder).not.toHaveBeenCalled()
@@ -585,8 +585,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.drop(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
@@ -606,8 +606,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     // In happy-dom BCR returns all zeros so midpoint=0; clientY=-1 triggers "above" path
@@ -628,8 +628,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     // Drag B (index 1) onto A (index 0) — covers toIdx < fromIdx branch
     fireEvent.dragStart(itemB, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
@@ -642,7 +642,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.dragStart(item, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.dragOver(item, { dataTransfer: { dropEffect: '' }, clientY: 50 })
 
@@ -653,7 +653,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.dragOver(item, { dataTransfer: { dropEffect: '' }, clientY: 50 })
 
     expect(item.className).not.toContain('drag-over')
@@ -669,8 +669,8 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const itemA = screen.getByText('A').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('B').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('A').closest('button') as HTMLElement
+    const itemB = screen.getByText('B').closest('button') as HTMLElement
 
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.dragOver(itemB, { dataTransfer: { dropEffect: '' }, clientY: 100 })
@@ -714,7 +714,7 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
-    const item = screen.getByText('Orphan').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Orphan').closest('button') as HTMLElement
     fireEvent.keyDown(item, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith(
       `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
@@ -747,8 +747,8 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
-    const itemA = screen.getByText('UA').closest('[role="button"]') as HTMLElement
-    const itemB = screen.getByText('UB').closest('[role="button"]') as HTMLElement
+    const itemA = screen.getByText('UA').closest('button') as HTMLElement
+    const itemB = screen.getByText('UB').closest('button') as HTMLElement
 
     fireEvent.dragStart(itemA, { dataTransfer: { effectAllowed: '', setData: vi.fn() } })
     fireEvent.dragOver(itemB, { dataTransfer: { dropEffect: '' }, clientY: 0 })
@@ -778,7 +778,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item, { clientX: 50, clientY: 50 })
 
     const menu = document.querySelector('.tab-context-menu') as HTMLElement
@@ -801,7 +801,7 @@ describe('BookmarksSidebar', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     fireEvent.click(screen.getByText('Edit'))
 
@@ -818,7 +818,7 @@ describe('BookmarksSidebar', () => {
     )
     expandCategory('Dev Tools')
 
-    const item = screen.getByText('Example').closest('[role="button"]') as HTMLElement
+    const item = screen.getByText('Example').closest('button') as HTMLElement
     fireEvent.contextMenu(item)
     expect(screen.getByText('Edit')).toBeInTheDocument()
 
@@ -846,7 +846,7 @@ describe('BookmarksSidebar', () => {
     const onItemSelect = vi.fn()
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
 
-    const categoryItem = screen.getByText('Dev Tools').closest('[role="button"]') as HTMLElement
+    const categoryItem = screen.getByText('Dev Tools').closest('button') as HTMLElement
     fireEvent.keyDown(categoryItem, { key: 'Tab' })
     expect(onItemSelect).not.toHaveBeenCalled()
   })
@@ -885,7 +885,7 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue([''])
 
     render(<BookmarksSidebar onItemSelect={onItemSelect} selectedItem={null} />)
-    fireEvent.click(screen.getByText('Orphan').closest('[role="button"]') as HTMLElement)
+    fireEvent.click(screen.getByText('Orphan').closest('button') as HTMLElement)
     expect(onItemSelect).toHaveBeenCalledWith(
       `browser:${encodeURIComponent('https://orphan.com')}|${encodeURIComponent('Orphan')}`
     )

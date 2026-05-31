@@ -271,8 +271,8 @@ describe('GitHubSidebar', () => {
       <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
     )
 
-    fireEvent.click(screen.getByText('Pull Requests').closest('[role="button"]') as HTMLElement)
-    fireEvent.keyDown(screen.getByText('Organizations').closest('[role="button"]') as HTMLElement, {
+    fireEvent.click(screen.getByText('Pull Requests').closest('button') as HTMLElement)
+    fireEvent.keyDown(screen.getByText('Organizations').closest('button') as HTMLElement, {
       key: 'Enter',
     })
 
@@ -357,7 +357,7 @@ describe('GitHubSidebar', () => {
       <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
     )
 
-    fireEvent.keyDown(screen.getByText('Pull Requests').closest('[role="button"]') as HTMLElement, {
+    fireEvent.keyDown(screen.getByText('Pull Requests').closest('button') as HTMLElement, {
       key: ' ',
     })
     expect(mockSidebarData.toggleSection).toHaveBeenCalledWith('pull-requests')
@@ -368,7 +368,7 @@ describe('GitHubSidebar', () => {
       <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
     )
 
-    fireEvent.click(screen.getByText('Organizations').closest('[role="button"]') as HTMLElement)
+    fireEvent.click(screen.getByText('Organizations').closest('button') as HTMLElement)
     expect(mockSidebarData.toggleSection).toHaveBeenCalledWith('organizations')
   })
 
@@ -377,10 +377,10 @@ describe('GitHubSidebar', () => {
       <GitHubSidebar onItemSelect={vi.fn()} selectedItem={null} counts={{}} badgeProgress={{}} />
     )
 
-    fireEvent.keyDown(screen.getByText('Pull Requests').closest('[role="button"]') as HTMLElement, {
+    fireEvent.keyDown(screen.getByText('Pull Requests').closest('button') as HTMLElement, {
       key: 'Tab',
     })
-    fireEvent.keyDown(screen.getByText('Organizations').closest('[role="button"]') as HTMLElement, {
+    fireEvent.keyDown(screen.getByText('Organizations').closest('button') as HTMLElement, {
       key: 'Tab',
     })
     expect(mockSidebarData.toggleSection).not.toHaveBeenCalled()

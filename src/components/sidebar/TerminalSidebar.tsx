@@ -134,6 +134,7 @@ function TerminalFolderRow({
   ...editableProps
 }: TerminalFolderRowProps) {
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Folder rows contain disclosure/add controls and inline rename input, so a native button wrapper would be invalid.
     <div
       className={selectedClass('terminal-sidebar-folder-row', selected)}
       style={folderRowStyle(folder)}
@@ -202,6 +203,7 @@ function TerminalNodeRow({
   ...editableProps
 }: TerminalNodeRowProps) {
   return (
+    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Terminal rows can contain an inline rename input while editing, which cannot live inside a native button.
     <div
       className={selectedClass('terminal-sidebar-node', selected)}
       onClick={() => handleSelectTerminal(child.id)}
@@ -590,10 +592,10 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
 
       {/* Color Picker */}
       {showColorPicker && contextMenu && (
-        <div
+        <fieldset
           className="terminal-sidebar-color-picker"
           style={{ top: contextMenu.y + 30, left: contextMenu.x }}
-          role="group"
+          aria-label="Terminal color"
         >
           {NODE_COLORS.map(color => (
             <button
@@ -619,7 +621,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
           >
             ✕
           </button>
-        </div>
+        </fieldset>
       )}
     </div>
   )

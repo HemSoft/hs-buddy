@@ -303,7 +303,7 @@ describe('OrgRepoTree', () => {
       onItemSelect,
     })
     render(<OrgRepoTree {...props} />)
-    const orgHeader = screen.getByText('my-org').closest('[role="button"]')!
+    const orgHeader = screen.getByText('my-org').closest('button')!
     fireEvent.keyDown(orgHeader, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('org-detail:my-org')
   })
@@ -377,7 +377,7 @@ describe('OrgRepoTree', () => {
       onUserContextMenu,
     })
     render(<OrgRepoTree {...props} />)
-    const userEl = screen.getByText('Alice (alice)').closest('[role="button"]')!
+    const userEl = screen.getByText('Alice (alice)').closest('button')!
     fireEvent.contextMenu(userEl)
     expect(onUserContextMenu).toHaveBeenCalledWith(expect.anything(), 'my-org', 'alice')
   })
@@ -538,7 +538,7 @@ describe('OrgRepoTree', () => {
       onItemSelect,
     })
     render(<OrgRepoTree {...props} />)
-    const userEl = screen.getByText('bob').closest('[role="button"]')!
+    const userEl = screen.getByText('bob').closest('button')!
     fireEvent.keyDown(userEl, { key: ' ' })
     expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/bob')
   })
@@ -564,7 +564,7 @@ describe('OrgRepoTree', () => {
       onToggleTeam,
     })
     render(<OrgRepoTree {...props} />)
-    const teamEl = screen.getByText('Engineering').closest('[role="button"]')!
+    const teamEl = screen.getByText('Engineering').closest('button')!
     fireEvent.keyDown(teamEl, { key: 'Enter' })
     expect(onToggleTeam).toHaveBeenCalledWith('my-org', 'eng')
   })
@@ -641,7 +641,7 @@ describe('OrgRepoTree', () => {
       onItemSelect,
     })
     render(<OrgRepoTree {...props} />)
-    const memberEl = screen.getByText('dev1').closest('[role="button"]')!
+    const memberEl = screen.getByText('dev1').closest('button')!
     fireEvent.keyDown(memberEl, { key: 'Enter' })
     expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/dev1')
   })

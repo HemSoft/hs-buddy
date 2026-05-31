@@ -296,6 +296,18 @@
   justify-content: space-between;
 }
 
+.list-item-main-button {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
 .list-item-dot {
   color: var(--text-muted, #666);
 }

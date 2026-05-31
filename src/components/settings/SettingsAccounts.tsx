@@ -403,27 +403,27 @@ function AccountListItem({
   const activate = () => openAccountEditor(account, isEditing, setEditingKey, setEditRepoRoot)
 
   return (
-    <div
-      key={key}
-      className={resolveAccountItemClassName(isEditing)}
-      role="button"
-      tabIndex={0}
-      onClick={activate}
-      onKeyDown={e => handleAccountItemKeyDown(e, isEditing, activate)}
-      style={{ cursor: resolveAccountItemCursor(isEditing) }}
-    >
+    <div key={key} className={resolveAccountItemClassName(isEditing)}>
       <div className="list-item-row">
-        <div className="list-item-content">
-          <div className="list-item-primary">
-            <User size={16} />
-            <span className="item-name">{account.username}</span>
-          </div>
-          <div className="list-item-secondary">
-            <Building2 size={14} />
-            <span>{account.org}</span>
-            <AccountRepoRootBadge repoRoot={visibleRepoRoot} />
-          </div>
-        </div>
+        <button
+          type="button"
+          className="list-item-main-button"
+          onClick={activate}
+          onKeyDown={e => handleAccountItemKeyDown(e, isEditing, activate)}
+          style={{ cursor: resolveAccountItemCursor(isEditing) }}
+        >
+          <span className="list-item-content">
+            <span className="list-item-primary">
+              <User size={16} />
+              <span className="item-name">{account.username}</span>
+            </span>
+            <span className="list-item-secondary">
+              <Building2 size={14} />
+              <span>{account.org}</span>
+              <AccountRepoRootBadge repoRoot={visibleRepoRoot} />
+            </span>
+          </span>
+        </button>
         <AccountItemActions
           isEditing={isEditing}
           onCancel={e => {

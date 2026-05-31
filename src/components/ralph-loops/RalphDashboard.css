@@ -142,11 +142,15 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  width: 100%;
   padding: 12px;
   border: 1px solid var(--border-primary, #333);
   border-radius: 6px;
   background: var(--bg-secondary, #252526);
+  color: inherit;
   cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition:
     border-color 0.15s,
     background 0.15s;
@@ -174,6 +178,7 @@
 }
 
 .ralph-script-desc {
+  display: block;
   margin: 0;
   font-size: 12px;
   color: var(--text-secondary, #888);
@@ -637,11 +642,16 @@
   display: flex;
   align-items: center;
   gap: 6px;
+  width: 100%;
   padding: 4px 12px 4px 24px;
+  border: none;
+  background: transparent;
   cursor: pointer;
   font-size: 13px;
+  font-family: inherit;
   color: var(--text-primary, #ccc);
   border-radius: 3px;
+  text-align: left;
 }
 
 .ralph-sidebar-item:hover {

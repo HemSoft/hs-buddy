@@ -66,13 +66,12 @@ function RecentResults({
       </div>
       <div className="copilot-recent-list">
         {results.map(r => (
-          <div
+          <button
+            type="button"
             key={r._id}
             className="copilot-recent-item"
             onClick={() => onOpenResult?.(r._id)}
             title={r.prompt}
-            role="button"
-            tabIndex={0}
             onKeyDown={e => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault()
@@ -85,7 +84,7 @@ function RecentResults({
               {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '…' : r.prompt}
             </span>
             <span className="copilot-recent-time">{formatDistanceToNow(r.createdAt)}</span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

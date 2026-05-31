@@ -35,6 +35,23 @@ interface PageInfo {
   endCursor: string | null
 }
 
+type ReviewThreadsPage = {
+  totalCount: number
+  pageInfo: PageInfo
+  nodes: Array<{ isResolved: boolean }>
+}
+
+type ThreadStatsResult = Record<
+  string,
+  {
+    pullRequest: {
+      reviewThreads: ReviewThreadsPage
+    } | null
+  } | null
+>
+
+const THREAD_STATS_CHUNK_SIZE = 20
+
 function extractThreadsPage<T>(result: {
   repository: { pullRequest: { reviewThreads: { pageInfo: PageInfo; nodes: T[] } } | null } | null
 }): { pageInfo: PageInfo; nodes: T[] } | null {
@@ -43,6 +60,14 @@ function extractThreadsPage<T>(result: {
 
 function safeNodes<T>(nodes: T[] | undefined | null): T[] {
   return nodes || []
+}
+
+function chunkPrs<T>(prs: T[]): T[][] {
+  const chunks: T[][] = []
+  for (let i = 0; i < prs.length; i += THREAD_STATS_CHUNK_SIZE) {
+    chunks.push(prs.slice(i, i + THREAD_STATS_CHUNK_SIZE))
+  }
+  return chunks
 }
 
 /** Paginate through remaining review thread pages when the first page didn't fetch all nodes. */
@@ -70,6 +95,7 @@ async function paginateReviewThreads(
           }
         }
       }`
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- GitHub cursor pagination is order-dependent; each page needs the previous endCursor.
     const pageResult = await graphql<{
       repository: {
         pullRequest: {
@@ -98,12 +124,22 @@ export async function fetchUnresolvedThreadCounts(
   prs: RepoPullRequest[]
 ): Promise<void> {
   const token = await getTokenForOwner(config, owner)
-  for (let i = 0; i < prs.length; i += 20) {
-    const chunk = prs.slice(i, i + 20)
-    const fragments = chunk
-      .map((pr, idx) => {
-        const alias = `pr${idx}`
-        return `${alias}: repository(owner: "${owner}", name: "${repo}") {
+  for (const chunk of chunkPrs(prs)) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Keep GitHub GraphQL chunks sequential to avoid bursty secondary-rate-limit failures.
+    await fetchUnresolvedThreadCountsChunk(token, owner, repo, chunk)
+  }
+}
+
+async function fetchUnresolvedThreadCountsChunk(
+  token: string,
+  owner: string,
+  repo: string,
+  chunk: RepoPullRequest[]
+): Promise<void> {
+  const fragments = chunk
+    .map((pr, idx) => {
+      const alias = `pr${idx}`
+      return `${alias}: repository(owner: "${owner}", name: "${repo}") {
             pullRequest(number: ${pr.number}) {
               reviewThreads(first: 100) {
                 totalCount
@@ -112,39 +148,29 @@ export async function fetchUnresolvedThreadCounts(
               }
             }
           }`
-      })
-      .join('\n')
+    })
+    .join('\n')
 
-    const query = `query { ${fragments} }`
-    const result = await graphql<
-      Record<
-        string,
-        {
-          pullRequest: {
-            reviewThreads: {
-              totalCount: number
-              pageInfo: { hasNextPage: boolean; endCursor: string | null }
-              nodes: Array<{ isResolved: boolean }>
-            }
-          } | null
-        } | null
-      >
-    >(query, { headers: { authorization: `token ${token}` } })
+  const query = `query { ${fragments} }`
+  const result = await graphql<ThreadStatsResult>(query, {
+    headers: { authorization: `token ${token}` },
+  })
 
-    for (let idx = 0; idx < chunk.length; idx++) {
+  await Promise.all(
+    chunk.map(async (pr, idx) => {
       const data = result[`pr${idx}`]?.pullRequest
-      if (!data) continue
+      if (!data) return
       const allNodes = await paginateReviewThreads(
         owner,
         repo,
-        chunk[idx].number,
+        pr.number,
         data.reviewThreads,
         token
       )
       const { unresolved } = countThreadStats(allNodes, data.reviewThreads.totalCount)
-      chunk[idx].threadsUnaddressed = unresolved
-    }
-  }
+      pr.threadsUnaddressed = unresolved
+    })
+  )
 }
 
 /**
@@ -158,14 +184,16 @@ export async function fetchBatchThreadStats(
 
   const prsByOwner = groupPrsByOwner(prs)
 
-  for (const [owner, ownerPrs] of prsByOwner) {
-    try {
-      const token = await getTokenForOwner(config, owner)
-      await fetchThreadStatsChunked(token, ownerPrs, owner)
-    } catch (error: unknown) {
-      console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
-    }
-  }
+  await Promise.all(
+    Array.from(prsByOwner, async ([owner, ownerPrs]) => {
+      try {
+        const token = await getTokenForOwner(config, owner)
+        await fetchThreadStatsChunked(token, ownerPrs, owner)
+      } catch (error: unknown) {
+        console.warn(`[fetchBatchThreadStats] Failed for owner ${owner}:`, error)
+      }
+    })
+  )
 }
 
 /** Process thread stats in chunks of 20 for a single owner. */
@@ -174,25 +202,23 @@ async function fetchThreadStatsChunked(
   ownerPrs: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>,
   owner: string
 ): Promise<void> {
-  type ThreadStatsResult = Record<
-    string,
-    {
-      pullRequest: {
-        reviewThreads: {
-          totalCount: number
-          pageInfo: { hasNextPage: boolean; endCursor: string | null }
-          nodes: Array<{ isResolved: boolean }>
-        }
-      } | null
-    } | null
-  >
+  const chunks = chunkPrs(ownerPrs)
+  for (let i = 0; i < chunks.length; i++) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Keep GitHub GraphQL chunks sequential to avoid bursty secondary-rate-limit failures.
+    await fetchThreadStatsChunk(token, chunks[i], owner, i * THREAD_STATS_CHUNK_SIZE)
+  }
+}
 
-  for (let i = 0; i < ownerPrs.length; i += 20) {
-    const chunk = ownerPrs.slice(i, i + 20)
-    const fragments = chunk
-      .map((pr, idx) => {
-        const alias = `pr${i + idx}`
-        return `${alias}: repository(owner: "${owner}", name: "${pr._repo}") {
+async function fetchThreadStatsChunk(
+  token: string,
+  chunk: Array<PullRequest & { _owner: string; _repo: string; _prNumber: number }>,
+  owner: string,
+  aliasOffset: number
+): Promise<void> {
+  const fragments = chunk
+    .map((pr, idx) => {
+      const alias = `pr${aliasOffset + idx}`
+      return `${alias}: repository(owner: "${owner}", name: "${pr._repo}") {
               pullRequest(number: ${pr._prNumber}) {
                 reviewThreads(first: 100) {
                   totalCount
@@ -201,29 +227,30 @@ async function fetchThreadStatsChunked(
                 }
               }
             }`
-      })
-      .join('\n')
-
-    const query = `query { ${fragments} }`
-    const result = await graphql<ThreadStatsResult>(query, {
-      headers: { authorization: `token ${token}` },
     })
+    .join('\n')
 
-    for (let idx = 0; idx < chunk.length; idx++) {
-      const data = result[`pr${i + idx}`]?.pullRequest
-      if (!data) continue
+  const query = `query { ${fragments} }`
+  const result = await graphql<ThreadStatsResult>(query, {
+    headers: { authorization: `token ${token}` },
+  })
+
+  await Promise.all(
+    chunk.map(async (pr, idx) => {
+      const data = result[`pr${aliasOffset + idx}`]?.pullRequest
+      if (!data) return
       const allNodes = await paginateReviewThreads(
         owner,
-        chunk[idx]._repo,
-        chunk[idx]._prNumber,
+        pr._repo,
+        pr._prNumber,
         data.reviewThreads,
         token
       )
       const { resolved, unresolved } = countThreadStats(allNodes, data.reviewThreads.totalCount)
-      chunk[idx].threadsTotal = data.reviewThreads.totalCount
-      chunk[idx].threadsAddressed = resolved
-      chunk[idx].threadsUnaddressed = unresolved
-    }
-  }
+      pr.threadsTotal = data.reviewThreads.totalCount
+      pr.threadsAddressed = resolved
+      pr.threadsUnaddressed = unresolved
+    })
+  )
 }
 /* v8 ignore stop */

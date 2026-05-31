@@ -170,7 +170,7 @@ describe('RunList', () => {
   it('shows loading spinner when runs are undefined', () => {
     mockUseRecentRuns.mockReturnValue(undefined)
     render(<RunList />)
-    expect(screen.getByText('Loading runs...')).toBeTruthy()
+    expect(screen.getByText('Loading runs…')).toBeTruthy()
   })
 
   it('shows empty state when runs array is empty', () => {

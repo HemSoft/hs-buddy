@@ -244,7 +244,7 @@ describe('SettingsAppearance', () => {
   it('renders a loading state while config is loading', () => {
     renderAppearance({ config: null, loading: true })
 
-    expect(screen.getByText('Loading appearance settings...')).toBeInTheDocument()
+    expect(screen.getByText('Loading appearance settings…')).toBeInTheDocument()
   })
 
   it('maps config values into the section props and filters system fonts', async () => {

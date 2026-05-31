@@ -78,7 +78,7 @@ describe('CopilotResultPanel', () => {
   it('shows loading state when result is undefined', () => {
     mocks.useCopilotResult.mockReturnValue(undefined)
     render(<CopilotResultPanel resultId="r1" />)
-    expect(screen.getByText('Loading result...')).toBeInTheDocument()
+    expect(screen.getByText('Loading result…')).toBeInTheDocument()
   })
 
   it('shows "Result not found" when result is null', () => {
@@ -95,18 +95,18 @@ describe('CopilotResultPanel', () => {
     expect(preview).toHaveTextContent('This is the result.')
   })
 
-  it('shows pending status with "Waiting to start..."', () => {
+  it('shows pending status with "Waiting to start…"', () => {
     mockResult.status = 'pending'
     mockResult.result = null
     render(<CopilotResultPanel resultId="r1" />)
-    expect(screen.getByText('Waiting to start...')).toBeInTheDocument()
+    expect(screen.getByText('Waiting to start…')).toBeInTheDocument()
   })
 
-  it('shows running status with "Copilot is working..."', () => {
+  it('shows running status with "Copilot is working…"', () => {
     mockResult.status = 'running'
     mockResult.result = null
     render(<CopilotResultPanel resultId="r1" />)
-    expect(screen.getByText('Copilot is working...')).toBeInTheDocument()
+    expect(screen.getByText('Copilot is working…')).toBeInTheDocument()
   })
 
   it('shows failed status with error detail and retry button', () => {

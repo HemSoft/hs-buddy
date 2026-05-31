@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.776] - 2026-05-31
+
+### Changed
+
+- Use typographic ellipses
+
 ## [0.1.775] - 2026-05-31
 
 ### Changed

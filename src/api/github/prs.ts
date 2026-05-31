@@ -568,7 +568,7 @@ async function tryGraphQLFallback(
   org: string,
   orgAvatarUrl: string | null
 ): Promise<PullRequest[]> {
-  console.debug(`[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests...`)
+  console.debug(`[PR Fallback] Search returned 0 for my-prs, trying GraphQL viewer.pullRequests…`)
   try {
     const fallbackPrs = await fetchPRsViaGraphQLFallback(config, username, org, orgAvatarUrl)
     if (fallbackPrs.length > 0) {
@@ -701,7 +701,7 @@ async function fetchPRs(
   for (let i = 0; i < config.accounts.length; i++) {
     const { username, org } = config.accounts[i]
 
-    console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})...`)
+    console.debug(`Checking GitHub account '${username}' for org '${org}' (mode: ${mode})…`)
     accountReport(i, 'authenticating')
 
     // Get Octokit instance for this specific account

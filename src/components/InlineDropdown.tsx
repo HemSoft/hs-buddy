@@ -273,7 +273,7 @@ function resolveContainerAttrs(
 function resolveProps(raw: InlineDropdownProps) {
   return {
     ...raw,
-    placeholder: resolveStringProp(raw.placeholder, 'Select...'),
+    placeholder: resolveStringProp(raw.placeholder, 'Select…'),
     disabled: resolveBooleanProp(raw.disabled, false),
     className: resolveStringProp(raw.className, ''),
     align: resolveAlignProp(raw.align),

@@ -20,7 +20,7 @@ type JobRun = Doc<'runs'>
 function JobRecentRuns({ runs }: { runs: JobRun[] | undefined }) {
   /* v8 ignore start */
   if (runs === undefined) {
-    return <div className="job-detail-runs-loading">Loading runs...</div>
+    return <div className="job-detail-runs-loading">Loading runs…</div>
   }
   /* v8 ignore stop */
   if (runs.length === 0) {
@@ -219,7 +219,7 @@ function JobDetailLoadingState() {
     <div className="job-detail">
       <div className="job-detail-loading">
         <div className="loading-spinner" />
-        <span>Loading job...</span>
+        <span>Loading job…</span>
       </div>
     </div>
   )

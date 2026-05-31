@@ -72,7 +72,7 @@ describe('SettingsAdvanced', () => {
   it('shows loading spinner when loading is true', () => {
     mockUseConfig.mockReturnValue({ ...defaultMockValues(), loading: true })
     render(<SettingsAdvanced />)
-    expect(screen.getByText('Loading advanced settings...')).toBeTruthy()
+    expect(screen.getByText('Loading advanced settings…')).toBeTruthy()
   })
 
   it('shows "Opened!" after clicking Open in Editor', async () => {

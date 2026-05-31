@@ -348,7 +348,7 @@ describe('PRThreadsPanel', () => {
   it('disables textarea when sending', () => {
     mockHook({
       data: { threads: [], issueComments: [], reviews: [] },
-      commentText: 'Sending...',
+      commentText: 'Sending…',
       sendingComment: true,
       filteredThreads: [],
     })

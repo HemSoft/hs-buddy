@@ -87,10 +87,10 @@ function ThreadReplyForm({
   return (
     <div className="thread-reply-form">
       <textarea
-        aria-label="Write a reply..."
+        aria-label="Write a reply…"
         ref={textareaRef}
         className="thread-reply-input"
-        placeholder="Write a reply..."
+        placeholder="Write a reply…"
         value={replyText}
         onChange={e => dispatch({ type: 'set_reply_text', text: e.target.value })}
         onKeyDown={e => {

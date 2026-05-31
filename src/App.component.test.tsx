@@ -195,7 +195,7 @@ describe('App loading state', () => {
     vi.mocked(useMigrateToConvex).mockReturnValue({ isComplete: false, isLoading: true })
 
     render(<App />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(screen.getByText('Initializing configuration')).toBeInTheDocument()
   })
 })
@@ -423,7 +423,7 @@ describe('App callbacks', () => {
       loaded: false,
     })
     render(<App />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('shows loading when layout is not loaded', () => {
@@ -435,7 +435,7 @@ describe('App callbacks', () => {
       toggleAssistant: vi.fn(),
     })
     render(<App />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('covers null schedules/jobs branches', () => {

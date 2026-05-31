@@ -21,7 +21,7 @@ function ResetButtonLabel({
     return (
       <>
         <RefreshCw className="spin" size={14} />
-        Resetting...
+        Resetting…
       </>
     )
   if (resetConfirm)
@@ -73,7 +73,7 @@ export function SettingsAdvanced() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading advanced settings...</p>
+          <p>Loading advanced settings…</p>
         </div>
       </div>
     )
@@ -98,7 +98,7 @@ export function SettingsAdvanced() {
           </p>
           <div className="config-path-box">
             <FolderOpen size={16} />
-            <code className="config-path">{storePath || 'Loading...'}</code>
+            <code className="config-path">{storePath || 'Loading…'}</code>
           </div>
           <div className="button-group">
             <button

@@ -272,7 +272,7 @@ function OrgTeamNodeMembers({
           <span className="sidebar-item-icon">
             <Loader2 size={11} className="spin" />
           </span>
-          <span className="sidebar-item-label">Loading members...</span>
+          <span className="sidebar-item-label">Loading members…</span>
         </div>
       </div>
     )
@@ -387,7 +387,7 @@ function TeamsSectionContent({
           <span className="sidebar-item-icon">
             <Loader2 size={11} className="spin" />
           </span>
-          <span className="sidebar-item-label">Loading teams...</span>
+          <span className="sidebar-item-label">Loading teams…</span>
         </div>
       </div>
     )
@@ -536,7 +536,7 @@ function UsersSectionContent({
           <span className="sidebar-item-icon">
             <Loader2 size={11} className="spin" />
           </span>
-          <span className="sidebar-item-label">Loading users...</span>
+          <span className="sidebar-item-label">Loading users…</span>
         </div>
       </div>
     )
@@ -935,7 +935,7 @@ function OrgExpandedBody(props: OrgExpandedBodyProps) {
       <div className="sidebar-org-repos">
         <div className="sidebar-item sidebar-item-empty">
           <Loader2 size={12} className="spin" />
-          <span className="sidebar-item-label">Loading repos...</span>
+          <span className="sidebar-item-label">Loading repos…</span>
         </div>
       </div>
     )

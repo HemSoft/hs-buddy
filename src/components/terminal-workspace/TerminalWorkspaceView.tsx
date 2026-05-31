@@ -66,7 +66,7 @@ function TerminalPaneCell({
           <X size={13} />
         </button>
       </div>
-      <Suspense fallback={<div className="terminal-workspace-loading">Loading terminal...</div>}>
+      <Suspense fallback={<div className="terminal-workspace-loading">Loading terminal…</div>}>
         <TerminalPane
           key={layout.id}
           viewKey={layout.id}

@@ -99,7 +99,7 @@ function RunRunningIndicator({ status }: { status: RunStatus }) {
   return (
     <span className="run-meta-item running-indicator">
       <Loader size={12} className="spin" />
-      Running...
+      Running…
     </span>
   )
 }

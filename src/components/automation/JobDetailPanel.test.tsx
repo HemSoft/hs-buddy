@@ -102,7 +102,7 @@ describe('JobDetailPanel', () => {
   it('renders loading and not-found states', () => {
     mockJob = undefined
     const { rerender } = render(<JobDetailPanel jobId="job-1" />)
-    expect(screen.getByText('Loading job...')).toBeInTheDocument()
+    expect(screen.getByText('Loading job…')).toBeInTheDocument()
 
     mockJob = null
     rerender(<JobDetailPanel jobId="job-1" />)

@@ -198,7 +198,7 @@ describe('codeRabbitProvider', () => {
         {
           id: 300,
           user: { login: 'coderabbitai[bot]' },
-          body: '## Summary by CodeRabbit\n...',
+          body: '## Summary by CodeRabbit\n…',
           created_at: '2024-01-03',
           updated_at: '2024-01-03',
         },
@@ -217,7 +217,7 @@ describe('codeRabbitProvider', () => {
         {
           id: 300,
           user: { login: 'coderabbitai[bot]' },
-          body: 'Processing...',
+          body: 'Processing…',
           created_at: '2024-01-03',
           updated_at: '2024-01-03',
         },
@@ -275,7 +275,7 @@ describe('codeRabbitProvider', () => {
         {
           id: 150,
           user: { login: 'coderabbitai[bot]' },
-          body: 'Processing your review...',
+          body: 'Processing your review…',
           created_at: '2024-01-01T00:00:00Z',
           updated_at: '2024-01-03T12:00:00Z',
         },

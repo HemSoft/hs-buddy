@@ -72,13 +72,13 @@ describe('AccountQuotaCard', () => {
 
   it('shows loading state when state is undefined (initial render race)', () => {
     render(<AccountQuotaCard account={testAccount} state={undefined} />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('shows loading state when loading with no data', () => {
     const state: AccountQuotaState = { data: null, loading: true, error: null, fetchedAt: null }
     render(<AccountQuotaCard account={testAccount} state={state} />)
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('shows error state for non-404 errors', () => {

@@ -262,7 +262,7 @@ async function resolveOrgOrUserRepos(
     if (!isNotFoundError(error)) throw error
 
     // Namespace is likely a user account — retry with user endpoint
-    console.info(`Namespace '${namespace}' is not an org, trying user repos...`)
+    console.info(`Namespace '${namespace}' is not an org, trying user repos…`)
     const repos = await paginateRepos(octokit, namespace, 'user')
     return { repos, isUserNamespace: true }
   }

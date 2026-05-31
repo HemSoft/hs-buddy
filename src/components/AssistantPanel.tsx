@@ -118,7 +118,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
                   ) : (
                     <div className="assistant-message-loading">
                       <Loader2 size={14} className="spin" />
-                      <span>Thinking...</span>
+                      <span>Thinking…</span>
                     </div>
                   )
                 ) : (
@@ -145,7 +145,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Ask a question..."
+          placeholder="Ask a question…"
           rows={1}
           disabled={isStreaming}
         />

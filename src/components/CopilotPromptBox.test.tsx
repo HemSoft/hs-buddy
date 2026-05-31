@@ -443,7 +443,7 @@ describe('CopilotPromptBox', () => {
     ])
     render(<CopilotPromptBox onOpenResult={onOpenResult} />)
     // Should show truncated text (80 chars + '...')
-    expect(screen.getByText('A'.repeat(80) + '...')).toBeTruthy()
+    expect(screen.getByText('A'.repeat(80) + '…')).toBeTruthy()
   })
 
   it('renders without onOpenResult and handles submit gracefully', async () => {

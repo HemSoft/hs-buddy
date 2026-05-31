@@ -80,7 +80,7 @@ describe('buildGhAuthTokenArgs', () => {
 
 describe('isNonFatalGhStderr', () => {
   it('returns true for login info messages', () => {
-    expect(isNonFatalGhStderr('Logging in to github.com...')).toBe(true)
+    expect(isNonFatalGhStderr('Logging in to github.com…')).toBe(true)
   })
 
   it('returns false for actual error messages', () => {

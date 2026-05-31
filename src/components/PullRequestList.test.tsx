@@ -114,7 +114,7 @@ describe('PullRequestList', () => {
     })
 
     render(<PullRequestList mode="my-prs" />)
-    expect(screen.getByText('Fetching PRs...')).toBeTruthy()
+    expect(screen.getByText('Fetching PRs…')).toBeTruthy()
   })
 
   it('shows error state', () => {
@@ -159,7 +159,7 @@ describe('PullRequestList', () => {
       progress: null,
     })
     render(<PullRequestList mode="my-prs" />)
-    expect(screen.getByText('Loading pull requests...')).toBeTruthy()
+    expect(screen.getByText('Loading pull requests…')).toBeTruthy()
   })
 
   it('shows loading with authenticating status', () => {
@@ -175,7 +175,7 @@ describe('PullRequestList', () => {
       },
     })
     render(<PullRequestList mode="my-prs" />)
-    expect(screen.getByText('Authenticating...')).toBeTruthy()
+    expect(screen.getByText('Authenticating…')).toBeTruthy()
   })
 
   it('shows loading with done status and prs found', () => {
@@ -303,7 +303,7 @@ describe('PullRequestList', () => {
       },
     })
     render(<PullRequestList mode="my-prs" />)
-    expect(screen.getByText('Refreshing...')).toBeTruthy()
+    expect(screen.getByText('Refreshing…')).toBeTruthy()
     expect(screen.getByText('1 min ago')).toBeTruthy()
   })
 

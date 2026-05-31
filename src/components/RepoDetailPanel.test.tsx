@@ -82,7 +82,7 @@ describe('RepoDetailPanel', () => {
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoDetailPanel owner="test-org" repo="hs-buddy" />)
-    expect(screen.getByText('Loading repository details...')).toBeInTheDocument()
+    expect(screen.getByText('Loading repository details…')).toBeInTheDocument()
     expect(screen.getByText('test-org/hs-buddy')).toBeInTheDocument()
   })
 
@@ -383,7 +383,7 @@ describe('RepoDetailPanel', () => {
     const { container } = render(<RepoDetailPanel owner="test-org" repo="hs-buddy" />)
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading repository details...')).not.toBeInTheDocument()
+      expect(screen.queryByText('Loading repository details…')).not.toBeInTheDocument()
     })
 
     expect(screen.queryByText('Failed to load repository')).not.toBeInTheDocument()

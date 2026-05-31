@@ -70,7 +70,7 @@ describe('CopilotSidebar', () => {
     fireEvent.click(screen.getByText('Recent Results').closest('[role="button"]') as HTMLElement)
 
     expect(screen.getByText('PR Review: Improve sidebar tests')).toBeTruthy()
-    expect(screen.getByText('1234567890123456789012345678901234567890...')).toBeTruthy()
+    expect(screen.getByText('1234567890123456789012345678901234567890…')).toBeTruthy()
     expect(screen.getAllByText('2m ago')).toHaveLength(2)
     expect(screen.getByTestId('status-completed')).toBeTruthy()
     expect(screen.getByTestId('status-running')).toBeTruthy()

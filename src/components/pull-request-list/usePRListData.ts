@@ -539,7 +539,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
         console.log(
           'Fetching PRs for',
           accounts.length,
-          'account(s)...',
+          'account(s)…',
           'mode:',
           mode,
           'recentlyMergedDays:',

@@ -101,7 +101,7 @@ function AppLoadingState() {
       style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
       <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-        <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading...</div>
+        <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading…</div>
         <div style={{ fontSize: '12px', opacity: 0.7 }}>Initializing configuration</div>
       </div>
     </div>

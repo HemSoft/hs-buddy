@@ -32,7 +32,7 @@ describe('SettingsPullRequests', () => {
   it('renders loading state', () => {
     mockLoading = true
     render(<SettingsPullRequests />)
-    expect(screen.getByText('Loading PR settings...')).toBeTruthy()
+    expect(screen.getByText('Loading PR settings…')).toBeTruthy()
   })
 
   it('renders page heading', () => {

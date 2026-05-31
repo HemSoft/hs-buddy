@@ -114,7 +114,7 @@ describe('RunCard', () => {
       />
     )
 
-    expect(screen.getByText('Running...')).toBeInTheDocument()
+    expect(screen.getByText('Running…')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTitle('Cancel Run'))
 

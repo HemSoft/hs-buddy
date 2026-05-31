@@ -27,7 +27,7 @@ function getPRReviewTitle(metadata: Record<string, unknown> | null): string {
 }
 
 function getResultPromptLabel(prompt: string): string {
-  return prompt.length > 40 ? `${prompt.slice(0, 40)}...` : prompt
+  return prompt.length > 40 ? `${prompt.slice(0, 40)}…` : prompt
 }
 
 function getRecentResultLabel(result: RecentCopilotResult): string {

@@ -70,7 +70,7 @@ describe('StatusBar', () => {
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText(/3 remaining · PRs\.\.\./)).toBeTruthy()
+    expect(screen.getByText(/3 remaining · PRs…/)).toBeTruthy()
   })
 
   it('shows single task syncing without count', () => {
@@ -84,7 +84,7 @@ describe('StatusBar', () => {
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText('Repos...')).toBeTruthy()
+    expect(screen.getByText('Repos…')).toBeTruthy()
   })
 
   it('shows idle status with next refresh time', () => {
@@ -173,7 +173,7 @@ describe('StatusBar', () => {
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText('Syncing...')).toBeTruthy()
+    expect(screen.getByText('Syncing…')).toBeTruthy()
   })
 
   it('shows syncing multi-task without label', () => {
@@ -187,7 +187,7 @@ describe('StatusBar', () => {
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText(/5 remaining · Syncing\.\.\./)).toBeTruthy()
+    expect(screen.getByText(/5 remaining · Syncing…/)).toBeTruthy()
   })
 
   it('does not show Copilot when assistantActive is false', () => {

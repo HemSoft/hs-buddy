@@ -153,7 +153,7 @@ describe('SettingsNotifications', () => {
 
     render(<SettingsNotifications />)
 
-    expect(screen.getByText('Loading notification settings...')).toBeInTheDocument()
+    expect(screen.getByText('Loading notification settings…')).toBeInTheDocument()
   })
 
   it('shows an error when IPC returns null for preview', async () => {

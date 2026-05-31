@@ -166,14 +166,14 @@ describe('OrgRepoTree', () => {
   })
 
   // 6. Org expanded - loading repos
-  it('shows "Loading repos..." when expanded and loading', () => {
+  it('shows "Loading repos…" when expanded and loading', () => {
     const props = createDefaultProps({
       uniqueOrgs: ['my-org'],
       expandedOrgs: new Set(['my-org']),
       loadingOrgs: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading repos...')).toBeInTheDocument()
+    expect(screen.getByText('Loading repos…')).toBeInTheDocument()
   })
 
   // 7. Org expanded - no repos
@@ -239,7 +239,7 @@ describe('OrgRepoTree', () => {
   })
 
   // 12. Users section expanded with loading
-  it('shows "Loading users..." when users section is expanded and loading', () => {
+  it('shows "Loading users…" when users section is expanded and loading', () => {
     const props = createDefaultProps({
       uniqueOrgs: ['my-org'],
       expandedOrgs: new Set(['my-org']),
@@ -247,7 +247,7 @@ describe('OrgRepoTree', () => {
       loadingOrgMembers: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading users...')).toBeInTheDocument()
+    expect(screen.getByText('Loading users…')).toBeInTheDocument()
   })
 
   // 13. Users section expanded with members
@@ -296,7 +296,7 @@ describe('OrgRepoTree', () => {
   })
 
   // 16. Teams section expanded with loading
-  it('shows "Loading teams..." when teams section is expanded and loading', () => {
+  it('shows "Loading teams…" when teams section is expanded and loading', () => {
     const props = createDefaultProps({
       uniqueOrgs: ['my-org'],
       expandedOrgs: new Set(['my-org']),
@@ -304,7 +304,7 @@ describe('OrgRepoTree', () => {
       loadingOrgTeams: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading teams...')).toBeInTheDocument()
+    expect(screen.getByText('Loading teams…')).toBeInTheDocument()
   })
 
   // 17. Teams section expanded with teams
@@ -332,7 +332,7 @@ describe('OrgRepoTree', () => {
   })
 
   // 19. Team node expanded - loading members
-  it('shows "Loading members..." when team is expanded and loading members', () => {
+  it('shows "Loading members…" when team is expanded and loading members', () => {
     const props = createDefaultProps({
       uniqueOrgs: ['my-org'],
       expandedOrgs: new Set(['my-org']),
@@ -342,7 +342,7 @@ describe('OrgRepoTree', () => {
       loadingTeamMembers: new Set(['my-org/backend']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading members...')).toBeInTheDocument()
+    expect(screen.getByText('Loading members…')).toBeInTheDocument()
   })
 
   // 20. Team node expanded - with members

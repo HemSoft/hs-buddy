@@ -41,7 +41,7 @@ function CommitListBody({
 
   return (
     <>
-      {loading && <InlineRefreshIndicator message="Refreshing commit list..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing commit list…" />}
       <div className="repo-commits-page-list">
         {commits.map(commit => (
           <div
@@ -85,7 +85,7 @@ function renderCommitListLoadState(
   repo: string
 ): JSX.Element | null {
   if (loading && commits.length === 0) {
-    return <PanelLoadingState message="Loading commits..." subtitle={`${owner}/${repo}`} />
+    return <PanelLoadingState message="Loading commits…" subtitle={`${owner}/${repo}`} />
   }
   if (error && commits.length === 0) {
     return <PanelErrorState title="Failed to load commits" error={error} onRetry={refresh} />

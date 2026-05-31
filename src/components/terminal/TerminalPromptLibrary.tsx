@@ -471,7 +471,7 @@ function TerminalPromptEditorView({
         <textarea
           value={editorState.content}
           onChange={event => onContentChange(event.target.value)}
-          placeholder="Paste the reusable Copilot CLI prompt here..."
+          placeholder="Paste the reusable Copilot CLI prompt here…"
           rows={8}
           disabled={saving}
         />

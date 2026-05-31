@@ -75,7 +75,7 @@ describe('AssistantPanel', () => {
 
   it('renders input textarea', () => {
     render(<AssistantPanel context={context} />)
-    expect(screen.getByPlaceholderText('Ask a question...')).toBeTruthy()
+    expect(screen.getByPlaceholderText('Ask a question…')).toBeTruthy()
   })
 
   it('sends message when assistant:send-prompt event is dispatched', () => {
@@ -104,7 +104,7 @@ describe('AssistantPanel', () => {
 
   it('sends input on Enter key (non-shift)', () => {
     render(<AssistantPanel context={context} />)
-    const textarea = screen.getByPlaceholderText('Ask a question...')
+    const textarea = screen.getByPlaceholderText('Ask a question…')
     fireEvent.change(textarea, { target: { value: 'Hello bot' } })
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false })
     expect(mockSendMessage).toHaveBeenCalledWith('Hello bot')
@@ -112,7 +112,7 @@ describe('AssistantPanel', () => {
 
   it('does not send on Shift+Enter', () => {
     render(<AssistantPanel context={context} />)
-    const textarea = screen.getByPlaceholderText('Ask a question...')
+    const textarea = screen.getByPlaceholderText('Ask a question…')
     fireEvent.change(textarea, { target: { value: 'multi line' } })
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true })
     expect(mockSendMessage).not.toHaveBeenCalled()
@@ -120,7 +120,7 @@ describe('AssistantPanel', () => {
 
   it('does not send empty input on Enter', () => {
     render(<AssistantPanel context={context} />)
-    const textarea = screen.getByPlaceholderText('Ask a question...')
+    const textarea = screen.getByPlaceholderText('Ask a question…')
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false })
     expect(mockSendMessage).not.toHaveBeenCalled()
   })
@@ -169,7 +169,7 @@ describe('AssistantPanel', () => {
       abortResponse: mockAbortResponse,
     })
     render(<AssistantPanel context={context} />)
-    expect(screen.getByText('Thinking...')).toBeTruthy()
+    expect(screen.getByText('Thinking…')).toBeTruthy()
   })
 
   it('uses pr-detail suggestions when viewType is pr-detail', () => {
@@ -205,7 +205,7 @@ describe('AssistantPanel', () => {
 
   it('auto-resizes textarea on input change', () => {
     render(<AssistantPanel context={context} />)
-    const textarea = screen.getByPlaceholderText('Ask a question...') as HTMLTextAreaElement
+    const textarea = screen.getByPlaceholderText('Ask a question…') as HTMLTextAreaElement
 
     Object.defineProperty(textarea, 'scrollHeight', { value: 80, configurable: true })
 

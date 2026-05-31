@@ -126,7 +126,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
       <div className="copilot-results-list">
         <div className="copilot-results-loading">
           <Loader2 size={32} className="spin" />
-          <p>Loading results...</p>
+          <p>Loading results…</p>
         </div>
       </div>
     )

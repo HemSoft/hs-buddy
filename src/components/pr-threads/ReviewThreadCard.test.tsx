@@ -210,31 +210,31 @@ describe('ReviewThreadCard', () => {
   it('shows reply form when Reply button is clicked', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Write a reply…')).toBeInTheDocument()
   })
 
   it('cancels reply form via Cancel button', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    expect(screen.getByPlaceholderText('Write a reply...')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Write a reply…')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Cancel'))
-    expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Write a reply…')).not.toBeInTheDocument()
   })
 
   it('cancels reply via Escape key', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
 
     fireEvent.keyDown(textarea, { key: 'Escape' })
-    expect(screen.queryByPlaceholderText('Write a reply...')).not.toBeInTheDocument()
+    expect(screen.queryByPlaceholderText('Write a reply…')).not.toBeInTheDocument()
   })
 
   it('updates reply text in textarea', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
 
     fireEvent.change(textarea, { target: { value: 'My reply' } })
     expect(textarea).toHaveValue('My reply')
@@ -250,7 +250,7 @@ describe('ReviewThreadCard', () => {
   it('enables send button when reply text is non-empty', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'My reply' } })
 
     const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
@@ -282,7 +282,7 @@ describe('ReviewThreadCard', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
 
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'My reply' } })
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
 
@@ -303,7 +303,7 @@ describe('ReviewThreadCard', () => {
 
       // Open reply form
       fireEvent.click(screen.getByText('Reply'))
-      const textarea = screen.getByPlaceholderText('Write a reply...')
+      const textarea = screen.getByPlaceholderText('Write a reply…')
       fireEvent.change(textarea, { target: { value: 'My reply text' } })
 
       // Click send
@@ -322,7 +322,7 @@ describe('ReviewThreadCard', () => {
       renderCard()
 
       fireEvent.click(screen.getByText('Reply'))
-      const textarea = screen.getByPlaceholderText('Write a reply...')
+      const textarea = screen.getByPlaceholderText('Write a reply…')
       fireEvent.change(textarea, { target: { value: 'My reply text' } })
 
       const sendButtons = screen.getAllByRole('button', { name: /Reply/i })
@@ -334,7 +334,7 @@ describe('ReviewThreadCard', () => {
       })
 
       // Form should still be open with text preserved
-      expect(screen.getByPlaceholderText('Write a reply...')).toHaveValue('My reply text')
+      expect(screen.getByPlaceholderText('Write a reply…')).toHaveValue('My reply text')
       // onReplyAdded should NOT be called on error
       expect(onReplyAdded).not.toHaveBeenCalled()
 
@@ -395,7 +395,7 @@ describe('ReviewThreadCard', () => {
     renderCard()
 
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'ctrl+enter reply' } })
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
 
@@ -410,7 +410,7 @@ describe('ReviewThreadCard', () => {
     renderCard()
 
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'meta reply' } })
     fireEvent.keyDown(textarea, { key: 'Enter', metaKey: true })
 
@@ -433,7 +433,7 @@ describe('ReviewThreadCard', () => {
   it('does not send reply when text is whitespace only via Ctrl+Enter', () => {
     renderCard()
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: '   ' } })
 
     fireEvent.keyDown(textarea, { key: 'Enter', ctrlKey: true })
@@ -451,7 +451,7 @@ describe('ReviewThreadCard', () => {
     renderCard()
 
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'My reply' } })
 
     // Click send button — starts sending
@@ -516,7 +516,7 @@ describe('ReviewThreadCard', () => {
     renderCard()
 
     fireEvent.click(screen.getByText('Reply'))
-    const textarea = screen.getByPlaceholderText('Write a reply...')
+    const textarea = screen.getByPlaceholderText('Write a reply…')
     fireEvent.change(textarea, { target: { value: 'Test reply' } })
 
     const sendButtons = screen.getAllByRole('button', { name: /Reply/i })

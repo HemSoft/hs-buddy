@@ -146,7 +146,7 @@ function tempoWorklogEditorReducer(
 }
 
 function submitLabel(saving: boolean, isEdit: boolean) {
-  if (saving) return 'Saving...'
+  if (saving) return 'Saving…'
   return isEdit ? 'Update' : 'Create'
 }
 
@@ -378,7 +378,7 @@ export function TempoWorklogEditor({
               type="text"
               value={state.description}
               onChange={e => dispatch({ type: 'setDescription', value: e.target.value })}
-              placeholder="Working on issue..."
+              placeholder="Working on issue…"
             />
           </div>
           <div className="tempo-editor-row">

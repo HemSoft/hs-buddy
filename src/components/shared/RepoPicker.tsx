@@ -209,7 +209,7 @@ export function RepoPicker(rawProps: RepoPickerProps) {
   if (loading) {
     return (
       <span className={`repo-picker-loading ${className}`}>
-        <FolderGit2 size={11} /> Loading...
+        <FolderGit2 size={11} /> Loading…
       </span>
     )
   }

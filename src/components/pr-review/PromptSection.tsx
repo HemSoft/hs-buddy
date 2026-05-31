@@ -126,7 +126,7 @@ export function PromptSection({
             }
           }}
         >
-          {prompt.length > 200 ? prompt.slice(0, 200) + '...' : prompt}
+          {prompt.length > 200 ? prompt.slice(0, 200) + '…' : prompt}
         </div>
       )}
     </div>

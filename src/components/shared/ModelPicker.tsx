@@ -194,7 +194,7 @@ function ModelPickerLoadingState({ className }: { className: string }) {
     <div className={className}>
       <div style={SELECT_STATUS_STYLE}>
         <Loader2 size={16} className="spin" />
-        Fetching available models...
+        Fetching available models…
       </div>
     </div>
   )
@@ -492,7 +492,7 @@ export function ModelPicker(props: ModelPickerProps) {
           color: 'var(--text-secondary)',
         }}
       >
-        <Loader2 size={11} className="spin" /> Loading...
+        <Loader2 size={11} className="spin" /> Loading…
       </div>
     )
   }

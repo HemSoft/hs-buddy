@@ -281,7 +281,7 @@ function RepoPRListBody({
   }
   return (
     <>
-      {loading && <InlineRefreshIndicator message="Refreshing pull requests..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing pull requests…" />}
       {viewMode === 'list' ? (
         <PRTableView prs={prs} handlePRClick={handlePRClick} />
       ) : (
@@ -316,7 +316,7 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
 
   if (isEmpty) {
     if (loading) {
-      return <PanelLoadingState message="Loading pull requests..." subtitle={`${owner}/${repo}`} />
+      return <PanelLoadingState message="Loading pull requests…" subtitle={`${owner}/${repo}`} />
     }
     if (error) {
       return (

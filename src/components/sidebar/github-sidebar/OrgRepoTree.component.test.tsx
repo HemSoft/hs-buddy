@@ -646,14 +646,14 @@ describe('OrgRepoTree', () => {
     expect(onItemSelect).toHaveBeenCalledWith('org-user:my-org/dev1')
   })
 
-  it('shows "Loading repos..." when org is expanded and loading', () => {
+  it('shows "Loading repos…" when org is expanded and loading', () => {
     const props = makeDefaultProps({
       uniqueOrgs: ['my-org'],
       expandedOrgs: new Set(['my-org']),
       loadingOrgs: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading repos...')).toBeTruthy()
+    expect(screen.getByText('Loading repos…')).toBeTruthy()
   })
 
   it('shows "No repos found" when expanded org has no repos', () => {
@@ -716,7 +716,7 @@ describe('OrgRepoTree', () => {
       loadingTeamMembers: new Set(['my-org/eng']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading members...')).toBeTruthy()
+    expect(screen.getByText('Loading members…')).toBeTruthy()
   })
 
   it('shows "via @username" auth label when meta exists and not loading', () => {
@@ -746,7 +746,7 @@ describe('OrgRepoTree', () => {
       loadingOrgMembers: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading users...')).toBeTruthy()
+    expect(screen.getByText('Loading users…')).toBeTruthy()
   })
 
   it('shows expanded teams section loading state', () => {
@@ -757,7 +757,7 @@ describe('OrgRepoTree', () => {
       loadingOrgTeams: new Set(['my-org']),
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.getByText('Loading teams...')).toBeTruthy()
+    expect(screen.getByText('Loading teams…')).toBeTruthy()
   })
 
   it('renders nothing for expanded user group with empty members', () => {
@@ -768,7 +768,7 @@ describe('OrgRepoTree', () => {
       orgMembers: { 'my-org': [] },
     })
     render(<OrgRepoTree {...props} />)
-    expect(screen.queryByText('Loading users...')).toBeNull()
+    expect(screen.queryByText('Loading users…')).toBeNull()
     expect(document.querySelector('.sidebar-org-users-list')).toBeNull()
   })
 })

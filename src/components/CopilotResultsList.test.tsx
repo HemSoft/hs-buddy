@@ -120,7 +120,7 @@ describe('CopilotResultsList', () => {
   it('shows loading state when results are undefined', () => {
     mockUseCopilotResultsRecent.mockReturnValue(undefined)
     render(<CopilotResultsList onOpenResult={mockOnOpenResult} />)
-    expect(screen.getByText('Loading results...')).toBeTruthy()
+    expect(screen.getByText('Loading results…')).toBeTruthy()
   })
 
   it('shows empty state when no results match filter', () => {

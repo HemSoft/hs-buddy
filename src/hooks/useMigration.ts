@@ -18,7 +18,7 @@ async function migrateAccounts<T>(
 ): Promise<void> {
   if (!hasAccountsToMigrate(configAccounts)) return
   if (shouldSkipAccountMigration(existingAccounts)) return
-  console.log('[Migration] Importing GitHub accounts from electron-store...')
+  console.log('[Migration] Importing GitHub accounts from electron-store…')
   const imported = await bulkImport({ accounts: configAccounts })
   if (imported.length > 0) {
     console.log(`[Migration] Imported ${imported.length} GitHub accounts to Convex`)
@@ -32,7 +32,7 @@ async function migrateSettings<T>(
 ): Promise<void> {
   const settingsExistInConvex = existingSettings && '_id' in existingSettings
   if (!configPR || settingsExistInConvex) return
-  console.log('[Migration] Importing PR settings from electron-store...')
+  console.log('[Migration] Importing PR settings from electron-store…')
   await initSettings({ pr: configPR })
   console.log('[Migration] PR settings migrated to Convex')
 }

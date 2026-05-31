@@ -82,7 +82,7 @@ function RecentResults({
           >
             <span className="copilot-recent-status">{getStatusEmoji(r.status)}</span>
             <span className="copilot-recent-prompt">
-              {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '...' : r.prompt}
+              {r.prompt.length > 80 ? r.prompt.slice(0, 80) + '…' : r.prompt}
             </span>
             <span className="copilot-recent-time">{formatDistanceToNow(r.createdAt)}</span>
           </div>
@@ -124,7 +124,7 @@ function PromptInputArea({
         value={state.prompt}
         onChange={e => setState(previousState => ({ ...previousState, prompt: e.target.value }))}
         onKeyDown={handleKeyDown}
-        placeholder={`Ask Copilot anything... (${modLabel}+Enter to send)`}
+        placeholder={`Ask Copilot anything… (${modLabel}+Enter to send)`}
         rows={3}
         disabled={submitting}
       />

@@ -132,7 +132,7 @@ export function SettingsWeather() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading weather settings...</p>
+          <p>Loading weather settings…</p>
         </div>
       </div>
     )

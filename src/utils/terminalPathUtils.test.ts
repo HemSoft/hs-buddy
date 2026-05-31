@@ -167,7 +167,7 @@ describe('processOsc7Buffer', () => {
     expect(result.remainingBuffer).toBe('')
   })
 
-  it('handles Windows drive-letter paths (file:///C:/...)', () => {
+  it('handles Windows drive-letter paths (file:///C:/…)', () => {
     const chunk = '\x1b]7;file:///C:/Users/test\x07'
     const result = processOsc7Buffer('', chunk)
     expect(result.cwd).toBe('C:/Users/test')

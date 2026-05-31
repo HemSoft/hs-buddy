@@ -71,7 +71,7 @@ function buildSyncingTooltip(status: BackgroundStatus): string {
 
 function buildSyncingLabel(status: BackgroundStatus): string {
   const label = status.activeLabel || 'Syncing'
-  return status.activeTasks > 1 ? `${status.activeTasks} remaining · ${label}...` : `${label}...`
+  return status.activeTasks > 1 ? `${status.activeTasks} remaining · ${label}…` : `${label}…`
 }
 
 function buildIdleTooltip(status: BackgroundStatus): string {

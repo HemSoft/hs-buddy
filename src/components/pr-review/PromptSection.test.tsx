@@ -75,7 +75,7 @@ describe('PromptSection', () => {
     expect((screen.getByRole('textbox') as HTMLTextAreaElement).disabled).toBe(true)
   })
 
-  it('shows "Saving..." when saving default', () => {
+  it('shows "Saving…" when saving default', () => {
     render(<PromptSection {...defaultProps} promptExpanded={true} savingDefault={true} />)
     expect(screen.getByText('Saving…')).toBeTruthy()
   })
@@ -83,8 +83,8 @@ describe('PromptSection', () => {
   it('truncates long previews in collapsed mode', () => {
     const longPrompt = 'x'.repeat(250)
     render(<PromptSection {...defaultProps} prompt={longPrompt} />)
-    const preview = screen.getByText(/^x+\.\.\.$/)
-    expect(preview.textContent!.endsWith('...')).toBe(true)
+    const preview = screen.getByText(/^x+…$/)
+    expect(preview.textContent!.endsWith('…')).toBe(true)
   })
 
   it('calls onToggleExpanded when header receives Enter keydown', () => {

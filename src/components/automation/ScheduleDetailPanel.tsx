@@ -74,7 +74,7 @@ function ScheduleRecentRuns({ runs }: { runs: ReturnType<typeof useScheduleRuns>
     <div className="schedule-detail-section">
       <h3>Recent Runs</h3>
       {runs === undefined ? (
-        <div className="schedule-detail-runs-loading">Loading runs...</div>
+        <div className="schedule-detail-runs-loading">Loading runs…</div>
       ) : runs.length === 0 ? (
         <div className="schedule-detail-runs-empty">No runs yet for this schedule.</div>
       ) : (
@@ -259,7 +259,7 @@ function ScheduleDetailLoadingState() {
     <div className="schedule-detail">
       <div className="schedule-detail-loading">
         <div className="loading-spinner" />
-        <span>Loading schedule...</span>
+        <span>Loading schedule…</span>
       </div>
     </div>
   )

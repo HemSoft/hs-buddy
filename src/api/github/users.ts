@@ -132,7 +132,7 @@ async function fetchOrgOrUserRepos(
     return { repos }
   } catch (error: unknown) {
     if (!isNotFoundError(error)) throw error
-    console.info(`Namespace '${namespace}' is not an org, trying user repos...`)
+    console.info(`Namespace '${namespace}' is not an org, trying user repos…`)
     const repos = await paginateRepoSlims(octokit, namespace, 'user')
     return { repos }
   }

@@ -322,7 +322,7 @@ export function SettingsCopilot() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading Copilot settings...</p>
+          <p>Loading Copilot settings…</p>
         </div>
       </div>
     )

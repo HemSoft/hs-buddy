@@ -351,7 +351,7 @@ describe('RepoNode component', () => {
         loadingRepoCommits={loading}
       />
     )
-    expect(screen.getByText('Loading commits...')).toBeDefined()
+    expect(screen.getByText('Loading commits…')).toBeDefined()
   })
 
   it('renders expanded issues section with open issues data', () => {
@@ -419,7 +419,7 @@ describe('RepoNode component', () => {
         loadingRepoIssues={loading}
       />
     )
-    expect(screen.getByText('Loading issues...')).toBeDefined()
+    expect(screen.getByText('Loading issues…')).toBeDefined()
   })
 
   it('renders no issue items when expanded state has empty issues', () => {
@@ -437,7 +437,7 @@ describe('RepoNode component', () => {
       />
     )
     expect(screen.getByText('Open')).toBeDefined()
-    expect(screen.queryByText('Loading issues...')).toBeNull()
+    expect(screen.queryByText('Loading issues…')).toBeNull()
   })
 
   it('renders selected item styling', () => {
@@ -600,7 +600,7 @@ describe('RepoNode component', () => {
         loadingRepoPRs={loading}
       />
     )
-    expect(screen.getByText('Loading pull requests...')).toBeDefined()
+    expect(screen.getByText('Loading pull requests…')).toBeDefined()
   })
 
   it('renders closed issues section when expanded', () => {
@@ -847,7 +847,7 @@ describe('RepoNode component', () => {
         loadingRepoPRs={loading}
       />
     )
-    const loadingElements = screen.getAllByText('Loading pull requests...')
+    const loadingElements = screen.getAllByText('Loading pull requests…')
     expect(loadingElements.length).toBeGreaterThanOrEqual(1)
   })
 
@@ -865,7 +865,7 @@ describe('RepoNode component', () => {
         loadingRepoIssues={loading}
       />
     )
-    const loadingElements = screen.getAllByText('Loading issues...')
+    const loadingElements = screen.getAllByText('Loading issues…')
     expect(loadingElements.length).toBeGreaterThanOrEqual(1)
   })
 

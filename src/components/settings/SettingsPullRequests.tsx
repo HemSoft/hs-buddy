@@ -27,7 +27,7 @@ export function SettingsPullRequests() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading PR settings...</p>
+          <p>Loading PR settings…</p>
         </div>
       </div>
     )

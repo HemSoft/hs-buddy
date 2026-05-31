@@ -637,7 +637,7 @@ export function SettingsAccounts() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading accounts...</p>
+          <p>Loading accounts…</p>
         </div>
       </div>
     )

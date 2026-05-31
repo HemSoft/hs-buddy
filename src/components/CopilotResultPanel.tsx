@@ -83,7 +83,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
       <div className="copilot-result-panel">
         <div className="copilot-result-loading">
           <Loader2 size={32} className="spin" />
-          <p>Loading result...</p>
+          <p>Loading result…</p>
         </div>
       </div>
     )
@@ -357,7 +357,7 @@ function PendingContent() {
   return (
     <div className="copilot-result-waiting">
       <Clock size={48} />
-      <p>Waiting to start...</p>
+      <p>Waiting to start…</p>
       <p className="waiting-subtitle">The Copilot SDK session will begin shortly.</p>
     </div>
   )
@@ -367,7 +367,7 @@ function RunningContent() {
   return (
     <div className="copilot-result-waiting">
       <Loader2 size={48} className="spin" />
-      <p>Copilot is working...</p>
+      <p>Copilot is working…</p>
       <p className="waiting-subtitle">Analyzing and generating response. This may take a minute.</p>
     </div>
   )

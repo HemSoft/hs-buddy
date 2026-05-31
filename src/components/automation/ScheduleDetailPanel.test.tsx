@@ -108,7 +108,7 @@ describe('ScheduleDetailPanel', () => {
   it('renders loading and not-found states', () => {
     mockSchedule = undefined
     const { rerender } = render(<ScheduleDetailPanel scheduleId="sched-1" />)
-    expect(screen.getByText('Loading schedule...')).toBeInTheDocument()
+    expect(screen.getByText('Loading schedule…')).toBeInTheDocument()
 
     mockSchedule = null
     rerender(<ScheduleDetailPanel scheduleId="sched-1" />)
@@ -185,7 +185,7 @@ describe('ScheduleDetailPanel', () => {
 
     render(<ScheduleDetailPanel scheduleId="sched-1" />)
 
-    expect(screen.getByText('Loading runs...')).toBeInTheDocument()
+    expect(screen.getByText('Loading runs…')).toBeInTheDocument()
   })
 
   it('renders createdAt and updatedAt tooltips, missedPolicy, and job workerType', () => {

@@ -190,7 +190,7 @@ export function SettingsNotifications() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading notification settings...</p>
+          <p>Loading notification settings…</p>
         </div>
       </div>
     )

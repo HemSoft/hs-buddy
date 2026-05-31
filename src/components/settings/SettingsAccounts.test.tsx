@@ -172,7 +172,7 @@ describe('SettingsAccounts', () => {
   it('shows loading state when accounts are loading', () => {
     mockLoading = true
     render(<SettingsAccounts />)
-    expect(screen.getByText('Loading accounts...')).toBeTruthy()
+    expect(screen.getByText('Loading accounts…')).toBeTruthy()
   })
 
   it('shows empty state when no accounts are configured', () => {

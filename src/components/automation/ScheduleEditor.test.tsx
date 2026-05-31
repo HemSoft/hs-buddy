@@ -78,7 +78,7 @@ describe('ScheduleEditor', () => {
   it('shows loading and empty job states before save', () => {
     mockJobs = undefined
     const { rerender } = render(<ScheduleEditor onClose={vi.fn()} />)
-    expect(screen.getByText('Loading jobs...')).toBeInTheDocument()
+    expect(screen.getByText('Loading jobs…')).toBeInTheDocument()
 
     mockJobs = []
     rerender(<ScheduleEditor onClose={vi.fn()} />)
@@ -119,7 +119,7 @@ describe('ScheduleEditor', () => {
     mockSchedule = undefined
 
     const { rerender } = render(<ScheduleEditor scheduleId="sched-1" onClose={onClose} />)
-    expect(screen.getByText('Loading schedule...')).toBeInTheDocument()
+    expect(screen.getByText('Loading schedule…')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Update Schedule' })).toBeDisabled()
 
     mockSchedule = {

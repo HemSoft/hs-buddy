@@ -173,9 +173,7 @@ function RepoDetailPanelFallback({
   refresh: () => void
 }) {
   if (loading)
-    return (
-      <PanelLoadingState message="Loading repository details..." subtitle={`${owner}/${repo}`} />
-    )
+    return <PanelLoadingState message="Loading repository details…" subtitle={`${owner}/${repo}`} />
   if (error)
     return <PanelErrorState title="Failed to load repository" error={error} onRetry={refresh} />
   return null

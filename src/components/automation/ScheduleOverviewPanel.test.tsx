@@ -77,7 +77,7 @@ describe('ScheduleOverviewPanel', () => {
     mockInvoke.mockImplementation(() => new Promise(() => {}))
     render(<ScheduleOverviewPanel />)
 
-    expect(screen.getByText('Loading schedule forecast...')).toBeInTheDocument()
+    expect(screen.getByText('Loading schedule forecast…')).toBeInTheDocument()
   })
 
   it('renders the empty state when there are no schedules', async () => {

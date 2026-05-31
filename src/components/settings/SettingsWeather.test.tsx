@@ -14,7 +14,7 @@ describe('SettingsWeather', () => {
   it('shows loading state initially', () => {
     mockInvoke.mockReturnValue(new Promise(() => {}))
     render(<SettingsWeather />)
-    expect(screen.getByText('Loading weather settings...')).toBeInTheDocument()
+    expect(screen.getByText('Loading weather settings…')).toBeInTheDocument()
   })
 
   it('loads and displays saved API key', async () => {

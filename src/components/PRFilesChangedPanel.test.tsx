@@ -116,7 +116,7 @@ describe('PRFilesChangedPanel', () => {
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<PRFilesChangedPanel pr={defaultPr} />)
-    expect(screen.getByText('Loading changed files...')).toBeInTheDocument()
+    expect(screen.getByText('Loading changed files…')).toBeInTheDocument()
   })
 
   it('shows error state with retry button', async () => {
@@ -237,7 +237,7 @@ describe('PRFilesChangedPanel', () => {
     render(<PRFilesChangedPanel pr={defaultPr} />)
     // Should immediately show data without loading
     expect(screen.getByText('src/app.ts')).toBeInTheDocument()
-    expect(screen.queryByText('Loading changed files...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading changed files…')).not.toBeInTheDocument()
   })
 
   it('shows error when URL cannot be parsed without retry button', async () => {
@@ -270,7 +270,7 @@ describe('PRFilesChangedPanel', () => {
     fireEvent.click(screen.getByText('Refresh'))
 
     await waitFor(() => {
-      expect(screen.getByText('Refreshing changed files...')).toBeInTheDocument()
+      expect(screen.getByText('Refreshing changed files…')).toBeInTheDocument()
     })
 
     // Resolve second request
@@ -334,7 +334,7 @@ describe('PRFilesChangedPanel', () => {
     const { container } = render(<PRFilesChangedPanel pr={defaultPr} />)
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading changed files...')).not.toBeInTheDocument()
+      expect(screen.queryByText('Loading changed files…')).not.toBeInTheDocument()
     })
     // Container should be empty since detail is null with no error
     expect(container.querySelector('.pr-files-container')).not.toBeInTheDocument()

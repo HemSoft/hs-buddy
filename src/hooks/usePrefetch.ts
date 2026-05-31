@@ -154,7 +154,7 @@ export function usePrefetch(): void {
 
     const intervalMs = refreshInterval * MS_PER_MINUTE
 
-    console.log('[Prefetch] Starting initial prefetch...', {
+    console.log('[Prefetch] Starting initial prefetch…', {
       accounts: accounts.length,
       refreshInterval: `${refreshInterval}m`,
       cacheStats: dataCache.getStats(),

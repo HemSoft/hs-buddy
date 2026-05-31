@@ -10,16 +10,16 @@ import {
 describe('PanelLoadingState', () => {
   it('renders default loading message', () => {
     render(<PanelLoadingState />)
-    expect(screen.getByText('Loading...')).toBeDefined()
+    expect(screen.getByText('Loading…')).toBeDefined()
   })
 
   it('renders custom message', () => {
-    render(<PanelLoadingState message="Loading commits..." />)
-    expect(screen.getByText('Loading commits...')).toBeDefined()
+    render(<PanelLoadingState message="Loading commits…" />)
+    expect(screen.getByText('Loading commits…')).toBeDefined()
   })
 
   it('renders subtitle when provided', () => {
-    render(<PanelLoadingState message="Loading..." subtitle="owner/repo" />)
+    render(<PanelLoadingState message="Loading…" subtitle="owner/repo" />)
     expect(screen.getByText('owner/repo')).toBeDefined()
   })
 
@@ -71,12 +71,12 @@ describe('PanelErrorState', () => {
 describe('InlineRefreshIndicator', () => {
   it('renders default message', () => {
     render(<InlineRefreshIndicator />)
-    expect(screen.getByText('Refreshing...')).toBeDefined()
+    expect(screen.getByText('Refreshing…')).toBeDefined()
   })
 
   it('renders custom message', () => {
-    render(<InlineRefreshIndicator message="Refreshing commits..." />)
-    expect(screen.getByText('Refreshing commits...')).toBeDefined()
+    render(<InlineRefreshIndicator message="Refreshing commits…" />)
+    expect(screen.getByText('Refreshing commits…')).toBeDefined()
   })
 
   it('has role="status" for accessibility', () => {

@@ -138,7 +138,7 @@ function JobSelector({
   selectedJob: ScheduleOption | undefined
   dispatch: React.Dispatch<ScheduleFormAction>
 }) {
-  if (jobs === undefined) return <div className="form-loading">Loading jobs...</div>
+  if (jobs === undefined) return <div className="form-loading">Loading jobs…</div>
   if (jobs.length === 0)
     return <div className="form-empty">No jobs available. Create a job first.</div>
   return (
@@ -272,7 +272,7 @@ function ScheduleEditorBody({
     return (
       <>
         <div className="schedule-editor-content">
-          <div className="form-loading">Loading schedule...</div>
+          <div className="form-loading">Loading schedule…</div>
         </div>
         <div className="schedule-editor-footer">
           <button type="button" className="btn-secondary" onClick={onClose}>
@@ -437,7 +437,7 @@ function ScheduleEditorForm({
         </button>
         <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           <Save size={16} />
-          {saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}
+          {saving ? 'Saving…' : isEditing ? 'Update Schedule' : 'Create Schedule'}
         </button>
       </div>
     </>

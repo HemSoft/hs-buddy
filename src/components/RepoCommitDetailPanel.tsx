@@ -147,7 +147,7 @@ function CommitDetailContent({
         </div>
       </div>
 
-      {loading && <InlineRefreshIndicator message="Refreshing commit details..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing commit details…" />}
 
       <div className="repo-commit-detail-summary-grid">
         <CommitIdentityCard detail={detail} />
@@ -171,7 +171,7 @@ function renderDetailLoadState(
   if (loading && !detail) {
     return (
       <PanelLoadingState
-        message="Loading commit..."
+        message="Loading commit…"
         subtitle={`${owner}/${repo}@${sha.slice(0, 7)}`}
       />
     )

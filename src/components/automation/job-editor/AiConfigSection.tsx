@@ -31,7 +31,7 @@ export function AiConfigSection({
           id="job-prompt"
           value={prompt}
           onChange={e => onPromptChange(e.target.value)}
-          placeholder="Enter the prompt for the AI model..."
+          placeholder="Enter the prompt for the AI model…"
           rows={6}
         />
       </div>

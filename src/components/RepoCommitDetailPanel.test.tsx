@@ -91,7 +91,7 @@ describe('RepoCommitDetailPanel', () => {
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
-    expect(screen.getByText('Loading commit...')).toBeInTheDocument()
+    expect(screen.getByText('Loading commit…')).toBeInTheDocument()
     expect(screen.getByText(/test-org\/hs-buddy@abc123d/)).toBeInTheDocument()
   })
 
@@ -293,7 +293,7 @@ describe('RepoCommitDetailPanel', () => {
     render(<RepoCommitDetailPanel owner="test-org" repo="hs-buddy" sha="abc123d" />)
 
     expect(screen.getByText('Fix login bug')).toBeInTheDocument()
-    expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading commit…')).not.toBeInTheDocument()
   })
 
   it('returns null when no detail, no loading, and no error', async () => {
@@ -303,7 +303,7 @@ describe('RepoCommitDetailPanel', () => {
     )
 
     await waitFor(() => {
-      expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+      expect(screen.queryByText('Loading commit…')).not.toBeInTheDocument()
     })
     expect(container.querySelector('.repo-commit-detail-container')).toBeNull()
   })
@@ -436,7 +436,7 @@ describe('RepoCommitDetailPanel', () => {
     fireEvent.click(screen.getByTitle('Refresh'))
 
     await waitFor(() => {
-      expect(screen.getByText('Refreshing commit details...')).toBeInTheDocument()
+      expect(screen.getByText('Refreshing commit details…')).toBeInTheDocument()
     })
 
     resolveEnqueue!(makeCommitDetail())
@@ -480,7 +480,7 @@ describe('RepoCommitDetailPanel', () => {
 
     // Should not show error state — abort errors are silently ignored
     await waitFor(() => {
-      expect(screen.queryByText('Loading commit...')).not.toBeInTheDocument()
+      expect(screen.queryByText('Loading commit…')).not.toBeInTheDocument()
     })
     expect(screen.queryByText('Failed to load commit')).not.toBeInTheDocument()
   })

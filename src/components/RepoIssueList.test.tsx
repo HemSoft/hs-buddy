@@ -107,7 +107,7 @@ describe('RepoIssueList', () => {
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoIssueList owner="test-org" repo="hs-buddy" />)
-    expect(screen.getByText('Loading issues...')).toBeInTheDocument()
+    expect(screen.getByText('Loading issues…')).toBeInTheDocument()
   })
 
   it('shows error state with retry button', async () => {
@@ -273,7 +273,7 @@ describe('RepoIssueList', () => {
 
     // Should render cached data immediately without loading
     expect(screen.getByText('Cached issue')).toBeInTheDocument()
-    expect(screen.queryByText('Loading issues...')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading issues…')).not.toBeInTheDocument()
   })
 
   it('renders list view with table columns', async () => {

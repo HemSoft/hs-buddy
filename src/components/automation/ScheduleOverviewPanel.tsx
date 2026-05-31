@@ -241,7 +241,7 @@ export function ScheduleOverviewPanel({ onOpenSchedule }: ScheduleOverviewPanelP
       <div className="schedule-overview">
         <div className="schedule-overview-loading">
           <div className="loading-spinner" />
-          <span>Loading schedule forecast...</span>
+          <span>Loading schedule forecast…</span>
         </div>
       </div>
     )

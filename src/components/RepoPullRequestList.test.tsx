@@ -67,7 +67,7 @@ describe('RepoPullRequestList', () => {
   it('shows loading state initially', () => {
     setupHook({ data: null, loading: true })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
-    expect(screen.getByText('Loading pull requests...')).toBeInTheDocument()
+    expect(screen.getByText('Loading pull requests…')).toBeInTheDocument()
   })
 
   it('shows error state with retry button', () => {
@@ -202,7 +202,7 @@ describe('RepoPullRequestList', () => {
     setupHook({ data: [makePR()], loading: true })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" />)
 
-    expect(screen.getByText('Refreshing pull requests...')).toBeInTheDocument()
+    expect(screen.getByText('Refreshing pull requests…')).toBeInTheDocument()
   })
 
   it('shows approval count in list view', () => {

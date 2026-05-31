@@ -183,7 +183,7 @@ function JobConfigFields({
 }
 
 function getSaveJobLabel(saving: boolean, isEditing: boolean): string {
-  if (saving) return 'Saving...'
+  if (saving) return 'Saving…'
   return isEditing ? 'Update Job' : 'Create Job'
 }
 

@@ -212,7 +212,7 @@ function CommitsSectionContent({
             <span className="sidebar-item-icon">
               <Loader2 size={11} className="spin" />
             </span>
-            <span className="sidebar-item-label">Loading commits...</span>
+            <span className="sidebar-item-label">Loading commits…</span>
           </div>
         </div>
       </div>
@@ -434,7 +434,7 @@ function IssueStateGroupExpanded({
           <span className="sidebar-item-icon">
             <Loader2 size={11} className="spin" />
           </span>
-          <span className="sidebar-item-label">Loading issues...</span>
+          <span className="sidebar-item-label">Loading issues…</span>
         </div>
       </div>
     )
@@ -732,7 +732,7 @@ function PRStateGroupContent({
           <span className="sidebar-item-icon">
             <Loader2 size={11} className="spin" />
           </span>
-          <span className="sidebar-item-label">Loading pull requests...</span>
+          <span className="sidebar-item-label">Loading pull requests…</span>
         </div>
       </div>
     )

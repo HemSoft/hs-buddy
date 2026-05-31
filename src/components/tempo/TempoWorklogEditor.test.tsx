@@ -355,7 +355,7 @@ describe('TempoWorklogEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Saving...')).toBeInTheDocument()
+      expect(screen.getByText('Saving…')).toBeInTheDocument()
     })
 
     fireEvent.keyDown(document, { key: 'Escape' })
@@ -381,7 +381,7 @@ describe('TempoWorklogEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     await waitFor(() => {
-      expect(screen.getByText('Saving...')).toBeInTheDocument()
+      expect(screen.getByText('Saving…')).toBeInTheDocument()
     })
 
     fireEvent.click(screen.getByLabelText('Close worklog editor'))

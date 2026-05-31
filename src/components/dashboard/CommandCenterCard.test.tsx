@@ -120,9 +120,9 @@ describe('CommandCenterCard', () => {
     expect(screen.getByText('$75.50')).toBeInTheDocument()
   })
 
-  it('shows "..." when projectedTotal is null', () => {
+  it('shows "…" when projectedTotal is null', () => {
     render(<CommandCenterCard {...defaultProps} projectedTotal={null} />)
-    expect(screen.getByText('...')).toBeInTheDocument()
+    expect(screen.getByText('…')).toBeInTheDocument()
   })
 
   it('shows "$0.00" when projectedOverageCost is null', () => {

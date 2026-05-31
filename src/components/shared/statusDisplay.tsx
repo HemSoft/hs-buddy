@@ -23,7 +23,7 @@ export function getStatusIcon(status: string, size = 14, classPrefix = 'status')
 
 export function getStatusLabel(status: string, includeInProgressEllipsis = false): string {
   if (includeInProgressEllipsis && (status === 'pending' || status === 'running')) {
-    return `${status.charAt(0).toUpperCase() + status.slice(1)}...`
+    return `${status.charAt(0).toUpperCase() + status.slice(1)}…`
   }
 
   return status.charAt(0).toUpperCase() + status.slice(1)

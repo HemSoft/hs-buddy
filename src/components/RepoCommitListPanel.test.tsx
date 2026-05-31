@@ -87,7 +87,7 @@ describe('RepoCommitListPanel', () => {
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoCommitListPanel owner="acme" repo="webapp" />)
-    expect(screen.getByText('Loading commits...')).toBeTruthy()
+    expect(screen.getByText('Loading commits…')).toBeTruthy()
   })
 
   it('shows commits after fetch', async () => {
@@ -206,7 +206,7 @@ describe('RepoCommitListPanel', () => {
 
     render(<RepoCommitListPanel owner="acme" repo="webapp" />)
 
-    expect(screen.queryByText('Loading commits...')).toBeNull()
+    expect(screen.queryByText('Loading commits…')).toBeNull()
     expect(screen.getByText('cached commit')).toBeTruthy()
   })
 
@@ -294,7 +294,7 @@ describe('RepoCommitListPanel', () => {
     fireEvent.click(screen.getByTitle('Refresh'))
 
     await waitFor(() => {
-      expect(screen.getByText('Refreshing commit list...')).toBeTruthy()
+      expect(screen.getByText('Refreshing commit list…')).toBeTruthy()
     })
   })
 

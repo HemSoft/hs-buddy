@@ -64,7 +64,7 @@ describe('ModelPicker', () => {
 
     render(<ModelPicker value="" onChange={vi.fn()} />)
 
-    expect(await screen.findByText('Loading...')).toBeInTheDocument()
+    expect(await screen.findByText('Loading…')).toBeInTheDocument()
 
     pending.resolve([])
     await waitFor(() => expect(mocks.listModels).toHaveBeenCalledTimes(1))
@@ -166,7 +166,7 @@ describe('ModelPicker', () => {
 
     render(<ModelPicker value="" onChange={vi.fn()} variant="select" />)
 
-    expect(await screen.findByText('Fetching available models...')).toBeInTheDocument()
+    expect(await screen.findByText('Fetching available models…')).toBeInTheDocument()
 
     pending.resolve([])
     await waitFor(() => expect(mocks.listModels).toHaveBeenCalledTimes(1))

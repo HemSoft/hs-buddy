@@ -187,7 +187,7 @@ describe('JobEditor', () => {
     expect(screen.getByRole('button', { name: 'Exec Shell commands' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'AI LLM prompts' })).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Skill Claude skills' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Saving…' })).toBeDisabled()
   })
 
   it('shows Update Job button when editing and not saving', () => {

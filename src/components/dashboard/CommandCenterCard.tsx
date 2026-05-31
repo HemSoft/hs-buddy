@@ -20,7 +20,7 @@ function formatAccountDescription(accountCount: number, hasCopilotAccounts: bool
 }
 
 function formatProjectedValue(projected: number | null | undefined): string {
-  return projected?.toLocaleString() ?? '...'
+  return projected?.toLocaleString() ?? '…'
 }
 
 function formatOverageCostValue(cost: number | null | undefined): string {

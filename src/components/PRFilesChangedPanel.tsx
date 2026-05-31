@@ -19,7 +19,7 @@ function renderEmptyState(
   cacheKey: string | null,
   refresh: () => void
 ): JSX.Element | null {
-  if (loading) return <PanelLoadingState message="Loading changed files..." />
+  if (loading) return <PanelLoadingState message="Loading changed files…" />
   if (error) {
     return (
       <PanelErrorState
@@ -49,7 +49,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
 
   return (
     <div className="pr-files-container">
-      {loading && <InlineRefreshIndicator message="Refreshing changed files..." />}
+      {loading && <InlineRefreshIndicator message="Refreshing changed files…" />}
 
       <div className="pr-files-summary-grid">
         <div className="repo-detail-card pr-files-summary-card">

@@ -231,7 +231,7 @@ describe('FilePreview component', () => {
       language: 'typescript',
       size: 1536,
     }))
-    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>...</code></pre>')
+    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>…</code></pre>')
 
     render(<FilePreview filePath="C:\\app.ts" />)
     await waitFor(() => {
@@ -254,7 +254,7 @@ describe('FilePreview component', () => {
     // 100 lines → 3 digits → gutterWidth = "4ch"
     const lines = Array.from({ length: 100 }, (_, i) => `line ${i + 1}`).join('\n')
     installFilesystem(async () => ({ content: lines, language: 'text', size: lines.length }))
-    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>...</code></pre>')
+    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>…</code></pre>')
 
     const { container } = render(<FilePreview filePath="C:\\big.txt" />)
     await waitFor(() => {
@@ -373,7 +373,7 @@ describe('FilePreview component', () => {
       )
 
     win.filesystem = { readFile }
-    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>...</code></pre>')
+    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>…</code></pre>')
 
     const { rerender } = render(<FilePreview filePath="C:\\first.txt" />)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
@@ -409,7 +409,7 @@ describe('FilePreview component', () => {
       .mockReturnValueOnce(Promise.resolve({ content: 'new content', language: 'text', size: 11 }))
 
     win.filesystem = { readFile }
-    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>...</code></pre>')
+    mockCodeToHtml.mockResolvedValue('<pre class="shiki dark-plus"><code>…</code></pre>')
 
     const { rerender } = render(<FilePreview filePath="C:\\old.txt" />)
 

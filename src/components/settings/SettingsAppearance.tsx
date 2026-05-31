@@ -367,7 +367,7 @@ export function SettingsAppearance() {
       <div className="settings-page">
         <div className="settings-loading">
           <RefreshCw className="spin" size={24} />
-          <p>Loading appearance settings...</p>
+          <p>Loading appearance settings…</p>
         </div>
       </div>
     )

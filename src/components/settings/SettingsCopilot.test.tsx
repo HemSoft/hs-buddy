@@ -70,7 +70,7 @@ vi.mock('../shared/ModelPicker', () => ({
       <option value="gpt-4o">gpt-4o</option>
       <option value="claude-3-5-sonnet">claude-3-5-sonnet</option>
       <option value="o1-preview">o1-preview</option>
-      <option value="__custom__">Custom...</option>
+      <option value="__custom__">Custom…</option>
     </select>
   ),
 }))
@@ -118,7 +118,7 @@ describe('SettingsCopilot', () => {
     })
 
     render(<SettingsCopilot />)
-    expect(screen.getByText('Loading Copilot settings...')).toBeTruthy()
+    expect(screen.getByText('Loading Copilot settings…')).toBeTruthy()
   })
 
   it('shows description text', () => {

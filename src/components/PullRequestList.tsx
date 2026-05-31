@@ -156,9 +156,9 @@ function getProgressLabel(
 ): string {
   switch (progress.status) {
     case 'authenticating':
-      return 'Authenticating...'
+      return 'Authenticating…'
     case 'fetching':
-      return 'Fetching PRs...'
+      return 'Fetching PRs…'
     case 'done':
       return `Found ${progress.prsFound} PRs`
     case 'error':
@@ -188,11 +188,11 @@ function PRListLoadingState({
         <h2>{getTitle()}</h2>
         <div className="pr-header-actions">
           <button
-            aria-label="Refreshing..."
+            aria-label="Refreshing…"
             type="button"
             className="refresh-button"
             disabled
-            title="Refreshing..."
+            title="Refreshing…"
           >
             <Loader2 size={16} className="spin" />
           </button>
@@ -220,7 +220,7 @@ function PRListLoadingState({
             )}
           </div>
         ) : (
-          <p>Loading pull requests...</p>
+          <p>Loading pull requests…</p>
         )}
       </div>
     </div>
@@ -358,7 +358,7 @@ function PRListActiveHeader({
       <div className="pr-header-actions">
         <span className="pr-count">
           {prCount} PR{prCount !== 1 ? 's' : ''}
-          {refreshing && <span className="refreshing-badge">Refreshing...</span>}
+          {refreshing && <span className="refreshing-badge">Refreshing…</span>}
         </span>
         {updateTimes && (
           <UpdateTimesDisplay

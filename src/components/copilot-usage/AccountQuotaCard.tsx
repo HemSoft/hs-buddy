@@ -241,7 +241,7 @@ function QuotaLoadingView() {
   return (
     <div className="usage-account-loading">
       <RefreshCw size={16} className="spin" />
-      <span>Loading...</span>
+      <span>Loading…</span>
     </div>
   )
 }

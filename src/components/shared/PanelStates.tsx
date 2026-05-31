@@ -10,7 +10,7 @@ interface PanelLoadingStateProps {
 }
 
 export function PanelLoadingState({
-  message = 'Loading...',
+  message = 'Loading…',
   subtitle,
   size = 32,
   className,
@@ -55,7 +55,7 @@ interface InlineRefreshIndicatorProps {
   message?: string
 }
 
-export function InlineRefreshIndicator({ message = 'Refreshing...' }: InlineRefreshIndicatorProps) {
+export function InlineRefreshIndicator({ message = 'Refreshing…' }: InlineRefreshIndicatorProps) {
   return (
     <div className="panel-inline-refresh" role="status" aria-live="polite">
       <Loader2 size={14} className="spin" />

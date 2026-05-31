@@ -39,8 +39,8 @@ describe('getStatusLabel', () => {
   })
 
   it('adds ellipsis for in-progress statuses when requested', () => {
-    expect(getStatusLabel('pending', true)).toBe('Pending...')
-    expect(getStatusLabel('running', true)).toBe('Running...')
+    expect(getStatusLabel('pending', true)).toBe('Pending…')
+    expect(getStatusLabel('running', true)).toBe('Running…')
   })
 
   it('does not add ellipsis for terminal statuses even when requested', () => {

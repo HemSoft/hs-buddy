@@ -41,7 +41,7 @@ describe('RepoPicker', () => {
 
     render(<RepoPicker value="" onChange={vi.fn()} />)
 
-    expect(screen.getByText('Loading...')).toBeInTheDocument()
+    expect(screen.getByText('Loading…')).toBeInTheDocument()
   })
 
   it('renders grouped and sorted repositories in select mode', () => {

@@ -36,7 +36,7 @@ function RunListLoadingState() {
     <div className="run-list">
       <div className="run-list-loading">
         <div className="loading-spinner" />
-        <span>Loading runs...</span>
+        <span>Loading runs…</span>
       </div>
     </div>
   )

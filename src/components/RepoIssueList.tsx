@@ -393,10 +393,7 @@ function RepoIssueListFallback({
 }) {
   if (isEmpty && loading)
     return (
-      <PanelLoadingState
-        message="Loading issues..."
-        subtitle={`${owner}/${repo} · ${issueState}`}
-      />
+      <PanelLoadingState message="Loading issues…" subtitle={`${owner}/${repo} · ${issueState}`} />
     )
   if (isEmpty && error)
     return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />

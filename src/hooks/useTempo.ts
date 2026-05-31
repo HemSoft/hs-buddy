@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import type {
   TempoDaySummary,
   TempoWorklog,
@@ -83,6 +83,7 @@ export function useTempoMonth(from: string, to: string) {
 export function useCapexMap(issueKeys: string[]) {
   const [capexMap, setCapexMap] = useState<Record<string, boolean>>({})
   const keysKey = issueKeys.slice().sort().join(',')
+  const stableIssueKeys = useMemo(() => (keysKey ? keysKey.split(',') : []), [keysKey])
 
   /* v8 ignore start */
   if (!issueKeys.length && Object.keys(capexMap).length > 0) {
@@ -91,17 +92,17 @@ export function useCapexMap(issueKeys: string[]) {
   /* v8 ignore stop */
 
   useEffect(() => {
-    if (!issueKeys.length) {
+    if (!stableIssueKeys.length) {
       return
     }
     let stale = false
-    window.tempo.getCapexMap(issueKeys).then(result => {
+    window.tempo.getCapexMap(stableIssueKeys).then(result => {
       if (!stale && result.success && result.data) setCapexMap(result.data)
     })
     return () => {
       stale = true
     }
-  }, [keysKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [stableIssueKeys])
 
   return capexMap
 }

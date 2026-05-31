@@ -190,8 +190,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
     if (location) {
       refresh()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location?.latitude, location?.longitude])
+  }, [location, refresh])
 
   return { ...state, refresh }
 }

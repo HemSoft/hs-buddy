@@ -392,6 +392,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const onCountChangeRef = useLatest(onCountChange)
   const enqueueRef = useLatest(enqueue)
   const cancelAllRef = useLatest(cancelAll)
+  const prsRef = useLatest(prs)
 
   useEffect(() => {
     const unsubscribe = dataCache.subscribe(key => {
@@ -501,6 +502,9 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       /* v8 ignore stop */
     }
     const cached = dataCache.get<PullRequest[]>(mode)
+    const currentPrs = prsRef.current
+    const enqueueTask = enqueueRef.current
+    const cancelQueuedTasks = cancelAllRef.current
     const isForceRefresh = forceRefresh > 0
     if (cached && !isForceRefresh) {
       const intervalMs = refreshInterval * MS_PER_MINUTE
@@ -515,7 +519,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     const currentFetchId = ++fetchIdRef.current
     const fetchPRs = async () => {
       /* v8 ignore start */
-      const hasExistingData = hasExistingPRData(prs, cached)
+      const hasExistingData = hasExistingPRData(currentPrs, cached)
       /* v8 ignore stop */
       if (hasExistingData) {
         setRefreshing(true)
@@ -545,7 +549,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
           'recentlyMergedDays:',
           recentlyMergedDays
         )
-        const results = await enqueueRef.current(
+        const results = await enqueueTask(
           async signal => {
             /* v8 ignore start */
             if (!isForceRefresh) {
@@ -589,10 +593,8 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     fetchPRs()
     return () => {
       fetchInProgressRef.current = false
-      // eslint-disable-next-line react-hooks/exhaustive-deps -- useLatest ref always holds current value
-      cancelAllRef.current()
+      cancelQueuedTasks()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     mode,
     accounts,
@@ -601,6 +603,11 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     prSettingsLoading,
     forceRefresh,
     refreshInterval,
+    onCountChangeRef,
+    enqueueRef,
+    cancelAllRef,
+    prsRef,
+    handleProgress,
   ])
 
   useEffect(() => {

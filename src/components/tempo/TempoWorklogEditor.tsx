@@ -274,9 +274,11 @@ export function TempoWorklogEditor({
     }
   }, [state.issueKey])
 
+  const normalizedIssueKey = state.issueKey.trim().toUpperCase()
+
   useEffect(() => {
     if (!isEdit) return
-    const key = state.issueKey.trim().toUpperCase()
+    const key = normalizedIssueKey
     const projectKey = key.split('-')[0]
     /* v8 ignore start */
     if (!projectKey || !key.includes('-')) return
@@ -284,7 +286,7 @@ export function TempoWorklogEditor({
     window.tempo.getProjectAccounts(projectKey).then(res => {
       if (res.data) dispatch({ type: 'setProjectAccounts', projectAccounts: res.data })
     })
-  }, [isEdit]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isEdit, normalizedIssueKey])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

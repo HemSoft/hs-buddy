@@ -134,6 +134,18 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const settings = useSettings()
   const { updateTerminalPanelHeight, updateTerminalTabs } = useSettingsMutations()
 
+  const clearTabsSaveTimeout = useCallback(() => {
+    const timeout = tabsSaveTimeoutRef.current
+    clearTimeout(timeout ?? undefined)
+    tabsSaveTimeoutRef.current = null
+  }, [])
+
+  const clearHeightSaveTimeout = useCallback(() => {
+    const timeout = heightSaveTimeoutRef.current
+    clearTimeout(timeout ?? undefined)
+    heightSaveTimeoutRef.current = null
+  }, [])
+
   // Load persisted state on mount (local IPC is fast/immediate)
   useEffect(() => {
     let cancelled = false
@@ -214,8 +226,8 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       isInitialMount.current = false
       return
     }
-    if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
-    tabsSaveTimeoutRef.current = setTimeout(() => {
+    clearTabsSaveTimeout()
+    const timeout = setTimeout(() => {
       const payload = terminalTabs.map(t => ({
         title: t.title,
         cwd: t.cwd,
@@ -226,21 +238,24 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         console.warn('Failed to persist terminal tabs:', err)
       })
     }, TABS_SAVE_DEBOUNCE_MS)
+    tabsSaveTimeoutRef.current = timeout
     return () => {
-      if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
+      clearTimeout(timeout)
+      if (tabsSaveTimeoutRef.current === timeout) {
+        tabsSaveTimeoutRef.current = null
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terminalTabs])
+  }, [terminalTabs, updateTerminalTabs, clearTabsSaveTimeout])
   /* v8 ignore stop */
 
   // Cleanup debounce timers on unmount
   /* v8 ignore start -- cleanup runs only on unmount */
   useEffect(() => {
     return () => {
-      if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
-      if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
+      clearHeightSaveTimeout()
+      clearTabsSaveTimeout()
     }
-  }, [])
+  }, [clearHeightSaveTimeout, clearTabsSaveTimeout])
   /* v8 ignore stop */
 
   const addTerminalTab = useCallback(async (repoContext: RepoContext | null) => {
@@ -347,7 +362,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         setPanelHeight(clamped)
 
         /* v8 ignore start */
-        if (heightSaveTimeoutRef.current) clearTimeout(heightSaveTimeoutRef.current)
+        clearHeightSaveTimeout()
         /* v8 ignore stop */
         heightSaveTimeoutRef.current = setTimeout(() => {
           window.ipcRenderer
@@ -359,7 +374,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         }, PANEL_HEIGHT_SAVE_DEBOUNCE_MS)
       }
     },
-    [updateTerminalPanelHeight]
+    [updateTerminalPanelHeight, clearHeightSaveTimeout]
   )
 
   // Keyboard shortcut: Ctrl+`
@@ -377,6 +392,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   }, [toggleTerminal])
 
   // Kill all terminal sessions on unmount (app close)
+  // react-doctor-disable-next-line react-doctor/exhaustive-deps -- Unmount cleanup must inspect the latest tab ref, not the initial tab array.
   useEffect(() => {
     return () => {
       for (const tab of terminalTabsRef.current) {

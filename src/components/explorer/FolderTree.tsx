@@ -82,8 +82,9 @@ export function FolderTree({ rootPath, onFileSelect, selectedFile }: FolderTreeP
     nodesRef.current = nodes
   }, [nodes])
   useEffect(() => {
+    const mounted = mountedRef
     return () => {
-      mountedRef.current = false
+      mounted.current = false
     }
   }, [])
 

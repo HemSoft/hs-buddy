@@ -104,6 +104,14 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
   const workspace = useQuery(api.terminalWorkspaces.getWorkspace)
   const saveWorkspaceMutation = useMutation(api.terminalWorkspaces.saveWorkspace)
 
+  const clearSaveTimeout = useCallback(() => {
+    const timeout = saveTimeoutRef.current
+    if (timeout) {
+      clearTimeout(timeout)
+      saveTimeoutRef.current = null
+    }
+  }, [])
+
   // Load from Convex on first fetch — with timeout fallback so UI isn't blocked
   // if Convex hasn't deployed the new functions yet.
   const restoredRef = useRef(false)
@@ -144,7 +152,7 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
   // Debounced save to Convex
   const persistToConvex = useCallback(
     (data: TerminalWorkspaceData) => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
+      clearSaveTimeout()
       saveTimeoutRef.current = setTimeout(() => {
         const payload = data.nodes.map(n => ({
           id: n.id,
@@ -160,15 +168,11 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
         }).catch(err => console.warn('Failed to persist terminal workspace:', err))
       }, SAVE_DEBOUNCE_MS)
     },
-    [saveWorkspaceMutation]
+    [saveWorkspaceMutation, clearSaveTimeout]
   )
 
   // Cleanup timer on unmount
-  useEffect(() => {
-    return () => {
-      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-    }
-  }, [])
+  useEffect(() => clearSaveTimeout, [clearSaveTimeout])
 
   /** Apply a nodes update, sync ref + state + persist. */
   const applyUpdate = useCallback(

@@ -208,8 +208,7 @@ export function useAutoRefresh(
     if (isStoredSettingsCorrupt(cardId)) {
       writeSettings(cardId, settings)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cardId])
+  }, [cardId, settings])
 
   const refreshRef = useRef(refreshFn)
   refreshRef.current = refreshFn

@@ -26,8 +26,7 @@ function useElectronStoreFallback<T>(
         setFallbackLoaded(true)
       })
       .catch(() => setFallbackLoaded(true))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [extractor])
 
   const convexConnected = convexValue !== undefined
   const value = convexConnected ? convexValue : electronStoreValue

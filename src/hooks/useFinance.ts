@@ -280,20 +280,19 @@ export function useFinance() {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refresh])
 
   useEffect(() => {
+    const abortState = abortRef
     if (!readCache()) {
       refresh().catch(() => {
         /* error already handled in state */
       })
     }
     return () => {
-      abortRef.current = true
+      abortState.current = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [refresh, abortRef])
 
   return { ...state, watchlist, refresh: () => refresh(), addSymbol, removeSymbol }
 }

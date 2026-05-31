@@ -136,10 +136,10 @@ function resolveTopSeats(seats: CopilotSeatInfo[]) {
 export function useCopilotSeats(uniqueOrgs: Map<string, string>) {
   const [state, setState] = useState<CopilotSeatsState>(EMPTY_SEATS_STATE)
 
-  const orgsKey = useMemo(() => Array.from(uniqueOrgs.keys()).join(','), [uniqueOrgs])
+  const orgEntries = useMemo(() => Array.from(uniqueOrgs.entries()), [uniqueOrgs])
 
   const fetchSeats = useCallback(async () => {
-    if (uniqueOrgs.size === 0) {
+    if (orgEntries.length === 0) {
       setState(EMPTY_SEATS_STATE)
       return
     }
@@ -147,12 +147,11 @@ export function useCopilotSeats(uniqueOrgs: Map<string, string>) {
     setState(prev => ({ ...prev, loading: true }))
 
     try {
-      const entries = Array.from(uniqueOrgs.entries())
       const settled = await Promise.allSettled(
-        entries.map(([org, username]) => fetchOrgSeats(org, username))
+        orgEntries.map(([org, username]) => fetchOrgSeats(org, username))
       )
       const { seats, orgErrors, truncated } = collectSeatResults(settled)
-      const uniqueUsernames = [...new Set(entries.map(([, u]) => u))]
+      const uniqueUsernames = [...new Set(orgEntries.map(([, u]) => u))]
       await applyPremiumRequestCounts(seats, uniqueUsernames)
 
       setState({
@@ -168,8 +167,7 @@ export function useCopilotSeats(uniqueOrgs: Map<string, string>) {
         orgErrors: [{ org: 'all', error: getErrorMessage(err) }],
       }))
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgsKey])
+  }, [orgEntries])
 
   useEffect(() => {
     fetchSeats()

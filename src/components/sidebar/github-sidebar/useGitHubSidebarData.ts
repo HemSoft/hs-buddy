@@ -218,7 +218,8 @@ export function useGitHubSidebarData() {
     }))
   }, [])
 
-  const uniqueOrgs = getUniqueOrgs(accounts)
+  const uniqueOrgs = useMemo(() => getUniqueOrgs(accounts), [accounts])
+  const uniqueOrgsKey = uniqueOrgs.join(',')
 
   useEffect(() => {
     for (const org of uniqueOrgs) {
@@ -227,8 +228,7 @@ export function useGitHubSidebarData() {
         applyOrgRepoResult(org, cachedResult)
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uniqueOrgs.join(',')])
+  }, [uniqueOrgsKey, uniqueOrgs, applyOrgRepoResult])
 
   useEffect(() => {
     const handleOrgReposCacheUpdate = (key: string) => {

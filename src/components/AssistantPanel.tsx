@@ -43,15 +43,14 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
   }, [sendMessage])
 
   useEffect(() => {
-    conversationEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
-  }, [messages])
+    const conversationEnd = conversationEndRef.current
+    conversationEnd?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, conversationEndRef])
   useEffect(() => {
     const el = textareaRef.current!
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is stable
-  }, [input])
+  }, [input, textareaRef])
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return

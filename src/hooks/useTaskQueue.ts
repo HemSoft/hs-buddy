@@ -102,8 +102,9 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
   useEffect(() => {
     // Capture ref value at effect start per React rules
     const trackedTasks = trackedTaskIds.current
+    const mounted = mountedRef
     return () => {
-      mountedRef.current = false
+      mounted.current = false
       for (const taskId of trackedTasks) {
         queue.cancel(taskId)
       }

@@ -329,8 +329,8 @@ export function TerminalPane({
       termRef.current = null
       fitRef.current = null
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+    // react-doctor-disable-next-line react-doctor/exhaustive-deps -- Terminal lifecycle is keyed by the mounted view; adding props would recreate and disconnect the PTY session.
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps -- Terminal lifecycle is keyed by the mounted view; adding props would recreate and disconnect the PTY session.
 
   return (
     <div className="terminal-pane">

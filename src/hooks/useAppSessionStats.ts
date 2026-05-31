@@ -11,20 +11,26 @@ export function useAppSessionStats() {
     checkpointUptime,
   } = useBuddyStatsMutations()
   const incrementStatRef = useRef(incrementStat)
+  const recordSessionStartRef = useRef(recordSessionStart)
+  const recordSessionEndRef = useRef(recordSessionEnd)
+  const checkpointUptimeRef = useRef(checkpointUptime)
 
   useEffect(() => {
     incrementStatRef.current = incrementStat
-  }, [incrementStat])
+    recordSessionStartRef.current = recordSessionStart
+    recordSessionEndRef.current = recordSessionEnd
+    checkpointUptimeRef.current = checkpointUptime
+  }, [incrementStat, recordSessionStart, recordSessionEnd, checkpointUptime])
 
   useEffect(() => {
-    recordSessionStart().catch(() => {})
+    recordSessionStartRef.current().catch(() => {})
 
     const checkpointTimer = setInterval(() => {
-      checkpointUptime().catch(() => {})
+      checkpointUptimeRef.current().catch(() => {})
     }, UPTIME_CHECKPOINT_MS)
 
     const handleBeforeUnload = () => {
-      recordSessionEnd().catch(() => {})
+      recordSessionEndRef.current().catch(() => {})
     }
 
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -33,8 +39,6 @@ export function useAppSessionStats() {
       clearInterval(checkpointTimer)
       window.removeEventListener('beforeunload', handleBeforeUnload)
     }
-    // React Strict Mode remount behavior makes this intentionally mount-only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const trackViewOpen = useCallback((viewId: string) => {

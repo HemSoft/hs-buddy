@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useRef, useMemo, useState } from 'react'
+import { useCallback, useEffect, useReducer, useRef, useMemo, useState } from 'react'
 import { Loader2, TrendingUp, AlertCircle, RefreshCw, Calendar, Clock } from 'lucide-react'
 import {
   OVERAGE_COST_PER_REQUEST,
@@ -535,9 +535,12 @@ function QuotaView({ username, org }: { username: string; org: string }) {
   const premCacheKey = `${org}/${username}`
   const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(premCacheKey))
 
-  const fetchPremium = () => fetchPremiumData(org, username, username, premCacheKey, setPremium)
+  const fetchPremium = useCallback(
+    () => fetchPremiumData(org, username, username, premCacheKey, setPremium),
+    [org, username, premCacheKey]
+  )
 
-  const fetchQuota = () => {
+  const fetchQuota = useCallback(() => {
     const id = ++fetchRef.current
     dispatch({ type: 'FETCH_START' })
     window.github
@@ -561,13 +564,13 @@ function QuotaView({ username, org }: { username: string; org: string }) {
           dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
-  }
+  }, [username])
 
-  const refreshAll = () => {
+  const refreshAll = useCallback(() => {
     fetchQuota()
     premiumCache.delete(premCacheKey)
     fetchPremium()
-  }
+  }, [fetchQuota, fetchPremium, premCacheKey])
 
   useEffect(() => {
     /* v8 ignore start */
@@ -580,7 +583,7 @@ function QuotaView({ username, org }: { username: string; org: string }) {
       fetchQuota()
     }
     fetchPremium()
-  }, [username]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [username, fetchQuota, fetchPremium])
 
   const { data, loading, error } = state
   const pendingContent = renderQuotaPendingState(data, loading, error)
@@ -614,7 +617,7 @@ function SeatView({
   // Per-user premium request data
   const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(cacheKey))
 
-  const fetchSeat = () => {
+  const fetchSeat = useCallback(() => {
     const id = ++fetchRef.current
     dispatch({ type: 'FETCH_START' })
     window.github
@@ -632,9 +635,12 @@ function SeatView({
           dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
-  }
+  }, [org, memberLogin, authUsername, cacheKey])
 
-  const fetchPremium = () => fetchPremiumData(org, memberLogin, authUsername, cacheKey, setPremium)
+  const fetchPremium = useCallback(
+    () => fetchPremiumData(org, memberLogin, authUsername, cacheKey, setPremium),
+    [org, memberLogin, authUsername, cacheKey]
+  )
 
   useEffect(() => {
     const c = seatCache.get(cacheKey)
@@ -646,13 +652,13 @@ function SeatView({
       fetchSeat()
     }
     fetchPremium()
-  }, [org, memberLogin, authUsername]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [cacheKey, fetchSeat, fetchPremium])
 
-  const refreshAll = () => {
+  const refreshAll = useCallback(() => {
     fetchSeat()
     premiumCache.delete(cacheKey)
     fetchPremium()
-  }
+  }, [fetchSeat, fetchPremium, cacheKey])
 
   const { data, loading, error } = state
   const pendingContent = renderSeatPendingState(data, loading, error)

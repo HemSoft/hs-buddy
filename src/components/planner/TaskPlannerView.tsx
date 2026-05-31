@@ -228,25 +228,28 @@ function useTaskPlannerActions(
   // Clear stale completingIds when day groups are refreshed (caller passes dayGroups dep)
   const resetCompletingIds = useCallback(() => setCompletingIds(new Set()), [])
 
-  useEffect(() => {
-    return () => {
-      if (actionErrorTimeoutRef.current) {
-        clearTimeout(actionErrorTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const showActionError = useCallback((message: string) => {
-    if (actionErrorTimeoutRef.current) {
-      clearTimeout(actionErrorTimeoutRef.current)
-    }
-
-    setActionError(message)
-    actionErrorTimeoutRef.current = setTimeout(() => {
-      setActionError(null)
+  const clearActionErrorTimeout = useCallback(() => {
+    const timeout = actionErrorTimeoutRef.current
+    if (timeout) {
+      clearTimeout(timeout)
       actionErrorTimeoutRef.current = null
-    }, 5000)
+    }
   }, [])
+
+  useEffect(() => clearActionErrorTimeout, [clearActionErrorTimeout])
+
+  const showActionError = useCallback(
+    (message: string) => {
+      clearActionErrorTimeout()
+
+      setActionError(message)
+      actionErrorTimeoutRef.current = setTimeout(() => {
+        setActionError(null)
+        actionErrorTimeoutRef.current = null
+      }, 5000)
+    },
+    [clearActionErrorTimeout]
+  )
 
   const handleComplete = useCallback(
     async (taskId: string) => {

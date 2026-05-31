@@ -67,16 +67,16 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   useExternalMarkdownLinks(contentRef)
   const { remove } = useCopilotResultMutations()
   const { accounts } = useGitHubAccounts()
-  const [copied, setCopied] = useState(false)
+  const [copiedAt, setCopiedAt] = useState(0)
   const [publishing, setPublishing] = useState(false)
   const [published, setPublished] = useState(false)
-  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copied = copiedAt > 0
 
   useEffect(() => {
-    return () => {
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-    }
-  }, [])
+    if (!copiedAt) return
+    const copiedTimer = setTimeout(() => setCopiedAt(0), 2000)
+    return () => clearTimeout(copiedTimer)
+  }, [copiedAt])
 
   if (result === undefined) {
     return (
@@ -103,9 +103,7 @@ export function CopilotResultPanel({ resultId }: CopilotResultPanelProps) {
   const handleCopy = async () => {
     if (result.result) {
       await navigator.clipboard.writeText(result.result)
-      setCopied(true)
-      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current)
-      copiedTimerRef.current = setTimeout(() => setCopied(false), 2000)
+      setCopiedAt(Date.now())
     }
   }
   const handleRetry = async () => {

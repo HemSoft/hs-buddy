@@ -671,32 +671,35 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
     closeContextMenu()
   }, [bookmarks, contextMenu, closeContextMenu])
 
-  const handleDragStart = useCallback((e: React.DragEvent, bookmarkId: string) => {
-    draggedIdRef.current = bookmarkId
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', bookmarkId)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
-  }, [])
+  const handleDragStart = useCallback(
+    (e: React.DragEvent, bookmarkId: string) => {
+      draggedIdRef.current = bookmarkId
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/plain', bookmarkId)
+    },
+    [draggedIdRef]
+  )
 
-  const handleDragOver = useCallback((e: React.DragEvent, targetId: string) => {
-    if (!draggedIdRef.current || draggedIdRef.current === targetId) return
-    e.preventDefault()
-    e.dataTransfer.dropEffect = 'move'
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    /* v8 ignore start */
-    setDragOver({
-      id: targetId,
-      position: e.clientY < rect.top + rect.height / 2 ? 'above' : 'below',
-    })
-    /* v8 ignore stop */
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
-  }, [])
+  const handleDragOver = useCallback(
+    (e: React.DragEvent, targetId: string) => {
+      if (!draggedIdRef.current || draggedIdRef.current === targetId) return
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'move'
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+      /* v8 ignore start */
+      setDragOver({
+        id: targetId,
+        position: e.clientY < rect.top + rect.height / 2 ? 'above' : 'below',
+      })
+      /* v8 ignore stop */
+    },
+    [draggedIdRef]
+  )
 
   const handleDragEnd = useCallback(() => {
     draggedIdRef.current = null
     setDragOver(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
-  }, [])
+  }, [draggedIdRef])
 
   const handleDrop = useCallback(
     (e: React.DragEvent, targetId: string, categoryBookmarks: readonly BookmarkRecord[]) => {
@@ -716,8 +719,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
       if (!reorderedBookmarks) return
       reorder({ updates: createReorderUpdates(reorderedBookmarks) }).catch(() => {})
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- draggedIdRef is stable
-    [reorder]
+    [draggedIdRef, reorder]
   )
 
   useEffect(() => {
@@ -730,17 +732,14 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   }, [contextMenu, closeContextMenu])
 
   useEffect(() => {
-    if (!contextMenu || !menuRef.current) return
-    const nextPosition = adjustContextMenuPosition(
-      contextMenu,
-      menuRef.current.getBoundingClientRect()
-    )
+    const menu = menuRef.current
+    if (!contextMenu || !menu) return
+    const nextPosition = adjustContextMenuPosition(contextMenu, menu.getBoundingClientRect())
     if (!hasContextMenuPositionChanged(contextMenu, nextPosition)) return
     /* v8 ignore start */
     setContextMenu(prev => updateContextMenuPosition(prev, nextPosition))
     /* v8 ignore stop */
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- menuRef is stable
-  }, [contextMenu])
+  }, [contextMenu, menuRef])
 
   const totalCount = getBookmarkCount(bookmarks)
   const categoryCounts = useMemo(() => buildCategoryCounts(bookmarks), [bookmarks])

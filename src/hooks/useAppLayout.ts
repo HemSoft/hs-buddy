@@ -68,33 +68,40 @@ export function useAppLayout() {
     }
   }, [])
 
-  useEffect(() => {
-    return () => {
-      if (paneSaveTimeoutRef.current) clearTimeout(paneSaveTimeoutRef.current)
+  const clearPendingPaneSave = useCallback(() => {
+    const timeout = paneSaveTimeoutRef.current
+    if (timeout) {
+      clearTimeout(timeout)
+      paneSaveTimeoutRef.current = null
     }
   }, [])
 
-  const handlePaneChange = useCallback((sizes: number[]) => {
-    if (sizes.length < 2 || !sizes.every(size => size > 0)) return
+  useEffect(() => clearPendingPaneSave, [clearPendingPaneSave])
 
-    setLayoutState(currentState => {
-      const fullSizes =
-        sizes.length === 2
-          ? [sizes[0], sizes[1], currentState.paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE]
-          : sizes
-      return { ...currentState, paneSizes: fullSizes }
-    })
+  const handlePaneChange = useCallback(
+    (sizes: number[]) => {
+      if (sizes.length < 2 || !sizes.every(size => size > 0)) return
 
-    if (paneSaveTimeoutRef.current) clearTimeout(paneSaveTimeoutRef.current)
-    paneSaveTimeoutRef.current = setTimeout(() => {
       setLayoutState(currentState => {
-        window.ipcRenderer
-          .invoke(IPC_INVOKE.CONFIG_SET_PANE_SIZES, currentState.paneSizes)
-          .catch(() => {})
-        return currentState
+        const fullSizes =
+          sizes.length === 2
+            ? [sizes[0], sizes[1], currentState.paneSizes[2] || DEFAULT_ASSISTANT_PANE_SIZE]
+            : sizes
+        return { ...currentState, paneSizes: fullSizes }
       })
-    }, PANE_SAVE_DEBOUNCE_MS)
-  }, [])
+
+      clearPendingPaneSave()
+      paneSaveTimeoutRef.current = setTimeout(() => {
+        setLayoutState(currentState => {
+          window.ipcRenderer
+            .invoke(IPC_INVOKE.CONFIG_SET_PANE_SIZES, currentState.paneSizes)
+            .catch(() => {})
+          return currentState
+        })
+      }, PANE_SAVE_DEBOUNCE_MS)
+    },
+    [clearPendingPaneSave]
+  )
 
   const toggleAssistant = useCallback(() => {
     setLayoutState(currentState => {

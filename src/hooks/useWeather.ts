@@ -372,6 +372,7 @@ export function useWeather() {
 
   // Fetch weather once hydration is complete and no cache exists
   useEffect(() => {
+    const abortState = abortRef
     if (!locationHydrated) return
 
     if (!readCache()) {
@@ -381,10 +382,9 @@ export function useWeather() {
     }
 
     return () => {
-      abortRef.current?.abort()
+      abortState.current?.abort()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationHydrated])
+  }, [locationHydrated, refresh, abortRef])
 
   const savedLocationCoords = readSavedLocation() ?? DEFAULT_LOCATION
 

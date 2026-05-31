@@ -273,11 +273,13 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     }
   }, [runId])
 
+  const runIsActive = run ? isActive(run.status) : false
+
   useEffect(() => {
-    if (!run || !isActive(run.status)) return
+    if (!runIsActive) return
     const timer = setInterval(fetchRun, LOG_POLL_MS)
     return () => clearInterval(timer)
-  }, [run?.status, fetchRun]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [runIsActive, fetchRun])
 
   const handleStop = useCallback(
     async (id: string) => {

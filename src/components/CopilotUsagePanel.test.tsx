@@ -25,12 +25,35 @@ vi.mock('../hooks/useCopilotUsage', () => ({
       },
     },
     orgBudgets: {},
-    uniqueOrgs: ['testorg'],
+    uniqueOrgs: new Map([['testorg', 'testuser']]),
     refreshAll: vi.fn(),
     anyLoading: false,
     aggregateTotals: { totalUsed: 100, totalOverageCost: 0 },
     aggregateProjections: mockAggregateProjections,
     orgOverageFromQuotas: {},
+  }),
+}))
+
+vi.mock('../hooks/useCopilotSeats', () => ({
+  useCopilotSeats: () => ({
+    seats: [
+      {
+        login: 'alice',
+        displayName: null,
+        org: 'testorg',
+        planType: 'business',
+        lastActivityAt: null,
+        lastActivityEditor: 'vscode/1.95.0',
+        createdAt: null,
+        pendingCancellation: null,
+        premiumRequests: 42,
+        lastPremiumRequestDate: null,
+      },
+    ],
+    loading: false,
+    orgErrors: [],
+    truncated: false,
+    refresh: vi.fn(),
   }),
 }))
 
@@ -80,6 +103,13 @@ describe('CopilotUsagePanel', () => {
   it('renders org budgets section', () => {
     render(<CopilotUsagePanel />)
     expect(screen.getByTestId('org-budgets')).toBeTruthy()
+  })
+
+  it('renders top premium request users section', () => {
+    render(<CopilotUsagePanel />)
+    expect(screen.getByText('Top Premium Request Users')).toBeTruthy()
+    expect(screen.getByText('alice')).toBeTruthy()
+    expect(screen.getByText('42')).toBeTruthy()
   })
 })
 

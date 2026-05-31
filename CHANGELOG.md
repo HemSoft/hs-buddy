@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.772] - 2026-05-31
+
+### Added
+
+- Add Copilot top users panel
+
 ## [0.1.771] - 2026-05-27
 
 ### Changed

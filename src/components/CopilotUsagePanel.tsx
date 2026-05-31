@@ -3,7 +3,9 @@ import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
+import { TopUsersSection } from './copilot-usage/TopUsersSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
+import { useCopilotSeats } from '../hooks/useCopilotSeats'
 import './CopilotUsagePanel.css'
 
 function resolveProjection(
@@ -61,6 +63,7 @@ export function CopilotUsagePanel() {
     aggregateProjections,
     orgOverageFromQuotas,
   } = useCopilotUsage()
+  const topUsers = useCopilotSeats(uniqueOrgs)
 
   const projections = resolveProjection(aggregateProjections)
 
@@ -78,6 +81,13 @@ export function CopilotUsagePanel() {
       <div className="usage-accounts-grid">
         <AccountsGrid accounts={accounts} quotas={quotas} />
       </div>
+
+      <TopUsersSection
+        seats={topUsers.seats}
+        loading={topUsers.loading}
+        orgErrors={topUsers.orgErrors}
+        truncated={topUsers.truncated}
+      />
 
       <OrgBudgetsSection
         uniqueOrgs={uniqueOrgs}

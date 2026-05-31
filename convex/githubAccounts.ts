@@ -1,35 +1,35 @@
-import { v } from "convex/values";
-import { query, mutation, internalQuery } from "./_generated/server";
+import { v } from 'convex/values'
+import { query, mutation, internalQuery } from './_generated/server'
 
 /**
  * Internal: return every tracked account for snapshot collection runs.
  */
 export const listForSnapshotRun = internalQuery({
   args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("githubAccounts").collect();
+  handler: async ctx => {
+    return await ctx.db.query('githubAccounts').collect()
   },
-});
+})
 
 /**
  * List all GitHub accounts
  */
 export const list = query({
   args: {},
-  handler: async (ctx) => {
-    return await ctx.db.query("githubAccounts").collect();
+  handler: async ctx => {
+    return await ctx.db.query('githubAccounts').collect()
   },
-});
+})
 
 /**
  * Get a single GitHub account by ID
  */
 export const get = query({
-  args: { id: v.id("githubAccounts") },
+  args: { id: v.id('githubAccounts') },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get("githubAccounts", id);
+    return await ctx.db.get('githubAccounts', id)
   },
-});
+})
 
 /**
  * Get a GitHub account by username and org
@@ -38,12 +38,12 @@ export const getByUsernameOrg = query({
   args: { username: v.string(), org: v.string() },
   handler: async (ctx, { username, org }) => {
     const accounts = await ctx.db
-      .query("githubAccounts")
-      .withIndex("by_username", (q) => q.eq("username", username))
-      .collect();
-    return accounts.find((a) => a.org === org) ?? null;
+      .query('githubAccounts')
+      .withIndex('by_username', q => q.eq('username', username))
+      .collect()
+    return accounts.find(a => a.org === org) ?? null
   },
-});
+})
 
 /**
  * Create a new GitHub account
@@ -56,93 +56,96 @@ export const create = mutation({
   handler: async (ctx, { username, org }) => {
     // Check for duplicates
     const existing = await ctx.db
-      .query("githubAccounts")
-      .withIndex("by_username", (q) => q.eq("username", username))
-      .collect();
-    
-    if (existing.some((a) => a.org === org)) {
-      throw new Error(`GitHub account ${username}@${org} already exists`);
+      .query('githubAccounts')
+      .withIndex('by_username', q => q.eq('username', username))
+      .collect()
+
+    if (existing.some(a => a.org === org)) {
+      throw new Error(`GitHub account ${username}@${org} already exists`)
     }
 
-    const now = Date.now();
-    return await ctx.db.insert("githubAccounts", {
+    const now = Date.now()
+    return await ctx.db.insert('githubAccounts', {
       username,
       org,
       createdAt: now,
       updatedAt: now,
-    });
+    })
   },
-});
+})
 
 /**
  * Update an existing GitHub account
  */
 export const update = mutation({
   args: {
-    id: v.id("githubAccounts"),
+    id: v.id('githubAccounts'),
     username: v.optional(v.string()),
     org: v.optional(v.string()),
     repoRoot: v.optional(v.string()),
   },
   handler: async (ctx, { id, username, org, repoRoot }) => {
-    const existing = await ctx.db.get("githubAccounts", id);
+    const existing = await ctx.db.get('githubAccounts', id)
     if (!existing) {
-      throw new Error("GitHub account not found");
+      throw new Error('GitHub account not found')
     }
 
-    await ctx.db.patch("githubAccounts", id, {
+    await ctx.db.patch('githubAccounts', id, {
       ...(username !== undefined && { username }),
       ...(org !== undefined && { org }),
       ...(repoRoot !== undefined && { repoRoot }),
       updatedAt: Date.now(),
-    });
+    })
   },
-});
+})
 
 /**
  * Remove a GitHub account
  */
 export const remove = mutation({
-  args: { id: v.id("githubAccounts") },
+  args: { id: v.id('githubAccounts') },
   handler: async (ctx, { id }) => {
-    await ctx.db.delete("githubAccounts", id);
+    await ctx.db.delete('githubAccounts', id)
   },
-});
+})
 
 /**
  * Bulk import accounts (for migration from electron-store)
  */
 export const bulkImport = mutation({
   args: {
-    accounts: v.array(v.object({
-      username: v.string(),
-      org: v.string(),
-    })),
+    accounts: v.array(
+      v.object({
+        username: v.string(),
+        org: v.string(),
+      })
+    ),
   },
   handler: async (ctx, { accounts }) => {
-    const now = Date.now();
-    const results = [];
+    const now = Date.now()
+    const results = []
 
     for (const account of accounts) {
       // Skip duplicates
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially so duplicates within the same batch are skipped.
       const existing = await ctx.db
-        .query("githubAccounts")
-        .withIndex("by_username", (q) => q.eq("username", account.username))
-        .collect();
-      
-      if (existing.some((a) => a.org === account.org)) {
-        continue;
+        .query('githubAccounts')
+        .withIndex('by_username', q => q.eq('username', account.username))
+        .collect()
+
+      if (existing.some(a => a.org === account.org)) {
+        continue
       }
 
-      const id = await ctx.db.insert("githubAccounts", {
+      const id = await ctx.db.insert('githubAccounts', {
         username: account.username,
         org: account.org,
         createdAt: now,
         updatedAt: now,
-      });
-      results.push(id);
+      })
+      results.push(id)
     }
 
-    return results;
+    return results
   },
-});
+})

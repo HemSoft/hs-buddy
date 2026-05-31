@@ -34,10 +34,7 @@ function hasNoSnapshotAccounts(
   return !accounts || accounts.length === 0
 }
 
-function updateSnapshotCounts(
-  ok: boolean,
-  counts: { succeeded: number; failed: number }
-): void {
+function updateSnapshotCounts(ok: boolean, counts: { succeeded: number; failed: number }): void {
   if (ok) {
     counts.succeeded++
     return
@@ -227,6 +224,7 @@ class Dispatcher {
     const counts = { succeeded: 0, failed: 0 }
 
     for (const { username, org } of accounts!) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Snapshot collection stays sequential to avoid concurrent GitHub account switching and rate bursts.
       const ok = await this.collectAccountSnapshot(username, org)
       updateSnapshotCounts(ok, counts)
     }

@@ -12,12 +12,9 @@ async function generateIcons() {
 
   // Generate PNGs at different sizes for ICO
   const sizes = [16, 24, 32, 48, 64, 128, 256]
-  const pngBuffers: Buffer[] = []
-
-  for (const size of sizes) {
-    const pngBuffer = await sharp(svgBuffer).resize(size, size).png().toBuffer()
-    pngBuffers.push(pngBuffer)
-  }
+  const pngBuffers = await Promise.all(
+    sizes.map(size => sharp(svgBuffer).resize(size, size).png().toBuffer())
+  )
 
   // Generate ICO file
   const icoBuffer = await pngToIco(pngBuffers)

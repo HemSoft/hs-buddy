@@ -284,6 +284,7 @@ export const cleanup = mutation({
       // Only delete runs older than cutoff and not active
       if (run.startedAt >= cutoff) break
       if (!isPendingOrRunning(run.status)) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Cleanup walks sorted rows and stops at the cutoff boundary.
         await ctx.db.delete('runs', run._id)
         deleted++
       }

@@ -188,6 +188,7 @@ export const remove = mutation({
       .collect()
 
     for (const schedule of schedules) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Associated schedules are deleted in one mutation before deleting the parent job.
       await ctx.db.delete('schedules', schedule._id)
     }
 

@@ -327,6 +327,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
 
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       try {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Retries are intentionally sequential because each failure may restart the client.
         const client = await ensureClientStarted()
         const models = await listModelsWithTimeout(client)
         return models.map(mapModelInfo)

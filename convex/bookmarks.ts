@@ -168,6 +168,7 @@ export const reorder = mutation({
   handler: async (ctx, args) => {
     const now = Date.now()
     for (const { id, sortOrder } of args.updates) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Reorder patches are applied in caller-provided order within one mutation.
       await ctx.db.patch(id, { sortOrder, updatedAt: now })
     }
   },

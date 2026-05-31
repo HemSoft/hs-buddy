@@ -114,6 +114,7 @@ export const scanAndDispatch = internalMutation({
       .collect()
 
     for (const schedule of enabledSchedules) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Schedule dispatch mutates run and schedule state sequentially for deterministic scans.
       const result = await processSchedule(ctx, schedule, now)
       accumulateScanResult(totals, result)
     }

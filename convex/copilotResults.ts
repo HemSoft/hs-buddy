@@ -174,6 +174,7 @@ export const cleanup = mutation({
     for (const result of oldResults) {
       if (result.createdAt >= cutoff) break
       if (!isPendingOrRunning(result.status)) {
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Cleanup walks sorted rows and stops at the cutoff boundary.
         await ctx.db.delete(result._id)
         deleted++
       }

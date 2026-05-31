@@ -120,6 +120,7 @@ function fetchGitHubEmail(githubLogin: string): string | null {
 async function tryOrgEmailPatterns(githubLogin: string): Promise<string | null> {
   const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
   for (const candidate of patterns) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Email guesses are tried in priority order and stop at the first Slack match.
     const slackId = await lookupSlackUserByEmail(candidate)
     if (slackId) return slackId
   }

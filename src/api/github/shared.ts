@@ -344,6 +344,7 @@ export async function getOctokitForOwner(
   owner: string
 ): Promise<Octokit> {
   for (const account of getAccountsByOwnerPriority(config, owner)) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Accounts are tried in owner-priority order and stop at the first authenticated client.
     const octokit = await getOctokit(account.username)
     if (octokit) return octokit
   }
@@ -355,6 +356,7 @@ export async function getOctokitForOwner(
  */
 export async function getTokenForOwner(config: PRConfig['github'], owner: string): Promise<string> {
   for (const account of getAccountsByOwnerPriority(config, owner)) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Accounts are tried in owner-priority order and stop at the first available token.
     const token = await getGitHubCLIToken(account.username)
     if (token) {
       return token
@@ -385,6 +387,7 @@ export async function withFirstAvailableAccount<T>(
   let lastError: unknown
   let triedCount = 0
   for (const account of getAccountsByOwnerPriority(config, owner)) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Account fallback must remain ordered so only the first successful account runs the operation.
     const octokit = await getOctokit(account.username)
     if (!octokit) continue
     triedCount++
@@ -413,6 +416,7 @@ export async function batchProcess<T>(
 
   for (let i = 0; i < items.length; i += size) {
     const batch = items.slice(i, i + size)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrency while each batch still runs in parallel.
     await Promise.all(batch.map(fn))
   }
 }
@@ -433,6 +437,7 @@ export async function fetchUserNames(
     const token = await getTokenForOwner(config, org)
     for (let i = 0; i < logins.length; i += 50) {
       const chunk = logins.slice(i, i + 50)
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- GraphQL user lookups are chunked to keep alias queries bounded and rate-limit friendly.
       await fetchUserNameChunk(token, chunk, names)
     }
   } catch (error: unknown) {

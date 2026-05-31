@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.781] - 2026-05-31
+
+### Changed
+
+- Parallelize GitHub org searches
+
 ## [0.1.780] - 2026-05-31
 
 ### Changed

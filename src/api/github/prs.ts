@@ -501,21 +501,28 @@ async function executeSearchQueries(
   const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
   const seenUrls = new Set<string>()
   const allPrs: PullRequest[] = []
-  for (const query of queries) {
-    try {
-      const prs = await executeSingleSearchQuery(_config, octokit, query, orgAvatarUrl, org)
-      for (const pr of prs) {
-        if (!seenUrls.has(pr.url)) {
-          seenUrls.add(pr.url)
-          allPrs.push(pr)
+
+  const queryResults = await Promise.all(
+    queries.map(async query => {
+      try {
+        return await executeSingleSearchQuery(_config, octokit, query, orgAvatarUrl, org)
+      } catch (error: unknown) {
+        const errorMsg = getErrorMessage(error)
+        if (!errorMsg.includes('404')) {
+          console.warn(`Search query failed: ${query}`, error)
+        } else {
+          console.debug(`No search results (404) for: ${query}`)
         }
+        return []
       }
-    } catch (error: unknown) {
-      const errorMsg = getErrorMessage(error)
-      if (!errorMsg.includes('404')) {
-        console.warn(`Search query failed: ${query}`, error)
-      } else {
-        console.debug(`No search results (404) for: ${query}`)
+    })
+  )
+
+  for (const prs of queryResults) {
+    for (const pr of prs) {
+      if (!seenUrls.has(pr.url)) {
+        seenUrls.add(pr.url)
+        allPrs.push(pr)
       }
     }
   }
@@ -705,6 +712,7 @@ async function fetchPRs(
     accountReport(i, 'authenticating')
 
     // Get Octokit instance for this specific account
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Account progress is reported in configured order and stops at each account's auth result.
     const octokit = await getOctokit(username)
     if (!octokit) {
       console.warn(`⚠️  Skipping account '${username}' - no GitHub CLI authentication found`)

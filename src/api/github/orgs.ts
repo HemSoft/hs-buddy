@@ -209,6 +209,32 @@ function mergeContributorEntry(
 /**
  * Paginate through all repos for an org or user namespace.
  */
+function fetchOrgRepoPage(
+  octokit: Octokit,
+  namespace: string,
+  kind: 'org' | 'user',
+  perPage: number,
+  page: number
+) {
+  return kind === 'org'
+    ? octokit.repos.listForOrg({
+        org: namespace,
+        type: 'all',
+        sort: 'full_name',
+        direction: 'asc',
+        per_page: perPage,
+        page,
+      })
+    : octokit.repos.listForUser({
+        username: namespace,
+        type: 'owner',
+        sort: 'full_name',
+        direction: 'asc',
+        per_page: perPage,
+        page,
+      })
+}
+
 async function paginateRepos(
   octokit: Octokit,
   namespace: string,
@@ -219,24 +245,8 @@ async function paginateRepos(
   let hasMore = true
 
   for (let page = 1; hasMore; page++) {
-    const response =
-      kind === 'org'
-        ? await octokit.repos.listForOrg({
-            org: namespace,
-            type: 'all',
-            sort: 'full_name',
-            direction: 'asc',
-            per_page: perPage,
-            page,
-          })
-        : await octokit.repos.listForUser({
-            username: namespace,
-            type: 'owner',
-            sort: 'full_name',
-            direction: 'asc',
-            per_page: perPage,
-            page,
-          })
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- REST pagination stops on the first short page, so pages are discovered sequentially.
+    const response = await fetchOrgRepoPage(octokit, namespace, kind, perPage, page)
 
     for (const repo of response.data) {
       repos.push(mapRawRepoToOrgRepo(repo))
@@ -487,14 +497,18 @@ async function fetchTodayCommitStats(
   let commitsToday = 0
   const contributorMap = new Map<string, OrgContributorToday>()
 
-  for (const repo of recentlyPushedRepos) {
-    const commits = await octokit.paginate(octokit.repos.listCommits, {
-      owner: org,
-      repo: repo.name,
-      since: startOfDayIso,
-      per_page: 100,
-    })
+  const repoCommitResults = await Promise.all(
+    recentlyPushedRepos.map(repo =>
+      octokit.paginate(octokit.repos.listCommits, {
+        owner: org,
+        repo: repo.name,
+        since: startOfDayIso,
+        per_page: 100,
+      })
+    )
+  )
 
+  for (const commits of repoCommitResults) {
     if (commits.length === 0) continue
 
     activeReposToday++

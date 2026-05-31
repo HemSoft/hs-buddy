@@ -84,6 +84,32 @@ export interface UserActivitySummary {
 // ── Internal helpers for fetchUserActivity ───────────────────────────
 
 /* v8 ignore start -- repo/user enumeration; requires real API */
+function fetchRepoSlimPage(
+  octokit: Octokit,
+  namespace: string,
+  kind: 'org' | 'user',
+  perPage: number,
+  page: number
+) {
+  return kind === 'org'
+    ? octokit.repos.listForOrg({
+        org: namespace,
+        type: 'all',
+        sort: 'full_name',
+        direction: 'asc',
+        per_page: perPage,
+        page,
+      })
+    : octokit.repos.listForUser({
+        username: namespace,
+        type: 'owner',
+        sort: 'full_name',
+        direction: 'asc',
+        per_page: perPage,
+        page,
+      })
+}
+
 async function paginateRepoSlims(
   octokit: Octokit,
   namespace: string,
@@ -94,24 +120,8 @@ async function paginateRepoSlims(
   let hasMore = true
 
   for (let page = 1; hasMore; page++) {
-    const response =
-      kind === 'org'
-        ? await octokit.repos.listForOrg({
-            org: namespace,
-            type: 'all',
-            sort: 'full_name',
-            direction: 'asc',
-            per_page: perPage,
-            page,
-          })
-        : await octokit.repos.listForUser({
-            username: namespace,
-            type: 'owner',
-            sort: 'full_name',
-            direction: 'asc',
-            per_page: perPage,
-            page,
-          })
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- REST pagination stops on the first short page, so pages are discovered sequentially.
+    const response = await fetchRepoSlimPage(octokit, namespace, kind, perPage, page)
 
     for (const repo of response.data) {
       repos.push(mapRawRepoSlim(repo))
@@ -147,21 +157,23 @@ async function countRepoCommitsInternal(
   startOfDayIso: string,
   login: string
 ): Promise<number> {
-  let total = 0
-  for (const repo of repos) {
-    try {
-      const commits = await octokit.paginate(octokit.repos.listCommits, {
-        owner: org,
-        repo: repo.name,
-        since: startOfDayIso,
-        per_page: 100,
-      })
-      total += commits.filter(commit => commit.author?.login === login).length
-    } catch (_: unknown) {
-      // Ignore per-repo failures and fall back to the events feed if needed.
-    }
-  }
-  return total
+  const counts = await Promise.all(
+    repos.map(async repo => {
+      try {
+        const commits = await octokit.paginate(octokit.repos.listCommits, {
+          owner: org,
+          repo: repo.name,
+          since: startOfDayIso,
+          per_page: 100,
+        })
+        return commits.filter(commit => commit.author?.login === login).length
+      } catch (_: unknown) {
+        // Ignore per-repo failures and fall back to the events feed if needed.
+        return 0
+      }
+    })
+  )
+  return counts.reduce((total, count) => total + count, 0)
 }
 
 function getCommitterDate(
@@ -232,6 +244,7 @@ async function searchActivityDatesInternal(
     let page = 1
     const maxPages = 10
     while (page <= maxPages) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Search pagination stops on the first short page, so pages are discovered sequentially.
       const result = await searchFn({ q, sort, per_page: 100, page })
       for (const item of result.data.items) {
         const date = extractDate(item as Record<string, unknown>)

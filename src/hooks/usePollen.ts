@@ -1,4 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
 import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
 import { IPC_INVOKE } from '../ipc/contracts'
 
@@ -39,6 +47,14 @@ const POLLEN_CACHE_TTL_MS = 2 * 60 * 60 * 1000 // 2 hours
 /** Pollen index labels (Google UPI 0-5 scale) */
 export const POLLEN_LABELS = ['None', 'Very Low', 'Low', 'Medium', 'High', 'Very High'] as const
 
+const POLLEN_COLOR_STOPS = [
+  { max: 0, color: 'var(--text-muted)' },
+  { max: 1, color: '#4caf50' },
+  { max: 2, color: '#8bc34a' },
+  { max: 3, color: '#ffc107' },
+  { max: 4, color: '#ff9800' },
+] as const
+
 type PollenLevel = (typeof POLLEN_LABELS)[number]
 
 export function getPollenLabel(index: number): PollenLevel {
@@ -47,12 +63,7 @@ export function getPollenLabel(index: number): PollenLevel {
 }
 
 export function getPollenColor(index: number): string {
-  if (index <= 0) return 'var(--text-muted)'
-  if (index <= 1) return '#4caf50' // green
-  if (index <= 2) return '#8bc34a' // light green
-  if (index <= 3) return '#ffc107' // amber
-  if (index <= 4) return '#ff9800' // orange
-  return '#f44336' // red
+  return POLLEN_COLOR_STOPS.find(stop => index <= stop.max)?.color ?? '#f44336'
 }
 
 const COORD_TOLERANCE = 0.01 // ~1km
@@ -107,6 +118,35 @@ function resolvePollenState(
   return { data: prev.data, loading: false, error: result.error ?? 'Pollen fetch failed' }
 }
 
+function readCachedPollenState(latitude: number, longitude: number): PollenState | null {
+  const cached = readPollenCache(latitude, longitude)
+  return cached ? { data: cached, loading: false, error: null } : null
+}
+
+async function fetchPollen(latitude: number, longitude: number): Promise<PollenFetchResult> {
+  return (await window.ipcRenderer.invoke(IPC_INVOKE.POLLEN_FETCH_CURRENT, {
+    latitude,
+    longitude,
+  })) as PollenFetchResult
+}
+
+function getPollenErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : 'Pollen fetch failed'
+}
+
+function applyPollenFetchError(
+  mountedRef: RefObject<boolean>,
+  setState: Dispatch<SetStateAction<PollenState>>,
+  err: unknown
+) {
+  if (!mountedRef.current) return
+  setState(prev => ({
+    data: prev.data,
+    loading: false,
+    error: getPollenErrorMessage(err),
+  }))
+}
+
 /**
  * Hook that fetches pollen data from Google Pollen API via the main process.
  * Requires a Google Cloud API key configured in Settings → Weather.
@@ -128,30 +168,20 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
     const { latitude, longitude } = location
 
-    const cached = readPollenCache(latitude, longitude)
-    if (cached) {
-      setState({ data: cached, loading: false, error: null })
+    const cachedState = readCachedPollenState(latitude, longitude)
+    if (cachedState) {
+      setState(cachedState)
       return
     }
 
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     try {
-      const result = (await window.ipcRenderer.invoke(IPC_INVOKE.POLLEN_FETCH_CURRENT, {
-        latitude,
-        longitude,
-      })) as PollenFetchResult
-
+      const result = await fetchPollen(latitude, longitude)
       if (!mountedRef.current) return
       setState(prev => resolvePollenState(result, prev, latitude, longitude))
     } catch (err: unknown) {
-      if (mountedRef.current) {
-        setState(prev => ({
-          data: prev.data,
-          loading: false,
-          error: err instanceof Error ? err.message : 'Pollen fetch failed',
-        }))
-      }
+      applyPollenFetchError(mountedRef, setState, err)
     }
   }, [location])
 

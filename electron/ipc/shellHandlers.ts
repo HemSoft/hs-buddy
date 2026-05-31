@@ -58,6 +58,7 @@ async function readChunksUpToLimit(
   const chunks: Uint8Array[] = []
   let totalBytes = 0
   while (totalBytes < maxBytes) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Stream chunks must be read sequentially from the same reader.
     const { done, value } = await reader.read()
     if (done || !value) break
     chunks.push(value)

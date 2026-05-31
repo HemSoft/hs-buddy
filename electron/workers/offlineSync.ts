@@ -87,6 +87,7 @@ async function createCatchupRuns(
   missedCount: number
 ): Promise<void> {
   for (let index = 0; index < missedCount; index += 1) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Catch-up run mutations stay sequential to avoid bursting Convex at startup.
     await client.mutation(api.runs.create, {
       jobId: schedule.jobId as never,
       scheduleId: schedule._id as never,
@@ -186,6 +187,7 @@ async function processMissedSchedules(
 ): Promise<void> {
   for (const schedule of schedules) {
     try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Schedule catch-up mutates shared run/schedule state sequentially for deterministic startup recovery.
       const { runsCreated, action } = await processSchedule(client, schedule, now)
       accumulateScheduleResult(result, runsCreated, action)
       console.log(`[OfflineSync] "${schedule.name}" → ${action}`)

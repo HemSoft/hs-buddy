@@ -63,28 +63,30 @@ interface DirEntry {
 }
 
 async function buildDirEntries(resolved: string, items: Dirent[]): Promise<DirEntry[]> {
-  const entries: DirEntry[] = []
+  const entries = await Promise.all(
+    items.map(async item => {
+      if (!shouldIncludeDirEntry(item.name, item.isDirectory())) return null
 
-  for (const item of items) {
-    if (!shouldIncludeDirEntry(item.name, item.isDirectory())) continue
+      try {
+        const fullPath = path.join(resolved, item.name)
+        const st = await stat(fullPath)
+        return {
+          name: item.name,
+          path: fullPath,
+          type: item.isDirectory() ? 'directory' : 'file',
+          size: st.size,
+        }
+      } catch (_: unknown) {
+        // Skip entries we can't stat (permission errors, etc.)
+        return null
+      }
+    })
+  )
+  const includedEntries = entries.filter((entry): entry is DirEntry => entry !== null)
 
-    try {
-      const fullPath = path.join(resolved, item.name)
-      const st = await stat(fullPath)
-      entries.push({
-        name: item.name,
-        path: fullPath,
-        type: item.isDirectory() ? 'directory' : 'file',
-        size: st.size,
-      })
-    } catch (_: unknown) {
-      // Skip entries we can't stat (permission errors, etc.)
-    }
-  }
+  includedEntries.sort(compareDirEntries)
 
-  entries.sort(compareDirEntries)
-
-  return entries
+  return includedEntries
 }
 
 export function registerFilesystemHandlers(): void {

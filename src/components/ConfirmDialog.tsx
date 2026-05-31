@@ -80,10 +80,15 @@ export function ConfirmDialog({
           </div>
         </div>
         <div className="confirm-dialog-actions">
-          <button className="confirm-dialog-btn confirm-dialog-btn-cancel" onClick={onCancel}>
+          <button
+            type="button"
+            className="confirm-dialog-btn confirm-dialog-btn-cancel"
+            onClick={onCancel}
+          >
             {cancelLabel}
           </button>
           <button
+            type="button"
             ref={confirmButtonRef}
             className={confirmBtnClassName(variant)}
             onClick={onConfirm}

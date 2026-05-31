@@ -37,6 +37,7 @@ vi.mock('./shared/AccountPicker', () => ({
     <div data-testid="account-picker">
       <span data-testid="account-value">{value}</span>
       <button
+        type="button"
         data-testid="pick-account"
         onClick={() => onChange?.('manualuser')}
         disabled={disabled}
@@ -59,7 +60,12 @@ vi.mock('./shared/ModelPicker', () => ({
   }) => (
     <div data-testid="model-picker">
       <span data-testid="model-value">{value}</span>
-      <button data-testid="pick-model" onClick={() => onChange?.('gpt-3.5')} disabled={disabled}>
+      <button
+        type="button"
+        data-testid="pick-model"
+        onClick={() => onChange?.('gpt-3.5')}
+        disabled={disabled}
+      >
         Pick
       </button>
     </div>

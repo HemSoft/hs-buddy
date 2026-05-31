@@ -53,7 +53,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) enforced by commitlint:
 
-```
+```text
 type(scope): subject
 ```
 
@@ -66,7 +66,7 @@ type(scope): subject
 
 Use descriptive branch names prefixed with the type:
 
-```
+```text
 feat/terminal-folder-view
 fix/coderabbit-edit-detection
 docs/contributing-guide

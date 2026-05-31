@@ -118,6 +118,7 @@ function PromptInputArea({
   return (
     <div className="copilot-prompt-input-area">
       <textarea
+        aria-label="Copilot prompt"
         ref={textareaRef}
         className="copilot-prompt-textarea"
         value={state.prompt}
@@ -157,6 +158,7 @@ function PromptInputArea({
             align="right"
           />
           <button
+            type="button"
             className="copilot-prompt-submit"
             onClick={handleSubmit}
             disabled={!state.prompt.trim() || submitting}

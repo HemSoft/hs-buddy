@@ -228,7 +228,7 @@ Once configured, all `browser_*` tools operate directly on the Electron
 BrowserWindow with full preload context (`window.ralph`, `window.electronAPI`,
 `window.shell`).
 
-```
+```text
 # All Playwright MCP tools work automatically — no navigation needed.
 # The browser is already connected to the Electron window.
 browser_snapshot          → see the full accessibility tree

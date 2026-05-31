@@ -414,6 +414,7 @@ export function CrewSidebar({ onItemSelect, selectedItem }: CrewSidebarProps) {
       <div className="sidebar-panel-header">
         <h2>THE CREW</h2>
         <button
+          aria-label="Add Project"
           type="button"
           className="sidebar-header-action crew-add-project-btn"
           onClick={handleAddProject}

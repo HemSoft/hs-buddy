@@ -101,7 +101,11 @@ export function SettingsAdvanced() {
             <code className="config-path">{storePath || 'Loading...'}</code>
           </div>
           <div className="button-group">
-            <button className="settings-btn settings-btn-primary" onClick={handleOpenConfig}>
+            <button
+              type="button"
+              className="settings-btn settings-btn-primary"
+              onClick={handleOpenConfig}
+            >
               {openSuccess ? (
                 <>
                   <CheckCircle size={14} />
@@ -133,6 +137,7 @@ export function SettingsAdvanced() {
               <span>This will remove all configured accounts and reset all preferences.</span>
             </div>
             <button
+              type="button"
               className={`settings-btn ${resetConfirm ? 'settings-btn-danger' : 'settings-btn-secondary'}`}
               onClick={handleReset}
               disabled={isResetting}

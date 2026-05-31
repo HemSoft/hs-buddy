@@ -16,6 +16,7 @@ export function AppearanceThemeSection({ theme, onThemeChange }: AppearanceTheme
       </div>
       <div className="theme-selector">
         <button
+          type="button"
           className={`theme-option ${theme === 'dark' ? 'selected' : ''}`}
           onClick={() => onThemeChange('dark')}
         >
@@ -23,6 +24,7 @@ export function AppearanceThemeSection({ theme, onThemeChange }: AppearanceTheme
           <span>Dark</span>
         </button>
         <button
+          type="button"
           className={`theme-option ${theme === 'light' ? 'selected' : ''}`}
           onClick={() => onThemeChange('light')}
         >

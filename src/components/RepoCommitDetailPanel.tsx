@@ -76,6 +76,7 @@ function ChangeStatsCard({ detail }: { detail: RepoCommitDetail }) {
           </div>
           {detail.parents.map(parent => (
             <button
+              type="button"
               key={parent.sha}
               className="repo-commit-parent-link"
               onClick={() => window.shell?.openExternal(parent.url)}
@@ -126,6 +127,7 @@ function CommitDetailContent({
         </div>
         <div className="repo-commit-detail-actions">
           <button
+            type="button"
             className="repo-detail-action-btn"
             onClick={() => window.shell?.openExternal(detail.url)}
           >
@@ -133,6 +135,8 @@ function CommitDetailContent({
             Open on GitHub
           </button>
           <button
+            aria-label="Refresh"
+            type="button"
             className="repo-detail-action-btn repo-detail-refresh-btn"
             onClick={refresh}
             disabled={loading}

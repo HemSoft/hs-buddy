@@ -23,6 +23,8 @@ export function AppearanceColorsSection({
           Colors
         </h3>
         <button
+          aria-label="Reset to theme defaults"
+          type="button"
           className="settings-btn settings-btn-secondary"
           onClick={onReset}
           title="Reset to theme defaults"

@@ -73,7 +73,12 @@ function RunHeader({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) =>
         </span>
       </div>
       {run.status === 'running' && (
-        <button className="ralph-action-btn" onClick={() => onStop(run.runId)} title="Stop loop">
+        <button
+          type="button"
+          className="ralph-action-btn"
+          onClick={() => onStop(run.runId)}
+          title="Stop loop"
+        >
           <Square size={12} />
           Stop
         </button>

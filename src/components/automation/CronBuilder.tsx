@@ -293,6 +293,7 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
         {frequency === 'custom' && (
           <div className="cron-option custom">
             <input
+              aria-label="Custom cron expression"
               type="text"
               value={value}
               onChange={e => onChange(e.target.value)}

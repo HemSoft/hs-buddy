@@ -61,6 +61,7 @@ export function SettingsPullRequests() {
               </p>
             </div>
             <button
+              type="button"
               id="pr-auto-refresh-toggle"
               className={`toggle-button ${autoRefresh ? 'active' : ''}`}
               onClick={handleAutoRefreshToggle}

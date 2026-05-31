@@ -22,7 +22,11 @@ vi.mock('./TerminalPane', () => ({
     onCwdChange?: (cwd: string) => void
   }) => (
     <div data-testid={`terminal-pane-${viewKey}`} data-cwd={cwd ?? ''}>
-      <button data-testid="cwd-change-trigger" onClick={() => onCwdChange?.('/new/path')}>
+      <button
+        type="button"
+        data-testid="cwd-change-trigger"
+        onClick={() => onCwdChange?.('/new/path')}
+      >
         change cwd
       </button>
       mock terminal

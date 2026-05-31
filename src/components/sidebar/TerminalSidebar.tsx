@@ -61,6 +61,7 @@ function EditableNodeName({
 
   return (
     <input
+      aria-label="Rename terminal workspace item"
       ref={inputRef}
       className="terminal-sidebar-input"
       value={editValue}
@@ -98,6 +99,7 @@ function TerminalSidebarHeader({ onAddFolder }: { onAddFolder: () => void }) {
     <div className="terminal-sidebar-header">
       <span className="terminal-sidebar-title">Projects</span>
       <button
+        type="button"
         className="terminal-sidebar-add-btn"
         onClick={onAddFolder}
         title="Add Project"
@@ -162,6 +164,7 @@ function TerminalFolderRow({
       )}
       <EditableNodeName node={folder} {...editableProps} />
       <button
+        type="button"
         className="terminal-sidebar-folder-add"
         onClick={e => {
           e.stopPropagation()
@@ -259,6 +262,7 @@ function TerminalChildrenList({
       {terminalChildren.length === 0 && (
         <div className="terminal-sidebar-no-terminals">
           <button
+            type="button"
             className="terminal-sidebar-empty-btn"
             onClick={() => handleAddTerminal(folderId)}
           >
@@ -382,7 +386,7 @@ function TerminalFolderList({
 
       {folders.length === 0 && (
         <div className="terminal-sidebar-empty">
-          <button className="terminal-sidebar-empty-btn" onClick={handleAddFolder}>
+          <button type="button" className="terminal-sidebar-empty-btn" onClick={handleAddFolder}>
             + New Project
           </button>
         </div>
@@ -553,6 +557,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
           tabIndex={-1}
         >
           <button
+            type="button"
             className="terminal-sidebar-context-item"
             onClick={() => {
               const node = nodes.find(n => n.id === contextMenu.nodeId)
@@ -563,6 +568,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
             <Edit3 size={12} /> Rename
           </button>
           <button
+            type="button"
             className="terminal-sidebar-context-item"
             onClick={() => setShowColorPicker(contextMenu.nodeId)}
           >
@@ -570,6 +576,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
           </button>
           <div className="terminal-sidebar-context-divider" />
           <button
+            type="button"
             className="terminal-sidebar-context-item terminal-sidebar-context-danger"
             onClick={() => {
               removeNode(contextMenu.nodeId)
@@ -590,6 +597,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
         >
           {NODE_COLORS.map(color => (
             <button
+              type="button"
               key={color}
               className="terminal-sidebar-color-swatch"
               style={{ backgroundColor: color }}
@@ -601,6 +609,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
             />
           ))}
           <button
+            type="button"
             className="terminal-sidebar-color-swatch terminal-sidebar-color-none"
             onClick={() => {
               recolorNode(showColorPicker, undefined)

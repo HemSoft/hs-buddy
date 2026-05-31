@@ -28,6 +28,7 @@ vi.mock('./FolderTree', () => ({
       data-selected-file={selectedFile ?? ''}
     >
       <button
+        type="button"
         data-testid="select-file-btn"
         onClick={() => onFileSelect('C:\\project\\src\\main.tsx')}
       >

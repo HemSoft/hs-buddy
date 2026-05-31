@@ -58,19 +58,20 @@ export function SidebarPRContextMenu({
     <>
       <div className="context-menu-overlay" onClick={onClose} aria-hidden="true" />
       <div className="context-menu" style={{ top: y, left: x }}>
-        <button onClick={onOpen}>
+        <button type="button" onClick={onOpen}>
           <ExternalLink size={14} />
           Open Pull Request
         </button>
-        <button onClick={onCopyLink}>
+        <button type="button" onClick={onCopyLink}>
           <Copy size={14} />
           Copy Link
         </button>
-        <button onClick={onAIReview}>
+        <button type="button" onClick={onAIReview}>
           <Sparkles size={14} />
           Request AI Review
         </button>
         <button
+          type="button"
           onClick={async () => {
             await onApprove()
           }}
@@ -79,7 +80,7 @@ export function SidebarPRContextMenu({
           {getApproveIcon(isApproving)}
           {getApproveLabel(pr.iApproved, isApproving)}
         </button>
-        <button onClick={onBookmark}>
+        <button type="button" onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
           {getBookmarkLabel(isBookmarked, pr.repository)}
         </button>

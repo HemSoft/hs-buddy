@@ -363,6 +363,7 @@ function WeatherExpandedContent({
         nextRefreshLabel={autoRefresh.nextRefreshLabel}
       >
         <button
+          aria-label="Use my current location"
           type="button"
           className="welcome-usage-btn"
           onClick={onUseMyLocation}

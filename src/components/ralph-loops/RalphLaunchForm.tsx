@@ -170,7 +170,7 @@ function ScriptSpecificFields({
       <div className="ralph-form-field">
         <label htmlFor="ralph-pr-number">
           PR Number
-          <span className="ralph-form-hint">required — the existing PR to resolve</span>
+          <span className="ralph-form-hint">required: the existing PR to resolve</span>
         </label>
         <input
           id="ralph-pr-number"
@@ -208,7 +208,7 @@ function ScriptSpecificFields({
               onChange={e => onDryRunChange(e.target.checked)}
             />
             Dry Run
-            <span className="ralph-form-hint">scan only — don&apos;t create issues</span>
+            <span className="ralph-form-hint">scan only: don&apos;t create issues</span>
           </label>
         </div>
       </>

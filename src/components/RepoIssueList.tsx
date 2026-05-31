@@ -34,7 +34,7 @@ function IssueTableView({
       <table className="list-view-table">
         <thead>
           <tr>
-            <th className="col-status"></th>
+            <th className="col-status" aria-label="Issue status"></th>
             <th className="col-title">Title</th>
             <th className="col-author">Author</th>
             <th className="col-labels">Labels</th>
@@ -247,6 +247,8 @@ function IssueListHeader({
         </span>
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         <button
+          aria-label="Refresh"
+          type="button"
           className="repo-issues-refresh-btn"
           /* v8 ignore start */
           onClick={refresh}

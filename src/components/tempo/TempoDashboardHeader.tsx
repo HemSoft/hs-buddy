@@ -32,6 +32,7 @@ export function TempoDashboardHeader({
       </div>
       <div className="tempo-header-center">
         <button
+          type="button"
           className="tempo-nav-btn"
           onClick={onPreviousMonth}
           title="Previous month"
@@ -39,11 +40,18 @@ export function TempoDashboardHeader({
         >
           <ChevronLeft size={16} />
         </button>
-        <button className="tempo-month-label" onClick={onCurrentMonth} title="Go to current month">
+        <button
+          aria-label="Go to current month"
+          type="button"
+          className="tempo-month-label"
+          onClick={onCurrentMonth}
+          title="Go to current month"
+        >
           <Calendar size={14} />
           <span>{monthLabel}</span>
         </button>
         <button
+          type="button"
           className="tempo-nav-btn"
           onClick={onNextMonth}
           title="Next month"
@@ -55,6 +63,7 @@ export function TempoDashboardHeader({
       <div className="tempo-header-right">
         <div className="tempo-view-toggle">
           <button
+            type="button"
             className={`tempo-view-btn ${viewMode === 'grid' ? 'active' : ''}`}
             onClick={() => onSetViewMode('grid')}
             title="Grid view"
@@ -63,6 +72,7 @@ export function TempoDashboardHeader({
             <Grid3X3 size={14} />
           </button>
           <button
+            type="button"
             className={`tempo-view-btn ${viewMode === 'timeline' ? 'active' : ''}`}
             onClick={() => onSetViewMode('timeline')}
             title="List view"
@@ -72,6 +82,7 @@ export function TempoDashboardHeader({
           </button>
         </div>
         <button
+          type="button"
           className="tempo-action-btn"
           onClick={() => onAddWorklog(todayKey)}
           title="New worklog"
@@ -80,6 +91,7 @@ export function TempoDashboardHeader({
           <span>Log Time</span>
         </button>
         <button
+          type="button"
           className={`tempo-action-btn tempo-refresh ${monthLoading ? 'spinning' : ''}`}
           onClick={onRefresh}
           title="Refresh"

@@ -26,15 +26,15 @@ export function SidebarUserContextMenu({
     <>
       <div className="context-menu-overlay" onClick={onClose} aria-hidden="true" />
       <div className="context-menu" style={{ top: y, left: x }}>
-        <button onClick={onOpenProfile}>
+        <button type="button" onClick={onOpenProfile}>
           <ExternalLink size={14} />
           Open Profile
         </button>
-        <button onClick={onRefresh}>
+        <button type="button" onClick={onRefresh}>
           <RefreshCw size={14} />
           Refresh
         </button>
-        <button onClick={onToggleFavorite}>
+        <button type="button" onClick={onToggleFavorite}>
           <Star size={14} fill={isFavorite ? 'currentColor' : 'none'} />
           {isFavorite ? `Unfavorite ${displayName}` : `Favorite ${displayName}`}
         </button>

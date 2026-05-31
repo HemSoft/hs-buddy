@@ -173,11 +173,12 @@ function OrgDetailHero({
           />
         )}
         <div className="org-detail-actions">
-          <button className="org-detail-refresh-btn" onClick={onRefresh}>
+          <button type="button" className="org-detail-refresh-btn" onClick={onRefresh}>
             <RefreshCw size={14} />
             {isUpdating ? 'Updating…' : 'Refresh'}
           </button>
           <button
+            type="button"
             className="org-detail-link-btn"
             onClick={() => window.shell.openExternal(`https://github.com/${org}`)}
           >
@@ -471,6 +472,7 @@ function OrgLeadersSection({
         <div className="org-detail-leaderboard">
           {contributors.map(contributor => (
             <button
+              type="button"
               key={contributor.login}
               className={`org-detail-leader ${memberLogin === contributor.login ? 'active' : ''}`}
               onClick={() => navigateToOrgUser(org, contributor.login)}
@@ -522,6 +524,7 @@ function OrgMemberSpotlightSection({
           </div>
         </div>
         <button
+          type="button"
           className="org-detail-link-btn"
           onClick={() => window.shell.openExternal(selectedMember.url)}
         >
@@ -1160,7 +1163,7 @@ function InlineErrorBanner({
         <strong>{label}</strong>: {message}
       </span>
       {onRetry && (
-        <button className="org-detail-inline-error-retry" onClick={onRetry}>
+        <button type="button" className="org-detail-inline-error-retry" onClick={onRetry}>
           Retry
         </button>
       )}
@@ -1194,6 +1197,7 @@ function RosterFilterBar({
         <Filter size={12} />
         {filters.map(f => (
           <button
+            type="button"
             key={f.key}
             className={`org-detail-roster-filter-btn ${filter === f.key ? 'active' : ''}`}
             onClick={() => onFilterChange(f.key)}
@@ -1203,6 +1207,7 @@ function RosterFilterBar({
         ))}
       </div>
       <button
+        type="button"
         className="org-detail-roster-sort-btn"
         /* v8 ignore start */
         onClick={() => onSortChange(sort === 'name' ? 'commits' : 'name')}
@@ -1231,6 +1236,7 @@ function MemberRosterItem({
 }) {
   return (
     <button
+      type="button"
       className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
       onClick={() => navigateToOrgUser(org, member.login)}
     >
@@ -1451,7 +1457,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         <AlertCircle size={32} />
         <p className="org-detail-error-title">Failed to load organization overview</p>
         <p className="org-detail-error-detail">{overviewError}</p>
-        <button className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
+        <button type="button" className="org-detail-refresh-btn" onClick={() => fetchAll(true)}>
           <RefreshCw size={14} />
           Retry
         </button>

@@ -259,7 +259,13 @@ function CancelEditButton({
   if (!isEditing) return null
 
   return (
-    <button className="settings-btn settings-btn-icon" onClick={onClick} title="Cancel editing">
+    <button
+      aria-label="Cancel editing"
+      type="button"
+      className="settings-btn settings-btn-icon"
+      onClick={onClick}
+      title="Cancel editing"
+    >
       <X size={14} />
     </button>
   )
@@ -279,6 +285,8 @@ function AccountItemActions({
       <span className="auth-badge">GitHub CLI</span>
       <CancelEditButton isEditing={isEditing} onClick={onCancel} />
       <button
+        aria-label="Remove account"
+        type="button"
         className="settings-btn settings-btn-icon settings-btn-danger"
         onClick={onRemove}
         title="Remove account"
@@ -324,6 +332,7 @@ function AccountEditPanel({
         </label>
         <div className="ralph-input-row">
           <input
+            aria-label="Repository root path"
             id={`repo-root-${resolveAccountKey(account)}`}
             type="text"
             value={editRepoRoot}
@@ -331,6 +340,7 @@ function AccountEditPanel({
             placeholder={`D:\\github\\${account.org}`}
           />
           <button
+            aria-label="Browse for folder"
             type="button"
             className="settings-btn settings-btn-icon"
             title="Browse for folder"
@@ -344,6 +354,7 @@ function AccountEditPanel({
             <FolderOpen size={14} />
           </button>
           <button
+            aria-label="Save"
             type="button"
             className="settings-btn settings-btn-primary settings-btn-icon"
             title="Save"
@@ -520,6 +531,7 @@ function ConfiguredAccountsSection({
       <div className="section-header">
         <h3>Configured Accounts</h3>
         <button
+          type="button"
           className="settings-btn settings-btn-primary"
           onClick={() => dispatch({ type: 'OPEN_FORM' })}
           disabled={showAddForm}

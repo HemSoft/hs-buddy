@@ -1,10 +1,14 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.772",
+  "version": "0.1.773",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
+  "files": [
+    "dist",
+    "dist-electron/main.js"
+  ],
   "scripts": {
     "dev": "vite",
     "build": "bun run bump && tsc && vite build && electron-builder",
@@ -33,7 +37,7 @@
     "perf:startup": "bun perf/run-startup.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json",
     "knip": "knip",
-    "e18e": "npx --yes @e18e/cli analyze",
+    "e18e": "npx --yes @e18e/cli analyze --log-level error --report-level warn",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
     "deps:check": "depcruise src electron convex --config .dependency-cruiser.cjs --ignore-known",
     "security:electron": "bun scripts/check-electron-security.ts",

@@ -203,7 +203,7 @@ describe('CardActionBar', () => {
   it('renders children in the actions bar', () => {
     render(
       <CardActionBar {...defaultProps}>
-        <button>Extra Action</button>
+        <button type="button">Extra Action</button>
       </CardActionBar>
     )
     expect(screen.getByText('Extra Action')).toBeInTheDocument()

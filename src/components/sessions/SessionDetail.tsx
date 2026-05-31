@@ -125,7 +125,12 @@ function SessionDigestSection({
   return (
     <div className="session-digest-section">
       {!digest ? (
-        <button className="session-digest-btn" onClick={onComputeDigest} disabled={digestLoading}>
+        <button
+          type="button"
+          className="session-digest-btn"
+          onClick={onComputeDigest}
+          disabled={digestLoading}
+        >
           <BarChart3 size={14} /> {digestLoading ? 'Computing…' : 'Compute Efficiency Digest'}
         </button>
       ) : (
@@ -233,11 +238,18 @@ function SessionToolsSection({ toolsUsed }: { toolsUsed: string[] }) {
 export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
   const { session, isLoading, error, load } = useCopilotSessionDetail()
   const [digest, setDigest] = useState<SessionDigest | null>(null)
+  const [digestFilePath, setDigestFilePath] = useState(filePath)
   const [digestLoading, setDigestLoading] = useState(false)
+
+  /* v8 ignore start */
+  if (digestFilePath !== filePath) {
+    setDigestFilePath(filePath)
+    setDigest(null)
+  }
+  /* v8 ignore stop */
 
   useEffect(() => {
     load(filePath)
-    setDigest(null)
   }, [filePath, load])
 
   const computeDigest = async () => {
@@ -280,7 +292,7 @@ export function SessionDetail({ filePath, onBack }: SessionDetailProps) {
 
   return (
     <div className="session-detail">
-      <button className="session-detail-back" onClick={onBack}>
+      <button type="button" className="session-detail-back" onClick={onBack}>
         <ArrowLeft size={14} /> Back to Sessions
       </button>
 

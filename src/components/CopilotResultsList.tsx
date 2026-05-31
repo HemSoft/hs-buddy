@@ -40,6 +40,7 @@ function PRLinkButton({ metadata }: { metadata: Record<string, unknown> | null }
   if (!hasPrUrl) return null
   return (
     <button
+      type="button"
       className="result-action-btn"
       onClick={e => {
         e.stopPropagation()
@@ -86,6 +87,7 @@ function CopilotResultRow({
       <td className="result-actions-cell">
         {shouldShowPRLink(r.category, metadata) && <PRLinkButton metadata={metadata} />}
         <button
+          type="button"
           className="result-action-btn danger"
           onClick={e => onDelete(e, r._id)}
           title="Delete"
@@ -143,6 +145,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
           <Filter size={14} />
           {STATUS_FILTERS.map(f => (
             <button
+              type="button"
               key={f.value}
               className={`copilot-filter-btn ${statusFilter === f.value ? 'active' : ''}`}
               onClick={() => setStatusFilter(f.value)}
@@ -173,7 +176,7 @@ export function CopilotResultsList({ onOpenResult }: CopilotResultsListProps) {
                 <th>Model</th>
                 <th>Duration</th>
                 <th>Created</th>
-                <th></th>
+                <th aria-label="Actions"></th>
               </tr>
             </thead>
             <tbody>

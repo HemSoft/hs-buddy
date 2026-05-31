@@ -9,7 +9,7 @@ import type { GitHubAccount } from '../../../types/config'
 import { useNewPRIndicator } from '../../../hooks/useNewPRIndicator'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import { useEscapeToClose } from '../../../hooks/useEscapeToClose'
-import type { SidebarItem } from './useGitHubSidebarData'
+import type { SidebarItem } from './types'
 
 const PR_TREE_CACHE_KEYS: Record<string, string> = {
   'pr-my-prs': 'my-prs',

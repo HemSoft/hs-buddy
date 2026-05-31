@@ -59,16 +59,20 @@ vi.mock('./pr-review/PromptSection', () => ({
   }) => (
     <div data-testid="prompt-section">
       {prompt}
-      <button data-testid="toggle-expanded" onClick={onToggleExpanded}>
+      <button type="button" data-testid="toggle-expanded" onClick={onToggleExpanded}>
         Toggle
       </button>
-      <button data-testid="change-prompt" onClick={() => onPromptChange('new prompt')}>
+      <button
+        type="button"
+        data-testid="change-prompt"
+        onClick={() => onPromptChange('new prompt')}
+      >
         Change
       </button>
-      <button data-testid="reset-prompt" onClick={onResetPrompt}>
+      <button type="button" data-testid="reset-prompt" onClick={onResetPrompt}>
         Reset
       </button>
-      <button data-testid="save-default" onClick={onSaveAsDefault}>
+      <button type="button" data-testid="save-default" onClick={onSaveAsDefault}>
         Save
       </button>
     </div>

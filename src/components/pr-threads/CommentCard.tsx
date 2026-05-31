@@ -129,6 +129,7 @@ function CommentReactionButton({
 
   return (
     <button
+      type="button"
       className={`thread-comment-reaction ${active ? 'active' : ''}`}
       onClick={e => {
         e.preventDefault()

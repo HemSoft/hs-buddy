@@ -135,6 +135,7 @@ function BookmarkButton({
 }) {
   return (
     <button
+      type="button"
       className={`sidebar-bookmark-btn ${isBookmarked ? 'active' : ''}`}
       onClick={onClick}
       title={isBookmarked ? 'Remove bookmark' : 'Bookmark this repo'}

@@ -329,7 +329,12 @@ export function SessionExplorer({ onSelectSession }: SessionExplorerProps) {
     <div className="session-explorer">
       <div className="session-explorer-header">
         <h2>Session Explorer</h2>
-        <button className="session-explorer-refresh" onClick={scan} disabled={isLoading}>
+        <button
+          type="button"
+          className="session-explorer-refresh"
+          onClick={scan}
+          disabled={isLoading}
+        >
           <RefreshCw size={14} /> {isLoading ? 'Scanning…' : 'Scan'}
         </button>
       </div>

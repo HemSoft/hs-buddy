@@ -162,10 +162,10 @@ function AIReviewBanner({
         )}
       </div>
       <div className="pr-thread-review-context-actions">
-        <button className="pr-thread-review-btn" onClick={openLatestReview}>
+        <button type="button" className="pr-thread-review-btn" onClick={openLatestReview}>
           Open review
         </button>
-        <button className="pr-thread-review-btn" onClick={requestReReview}>
+        <button type="button" className="pr-thread-review-btn" onClick={requestReReview}>
           Re-review
         </button>
       </div>
@@ -227,6 +227,7 @@ function ThreadsToolbar({
     <div className="pr-threads-toolbar">
       <div className="pr-threads-filters">
         <button
+          type="button"
           className={filterBtnClass(filter, 'all')}
           /* v8 ignore start */
           onClick={() => setFilter('all')}
@@ -234,11 +235,16 @@ function ThreadsToolbar({
         >
           All ({threads.length})
         </button>
-        <button className={filterBtnClass(filter, 'active')} onClick={() => setFilter('active')}>
+        <button
+          type="button"
+          className={filterBtnClass(filter, 'active')}
+          onClick={() => setFilter('active')}
+        >
           <Eye size={11} />
           Active ({threads.length - resolvedThreads.length})
         </button>
         <button
+          type="button"
           /* v8 ignore start */
           className={filterBtnClass(filter, 'resolved')}
           /* v8 ignore stop */
@@ -250,6 +256,7 @@ function ThreadsToolbar({
       </div>
       {resolvedThreads.length > 0 && filter === 'all' && (
         <button
+          type="button"
           className="pr-threads-toggle-resolved"
           onClick={() => setShowResolved(!showResolved)}
         >
@@ -328,6 +335,7 @@ function PRCommentForm({
     <div className="pr-threads-add-comment">
       <div className="pr-threads-add-comment-header">Leave a comment</div>
       <textarea
+        aria-label="Add a comment…"
         ref={commentTextareaRef}
         className="pr-threads-comment-input"
         placeholder="Add a comment…"
@@ -347,6 +355,7 @@ function PRCommentForm({
       <div className="pr-threads-comment-actions">
         <span className="thread-reply-hint">{modLabel}+Enter to send</span>
         <button
+          type="button"
           className="pr-threads-comment-submit"
           onClick={handleAddComment}
           disabled={!commentText.trim() || sendingComment}
@@ -503,7 +512,7 @@ export function PRThreadsPanel({ pr }: PRThreadsPanelProps) {
           {error}
           {/* v8 ignore stop */}
         </p>
-        <button className="pr-threads-retry" onClick={fetchThreads}>
+        <button type="button" className="pr-threads-retry" onClick={fetchThreads}>
           Retry
         </button>
       </div>

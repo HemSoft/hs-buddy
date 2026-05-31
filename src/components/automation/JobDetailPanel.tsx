@@ -290,18 +290,42 @@ export function JobDetailPanel({ jobId }: JobDetailPanelProps) {
             <span className="job-detail-type-badge">{getWorkerLabel(job.workerType)}</span>
           </div>
           <div className="job-detail-actions">
-            <button className="btn-action" onClick={handleRunNow} title="Run Now">
+            <button
+              aria-label="Run Now"
+              type="button"
+              className="btn-action"
+              onClick={handleRunNow}
+              title="Run Now"
+            >
               <Play size={14} />
               Run
             </button>
-            <button className="btn-action" onClick={handleEdit} title="Edit">
+            <button
+              aria-label="Edit"
+              type="button"
+              className="btn-action"
+              onClick={handleEdit}
+              title="Edit"
+            >
               <Edit size={14} />
               Edit
             </button>
-            <button className="btn-action" onClick={handleDuplicate} title="Duplicate">
+            <button
+              aria-label="Duplicate"
+              type="button"
+              className="btn-action"
+              onClick={handleDuplicate}
+              title="Duplicate"
+            >
               <Copy size={14} />
             </button>
-            <button className="btn-action btn-danger" onClick={handleDelete} title="Delete">
+            <button
+              aria-label="Delete"
+              type="button"
+              className="btn-action btn-danger"
+              onClick={handleDelete}
+              title="Delete"
+            >
               <Trash2 size={14} />
             </button>
           </div>

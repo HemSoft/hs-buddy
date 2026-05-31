@@ -21,6 +21,7 @@ vi.mock('../InlineDropdown', () => ({
     mocks.inlineDropdown(props)
     return (
       <button
+        type="button"
         data-testid="inline-dropdown"
         onClick={() => props.onChange('relias-engineering/hs-buddy')}
       >

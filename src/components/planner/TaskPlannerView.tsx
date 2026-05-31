@@ -47,6 +47,7 @@ function TaskRow({
   return (
     <div className="planner-task-row" data-priority={task.priority}>
       <button
+        type="button"
         className="planner-task-check"
         onClick={() => onComplete(task.id)}
         aria-label={`Complete task: ${task.content}`}
@@ -97,6 +98,7 @@ function AddTaskInline({
   return (
     <form className="planner-add-form" onSubmit={handleSubmit}>
       <input
+        aria-label="Task name"
         className="planner-add-input"
         placeholder="Task name"
         value={content}
@@ -384,6 +386,7 @@ export function TaskPlannerView(props: { mode?: PlannerMode }) {
         <div className="planner-header-meta">
           <span className="planner-task-total">{totalTasks} tasks</span>
           <button
+            type="button"
             className="planner-refresh-btn"
             onClick={refresh}
             disabled={isLoading}

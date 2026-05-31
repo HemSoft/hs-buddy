@@ -82,6 +82,8 @@ function IssueHero({
       </div>
       <div className="repo-issue-detail-hero-actions">
         <button
+          aria-label="Launch a Ralph loop to work on this issue"
+          type="button"
           className="repo-issue-detail-btn ghost"
           onClick={onStartRalphLoop}
           title="Launch a Ralph loop to work on this issue"
@@ -89,11 +91,17 @@ function IssueHero({
           <Play size={14} />
           Start Ralph Loop
         </button>
-        <button className="repo-issue-detail-btn ghost" onClick={refresh} disabled={loading}>
+        <button
+          type="button"
+          className="repo-issue-detail-btn ghost"
+          onClick={refresh}
+          disabled={loading}
+        >
           <RefreshCw size={14} className={loading ? 'spin' : ''} />
           Refresh
         </button>
         <button
+          type="button"
           className="repo-issue-detail-btn primary"
           onClick={() => window.shell?.openExternal(detail.url)}
         >
@@ -197,6 +205,7 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
           </div>
         </div>
         <button
+          type="button"
           className="repo-issue-detail-link-btn"
           onClick={() => window.shell?.openExternal(comment.url)}
         >

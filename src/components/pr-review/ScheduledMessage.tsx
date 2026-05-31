@@ -15,7 +15,13 @@ export function ScheduledMessage({ prTitle, scheduleDelay, onClose }: ScheduledM
           <h2>PR Review Scheduled</h2>
         </div>
         {onClose && (
-          <button className="pr-review-close-btn" onClick={onClose} title="Close">
+          <button
+            aria-label="Close"
+            type="button"
+            className="pr-review-close-btn"
+            onClick={onClose}
+            title="Close"
+          >
             <X size={16} />
           </button>
         )}

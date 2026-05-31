@@ -453,6 +453,8 @@ function QuotaLoadedContent({
             <span className="ud-premium-reset-days">({metrics.resetDays}d)</span>
           </span>
           <button
+            aria-label="Refresh"
+            type="button"
             className="ud-premium-refresh-btn"
             onClick={refreshAll}
             disabled={loading}
@@ -694,7 +696,14 @@ function SeatHeroStats({
         <span className="ud-prem-hero-value">{orgPct.toFixed(1)}%</span>
         <span className="ud-prem-hero-label">of org</span>
       </div>
-      <button className="ud-prem-refresh" onClick={onRefresh} disabled={loading} title="Refresh">
+      <button
+        aria-label="Refresh"
+        type="button"
+        className="ud-prem-refresh"
+        onClick={onRefresh}
+        disabled={loading}
+        title="Refresh"
+      >
         <RefreshCw size={12} className={loading ? 'spin' : ''} />
       </button>
     </div>

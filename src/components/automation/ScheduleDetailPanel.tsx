@@ -110,15 +110,26 @@ function ScheduleHeaderActions({
 }) {
   return (
     <div className="schedule-detail-actions">
-      <button className="btn-action" onClick={onToggle} title={enabled ? 'Disable' : 'Enable'}>
+      <button
+        type="button"
+        className="btn-action"
+        onClick={onToggle}
+        title={enabled ? 'Disable' : 'Enable'}
+      >
         {enabled ? <Pause size={14} /> : <Play size={14} />}
         {enabled ? 'Disable' : 'Enable'}
       </button>
-      <button className="btn-action" onClick={onEdit} title="Edit">
+      <button aria-label="Edit" type="button" className="btn-action" onClick={onEdit} title="Edit">
         <Edit size={14} />
         Edit
       </button>
-      <button className="btn-action btn-danger" onClick={onDelete} title="Delete">
+      <button
+        aria-label="Delete"
+        type="button"
+        className="btn-action btn-danger"
+        onClick={onDelete}
+        title="Delete"
+      >
         <Trash2 size={14} />
       </button>
     </div>

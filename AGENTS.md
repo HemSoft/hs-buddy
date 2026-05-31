@@ -160,7 +160,7 @@ Every agent session MUST use `ctx_knowledge` (lean-ctx) for both **input** and
 
 Before planning or implementing any non-trivial change, recall relevant context:
 
-```
+```text
 ctx_knowledge(action: "recall", query: "<topic you're about to change>")
 ```
 
@@ -168,7 +168,7 @@ ctx_knowledge(action: "recall", query: "<topic you're about to change>")
 
 After completing work, persist new knowledge for future sessions:
 
-```
+```text
 ctx_knowledge(action: "remember", category: "<category>", key: "<slug>", value: "<what you learned>")
 ```
 

@@ -114,23 +114,31 @@ vi.mock('./TempoTimesheetGrid', () => ({
       props
     return (
       <div data-testid="tempo-timesheet-grid">
-        <button onClick={() => onCellClick('2026-03-20')}>grid create</button>
-        <button onClick={() => onCellClick('2026-03-20', 'PE-101')}>grid create with issue</button>
-        <button onClick={() => onCellClick('2026-03-20', 'NONEXIST')}>
+        <button type="button" onClick={() => onCellClick('2026-03-20')}>
+          grid create
+        </button>
+        <button type="button" onClick={() => onCellClick('2026-03-20', 'PE-101')}>
+          grid create with issue
+        </button>
+        <button type="button" onClick={() => onCellClick('2026-03-20', 'NONEXIST')}>
           grid create unknown issue
         </button>
-        <button onClick={() => onWorklogEdit(dashboardMocks.editWorklog)}>grid edit</button>
-        <button onClick={() => void onWorklogDelete(dashboardMocks.editWorklog)}>
+        <button type="button" onClick={() => onWorklogEdit(dashboardMocks.editWorklog)}>
+          grid edit
+        </button>
+        <button type="button" onClick={() => void onWorklogDelete(dashboardMocks.editWorklog)}>
           grid delete
         </button>
-        <button onClick={() => void onCopyToToday(dashboardMocks.copySourceWorklogs)}>
+        <button type="button" onClick={() => void onCopyToToday(dashboardMocks.copySourceWorklogs)}>
           grid copy
         </button>
-        <button onClick={() => void onCopyToToday(dashboardMocks.fridayCopyWorklogs)}>
+        <button type="button" onClick={() => void onCopyToToday(dashboardMocks.fridayCopyWorklogs)}>
           grid copy friday
         </button>
         {onCopyFromPreviousMonth && (
-          <button onClick={() => onCopyFromPreviousMonth()}>copy from previous month</button>
+          <button type="button" onClick={() => onCopyFromPreviousMonth()}>
+            copy from previous month
+          </button>
         )}
       </div>
     )
@@ -168,6 +176,7 @@ vi.mock('./TempoWorklogEditor', () => ({
       {defaultAccountKey && <span data-testid="prefill-account">{defaultAccountKey}</span>}
       {defaultDescription && <span data-testid="prefill-description">{defaultDescription}</span>}
       <button
+        type="button"
         onClick={() =>
           onSave({
             issueKey: 'PE-500',
@@ -181,7 +190,9 @@ vi.mock('./TempoWorklogEditor', () => ({
       >
         save editor
       </button>
-      <button onClick={onCancel}>cancel editor</button>
+      <button type="button" onClick={onCancel}>
+        cancel editor
+      </button>
     </div>
   ),
 }))

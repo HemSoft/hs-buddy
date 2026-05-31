@@ -58,7 +58,7 @@ function FilterButton({
   const className = getFilterButtonClassName(statusFilter, value)
 
   return (
-    <button className={className} onClick={() => onFilterChange(value)}>
+    <button type="button" className={className} onClick={() => onFilterChange(value)}>
       {label}
       <FilterCount count={count} />
     </button>

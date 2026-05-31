@@ -18,7 +18,12 @@ vi.mock('./PullRequestList', () => ({
     capturedCallbacks.prListOnCountChange = onCountChange
     capturedCallbacks.prListOnOpenPR = onOpenPR
     return (
-      <button data-testid="pull-request-list" data-mode={mode} onClick={() => onCountChange(7)}>
+      <button
+        type="button"
+        data-testid="pull-request-list"
+        data-mode={mode}
+        onClick={() => onCountChange(7)}
+      >
         PullRequestList
       </button>
     )

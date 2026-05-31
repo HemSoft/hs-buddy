@@ -155,6 +155,7 @@ function CopilotModelSection({
       {isCustomModel && (
         <div style={{ marginTop: '8px', display: 'flex', gap: '8px', alignItems: 'center' }}>
           <input
+            aria-label="Custom model name"
             type="text"
             value={customModel}
             onChange={e => dispatch({ type: 'set_custom_model', value: e.target.value })}
@@ -164,6 +165,7 @@ function CopilotModelSection({
             style={{ flex: 1 }}
           />
           <button
+            type="button"
             className="settings-btn settings-btn-primary"
             onClick={() => void handleCustomModelSave()}
             disabled={!customModel.trim()}

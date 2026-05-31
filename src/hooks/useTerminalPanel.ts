@@ -226,6 +226,9 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
         console.warn('Failed to persist terminal tabs:', err)
       })
     }, TABS_SAVE_DEBOUNCE_MS)
+    return () => {
+      if (tabsSaveTimeoutRef.current) clearTimeout(tabsSaveTimeoutRef.current)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [terminalTabs])
   /* v8 ignore stop */

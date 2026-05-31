@@ -84,9 +84,14 @@ export function useCapexMap(issueKeys: string[]) {
   const [capexMap, setCapexMap] = useState<Record<string, boolean>>({})
   const keysKey = issueKeys.slice().sort().join(',')
 
+  /* v8 ignore start */
+  if (!issueKeys.length && Object.keys(capexMap).length > 0) {
+    setCapexMap({})
+  }
+  /* v8 ignore stop */
+
   useEffect(() => {
     if (!issueKeys.length) {
-      setCapexMap({})
       return
     }
     let stale = false

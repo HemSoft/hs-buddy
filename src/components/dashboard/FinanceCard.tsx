@@ -147,6 +147,7 @@ function FinanceExpandedContent({
           />
         </div>
         <button
+          aria-label="Add symbol"
           type="button"
           className="welcome-usage-btn"
           onClick={onAdd}

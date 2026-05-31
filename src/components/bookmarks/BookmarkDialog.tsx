@@ -277,6 +277,7 @@ function NewCategoryRow({
         ))}
       </select>
       <input
+        aria-label="New category path"
         type="text"
         className="bookmark-dialog-input"
         value={state.newCategory}
@@ -502,7 +503,13 @@ function BookmarkDialogShell({ isEdit, onClose, children }: BookmarkDialogShellP
       >
         <div className="bookmark-dialog-header">
           <h3 id="bookmark-dialog-title">{isEdit ? 'Edit Bookmark' : 'Add Bookmark'}</h3>
-          <button className="bookmark-dialog-close" onClick={onClose} title="Close">
+          <button
+            aria-label="Close"
+            type="button"
+            className="bookmark-dialog-close"
+            onClick={onClose}
+            title="Close"
+          >
             <X size={16} />
           </button>
         </div>

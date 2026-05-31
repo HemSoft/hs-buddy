@@ -99,6 +99,7 @@ export function TabBar({
           >
             <span className="tab-label">{tab.label}</span>
             <button
+              type="button"
               className="tab-close"
               onClick={e => handleClose(e, tab.id)}
               aria-label={`Close ${tab.label}`}
@@ -118,6 +119,7 @@ export function TabBar({
             style={{ top: contextMenu.y, left: contextMenu.x }}
           >
             <button
+              type="button"
               role="menuitem"
               onClick={() => {
                 onTabClose(contextMenu.tabId)
@@ -127,6 +129,7 @@ export function TabBar({
               Close
             </button>
             <button
+              type="button"
               role="menuitem"
               onClick={() => {
                 onCloseOtherTabs(contextMenu.tabId)
@@ -137,6 +140,7 @@ export function TabBar({
               Close Others
             </button>
             <button
+              type="button"
               role="menuitem"
               onClick={() => {
                 onCloseTabsToRight(contextMenu.tabId)
@@ -148,6 +152,7 @@ export function TabBar({
             </button>
             <div className="tab-context-menu-separator" />
             <button
+              type="button"
               role="menuitem"
               onClick={() => {
                 onCloseAllTabs()

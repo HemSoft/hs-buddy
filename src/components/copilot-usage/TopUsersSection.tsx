@@ -78,25 +78,40 @@ function UsersTable({ seats }: { seats: CopilotSeatInfo[] }) {
   )
 }
 
+function shouldHideSection(
+  seats: CopilotSeatInfo[],
+  loading: boolean,
+  orgErrorCount: number
+): boolean {
+  return seats.length === 0 && !loading && orgErrorCount === 0
+}
+
+function LoadingIcon({ loading }: { loading: boolean }) {
+  return loading ? <RefreshCw size={12} className="spin" /> : null
+}
+
+function TruncationWarning({ truncated }: { truncated: boolean }) {
+  if (!truncated) return null
+  return (
+    <p className="top-users-truncated">
+      Some orgs have more seats than could be fetched. Showing top 50 from available data.
+    </p>
+  )
+}
+
 export function TopUsersSection({ seats, loading, orgErrors, truncated }: TopUsersSectionProps) {
-  if (seats.length === 0 && !loading && orgErrors.length === 0) return null
+  if (shouldHideSection(seats, loading, orgErrors.length)) return null
 
   return (
     <div className="top-users-section">
       <h3 className="usage-budgets-heading">
         <Users size={14} />
         Top Premium Request Users
-        {loading && <RefreshCw size={12} className="spin" />}
+        <LoadingIcon loading={loading} />
       </h3>
 
       <OrgErrors errors={orgErrors} />
-
-      {truncated && (
-        <p className="top-users-truncated">
-          Some orgs have more seats than could be fetched. Showing top 50 from available data.
-        </p>
-      )}
-
+      <TruncationWarning truncated={truncated} />
       <UsersTable seats={seats} />
     </div>
   )

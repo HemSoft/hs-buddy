@@ -84,7 +84,7 @@ function ProjectHeader({ project }: ProjectHeaderProps) {
 function SessionStarter({ onStartSession }: SessionStarterProps) {
   return (
     <div className="crew-session-starter">
-      <button onClick={onStartSession} className="crew-start-btn">
+      <button type="button" onClick={onStartSession} className="crew-start-btn">
         <Plus size={16} /> Start Session
       </button>
     </div>
@@ -190,6 +190,7 @@ function ChangedFilesPanel({ changedFiles, onKeepFile, onUndoFile }: ChangedFile
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             <button
+              type="button"
               onClick={() => onKeepFile(file.filePath)}
               title="Keep"
               style={{
@@ -203,6 +204,7 @@ function ChangedFilesPanel({ changedFiles, onKeepFile, onUndoFile }: ChangedFile
               <Check size={14} />
             </button>
             <button
+              type="button"
               onClick={() => onUndoFile(file.filePath)}
               title="Undo"
               style={{
@@ -241,6 +243,7 @@ function MessageComposer({
   return (
     <div className="crew-chat-input-area">
       <textarea
+        aria-label="Crew chat message"
         value={message}
         onChange={event => onMessageChange(event.target.value)}
         onKeyDown={handleKeyDown}
@@ -249,10 +252,21 @@ function MessageComposer({
         disabled={sending}
         className="crew-chat-textarea"
       />
-      <button onClick={onSendMessage} disabled={sendDisabled} className="crew-chat-send-btn">
+      <button
+        type="button"
+        onClick={onSendMessage}
+        disabled={sendDisabled}
+        className="crew-chat-send-btn"
+      >
         <Send size={16} />
       </button>
-      <button onClick={onClearSession} title="Clear session" className="crew-chat-clear-btn">
+      <button
+        aria-label="Clear session"
+        type="button"
+        onClick={onClearSession}
+        title="Clear session"
+        className="crew-chat-clear-btn"
+      >
         <Trash2 size={16} />
       </button>
     </div>

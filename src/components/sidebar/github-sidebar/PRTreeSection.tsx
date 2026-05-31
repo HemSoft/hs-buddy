@@ -2,7 +2,7 @@ import { ChevronDown, ChevronRight, FileText, GitPullRequest } from 'lucide-reac
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { prSubNodes, sectionIcons } from './prConstants'
-import type { SidebarItem } from './useGitHubSidebarData'
+import type { SidebarItem } from './types'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { refreshStateClass } from './repoNodeUtils'
 

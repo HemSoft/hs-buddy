@@ -254,6 +254,7 @@ function PublishButton({
   if (!canPublish) return null
   return (
     <button
+      type="button"
       className={`copilot-action-btn${published ? ' success' : ''}`}
       onClick={onPublish}
       disabled={isPublishDisabled(publishing, published)}
@@ -277,6 +278,7 @@ function CopyActionButton({
   if (!hasResult) return null
   return (
     <button
+      type="button"
       className="copilot-action-btn"
       onClick={onCopy}
       title={copied ? 'Copied!' : 'Copy markdown'}
@@ -314,6 +316,7 @@ function ResultActions({
     <div className="copilot-result-header-actions">
       {result.category === 'pr-review' && !!metadata?.prUrl && (
         <button
+          type="button"
           className="copilot-action-btn"
           onClick={() => window.shell.openExternal(metadata.prUrl as string)}
           title="Open PR on GitHub"
@@ -328,10 +331,22 @@ function ResultActions({
         onPublish={onPublish}
       />
       <CopyActionButton hasResult={!!result.result} copied={copied} onCopy={onCopy} />
-      <button className="copilot-action-btn" onClick={onRetry} title="Re-run this prompt">
+      <button
+        aria-label="Re-run this prompt"
+        type="button"
+        className="copilot-action-btn"
+        onClick={onRetry}
+        title="Re-run this prompt"
+      >
         <RotateCcw size={14} />
       </button>
-      <button className="copilot-action-btn danger" onClick={onDelete} title="Delete result">
+      <button
+        aria-label="Delete result"
+        type="button"
+        className="copilot-action-btn danger"
+        onClick={onDelete}
+        title="Delete result"
+      >
         <Trash2 size={14} />
       </button>
     </div>
@@ -364,7 +379,7 @@ function FailedContent({ error, onRetry }: { error?: string | null; onRetry: () 
       <XCircle size={48} />
       <p>Prompt execution failed</p>
       {error && <pre className="error-detail">{error}</pre>}
-      <button className="retry-btn" onClick={onRetry}>
+      <button type="button" className="retry-btn" onClick={onRetry}>
         <RotateCcw size={14} />
         Retry
       </button>

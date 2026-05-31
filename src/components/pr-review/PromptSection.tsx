@@ -29,6 +29,7 @@ function PromptActionButtons({
     <div className="pr-review-prompt-actions">
       <div className="pr-review-prompt-actions-left">
         <button
+          type="button"
           className="pr-review-btn-text"
           onClick={onResetPrompt}
           disabled={submitting || savingDefault}
@@ -36,6 +37,7 @@ function PromptActionButtons({
           Reset to default
         </button>
         <button
+          type="button"
           className="pr-review-btn-text"
           onClick={onSaveAsDefault}
           disabled={submitting || savingDefault || !prompt.trim()}
@@ -95,6 +97,7 @@ export function PromptSection({
       {promptExpanded ? (
         <div className="pr-review-prompt-editor">
           <textarea
+            aria-label="PR review prompt"
             ref={textareaRef}
             className="pr-review-prompt-textarea"
             value={prompt}

@@ -178,22 +178,28 @@ export function useJobEditorForm(
   const [timeout, setTimeout] = useState(60000)
   const [shell, setShell] = useState<'powershell' | 'bash' | 'cmd'>('powershell')
   const [prompt, setPrompt] = useState('')
-  const [ghAccount, setGhAccount] = useState('')
-  const [model, setModel] = useState('')
+  const isEditing = !!jobId
+  const shouldUseDefaults = !isEditing && !duplicateFrom
+  const [ghAccount, setGhAccount] = useState(() => (shouldUseDefaults ? defaultGhAccount : ''))
+  const [model, setModel] = useState(() => (shouldUseDefaults ? defaultModel : ''))
   const [targetRepo, setTargetRepo] = useState('')
   const [skillName, setSkillName] = useState('')
   const [skillAction, setSkillAction] = useState('')
   const [skillParams, setSkillParams] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const isEditing = !!jobId
+  const defaultsKey = `${shouldUseDefaults}:${defaultGhAccount}:${defaultModel}`
+  const [appliedDefaultsKey, setAppliedDefaultsKey] = useState(defaultsKey)
 
-  useEffect(() => {
-    if (!isEditing && !duplicateFrom) {
+  /* v8 ignore start */
+  if (appliedDefaultsKey !== defaultsKey) {
+    setAppliedDefaultsKey(defaultsKey)
+    if (shouldUseDefaults) {
       setGhAccount(defaultGhAccount)
       setModel(defaultModel)
     }
-  }, [defaultGhAccount, defaultModel, isEditing, duplicateFrom])
+  }
+  /* v8 ignore stop */
 
   useEffect(() => {
     const source = existingJob || duplicateFrom

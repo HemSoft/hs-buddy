@@ -64,6 +64,7 @@ export function UsageHeader({
         )}
       </div>
       <button
+        type="button"
         className="usage-refresh-btn"
         onClick={onRefreshAll}
         disabled={anyLoading}

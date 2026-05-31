@@ -10,14 +10,14 @@ function ApiKeyStatus({ isConfigured }: { isConfigured: boolean }) {
         <>
           <CheckCircle size={14} className="settings-status-icon-ok" />
           <span className="settings-status-text">
-            Configured — pollen data will appear in your weather card.
+            Configured: pollen data will appear in your weather card.
           </span>
         </>
       ) : (
         <>
           <AlertCircle size={14} className="settings-status-icon-muted" />
           <span className="settings-status-text settings-status-muted">
-            Not configured — add an API key to see pollen data.
+            Not configured: add an API key to see pollen data.
           </span>
         </>
       )}
@@ -56,6 +56,7 @@ function SettingsWeatherActions({
     <>
       <div className="button-group">
         <button
+          type="button"
           className="settings-btn settings-btn-primary"
           onClick={onSave}
           disabled={saving || !isDirty || !apiKey.trim()}
@@ -64,6 +65,7 @@ function SettingsWeatherActions({
         </button>
         {isConfigured && (
           <button
+            type="button"
             className="settings-btn settings-btn-secondary"
             onClick={onClear}
             disabled={saving}
@@ -163,6 +165,7 @@ export function SettingsWeather() {
             </label>
             <div className="settings-input-row">
               <input
+                aria-label="Enter your Google Cloud API key…"
                 id="pollen-api-key"
                 type={showKey ? 'text' : 'password'}
                 className="settings-input"
@@ -210,7 +213,7 @@ export function SettingsWeather() {
                 <ExternalLink size={12} />
                 Enable the Google Pollen API
               </a>{' '}
-              — enable the API in your Google Cloud project, then create an API key under
+              : enable the API in your Google Cloud project, then create an API key under
               Credentials.
             </p>
             <p className="mt-2">

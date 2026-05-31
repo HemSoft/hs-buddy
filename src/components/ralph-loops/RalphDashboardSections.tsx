@@ -49,6 +49,7 @@ export function RalphDashboardHeader({
       <h2>Ralph Loops</h2>
       <div className="ralph-dashboard-actions">
         <button
+          type="button"
           aria-label="Refresh"
           className="ralph-action-btn"
           onClick={onRefresh}
@@ -57,6 +58,7 @@ export function RalphDashboardHeader({
           <RefreshCw size={14} />
         </button>
         <button
+          type="button"
           className={`ralph-action-btn ralph-primary ${isLaunchView ? 'active' : ''}`}
           onClick={onToggleLaunchView}
         >
@@ -82,7 +84,7 @@ export function RalphDashboardErrorBanner({
   return (
     <div className="ralph-error-banner">
       {error}
-      <button aria-label="Dismiss" onClick={onDismiss}>
+      <button type="button" aria-label="Dismiss" onClick={onDismiss}>
         ×
       </button>
     </div>

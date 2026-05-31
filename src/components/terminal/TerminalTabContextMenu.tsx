@@ -27,6 +27,8 @@ function ColorSwatchGrid({ tabId, activeColor, onSetColor, onClose }: ColorSwatc
     <div className="terminal-ctx-colors">
       {TAB_COLORS.map(c => (
         <button
+          aria-label={c.name}
+          type="button"
           key={c.value}
           className={`terminal-ctx-color-swatch ${activeColor === c.value ? 'active' : ''}`}
           style={{ backgroundColor: c.value }}
@@ -39,6 +41,8 @@ function ColorSwatchGrid({ tabId, activeColor, onSetColor, onClose }: ColorSwatc
       ))}
       {activeColor && (
         <button
+          aria-label="Reset color"
+          type="button"
           className="terminal-ctx-color-reset"
           title="Reset color"
           onClick={() => {
@@ -96,6 +100,7 @@ function RenameInput({ tab, onRename, onClose }: RenameInputProps) {
   return (
     <div className="terminal-ctx-rename">
       <input
+        aria-label="Rename terminal tab"
         ref={inputRef}
         className="terminal-ctx-rename-input"
         value={renameValue}
@@ -134,12 +139,13 @@ export function TerminalTabContextMenu({
       <div className="terminal-ctx-menu" style={{ top: y, left: x }} ref={menuRef}>
         {mode === 'menu' ? (
           <>
-            <button className="terminal-ctx-item" onClick={() => setMode('rename')}>
+            <button type="button" className="terminal-ctx-item" onClick={() => setMode('rename')}>
               <Pencil size={14} />
               Rename
             </button>
             {tab.cwd && (
               <button
+                type="button"
                 className="terminal-ctx-item"
                 onClick={() => {
                   onOpenFolderView(tab.cwd)

@@ -51,27 +51,27 @@ export function PRContextMenu({
     <>
       <div className="pr-context-menu-overlay" onClick={onClose} aria-hidden="true" />
       <div className="pr-context-menu" style={{ top: y, left: x }}>
-        <button onClick={onAIReview}>
+        <button type="button" onClick={onAIReview}>
           <Sparkles size={14} />
           Request AI Review
         </button>
-        <button onClick={onRequestCopilotReview}>
+        <button type="button" onClick={onRequestCopilotReview}>
           <RotateCw size={14} />
           Request Copilot Review
         </button>
-        <button onClick={onAddressComments} disabled={!hasUnresolved}>
+        <button type="button" onClick={onAddressComments} disabled={!hasUnresolved}>
           <MessageSquareWarning size={14} />
           {getUnresolvedLabel(pr, hasUnresolved)}
         </button>
-        <button onClick={onApprove} disabled={!!pr.iApproved}>
+        <button type="button" onClick={onApprove} disabled={!!pr.iApproved}>
           <ThumbsUp size={14} />
           {pr.iApproved ? 'Already Approved' : 'Approve'}
         </button>
-        <button onClick={onCopyLink}>
+        <button type="button" onClick={onCopyLink}>
           <Copy size={14} />
           Copy Link
         </button>
-        <button onClick={onBookmark}>
+        <button type="button" onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />
           {getBookmarkLabel(pr, isBookmarked)}
         </button>

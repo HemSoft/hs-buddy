@@ -153,6 +153,7 @@ function GridEmptyState({
       <p>No worklogs this month. Click a cell or use Quick Log to get started.</p>
       {onCopyFromPreviousMonth && (
         <button
+          type="button"
           className="tempo-copy-from-prev-btn"
           onClick={onCopyFromPreviousMonth}
           disabled={loadingTemplates}
@@ -259,7 +260,7 @@ function TimesheetFooterRow({
   return (
     <tr className="tempo-grid-totals">
       <td className="tempo-grid-total-label">Total</td>
-      <td className="tempo-grid-total-key"></td>
+      <td className="tempo-grid-total-key" aria-label="Total row"></td>
       <td className="tempo-grid-total-logged">{totalHours}</td>
       {columns.map(col => {
         const dayTotal = dailyTotals[col.date] || 0
@@ -267,6 +268,7 @@ function TimesheetFooterRow({
         return (
           <td
             key={col.date}
+            aria-label={`${col.date} total ${dayTotal} hours`}
             className={buildTotalCellClass(col, isDayComplete, dayTotal)}
             onClick={e => {
               if (isModKey(e) && dayTotal > 0) {

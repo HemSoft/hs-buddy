@@ -275,10 +275,10 @@ function ScheduleEditorBody({
           <div className="form-loading">Loading schedule...</div>
         </div>
         <div className="schedule-editor-footer">
-          <button className="btn-secondary" onClick={onClose}>
+          <button type="button" className="btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn-primary" disabled>
+          <button type="button" className="btn-primary" disabled>
             <Save size={16} />
             Update Schedule
           </button>
@@ -432,10 +432,10 @@ function ScheduleEditorForm({
         </div>
       </div>
       <div className="schedule-editor-footer">
-        <button className="btn-secondary" onClick={onClose} disabled={saving}>
+        <button type="button" className="btn-secondary" onClick={onClose} disabled={saving}>
           Cancel
         </button>
-        <button className="btn-primary" onClick={handleSave} disabled={saving}>
+        <button type="button" className="btn-primary" onClick={handleSave} disabled={saving}>
           <Save size={16} />
           {saving ? 'Saving...' : isEditing ? 'Update Schedule' : 'Create Schedule'}
         </button>
@@ -466,7 +466,13 @@ export function ScheduleEditor({ scheduleId, onClose, onSaved }: ScheduleEditorP
             <Calendar size={20} />
             <h2>{editorTitle}</h2>
           </div>
-          <button className="btn-close" onClick={onClose} title="Close">
+          <button
+            aria-label="Close"
+            type="button"
+            className="btn-close"
+            onClick={onClose}
+            title="Close"
+          >
             <X size={18} />
           </button>
         </div>

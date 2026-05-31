@@ -22,7 +22,9 @@ vi.mock('./RalphLoopCard', () => ({
     return (
       <div data-testid={`loop-card-${run.runId}`}>
         <span>{run.runId}</span>
-        <button onClick={() => onStop(run.runId)}>Stop</button>
+        <button type="button" onClick={() => onStop(run.runId)}>
+          Stop
+        </button>
       </div>
     )
   },
@@ -35,7 +37,9 @@ vi.mock('./RalphLaunchForm', () => ({
     onLaunch: (config: unknown) => Promise<{ success: boolean; runId?: string }>
   }) => (
     <div data-testid="launch-form">
-      <button onClick={() => onLaunch({ repoPath: '/test', scriptType: 'ralph' })}>Launch</button>
+      <button type="button" onClick={() => onLaunch({ repoPath: '/test', scriptType: 'ralph' })}>
+        Launch
+      </button>
     </div>
   ),
 }))

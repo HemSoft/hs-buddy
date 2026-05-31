@@ -41,17 +41,15 @@ function formatResetTime(resetTimestamp: number): string {
 
 function useCountdownAnimation(remaining: number, refreshInterval: number): number {
   const [countdown, setCountdown] = useState(1)
-  const prevRemainingRef = useRef(remaining)
+  const [previousRemaining, setPreviousRemaining] = useState(remaining)
   const animFrameRef = useRef<number>(0)
   const startTimeRef = useRef(Date.now())
 
-  useEffect(() => {
-    if (remaining !== prevRemainingRef.current) {
-      prevRemainingRef.current = remaining
-      startTimeRef.current = Date.now()
-      setCountdown(1)
-    }
-  }, [remaining])
+  if (remaining !== previousRemaining) {
+    setPreviousRemaining(remaining)
+    startTimeRef.current = Date.now()
+    setCountdown(1)
+  }
 
   useEffect(() => {
     const intervalMs = refreshInterval * 1000

@@ -99,6 +99,7 @@ function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: Bo
       </div>
       <div className="bookmark-card-actions">
         <button
+          type="button"
           className="bookmark-action-btn"
           onClick={e => {
             e.stopPropagation()
@@ -109,6 +110,7 @@ function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: Bo
           <ExternalLink size={14} />
         </button>
         <button
+          type="button"
           className="bookmark-action-btn"
           onClick={e => {
             e.stopPropagation()
@@ -119,6 +121,7 @@ function BookmarkCard({ bookmark, onOpen, onOpenExternal, onEdit, onDelete }: Bo
           <Pencil size={14} />
         </button>
         <button
+          type="button"
           className="bookmark-action-btn bookmark-action-danger"
           onClick={e => {
             e.stopPropagation()
@@ -163,6 +166,7 @@ function BookmarkFilterBar({
       <div className="bookmark-search-wrapper">
         <Search size={14} className="bookmark-search-icon" />
         <input
+          aria-label="Search bookmarks…"
           type="text"
           className="bookmark-search-input"
           placeholder="Search bookmarks…"
@@ -171,6 +175,7 @@ function BookmarkFilterBar({
         />
         {searchQuery && (
           <button
+            type="button"
             className="bookmark-search-clear"
             onClick={() => onSearchChange('')}
             title="Clear search"
@@ -208,7 +213,13 @@ function BookmarkFilterBar({
         ))}
       </select>
       {hasFilters && (
-        <button className="bookmark-clear-filters" onClick={onClearFilters} title="Clear filters">
+        <button
+          aria-label="Clear filters"
+          type="button"
+          className="bookmark-clear-filters"
+          onClick={onClearFilters}
+          title="Clear filters"
+        >
           <X size={14} />
         </button>
       )}
@@ -431,6 +442,7 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
         <h2>Bookmarks</h2>
         <div className="bookmark-header-actions">
           <button
+            type="button"
             className="bookmark-add-btn"
             onClick={() => dispatch({ type: 'open-add' })}
             title="Add bookmark"

@@ -147,6 +147,7 @@ function ModelPickerNoModels({
         No models loaded.{' '}
         {showRefresh && (
           <button
+            type="button"
             className="settings-btn settings-btn-secondary"
             onClick={() => fetchModels(resolveAccountArg(ghAccount))}
             style={{ padding: '4px 8px', fontSize: '12px' }}
@@ -173,6 +174,7 @@ function ModelPickerRefreshButton({
   if (!showRefresh) return null
   return (
     <button
+      type="button"
       className="settings-btn settings-btn-secondary"
       onClick={() => fetchModels(resolveAccountArg(ghAccount))}
       disabled={modelsLoading}

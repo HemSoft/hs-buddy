@@ -246,6 +246,7 @@ function OrganizationsSection({
   const isExpanded = sidebarData.expandedSections.has('organizations')
   const filterButton = (
     <button
+      type="button"
       className={getBookmarkedOnlyButtonClass(sidebarData.showBookmarkedOnly)}
       onClick={e => {
         e.stopPropagation()

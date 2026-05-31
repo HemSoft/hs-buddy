@@ -81,6 +81,7 @@ export function ActivityBar({
     <div className="activity-bar">
       <div className="activity-bar-items">
         <button
+          type="button"
           className={`activity-bar-item ${isDashboardActive ? 'active' : ''}`}
           onClick={onHomeClick}
           onMouseEnter={e => handleMouseEnter('home', e)}
@@ -96,6 +97,7 @@ export function ActivityBar({
 
           return (
             <button
+              type="button"
               key={section.id}
               className={`activity-bar-item ${isActive ? 'active' : ''}`}
               onClick={() => onSectionSelect(section.id)}

@@ -131,6 +131,8 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
         <div className="repo-commits-header-actions">
           <span className="repo-commits-count">{commits.length} recent</span>
           <button
+            aria-label="Refresh"
+            type="button"
             className="repo-commits-refresh-btn"
             onClick={refresh}
             disabled={loading}

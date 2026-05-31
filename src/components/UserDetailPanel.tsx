@@ -170,6 +170,7 @@ function UserDetailHero({
       </div>
       <div className="ud-hero-actions">
         <button
+          aria-label="Refresh user data"
           type="button"
           className="ud-action-btn"
           onClick={onRefresh}

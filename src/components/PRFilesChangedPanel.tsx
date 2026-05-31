@@ -75,7 +75,7 @@ export function PRFilesChangedPanel({ pr }: PRFilesChangedPanelProps) {
           <FileCode2 size={16} />
           <span>Files changed</span>
         </div>
-        <button className="repo-detail-action-btn" onClick={refresh}>
+        <button type="button" className="repo-detail-action-btn" onClick={refresh}>
           <RefreshCw size={14} /> Refresh
         </button>
       </div>

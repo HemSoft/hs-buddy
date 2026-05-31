@@ -32,10 +32,10 @@ vi.mock('./AppearanceThemeSection', () => ({
   }) => (
     <div data-testid="theme-section">
       <span data-testid="theme-value">{theme}</span>
-      <button data-testid="theme-dark" onClick={() => onThemeChange('dark')}>
+      <button type="button" data-testid="theme-dark" onClick={() => onThemeChange('dark')}>
         Dark
       </button>
-      <button data-testid="theme-light" onClick={() => onThemeChange('light')}>
+      <button type="button" data-testid="theme-light" onClick={() => onThemeChange('light')}>
         Light
       </button>
     </div>
@@ -61,40 +61,49 @@ vi.mock('./AppearanceColorsSection', () => ({
       <span data-testid="bg-secondary">{getColorValue(backgroundColors, 1)}</span>
       <span data-testid="status-bg">{getColorValue(statusBarColors, 0)}</span>
       <span data-testid="status-fg">{getColorValue(statusBarColors, 1)}</span>
-      <button data-testid="change-accent" onClick={() => setColorValue(brandColors, 0, '#123456')}>
+      <button
+        type="button"
+        data-testid="change-accent"
+        onClick={() => setColorValue(brandColors, 0, '#123456')}
+      >
         Accent
       </button>
       <button
+        type="button"
         data-testid="change-font-color"
         onClick={() => setColorValue(brandColors, 1, '#654321')}
       >
         Font
       </button>
       <button
+        type="button"
         data-testid="change-bg-primary"
         onClick={() => setColorValue(backgroundColors, 0, '#101010')}
       >
         Primary
       </button>
       <button
+        type="button"
         data-testid="change-bg-secondary"
         onClick={() => setColorValue(backgroundColors, 1, '#202020')}
       >
         Secondary
       </button>
       <button
+        type="button"
         data-testid="change-status-bg"
         onClick={() => setColorValue(statusBarColors, 0, '#303030')}
       >
         Status BG
       </button>
       <button
+        type="button"
         data-testid="change-status-fg"
         onClick={() => setColorValue(statusBarColors, 1, '#f0f0f0')}
       >
         Status FG
       </button>
-      <button data-testid="reset-colors" onClick={() => onReset()}>
+      <button type="button" data-testid="reset-colors" onClick={() => onReset()}>
         Reset
       </button>
     </div>
@@ -125,10 +134,18 @@ vi.mock('./AppearanceFontsSection', () => ({
       <span data-testid="fonts-loading">{fontsLoading ? 'loading' : 'ready'}</span>
       <span data-testid="ui-font-options">{uiFonts.join(',')}</span>
       <span data-testid="mono-font-options">{monoFonts.join(',')}</span>
-      <button data-testid="change-ui-font" onClick={() => onFontFamilyChange('Arial')}>
+      <button
+        type="button"
+        data-testid="change-ui-font"
+        onClick={() => onFontFamilyChange('Arial')}
+      >
         UI Font
       </button>
-      <button data-testid="change-mono-font" onClick={() => onMonoFontFamilyChange('Fira Code')}>
+      <button
+        type="button"
+        data-testid="change-mono-font"
+        onClick={() => onMonoFontFamilyChange('Fira Code')}
+      >
         Mono Font
       </button>
     </div>

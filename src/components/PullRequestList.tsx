@@ -93,7 +93,7 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
       <table className="list-view-table">
         <thead>
           <tr>
-            <th className="col-status"></th>
+            <th className="col-status" aria-label="PR status"></th>
             <th className="col-title">Title</th>
             <th>Author</th>
             <th>Repo</th>
@@ -187,7 +187,13 @@ function PRListLoadingState({
       <div className="pr-list-header">
         <h2>{getTitle()}</h2>
         <div className="pr-header-actions">
-          <button className="refresh-button" disabled title="Refreshing...">
+          <button
+            aria-label="Refreshing..."
+            type="button"
+            className="refresh-button"
+            disabled
+            title="Refreshing..."
+          >
             <Loader2 size={16} className="spin" />
           </button>
         </div>
@@ -237,7 +243,13 @@ function PRListErrorState({
       <div className="pr-list-header">
         <h2>{getTitle()}</h2>
         <div className="pr-header-actions">
-          <button className="refresh-button" onClick={handleManualRefresh} title="Retry">
+          <button
+            aria-label="Retry"
+            type="button"
+            className="refresh-button"
+            onClick={handleManualRefresh}
+            title="Retry"
+          >
             <RefreshCw size={16} />
           </button>
         </div>
@@ -301,6 +313,8 @@ function PREmptyState({
             />
           )}
           <button
+            aria-label="Refresh"
+            type="button"
             className="refresh-button"
             onClick={handleManualRefresh}
             title="Refresh"
@@ -356,6 +370,8 @@ function PRListActiveHeader({
         )}
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         <button
+          aria-label="Refresh"
+          type="button"
           className="refresh-button"
           onClick={handleManualRefresh}
           title="Refresh"

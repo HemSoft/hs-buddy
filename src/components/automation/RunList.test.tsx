@@ -37,6 +37,7 @@ vi.mock('./run-list/RunCard', () => ({
       {run.job?.name}
       {run.status === 'running' && (
         <button
+          type="button"
           data-testid={`cancel-${run._id}`}
           onClick={(e: React.MouseEvent) => onCancel(run._id, e)}
         >
@@ -68,7 +69,11 @@ vi.mock('./run-list/RunFilterBar', () => ({
 vi.mock('../shared/ViewModeToggle', () => ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ViewModeToggle: ({ mode, onChange }: Record<string, any>) => (
-    <button data-testid="view-toggle" onClick={() => onChange(mode === 'card' ? 'list' : 'card')}>
+    <button
+      type="button"
+      data-testid="view-toggle"
+      onClick={() => onChange(mode === 'card' ? 'list' : 'card')}
+    >
       {mode}
     </button>
   ),

@@ -23,7 +23,11 @@ vi.mock('../InlineDropdown', () => ({
   }) => {
     mocks.inlineDropdown(props)
     return (
-      <button data-testid="inline-dropdown" onClick={() => props.onChange('clicked-model')}>
+      <button
+        type="button"
+        data-testid="inline-dropdown"
+        onClick={() => props.onChange('clicked-model')}
+      >
         {props.value || props.placeholder}
       </button>
     )

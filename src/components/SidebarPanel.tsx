@@ -11,7 +11,7 @@ import { useJobs, useSchedules } from '../hooks/useConvex'
 import { useToggleSet } from '../hooks/useToggleSet'
 import { onKeyboardActivate } from '../utils/keyboard'
 import { AutomationSidebarSection } from './sidebar-panel/AutomationSidebarSection'
-import type { SidebarItem } from './sidebar/github-sidebar/useGitHubSidebarData'
+import type { SidebarItem } from './sidebar/github-sidebar/types'
 import './SidebarPanel.css'
 
 interface SidebarPanelProps {

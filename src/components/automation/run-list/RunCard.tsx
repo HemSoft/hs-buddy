@@ -130,7 +130,12 @@ function CancelRunButton({
   if (!canCancel) return null
 
   return (
-    <button className="btn-icon-sm btn-danger" onClick={e => onCancel(runId, e)} title="Cancel Run">
+    <button
+      type="button"
+      className="btn-icon-sm btn-danger"
+      onClick={e => onCancel(runId, e)}
+      title="Cancel Run"
+    >
       <Ban size={14} />
     </button>
   )

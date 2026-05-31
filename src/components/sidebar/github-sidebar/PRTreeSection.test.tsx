@@ -3,7 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { PRTreeSection } from './PRTreeSection'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SidebarItem } from './useGitHubSidebarData'
+import type { SidebarItem } from './types'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 
 const baseItem: SidebarItem = {

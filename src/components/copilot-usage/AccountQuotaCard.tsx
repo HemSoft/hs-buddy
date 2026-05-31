@@ -118,6 +118,7 @@ function QuotaFooter({
           <span className="usage-fetched-at">{formatTime(state.fetchedAt)}</span>
         )}
         <button
+          type="button"
           className="usage-link-btn"
           /* v8 ignore start */
           onClick={() => window.shell.openExternal('https://github.com/settings/copilot')}

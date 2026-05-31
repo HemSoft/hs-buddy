@@ -121,6 +121,7 @@ function BrowserToolbar({
   return (
     <div className="browser-tab-toolbar">
       <button
+        type="button"
         className="browser-tab-btn"
         onClick={() => webviewRef.current?.goBack()}
         title="Back"
@@ -129,6 +130,7 @@ function BrowserToolbar({
         ←
       </button>
       <button
+        type="button"
         className="browser-tab-btn"
         onClick={() => webviewRef.current?.goForward()}
         title="Forward"
@@ -137,6 +139,7 @@ function BrowserToolbar({
         →
       </button>
       <button
+        type="button"
         className="browser-tab-btn"
         onClick={() => (loading ? webviewRef.current?.stop() : webviewRef.current?.reload())}
         title={loading ? 'Stop' : 'Reload'}
@@ -147,13 +150,26 @@ function BrowserToolbar({
         {loading && <span className="browser-tab-spinner" />}
         <span className="browser-tab-url-text">{currentUrl}</span>
       </div>
-      <button className="browser-tab-btn" onClick={zoomOut} title="Zoom out (Alt + -)">
+      <button
+        aria-label="Zoom out (Alt + -)"
+        type="button"
+        className="browser-tab-btn"
+        onClick={zoomOut}
+        title="Zoom out (Alt + -)"
+      >
         −
       </button>
-      <button className="browser-tab-btn" onClick={zoomIn} title="Zoom in (Alt + =)">
+      <button
+        aria-label="Zoom in (Alt + =)"
+        type="button"
+        className="browser-tab-btn"
+        onClick={zoomIn}
+        title="Zoom in (Alt + =)"
+      >
         +
       </button>
       <button
+        type="button"
         className="browser-tab-btn"
         onClick={() => window.shell.openExternal(currentUrl)}
         title="Open in external browser"

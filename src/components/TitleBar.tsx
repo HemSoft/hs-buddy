@@ -46,6 +46,7 @@ function MenuDropdownItem({
   /* v8 ignore stop */
   return (
     <button
+      type="button"
       key={item.label}
       className={itemClass}
       onClick={() => onItemClick(item)}
@@ -175,6 +176,7 @@ export function TitleBar({
         {menus.map(menu => (
           <div key={menu.label} className="menu-container">
             <button
+              type="button"
               className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
               onClick={() => handleMenuClick(menu.label)}
               onMouseEnter={() => {
@@ -218,18 +220,31 @@ export function TitleBar({
           <TerminalSquare size={14} />
         </button>
         <button
+          type="button"
           className={`window-control-button copilot-toggle-button ${assistantOpen ? 'active' : ''}`}
           onClick={onToggleAssistant}
           title={`Toggle Copilot Assistant (${modLabel}+Shift+A)`}
         >
           <Sparkles size={14} />
         </button>
-        <button className="window-control-button" onClick={handleMinimize} title="Minimize">
+        <button
+          aria-label="Minimize"
+          type="button"
+          className="window-control-button"
+          onClick={handleMinimize}
+          title="Minimize"
+        >
           <svg width="10" height="10" viewBox="0 0 10 10">
             <rect y="9" width="10" height="1" fill="currentColor" />
           </svg>
         </button>
-        <button className="window-control-button" onClick={handleMaximize} title="Maximize">
+        <button
+          aria-label="Maximize"
+          type="button"
+          className="window-control-button"
+          onClick={handleMaximize}
+          title="Maximize"
+        >
           <svg width="10" height="10" viewBox="0 0 10 10">
             <rect
               x="0.5"
@@ -242,7 +257,13 @@ export function TitleBar({
             />
           </svg>
         </button>
-        <button className="window-control-button close-button" onClick={handleClose} title="Close">
+        <button
+          aria-label="Close"
+          type="button"
+          className="window-control-button close-button"
+          onClick={handleClose}
+          title="Close"
+        >
           <svg width="10" height="10" viewBox="0 0 10 10">
             <path d="M0 0 L10 10 M10 0 L0 10" stroke="currentColor" strokeWidth="1" />
           </svg>

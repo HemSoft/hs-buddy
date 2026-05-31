@@ -125,6 +125,22 @@ function playReviewCompleteSound() {
 
 export type AIReviewState = 'idle' | 'requesting' | 'monitoring' | 'done'
 
+function useResetAIReviewMonitorState(
+  monitorResetKey: string,
+  setReviewState: (state: AIReviewState) => void,
+  setReviewBanner: (banner: { completedAt: number } | null) => void
+) {
+  const [previousMonitorResetKey, setPreviousMonitorResetKey] = useState(monitorResetKey)
+
+  /* v8 ignore start */
+  if (previousMonitorResetKey !== monitorResetKey) {
+    setPreviousMonitorResetKey(monitorResetKey)
+    setReviewState('idle')
+    setReviewBanner(null)
+  }
+  /* v8 ignore stop */
+}
+
 interface UseAIReviewMonitorOptions {
   provider: AIReviewProvider
   prId: number
@@ -154,6 +170,9 @@ export function useAIReviewMonitor({
   const monitorCountRef = useRef(0)
   const monitorSessionRef = useRef(0)
   const requestSessionRef = useRef(0)
+  const monitorResetKey = `${provider.id}:${prId}:${prUrl}:${ownerRepo?.owner ?? ''}:${ownerRepo?.repo ?? ''}`
+  useResetAIReviewMonitorState(monitorResetKey, setReviewState, setReviewBanner)
+
   useEffect(() => {
     accountsRef.current = accounts
   }, [accounts])
@@ -278,8 +297,6 @@ export function useAIReviewMonitor({
   useEffect(() => {
     requestSessionRef.current++
     stopMonitor()
-    setReviewState('idle')
-    setReviewBanner(null)
     const pending = loadPendingReview(provider.id, prUrl)
     if (pending && ownerRepo)
       startMonitor({ ownerRepo, prUrl, checkpoint: pending.checkpoint, runImmediately: true })

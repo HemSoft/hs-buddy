@@ -600,7 +600,7 @@ function BookmarksContextMenu({
         role="menu"
         style={{ top: contextMenu.y, left: contextMenu.x }}
       >
-        <button role="menuitem" onClick={onEdit}>
+        <button type="button" role="menuitem" onClick={onEdit}>
           Edit
         </button>
       </div>

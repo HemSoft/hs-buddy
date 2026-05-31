@@ -171,7 +171,7 @@ describe('AppErrorBoundary', () => {
     render(
       <AppErrorBoundary
         fallback={({ message, reset }) => (
-          <button aria-label="Retry boundary" onClick={reset}>
+          <button type="button" aria-label="Retry boundary" onClick={reset}>
             Retry {message}
           </button>
         )}

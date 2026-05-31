@@ -132,6 +132,22 @@ function playReviewCompleteSound() {
 
 type CopilotReviewState = 'idle' | 'requesting' | 'monitoring' | 'done'
 
+function useResetCopilotReviewMonitorState(
+  monitorResetKey: string,
+  setCopilotReviewState: (state: CopilotReviewState) => void,
+  setCopilotReviewBanner: (banner: { completedAt: number } | null) => void
+) {
+  const [previousMonitorResetKey, setPreviousMonitorResetKey] = useState(monitorResetKey)
+
+  /* v8 ignore start */
+  if (previousMonitorResetKey !== monitorResetKey) {
+    setPreviousMonitorResetKey(monitorResetKey)
+    setCopilotReviewState('idle')
+    setCopilotReviewBanner(null)
+  }
+  /* v8 ignore stop */
+}
+
 interface UseCopilotReviewMonitorOptions {
   prId: number
   prUrl: string
@@ -157,6 +173,8 @@ export function useCopilotReviewMonitor({
   const monitorCountRef = useRef(0)
   const monitorSessionRef = useRef(0)
   const requestSessionRef = useRef(0)
+  const monitorResetKey = `${prId}:${prUrl}:${ownerRepo?.owner ?? ''}:${ownerRepo?.repo ?? ''}`
+  useResetCopilotReviewMonitorState(monitorResetKey, setCopilotReviewState, setCopilotReviewBanner)
 
   useEffect(() => {
     accountsRef.current = accounts
@@ -274,8 +292,6 @@ export function useCopilotReviewMonitor({
   useEffect(() => {
     requestSessionRef.current++
     stopCopilotReviewMonitor()
-    setCopilotReviewState('idle')
-    setCopilotReviewBanner(null)
     const pending = loadPendingReview(prUrl)
     if (pending && ownerRepo)
       startCopilotReviewMonitor({

@@ -126,6 +126,18 @@ function useThreadActions(
   }
 }
 
+function useResetHeadShaWhenUnavailable(
+  canFetchHeadSha: boolean,
+  currentHeadSha: string | null,
+  setCurrentHeadSha: (headSha: string | null) => void
+) {
+  /* v8 ignore start */
+  if (!canFetchHeadSha && currentHeadSha !== null) {
+    setCurrentHeadSha(null)
+  }
+  /* v8 ignore stop */
+}
+
 export function usePRThreadsPanel(pr: PRDetailInfo) {
   const { accounts } = useGitHubAccounts()
   const { enqueue } = useTaskQueue('github')
@@ -141,10 +153,11 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   const [currentHeadSha, setCurrentHeadSha] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'active' | 'resolved'>('all')
   const [showResolved, setShowResolved] = useState(true)
+  const canFetchHeadSha = Boolean(owner && pr.repository && pr.id)
+  useResetHeadShaWhenUnavailable(canFetchHeadSha, currentHeadSha, setCurrentHeadSha)
 
   useEffect(() => {
-    if (!owner || !pr.repository || !pr.id) {
-      setCurrentHeadSha(null)
+    if (!canFetchHeadSha || !owner) {
       return
     }
 
@@ -172,7 +185,7 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
         if (requestId !== headShaRequestRef.current) return
         setCurrentHeadSha(null)
       })
-  }, [accounts, owner, pr.repository, pr.id, enqueueRef])
+  }, [accounts, owner, pr.repository, pr.id, enqueueRef, canFetchHeadSha])
 
   const fetchThreads = useCallback(async () => {
     const requestId = latestThreadsRequestRef.current + 1

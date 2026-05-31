@@ -54,11 +54,21 @@ vi.mock('./IssueContextMenu', () => ({
     onClose,
   }: Record<string, () => void>) => (
     <div data-testid="issue-context-menu">
-      <button onClick={onStartRalphLoop}>Start Ralph Loop</button>
-      <button onClick={onViewDetails}>View Details</button>
-      <button onClick={onCopyLink}>Copy Link</button>
-      <button onClick={onOpenOnGitHub}>Open on GitHub</button>
-      <button onClick={onClose}>Close Menu</button>
+      <button type="button" onClick={onStartRalphLoop}>
+        Start Ralph Loop
+      </button>
+      <button type="button" onClick={onViewDetails}>
+        View Details
+      </button>
+      <button type="button" onClick={onCopyLink}>
+        Copy Link
+      </button>
+      <button type="button" onClick={onOpenOnGitHub}>
+        Open on GitHub
+      </button>
+      <button type="button" onClick={onClose}>
+        Close Menu
+      </button>
     </div>
   ),
 }))

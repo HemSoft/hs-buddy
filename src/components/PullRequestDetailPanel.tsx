@@ -113,6 +113,7 @@ function ApproveButton({
 }) {
   return (
     <button
+      type="button"
       className={`pr-detail-refresh-btn${youApproved ? ' pr-detail-approved' : ''}`}
       onClick={onApprove}
       title={youApproved ? 'You approved this PR' : 'Approve PR'}
@@ -147,6 +148,7 @@ function NudgeButton({
 }) {
   return (
     <button
+      type="button"
       className={nudgeButtonClass(nudgeState)}
       onClick={onNudge}
       title={nudgeButtonTitle(nudgeState, nudgeError)}
@@ -241,6 +243,7 @@ function PRDetailHeader({
       </div>
       <div className="pr-detail-header-actions">
         <button
+          type="button"
           className={`pr-detail-refresh-btn${getCopilotStateConfig(copilotReviewState).buttonClass}`}
           onClick={handleRequestCopilotReview}
           title={getCopilotStateConfig(copilotReviewState).title}
@@ -248,15 +251,31 @@ function PRDetailHeader({
         >
           <CopilotReviewButtonIcon state={copilotReviewState} />
         </button>
-        <button className="pr-detail-refresh-btn" onClick={onRefresh} title="Refresh PR data">
+        <button
+          aria-label="Refresh PR data"
+          type="button"
+          className="pr-detail-refresh-btn"
+          onClick={onRefresh}
+          title="Refresh PR data"
+        >
           <RefreshCw size={14} />
         </button>
         <ApproveButton youApproved={youApproved} isApproving={isApproving} onApprove={onApprove} />
         <NudgeButton nudgeState={nudgeState} nudgeError={nudgeError} onNudge={onNudge} />
-        <button className="pr-detail-refresh-btn" onClick={handleMoreClick} title="More actions">
+        <button
+          aria-label="More actions"
+          type="button"
+          className="pr-detail-refresh-btn"
+          onClick={handleMoreClick}
+          title="More actions"
+        >
           <MoreVertical size={14} />
         </button>
-        <button className="pr-detail-open-btn" onClick={() => window.shell.openExternal(pr.url)}>
+        <button
+          type="button"
+          className="pr-detail-open-btn"
+          onClick={() => window.shell.openExternal(pr.url)}
+        >
           <ExternalLink size={14} />
           Open on GitHub
         </button>
@@ -322,10 +341,16 @@ function CopilotReviewBanner({ completedAt, onDismiss }: CopilotReviewBannerProp
         <CheckCircle2 size={16} />
         <div className="pr-detail-review-banner-text">
           <strong>Copilot review complete</strong>
-          <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
+          <span>Finished {formatDistanceToNow(completedAt)}, page refreshed with latest data</span>
         </div>
       </div>
-      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+      <button
+        aria-label="Dismiss"
+        type="button"
+        className="pr-detail-review-banner-dismiss"
+        onClick={onDismiss}
+        title="Dismiss"
+      >
         <X size={14} />
       </button>
     </div>
@@ -345,10 +370,16 @@ function AIReviewBanner({ providerName, completedAt, onDismiss }: AIReviewBanner
         <CheckCircle2 size={16} />
         <div className="pr-detail-review-banner-text">
           <strong>{providerName} review complete</strong>
-          <span>Finished {formatDistanceToNow(completedAt)} — page refreshed with latest data</span>
+          <span>Finished {formatDistanceToNow(completedAt)}, page refreshed with latest data</span>
         </div>
       </div>
-      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+      <button
+        aria-label="Dismiss"
+        type="button"
+        className="pr-detail-review-banner-dismiss"
+        onClick={onDismiss}
+        title="Dismiss"
+      >
         <X size={14} />
       </button>
     </div>
@@ -382,7 +413,13 @@ function NudgeBanner({ state, error, author, onDismiss }: NudgeBannerProps) {
           )}
         </div>
       </div>
-      <button className="pr-detail-review-banner-dismiss" onClick={onDismiss} title="Dismiss">
+      <button
+        aria-label="Dismiss"
+        type="button"
+        className="pr-detail-review-banner-dismiss"
+        onClick={onDismiss}
+        title="Dismiss"
+      >
         <X size={14} />
       </button>
     </div>
@@ -556,6 +593,7 @@ function SectionNoteBar({ section, sectionLabel, prUrl }: SectionNoteBarProps) {
       <span>Tree section: {sectionLabel}</span>
       {section === 'checks' && (
         <button
+          type="button"
           className="pr-detail-open-btn"
           onClick={() => window.shell.openExternal(`${prUrl}/checks`)}
         >
@@ -565,6 +603,7 @@ function SectionNoteBar({ section, sectionLabel, prUrl }: SectionNoteBarProps) {
       )}
       {section === 'files-changed' && (
         <button
+          type="button"
           className="pr-detail-open-btn"
           onClick={() => window.shell.openExternal(`${prUrl}/files`)}
         >
@@ -750,20 +789,27 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
   const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [nudgeError, setNudgeError] = useState<string | null>(null)
-  useEffect(() => {
-    enqueueRef.current = enqueue
-  }, [enqueue])
+  const prIdentityKey = `${pr.id}:${pr.repository}:${pr.url}`
+  const approvalKey = `${prIdentityKey}:${pr.iApproved}`
+  const [previousPrIdentityKey, setPreviousPrIdentityKey] = useState(prIdentityKey)
+  const [previousApprovalKey, setPreviousApprovalKey] = useState(approvalKey)
 
-  useEffect(() => {
+  if (previousPrIdentityKey !== prIdentityKey) {
+    setPreviousPrIdentityKey(prIdentityKey)
+    setPreviousApprovalKey(approvalKey)
     setYouApproved(pr.iApproved)
-  }, [pr.id, pr.url, pr.iApproved])
-
-  useEffect(() => {
     setHistoryUpdatedAt(null)
     setLinkedIssues([])
     setNudgeState('idle')
     setNudgeError(null)
-  }, [pr.id, pr.repository, pr.url])
+  } else if (previousApprovalKey !== approvalKey) {
+    setPreviousApprovalKey(approvalKey)
+    setYouApproved(pr.iApproved)
+  }
+
+  useEffect(() => {
+    enqueueRef.current = enqueue
+  }, [enqueue])
 
   const fetchBranches = useCallback(async () => {
     if (pr.headBranch && pr.baseBranch) {

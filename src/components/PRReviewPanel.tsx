@@ -21,7 +21,13 @@ interface PRReviewPanelProps {
 function PRReviewCloseButton({ onClose }: { onClose?: () => void }) {
   if (!onClose) return null
   return (
-    <button className="pr-review-close-btn" onClick={onClose} title="Close">
+    <button
+      aria-label="Close"
+      type="button"
+      className="pr-review-close-btn"
+      onClick={onClose}
+      title="Close"
+    >
       <X size={16} />
     </button>
   )
@@ -129,6 +135,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
       <PRReviewError error={error} />
       <div className="pr-review-actions">
         <button
+          type="button"
           className="pr-review-btn pr-review-btn-primary"
           onClick={handleRunNow}
           disabled={submitDisabled}
@@ -138,6 +145,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
         </button>
         <div className="pr-review-schedule-group">
           <button
+            type="button"
             className="pr-review-btn pr-review-btn-secondary"
             onClick={handleSchedule}
             disabled={submitDisabled}

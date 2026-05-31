@@ -87,6 +87,7 @@ function ThreadReplyForm({
   return (
     <div className="thread-reply-form">
       <textarea
+        aria-label="Write a reply..."
         ref={textareaRef}
         className="thread-reply-input"
         placeholder="Write a reply..."
@@ -107,6 +108,7 @@ function ThreadReplyForm({
       <div className="thread-reply-buttons">
         <span className="thread-reply-hint">{modLabel}+Enter to send - Esc to cancel</span>
         <button
+          type="button"
           className="thread-reply-cancel"
           onClick={() => dispatch({ type: 'cancel_reply' })}
           disabled={sending}
@@ -114,6 +116,7 @@ function ThreadReplyForm({
           Cancel
         </button>
         <button
+          type="button"
           className="thread-reply-send"
           onClick={handleSendReply}
           disabled={!replyText.trim() || sending}
@@ -168,11 +171,16 @@ function ThreadActionRow({
 
   return (
     <div className="thread-action-row">
-      <button className="thread-reply-btn" onClick={() => dispatch({ type: 'start_reply' })}>
+      <button
+        type="button"
+        className="thread-reply-btn"
+        onClick={() => dispatch({ type: 'start_reply' })}
+      >
         <MessageSquarePlus size={13} />
         Reply
       </button>
       <button
+        type="button"
         className={`thread-resolve-btn ${resolveAction.className}`}
         onClick={handleResolveToggle}
         disabled={resolving}

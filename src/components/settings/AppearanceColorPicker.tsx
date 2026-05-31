@@ -5,6 +5,7 @@ export function ColorPicker({ id, label, hint, value, onChange }: ColorDef) {
     <div className="color-cell" title={hint}>
       <div className="color-cell-header">
         <input
+          aria-label={`${label} color`}
           type="color"
           id={id}
           className="color-swatch"
@@ -14,6 +15,7 @@ export function ColorPicker({ id, label, hint, value, onChange }: ColorDef) {
         <div className="color-cell-info">
           <label htmlFor={id}>{label}</label>
           <input
+            aria-label={`${label} hex color`}
             type="text"
             className="color-hex"
             value={value}

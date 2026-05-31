@@ -34,7 +34,9 @@ vi.mock('./github-sidebar/PRTreeSection', () => ({
   }) => (
     <div data-testid="pr-tree-section">
       <span>{prItems[0]?.label}</span>
-      <button onClick={() => onItemSelect('pr-item-1')}>Select PR Item</button>
+      <button type="button" onClick={() => onItemSelect('pr-item-1')}>
+        Select PR Item
+      </button>
     </div>
   ),
 }))
@@ -43,7 +45,9 @@ vi.mock('./github-sidebar/OrgRepoTree', () => ({
   OrgRepoTree: ({ uniqueOrgs, onItemSelect }: { uniqueOrgs: string[]; onItemSelect: Mock }) => (
     <div data-testid="org-repo-tree">
       <span>{uniqueOrgs.join(', ')}</span>
-      <button onClick={() => onItemSelect('org-item-1')}>Select Org Item</button>
+      <button type="button" onClick={() => onItemSelect('org-item-1')}>
+        Select Org Item
+      </button>
     </div>
   ),
 }))
@@ -68,12 +72,24 @@ vi.mock('./github-sidebar/SidebarPRContextMenu', () => ({
   }) => (
     <div data-testid="pr-context-menu">
       <span>{pr.title}</span>
-      <button onClick={onOpen}>Open PR</button>
-      <button onClick={() => void onCopyLink()}>Copy PR Link</button>
-      <button onClick={onAIReview}>Start AI Review</button>
-      <button onClick={() => void onApprove()}>Approve PR</button>
-      <button onClick={() => void onBookmark()}>Bookmark Repo</button>
-      <button onClick={onClose}>Close PR Menu</button>
+      <button type="button" onClick={onOpen}>
+        Open PR
+      </button>
+      <button type="button" onClick={() => void onCopyLink()}>
+        Copy PR Link
+      </button>
+      <button type="button" onClick={onAIReview}>
+        Start AI Review
+      </button>
+      <button type="button" onClick={() => void onApprove()}>
+        Approve PR
+      </button>
+      <button type="button" onClick={() => void onBookmark()}>
+        Bookmark Repo
+      </button>
+      <button type="button" onClick={onClose}>
+        Close PR Menu
+      </button>
     </div>
   ),
 }))
@@ -94,10 +110,18 @@ vi.mock('./github-sidebar/SidebarUserContextMenu', () => ({
   }) => (
     <div data-testid="user-context-menu">
       <span>{displayName}</span>
-      <button onClick={onOpenProfile}>Open Profile</button>
-      <button onClick={onRefresh}>Refresh User</button>
-      <button onClick={onToggleFavorite}>Toggle Favorite</button>
-      <button onClick={onClose}>Close User Menu</button>
+      <button type="button" onClick={onOpenProfile}>
+        Open Profile
+      </button>
+      <button type="button" onClick={onRefresh}>
+        Refresh User
+      </button>
+      <button type="button" onClick={onToggleFavorite}>
+        Toggle Favorite
+      </button>
+      <button type="button" onClick={onClose}>
+        Close User Menu
+      </button>
     </div>
   ),
 }))

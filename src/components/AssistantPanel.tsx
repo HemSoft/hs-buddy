@@ -75,6 +75,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
         </div>
         <div className="assistant-header-actions">
           <button
+            type="button"
             className="assistant-header-btn"
             onClick={clearConversation}
             title="Clear conversation"
@@ -96,6 +97,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
             <div className="assistant-suggestions">
               {suggestions.map(prompt => (
                 <button
+                  type="button"
                   key={prompt}
                   className="assistant-suggestion-btn"
                   onClick={() => sendMessage(prompt)}
@@ -137,6 +139,7 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
       )}
       <div className="assistant-input-area">
         <textarea
+          aria-label="Ask assistant"
           ref={textareaRef}
           className="assistant-input"
           value={input}
@@ -148,11 +151,19 @@ export function AssistantPanel({ context }: AssistantPanelProps) {
         />
         <div className="assistant-input-actions">
           {isStreaming ? (
-            <button className="assistant-stop-btn" onClick={abortResponse} title="Stop">
+            <button
+              aria-label="Stop"
+              type="button"
+              className="assistant-stop-btn"
+              onClick={abortResponse}
+              title="Stop"
+            >
               <StopCircle size={16} />
             </button>
           ) : (
             <button
+              aria-label="Send (Enter)"
+              type="button"
               className="assistant-send-btn"
               onClick={handleSend}
               disabled={!input.trim()}

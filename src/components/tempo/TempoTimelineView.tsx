@@ -31,7 +31,7 @@ export function TempoTimelineView({
               <th>Issue</th>
               <th>Description</th>
               <th>Account</th>
-              <th></th>
+              <th aria-label="Actions"></th>
             </tr>
           </thead>
           <tbody>
@@ -49,6 +49,7 @@ export function TempoTimelineView({
                 </td>
                 <td className="tempo-tl-actions">
                   <button
+                    type="button"
                     onClick={() => onEdit(worklog)}
                     title="Edit"
                     aria-label={`Edit worklog for ${worklog.issueKey} on ${worklog.date}`}
@@ -56,6 +57,7 @@ export function TempoTimelineView({
                     ✎
                   </button>
                   <button
+                    type="button"
                     onClick={() => onDelete(worklog)}
                     title="Delete"
                     aria-label={`Delete worklog for ${worklog.issueKey} on ${worklog.date}`}

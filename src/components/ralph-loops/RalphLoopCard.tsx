@@ -65,7 +65,12 @@ function CardFooter({
     <div className="ralph-card-footer">
       <span className="ralph-card-duration">{formatDuration(run.startedAt, run.completedAt)}</span>
       {isActive && (
-        <button className="ralph-stop-btn" onClick={() => onStop(run.runId)} title="Stop loop">
+        <button
+          type="button"
+          className="ralph-stop-btn"
+          onClick={() => onStop(run.runId)}
+          title="Stop loop"
+        >
           <Square size={12} />
           Stop
         </button>

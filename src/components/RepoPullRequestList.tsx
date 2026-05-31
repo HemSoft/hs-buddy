@@ -79,7 +79,7 @@ function PRTableView({
       <table className="list-view-table">
         <thead>
           <tr>
-            <th className="col-status"></th>
+            <th className="col-status" aria-label="PR status"></th>
             <th className="col-title">Title</th>
             <th>Author</th>
             <th>Updated</th>
@@ -243,6 +243,8 @@ function RepoPRListHeader({
         </span>
         <ViewModeToggle mode={viewMode} onChange={setViewMode} />
         <button
+          aria-label="Refresh"
+          type="button"
           className="repo-prs-refresh-btn"
           onClick={refresh}
           disabled={loading}

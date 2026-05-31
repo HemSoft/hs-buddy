@@ -391,7 +391,7 @@ export function TempoWorklogEditor({
                 dispatch({ type: 'setAccountKey', value: e.target.value })
               }}
             >
-              <option value="">— select account —</option>
+              <option value="">Select account</option>
               {getAccountOptions(state.projectAccounts, state.accounts).map(a => (
                 <option key={a.key} value={a.key}>
                   {a.name} ({a.key})

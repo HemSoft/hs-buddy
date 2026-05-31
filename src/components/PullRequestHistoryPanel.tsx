@@ -54,7 +54,11 @@ function PullRequestHistoryHeader({ pr, embedded }: { pr: PRDetailInfo; embedded
           <span>#{pr.id}</span>
         </div>
       </div>
-      <button className="pr-history-open" onClick={() => window.shell.openExternal(pr.url)}>
+      <button
+        type="button"
+        className="pr-history-open"
+        onClick={() => window.shell.openExternal(pr.url)}
+      >
         <ExternalLink size={14} />
         Open PR
       </button>
@@ -193,11 +197,15 @@ function PullRequestHistoryOverview({
               aria-hidden="true"
             />
             <div className="pr-context-menu" style={{ top: menu.y, left: menu.x }}>
-              <button onClick={handleAddressComments} disabled={history.threadsUnaddressed === 0}>
+              <button
+                type="button"
+                onClick={handleAddressComments}
+                disabled={history.threadsUnaddressed === 0}
+              >
                 <MessageSquareWarning size={14} />
                 Address Unresolved Comments
               </button>
-              <button onClick={handleRequestCopilotReview}>
+              <button type="button" onClick={handleRequestCopilotReview}>
                 <Sparkles size={14} />
                 Request Copilot Review
               </button>

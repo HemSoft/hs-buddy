@@ -90,6 +90,8 @@ function SoundFileSection({
             </code>
             <div className="sound-file-actions">
               <button
+                aria-label="Preview sound"
+                type="button"
                 className="settings-btn settings-btn-secondary"
                 onClick={onPreview}
                 title="Preview sound"
@@ -98,6 +100,7 @@ function SoundFileSection({
                 Preview
               </button>
               <button
+                type="button"
                 className="settings-btn settings-btn-secondary"
                 onClick={onClear}
                 title="Remove sound file"
@@ -114,7 +117,7 @@ function SoundFileSection({
         )}
       </div>
       <div className="button-group" style={{ marginTop: '8px' }}>
-        <button className="settings-btn settings-btn-primary" onClick={onBrowse}>
+        <button type="button" className="settings-btn settings-btn-primary" onClick={onBrowse}>
           <FolderOpen size={14} />
           Browse…
         </button>
@@ -222,6 +225,7 @@ export function SettingsNotifications() {
               </p>
             </div>
             <button
+              type="button"
               id="notification-sound-toggle"
               className={`toggle-button ${enabled ? 'active' : ''}`}
               onClick={handleToggle}

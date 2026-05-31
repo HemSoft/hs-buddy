@@ -138,11 +138,6 @@ function removeFromLoadingSet(setter: LoadingSetSetter, key: string) {
   })
 }
 
-export interface SidebarItem {
-  id: string
-  label: string
-}
-
 export function useGitHubSidebarData() {
   const sections = useToggleSet(['pull-requests', 'organizations'])
   const orgs = useToggleSet()

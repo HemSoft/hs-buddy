@@ -30,19 +30,19 @@ export function IssueContextMenu({
     <>
       <div className="context-menu-overlay" onClick={onClose} aria-hidden="true" />
       <div className="context-menu" style={{ top: y, left: x }}>
-        <button onClick={onViewDetails}>
+        <button type="button" onClick={onViewDetails}>
           <Eye size={14} />
           View Details
         </button>
-        <button onClick={onStartRalphLoop} disabled={!isOpen}>
+        <button type="button" onClick={onStartRalphLoop} disabled={!isOpen}>
           <Play size={14} />
           {isOpen ? 'Start Ralph Loop' : 'Issue Closed'}
         </button>
-        <button onClick={onCopyLink}>
+        <button type="button" onClick={onCopyLink}>
           <Copy size={14} />
           Copy Link
         </button>
-        <button onClick={onOpenOnGitHub}>
+        <button type="button" onClick={onOpenOnGitHub}>
           <ExternalLink size={14} />
           Open on GitHub
         </button>

@@ -73,6 +73,7 @@ function PRApproveButton({
 }) {
   return (
     <button
+      type="button"
       className="pr-approve-btn"
       onClick={async e => {
         e.stopPropagation()

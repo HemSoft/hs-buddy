@@ -107,6 +107,7 @@ export function CommandCenterCard({
 
         <div className="welcome-usage-actions">
           <button
+            aria-label="Refresh Copilot usage data"
             type="button"
             className="welcome-usage-btn"
             onClick={onRefresh}

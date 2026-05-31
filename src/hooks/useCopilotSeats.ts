@@ -85,24 +85,44 @@ function collectSeatResults(settled: PromiseSettledResult<OrgSeatsResult>[]) {
   return { seats, orgErrors, truncated }
 }
 
-async function applyPremiumRequestCounts(seats: CopilotSeatInfo[], usernames: string[]) {
-  const allLogins = seats.map(seat => seat.login)
-  if (usernames.length === 0 || allLogins.length === 0) return
+type PremiumUsageData = Record<string, { requests: number; lastActiveDate: string | null }>
+
+function hasPremiumUsageData(data: PremiumUsageData | undefined): data is PremiumUsageData {
+  return Boolean(data && Object.keys(data).length > 0)
+}
+
+function hasLookupInputs(allLogins: string[], usernames: string[]): boolean {
+  return allLogins.length > 0 && usernames.length > 0
+}
+
+async function fetchFirstPremiumUsage(
+  allLogins: string[],
+  usernames: string[]
+): Promise<PremiumUsageData | null> {
+  if (!hasLookupInputs(allLogins, usernames)) return null
 
   for (const username of usernames) {
     const usageResult = await window.github.getBatchMonthlyRequests(allLogins, username, true)
-    if (!usageResult.success || !usageResult.data || Object.keys(usageResult.data).length === 0) {
-      continue
-    }
-
-    for (const seat of seats) {
-      const usage = usageResult.data[seat.login]
-      if (usage) {
-        seat.premiumRequests = usage.requests
-      }
-    }
-    return
+    if (usageResult.success && hasPremiumUsageData(usageResult.data)) return usageResult.data
   }
+
+  return null
+}
+
+function applyUsageDataToSeats(seats: CopilotSeatInfo[], usageData: PremiumUsageData): void {
+  for (const seat of seats) {
+    const usage = usageData[seat.login]
+    if (usage) seat.premiumRequests = usage.requests
+  }
+}
+
+async function applyPremiumRequestCounts(seats: CopilotSeatInfo[], usernames: string[]) {
+  const usageData = await fetchFirstPremiumUsage(
+    seats.map(seat => seat.login),
+    usernames
+  )
+  if (!usageData) return
+  applyUsageDataToSeats(seats, usageData)
 }
 
 function resolveTopSeats(seats: CopilotSeatInfo[]) {

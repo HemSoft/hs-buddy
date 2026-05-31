@@ -21,6 +21,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $InformationPreference = 'Continue'
+if ($PSVersionTable.PSVersion.Major -ge 7) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 $esc = [char]27
 $Cyan = "${esc}[36m"
 $Green = "${esc}[32m"
@@ -50,8 +53,11 @@ if ($ScoreOnly) {
 
 Write-Information "${Cyan}Running: npx $($arguments -join ' ')${Reset}"
 
+$previousErrorActionPreference = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
 $output = & npx @arguments 2>&1
 $exitCode = $LASTEXITCODE
+$ErrorActionPreference = $previousErrorActionPreference
 
 $output | Tee-Object -FilePath $terminalSummaryFile
 

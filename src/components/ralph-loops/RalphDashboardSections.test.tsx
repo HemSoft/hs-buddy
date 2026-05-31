@@ -12,7 +12,9 @@ import {
 vi.mock('./RalphLoopCard', () => ({
   RalphLoopCard: ({ run, onStop }: { run: RalphRunInfo; onStop: (id: string) => void }) => (
     <div data-testid={`loop-card-${run.runId}`}>
-      <button onClick={() => onStop(run.runId)}>Stop {run.runId}</button>
+      <button type="button" onClick={() => onStop(run.runId)}>
+        Stop {run.runId}
+      </button>
     </div>
   ),
 }))

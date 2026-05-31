@@ -81,6 +81,7 @@ function ReviewRunPublishButton({
 
   return (
     <button
+      type="button"
       className={resolvePublishButtonClassName(isPublished)}
       onClick={() => onPublish(run._id, run.resultId, run.model)}
       disabled={shouldDisablePublishButton(isPublished, publishingRunId)}
@@ -119,6 +120,7 @@ function ReviewRunItem({
           onPublish={onPublish}
         />
         <button
+          type="button"
           className="pr-reviews-icon-btn"
           onClick={() => onOpenResult(run.resultId)}
           title="Open review result"
@@ -270,7 +272,7 @@ function PRReviewsContent({
     return (
       <div className="pr-reviews-empty">
         <p>No AI reviews recorded for this PR yet.</p>
-        <button className="pr-reviews-primary-btn" onClick={handleReReview}>
+        <button type="button" className="pr-reviews-primary-btn" onClick={handleReReview}>
           <Sparkles size={14} />
           Start first review
         </button>
@@ -330,7 +332,7 @@ export function PRReviewsPanel({ pr }: PRReviewsPanelProps) {
           <Sparkles size={16} />
           <h3>AI Reviews</h3>
         </div>
-        <button className="pr-reviews-rereview-btn" onClick={handleReReview}>
+        <button type="button" className="pr-reviews-rereview-btn" onClick={handleReReview}>
           <RefreshCcw size={13} />
           Re-review
         </button>

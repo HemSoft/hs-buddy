@@ -126,6 +126,7 @@ function RepoHeaderActions({
   return (
     <div className="repo-detail-header-actions">
       <button
+        type="button"
         className="repo-detail-action-btn"
         onClick={() => window.shell?.openExternal(detail.url)}
         title="Open on GitHub"
@@ -135,6 +136,7 @@ function RepoHeaderActions({
       </button>
       {detail.homepage && (
         <button
+          type="button"
           className="repo-detail-action-btn"
           onClick={() => window.shell?.openExternal(detail.homepage!)}
           title="Visit homepage"
@@ -144,6 +146,8 @@ function RepoHeaderActions({
         </button>
       )}
       <button
+        aria-label="Refresh"
+        type="button"
         className="repo-detail-action-btn repo-detail-refresh-btn"
         onClick={refresh}
         disabled={loading}

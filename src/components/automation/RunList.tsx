@@ -84,7 +84,7 @@ function RunListTable({
     <table className="list-view-table">
       <thead>
         <tr>
-          <th className="col-status"></th>
+          <th className="col-status" aria-label="Run status"></th>
           <th className="col-title">Name</th>
           <th>Status</th>
           <th>Duration</th>
@@ -249,7 +249,13 @@ export function RunList() {
           <h2>Runs</h2>
           <div className="run-list-header-actions">
             <ViewModeToggle mode={viewMode} onChange={setViewMode} />
-            <button className="btn-icon" onClick={handleCleanup} title="Cleanup old runs (7+ days)">
+            <button
+              aria-label="Cleanup old runs (7+ days)"
+              type="button"
+              className="btn-icon"
+              onClick={handleCleanup}
+              title="Cleanup old runs (7+ days)"
+            >
               <Trash2 size={16} />
             </button>
           </div>

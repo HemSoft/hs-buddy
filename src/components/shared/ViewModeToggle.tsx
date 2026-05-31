@@ -11,6 +11,7 @@ export function ViewModeToggle({ mode, onChange }: ViewModeToggleProps) {
   return (
     <div className="view-mode-toggle">
       <button
+        type="button"
         className={`view-mode-btn${mode === 'card' ? ' active' : ''}`}
         onClick={() => onChange('card')}
         title="Card view"
@@ -18,6 +19,7 @@ export function ViewModeToggle({ mode, onChange }: ViewModeToggleProps) {
         <LayoutGrid size={14} />
       </button>
       <button
+        type="button"
         className={`view-mode-btn${mode === 'list' ? ' active' : ''}`}
         onClick={() => onChange('list')}
         title="List view"

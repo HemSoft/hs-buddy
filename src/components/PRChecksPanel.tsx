@@ -260,6 +260,7 @@ export function PRChecksPanel({ pr }: PRChecksPanelProps) {
           <code className="pr-checks-headline-sha">{checks.headSha.slice(0, 12)}</code>
         </div>
         <button
+          type="button"
           className="pr-checks-open-btn"
           onClick={() => window.shell.openExternal(`${pr.url}/checks`)}
         >

@@ -61,6 +61,15 @@ function canBuildReviewSnapshot(prInfo: PRReviewInfo): boolean {
   return Boolean(prInfo.org) && Boolean(prInfo.repo) && Boolean(prInfo.prNumber)
 }
 
+function getInitialReviewAccount(
+  githubAccounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  org: string,
+  configuredAccount: string
+): string {
+  const matchedAccount = githubAccounts.find(a => a.org.toLowerCase() === org.toLowerCase())
+  return matchedAccount?.username ?? configuredAccount
+}
+
 async function fetchReviewSnapshot(
   prInfo: PRReviewInfo,
   accounts: ReturnType<typeof useGitHubAccounts>['accounts']
@@ -95,7 +104,9 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   const { model: configuredModel, ghAccount: configuredAccount } = useCopilotSettings()
   const { accounts: githubAccounts } = useGitHubAccounts()
   const { increment: incrementStat } = useBuddyStatsMutations()
-  const [account, setAccount] = useState('')
+  const [account, setAccount] = useState(() =>
+    getInitialReviewAccount(githubAccounts, prInfo.org, configuredAccount)
+  )
   const [model, setModel] = useState(configuredModel || 'claude-sonnet-4.5')
   const [savedDefaultTemplate, setSavedDefaultTemplate] = useState('')
   const [savingDefault, setSavingDefault] = useState(false)
@@ -111,21 +122,7 @@ export function usePRReviewData(prInfo: PRReviewInfo, onSubmitted?: (resultId: s
   const [error, setError] = useState<string | null>(null)
   const [scheduled, setScheduled] = useState(false)
   const [scheduleDelay, setScheduleDelay] = useState(5)
-  const initializedRef = useRef(false)
   const loadedDefaultRef = useRef(false)
-
-  useEffect(() => {
-    /* v8 ignore start */
-    if (initializedRef.current) return
-    /* v8 ignore stop */
-    initializedRef.current = true
-    const matchedAccount = githubAccounts.find(
-      a => a.org.toLowerCase() === prInfo.org.toLowerCase()
-    )
-    if (matchedAccount) setAccount(matchedAccount.username)
-    else if (configuredAccount) setAccount(configuredAccount)
-    if (configuredModel) setModel(configuredModel)
-  }, [githubAccounts, prInfo.org, configuredAccount, configuredModel])
 
   useEffect(() => {
     if (loadedDefaultRef.current || prInfo.initialPrompt) return

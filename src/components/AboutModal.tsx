@@ -21,7 +21,13 @@ export function AboutModal({ onClose }: AboutModalProps) {
   return (
     <div className="about-modal-overlay" role="presentation" onClick={handleOverlayClick}>
       <div className="about-modal">
-        <button className="about-close-button" onClick={onClose} title="Close">
+        <button
+          aria-label="Close"
+          type="button"
+          className="about-close-button"
+          onClick={onClose}
+          title="Close"
+        >
           <X size={18} />
         </button>
 
@@ -66,7 +72,7 @@ export function AboutModal({ onClose }: AboutModalProps) {
           </div>
 
           {/* GitHub Link */}
-          <button className="about-github-link" onClick={openGitHub}>
+          <button type="button" className="about-github-link" onClick={openGitHub}>
             <GithubIcon size={16} />
             <span>View on GitHub</span>
           </button>

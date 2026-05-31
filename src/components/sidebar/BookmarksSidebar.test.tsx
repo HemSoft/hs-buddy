@@ -28,7 +28,7 @@ vi.mock('../../hooks/useConvex', () => ({
 vi.mock('../bookmarks/BookmarkDialog', () => ({
   BookmarkDialog: ({ onClose }: { onClose: () => void }) => (
     <div data-testid="bookmark-dialog">
-      <button data-testid="bookmark-dialog-close" onClick={onClose}>
+      <button type="button" data-testid="bookmark-dialog-close" onClick={onClose}>
         Close Dialog
       </button>
     </div>

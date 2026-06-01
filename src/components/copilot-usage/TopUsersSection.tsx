@@ -6,6 +6,7 @@ interface TopUsersSectionProps {
   loading: boolean
   orgErrors: Array<{ org: string; error: string }>
   truncated: boolean
+  hasOrgs: boolean
 }
 
 function formatEditor(editor: string | null): string {
@@ -81,9 +82,19 @@ function UsersTable({ seats }: { seats: CopilotSeatInfo[] }) {
 function shouldHideSection(
   seats: CopilotSeatInfo[],
   loading: boolean,
-  orgErrorCount: number
+  orgErrorCount: number,
+  hasOrgs: boolean
 ): boolean {
-  return seats.length === 0 && !loading && orgErrorCount === 0
+  return !hasOrgs && seats.length === 0 && !loading && orgErrorCount === 0
+}
+
+function AiCreditsNote() {
+  return (
+    <p className="top-users-note">
+      Per-user AI Credit breakdown is unavailable under GitHub&apos;s AI Credits billing.
+      Consumption is reported only at the organization level.
+    </p>
+  )
 }
 
 function LoadingIcon({ loading }: { loading: boolean }) {
@@ -99,8 +110,14 @@ function TruncationWarning({ truncated }: { truncated: boolean }) {
   )
 }
 
-export function TopUsersSection({ seats, loading, orgErrors, truncated }: TopUsersSectionProps) {
-  if (shouldHideSection(seats, loading, orgErrors.length)) return null
+export function TopUsersSection({
+  seats,
+  loading,
+  orgErrors,
+  truncated,
+  hasOrgs,
+}: TopUsersSectionProps) {
+  if (shouldHideSection(seats, loading, orgErrors.length, hasOrgs)) return null
 
   return (
     <div className="top-users-section">
@@ -110,6 +127,7 @@ export function TopUsersSection({ seats, loading, orgErrors, truncated }: TopUse
         <LoadingIcon loading={loading} />
       </h3>
 
+      <AiCreditsNote />
       <OrgErrors errors={orgErrors} />
       <TruncationWarning truncated={truncated} />
       <UsersTable seats={seats} />

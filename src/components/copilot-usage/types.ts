@@ -3,6 +3,7 @@ interface OrgBudgetData {
   budgetAmount: number | null
   preventFurtherUsage: boolean
   spent: number
+  gross: number
   spentUnavailable: boolean
   useQuotaOverage: boolean
   billingMonth: number

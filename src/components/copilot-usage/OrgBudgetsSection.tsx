@@ -189,6 +189,19 @@ function BudgetMyShareLabel({
   return <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
 }
 
+function BudgetGrossLabel({ gross, useQuotaOverage }: { gross: number; useQuotaOverage: boolean }) {
+  if (gross <= 0 || useQuotaOverage) return null
+
+  return (
+    <span
+      className="usage-budget-gross-label"
+      title="Gross AI Credit value consumed (list price; net is what is billed)"
+    >
+      {formatCurrency(gross)} consumed
+    </span>
+  )
+}
+
 function BudgetCardFooter({
   billingYear,
   billingMonth,
@@ -233,6 +246,7 @@ function BudgetCardBody({
         <span className="usage-budget-spent" style={{ color: barColor }}>
           {formatCurrency(displaySpent)} {resolveSpentLabel(d.useQuotaOverage)}
         </span>
+        <BudgetGrossLabel gross={d.gross ?? 0} useQuotaOverage={d.useQuotaOverage} />
         <BudgetMyShareLabel myShare={myShare} useQuotaOverage={d.useQuotaOverage} />
         <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />
       </div>

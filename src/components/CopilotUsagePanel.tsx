@@ -89,6 +89,7 @@ export function CopilotUsagePanel() {
         loading={topUsers.loading}
         orgErrors={topUsers.orgErrors}
         truncated={topUsers.truncated}
+        hasOrgs={uniqueOrgs.size > 0}
       />
 
       <OrgBudgetsSection

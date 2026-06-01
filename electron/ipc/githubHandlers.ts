@@ -22,7 +22,7 @@ import {
   sumNetCost,
   parseBillingUsage,
   extractBudgetFromResult,
-  extractUsageSpend,
+  extractCopilotSpend,
   computeOverageSpend,
   classifyCliTokenError,
   assembleCopilotMetrics,
@@ -111,11 +111,11 @@ async function fetchBillingUsage(
   return parseBillingUsage(data.usageItems)
 }
 
-/** Fetch budget + premium request spend for a non-personal org. */
+/** Fetch budget + Copilot usage spend (net, AI Credits billing) for a non-personal org. */
 async function fetchBudgetAndSpend(
   org: string,
-  year: number,
-  month: number,
+  _year: number,
+  _month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<{ budgetAmount: number | null; spent: number }> {
   const [budgetResult, spendResult] = await Promise.allSettled([
@@ -123,15 +123,16 @@ async function fetchBudgetAndSpend(
       `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
       { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
     ),
-    execAsync(
-      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-    ),
+    execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: execEnv,
+    }),
   ])
 
   return {
     budgetAmount: extractBudgetFromResult(budgetResult).budgetAmount,
-    spent: extractUsageSpend(spendResult),
+    spent: extractCopilotSpend(spendResult).net,
   }
 }
 
@@ -155,6 +156,7 @@ export async function fetchCopilotMetrics(
     discount: 0,
     netCost: 0,
     businessSeats: 0,
+    seatPlan: '',
   }
   let usageOk = false
 
@@ -297,9 +299,11 @@ async function resolveEnterpriseBudgetFallback(
 function resolveSpendState(
   org: string,
   usageResult: ExecAsyncSettledResult
-): { spent: number; spentError: string | null } {
+): { spent: number; gross: number; spentError: string | null } {
+  const { net, gross } = extractCopilotSpend(asCliStdoutSettledResult(usageResult))
   return {
-    spent: extractUsageSpend(asCliStdoutSettledResult(usageResult)),
+    spent: net,
+    gross,
     spentError: getSettledCommandError(org, 'Usage', usageResult),
   }
 }
@@ -307,14 +311,15 @@ function resolveSpendState(
 /** Fetch budget + spend for an org via billing APIs, with enterprise budget fallback. */
 async function fetchOrgBudgetAndSpend(
   org: string,
-  year: number,
-  month: number,
+  _year: number,
+  _month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<{
   budgetAmount: number | null
   preventFurtherUsage: boolean
   budgetError: string | null
   spent: number
+  gross: number
   spentError: string | null
 }> {
   const [budgetResult, usageResult] = await Promise.allSettled([
@@ -322,10 +327,11 @@ async function fetchOrgBudgetAndSpend(
       `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
       { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
     ),
-    execAsync(
-      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-    ),
+    execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
+      encoding: 'utf8',
+      timeout: API_TIMEOUT_MS,
+      env: execEnv,
+    }),
   ])
 
   const extractedBudget = extractBudgetFromResult(asCliStdoutSettledResult(budgetResult))
@@ -354,6 +360,7 @@ async function resolveBudgetData(
   budgetAmount: number | null
   preventFurtherUsage: boolean
   spent: number
+  gross: number
   spentUnavailable: boolean
   useQuotaOverage: boolean
 }> {
@@ -366,6 +373,7 @@ async function resolveBudgetData(
       budgetAmount,
       preventFurtherUsage: false,
       spent: personalResult.spent,
+      gross: 0,
       spentUnavailable: !!personalResult.spentError,
       useQuotaOverage: false,
     }
@@ -379,6 +387,7 @@ async function resolveBudgetData(
       budgetAmount: null,
       preventFurtherUsage: false,
       spent: 0,
+      gross: 0,
       spentUnavailable: true,
       useQuotaOverage: is404,
     }
@@ -388,6 +397,7 @@ async function resolveBudgetData(
     budgetAmount: orgResult.budgetAmount,
     preventFurtherUsage: orgResult.preventFurtherUsage,
     spent: orgResult.spent,
+    gross: orgResult.gross,
     spentUnavailable: !!orgResult.spentError,
     useQuotaOverage: false,
   }
@@ -630,6 +640,25 @@ function registerGitHubAuthHandlers(): void {
   })
 }
 
+/**
+ * Authoritative org seat count from the Copilot billing summary
+ * (`seat_breakdown.total`). Returns null when unavailable (e.g. personal
+ * accounts or missing access) so callers can fall back to billing-usage seats.
+ */
+async function fetchSeatCount(org: string, execEnv: NodeJS.ProcessEnv): Promise<number | null> {
+  try {
+    const { stdout } = await execAsync(
+      `gh api /orgs/${org}/copilot/billing -H "X-GitHub-Api-Version: 2022-11-28"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    )
+    const data = JSON.parse(stdout.trim()) as { seat_breakdown?: { total?: number } }
+    const total = data.seat_breakdown?.total
+    return typeof total === 'number' ? total : null
+  } catch (_: unknown) {
+    return null
+  }
+}
+
 function registerCopilotUsageHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
@@ -640,12 +669,17 @@ function registerCopilotUsageHandlers(): void {
 
         const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
         const parsed = parseBillingUsage(data.usageItems)
+        const seatCount = await fetchSeatCount(org, execEnv)
+        const now = new Date()
 
         return {
           success: true,
           data: {
             org,
             ...parsed,
+            seats: seatCount ?? parsed.businessSeats,
+            billingMonth: now.getUTCMonth() + 1,
+            billingYear: now.getUTCFullYear(),
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),
           },

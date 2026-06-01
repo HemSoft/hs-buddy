@@ -23,6 +23,8 @@ export interface ParsedBillingUsage {
   discount: number
   netCost: number
   businessSeats: number
+  /** Dominant Copilot seat plan inferred from seat SKUs: 'enterprise' | 'business' | ''. */
+  seatPlan: string
 }
 
 /** Shape returned by enterprise/org premium request usage APIs. */
@@ -78,12 +80,36 @@ export function sumNetCost(items: PremiumUsageItem[]): number {
  */
 const COPILOT_USAGE_SKUS = new Set(['Copilot AI Credits', 'Copilot Premium Request'])
 
+/**
+ * Per-seat Copilot subscription SKUs. Their billed `quantity` equals the org's
+ * seat count, used as a fallback denominator for the AI Credit allotment.
+ * 'Copilot Enterprise' was previously omitted, zeroing seat counts for enterprise orgs.
+ */
+const COPILOT_SEAT_SKUS = new Set(['Copilot Business', 'Copilot Enterprise'])
+
+const SEAT_SKU_TO_PLAN: ReadonlyArray<{ sku: string; plan: string }> = [
+  { sku: 'Copilot Enterprise', plan: 'enterprise' },
+  { sku: 'Copilot Business', plan: 'business' },
+]
+
+/** Infer the dominant seat plan from the seat SKUs that carry quantity. */
+function inferSeatPlan(items: BillingUsageItem[]): string {
+  for (const { sku, plan } of SEAT_SKU_TO_PLAN) {
+    const qty = sumBy(
+      items.filter(item => item.product === 'copilot' && item.sku === sku),
+      item => item.quantity
+    )
+    if (qty > 0) return plan
+  }
+  return ''
+}
+
 export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
   const premiumItems = items.filter(
     item => item.product === 'copilot' && COPILOT_USAGE_SKUS.has(item.sku)
   )
   const seatItems = items.filter(
-    item => item.product === 'copilot' && item.sku === 'Copilot Business'
+    item => item.product === 'copilot' && COPILOT_SEAT_SKUS.has(item.sku)
   )
 
   return {
@@ -92,7 +118,22 @@ export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage
     discount: roundCents(sumBy(premiumItems, item => item.discountAmount)),
     netCost: roundCents(sumBy(premiumItems, item => item.netAmount)),
     businessSeats: roundCents(sumBy(seatItems, item => item.quantity)),
+    seatPlan: inferSeatPlan(items),
   }
+}
+
+/**
+ * Extract Copilot usage spend (net) and gross consumption from a settled
+ * `/orgs/{org}/settings/billing/usage` result. Filters to Copilot *usage* SKUs
+ * so per-seat subscription cost is excluded from "spend".
+ */
+export function extractCopilotSpend(result: PromiseSettledResult<{ stdout: string }>): {
+  net: number
+  gross: number
+} {
+  const data = parseFulfilledStdout<{ usageItems?: BillingUsageItem[] }>(result)
+  const parsed = parseBillingUsage(data?.usageItems ?? [])
+  return { net: parsed.netCost, gross: parsed.grossCost }
 }
 
 /** Parse a Copilot budget from a settled API result. */

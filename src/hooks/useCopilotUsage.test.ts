@@ -4,94 +4,90 @@ import { renderHook, waitFor, act } from '@testing-library/react'
 const mockAccounts = [
   { username: 'user1', org: 'org1', token: 'tok1' },
   { username: 'user2', org: 'org1', token: 'tok2' },
+  { username: 'user3', org: '', token: 'tok3' },
 ]
 
 vi.mock('./useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
 }))
 
-const mockGetCopilotQuota = vi.fn()
+const mockGetCopilotUsage = vi.fn()
 const mockGetCopilotBudget = vi.fn()
 
 Object.defineProperty(window, 'github', {
-  value: { getCopilotQuota: mockGetCopilotQuota, getCopilotBudget: mockGetCopilotBudget },
+  value: { getCopilotUsage: mockGetCopilotUsage, getCopilotBudget: mockGetCopilotBudget },
   writable: true,
   configurable: true,
 })
 
 import { useCopilotUsage } from './useCopilotUsage'
 
-function makeQuotaData() {
+// Org-pool AI Credit metrics returned by getCopilotUsage. With seats=1 and a
+// non-promotional month (May 2026 -> 3,900 credits/seat) the synthesized snapshot
+// derives used = premiumRequests, so totalUsed math stays predictable.
+function makeUsageData(overrides: Record<string, unknown> = {}) {
   return {
-    login: 'user1',
-    copilot_plan: 'business',
-    quota_reset_date: '2026-05-01',
-    quota_reset_date_utc: '2026-05-01T00:00:00Z',
-    organization_login_list: ['org1'],
-    quota_snapshots: {
-      chat: {
-        entitlement: 1000,
-        remaining: 500,
-        overage_count: 0,
-        overage_permitted: false,
-        percent_remaining: 50,
-        quota_id: 'chat',
-        quota_remaining: 500,
-        unlimited: false,
-        timestamp_utc: '',
-      },
-      completions: {
-        entitlement: 5000,
-        remaining: 3000,
-        overage_count: 0,
-        overage_permitted: false,
-        percent_remaining: 60,
-        quota_id: 'comp',
-        quota_remaining: 3000,
-        unlimited: false,
-        timestamp_utc: '',
-      },
-      premium_interactions: {
-        entitlement: 300,
-        remaining: 100,
-        overage_count: 0,
-        overage_permitted: true,
-        percent_remaining: 33,
-        quota_id: 'premium',
-        quota_remaining: 100,
-        unlimited: false,
-        timestamp_utc: '',
-      },
-    },
+    org: 'org1',
+    premiumRequests: 200,
+    grossCost: 50,
+    discount: 0,
+    netCost: 0,
+    businessSeats: 1,
+    seatPlan: 'Copilot Business',
+    seats: 1,
+    budgetAmount: 500,
+    spent: 0,
+    billingMonth: 5,
+    billingYear: 2026,
+    fetchedAt: Date.now(),
+    ...overrides,
+  }
+}
+
+function makeBudgetData(overrides: Record<string, unknown> = {}) {
+  return {
+    org: 'org1',
+    budgetAmount: 500,
+    preventFurtherUsage: false,
+    spent: 120,
+    gross: 50,
+    spentUnavailable: false,
+    useQuotaOverage: true,
+    billingMonth: 4,
+    billingYear: 2026,
+    fetchedAt: Date.now(),
+    ...overrides,
   }
 }
 
 describe('useCopilotUsage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makeQuotaData() })
-    mockGetCopilotBudget.mockResolvedValue({
-      success: true,
-      data: {
-        org: 'org1',
-        budgetAmount: 500,
-        preventFurtherUsage: false,
-        spent: 120,
-        spentUnavailable: false,
-        useQuotaOverage: true,
-        billingMonth: 4,
-        billingYear: 2026,
-        fetchedAt: Date.now(),
-      },
-    })
+    mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData() })
+    mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData() })
   })
 
-  it('fetches quotas for each account on mount', async () => {
+  it('fetches usage pool for each account with an org on mount', async () => {
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
-    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user1')
-    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user2')
+    expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user1')
+    expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user2')
     expect(result.current.quotas['user1']?.data).toBeDefined()
+  })
+
+  it('marks accounts without an org as unavailable', async () => {
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.quotas['user3']?.data).toBeNull()
+    expect(result.current.quotas['user3']?.error).toMatch(/organization with Copilot seats/)
+  })
+
+  it('marks accounts whose org has no seats as unavailable', async () => {
+    mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData({ seats: 0 }) })
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.quotas['user1']?.data).toBeNull()
+    expect(result.current.quotas['user1']?.error).toMatch(/organization with Copilot seats/)
   })
 
   it('fetches budget for unique orgs', async () => {
@@ -102,15 +98,15 @@ describe('useCopilotUsage', () => {
     expect(result.current.orgBudgets['org1']?.data).toBeDefined()
   })
 
-  it('handles quota fetch error', async () => {
-    mockGetCopilotQuota.mockResolvedValue({ success: false, error: 'Unauthorized' })
+  it('handles usage fetch error', async () => {
+    mockGetCopilotUsage.mockResolvedValue({ success: false, error: 'Unauthorized' })
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
     expect(result.current.quotas['user1']?.error).toBe('Unauthorized')
   })
 
-  it('handles quota fetch exception', async () => {
-    mockGetCopilotQuota.mockRejectedValue(new Error('Network down'))
+  it('handles usage fetch exception', async () => {
+    mockGetCopilotUsage.mockRejectedValue(new Error('Network down'))
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
     expect(result.current.quotas['user1']?.error).toBe('Network down')
@@ -130,11 +126,26 @@ describe('useCopilotUsage', () => {
     expect(result.current.orgBudgets['org1']?.error).toBe('Timeout')
   })
 
-  it('computes aggregate totals from quotas', async () => {
+  it('computes aggregate totals from quotas (deduped per org)', async () => {
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
-    // Both users: entitlement 300, remaining 100 → used 200 each = 400 total
-    expect(result.current.aggregateTotals.totalUsed).toBe(400)
+    // user1 + user2 share org1 -> org pool counted once: used = premiumRequests = 200
+    expect(result.current.aggregateTotals.totalUsed).toBe(200)
+  })
+
+  it('uses a sibling with data when the first account in an org errors', async () => {
+    // user1 (first in org1) fails; user2 (same org) succeeds. The org pool must
+    // still be represented by user2's data rather than dropped to zero.
+    mockGetCopilotUsage.mockImplementation((_org: string, username: string) =>
+      username === 'user1'
+        ? Promise.resolve({ success: false, error: 'no billing access' })
+        : Promise.resolve({ success: true, data: makeUsageData() })
+    )
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.quotas['user1']?.error).toBe('no billing access')
+    expect(result.current.aggregateTotals.totalUsed).toBe(200)
+    expect(result.current.orgOverageFromQuotas.has('org1')).toBe(true)
   })
 
   it('returns uniqueOrgs map', () => {
@@ -144,32 +155,17 @@ describe('useCopilotUsage', () => {
   })
 
   it('aggregateProjections returns null without data', async () => {
-    mockGetCopilotQuota.mockResolvedValue({ success: false, error: 'no data' })
+    mockGetCopilotUsage.mockResolvedValue({ success: false, error: 'no data' })
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
     expect(result.current.aggregateProjections).toBeNull()
   })
 
   it('computes overage costs per org', async () => {
-    mockGetCopilotQuota.mockResolvedValue({
+    // premiumRequests above the 3,900 May allotment -> overage
+    mockGetCopilotUsage.mockResolvedValue({
       success: true,
-      data: {
-        ...makeQuotaData(),
-        quota_snapshots: {
-          ...makeQuotaData().quota_snapshots,
-          premium_interactions: {
-            entitlement: 300,
-            remaining: -20,
-            overage_count: 25,
-            overage_permitted: true,
-            percent_remaining: -6,
-            quota_id: 'p',
-            quota_remaining: -20,
-            unlimited: false,
-            timestamp_utc: '',
-          },
-        },
-      },
+      data: makeUsageData({ premiumRequests: 4000 }),
     })
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
@@ -178,7 +174,7 @@ describe('useCopilotUsage', () => {
   })
 
   it('reports anyLoading while fetching', () => {
-    mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
+    mockGetCopilotUsage.mockReturnValue(new Promise(() => {}))
     const { result } = renderHook(() => useCopilotUsage())
     expect(result.current.anyLoading).toBe(true)
   })
@@ -187,83 +183,44 @@ describe('useCopilotUsage', () => {
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
 
-    mockGetCopilotQuota.mockClear()
+    mockGetCopilotUsage.mockClear()
     mockGetCopilotBudget.mockClear()
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makeQuotaData() })
-    mockGetCopilotBudget.mockResolvedValue({
-      success: true,
-      data: {
-        org: 'org1',
-        budgetAmount: 500,
-        preventFurtherUsage: false,
-        spent: 120,
-        spentUnavailable: false,
-        useQuotaOverage: true,
-        billingMonth: 4,
-        billingYear: 2026,
-        fetchedAt: Date.now(),
-      },
-    })
+    mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData() })
+    mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData() })
 
     await act(async () => {
       result.current.refreshAll()
     })
 
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
-    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user1')
-    expect(mockGetCopilotQuota).toHaveBeenCalledWith('user2')
+    expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user1')
+    expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user2')
     expect(mockGetCopilotBudget).toHaveBeenCalledWith('org1', 'user1')
   })
 
   it('monthly refresh triggers when billing month is outdated', async () => {
     vi.useFakeTimers()
-    // Set budget data with old billing month
     mockGetCopilotBudget.mockResolvedValue({
       success: true,
-      data: {
-        org: 'org1',
-        budgetAmount: 500,
-        preventFurtherUsage: false,
-        spent: 120,
-        spentUnavailable: false,
-        useQuotaOverage: true,
-        billingMonth: 1, // January 2020 — always in the past
-        billingYear: 2020,
-        fetchedAt: Date.now(),
-      },
+      data: makeBudgetData({ billingMonth: 1, billingYear: 2020 }),
     })
 
     renderHook(() => useCopilotUsage())
 
-    // Flush initial async effects — need multiple ticks for state batching
     await act(async () => {
       await vi.advanceTimersByTimeAsync(100)
     })
 
-    mockGetCopilotQuota.mockClear()
+    mockGetCopilotUsage.mockClear()
     mockGetCopilotBudget.mockClear()
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makeQuotaData() })
-    mockGetCopilotBudget.mockResolvedValue({
-      success: true,
-      data: {
-        org: 'org1',
-        budgetAmount: 500,
-        preventFurtherUsage: false,
-        spent: 0,
-        spentUnavailable: false,
-        useQuotaOverage: true,
-        billingMonth: 4,
-        billingYear: 2026,
-        fetchedAt: Date.now(),
-      },
-    })
+    mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData() })
+    mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData({ spent: 0 }) })
 
-    // Advance past the 5-minute refresh interval
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
     })
 
-    expect(mockGetCopilotQuota).toHaveBeenCalled()
+    expect(mockGetCopilotUsage).toHaveBeenCalled()
     expect(mockGetCopilotBudget).toHaveBeenCalled()
 
     vi.useRealTimers()
@@ -274,43 +231,37 @@ describe('useCopilotUsage', () => {
     const now = new Date()
     mockGetCopilotBudget.mockResolvedValue({
       success: true,
-      data: {
-        org: 'org1',
-        budgetAmount: 500,
-        preventFurtherUsage: false,
-        spent: 120,
-        spentUnavailable: false,
-        useQuotaOverage: true,
+      data: makeBudgetData({
         billingMonth: now.getUTCMonth() + 1,
         billingYear: now.getUTCFullYear(),
-        fetchedAt: Date.now(),
-      },
+      }),
     })
 
     renderHook(() => useCopilotUsage())
 
-    // Flush initial async effects
     await vi.advanceTimersByTimeAsync(0)
 
-    mockGetCopilotQuota.mockClear()
+    mockGetCopilotUsage.mockClear()
     mockGetCopilotBudget.mockClear()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5 * 60 * 1000)
     })
 
-    // Should NOT have refreshed since billing month is current
-    expect(mockGetCopilotQuota).not.toHaveBeenCalled()
+    expect(mockGetCopilotUsage).not.toHaveBeenCalled()
 
     vi.useRealTimers()
   })
 
   it('computes aggregateProjections with valid quota data', async () => {
-    const quotaData = {
-      ...makeQuotaData(),
-      quota_reset_date_utc: new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString(),
-    }
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: quotaData })
+    const now = new Date()
+    mockGetCopilotUsage.mockResolvedValue({
+      success: true,
+      data: makeUsageData({
+        billingMonth: now.getUTCMonth() + 1,
+        billingYear: now.getUTCFullYear(),
+      }),
+    })
 
     const { result } = renderHook(() => useCopilotUsage())
 
@@ -319,23 +270,14 @@ describe('useCopilotUsage', () => {
       expect(Object.values(result.current.quotas).every(s => !s.loading)).toBe(true)
     })
 
-    // With valid premium data and a future reset date, projections should compute
     if (result.current.aggregateProjections !== null) {
       expect(result.current.aggregateProjections.projectedTotal).toBeGreaterThanOrEqual(0)
       expect(result.current.aggregateProjections.projectedOverageCost).toBeGreaterThanOrEqual(0)
     }
   })
 
-  it('aggregateProjections returns null when no accounts have premium_interactions', async () => {
-    // Return quota data without premium_interactions so the loop skips all
-    const noPremiumQuota = {
-      ...makeQuotaData(),
-      quota_snapshots: {
-        chat: makeQuotaData().quota_snapshots.chat,
-        completions: makeQuotaData().quota_snapshots.completions,
-      },
-    }
-    mockGetCopilotQuota.mockResolvedValue({ success: true, data: noPremiumQuota })
+  it('aggregateProjections returns null when no account has a usable pool', async () => {
+    mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData({ seats: 0 }) })
 
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
@@ -344,20 +286,17 @@ describe('useCopilotUsage', () => {
 
   it('unique org deduplication uses first username', () => {
     const { result } = renderHook(() => useCopilotUsage())
-    // user1 and user2 both in org1, first one wins
     expect(result.current.uniqueOrgs.get('org1')).toBe('user1')
   })
 
-  it('handles quota fetch error with no error message (line 51)', async () => {
-    // Test the `error: result.error || 'Unknown error'` branch
-    mockGetCopilotQuota.mockResolvedValue({ success: false })
+  it('handles usage fetch error with no error message', async () => {
+    mockGetCopilotUsage.mockResolvedValue({ success: false })
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
     expect(result.current.quotas['user1']?.error).toBe('Unknown error')
   })
 
-  it('handles budget fetch error with no error message (line 76)', async () => {
-    // Test the `error: result.error || 'Unknown error'` branch
+  it('handles budget fetch error with no error message', async () => {
     mockGetCopilotBudget.mockResolvedValue({ success: false })
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))

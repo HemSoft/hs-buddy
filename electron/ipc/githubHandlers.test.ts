@@ -626,6 +626,7 @@ describe('githubHandlers', () => {
         discount: 0,
         netCost: 0,
         businessSeats: 0,
+        seatPlan: '',
       })
       vi.mocked(billingParsers.extractBudgetFromResult).mockReturnValue({
         budgetAmount: null,
@@ -666,6 +667,7 @@ describe('githubHandlers', () => {
         discount: 1,
         netCost: 11,
         businessSeats: 3,
+        seatPlan: 'Copilot Business',
       })
       vi.mocked(assembleCopilotMetrics).mockReturnValueOnce(stubMetricsResult({ org: 'test-org' }))
 
@@ -752,6 +754,7 @@ describe('githubHandlers', () => {
         discount: 2,
         netCost: 8,
         businessSeats: 1,
+        seatPlan: 'Copilot Business',
       })
       vi.mocked(extractBudgetFromResult).mockImplementationOnce(() => {
         throw new Error('budget parser exploded')

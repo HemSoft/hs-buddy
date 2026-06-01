@@ -10,9 +10,11 @@ import { useGitHubAccounts } from './useConfig'
 import {
   OVERAGE_COST_PER_CREDIT,
   computeProjection,
+  synthesizeQuotaData,
   type AccountQuotaState,
 } from '../components/copilot-usage/quotaUtils'
 import type { OrgBudgetState } from '../components/copilot-usage/types'
+import type { GitHubAccount } from '../types/config'
 import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'
 
@@ -35,12 +37,57 @@ function getQuotaProjection(state: AccountQuotaState) {
   return computeProjection(premium, state.data.quota_reset_date_utc)
 }
 
-function computeAggregateProjections(quotas: Record<string, AccountQuotaState>) {
+/**
+ * One representative quota state per unique org.
+ *
+ * Under AI Credits billing every account in the same org synthesizes the
+ * identical org-wide pool snapshot, so aggregating across all accounts would
+ * multiply org usage by the number of accounts in that org. Deduplicating by
+ * org keeps cross-org sums correct while counting each org pool once.
+ *
+ * Because each account fetches with its own token and org billing access can
+ * differ between accounts, the representative is the first account (in config
+ * order) whose fetch produced usable `data`, falling back to an error/loading
+ * state only when no account in that org has data yet.
+ */
+function selectOrgRepresentatives(
+  accounts: { username: string; org: string }[],
+  quotas: Record<string, AccountQuotaState>
+): { org: string; state: AccountQuotaState }[] {
+  const orderedOrgs: string[] = []
+  const usernamesByOrg = new Map<string, string[]>()
+  for (const account of accounts) {
+    if (!account.org) continue
+    if (!usernamesByOrg.has(account.org)) {
+      usernamesByOrg.set(account.org, [])
+      orderedOrgs.push(account.org)
+    }
+    usernamesByOrg.get(account.org)!.push(account.username)
+  }
+
+  const reps: { org: string; state: AccountQuotaState }[] = []
+  for (const org of orderedOrgs) {
+    let chosen: AccountQuotaState | undefined
+    for (const username of usernamesByOrg.get(org)!) {
+      const state = quotas[username]
+      if (!state) continue
+      if (state.data) {
+        chosen = state
+        break
+      }
+      chosen ??= state
+    }
+    if (chosen) reps.push({ org, state: chosen })
+  }
+  return reps
+}
+
+function computeAggregateProjections(reps: { org: string; state: AccountQuotaState }[]) {
   let projectedTotal = 0
   let projectedOverageCost = 0
   let hasAny = false
 
-  for (const state of Object.values(quotas)) {
+  for (const { state } of reps) {
     const projection = getQuotaProjection(state)
     if (!projection) {
       continue
@@ -58,24 +105,20 @@ function computeAggregateProjections(quotas: Record<string, AccountQuotaState>) 
   return { projectedTotal, projectedOverageCost }
 }
 
-function computeOrgOverage(
-  accounts: { username: string; org: string }[],
-  quotas: Record<string, AccountQuotaState>
-): Map<string, number> {
+function computeOrgOverage(reps: { org: string; state: AccountQuotaState }[]): Map<string, number> {
   const map = new Map<string, number>()
-  for (const account of accounts) {
-    const premium = getPremiumInteractions(quotas[account.username])
-    if (!premium || !account.org) continue
+  for (const { org, state } of reps) {
+    const premium = getPremiumInteractions(state)
+    if (!premium) continue
     const overageRequests = computeOverageRequests(premium)
-    const cost = overageRequests * OVERAGE_COST_PER_CREDIT
-    map.set(account.org, (map.get(account.org) ?? 0) + cost)
+    map.set(org, overageRequests * OVERAGE_COST_PER_CREDIT)
   }
   return map
 }
 
-function computeAggregateTotals(quotas: Record<string, AccountQuotaState>) {
-  return Object.values(quotas).reduce(
-    (acc, state) => {
+function computeAggregateTotals(reps: { org: string; state: AccountQuotaState }[]) {
+  return reps.reduce(
+    (acc, { state }) => {
       const premium = state.data?.quota_snapshots?.premium_interactions
       if (!premium) return acc
       const used = premium.entitlement - premium.remaining
@@ -101,7 +144,25 @@ function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): 
 type QuotaSetter = Dispatch<SetStateAction<Record<string, AccountQuotaState>>>
 type BudgetSetter = Dispatch<SetStateAction<Record<string, OrgBudgetState>>>
 
-async function doFetchQuota(username: string, setQuotas: QuotaSetter): Promise<void> {
+const NO_ORG_POOL_ERROR = 'Per-account AI Credit data requires an organization with Copilot seats.'
+
+function setQuotaError(setQuotas: QuotaSetter, username: string, error: string): void {
+  setQuotas(prev => ({
+    ...prev,
+    [username]: { data: null, loading: false, error, fetchedAt: null },
+  }))
+}
+
+/**
+ * Fetch the org AI Credit pool for an account and synthesize a quota snapshot.
+ * Under June 2026 AI Credits billing the per-user quota endpoint reports zeros,
+ * so usage is derived from the org billing/usage pool (used credits, gross/net,
+ * seats → allotment). Accounts without an org or seats degrade to an explicit
+ * "unavailable" message rather than misleading zeros.
+ */
+async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Promise<void> {
+  const { username, org } = account
+
   setQuotas(prev => ({
     ...prev,
     [username]: {
@@ -112,25 +173,41 @@ async function doFetchQuota(username: string, setQuotas: QuotaSetter): Promise<v
     },
   }))
 
+  if (!org) {
+    setQuotaError(setQuotas, username, NO_ORG_POOL_ERROR)
+    return
+  }
+
   try {
-    const result = await window.github.getCopilotQuota(username)
+    const result = await window.github.getCopilotUsage(org, username)
+    if (!result.success || !result.data) {
+      setQuotaError(setQuotas, username, result.error || 'Unknown error')
+      return
+    }
+
+    const d = result.data
+    if (d.seats <= 0) {
+      setQuotaError(setQuotas, username, NO_ORG_POOL_ERROR)
+      return
+    }
+
+    const data = synthesizeQuotaData({
+      login: username,
+      plan: d.seatPlan,
+      org,
+      usedCredits: d.premiumRequests,
+      grossCost: d.grossCost,
+      netCost: d.netCost,
+      seats: d.seats,
+      billingYear: d.billingYear,
+      billingMonth: d.billingMonth,
+    })
     setQuotas(prev => ({
       ...prev,
-      [username]:
-        result.success && result.data
-          ? { data: result.data, loading: false, error: null, fetchedAt: Date.now() }
-          : {
-              data: null,
-              loading: false,
-              error: result.error || 'Unknown error',
-              fetchedAt: null,
-            },
+      [username]: { data, loading: false, error: null, fetchedAt: Date.now() },
     }))
   } catch (error: unknown) {
-    setQuotas(prev => ({
-      ...prev,
-      [username]: { data: null, loading: false, error: getErrorMessage(error), fetchedAt: null },
-    }))
+    setQuotaError(setQuotas, username, getErrorMessage(error))
   }
 }
 
@@ -176,7 +253,10 @@ export function useCopilotUsage() {
     return map
   }, [accounts])
 
-  const fetchQuota = useCallback(async (username: string) => doFetchQuota(username, setQuotas), [])
+  const fetchQuota = useCallback(
+    async (account: GitHubAccount) => doFetchQuota(account, setQuotas),
+    []
+  )
 
   const fetchBudget = useCallback(
     async (org: string, username?: string) => doFetchBudget(org, username, setOrgBudgets),
@@ -191,7 +271,7 @@ export function useCopilotUsage() {
 
   useEffect(() => {
     for (const account of accounts) {
-      fetchQuota(account.username)
+      fetchQuota(account)
     }
   }, [accounts, accountUsernamesKey, fetchQuota])
 
@@ -203,7 +283,7 @@ export function useCopilotUsage() {
 
   const refreshAll = useCallback(() => {
     for (const account of accounts) {
-      fetchQuota(account.username)
+      fetchQuota(account)
     }
     for (const [org, username] of uniqueOrgs) {
       fetchBudget(org, username)
@@ -218,16 +298,27 @@ export function useCopilotUsage() {
     return () => clearInterval(refreshInterval)
   }, [orgBudgets, refreshAll])
 
-  const orgOverageFromQuotas = useMemo(
-    () => computeOrgOverage(accounts, quotas),
+  const orgRepresentatives = useMemo(
+    () => selectOrgRepresentatives(accounts, quotas),
     [accounts, quotas]
+  )
+
+  const orgOverageFromQuotas = useMemo(
+    () => computeOrgOverage(orgRepresentatives),
+    [orgRepresentatives]
   )
 
   const anyLoading = useMemo(() => Object.values(quotas).some(state => state.loading), [quotas])
 
-  const aggregateTotals = useMemo(() => computeAggregateTotals(quotas), [quotas])
+  const aggregateTotals = useMemo(
+    () => computeAggregateTotals(orgRepresentatives),
+    [orgRepresentatives]
+  )
 
-  const aggregateProjections = useMemo(() => computeAggregateProjections(quotas), [quotas])
+  const aggregateProjections = useMemo(
+    () => computeAggregateProjections(orgRepresentatives),
+    [orgRepresentatives]
+  )
 
   return {
     accounts,

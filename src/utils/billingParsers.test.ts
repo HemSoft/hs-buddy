@@ -428,6 +428,7 @@ describe('assembleCopilotMetrics', () => {
     discount: 10,
     netCost: 40,
     businessSeats: 5,
+    seatPlan: 'Copilot Business',
   }
 
   it('returns success when usage succeeded', () => {
@@ -503,7 +504,14 @@ describe('assembleCopilotMetrics', () => {
     const result = assembleCopilotMetrics({
       org: 'corp',
       usageOk: true,
-      usage: { premiumRequests: 1, grossCost: 2, discount: 3, netCost: 4, businessSeats: 5 },
+      usage: {
+        premiumRequests: 1,
+        grossCost: 2,
+        discount: 3,
+        netCost: 4,
+        businessSeats: 5,
+        seatPlan: 'Copilot Business',
+      },
       budgetAmount: 100,
       spent: 50,
       month: 12,

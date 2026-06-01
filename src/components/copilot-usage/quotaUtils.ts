@@ -21,6 +21,10 @@ export interface QuotaData {
     completions: QuotaSnapshot
     premium_interactions: QuotaSnapshot
   }
+  /** Gross AI Credit value consumed this period (list price). Present for synthesized org-pool data. */
+  grossCost?: number
+  /** Net billed amount this period ($0 while within the included allotment). */
+  netCost?: number
 }
 
 export interface AccountQuotaState {
@@ -139,4 +143,88 @@ export function getQuotaColor(pct: number | null): string {
   if (pct >= 75) return '#e89b3c'
   if (pct >= 50) return '#dcd34a'
   return '#4ec9b0'
+}
+
+/**
+ * AI Credits included per seat per billing month.
+ * GitHub's promotional allotment is 7,000 for 2026-06..2026-08, otherwise 3,900.
+ */
+export function creditsPerSeat(year: number, month: number): number {
+  if (year === 2026 && month >= 6 && month <= 8) return 7000
+  return 3900
+}
+
+/** Total AI Credit allotment for an org = seats × per-seat credits (rounded). */
+export function computeCreditAllotment(seats: number, year: number, month: number): number {
+  return Math.round(seats * creditsPerSeat(year, month))
+}
+
+/** Org-pool AI Credit metrics sourced from the live billing/usage endpoint. */
+export interface OrgPoolMetrics {
+  login: string
+  plan: string
+  org: string
+  usedCredits: number
+  grossCost: number
+  netCost: number
+  seats: number
+  billingYear: number
+  billingMonth: number
+}
+
+const UNLIMITED_SNAPSHOT: QuotaSnapshot = {
+  entitlement: 0,
+  overage_count: 0,
+  overage_permitted: false,
+  percent_remaining: 100,
+  quota_id: '',
+  quota_remaining: 0,
+  remaining: 0,
+  unlimited: true,
+  timestamp_utc: '',
+}
+
+/** First day of the month after the given (1-based) billing month, in UTC ISO form. */
+function firstOfNextMonthUtc(year: number, month: number): string {
+  return new Date(Date.UTC(year, month, 1)).toISOString()
+}
+
+/**
+ * Build a `QuotaData` from org-pool AI Credit metrics so the existing account
+ * card, projection, and aggregate consumers (all of which derive
+ * `used = entitlement - remaining`) render correct numbers under AI Credits billing.
+ */
+export function synthesizeQuotaData(m: OrgPoolMetrics): QuotaData {
+  const allotment = computeCreditAllotment(m.seats, m.billingYear, m.billingMonth)
+  const used = Math.round(m.usedCredits)
+  const remaining = allotment - used
+  const overage = Math.max(0, used - allotment)
+  const percentRemaining =
+    allotment > 0 ? Math.max(0, (remaining / allotment) * 100) : used > 0 ? 0 : 100
+  const resetUtc = firstOfNextMonthUtc(m.billingYear, m.billingMonth)
+
+  return {
+    login: m.login,
+    copilot_plan: m.plan,
+    quota_reset_date: resetUtc.slice(0, 10),
+    quota_reset_date_utc: resetUtc,
+    organization_login_list: m.org ? [m.org] : [],
+    grossCost: m.grossCost,
+    netCost: m.netCost,
+    quota_snapshots: {
+      chat: UNLIMITED_SNAPSHOT,
+      completions: UNLIMITED_SNAPSHOT,
+      premium_interactions: {
+        entitlement: allotment,
+        overage_count: overage,
+        overage_permitted: true,
+        percent_remaining: percentRemaining,
+        quota_id: 'premium_interactions',
+        quota_remaining: remaining,
+        remaining,
+        unlimited: false,
+        timestamp_utc: new Date().toISOString(),
+      },
+    },
+  }
 }

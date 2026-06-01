@@ -80,6 +80,10 @@ interface Window {
         discount: number
         netCost: number
         businessSeats: number
+        seatPlan: string
+        seats: number
+        billingMonth: number
+        billingYear: number
         allItems: Array<{
           date: string
           product: string
@@ -123,6 +127,7 @@ interface Window {
         budgetAmount: number | null
         preventFurtherUsage: boolean
         spent: number
+        gross: number
         spentUnavailable: boolean
         useQuotaOverage: boolean
         billingMonth: number

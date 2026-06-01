@@ -136,10 +136,12 @@ function QuotaStatsBody({
   premium,
   metrics,
   projection,
+  gross,
 }: {
   premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
   metrics: QuotaMetrics
   projection: ReturnType<typeof computeProjection>
+  gross?: number
 }) {
   return (
     <div className="usage-account-body">
@@ -162,6 +164,12 @@ function QuotaStatsBody({
           <span className="usage-stat-value">{metrics.total.toLocaleString()}</span>
           <span className="usage-stat-label">Entitlement</span>
         </div>
+        {gross != null && gross > 0 && (
+          <div className="usage-stat">
+            <span className="usage-stat-value">{formatCurrency(gross)}</span>
+            <span className="usage-stat-label">Gross Value</span>
+          </div>
+        )}
         {metrics.overageRequests > 0 && (
           <div className="usage-stat usage-stat-overage">
             <span className="usage-stat-value">{formatCurrency(metrics.overageCost)}</span>
@@ -211,7 +219,12 @@ function QuotaDataView({
         {/* v8 ignore stop */}
       </div>
 
-      <QuotaStatsBody premium={premium} metrics={metrics} projection={projection} />
+      <QuotaStatsBody
+        premium={premium}
+        metrics={metrics}
+        projection={projection}
+        gross={data.grossCost}
+      />
 
       <QuotaProjectionView projection={projection} />
       <QuotaFooter state={state} data={data} />

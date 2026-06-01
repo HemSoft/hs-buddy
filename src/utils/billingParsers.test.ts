@@ -150,7 +150,7 @@ describe('parseBillingUsage', () => {
   const makePremiumItem = (overrides: Partial<BillingUsageItem> = {}): BillingUsageItem => ({
     date: '2024-01-01',
     product: 'copilot',
-    sku: 'Copilot Premium Request',
+    sku: 'Copilot AI Credits',
     quantity: 10,
     unitType: 'request',
     pricePerUnit: 0.04,
@@ -218,12 +218,12 @@ describe('parseBillingUsage', () => {
     expect(result.premiumRequests).toBe(10)
   })
 
-  it('counts legacy Premium Request and AI Credits SKUs together', () => {
+  it('excludes the legacy "Copilot Premium Request" SKU, counting AI Credits only', () => {
     const items = [
       makePremiumItem({ sku: 'Copilot Premium Request', quantity: 4 }),
       makePremiumItem({ sku: 'Copilot AI Credits', quantity: 6 }),
     ]
-    expect(parseBillingUsage(items).premiumRequests).toBe(10)
+    expect(parseBillingUsage(items).premiumRequests).toBe(6)
   })
 })
 

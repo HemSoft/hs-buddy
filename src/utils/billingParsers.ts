@@ -74,11 +74,14 @@ export function sumNetCost(items: PremiumUsageItem[]): number {
 }
 
 /**
- * Copilot usage SKUs counted as billable requests/credits.
- * "Copilot AI Credits" is the June 2026+ usage-based billing SKU;
- * "Copilot Premium Request" is retained for pre-June historical data.
+ * Copilot usage SKUs counted as billable AI-credit consumption.
+ * Under June 2026+ usage-based billing, "Copilot AI Credits" is the canonical
+ * consumption SKU (1 credit = $0.01). The legacy "Copilot Premium Request" SKU
+ * is intentionally EXCLUDED: it bills in a parallel unit (requests at $0.04) and
+ * is reported alongside AI Credits for the same period, so counting both inflates
+ * usage by ~40x. CodexBar (the source of truth) counts AI-credit consumption only.
  */
-const COPILOT_USAGE_SKUS = new Set(['Copilot AI Credits', 'Copilot Premium Request'])
+const COPILOT_USAGE_SKUS = new Set(['Copilot AI Credits'])
 
 /**
  * Per-seat Copilot subscription SKUs. Their billed `quantity` equals the org's

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useCopilotSettings, useGitHubAccounts } from '../../hooks/useConfig'
 import { useBuddyStatsMutations } from '../../hooks/useConvex'
-import { GitHubClient } from '../../api/github'
+import { GitHubClient } from '../../api/github/client'
 import { getErrorMessage } from '../../utils/errorUtils'
 import { IPC_INVOKE } from '../../ipc/contracts'
 import type { PRReviewInfo } from './PRReviewInfo'

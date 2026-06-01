@@ -138,3 +138,16 @@ describe('CopilotUsagePanel – undefined org fallback', () => {
     expect(screen.getByText(/org=/)).toBeTruthy()
   })
 })
+
+describe('CopilotUsagePanel – hemsoft org skipped', () => {
+  it('does not render a quota card for hemsoft accounts', () => {
+    mockAggregateProjections = { projectedTotal: 200, projectedOverageCost: 0 }
+    mockAccounts = [
+      { username: 'testuser', org: 'testorg' },
+      { username: 'hemsoftuser', org: 'hemsoft' },
+    ]
+    render(<CopilotUsagePanel />)
+    expect(screen.getByTestId('quota-card-testuser')).toBeTruthy()
+    expect(screen.queryByTestId('quota-card-hemsoftuser')).toBeNull()
+  })
+})

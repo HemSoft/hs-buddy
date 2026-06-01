@@ -142,7 +142,7 @@ describe('PRDetailContextMenu', () => {
     expect(screen.getByText('Waiting for CodeRabbit\u2026').closest('button')).toBeDisabled()
   })
 
-  it('shows completion text when AI review provider state is done', () => {
+  it('labels an AI review provider whose review is done', () => {
     const providers = [
       {
         id: 'coderabbit',
@@ -153,5 +153,27 @@ describe('PRDetailContextMenu', () => {
     ]
     renderMenu({ aiReviewProviders: providers })
     expect(screen.getByText('CodeRabbit review complete!')).toBeInTheDocument()
+  })
+
+  it('skips the copilot provider entry to avoid a duplicate button', () => {
+    const providers = [
+      {
+        id: 'copilot',
+        name: 'Copilot',
+        state: 'idle' as const,
+        onRequest: vi.fn(),
+      },
+      {
+        id: 'coderabbit',
+        name: 'CodeRabbit',
+        state: 'idle' as const,
+        onRequest: vi.fn(),
+      },
+    ]
+    renderMenu({ aiReviewProviders: providers })
+    expect(screen.getByText('Request CodeRabbit Review')).toBeInTheDocument()
+    // The dedicated Copilot button exists, but the provider entry must not add a second one
+    expect(screen.queryByText('Request Copilot Review (copilot)')).toBeNull()
+    expect(screen.getAllByText('Request Copilot Review')).toHaveLength(1)
   })
 })

@@ -81,7 +81,7 @@ const CRON_EXPRESSION_BUILDERS: Record<Frequency, (state: CronState, rawValue: s
     hourly: ({ minute }) => `${minute} * * * *`,
     daily: ({ minute, hour }) => `${minute} ${hour} * * *`,
     weekly: ({ minute, hour, selectedDays }) =>
-      `${minute} ${hour} * * ${[...selectedDays].sort().join(',')}`,
+      `${minute} ${hour} * * ${Array.from(selectedDays).sort().join(',')}`,
     monthly: ({ minute, hour, dayOfMonth }) => `${minute} ${hour} ${dayOfMonth} * *`,
     custom: (_state, rawValue) => rawValue,
   }

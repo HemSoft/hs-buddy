@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  GitHubClient,
   type PRCommentReactionContent,
   type PRReviewComment,
   type PRThreadsResult,
 } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { useGitHubAccounts } from './useConfig'
 import { useLatest } from './useLatest'
 import { useLatestPRReviewRun } from './useConvex'

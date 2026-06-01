@@ -454,9 +454,9 @@ function countApprovals(
   viewerLogin: string | null
 ): { approvalCount: number; iApproved: boolean } {
   const latestByUser = buildLatestReviewByUser(reviews)
-  const approvedLogins = Array.from(latestByUser.entries())
-    .filter(([, { state }]) => state === 'APPROVED')
-    .map(([login]) => login)
+  const approvedLogins = Array.from(latestByUser.entries()).flatMap(([login, { state }]) =>
+    state === 'APPROVED' ? [login] : []
+  )
   return {
     approvalCount: approvedLogins.length,
     iApproved: includesLoginIgnoreCase(approvedLogins, viewerLogin),
@@ -655,21 +655,17 @@ async function fetchPRsForAccount(
   await fetchBatchThreadStats(config, prsWithMeta)
 
   // Clean up metadata and filter by mode
-  return allPrs
-    .map(pr => {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
-        _owner?: string
-        _repo?: string
-        _prNumber?: number
-      }
-      return cleanPr
-    })
-    .filter(pr => {
-      if (mode === 'needs-review') return !pr.iApproved
-      if (mode === 'need-a-nudge') return pr.iApproved
-      return true
-    })
+  return allPrs.flatMap(pr => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _owner, _repo, _prNumber, ...cleanPr } = pr as PullRequest & {
+      _owner?: string
+      _repo?: string
+      _prNumber?: number
+    }
+    if (mode === 'needs-review' && cleanPr.iApproved) return []
+    if (mode === 'need-a-nudge' && !cleanPr.iApproved) return []
+    return [cleanPr]
+  })
 }
 
 /**

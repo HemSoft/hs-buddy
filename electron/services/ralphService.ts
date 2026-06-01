@@ -174,18 +174,22 @@ export function listTemplateScripts(): {
 }[] {
   const scriptsSubdir = join(getScriptsDir(), 'scripts')
   if (!existsSync(scriptsSubdir)) return []
-  return readdirSync(scriptsSubdir)
-    .filter(f => f.endsWith('.ps1') && !f.includes('-repeat') && !f.includes('-run-all'))
-    .map(f => ({
-      filename: f,
-      name: f
-        .replace(/^ralph-/, '')
-        .replace(/\.ps1$/, '')
-        .replace(/-/g, ' ')
-        .replace(/\b\w/g, c => c.toUpperCase()),
-      description: extractDescriptionFromScript(join(scriptsSubdir, f)),
-      defaultPrompt: extractPromptFromScript(join(scriptsSubdir, f)),
-    }))
+  return readdirSync(scriptsSubdir).flatMap(f =>
+    f.endsWith('.ps1') && !f.includes('-repeat') && !f.includes('-run-all')
+      ? [
+          {
+            filename: f,
+            name: f
+              .replace(/^ralph-/, '')
+              .replace(/\.ps1$/, '')
+              .replace(/-/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase()),
+            description: extractDescriptionFromScript(join(scriptsSubdir, f)),
+            defaultPrompt: extractPromptFromScript(join(scriptsSubdir, f)),
+          },
+        ]
+      : []
+  )
 }
 
 // ── Validation ──────────────────────────────────────────────────

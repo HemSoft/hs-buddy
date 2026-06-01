@@ -38,6 +38,11 @@ vi.mock('../api/github', () => ({
   },
 }))
 
+vi.mock('../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../api/github')>('../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 vi.mock('../services/dataCache', () => ({
   dataCache: { get: mockCacheGet, set: vi.fn(), isFresh: vi.fn() },
 }))

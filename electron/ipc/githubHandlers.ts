@@ -453,9 +453,7 @@ async function fetchMonthlyTotals(
 }
 
 function getRemainingActiveLogins(results: BatchResult): string[] {
-  return Object.entries(results)
-    .filter(([, value]) => value.requests > 0)
-    .map(([login]) => login)
+  return Object.entries(results).flatMap(([login, value]) => (value.requests > 0 ? [login] : []))
 }
 
 function buildUsageDateString(year: number, month: number, day: number): string {
@@ -530,7 +528,8 @@ async function probeDayActivity(
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Day probes are sequential because each day removes found users from the remaining set.
     const foundThisDay = await probeDateActivity(remaining, year, month, day, execEnv)
     assignLastActiveDate(results, foundThisDay, dateStr)
-    remaining = remaining.filter(login => !foundThisDay.includes(login))
+    const foundLogins = new Set(foundThisDay)
+    remaining = remaining.filter(login => !foundLogins.has(login))
   }
 }
 
@@ -782,8 +781,11 @@ async function fetchUserPremiumRequests(org: string, memberLogin: string, userna
   const userMonthItems = extractPremiumUsageItems(userMonthResult)
   const userMonthlyRequests = sumGrossRequests(userMonthItems)
   const userMonthlyModels = userMonthItems
-    .filter(i => i.grossQuantity > 0)
-    .map(i => ({ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }))
+    .flatMap(i =>
+      i.grossQuantity > 0
+        ? [{ model: i.model ?? 'unknown', requests: Math.round(i.grossQuantity) }]
+        : []
+    )
     .sort((a, b) => b.requests - a.requests)
 
   const userTodayRequests = sumGrossRequests(extractPremiumUsageItems(userTodayResult))

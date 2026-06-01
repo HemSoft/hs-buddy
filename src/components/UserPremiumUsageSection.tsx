@@ -533,7 +533,9 @@ function QuotaView({ username, org }: { username: string; org: string }) {
 
   // Premium model data (shared with SeatView)
   const premCacheKey = `${org}/${username}`
-  const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(premCacheKey))
+  const [premium, setPremium] = useState<UserPremiumData | null>(() =>
+    initPremiumFromCache(premCacheKey)
+  )
 
   const fetchPremium = useCallback(
     () => fetchPremiumData(org, username, username, premCacheKey, setPremium),
@@ -615,7 +617,9 @@ function SeatView({
   const [state, dispatch] = useReducer(seatReducer, initSeatState(cacheKey))
 
   // Per-user premium request data
-  const [premium, setPremium] = useState<UserPremiumData | null>(initPremiumFromCache(cacheKey))
+  const [premium, setPremium] = useState<UserPremiumData | null>(() =>
+    initPremiumFromCache(cacheKey)
+  )
 
   const fetchSeat = useCallback(() => {
     const id = ++fetchRef.current

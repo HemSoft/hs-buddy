@@ -53,13 +53,14 @@ function collectModelOptions(
   supported: string[]
 ): { value: string; label: string }[] {
   const opts: { value: string; label: string }[] = []
+  const supportedProviders = new Set(supported)
   for (const [modelKey, m] of Object.entries(models.models)) {
-    if (supported.includes(m.provider)) {
+    if (supportedProviders.has(m.provider)) {
       opts.push({ value: `${provKey}:${modelKey}`, label: `${m.label} (${m.reasoningEffort})` })
     }
   }
   for (const [alias, target] of Object.entries(models.aliases)) {
-    if (models.models[target] && supported.includes(models.models[target].provider)) {
+    if (models.models[target] && supportedProviders.has(models.models[target].provider)) {
       opts.push({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` })
     }
   }
@@ -567,29 +568,33 @@ function useRalphFormOptions(
     const supported = provider
       ? providers?.providers?.[provider]?.supportedModelProviders
       : undefined
-    const filteredModels = Object.entries(models.models)
-      .filter(([, m]) => !supported || supported.includes(m.provider))
-      .map(([key, m]) => ({
-        value: key,
-        label: `${m.label} (${m.reasoningEffort})`,
-      }))
-    const filteredAliases = Object.entries(models.aliases)
-      .filter(([, target]) => {
-        const targetModel = models.models[target]
-        return !supported || (targetModel && supported.includes(targetModel.provider))
-      })
-      .map(([alias, target]) => ({
-        value: alias,
-        label: `${alias} → ${target}`,
-      }))
+    const supportedProviders = supported ? new Set(supported) : null
+    const filteredModels = Object.entries(models.models).flatMap(([key, m]) =>
+      supportedProviders && !supportedProviders.has(m.provider)
+        ? []
+        : [
+            {
+              value: key,
+              label: `${m.label} (${m.reasoningEffort})`,
+            },
+          ]
+    )
+    const filteredAliases = Object.entries(models.aliases).flatMap(([alias, target]) => {
+      const targetModel = models.models[target]
+      if (supportedProviders && (!targetModel || !supportedProviders.has(targetModel.provider))) {
+        return []
+      }
+      return [{ value: alias, label: `${alias} → ${target}` }]
+    })
     return [...filteredModels, ...filteredAliases]
   }, [models, provider, providers])
 
   const reviewerModelOptions = useMemo(() => {
     if (!models || !providers) return []
-    return Object.entries(providers.providers)
-      .map(([key, prov]) => buildProviderModelGroup(key, prov, models))
-      .filter((g): g is ReviewerModelGroup => g !== null)
+    return Object.entries(providers.providers).flatMap(([key, prov]) => {
+      const group = buildProviderModelGroup(key, prov, models)
+      return group ? [group] : []
+    })
   }, [models, providers])
 
   const providerOptions = useMemo(() => {
@@ -602,16 +607,16 @@ function useRalphFormOptions(
 
   const devAgentOptions = useMemo(() => {
     if (!agents) return []
-    return Object.entries(agents.roles)
-      .filter(([, role]) => role.category === 'dev')
-      .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
+    return Object.entries(agents.roles).flatMap(([key, role]) =>
+      role.category === 'dev' ? [{ value: key, label: `${key} — ${role.description}` }] : []
+    )
   }, [agents])
 
   const reviewAgentOptions = useMemo(() => {
     if (!agents) return []
-    return Object.entries(agents.roles)
-      .filter(([, role]) => role.category === 'review')
-      .map(([key, role]) => ({ value: key, label: `${key} — ${role.description}` }))
+    return Object.entries(agents.roles).flatMap(([key, role]) =>
+      role.category === 'review' ? [{ value: key, label: `${key} — ${role.description}` }] : []
+    )
   }, [agents])
 
   return {

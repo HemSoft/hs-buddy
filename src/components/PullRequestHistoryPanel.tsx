@@ -10,7 +10,8 @@ import {
   Sparkles,
   XCircle,
 } from 'lucide-react'
-import { GitHubClient, type PRHistorySummary } from '../api/github'
+import { GitHubClient } from '../api/github/client'
+import type { PRHistorySummary } from '../api/github'
 import { useGitHubAccounts, useCopilotSettings } from '../hooks/useConfig'
 import { useLatest } from '../hooks/useLatest'
 import { useTaskQueue } from '../hooks/useTaskQueue'

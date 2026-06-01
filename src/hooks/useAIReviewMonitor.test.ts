@@ -26,6 +26,11 @@ vi.mock('../api/github', () => ({
   }),
 }))
 
+vi.mock('../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../api/github')>('../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 import { useAIReviewMonitor, clearPendingAIReview } from './useAIReviewMonitor'
 import type { AIReviewProvider } from '../reviewProviders/types'
 

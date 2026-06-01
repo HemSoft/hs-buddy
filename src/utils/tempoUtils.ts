@@ -136,7 +136,7 @@ export function summarizeWorklogs(worklogs: TempoWorklog[]): {
     summary.hoursByDate[w.date] = (summary.hoursByDate[w.date] || 0) + w.hours
   }
   return {
-    issueSummaries: [...issueMap.values()].sort((a, b) => b.totalHours - a.totalHours),
+    issueSummaries: Array.from(issueMap.values()).sort((a, b) => b.totalHours - a.totalHours),
     totalHours: sumBy(worklogs, w => w.hours),
   }
 }

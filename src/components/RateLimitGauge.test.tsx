@@ -3,26 +3,33 @@ import { act, render, screen } from '@testing-library/react'
 import { RateLimitGauge } from './RateLimitGauge'
 import { axe } from '../test/axe-helper'
 
+const TEST_NOW_MS = 1_700_000_000_000
+const TEST_NOW_SECONDS = Math.floor(TEST_NOW_MS / 1000)
+
 describe('RateLimitGauge', () => {
+  beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(TEST_NOW_MS)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders the remaining count and limit', () => {
-    render(
-      <RateLimitGauge remaining={4500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
-    )
+    render(<RateLimitGauge remaining={4500} limit={5000} reset={TEST_NOW_SECONDS + 600} />)
 
     expect(screen.getByText('4,500')).toBeInTheDocument()
     expect(screen.getByText(/5,000/)).toBeInTheDocument()
   })
 
   it('shows "resets now" when reset time has passed', () => {
-    render(
-      <RateLimitGauge remaining={100} limit={5000} reset={Math.floor(Date.now() / 1000) - 10} />
-    )
+    render(<RateLimitGauge remaining={100} limit={5000} reset={TEST_NOW_SECONDS - 10} />)
 
     expect(screen.getByText(/resets now/)).toBeInTheDocument()
   })
 
   it('shows reset time in minutes', () => {
-    const resetIn5Min = Math.floor(Date.now() / 1000) + 300
+    const resetIn5Min = TEST_NOW_SECONDS + 300
     render(<RateLimitGauge remaining={100} limit={5000} reset={resetIn5Min} />)
 
     expect(screen.getByText(/resets 5m/)).toBeInTheDocument()
@@ -30,7 +37,7 @@ describe('RateLimitGauge', () => {
 
   it('renders without fill circle when ratio is very low', () => {
     const { container } = render(
-      <RateLimitGauge remaining={0} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
+      <RateLimitGauge remaining={0} limit={5000} reset={TEST_NOW_SECONDS + 600} />
     )
 
     // With ratio ≈ 0 (< 0.005), no fill circle
@@ -40,7 +47,7 @@ describe('RateLimitGauge', () => {
 
   it('renders fill circle when ratio is above threshold', () => {
     const { container } = render(
-      <RateLimitGauge remaining={2500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
+      <RateLimitGauge remaining={2500} limit={5000} reset={TEST_NOW_SECONDS + 600} />
     )
 
     const circles = container.querySelectorAll('circle')
@@ -48,7 +55,7 @@ describe('RateLimitGauge', () => {
   })
 
   it('handles zero limit gracefully', () => {
-    render(<RateLimitGauge remaining={0} limit={0} reset={Math.floor(Date.now() / 1000) + 600} />)
+    render(<RateLimitGauge remaining={0} limit={0} reset={TEST_NOW_SECONDS + 600} />)
 
     expect(screen.getByText('0')).toBeInTheDocument()
   })
@@ -72,7 +79,7 @@ describe('RateLimitGauge', () => {
     })
 
     it('runs the tick callback via requestAnimationFrame', () => {
-      const reset = Math.floor(Date.now() / 1000) + 600
+      const reset = TEST_NOW_SECONDS + 600
       render(<RateLimitGauge remaining={100} limit={5000} reset={reset} refreshInterval={60} />)
 
       // rAF was called at least once during mount
@@ -89,7 +96,7 @@ describe('RateLimitGauge', () => {
     })
 
     it('stops scheduling when countdown reaches zero', () => {
-      const now = Date.now()
+      const now = TEST_NOW_MS
       vi.spyOn(Date, 'now').mockReturnValue(now)
 
       const reset = Math.floor(now / 1000) + 600
@@ -113,7 +120,7 @@ describe('RateLimitGauge', () => {
     const rafSpy = vi.spyOn(window, 'requestAnimationFrame').mockImplementation(() => 0)
     vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
 
-    const reset = Math.floor(Date.now() / 1000) + 600
+    const reset = TEST_NOW_SECONDS + 600
     const { rerender } = render(<RateLimitGauge remaining={100} limit={5000} reset={reset} />)
 
     // Rerender with a different remaining value to trigger the change detection effect
@@ -127,7 +134,7 @@ describe('RateLimitGauge', () => {
 
   it('has no accessibility violations', async () => {
     const { container } = render(
-      <RateLimitGauge remaining={4500} limit={5000} reset={Math.floor(Date.now() / 1000) + 600} />
+      <RateLimitGauge remaining={4500} limit={5000} reset={TEST_NOW_SECONDS + 600} />
     )
     const results = await axe(container)
     expect(results).toHaveNoViolations()

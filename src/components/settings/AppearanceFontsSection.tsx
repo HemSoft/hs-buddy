@@ -65,13 +65,15 @@ export function AppearanceFontsSection({
           >
             <option value="Cascadia Code">Cascadia Code (Default)</option>
             <option value="Consolas">Consolas</option>
-            {monoFonts
-              .filter(f => f !== 'Cascadia Code' && f !== 'Consolas')
-              .map(font => (
-                <option key={font} value={font}>
-                  {font}
-                </option>
-              ))}
+            {monoFonts.flatMap(font =>
+              font === 'Cascadia Code' || font === 'Consolas'
+                ? []
+                : [
+                    <option key={font} value={font}>
+                      {font}
+                    </option>,
+                  ]
+            )}
           </select>
           <div
             className="font-preview mono"

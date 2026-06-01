@@ -68,7 +68,7 @@ export function computeDominantTools(results: SessionRequestResult[], topN = 3):
       freq.set(tool, (freq.get(tool) ?? 0) + 1)
     }
   }
-  return [...freq.entries()]
+  return Array.from(freq.entries())
     .sort((a, b) => b[1] - a[1])
     .slice(0, topN)
     .map(([name]) => name)

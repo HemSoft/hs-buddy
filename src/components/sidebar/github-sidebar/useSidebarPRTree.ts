@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
-import { GitHubClient } from '../../../api/github'
+import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'

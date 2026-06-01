@@ -10,7 +10,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { useGitHubAccounts } from './useConfig'
 import { useLatest } from './useLatest'
 import { useTaskQueue } from './useTaskQueue'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { dataCache } from '../services/dataCache'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 

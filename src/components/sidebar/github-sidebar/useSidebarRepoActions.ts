@@ -3,12 +3,12 @@ import type { Id } from '../../../../convex/_generated/dataModel'
 import type { useGitHubAccounts } from '../../../hooks/useConfig'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import {
-  GitHubClient,
   type RepoCounts,
   type RepoPullRequest,
   type RepoCommit,
   type RepoIssue,
 } from '../../../api/github'
+import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { throwIfAborted } from '../../../utils/errorUtils'

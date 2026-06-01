@@ -43,7 +43,11 @@ function useCountdownAnimation(remaining: number, refreshInterval: number): numb
   const [countdown, setCountdown] = useState(1)
   const [previousRemaining, setPreviousRemaining] = useState(remaining)
   const animFrameRef = useRef<number>(0)
-  const startTimeRef = useRef(Date.now())
+  const startTimeRef = useRef<number | null>(null)
+
+  if (startTimeRef.current === null) {
+    startTimeRef.current = Date.now()
+  }
 
   if (remaining !== previousRemaining) {
     setPreviousRemaining(remaining)
@@ -54,7 +58,9 @@ function useCountdownAnimation(remaining: number, refreshInterval: number): numb
   useEffect(() => {
     const intervalMs = refreshInterval * 1000
     const tick = () => {
-      const elapsed = Date.now() - startTimeRef.current
+      /* v8 ignore next -- startTimeRef is always primed during render above */
+      const startedAt = startTimeRef.current ?? Date.now()
+      const elapsed = Date.now() - startedAt
       const next = Math.max(0, 1 - elapsed / intervalMs)
       setCountdown(next)
       if (next > 0) animFrameRef.current = requestAnimationFrame(tick)

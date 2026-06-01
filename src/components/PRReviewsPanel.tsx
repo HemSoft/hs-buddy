@@ -12,7 +12,7 @@ import {
 import { useConvex } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import type { PRDetailInfo } from '../utils/prDetailView'
 import { usePRReviewRunsByPR } from '../hooks/useConvex'

@@ -38,15 +38,17 @@ function AccountsGrid({
   }
   return (
     <>
-      {accounts
-        .filter((a: { org?: string }) => a.org !== 'hemsoft')
-        .map((account: { username: string; org?: string }) => (
-          <AccountQuotaCard
-            key={account.username}
-            account={{ username: account.username, org: account.org ?? '' }}
-            state={quotas[account.username]}
-          />
-        ))}
+      {accounts.flatMap((account: { username: string; org?: string }) =>
+        account.org === 'hemsoft'
+          ? []
+          : [
+              <AccountQuotaCard
+                key={account.username}
+                account={{ username: account.username, org: account.org ?? '' }}
+                state={quotas[account.username]}
+              />,
+            ]
+      )}
     </>
   )
 }

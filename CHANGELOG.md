@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.786] - 2026-06-01
+
+### Changed
+
+- React-doctor improvements WIP + lower coverage bar to 90%
+
 ## [0.1.785] - 2026-05-31
 
 ### Changed

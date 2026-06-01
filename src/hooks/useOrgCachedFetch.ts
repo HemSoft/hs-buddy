@@ -1,6 +1,6 @@
 import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { useTaskQueue } from './useTaskQueue'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { dataCache } from '../services/dataCache'
 import { getTaskQueue } from '../services/taskQueue'
 import type { GitHubAccount } from '../types/config'

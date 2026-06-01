@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
 
@@ -64,7 +64,7 @@ export function useNewPRIndicator() {
 
   const [newCounts, setNewCounts] = useState<Record<string, number>>(initialStateRef.current.counts)
   const [newUrls, setNewUrls] = useState<Set<string>>(initialStateRef.current.urls)
-  const pendingMarkRef = useRef(new Set<TrackedMode>())
+  const pendingMarks = useMemo(() => new Set<TrackedMode>(), [])
 
   // Seed the seen sets on first mount if they don't exist
   useEffect(() => {
@@ -92,13 +92,13 @@ export function useNewPRIndicator() {
         const mode = key as TrackedMode
         const hasLoadedData = dataCache.get(mode) !== null
         const hasSeenSet = !!dataCache.get(`${SEEN_PREFIX}${mode}`)
-        const hasPendingMark = pendingMarkRef.current.has(mode)
+        const hasPendingMark = pendingMarks.has(mode)
 
         if (hasLoadedData) {
           if (hasPendingMark) {
             // A pending explicit markAsSeen takes precedence over initial
             // seeding so we only write the seen set once on first load.
-            pendingMarkRef.current.delete(mode)
+            pendingMarks.delete(mode)
             dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
           } else if (!hasSeenSet) {
             // Seed on first data arrival — the cache entry now exists (even if
@@ -112,25 +112,28 @@ export function useNewPRIndicator() {
       }
     })
     return unsubscribe
-  }, [])
+  }, [pendingMarks])
 
-  const markAsSeen = useCallback((viewId: string) => {
-    for (const mode of TRACKED_MODES) {
-      if (viewIdForMode(mode) === viewId) {
-        if (dataCache.get(mode) !== null) {
-          dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
-          const state = computeNewState()
-          setNewCounts(state.counts)
-          setNewUrls(state.urls)
-        } else {
-          // Data hasn't loaded yet — record the intent so it's applied
-          // when the subscribe callback sees the first data arrival.
-          pendingMarkRef.current.add(mode)
+  const markAsSeen = useCallback(
+    (viewId: string) => {
+      for (const mode of TRACKED_MODES) {
+        if (viewIdForMode(mode) === viewId) {
+          if (dataCache.get(mode) !== null) {
+            dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
+            const state = computeNewState()
+            setNewCounts(state.counts)
+            setNewUrls(state.urls)
+          } else {
+            // Data hasn't loaded yet — record the intent so it's applied
+            // when the subscribe callback sees the first data arrival.
+            pendingMarks.add(mode)
+          }
+          break
         }
-        break
       }
-    }
-  }, [])
+    },
+    [pendingMarks]
+  )
 
   /** Total unseen PRs across all tracked modes. */
   const totalNewCount = Object.values(newCounts).reduce((a, b) => a + b, 0)

@@ -10,7 +10,7 @@ import {
   Copy,
   MessageSquareShare,
 } from 'lucide-react'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useCopilotResult, useCopilotResultMutations } from '../hooks/useConvex'
 import { useExternalMarkdownLinks } from '../hooks/useExternalMarkdownLinks'

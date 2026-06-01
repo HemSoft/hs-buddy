@@ -70,7 +70,9 @@ function groupSessionsByDate(sessions: SessionSummary[], dateOrder: string[]): D
     const label = getDateGroup(s.modifiedAt)
     ;(byDate[label] ??= []).push(s)
   }
-  return dateOrder.filter(l => byDate[l]?.length).map(label => ({ label, items: byDate[label]! }))
+  return dateOrder.flatMap(label =>
+    byDate[label]?.length ? [{ label, items: byDate[label]! }] : []
+  )
 }
 
 function groupByWorkspaceThenDate(sessions: SessionSummary[]): WorkspaceGroup[] {

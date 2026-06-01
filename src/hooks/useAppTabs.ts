@@ -181,8 +181,7 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
   const crewTabDependency = useMemo(
     () =>
       tabs
-        .filter(tab => tab.viewId.startsWith('crew-project:'))
-        .map(tab => tab.viewId)
+        .flatMap(tab => (tab.viewId.startsWith('crew-project:') ? [tab.viewId] : []))
         .sort()
         .join('|'),
     [tabs]
@@ -253,7 +252,7 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
       if (!previousState.tabs.some(tab => tab.id === keepTabId)) return previousState
       const kept = previousState.tabs.filter(tab => tab.id === keepTabId)
       /* v8 ignore start */ if (kept.length === 0) return previousState /* v8 ignore stop */
-      const closed = previousState.tabs.filter(tab => tab.id !== keepTabId).map(tab => tab.viewId)
+      const closed = previousState.tabs.flatMap(tab => (tab.id === keepTabId ? [] : [tab.viewId]))
       return { tabs: kept, activeTabId: keepTabId, pendingCloses: closed }
     })
   }, [])

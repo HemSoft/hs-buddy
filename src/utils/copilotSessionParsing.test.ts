@@ -296,6 +296,10 @@ describe('parseKeyPath', () => {
   it('returns empty array for lines without k', () => {
     expect(parseKeyPath('{"kind":0}')).toEqual([])
   })
+
+  it('skips empty key segments', () => {
+    expect(parseKeyPath('{"k":["a","",""]}')).toEqual(['a'])
+  })
 })
 
 describe('regexExtract', () => {

@@ -149,10 +149,10 @@ export function extractResultDataFallback(line: string): SessionRequestResult | 
 export function parseKeyPath(line: string): string[] {
   const keyMatch = /"k":\[([^\]]*)\]/.exec(line)
   return keyMatch
-    ? keyMatch[1]
-        .split(',')
-        .map(s => s.trim().replace(/^"|"$/g, ''))
-        .filter(Boolean)
+    ? keyMatch[1].split(',').flatMap(s => {
+        const keyPart = s.trim().replace(/^"|"$/g, '')
+        return keyPart ? [keyPart] : []
+      })
     : []
 }
 

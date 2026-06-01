@@ -212,14 +212,12 @@ export async function getProjectAccountLinks(
     // Ensure accounts are loaded so accountIdToKey is populated
     await getAccounts()
     const accountMap = await getAccountMap()
-    const links = resp.results
-      .map(link => {
-        // Resolve account key from numeric ID in the self URL
-        const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
-        const key = accountIdToKey.get(numericId) || ''
-        return { key, name: accountMap.get(key) || key, isDefault: link.default }
-      })
-      .filter(link => link.key !== '')
+    const links = resp.results.flatMap(link => {
+      // Resolve account key from numeric ID in the self URL
+      const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
+      const key = accountIdToKey.get(numericId) || ''
+      return key ? [{ key, name: accountMap.get(key) || key, isDefault: link.default }] : []
+    })
     return { success: true, data: links }
   } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }

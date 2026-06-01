@@ -29,6 +29,11 @@ vi.mock('../api/github', () => ({
   },
 }))
 
+vi.mock('../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../api/github')>('../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 vi.mock('../utils/errorUtils', () => ({
   getErrorMessage: (e: unknown) => (e instanceof Error ? e.message : String(e)),
   isAbortError: () => false,

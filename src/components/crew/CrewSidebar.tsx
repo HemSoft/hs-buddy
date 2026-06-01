@@ -105,7 +105,7 @@ function crewSidebarReducer(state: CrewSidebarState, action: CrewSidebarAction):
 }
 
 function sortProjects(projects: CrewProject[]): CrewProject[] {
-  return [...projects].sort((left, right) => {
+  return Array.from(projects).sort((left, right) => {
     const displayNameCompare = left.displayName.localeCompare(right.displayName, undefined, {
       sensitivity: 'base',
     })

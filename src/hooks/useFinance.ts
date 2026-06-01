@@ -67,10 +67,11 @@ function writeWatchlist(symbols: string[]) {
 
 function sanitizeWatchlist(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null
-  const cleaned = raw
-    .filter((s): s is string => typeof s === 'string')
-    .map(s => s.toUpperCase().trim())
-    .filter(s => s.length > 0)
+  const cleaned = raw.flatMap(s => {
+    if (typeof s !== 'string') return []
+    const symbol = s.toUpperCase().trim()
+    return symbol.length > 0 ? [symbol] : []
+  })
   // Dedupe while preserving order
   const deduped = Array.from(new Set(cleaned))
   // Treat an empty result as invalid — a corrupt/zeroed config should never

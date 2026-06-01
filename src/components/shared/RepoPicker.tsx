@@ -69,7 +69,7 @@ function buildRepoOptions(
     return { options: [], selectGroups: [] }
   }
 
-  const sorted = [...bookmarks].sort((a, b) => {
+  const sorted = Array.from(bookmarks).sort((a, b) => {
     if (a.folder !== b.folder) return a.folder.localeCompare(b.folder)
     return `${a.owner}/${a.repo}`.localeCompare(`${b.owner}/${b.repo}`)
   })

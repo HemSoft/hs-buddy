@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import type { PullRequest } from '../../types/pullRequest'
-import { GitHubClient, type ProgressCallback, type PRSearchMode } from '../../api/github'
+import { GitHubClient } from '../../api/github/client'
+import type { ProgressCallback, PRSearchMode } from '../../api/github'
 import { useGitHubAccounts, usePRSettings, useCopilotSettings } from '../../hooks/useConfig'
 import { useRepoBookmarks, useRepoBookmarkMutations } from '../../hooks/useConvex'
 import { useLatest } from '../../hooks/useLatest'

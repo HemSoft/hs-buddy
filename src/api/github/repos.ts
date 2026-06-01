@@ -585,7 +585,7 @@ export async function fetchRepoIssues(
     sort: 'updated',
     direction: 'desc',
   })
-  const issues = allItems.filter(issue => !issue.pull_request).map(mapApiIssueFields)
+  const issues = allItems.flatMap(issue => (issue.pull_request ? [] : [mapApiIssueFields(issue)]))
 
   const allAssigneeLogins = [
     ...new Set(issues.flatMap(i => i.assignees.map((a: { login: string }) => a.login))),

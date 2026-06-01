@@ -194,7 +194,7 @@ function buildSessionFromState(
 }
 
 function buildSortedResults(state: SessionParseState): SessionRequestResult[] {
-  const sortedIndices = [...state.resultsByIndex.keys()].sort((a, b) => a - b)
+  const sortedIndices = Array.from(state.resultsByIndex.keys()).sort((a, b) => a - b)
   return sortedIndices.map(idx => {
     const r = state.resultsByIndex.get(idx)!
     r.prompt = state.prompts.get(idx) ?? ''

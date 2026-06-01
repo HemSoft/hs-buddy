@@ -21,7 +21,7 @@ const DAYS_OF_WEEK = [
 const MINUTE_INCREMENTS = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55]
 
 function formatDayNames(selectedDays: number[]): string {
-  return [...selectedDays]
+  return Array.from(selectedDays)
     .sort()
     .flatMap(d => {
       const label = DAYS_OF_WEEK.find(day => day.value === d)?.label

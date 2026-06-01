@@ -196,7 +196,7 @@ function computeAllTags(bookmarks: Bookmark[] | undefined): string[] {
   for (const b of bookmarks) {
     if (b.tags) b.tags.forEach(t => tagSet.add(t))
   }
-  return [...tagSet].sort()
+  return Array.from(tagSet.values()).sort()
 }
 
 function filterBookmarks(

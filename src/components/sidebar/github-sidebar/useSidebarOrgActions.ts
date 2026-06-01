@@ -2,7 +2,6 @@ import { useState, useCallback, useRef } from 'react'
 import type { useGitHubAccounts } from '../../../hooks/useConfig'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import {
-  GitHubClient,
   type OrgMember,
   type OrgTeam,
   type OrgTeamResult,
@@ -11,6 +10,7 @@ import {
   type OrgMemberResult,
   type OrgOverviewResult,
 } from '../../../api/github'
+import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 

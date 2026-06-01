@@ -22,13 +22,13 @@ import { dataCache } from '../services/dataCache'
 import { activityReducer, createInitialActivityState } from './userDetailReducer'
 
 import {
-  GitHubClient,
   type OrgMemberResult,
   type OrgOverviewResult,
   type UserActivitySummary,
   type UserPRSummary,
   type UserEvent,
 } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { UserPremiumUsageSection } from './UserPremiumUsageSection'
 import { ContributionGraph } from './ContributionGraph'
 import { PRStateIcon } from './shared/PRStateIcon'

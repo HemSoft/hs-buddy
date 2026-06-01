@@ -34,13 +34,20 @@ interface PRDetailContextMenuProps {
   onClose: () => void
 }
 
+const EMPTY_AI_REVIEW_PROVIDERS: AIReviewProviderEntry[] = []
+
+function providerIcon(id: string) {
+  if (id === 'coderabbit') return <Rabbit size={14} />
+  return <Sparkles size={14} />
+}
+
 export function PRDetailContextMenu({
   x,
   y,
   youApproved,
   copilotReviewState,
   nudgeState,
-  aiReviewProviders = [],
+  aiReviewProviders = EMPTY_AI_REVIEW_PROVIDERS,
   onRequestCopilotReview,
   onApprove,
   onNudge,
@@ -50,11 +57,6 @@ export function PRDetailContextMenu({
   onStartRalphReview,
   onClose,
 }: PRDetailContextMenuProps) {
-  const providerIcon = (id: string) => {
-    if (id === 'coderabbit') return <Rabbit size={14} />
-    return <Sparkles size={14} />
-  }
-
   return (
     <>
       <div className="context-menu-overlay" onClick={onClose} aria-hidden="true" />
@@ -67,18 +69,25 @@ export function PRDetailContextMenu({
           <Sparkles size={14} />
           Request Copilot Review
         </button>
-        {aiReviewProviders
-          .filter(p => p.id !== 'copilot')
-          .map(p => (
-            <button type="button" key={p.id} onClick={p.onRequest} disabled={p.state !== 'idle'}>
-              {providerIcon(p.id)}
-              {p.state === 'monitoring'
-                ? `Waiting for ${p.name}…`
-                : p.state === 'done'
-                  ? `${p.name} review complete!`
-                  : `Request ${p.name} Review`}
-            </button>
-          ))}
+        {aiReviewProviders.flatMap(p =>
+          p.id === 'copilot'
+            ? []
+            : [
+                <button
+                  type="button"
+                  key={p.id}
+                  onClick={p.onRequest}
+                  disabled={p.state !== 'idle'}
+                >
+                  {providerIcon(p.id)}
+                  {p.state === 'monitoring'
+                    ? `Waiting for ${p.name}…`
+                    : p.state === 'done'
+                      ? `${p.name} review complete!`
+                      : `Request ${p.name} Review`}
+                </button>,
+              ]
+        )}
         <button type="button" onClick={onStartRalphReview}>
           <RotateCw size={14} />
           Start Ralph PR Review

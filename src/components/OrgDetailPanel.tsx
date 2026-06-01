@@ -25,12 +25,8 @@ import {
 } from 'lucide-react'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
-import {
-  GitHubClient,
-  type OrgMemberResult,
-  type OrgOverviewResult,
-  type OrgRepoResult,
-} from '../api/github'
+import { type OrgMemberResult, type OrgOverviewResult, type OrgRepoResult } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { dataCache } from '../services/dataCache'
 import { getTaskQueue } from '../services/taskQueue'
 import { MS_PER_MINUTE } from '../constants'
@@ -78,13 +74,11 @@ interface RateLimitSnapshot {
 
 function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOverviewResult {
   const repos = cachedRepos.repos
-  const lastPushAt =
-    repos
-      .map(repo => repo.pushedAt)
-      .filter((value): value is string => Boolean(value))
-      /* v8 ignore start */
-      .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null
-  /* v8 ignore stop */
+  const lastPushAt = repos.reduce<string | null>((latest, repo) => {
+    if (!repo.pushedAt) return latest
+    if (!latest) return repo.pushedAt
+    return new Date(repo.pushedAt).getTime() > new Date(latest).getTime() ? repo.pushedAt : latest
+  }, null)
   return {
     authenticatedAs: cachedRepos.authenticatedAs,
     isUserNamespace: cachedRepos.isUserNamespace,
@@ -1428,7 +1422,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         break
     }
     if (rosterSort === 'commits') {
-      result = [...result].sort((a, b) => {
+      result = Array.from(result).sort((a, b) => {
         const ac = contributorMap.get(a.login)?.commits ?? 0
         /* v8 ignore start */
         const bc = contributorMap.get(b.login)?.commits ?? 0
@@ -1436,7 +1430,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         return bc - ac
       })
     } else {
-      result = [...result].sort((a, b) => {
+      result = Array.from(result).sort((a, b) => {
         const an = a.name ?? a.login
         /* v8 ignore start */
         const bn = b.name ?? b.login

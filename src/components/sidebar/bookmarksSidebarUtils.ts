@@ -78,7 +78,7 @@ export function buildCategoryTree(
   const root: CategoryNode[] = []
   const nodeMap = new Map<string, CategoryNode>()
 
-  const sorted = [...categories].sort()
+  const sorted = Array.from(categories).sort()
 
   for (const cat of sorted) {
     ensurePathExists(cat.split('/'), nodeMap, root)

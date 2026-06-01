@@ -17,7 +17,8 @@ import {
   User,
   X,
 } from 'lucide-react'
-import { GitHubClient, type PRHistorySummary, type PRLinkedIssue } from '../api/github'
+import { GitHubClient } from '../api/github/client'
+import type { PRHistorySummary, PRLinkedIssue } from '../api/github'
 import { useGitHubAccounts } from '../hooks/useConfig'
 import { useTaskQueue } from '../hooks/useTaskQueue'
 import { usePRPanelData } from '../hooks/usePRPanelData'
@@ -27,7 +28,7 @@ import {
   clearPendingAIReview,
   type AIReviewState,
 } from '../hooks/useAIReviewMonitor'
-import { codeRabbitProvider } from '../reviewProviders'
+import { codeRabbitProvider } from '../reviewProviders/codeRabbitProvider'
 import type { PRDetailInfo, PRDetailSection } from '../utils/prDetailView'
 import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
@@ -70,31 +71,40 @@ const COPILOT_STATE_DEFAULT: CopilotStateConfig = {
   title: 'Request Copilot Review',
 }
 
-const COPILOT_STATE_MAP: Record<string, CopilotStateConfig> = {
-  requesting: {
-    Icon: Loader2,
-    iconClass: 'pr-detail-spin',
-    buttonClass: '',
-    title: 'Requesting Copilot review…',
-  },
-  monitoring: {
-    Icon: Sparkles,
-    iconClass: 'pulse',
-    buttonClass: ' pr-detail-copilot-monitoring',
-    title: 'Waiting for Copilot review…',
-  },
-  done: {
-    Icon: CheckCircle2,
-    iconClass: '',
-    buttonClass: ' pr-detail-copilot-done',
-    title: 'Copilot review complete!',
-  },
+const COPILOT_STATE_REQUESTING: CopilotStateConfig = {
+  Icon: Loader2,
+  iconClass: 'pr-detail-spin',
+  buttonClass: '',
+  title: 'Requesting Copilot review…',
+}
+
+const COPILOT_STATE_MONITORING: CopilotStateConfig = {
+  Icon: Sparkles,
+  iconClass: 'pulse',
+  buttonClass: ' pr-detail-copilot-monitoring',
+  title: 'Waiting for Copilot review…',
+}
+
+const COPILOT_STATE_DONE: CopilotStateConfig = {
+  Icon: CheckCircle2,
+  iconClass: '',
+  buttonClass: ' pr-detail-copilot-done',
+  title: 'Copilot review complete!',
 }
 
 // --- Sub-components extracted for react-doctor component-size ---
 
 function getCopilotStateConfig(state: string): CopilotStateConfig {
-  return COPILOT_STATE_MAP[state] ?? COPILOT_STATE_DEFAULT
+  switch (state) {
+    case 'requesting':
+      return COPILOT_STATE_REQUESTING
+    case 'monitoring':
+      return COPILOT_STATE_MONITORING
+    case 'done':
+      return COPILOT_STATE_DONE
+    default:
+      return COPILOT_STATE_DEFAULT
+  }
 }
 
 function CopilotReviewButtonIcon({ state }: { state: string }) {

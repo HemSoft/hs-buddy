@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 
 const CLI_ACCOUNT_POLL_MS = 30_000
 

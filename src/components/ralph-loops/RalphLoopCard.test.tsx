@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RalphLoopCard } from './RalphLoopCard'
 import type { RalphRunInfo } from '../../types/ralph'
+
+const TEST_NOW_MS = 1_700_000_000_000
 
 function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
   return {
@@ -12,8 +14,8 @@ function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
     pid: 100,
     currentIteration: 1,
     totalIterations: 3,
-    startedAt: Date.now() - 120_000,
-    updatedAt: Date.now(),
+    startedAt: TEST_NOW_MS - 120_000,
+    updatedAt: TEST_NOW_MS,
     completedAt: null,
     exitCode: null,
     error: null,
@@ -33,6 +35,14 @@ function makeRun(overrides: Partial<RalphRunInfo> = {}): RalphRunInfo {
 }
 
 describe('RalphLoopCard', () => {
+  beforeEach(() => {
+    vi.spyOn(Date, 'now').mockReturnValue(TEST_NOW_MS)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('renders repo name from backslash path', () => {
     render(<RalphLoopCard run={makeRun()} onStop={vi.fn()} />)
     expect(screen.getByText('test-repo')).toBeInTheDocument()
@@ -71,7 +81,7 @@ describe('RalphLoopCard', () => {
   it('shows status label for completed', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'completed', completedAt: Date.now() })}
+        run={makeRun({ status: 'completed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -81,7 +91,7 @@ describe('RalphLoopCard', () => {
   it('shows status label for failed', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'failed', completedAt: Date.now() })}
+        run={makeRun({ status: 'failed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -106,7 +116,7 @@ describe('RalphLoopCard', () => {
   it('hides Stop button for completed runs', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'completed', completedAt: Date.now() })}
+        run={makeRun({ status: 'completed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -116,7 +126,7 @@ describe('RalphLoopCard', () => {
   it('hides Stop button for failed runs', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'failed', completedAt: Date.now() })}
+        run={makeRun({ status: 'failed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -152,7 +162,7 @@ describe('RalphLoopCard', () => {
   it('hides progress bar for completed runs', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'completed', completedAt: Date.now(), totalIterations: 3 })}
+        run={makeRun({ status: 'completed', completedAt: TEST_NOW_MS, totalIterations: 3 })}
         onStop={vi.fn()}
       />
     )
@@ -183,7 +193,7 @@ describe('RalphLoopCard', () => {
   it('applies correct CSS class for status', () => {
     const { container } = render(
       <RalphLoopCard
-        run={makeRun({ status: 'failed', completedAt: Date.now() })}
+        run={makeRun({ status: 'failed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -193,7 +203,7 @@ describe('RalphLoopCard', () => {
   it('applies ralph-status-completed CSS class for completed status', () => {
     const { container } = render(
       <RalphLoopCard
-        run={makeRun({ status: 'completed', completedAt: Date.now() })}
+        run={makeRun({ status: 'completed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -217,7 +227,7 @@ describe('RalphLoopCard', () => {
   it('applies ralph-status-cancelled CSS class for cancelled status', () => {
     const { container } = render(
       <RalphLoopCard
-        run={makeRun({ status: 'cancelled', completedAt: Date.now() })}
+        run={makeRun({ status: 'cancelled', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -227,7 +237,7 @@ describe('RalphLoopCard', () => {
   it('applies ralph-status-orphaned CSS class for orphaned status', () => {
     const { container } = render(
       <RalphLoopCard
-        run={makeRun({ status: 'orphaned', completedAt: Date.now() })}
+        run={makeRun({ status: 'orphaned', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -237,7 +247,7 @@ describe('RalphLoopCard', () => {
   it('shows Cancelled status label', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'cancelled', completedAt: Date.now() })}
+        run={makeRun({ status: 'cancelled', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -247,7 +257,7 @@ describe('RalphLoopCard', () => {
   it('shows Orphaned status label', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'orphaned', completedAt: Date.now() })}
+        run={makeRun({ status: 'orphaned', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -317,7 +327,7 @@ describe('RalphLoopCard', () => {
   })
 
   it('formats duration for short runs (less than 1 hour)', () => {
-    const now = Date.now()
+    const now = TEST_NOW_MS
     render(
       <RalphLoopCard
         run={makeRun({ startedAt: now - 30 * 60_000, completedAt: now })}
@@ -328,7 +338,7 @@ describe('RalphLoopCard', () => {
   })
 
   it('formats duration for longer runs (more than 1 hour)', () => {
-    const now = Date.now()
+    const now = TEST_NOW_MS
     render(
       <RalphLoopCard
         run={makeRun({ startedAt: now - 90 * 60_000, completedAt: now })}
@@ -339,7 +349,7 @@ describe('RalphLoopCard', () => {
   })
 
   it('formats duration using current time if completedAt is null', () => {
-    const now = Date.now()
+    const now = TEST_NOW_MS
     const { container } = render(
       <RalphLoopCard
         run={makeRun({ startedAt: now - 5 * 60_000, completedAt: null })}
@@ -353,7 +363,7 @@ describe('RalphLoopCard', () => {
   it('hides Stop button for cancelled runs', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'cancelled', completedAt: Date.now() })}
+        run={makeRun({ status: 'cancelled', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -363,7 +373,7 @@ describe('RalphLoopCard', () => {
   it('hides Stop button for orphaned runs', () => {
     render(
       <RalphLoopCard
-        run={makeRun({ status: 'orphaned', completedAt: Date.now() })}
+        run={makeRun({ status: 'orphaned', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -444,7 +454,7 @@ describe('RalphLoopCard', () => {
   it('no spinning icon on completed status', () => {
     const { container } = render(
       <RalphLoopCard
-        run={makeRun({ status: 'completed', completedAt: Date.now() })}
+        run={makeRun({ status: 'completed', completedAt: TEST_NOW_MS })}
         onStop={vi.fn()}
       />
     )
@@ -453,7 +463,7 @@ describe('RalphLoopCard', () => {
   })
 
   it('shows duration 0m for very recent runs', () => {
-    const now = Date.now()
+    const now = TEST_NOW_MS
     render(<RalphLoopCard run={makeRun({ startedAt: now, completedAt: now })} onStop={vi.fn()} />)
     expect(screen.getByText('0m')).toBeInTheDocument()
   })

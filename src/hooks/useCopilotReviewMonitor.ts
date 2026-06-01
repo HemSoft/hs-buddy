@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { GitHubClient } from '../api/github'
+import { GitHubClient } from '../api/github/client'
 import { useGitHubAccounts } from './useConfig'
 import { useTaskQueue } from './useTaskQueue'
 import { throwIfAborted, isAbortError } from '../utils/errorUtils'

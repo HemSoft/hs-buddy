@@ -1,14 +1,15 @@
 import { PullRequestList } from './PullRequestList'
-import { ScheduleDetailPanel, ScheduleOverviewPanel, JobDetailPanel, RunList } from './automation'
-import {
-  SettingsAccounts,
-  SettingsAppearance,
-  SettingsPullRequests,
-  SettingsCopilot,
-  SettingsNotifications,
-  SettingsAdvanced,
-  SettingsWeather,
-} from './settings'
+import { ScheduleDetailPanel } from './automation/ScheduleDetailPanel'
+import { ScheduleOverviewPanel } from './automation/ScheduleOverviewPanel'
+import { JobDetailPanel } from './automation/JobDetailPanel'
+import { RunList } from './automation/RunList'
+import { SettingsAccounts } from './settings/SettingsAccounts'
+import { SettingsAppearance } from './settings/SettingsAppearance'
+import { SettingsPullRequests } from './settings/SettingsPullRequests'
+import { SettingsCopilot } from './settings/SettingsCopilot'
+import { SettingsNotifications } from './settings/SettingsNotifications'
+import { SettingsAdvanced } from './settings/SettingsAdvanced'
+import { SettingsWeather } from './settings/SettingsWeather'
 import { WelcomePanel } from './WelcomePanel'
 import { RepoDetailPanel } from './RepoDetailPanel'
 import { RepoCommitListPanel } from './RepoCommitListPanel'

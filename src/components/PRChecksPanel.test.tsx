@@ -32,6 +32,11 @@ vi.mock('../api/github', () => ({
   },
 }))
 
+vi.mock('../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../api/github')>('../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 vi.mock('../utils/dateUtils', () => ({
   formatDistanceToNow: () => '2 hours ago',
   formatDateFull: () => 'Jan 1, 2025 12:00 PM',

@@ -11,6 +11,11 @@ vi.mock('../../api/github', () => ({
   GitHubClient: vi.fn(),
 }))
 
+vi.mock('../../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../../api/github')>('../../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 vi.mock('../../utils/githubUrl', () => ({
   parseOwnerRepoFromUrl: vi.fn(),
 }))

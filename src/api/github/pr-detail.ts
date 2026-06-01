@@ -442,16 +442,20 @@ function buildReviewTimelineEvents(
       }>
     | undefined
 ): PRTimelineEvent[] {
-  return (reviews ?? [])
-    .filter(review => review.submittedAt)
-    .map(review => ({
-      id: `review-${review.id}`,
-      type: 'review' as const,
-      author: review.author?.login || 'unknown',
-      occurredAt: review.submittedAt!,
-      summary: describeReviewState(review.state),
-      url: review.url || null,
-    }))
+  return (reviews ?? []).flatMap(review =>
+    review.submittedAt
+      ? [
+          {
+            id: `review-${review.id}`,
+            type: 'review' as const,
+            author: review.author?.login || 'unknown',
+            occurredAt: review.submittedAt,
+            summary: describeReviewState(review.state),
+            url: review.url || null,
+          },
+        ]
+      : []
+  )
 }
 /* v8 ignore stop */
 
@@ -857,18 +861,22 @@ export async function fetchPRThreads(
   const issueComments: PRReviewComment[] = safeNodes(pr.comments.nodes).map(c =>
     mapReviewCommentFields(c, mapReactionGroups)
   )
-  const reviews: PRReviewSummary[] = safeNodes(pr.reviews.nodes)
-    .filter(r => r.submittedAt && r.body)
-    .map(r => ({
-      id: r.id,
-      state: r.state,
-      ...resolveCommentAuthor(r.author),
-      body: r.body || '',
-      bodyHtml: r.bodyHTML || null,
-      createdAt: r.submittedAt!,
-      updatedAt: r.updatedAt,
-      url: r.url,
-    }))
+  const reviews: PRReviewSummary[] = safeNodes(pr.reviews.nodes).flatMap(r =>
+    r.submittedAt && r.body
+      ? [
+          {
+            id: r.id,
+            state: r.state,
+            ...resolveCommentAuthor(r.author),
+            body: r.body || '',
+            bodyHtml: r.bodyHTML || null,
+            createdAt: r.submittedAt,
+            updatedAt: r.updatedAt,
+            url: r.url,
+          },
+        ]
+      : []
+  )
   return { threads, issueComments, reviews }
 }
 /* v8 ignore stop */

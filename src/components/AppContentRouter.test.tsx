@@ -42,6 +42,27 @@ vi.mock('./automation', () => ({
   RunList: () => <div>RunList</div>,
 }))
 
+vi.mock('./automation/ScheduleDetailPanel', () => ({
+  ScheduleDetailPanel: ({ scheduleId }: { scheduleId: string }) => (
+    <div>ScheduleDetail:{scheduleId}</div>
+  ),
+}))
+
+vi.mock('./automation/ScheduleOverviewPanel', () => ({
+  ScheduleOverviewPanel: (props: { onOpenSchedule: (id: string) => void }) => {
+    capturedCallbacks.onOpenSchedule = props.onOpenSchedule
+    return <div>ScheduleOverview</div>
+  },
+}))
+
+vi.mock('./automation/JobDetailPanel', () => ({
+  JobDetailPanel: ({ jobId }: { jobId: string }) => <div>JobDetail:{jobId}</div>,
+}))
+
+vi.mock('./automation/RunList', () => ({
+  RunList: () => <div>RunList</div>,
+}))
+
 vi.mock('./settings', () => ({
   SettingsAccounts: () => <div>SettingsAccounts</div>,
   SettingsAppearance: () => <div>SettingsAppearance</div>,
@@ -49,6 +70,34 @@ vi.mock('./settings', () => ({
   SettingsCopilot: () => <div>SettingsCopilot</div>,
   SettingsNotifications: () => <div>SettingsNotifications</div>,
   SettingsAdvanced: () => <div>SettingsAdvanced</div>,
+  SettingsWeather: () => <div>SettingsWeather</div>,
+}))
+
+vi.mock('./settings/SettingsAccounts', () => ({
+  SettingsAccounts: () => <div>SettingsAccounts</div>,
+}))
+
+vi.mock('./settings/SettingsAppearance', () => ({
+  SettingsAppearance: () => <div>SettingsAppearance</div>,
+}))
+
+vi.mock('./settings/SettingsPullRequests', () => ({
+  SettingsPullRequests: () => <div>SettingsPullRequests</div>,
+}))
+
+vi.mock('./settings/SettingsCopilot', () => ({
+  SettingsCopilot: () => <div>SettingsCopilot</div>,
+}))
+
+vi.mock('./settings/SettingsNotifications', () => ({
+  SettingsNotifications: () => <div>SettingsNotifications</div>,
+}))
+
+vi.mock('./settings/SettingsAdvanced', () => ({
+  SettingsAdvanced: () => <div>SettingsAdvanced</div>,
+}))
+
+vi.mock('./settings/SettingsWeather', () => ({
   SettingsWeather: () => <div>SettingsWeather</div>,
 }))
 

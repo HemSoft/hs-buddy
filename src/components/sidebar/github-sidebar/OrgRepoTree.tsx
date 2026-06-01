@@ -588,7 +588,7 @@ function OrgUsersSection({
   onItemSelect,
   onUserContextMenu,
 }: OrgUsersSectionProps) {
-  const sortedMembers = [...members].sort((a, b) => {
+  const sortedMembers = Array.from(members).sort((a, b) => {
     const aFav = favoriteUsers.has(`${org}/${a.login}`) ? 0 : 1
     const bFav = favoriteUsers.has(`${org}/${b.login}`) ? 0 : 1
     if (aFav !== bFav) return aFav - bFav
@@ -717,7 +717,7 @@ function OrgReposSection({
   onBookmarkToggle,
 }: OrgReposSectionProps) {
   /* v8 ignore start */
-  const sortedRepos = [...repos].sort((a, b) => {
+  const sortedRepos = Array.from(repos).sort((a, b) => {
     const aBookmarked = bookmarkedRepoKeys.has(`${org}/${a.name}`) ? 0 : 1
     const bBookmarked = bookmarkedRepoKeys.has(`${org}/${b.name}`) ? 0 : 1
     return aBookmarked - bBookmarked

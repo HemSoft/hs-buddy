@@ -63,6 +63,11 @@ vi.mock('../api/github', () => ({
   },
 }))
 
+vi.mock('../api/github/client', async () => {
+  const github = await vi.importMock<typeof import('../api/github')>('../api/github')
+  return { GitHubClient: github.GitHubClient }
+})
+
 /* ── mock child panels as thin stubs ────────────────────────────────── */
 
 vi.mock('./PullRequestHistoryPanel', () => ({
@@ -679,6 +684,30 @@ describe('PullRequestDetailPanel', () => {
       await waitFor(() => {
         const btn = screen.getByTitle('Waiting for Copilot review…')
         expect(btn).toBeDisabled()
+      })
+    })
+
+    it('shows the requesting title while the review request is in flight', async () => {
+      let resolveReviews: (value: unknown) => void = () => {}
+      prDetailMocks.mockClient.listPRReviews.mockReturnValue(
+        new Promise(resolve => {
+          resolveReviews = resolve
+        })
+      )
+
+      render(<PullRequestDetailPanel pr={makePR()} />)
+
+      await act(async () => {
+        fireEvent.click(screen.getByTitle('Request Copilot Review'))
+      })
+
+      await waitFor(() => {
+        expect(screen.getByTitle('Requesting Copilot review…')).toBeInTheDocument()
+      })
+
+      // Let the in-flight request resolve so the component settles.
+      await act(async () => {
+        resolveReviews([])
       })
     })
   })

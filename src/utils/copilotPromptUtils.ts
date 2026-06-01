@@ -50,10 +50,12 @@ export function findAccountForOrgs(
   accounts: ReadonlyArray<{ org: string; username: string }>,
   orgs: ReadonlyArray<string>
 ): string | undefined {
+  const accountsByOrg = new Map(
+    accounts.map(account => [account.org.toLowerCase(), account.username])
+  )
   for (const org of orgs) {
-    const lowerOrg = org.toLowerCase()
-    const match = accounts.find(a => a.org.toLowerCase() === lowerOrg)
-    if (match) return match.username
+    const username = accountsByOrg.get(org.toLowerCase())
+    if (username) return username
   }
   return undefined
 }

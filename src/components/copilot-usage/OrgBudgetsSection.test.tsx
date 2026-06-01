@@ -173,6 +173,27 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('no budget set')).toBeInTheDocument()
   })
 
+  it('skips the lowercase hemsoft org entirely', () => {
+    const orgs = new Map([
+      ['acme', 'token'],
+      ['hemsoft', 'token'],
+    ])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: { data: makeOrgBudgetData() as OrgBudgetState['data'], loading: false, error: null },
+      hemsoft: {
+        data: makeOrgBudgetData() as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+    expect(screen.getByText('acme')).toBeInTheDocument()
+    expect(screen.queryByText('hemsoft')).toBeNull()
+  })
+
   it('renders billing period', () => {
     const orgs = new Map([['acme', 'token']])
     const budgets: Record<string, OrgBudgetState> = {

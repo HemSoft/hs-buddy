@@ -4,7 +4,7 @@
  * Provides easy access to task queues with automatic cleanup on unmount.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getTaskQueue,
   type TaskId,
@@ -76,8 +76,8 @@ interface UseTaskQueueResult {
  */
 export function useTaskQueue(queueName: string, options?: QueueOptions): UseTaskQueueResult {
   const queue = getTaskQueue(queueName, options)
-  const trackedTaskIds = useRef<Set<TaskId>>(new Set())
-  const [stats, setStats] = useState<QueueStats>(queue.getStats())
+  const trackedTaskIds = useMemo(() => new Set<TaskId>(), [])
+  const [stats, setStats] = useState<QueueStats>(() => queue.getStats())
   const mountedRef = useRef(true)
 
   // Update stats periodically while there are tracked tasks
@@ -88,7 +88,7 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
 
     // Update stats on an interval when there are pending/running tasks
     const interval = setInterval(() => {
-      if (trackedTaskIds.current.size > 0) {
+      if (trackedTaskIds.size > 0) {
         updateStats()
       }
     }, 100)
@@ -96,12 +96,11 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
     return () => {
       clearInterval(interval)
     }
-  }, [queue])
+  }, [queue, trackedTaskIds])
 
   // Cancel all tracked tasks on unmount
   useEffect(() => {
-    // Capture ref value at effect start per React rules
-    const trackedTasks = trackedTaskIds.current
+    const trackedTasks = trackedTaskIds
     const mounted = mountedRef
     return () => {
       mounted.current = false
@@ -110,44 +109,44 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
       }
       trackedTasks.clear()
     }
-  }, [queue])
+  }, [queue, trackedTaskIds])
 
   const enqueue = useCallback(
     <T>(execute: (signal: AbortSignal) => Promise<T>, taskOptions?: TaskOptions): Promise<T> => {
       const { taskId, promise } = queue.enqueue(execute, taskOptions)
-      trackedTaskIds.current.add(taskId)
+      trackedTaskIds.add(taskId)
 
       // Update stats immediately
       setStats(queue.getStats())
 
       // Clean up tracking when task completes
       return promise.finally(() => {
-        trackedTaskIds.current.delete(taskId)
+        trackedTaskIds.delete(taskId)
         if (mountedRef.current) {
           setStats(queue.getStats())
         }
       })
     },
-    [queue]
+    [queue, trackedTaskIds]
   )
 
   const cancel = useCallback(
     (taskId: TaskId): boolean => {
       const result = queue.cancel(taskId)
-      trackedTaskIds.current.delete(taskId)
+      trackedTaskIds.delete(taskId)
       setStats(queue.getStats())
       return result
     },
-    [queue]
+    [queue, trackedTaskIds]
   )
 
   const cancelAll = useCallback(() => {
-    for (const taskId of trackedTaskIds.current) {
+    for (const taskId of trackedTaskIds) {
       queue.cancel(taskId)
     }
-    trackedTaskIds.current.clear()
+    trackedTaskIds.clear()
     setStats(queue.getStats())
-  }, [queue])
+  }, [queue, trackedTaskIds])
 
   return {
     enqueue,

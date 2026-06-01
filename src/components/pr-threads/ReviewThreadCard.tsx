@@ -13,11 +13,11 @@ import {
   Send,
 } from 'lucide-react'
 import {
-  GitHubClient,
   type PRCommentReactionContent,
   type PRReviewThread,
   type PRReviewComment,
 } from '../../api/github'
+import { GitHubClient } from '../../api/github/client'
 import { useGitHubAccounts } from '../../hooks/useConfig'
 import { useTaskQueue } from '../../hooks/useTaskQueue'
 import type { PRDetailInfo } from '../../utils/prDetailView'

@@ -9,12 +9,8 @@ import {
 import { useTaskQueue } from '../../../hooks/useTaskQueue'
 import { useToggleSet } from '../../../hooks/useToggleSet'
 import { IPC_INVOKE } from '../../../ipc/contracts'
-import {
-  GitHubClient,
-  type OrgRepo,
-  type OrgRepoResult,
-  type OrgOverviewResult,
-} from '../../../api/github'
+import { type OrgRepo, type OrgRepoResult, type OrgOverviewResult } from '../../../api/github'
+import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'

@@ -97,7 +97,7 @@ function getDayLabel(occDate: Date, today: Date, tomorrow: Date, originalTime: D
 }
 
 function groupOccurrencesByDay(allOccurrences: ScheduleOccurrence[]): DayGroup[] {
-  const sorted = [...allOccurrences].sort((a, b) => a.time.getTime() - b.time.getTime())
+  const sorted = Array.from(allOccurrences).sort((a, b) => a.time.getTime() - b.time.getTime())
 
   const groups: Map<string, DayGroup> = new Map()
   const today = new Date()

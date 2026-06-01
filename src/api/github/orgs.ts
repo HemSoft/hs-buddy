@@ -158,11 +158,11 @@ function buildOrgMetrics(
     totalForks: sumBy(repos, repo => repo.forksCount),
     activeReposToday,
     commitsToday,
-    lastPushAt:
-      repos
-        .map(repo => repo.pushedAt)
-        .filter((value): value is string => Boolean(value))
-        .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] || null,
+    lastPushAt: repos.reduce<string | null>((latest, repo) => {
+      if (!repo.pushedAt) return latest
+      if (!latest) return repo.pushedAt
+      return new Date(repo.pushedAt).getTime() > new Date(latest).getTime() ? repo.pushedAt : latest
+    }, null),
     topContributorsToday: Array.from(contributorMap.values())
       .sort((left, right) => right.commits - left.commits || left.login.localeCompare(right.login))
       .slice(0, 10),

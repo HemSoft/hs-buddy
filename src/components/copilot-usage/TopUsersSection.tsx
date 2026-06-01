@@ -67,7 +67,7 @@ function UsersTable({ seats }: { seats: CopilotSeatInfo[] }) {
         <span className="top-users-rank">#</span>
         <span className="top-users-login">User</span>
         <span className="top-users-org">Org</span>
-        <span className="top-users-requests">Requests</span>
+        <span className="top-users-requests">Credits</span>
         <span className="top-users-plan">Plan</span>
         <span className="top-users-editor">Editor</span>
       </div>
@@ -106,7 +106,7 @@ export function TopUsersSection({ seats, loading, orgErrors, truncated }: TopUse
     <div className="top-users-section">
       <h3 className="usage-budgets-heading">
         <Users size={14} />
-        Top Premium Request Users
+        Top AI Credit Users
         <LoadingIcon loading={loading} />
       </h3>
 

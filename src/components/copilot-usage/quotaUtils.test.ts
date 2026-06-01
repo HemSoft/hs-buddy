@@ -3,7 +3,7 @@ import {
   formatCurrency,
   getQuotaColor,
   computeProjection,
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   type QuotaSnapshot,
 } from './quotaUtils'
 
@@ -102,7 +102,7 @@ describe('computeProjection', () => {
     expect(result).not.toBeNull()
     expect(result!.projectedTotal).toBeGreaterThan(300)
     expect(result!.projectedOverage).toBeGreaterThan(0)
-    expect(result!.projectedOverageCost).toBe(result!.projectedOverage * OVERAGE_COST_PER_REQUEST)
+    expect(result!.projectedOverageCost).toBe(result!.projectedOverage * OVERAGE_COST_PER_CREDIT)
   })
 
   it('returns projectedPercent 0 when entitlement is 0', () => {

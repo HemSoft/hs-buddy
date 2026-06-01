@@ -16,7 +16,7 @@ describe('UsageHeader', () => {
     render(<UsageHeader {...baseProps} />)
 
     expect(screen.getByRole('heading', { level: 2, name: 'Copilot Usage' })).toBeInTheDocument()
-    expect(screen.getByText('Copilot premium request quota per account')).toBeInTheDocument()
+    expect(screen.getByText('Copilot AI credit quota per account')).toBeInTheDocument()
   })
 
   it('renders summary values with formatting', () => {

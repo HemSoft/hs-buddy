@@ -212,6 +212,19 @@ describe('parseBillingUsage', () => {
     expect(result.discount).toBe(0.07)
     expect(result.netCost).toBe(0.25)
   })
+
+  it('parses the June 2026 "Copilot AI Credits" SKU', () => {
+    const result = parseBillingUsage([makePremiumItem({ sku: 'Copilot AI Credits' })])
+    expect(result.premiumRequests).toBe(10)
+  })
+
+  it('counts legacy Premium Request and AI Credits SKUs together', () => {
+    const items = [
+      makePremiumItem({ sku: 'Copilot Premium Request', quantity: 4 }),
+      makePremiumItem({ sku: 'Copilot AI Credits', quantity: 6 }),
+    ]
+    expect(parseBillingUsage(items).premiumRequests).toBe(10)
+  })
 })
 
 // --- extractBudgetFromResult ---
@@ -314,7 +327,7 @@ describe('computeOverageSpend', () => {
         },
       },
     }
-    expect(computeOverageSpend(data)).toBe(4) // 100 * 0.04
+    expect(computeOverageSpend(data)).toBe(1) // 100 * 0.01
   })
 
   it('computes overage from negative remaining', () => {
@@ -326,7 +339,7 @@ describe('computeOverageSpend', () => {
         },
       },
     }
-    expect(computeOverageSpend(data)).toBe(2) // 50 * 0.04
+    expect(computeOverageSpend(data)).toBe(0.5) // 50 * 0.01
   })
 
   it('uses the larger of overage_count vs remaining-derived overage', () => {
@@ -338,7 +351,7 @@ describe('computeOverageSpend', () => {
         },
       },
     }
-    expect(computeOverageSpend(data)).toBe(2) // max(30, 50) * 0.04
+    expect(computeOverageSpend(data)).toBe(0.5) // max(30, 50) * 0.01
   })
 
   it('returns 0 when remaining is positive and overage_count is 0', () => {

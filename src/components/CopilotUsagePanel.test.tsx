@@ -107,7 +107,7 @@ describe('CopilotUsagePanel', () => {
 
   it('renders top premium request users section', () => {
     render(<CopilotUsagePanel />)
-    expect(screen.getByText('Top Premium Request Users')).toBeTruthy()
+    expect(screen.getByText('Top AI Credit Users')).toBeTruthy()
     expect(screen.getByText('alice')).toBeTruthy()
     expect(screen.getByText('42')).toBeTruthy()
   })

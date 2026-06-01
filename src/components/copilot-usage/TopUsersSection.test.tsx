@@ -34,7 +34,7 @@ describe('TopUsersSection', () => {
     ]
     render(<TopUsersSection seats={seats} loading={false} orgErrors={[]} truncated={false} />)
 
-    expect(screen.getByText('Top Premium Request Users')).toBeInTheDocument()
+    expect(screen.getByText('Top AI Credit Users')).toBeInTheDocument()
     expect(screen.getByText('alice')).toBeInTheDocument()
     expect(screen.getByText('bob')).toBeInTheDocument()
     expect(screen.getByText('org1')).toBeInTheDocument()
@@ -51,7 +51,7 @@ describe('TopUsersSection', () => {
 
   it('shows loading spinner', () => {
     render(<TopUsersSection seats={[]} loading={true} orgErrors={[]} truncated={false} />)
-    expect(screen.getByText('Top Premium Request Users')).toBeInTheDocument()
+    expect(screen.getByText('Top AI Credit Users')).toBeInTheDocument()
   })
 
   it('displays org errors', () => {
@@ -115,7 +115,7 @@ describe('TopUsersSection', () => {
   it('does not render Last Active column', () => {
     const seats = [makeSeat()]
     render(<TopUsersSection seats={seats} loading={false} orgErrors={[]} truncated={false} />)
-    expect(screen.getByText('Requests')).toBeInTheDocument()
+    expect(screen.getByText('Credits')).toBeInTheDocument()
     expect(screen.queryByText('Last Active')).not.toBeInTheDocument()
     expect(screen.queryByText('Last Request')).not.toBeInTheDocument()
   })

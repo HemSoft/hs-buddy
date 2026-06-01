@@ -26,7 +26,7 @@ export function UsageHeader({
         </div>
         <div>
           <h2>Copilot Usage</h2>
-          <p className="usage-subtitle">Copilot premium request quota per account</p>
+          <p className="usage-subtitle">Copilot AI credit quota per account</p>
         </div>
       </div>
       <div className="usage-header-summary" aria-live="polite">

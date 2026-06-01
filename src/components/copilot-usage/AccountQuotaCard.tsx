@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { UsageRing } from './UsageRing'
 import {
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   formatCurrency,
   computeProjection,
   type AccountQuotaState,
@@ -60,7 +60,7 @@ function computeQuotaMetrics(
   const overageByCount = Math.max(0, p.overage_count)
   const overageByRemaining = Math.max(0, -p.remaining)
   const overageRequests = Math.max(overageByCount, overageByRemaining)
-  const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
+  const overageCost = overageRequests * OVERAGE_COST_PER_CREDIT
   return { percentUsed, used, total, overageRequests, overageCost }
 }
 

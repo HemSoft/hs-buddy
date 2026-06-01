@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { useGitHubAccounts } from './useConfig'
 import {
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   computeProjection,
   type AccountQuotaState,
 } from '../components/copilot-usage/quotaUtils'
@@ -67,7 +67,7 @@ function computeOrgOverage(
     const premium = getPremiumInteractions(quotas[account.username])
     if (!premium || !account.org) continue
     const overageRequests = computeOverageRequests(premium)
-    const cost = overageRequests * OVERAGE_COST_PER_REQUEST
+    const cost = overageRequests * OVERAGE_COST_PER_CREDIT
     map.set(account.org, (map.get(account.org) ?? 0) + cost)
   }
   return map
@@ -81,7 +81,7 @@ function computeAggregateTotals(quotas: Record<string, AccountQuotaState>) {
       const used = premium.entitlement - premium.remaining
       const overageRequests = computeOverageRequests(premium)
       acc.totalUsed += used
-      acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_REQUEST
+      acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_CREDIT
       return acc
     },
     { totalUsed: 0, totalOverageCost: 0 }

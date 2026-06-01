@@ -33,7 +33,7 @@ import { MS_PER_MINUTE } from '../constants'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
-import { OVERAGE_COST_PER_REQUEST, formatCurrency } from './copilot-usage/quotaUtils'
+import { OVERAGE_COST_PER_CREDIT, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { sumBy } from '../utils/arrayUtils'
@@ -838,7 +838,7 @@ function usePersonalQuotaSummary(
         acc.used += used
         acc.remaining += premium.remaining
         acc.entitlement += premium.entitlement
-        acc.overageCost += overageRequests * OVERAGE_COST_PER_REQUEST
+        acc.overageCost += overageRequests * OVERAGE_COST_PER_CREDIT
         /* v8 ignore start */
         acc.fetchedAt = Math.max(acc.fetchedAt, state.fetchedAt ?? 0)
         /* v8 ignore stop */

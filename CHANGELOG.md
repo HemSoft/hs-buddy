@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - React-doctor improvements WIP + lower coverage bar to 90%
 
+### Added
+
+- Migrate Copilot Usage page to June 2026 AI Credits billing
+
 ## [0.1.785] - 2026-05-31
 
 ### Changed

@@ -1,5 +1,5 @@
 import { findCopilotBudget, type BudgetItem } from './budgetUtils'
-import { OVERAGE_COST_PER_REQUEST } from '../components/copilot-usage/quotaUtils'
+import { OVERAGE_COST_PER_CREDIT } from '../components/copilot-usage/quotaUtils'
 import { sumBy } from './arrayUtils'
 
 /** Shape returned by /orgs/{org}/settings/billing/usage */
@@ -71,9 +71,16 @@ export function sumNetCost(items: PremiumUsageItem[]): number {
   return roundCents(sumBy(items, i => i.netAmount))
 }
 
+/**
+ * Copilot usage SKUs counted as billable requests/credits.
+ * "Copilot AI Credits" is the June 2026+ usage-based billing SKU;
+ * "Copilot Premium Request" is retained for pre-June historical data.
+ */
+const COPILOT_USAGE_SKUS = new Set(['Copilot AI Credits', 'Copilot Premium Request'])
+
 export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
   const premiumItems = items.filter(
-    item => item.product === 'copilot' && item.sku === 'Copilot Premium Request'
+    item => item.product === 'copilot' && COPILOT_USAGE_SKUS.has(item.sku)
   )
   const seatItems = items.filter(
     item => item.product === 'copilot' && item.sku === 'Copilot Business'
@@ -121,7 +128,7 @@ export function computeOverageSpend(quotaData: Record<string, unknown>): number 
     remaining: number
   }
   return roundCents(
-    Math.max(Math.max(0, overage_count), Math.max(0, -remaining)) * OVERAGE_COST_PER_REQUEST
+    Math.max(Math.max(0, overage_count), Math.max(0, -remaining)) * OVERAGE_COST_PER_CREDIT
   )
 }
 

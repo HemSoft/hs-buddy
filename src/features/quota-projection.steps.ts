@@ -3,7 +3,7 @@ import { expect } from 'vitest'
 import {
   computeProjection,
   getQuotaColor,
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   type QuotaSnapshot,
 } from '../components/copilot-usage/quotaUtils'
 
@@ -37,8 +37,8 @@ describeFeature(feature, ({ Scenario, Background }) => {
   let color: string
 
   Background(({ Given }) => {
-    Given('the overage cost is $0.04 per request', () => {
-      expect(OVERAGE_COST_PER_REQUEST).toBe(0.04)
+    Given('the overage cost is $0.01 per credit', () => {
+      expect(OVERAGE_COST_PER_CREDIT).toBe(0.01)
     })
   })
 

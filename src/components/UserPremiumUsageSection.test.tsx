@@ -13,7 +13,7 @@ vi.mock('../hooks/useConfig', () => ({
 }))
 
 vi.mock('./copilot-usage/quotaUtils', () => ({
-  OVERAGE_COST_PER_REQUEST: 0.04,
+  OVERAGE_COST_PER_CREDIT: 0.01,
   formatCurrency: (n: number) => `$${n.toFixed(2)}`,
   computeProjection: vi.fn().mockReturnValue(null),
   getQuotaColor: () => '#4caf50',
@@ -198,7 +198,7 @@ describe('UserPremiumUsageSection', () => {
       render(<UserPremiumUsageSection username="alice" org="test-org" />)
 
       await waitFor(() => {
-        expect(screen.getByText('$2.00')).toBeInTheDocument() // 50 * 0.04
+        expect(screen.getByText('$0.50')).toBeInTheDocument() // 50 * 0.01
         expect(screen.getByText('Overage')).toBeInTheDocument()
       })
     })
@@ -387,7 +387,7 @@ describe('UserPremiumUsageSection', () => {
       render(<UserPremiumUsageSection username="alice" org="test-org" />)
 
       await waitFor(() => {
-        expect(screen.getByText('$1.20')).toBeInTheDocument() // 30 * 0.04
+        expect(screen.getByText('$0.30')).toBeInTheDocument() // 30 * 0.01
         expect(screen.getByText('Overage')).toBeInTheDocument()
       })
     })

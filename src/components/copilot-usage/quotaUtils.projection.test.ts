@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   formatCurrency,
   computeProjection,
   computeBudgetProjection,
@@ -8,9 +8,9 @@ import {
   type QuotaSnapshot,
 } from './quotaUtils'
 
-describe('OVERAGE_COST_PER_REQUEST', () => {
+describe('OVERAGE_COST_PER_CREDIT', () => {
   it('is 4 cents', () => {
-    expect(OVERAGE_COST_PER_REQUEST).toBe(0.04)
+    expect(OVERAGE_COST_PER_CREDIT).toBe(0.01)
   })
 })
 
@@ -128,7 +128,7 @@ describe('computeProjection', () => {
     const result = computeProjection(snapshot, resetDate.toISOString())
 
     if (result && result.projectedOverage > 0) {
-      expect(result.projectedOverageCost).toBe(result.projectedOverage * OVERAGE_COST_PER_REQUEST)
+      expect(result.projectedOverageCost).toBe(result.projectedOverage * OVERAGE_COST_PER_CREDIT)
     }
   })
 

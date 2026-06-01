@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef, useMemo, useState } from 'react'
 import { Loader2, TrendingUp, AlertCircle, RefreshCw, Calendar, Clock } from 'lucide-react'
 import {
-  OVERAGE_COST_PER_REQUEST,
+  OVERAGE_COST_PER_CREDIT,
   formatCurrency,
   computeProjection,
   getQuotaColor,
@@ -212,7 +212,7 @@ function computeQuotaViewMetrics(
   const overageByRemaining = Math.max(0, -(quotaPremium.remaining ?? 0))
   /* v8 ignore stop */
   const overageRequests = Math.max(overageByCount, overageByRemaining)
-  const overageCost = overageRequests * OVERAGE_COST_PER_REQUEST
+  const overageCost = overageRequests * OVERAGE_COST_PER_CREDIT
   const color = getQuotaColor(percentUsed)
   const resetDays = daysUntilReset(resetDateUtc)
   return { used, total, percentUsed, overageRequests, overageCost, color, resetDays }

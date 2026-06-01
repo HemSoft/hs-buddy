@@ -38,7 +38,11 @@ interface Projection {
   dailyRate: number
 }
 
-export const OVERAGE_COST_PER_REQUEST = 0.04
+/**
+ * AI Credit overage rate under June 2026 usage-based billing: $0.01 per credit.
+ * (Replaced the pre-June Premium Request rate of $0.04 per request.)
+ */
+export const OVERAGE_COST_PER_CREDIT = 0.01
 const SECONDS_PER_DAY = 86_400
 
 export const formatCurrency = (amount: number) => {
@@ -83,7 +87,7 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
   const projectedTotal = Math.round(ratePerSecond * totalSeconds)
   const dailyRate = ratePerSecond * SECONDS_PER_DAY
   const projectedOverage = Math.max(0, projectedTotal - premium.entitlement)
-  const projectedOverageCost = projectedOverage * OVERAGE_COST_PER_REQUEST
+  const projectedOverageCost = projectedOverage * OVERAGE_COST_PER_CREDIT
   const projectedPercent =
     premium.entitlement > 0 ? (projectedTotal / premium.entitlement) * 100 : 0
 

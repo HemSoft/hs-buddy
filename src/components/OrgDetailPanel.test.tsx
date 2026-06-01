@@ -1238,10 +1238,10 @@ describe('OrgDetailPanel', () => {
         expect(screen.getByText('Overage Cost')).toBeInTheDocument()
       })
       // remaining = -50, Math.max(0, -(-50)) = 50 overage requests
-      // overageCost = 50 * 0.04 = $2.00
+      // overageCost = 50 * 0.01 = $0.50
       // The overage cost appears in the mini-metric for "Overage Cost"
       const overageCostEl = screen.getByText('Overage Cost').closest('.org-detail-mini-metric')
-      expect(overageCostEl?.querySelector('.org-detail-mini-value')?.textContent).toBe('$2.00')
+      expect(overageCostEl?.querySelector('.org-detail-mini-value')?.textContent).toBe('$0.50')
     })
   })
 

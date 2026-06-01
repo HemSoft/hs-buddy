@@ -1,9 +1,9 @@
 Feature: Quota Projection
-  Calculates projected premium request usage, overage, and cost
+  Calculates projected AI credit usage, overage, and cost
   for the current GitHub Copilot billing period.
 
   Background:
-    Given the overage cost is $0.04 per request
+    Given the overage cost is $0.01 per credit
 
   Scenario: Zero usage returns zero projection
     Given an entitlement of 300 with 300 remaining

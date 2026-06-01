@@ -60,6 +60,7 @@ vi.mock('../../src/utils/billingParsers', () => ({
   parseBillingUsage: vi.fn(() => ({ items: [] })),
   extractBudgetFromResult: vi.fn(() => ({ budgetAmount: null, preventFurtherUsage: false })),
   extractUsageSpend: vi.fn(() => 0),
+  extractCopilotSpend: vi.fn(() => ({ net: 0, gross: 0 })),
   computeOverageSpend: vi.fn(() => 0),
   classifyCliTokenError: (...args: unknown[]) => mockClassifyCliTokenError(...args),
   assembleCopilotMetrics: vi.fn(() => ({})),
@@ -260,6 +261,89 @@ describe('githubHandlers', () => {
       const result = await handler({}, 'test-org', 'testuser')
       expect(result.success).toBe(false)
       expect(result.error).toBeDefined()
+    })
+
+    it('day-sums per-user AI Credits into userCredits when a username is given', async () => {
+      vi.useFakeTimers()
+      // Pin to the 1st so only a single day call is made (days 1..today).
+      vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
+      try {
+        const { sumGrossRequests } = await import('../../src/utils/billingParsers')
+        vi.mocked(sumGrossRequests).mockReturnValueOnce(8235)
+
+        // tryGetCliToken
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+        // fetchOrgOrUserBillingUsage
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems: [{ product: 'copilot' }] }),
+          stderr: '',
+        })
+        // fetchSeatCount
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+        // fetchUserMonthlyCredits (single day call)
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems: [{ grossQuantity: 8235 }] }),
+          stderr: '',
+        })
+
+        const handler = handlers.get('github:get-copilot-usage')!
+        const result = await handler({}, 'test-org', 'testuser')
+        expect(result.success).toBe(true)
+        expect(result.data.userCredits).toBe(8235)
+        expect(result.data.seats).toBe(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('returns userCredits null when per-user day calls all fail (no billing access)', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-06-01T12:00:00Z'))
+      try {
+        // tryGetCliToken
+        mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+        // fetchOrgOrUserBillingUsage
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems: [{ product: 'copilot' }] }),
+          stderr: '',
+        })
+        // fetchSeatCount
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+        // fetchUserMonthlyCredits day call fails → degrade to null
+        mockExecAsync.mockRejectedValueOnce(new Error('no enterprise billing access'))
+
+        const handler = handlers.get('github:get-copilot-usage')!
+        const result = await handler({}, 'test-org', 'testuser')
+        expect(result.success).toBe(true)
+        expect(result.data.userCredits).toBeNull()
+        expect(result.data.seats).toBe(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('leaves userCredits null when no username is provided', async () => {
+      // No username → no token exec; billing usage is the first call.
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({ usageItems: [{ product: 'copilot' }] }),
+        stderr: '',
+      })
+      // fetchSeatCount
+      mockExecAsync.mockResolvedValueOnce({
+        stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+        stderr: '',
+      })
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org')
+      expect(result.success).toBe(true)
+      expect(result.data.userCredits).toBeNull()
     })
   })
 
@@ -824,7 +908,7 @@ describe('githubHandlers', () => {
     })
 
     it('github:get-copilot-budget uses enterprise fallback budgets when org budgets are missing', async () => {
-      const { extractBudgetFromResult, extractUsageSpend } =
+      const { extractBudgetFromResult, extractCopilotSpend } =
         await import('../../src/utils/billingParsers')
       const { findBudgetAcrossPages } = await import('../../src/utils/budgetUtils')
 
@@ -832,7 +916,7 @@ describe('githubHandlers', () => {
         budgetAmount: null,
         preventFurtherUsage: false,
       })
-      vi.mocked(extractUsageSpend).mockReturnValueOnce(42)
+      vi.mocked(extractCopilotSpend).mockReturnValueOnce({ net: 42, gross: 42 })
       vi.mocked(findBudgetAcrossPages).mockImplementationOnce(async fetchPage => {
         const page = await fetchPage(1)
         expect(page).toEqual([])

@@ -672,6 +672,18 @@ function registerCopilotUsageHandlers(): void {
         const seatCount = await fetchSeatCount(org, execEnv)
         const now = new Date()
 
+        let userCredits: number | null = null
+        if (username) {
+          try {
+            userCredits = await fetchUserMonthlyCredits(username, execEnv)
+          } catch (error: unknown) {
+            console.error(
+              `Failed to get AI Credit usage for user '${username}':`,
+              getErrorMessage(error)
+            )
+          }
+        }
+
         return {
           success: true,
           data: {
@@ -680,6 +692,7 @@ function registerCopilotUsageHandlers(): void {
             seats: seatCount ?? parsed.businessSeats,
             billingMonth: now.getUTCMonth() + 1,
             billingYear: now.getUTCFullYear(),
+            userCredits,
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),
           },
@@ -839,6 +852,51 @@ async function fetchUserPremiumRequests(org: string, memberLogin: string, userna
     billingYear: year,
     billingMonth: month,
   }
+}
+
+/**
+ * Sum a single account's AI Credit consumption for the current month by
+ * day-summing the enterprise per-user billing endpoint. The month-level
+ * per-user endpoint returns no items under AI Credits billing, so per-day
+ * calls are required. Returns null when no day call succeeds (e.g. the token
+ * lacks enterprise billing access), letting the card degrade to the org pool.
+ */
+async function fetchUserMonthlyCredits(
+  memberLogin: string,
+  execEnv: NodeJS.ProcessEnv
+): Promise<number | null> {
+  const now = new Date()
+  const year = now.getUTCFullYear()
+  const month = now.getUTCMonth() + 1
+  const today = now.getUTCDate()
+  const encoded = encodeURIComponent(memberLogin)
+  const days = Array.from({ length: today }, (_, i) => i + 1)
+
+  let total = 0
+  let anySucceeded = false
+
+  for (let i = 0; i < days.length; i += BATCH_CONCURRENCY) {
+    const batch = days.slice(i, i + BATCH_CONCURRENCY)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-day billing calls.
+    const settled = await Promise.allSettled(
+      batch.map(async day => {
+        const { stdout } = await execAsync(
+          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
+          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        )
+        const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
+        return sumGrossRequests(data.usageItems ?? [])
+      })
+    )
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        anySucceeded = true
+        total += result.value
+      }
+    }
+  }
+
+  return anySucceeded ? total : null
 }
 
 function registerCopilotSeatHandlers(): void {

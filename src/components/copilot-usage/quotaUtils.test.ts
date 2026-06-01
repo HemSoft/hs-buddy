@@ -3,7 +3,9 @@ import {
   formatCurrency,
   getQuotaColor,
   computeProjection,
+  synthesizeQuotaData,
   OVERAGE_COST_PER_CREDIT,
+  type OrgPoolMetrics,
   type QuotaSnapshot,
 } from './quotaUtils'
 
@@ -157,5 +159,69 @@ describe('computeProjection', () => {
       expect(result.projectedOverage).toBe(0)
       expect(result.projectedOverageCost).toBe(0)
     }
+  })
+
+  it('returns null when less than 10% of the billing cycle has elapsed', () => {
+    const now = new Date()
+    // Reset ~29 days out → the period started ~a day ago → well under 10% elapsed.
+    const resetDate = new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000)
+    const premium = makeSnapshot({ entitlement: 300, remaining: 100, percent_remaining: 33 })
+
+    const result = computeProjection(premium, resetDate.toISOString())
+    expect(result).toBeNull()
+  })
+})
+
+describe('synthesizeQuotaData', () => {
+  const baseMetrics: OrgPoolMetrics = {
+    login: 'octocat',
+    plan: 'business',
+    org: 'acme',
+    usedCredits: 10940,
+    grossCost: 109.4,
+    netCost: 0,
+    seats: 318,
+    billingYear: 2026,
+    billingMonth: 6,
+  }
+
+  it('builds an org-pool snapshot with no personal fields when userCredits is absent', () => {
+    const data = synthesizeQuotaData(baseMetrics)
+    const pool = data.quota_snapshots.premium_interactions
+    expect(pool.entitlement).toBe(318 * 7000)
+    expect(pool.remaining).toBe(318 * 7000 - 10940)
+    expect(data.personal).toBeUndefined()
+    expect(data.orgConsumed).toBeUndefined()
+    expect(data.grossCost).toBe(109.4)
+  })
+
+  it('attaches a personal snapshot and org denominator when userCredits is provided', () => {
+    const data = synthesizeQuotaData({ ...baseMetrics, userCredits: 8235.4 })
+    expect(data.personal).toBeDefined()
+    expect(data.personal!.entitlement).toBe(7000)
+    expect(data.personal!.remaining).toBe(7000 - 8235)
+    expect(data.personal!.overage_count).toBe(8235 - 7000)
+    expect(data.orgConsumed).toBe(10940)
+    // The org pool stays org-wide regardless of personal data.
+    expect(data.quota_snapshots.premium_interactions.entitlement).toBe(318 * 7000)
+  })
+
+  it('treats userCredits of 0 as present personal data, not absent', () => {
+    const data = synthesizeQuotaData({ ...baseMetrics, userCredits: 0 })
+    expect(data.personal).toBeDefined()
+    expect(data.personal!.remaining).toBe(7000)
+    expect(data.personal!.overage_count).toBe(0)
+    expect(data.orgConsumed).toBe(10940)
+  })
+
+  it('uses the standard 3,900 per-seat allotment outside the promo window', () => {
+    const data = synthesizeQuotaData({
+      ...baseMetrics,
+      billingMonth: 9,
+      seats: 10,
+      userCredits: 100,
+    })
+    expect(data.quota_snapshots.premium_interactions.entitlement).toBe(10 * 3900)
+    expect(data.personal!.entitlement).toBe(3900)
   })
 })

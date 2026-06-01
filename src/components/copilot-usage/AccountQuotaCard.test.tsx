@@ -224,4 +224,43 @@ describe('AccountQuotaCard', () => {
     render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(document.querySelector('.usage-fetched-at')).not.toBeInTheDocument()
   })
+
+  it('renders personal usage and a share-of-org bar when personal data is present', () => {
+    const personal = {
+      entitlement: 7000,
+      overage_count: 1235,
+      overage_permitted: true,
+      percent_remaining: 0,
+      quota_id: 'premium_interactions',
+      quota_remaining: -1235,
+      remaining: -1235,
+      unlimited: false,
+      timestamp_utc: '2026-04-14T00:00:00Z',
+    }
+    const data = makeQuotaData({ personal, orgConsumed: 10940 })
+    const state: AccountQuotaState = {
+      data: data as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    const stats = within(screen.getByTestId('quota-stats'))
+    expect(stats.getByText('8,235')).toBeInTheDocument() // personal used (7000 - -1235)
+    expect(stats.getByText('7,000')).toBeInTheDocument() // personal entitlement
+
+    const share = within(screen.getByTestId('share-of-org'))
+    expect(share.getByText(/8,235 \/ 10,940 \(75%\)/)).toBeInTheDocument()
+  })
+
+  it('does not render a share-of-org bar without personal data', () => {
+    const state: AccountQuotaState = {
+      data: makeQuotaData() as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.queryByTestId('share-of-org')).not.toBeInTheDocument()
+  })
 })

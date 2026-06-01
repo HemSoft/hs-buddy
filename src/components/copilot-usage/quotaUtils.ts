@@ -25,6 +25,17 @@ export interface QuotaData {
   grossCost?: number
   /** Net billed amount this period ($0 while within the included allotment). */
   netCost?: number
+  /**
+   * Personal AI Credit quota for the account holder (used vs the per-seat
+   * allotment), distinct from the org-wide pool in `premium_interactions`.
+   * Present only when per-user consumption could be fetched.
+   */
+  personal?: QuotaSnapshot
+  /**
+   * Org-wide AI Credits consumed this period, used as the denominator for the
+   * account's "share of org" indicator. Present alongside `personal`.
+   */
+  orgConsumed?: number
 }
 
 export interface AccountQuotaState {
@@ -48,6 +59,13 @@ interface Projection {
  */
 export const OVERAGE_COST_PER_CREDIT = 0.01
 const SECONDS_PER_DAY = 86_400
+
+/**
+ * Minimum fraction of the billing period that must have elapsed before a
+ * month-end projection is shown. Early in the cycle a linear extrapolation
+ * from a few hours of usage produces wildly inflated, meaningless numbers.
+ */
+const MIN_ELAPSED_FRACTION_FOR_PROJECTION = 0.1
 
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat(undefined, {
@@ -85,6 +103,11 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
 
   // Need at least 1 second of elapsed time
   if (elapsedSeconds < 1) return null
+
+  // Suppress noisy extrapolations during the first days of the billing cycle.
+  if (totalSeconds > 0 && elapsedSeconds / totalSeconds < MIN_ELAPSED_FRACTION_FOR_PROJECTION) {
+    return null
+  }
 
   const used = premium.entitlement - premium.remaining
   const ratePerSecond = used / elapsedSeconds
@@ -170,6 +193,13 @@ export interface OrgPoolMetrics {
   seats: number
   billingYear: number
   billingMonth: number
+  /**
+   * AI Credits consumed by this account holder personally this period.
+   * When provided, the account card shows personal usage vs the per-seat
+   * allotment plus a share-of-org indicator; when omitted the card falls
+   * back to displaying the org-wide pool.
+   */
+  userCredits?: number | null
 }
 
 const UNLIMITED_SNAPSHOT: QuotaSnapshot = {
@@ -190,18 +220,51 @@ function firstOfNextMonthUtc(year: number, month: number): string {
 }
 
 /**
- * Build a `QuotaData` from org-pool AI Credit metrics so the existing account
- * card, projection, and aggregate consumers (all of which derive
- * `used = entitlement - remaining`) render correct numbers under AI Credits billing.
+ * Build a usage QuotaSnapshot from a used/allotment pair, deriving remaining,
+ * overage, and percent-remaining. Used for both the org pool and the per-seat
+ * personal quota.
  */
-export function synthesizeQuotaData(m: OrgPoolMetrics): QuotaData {
-  const allotment = computeCreditAllotment(m.seats, m.billingYear, m.billingMonth)
-  const used = Math.round(m.usedCredits)
+function buildUsageSnapshot(used: number, allotment: number): QuotaSnapshot {
   const remaining = allotment - used
   const overage = Math.max(0, used - allotment)
   const percentRemaining =
     allotment > 0 ? Math.max(0, (remaining / allotment) * 100) : used > 0 ? 0 : 100
+
+  return {
+    entitlement: allotment,
+    overage_count: overage,
+    overage_permitted: true,
+    percent_remaining: percentRemaining,
+    quota_id: 'premium_interactions',
+    quota_remaining: remaining,
+    remaining,
+    unlimited: false,
+    timestamp_utc: new Date().toISOString(),
+  }
+}
+
+/**
+ * Build a `QuotaData` from org-pool AI Credit metrics so the existing account
+ * card, projection, and aggregate consumers (all of which derive
+ * `used = entitlement - remaining`) render correct numbers under AI Credits billing.
+ *
+ * `premium_interactions` always carries the org-wide pool (keeping header totals
+ * and projections org-scoped). When `userCredits` is supplied, a `personal`
+ * snapshot (used vs the per-seat allotment) and `orgConsumed` denominator are
+ * attached so the account card can show personal usage and share-of-org.
+ */
+export function synthesizeQuotaData(m: OrgPoolMetrics): QuotaData {
+  const orgAllotment = computeCreditAllotment(m.seats, m.billingYear, m.billingMonth)
+  const orgUsed = Math.round(m.usedCredits)
   const resetUtc = firstOfNextMonthUtc(m.billingYear, m.billingMonth)
+
+  const hasPersonal = m.userCredits != null
+  const personal = hasPersonal
+    ? buildUsageSnapshot(
+        Math.round(m.userCredits as number),
+        creditsPerSeat(m.billingYear, m.billingMonth)
+      )
+    : undefined
 
   return {
     login: m.login,
@@ -211,20 +274,12 @@ export function synthesizeQuotaData(m: OrgPoolMetrics): QuotaData {
     organization_login_list: m.org ? [m.org] : [],
     grossCost: m.grossCost,
     netCost: m.netCost,
+    personal,
+    orgConsumed: hasPersonal ? orgUsed : undefined,
     quota_snapshots: {
       chat: UNLIMITED_SNAPSHOT,
       completions: UNLIMITED_SNAPSHOT,
-      premium_interactions: {
-        entitlement: allotment,
-        overage_count: overage,
-        overage_permitted: true,
-        percent_remaining: percentRemaining,
-        quota_id: 'premium_interactions',
-        quota_remaining: remaining,
-        remaining,
-        unlimited: false,
-        timestamp_utc: new Date().toISOString(),
-      },
+      premium_interactions: buildUsageSnapshot(orgUsed, orgAllotment),
     },
   }
 }

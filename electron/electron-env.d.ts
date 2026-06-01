@@ -84,6 +84,7 @@ interface Window {
         seats: number
         billingMonth: number
         billingYear: number
+        userCredits?: number | null
         allItems: Array<{
           date: string
           product: string

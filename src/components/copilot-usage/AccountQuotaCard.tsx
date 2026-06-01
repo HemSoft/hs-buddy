@@ -223,14 +223,34 @@ function QuotaDataView({
         premium={premium}
         metrics={metrics}
         projection={projection}
-        gross={data.grossCost}
+        gross={data.personal ? metrics.used * OVERAGE_COST_PER_CREDIT : data.grossCost}
       />
+
+      <ShareOfOrgBar used={metrics.used} orgConsumed={data.orgConsumed} />
 
       <QuotaProjectionView projection={projection} />
       <QuotaFooter state={state} data={data} />
 
       <QuotaOrgsSection orgs={data.organization_login_list} />
     </>
+  )
+}
+
+function ShareOfOrgBar({ used, orgConsumed }: { used: number; orgConsumed?: number }) {
+  if (orgConsumed == null || orgConsumed <= 0) return null
+  const pct = Math.min(100, Math.round((used / orgConsumed) * 100))
+  return (
+    <div className="usage-share-of-org" data-testid="share-of-org">
+      <div className="usage-share-of-org-head">
+        <span className="usage-share-of-org-label">Share of org</span>
+        <span className="usage-share-of-org-value">
+          {used.toLocaleString()} / {orgConsumed.toLocaleString()} ({pct}%)
+        </span>
+      </div>
+      <div className="usage-budget-bar-track">
+        <div className="usage-budget-bar-fill" style={{ width: `${pct}%`, background: '#5babe3' }} />
+      </div>
+    </div>
   )
 }
 
@@ -243,8 +263,12 @@ interface QuotaViewData {
 
 function prepareQuotaViewData(state: AccountQuotaState): QuotaViewData | null {
   const data = state.data
-  const premium = data?.quota_snapshots?.premium_interactions
-  if (!data || !premium) return null
+  const orgPremium = data?.quota_snapshots?.premium_interactions
+  if (!data || !orgPremium) return null
+  // The card foregrounds the account holder's personal quota when available,
+  // falling back to the org-wide pool. The header/aggregates keep using the
+  // org pool (premium_interactions) independently.
+  const premium = data.personal ?? orgPremium
   const metrics = computeQuotaMetrics(premium)
   const projection = computeProjection(premium, data.quota_reset_date_utc)
   return { data, premium, metrics, projection }

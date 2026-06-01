@@ -201,6 +201,7 @@ async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Pro
       seats: d.seats,
       billingYear: d.billingYear,
       billingMonth: d.billingMonth,
+      userCredits: d.userCredits,
     })
     setQuotas(prev => ({
       ...prev,

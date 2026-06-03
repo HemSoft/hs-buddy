@@ -11,6 +11,7 @@ on:
 permissions:
   contents: write
   pull-requests: read
+  statuses: write
 
 jobs:
   fix-lockfile:
@@ -31,10 +32,86 @@ jobs:
       - name: Install Bun
         run: npm install -g bun@1.2.0
 
+      - name: Cache Bun dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
       - name: Update lockfile
         run: bun install --no-frozen-lockfile
 
+      - name: Verify frozen install
+        run: bun install --frozen-lockfile
+
+      - name: Lint (ESLint)
+        run: bun run lint
+
+      - name: Check for unused code and dependencies
+        run: bun run knip
+
+      - name: Format check (Prettier)
+        run: bun run format:check
+
+      - name: Analyze dependency health
+        run: npx --yes @e18e/cli analyze
+        continue-on-error: true
+
+      - name: Check architecture boundaries (dependency-cruiser)
+        run: |
+          # depcruise exits non-zero for any violations including warnings.
+          # --ignore-known excludes pre-existing violations baselined in .dependency-cruiser-known-violations.json.
+          # Only fail CI on error-level violations to support gradual rollout.
+          bunx depcruise src electron convex --config .dependency-cruiser.cjs --ignore-known -T json > /tmp/dc-output.json || true
+          node -e "
+            const r = require('/tmp/dc-output.json');
+            const e = r.summary?.error || 0;
+            const w = r.summary?.warn || 0;
+            console.log('Architecture boundaries: ' + e + ' errors, ' + w + ' warnings');
+            if (e > 0) { console.error('Error-level boundary violations found'); process.exit(1); }
+            console.log('No error-level boundary violations');
+          "
+
+      - name: Quality gate lint (informational)
+        run: bun run lint:quality
+        continue-on-error: true
+
+      - name: Electron security check
+        run: bun scripts/check-electron-security.ts
+
+      - name: Type check (TypeScript + Convex)
+        run: bun run typecheck
+
+      - name: Run tests with coverage
+        run: bun run test:coverage
+
+      - name: Run electron tests with coverage
+        run: bun run test:electron:coverage
+
+      - name: Run IPC contract tests
+        run: bun run test:ipc-contracts
+
+      - name: Run Convex server function tests
+        run: bun run test:convex
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run E2E tests
+        run: bun run test:e2e
+        env:
+          CI: true
+          VITE_CONVEX_URL: https://placeholder-e2e.convex.cloud
+
+      - name: Build (vite + electron)
+        run: npx vite build
+
+      - name: Check bundle sizes
+        run: bun run bundle-size
+
       - name: Commit updated lockfile
+        id: commit-lockfile
         env:
           HUSKY: "0"
         run: |
@@ -43,7 +120,22 @@ jobs:
           git add bun.lock
           if git diff --cached --quiet; then
             echo "Lockfile already up to date"
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
           else
             git commit -m "chore: update bun.lock for dependabot PR"
             git push
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Mark pushed lockfile commit as validated
+        if: steps.commit-lockfile.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VALIDATED_SHA: ${{ steps.commit-lockfile.outputs.sha }}
+        run: |
+          gh api "repos/${{ github.repository }}/statuses/$VALIDATED_SHA" \
+            -f state=success \
+            -f context="Dependabot Lockfile Fix / validated" \
+            -f description="Required CI checks passed before this lockfile commit was pushed" \
+            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

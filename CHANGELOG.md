@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Use CodexBar Copilot metrics snapshot
+- Validate dependabot lockfile updates
 
 ## [0.1.788] - 2026-06-03
 

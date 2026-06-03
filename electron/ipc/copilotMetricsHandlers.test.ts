@@ -1,9 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 
 const mocks = vi.hoisted(() => ({
-  appGetPath: vi.fn(),
   ipcHandle: vi.fn(),
   normalizeSnapshot: vi.fn(),
   parseContent: vi.fn(),
@@ -12,9 +11,6 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('electron', () => ({
-  app: {
-    getPath: mocks.appGetPath,
-  },
   ipcMain: {
     handle: mocks.ipcHandle,
   },
@@ -39,21 +35,19 @@ describe('copilotMetricsHandlers', () => {
     vi.clearAllMocks()
     if (originalMetricsFile === undefined) delete process.env.COPILOT_METRICS_FILE
     else process.env.COPILOT_METRICS_FILE = originalMetricsFile
-    mocks.appGetPath.mockReturnValue('C:\\Users\\User\\AppData\\Roaming\\hs-buddy')
   })
 
   it('resolves an explicit Copilot metrics file override', () => {
     process.env.COPILOT_METRICS_FILE = 'C:\\metrics\\copilot-metrics.json'
 
     expect(resolveCopilotMetricsFile()).toBe(resolve('C:\\metrics\\copilot-metrics.json'))
-    expect(mocks.appGetPath).not.toHaveBeenCalled()
   })
 
-  it('falls back to the portable Electron userData location', () => {
+  it('falls back to the CodexBar Copilot metrics snapshot', () => {
     delete process.env.COPILOT_METRICS_FILE
 
     expect(resolveCopilotMetricsFile()).toBe(
-      join('C:\\Users\\User\\AppData\\Roaming\\hs-buddy', 'copilot-metrics.json')
+      resolve('D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json')
     )
   })
 

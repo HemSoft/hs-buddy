@@ -1,6 +1,6 @@
-import { app, ipcMain } from 'electron'
+import { ipcMain } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   normalizeCopilotEnterpriseUsersSnapshot,
@@ -10,12 +10,13 @@ import type { CopilotEnterpriseUsersResponse } from '../../src/types/copilotEnte
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 
 const COPILOT_METRICS_FILE_ENV = 'COPILOT_METRICS_FILE'
+const DEFAULT_COPILOT_METRICS_FILE = 'D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json'
 
 export function resolveCopilotMetricsFile(): string {
   const configuredPath = process.env[COPILOT_METRICS_FILE_ENV]?.trim()
   if (configuredPath) return resolve(configuredPath)
 
-  return join(app.getPath('userData'), 'copilot-metrics.json')
+  return resolve(DEFAULT_COPILOT_METRICS_FILE)
 }
 
 export function registerCopilotMetricsHandlers(): void {

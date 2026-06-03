@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Migrate Copilot Usage page to June 2026 AI Credits billing
+- Add Copilot usage org totals
 
 ## [0.1.785] - 2026-05-31
 

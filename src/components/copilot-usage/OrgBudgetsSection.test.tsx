@@ -120,6 +120,23 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('no budget set')).toBeInTheDocument()
   })
 
+  it('hides the budget progress bar when no budget is set', () => {
+    const orgs = new Map([['unknown-org', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      'unknown-org': {
+        data: makeOrgBudgetData({ budgetAmount: null }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(document.querySelector('.usage-budget-bar-track')).not.toBeInTheDocument()
+  })
+
   it('shows overage when useQuotaOverage is true', () => {
     const orgs = new Map([['acme', 'token']])
     const overages = new Map([['acme', 25]])

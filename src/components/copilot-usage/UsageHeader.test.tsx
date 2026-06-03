@@ -4,7 +4,10 @@ import { UsageHeader } from './UsageHeader'
 
 const baseProps = {
   totalUsed: 1500,
+  totalEntitlement: 7000,
   totalOverageCost: 25.5,
+  totalSpent: null,
+  projectedSpend: null,
   projectedTotal: null,
   projectedOverageCost: null,
   anyLoading: false,
@@ -45,6 +48,37 @@ describe('UsageHeader', () => {
 
     expect(screen.queryByText('Projected')).not.toBeInTheDocument()
     expect(screen.queryByText('Est. Overage')).not.toBeInTheDocument()
+  })
+
+  it('shows total and projected spend when provided', () => {
+    render(<UsageHeader {...baseProps} totalSpent={123.45} projectedSpend={250} />)
+
+    expect(screen.getByText('$123.45')).toBeInTheDocument()
+    expect(screen.getByText('Total Spend')).toBeInTheDocument()
+    expect(screen.getByText('$250.00')).toBeInTheDocument()
+    expect(screen.getByText('Proj. Spend')).toBeInTheDocument()
+  })
+
+  it('hides spend sections when spend values are absent', () => {
+    render(<UsageHeader {...baseProps} totalSpent={null} projectedSpend={null} />)
+
+    expect(screen.queryByText('Total Spend')).not.toBeInTheDocument()
+    expect(screen.queryByText('Proj. Spend')).not.toBeInTheDocument()
+  })
+
+  it('hides Proj. Spend when projected spend is zero', () => {
+    render(<UsageHeader {...baseProps} totalSpent={42} projectedSpend={0} />)
+
+    expect(screen.getByText('Total Spend')).toBeInTheDocument()
+    expect(screen.queryByText('Proj. Spend')).not.toBeInTheDocument()
+  })
+
+  it('shows total spend even when projected spend is unavailable', () => {
+    render(<UsageHeader {...baseProps} totalSpent={80} projectedSpend={null} />)
+
+    expect(screen.getByText('$80.00')).toBeInTheDocument()
+    expect(screen.getByText('Total Spend')).toBeInTheDocument()
+    expect(screen.queryByText('Proj. Spend')).not.toBeInTheDocument()
   })
 
   it('calls onRefreshAll when the refresh button is clicked', () => {

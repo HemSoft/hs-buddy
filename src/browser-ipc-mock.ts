@@ -115,6 +115,8 @@ export function installBrowserIpcMock(): void {
     getCopilotBudget: () => Promise.resolve({ success: false }),
     getCopilotMemberUsage: () => Promise.resolve({ success: false }),
     getUserPremiumRequests: () => Promise.resolve({ success: false }),
+    getCopilotEnterpriseUsers: () =>
+      Promise.resolve({ success: false, error: 'Browser mock: metrics file unavailable' }),
   }
   w.terminal = {
     spawn: () => Promise.resolve({ success: false, error: 'Browser mock' }),

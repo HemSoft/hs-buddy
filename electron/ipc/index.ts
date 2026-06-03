@@ -16,6 +16,7 @@ import { registerFilesystemHandlers } from './filesystemHandlers'
 import { registerRalphHandlers } from './ralphHandlers'
 import { registerSlackHandlers } from './slackHandlers'
 import { registerPollenHandlers } from './pollenHandlers'
+import { registerCopilotMetricsHandlers } from './copilotMetricsHandlers'
 
 export function registerAllHandlers(win: BrowserWindow): void {
   // Patch ipcMain.handle before any handlers register — gives every
@@ -38,4 +39,5 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerRalphHandlers(win)
   registerSlackHandlers()
   registerPollenHandlers()
+  registerCopilotMetricsHandlers()
 }

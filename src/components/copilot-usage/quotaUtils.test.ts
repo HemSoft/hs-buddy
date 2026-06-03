@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   formatCurrency,
   getQuotaColor,
@@ -161,14 +161,17 @@ describe('computeProjection', () => {
     }
   })
 
-  it('returns null when less than 10% of the billing cycle has elapsed', () => {
-    const now = new Date()
-    // Reset ~29 days out → the period started ~a day ago → well under 10% elapsed.
-    const resetDate = new Date(now.getTime() + 29 * 24 * 60 * 60 * 1000)
+  it('floors early-cycle projection to one day of elapsed usage', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(new Date('2026-06-01T06:00:00Z').getTime())
+    const resetDate = '2026-07-01T00:00:00Z'
     const premium = makeSnapshot({ entitlement: 300, remaining: 100, percent_remaining: 33 })
 
-    const result = computeProjection(premium, resetDate.toISOString())
-    expect(result).toBeNull()
+    const result = computeProjection(premium, resetDate)
+    expect(result).not.toBeNull()
+    expect(result!.dailyRate).toBe(200)
+    expect(result!.projectedTotal).toBe(6000)
+
+    vi.restoreAllMocks()
   })
 })
 

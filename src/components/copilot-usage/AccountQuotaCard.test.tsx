@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react'
 import { AccountQuotaCard } from './AccountQuotaCard'
 import type { GitHubAccount } from '../../types/config'
 import type { AccountQuotaState } from './quotaUtils'
+import type { OrgBudgetState } from './types'
 
 vi.mock('./UsageRing', () => ({
   UsageRing: ({ percentUsed }: { percentUsed: number }) => (
@@ -55,6 +56,20 @@ function makeQuotaData(overrides: Record<string, unknown> = {}) {
         timestamp_utc: '2026-04-14T00:00:00Z',
       },
     },
+    ...overrides,
+  }
+}
+
+function makeOrgBudgetData(overrides: Record<string, unknown> = {}) {
+  return {
+    budgetAmount: 100,
+    spent: 42,
+    useQuotaOverage: false,
+    preventFurtherUsage: false,
+    spentUnavailable: false,
+    billingYear: 2026,
+    billingMonth: 4,
+    fetchedAt: 1700000000000,
     ...overrides,
   }
 }
@@ -262,5 +277,33 @@ describe('AccountQuotaCard', () => {
     }
     render(<AccountQuotaCard account={testAccount} state={state} />)
     expect(screen.queryByTestId('share-of-org')).not.toBeInTheDocument()
+  })
+
+  it('renders org budget details inside the quota card', () => {
+    const state: AccountQuotaState = {
+      data: makeQuotaData() as AccountQuotaState['data'],
+      loading: false,
+      error: null,
+      fetchedAt: 1700000000000,
+    }
+    const budgetState: OrgBudgetState = {
+      data: makeOrgBudgetData() as OrgBudgetState['data'],
+      loading: false,
+      error: null,
+    }
+
+    render(
+      <AccountQuotaCard
+        account={testAccount}
+        state={state}
+        budgetState={budgetState}
+        quotaOverage={15}
+      />
+    )
+
+    expect(screen.getByTestId('org-budget-summary')).toBeInTheDocument()
+    expect(screen.getByText('Org Budget')).toBeInTheDocument()
+    expect(screen.getByText('$42.00 spent')).toBeInTheDocument()
+    expect(screen.getByText('$15.00 mine')).toBeInTheDocument()
   })
 })

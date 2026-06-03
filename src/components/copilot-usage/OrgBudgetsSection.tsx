@@ -9,6 +9,11 @@ interface OrgBudgetsSectionProps {
   orgOverageFromQuotas: Map<string, number>
 }
 
+interface OrgBudgetSummaryProps {
+  state: OrgBudgetState | undefined
+  quotaOverage: number
+}
+
 interface BudgetCardMetrics {
   effectiveBudget: number | null
   displaySpent: number
@@ -189,6 +194,26 @@ function BudgetMyShareLabel({
   return <span className="usage-budget-myshare-label">{formatCurrency(myShare)} mine</span>
 }
 
+function BudgetProgressBar({
+  effectiveBudget,
+  pct,
+  barColor,
+  mySharePct,
+  myShare,
+}: Pick<BudgetCardMetrics, 'effectiveBudget' | 'pct' | 'barColor' | 'mySharePct' | 'myShare'>) {
+  if (effectiveBudget === null || pct === null) return null
+
+  return (
+    <div className="usage-budget-bar-track">
+      <div
+        className="usage-budget-bar-fill"
+        style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
+      />
+      <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
+    </div>
+  )
+}
+
 function BudgetGrossLabel({ gross, useQuotaOverage }: { gross: number; useQuotaOverage: boolean }) {
   if (gross <= 0 || useQuotaOverage) return null
 
@@ -235,13 +260,13 @@ function BudgetCardBody({
 
   return (
     <>
-      <div className="usage-budget-bar-track">
-        <div
-          className="usage-budget-bar-fill"
-          style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
-        />
-        <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
-      </div>
+      <BudgetProgressBar
+        effectiveBudget={effectiveBudget}
+        pct={pct}
+        barColor={barColor}
+        mySharePct={mySharePct}
+        myShare={myShare}
+      />
       <div className="usage-budget-amounts">
         <span className="usage-budget-spent" style={{ color: barColor }}>
           {formatCurrency(displaySpent)} {resolveSpentLabel(d.useQuotaOverage)}
@@ -328,6 +353,33 @@ function BudgetCardMetricsContent({
 
   const metrics = computeBudgetCardMetrics(data, quotaOverage)
   return <BudgetCardBody d={data} metrics={metrics} />
+}
+
+export function OrgBudgetSummary({ state, quotaOverage }: OrgBudgetSummaryProps) {
+  if (!state) return null
+
+  const { data: d, loading, error } = resolveBudgetCardState(state)
+  const preventFurtherUsage = resolvePreventFurtherUsage(d)
+
+  return (
+    <div className="usage-org-budget-summary" data-testid="org-budget-summary">
+      <div className="usage-org-budget-summary-header">
+        <span className="usage-org-budget-summary-title">
+          <Building2 size={12} />
+          Org Budget
+        </span>
+        {loading && <RefreshCw size={12} className="spin" />}
+        {preventFurtherUsage && (
+          <span className="usage-budget-stop-badge" title="Usage stopped at limit">
+            <ShieldAlert size={11} />
+            Stop at limit
+          </span>
+        )}
+      </div>
+      <BudgetCardErrorContent error={error} data={d} />
+      <BudgetCardMetricsContent data={d} quotaOverage={quotaOverage} />
+    </div>
+  )
 }
 
 function BudgetCard({

@@ -1,7 +1,0 @@
-export { SettingsAccounts } from './SettingsAccounts'
-export { SettingsAppearance } from './SettingsAppearance'
-export { SettingsPullRequests } from './SettingsPullRequests'
-export { SettingsCopilot } from './SettingsCopilot'
-export { SettingsNotifications } from './SettingsNotifications'
-export { SettingsAdvanced } from './SettingsAdvanced'
-export { SettingsWeather } from './SettingsWeather'

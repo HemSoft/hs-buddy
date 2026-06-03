@@ -289,6 +289,82 @@ describe('useCopilotUsage', () => {
     expect(result.current.uniqueOrgs.get('org1')).toBe('user1')
   })
 
+  it('aggregateSpend is null when every org bills from the quota pool', async () => {
+    // Default budget mock has useQuotaOverage: true -> excluded from dollar spend.
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.aggregateSpend).toBeNull()
+  })
+
+  it('aggregateSpend sums dollar spend and projects it to month-end', async () => {
+    // 15 days into the 30-day April 2026 period, $300 spent -> ~$600 projected.
+    const periodStartMs = Date.UTC(2026, 3, 1)
+    const midMonth = periodStartMs + 15 * 86_400_000
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: makeBudgetData({
+        useQuotaOverage: false,
+        spentUnavailable: false,
+        spent: 300,
+        billingMonth: 4,
+        billingYear: 2026,
+        fetchedAt: midMonth,
+      }),
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+
+    expect(result.current.aggregateSpend).not.toBeNull()
+    expect(result.current.aggregateSpend!.totalSpent).toBe(300)
+    expect(result.current.aggregateSpend!.projectedSpend).toBeCloseTo(600, 0)
+  })
+
+  it('aggregateSpend excludes orgs with unavailable spend', async () => {
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: makeBudgetData({ useQuotaOverage: false, spentUnavailable: true, spent: 0 }),
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.aggregateSpend).toBeNull()
+  })
+
+  it('aggregateSpend skips orgs with null spent values', async () => {
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: makeBudgetData({ useQuotaOverage: false, spentUnavailable: false, spent: null }),
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.aggregateSpend).toBeNull()
+  })
+
+  it('aggregateSpend falls back to spent when a projection is unavailable', async () => {
+    // Billing period in the past -> computeBudgetProjection returns null,
+    // so projectedSpend should fall back to the raw spent figure.
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: makeBudgetData({
+        useQuotaOverage: false,
+        spentUnavailable: false,
+        spent: 75,
+        billingMonth: 1,
+        billingYear: 2020,
+        fetchedAt: Date.now(),
+      }),
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+
+    expect(result.current.aggregateSpend).not.toBeNull()
+    expect(result.current.aggregateSpend!.totalSpent).toBe(75)
+    expect(result.current.aggregateSpend!.projectedSpend).toBe(75)
+  })
+
   it('handles usage fetch error with no error message', async () => {
     mockGetCopilotUsage.mockResolvedValue({ success: false })
     const { result } = renderHook(() => useCopilotUsage())

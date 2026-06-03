@@ -60,13 +60,6 @@ interface Projection {
 export const OVERAGE_COST_PER_CREDIT = 0.01
 const SECONDS_PER_DAY = 86_400
 
-/**
- * Minimum fraction of the billing period that must have elapsed before a
- * month-end projection is shown. Early in the cycle a linear extrapolation
- * from a few hours of usage produces wildly inflated, meaningless numbers.
- */
-const MIN_ELAPSED_FRACTION_FOR_PROJECTION = 0.1
-
 export const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
@@ -101,16 +94,16 @@ export function computeProjection(premium: QuotaSnapshot, resetDateStr: string):
   const elapsedSeconds = elapsedMs / 1000
   const totalSeconds = totalMs / 1000
 
-  // Need at least 1 second of elapsed time
-  if (elapsedSeconds < 1) return null
+  // Need at least 1 second of elapsed time and a non-degenerate period.
+  if (elapsedSeconds < 1 || totalSeconds < 1) return null
 
-  // Suppress noisy extrapolations during the first days of the billing cycle.
-  if (totalSeconds > 0 && elapsedSeconds / totalSeconds < MIN_ELAPSED_FRACTION_FOR_PROJECTION) {
-    return null
-  }
+  // Floor the elapsed window at one day so an early-cycle, sub-day rate can't
+  // explode into a meaningless month-end figure, and cap it at the full period
+  // so a stale/past reset date can't project below actual usage.
+  const effectiveElapsedSeconds = Math.min(Math.max(elapsedSeconds, SECONDS_PER_DAY), totalSeconds)
 
-  const used = premium.entitlement - premium.remaining
-  const ratePerSecond = used / elapsedSeconds
+  const used = Math.max(0, premium.entitlement - premium.remaining)
+  const ratePerSecond = used / effectiveElapsedSeconds
   const projectedTotal = Math.round(ratePerSecond * totalSeconds)
   const dailyRate = ratePerSecond * SECONDS_PER_DAY
   const projectedOverage = Math.max(0, projectedTotal - premium.entitlement)
@@ -172,13 +165,13 @@ export function getQuotaColor(pct: number | null): string {
  * AI Credits included per seat per billing month.
  * GitHub's promotional allotment is 7,000 for 2026-06..2026-08, otherwise 3,900.
  */
-export function creditsPerSeat(year: number, month: number): number {
+function creditsPerSeat(year: number, month: number): number {
   if (year === 2026 && month >= 6 && month <= 8) return 7000
   return 3900
 }
 
 /** Total AI Credit allotment for an org = seats × per-seat credits (rounded). */
-export function computeCreditAllotment(seats: number, year: number, month: number): number {
+function computeCreditAllotment(seats: number, year: number, month: number): number {
   return Math.round(seats * creditsPerSeat(year, month))
 }
 

@@ -16,6 +16,53 @@ import {
 } from '../../src/utils/copilotSessionParsing'
 import { aggregateResults } from '../../src/utils/sessionDigest'
 
+const SMALL_SESSION_FILE_BYTES = 128 * 1024
+
+function createSessionParseState(): SessionParseState {
+  return {
+    init: null,
+    title: '',
+    resultsByIndex: new Map(),
+    prompts: new Map(),
+  }
+}
+
+function processSessionContentLine(line: string, state: SessionParseState): void {
+  const kindMatch = /^\{"kind":(\d+)/.exec(line)
+  if (!kindMatch) return
+
+  const kind = parseInt(kindMatch[1])
+  const keyPath = parseKeyPath(line)
+  processSessionLine(kind, keyPath, line, state)
+}
+
+function parseSessionContent(
+  content: string,
+  workspaceHash: string,
+  filePath: string
+): CopilotSession | null {
+  const state = createSessionParseState()
+
+  for (const line of content.split(/\r?\n/)) {
+    processSessionContentLine(line, state)
+  }
+
+  return buildSessionFromState(state, workspaceHash, filePath)
+}
+
+function readSmallSessionDetail(
+  filePath: string,
+  workspaceHash: string
+): CopilotSession | null | undefined {
+  try {
+    if (fs.statSync(filePath).size > SMALL_SESSION_FILE_BYTES) return undefined
+
+    return parseSessionContent(fs.readFileSync(filePath, 'utf8'), workspaceHash, filePath)
+  } catch (_: unknown) {
+    return undefined
+  }
+}
+
 // ─── VS Code Storage Discovery ────────────────────────────
 
 export function getVSCodeStoragePath(): string {
@@ -137,24 +184,17 @@ export async function getSessionDetail(filePath: string): Promise<CopilotSession
   if (!fs.existsSync(filePath)) return null
 
   const workspaceHash = path.basename(path.dirname(path.dirname(filePath)))
+  const smallSession = readSmallSessionDetail(filePath, workspaceHash)
+  if (smallSession !== undefined) return smallSession
 
   return new Promise(resolve => {
-    const state: SessionParseState = {
-      init: null,
-      title: '',
-      resultsByIndex: new Map(),
-      prompts: new Map(),
-    }
+    const state = createSessionParseState()
 
     const stream = fs.createReadStream(filePath, { encoding: 'utf8' })
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity })
 
     rl.on('line', line => {
-      const kindMatch = /^\{"kind":(\d+)/.exec(line)
-      if (!kindMatch) return
-      const kind = parseInt(kindMatch[1])
-      const keyPath = parseKeyPath(line)
-      processSessionLine(kind, keyPath, line, state)
+      processSessionContentLine(line, state)
     })
 
     rl.on('close', () => resolve(buildSessionFromState(state, workspaceHash, filePath)))

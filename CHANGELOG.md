@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.788] - 2026-06-03
+
+### Fixed
+
+- Address Copilot usage review feedback
+
+## [0.1.787] - 2026-06-03
+
+### Changed
+
+- Enforce LF for source files
+
 ## [0.1.786] - 2026-06-01
 
 ### Changed
@@ -18,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Migrate Copilot Usage page to June 2026 AI Credits billing
+- Add Copilot usage org totals
 
 ## [0.1.785] - 2026-05-31
 

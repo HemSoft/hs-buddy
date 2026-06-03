@@ -78,6 +78,8 @@ contextBridge.exposeInMainWorld('github', {
           skipDayProbing
         )
       : Promise.resolve({ success: false, error: 'Invalid arguments' }),
+  getCopilotEnterpriseUsers: () =>
+    ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_ENTERPRISE_USERS),
 })
 
 contextBridge.exposeInMainWorld('crew', {

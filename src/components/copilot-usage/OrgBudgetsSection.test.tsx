@@ -120,6 +120,23 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('no budget set')).toBeInTheDocument()
   })
 
+  it('hides the budget progress bar when no budget is set', () => {
+    const orgs = new Map([['unknown-org', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      'unknown-org': {
+        data: makeOrgBudgetData({ budgetAmount: null }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(document.querySelector('.usage-budget-bar-track')).not.toBeInTheDocument()
+  })
+
   it('shows overage when useQuotaOverage is true', () => {
     const orgs = new Map([['acme', 'token']])
     const overages = new Map([['acme', 25]])
@@ -137,7 +154,7 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText(/overage/)).toBeInTheDocument()
   })
 
-  it('treats null spent as zero when useQuotaOverage is false', () => {
+  it('shows spend unavailable when spent is null', () => {
     const orgs = new Map([['acme', 'token']])
     const overages = new Map([['acme', 0]])
     const budgets: Record<string, OrgBudgetState> = {
@@ -152,7 +169,8 @@ describe('OrgBudgetsSection', () => {
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={overages} />
     )
     expect(screen.getByText('acme')).toBeInTheDocument()
-    expect(screen.getByText(/spent/i)).toBeInTheDocument()
+    expect(screen.getByText('Spend unavailable')).toBeInTheDocument()
+    expect(screen.queryByText(/\$0\.00 spent/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/overage/i)).not.toBeInTheDocument()
   })

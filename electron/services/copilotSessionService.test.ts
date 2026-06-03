@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { EventEmitter } from 'events'
 
 const mockExistsSync = vi.fn((_p: string): boolean => false)
-const mockReadFileSync = vi.fn((_p: string): string => {
+const mockReadFileSync = vi.fn((_p: string, _encoding?: BufferEncoding): string => {
   throw new Error('ENOENT')
 })
 const mockOpenSync = vi.fn((_p: string): number => 3)
@@ -15,7 +15,7 @@ const mockStatSync = vi.fn((_p: string) => ({ size: 100, mtimeMs: Date.now() }))
 
 vi.mock('fs', () => ({
   existsSync: (p: string) => mockExistsSync(p),
-  readFileSync: (p: string) => mockReadFileSync(p),
+  readFileSync: (p: string, encoding?: BufferEncoding) => mockReadFileSync(p, encoding),
   openSync: (p: string) => mockOpenSync(p),
   readSync: (fd: number, buf: Buffer, off: number, len: number, pos: number | null) =>
     mockReadSync(fd, buf, off, len, pos),
@@ -416,6 +416,33 @@ describe('copilotSessionService', () => {
       expect(result!.workspaceHash).toBe('hash1')
       expect(mockParseKeyPath).toHaveBeenCalled()
       expect(mockProcessSessionLine).toHaveBeenCalled()
+    })
+
+    it('parses small JSONL files without opening a stream', async () => {
+      mockExistsSync.mockReturnValue(true)
+      mockReadFileSync.mockReturnValue('{"kind":1,"data":"init"}\ninvalid line without kind')
+      const { createReadStream } = await import('fs')
+
+      mockProcessSessionLine.mockImplementation(
+        (_kind: number, _keyPath: unknown, _line: string, state: Record<string, unknown>) => {
+          state.init = {
+            sessionId: 'small-session',
+            creationDate: 1000,
+            model: 'gpt-4',
+          }
+          state.title = 'Small Session'
+        }
+      )
+
+      const result = await getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+
+      expect(result).not.toBeNull()
+      expect(result!.sessionId).toBe('small-session')
+      expect(mockReadFileSync).toHaveBeenCalledWith(
+        '/workspace/hash1/chatSessions/test.jsonl',
+        'utf8'
+      )
+      expect(createReadStream).not.toHaveBeenCalled()
     })
 
     it('uses fallback title when state.title is empty', async () => {

@@ -431,6 +431,11 @@ describe('preload', () => {
         true
       )
     })
+
+    it('getCopilotEnterpriseUsers invokes github:get-copilot-enterprise-users', () => {
+      exposedApis.github.getCopilotEnterpriseUsers()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.GITHUB_GET_COPILOT_ENTERPRISE_USERS)
+    })
   })
 
   describe('crew bridge - additional methods', () => {

@@ -1,11 +1,11 @@
 import { AlertCircle } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import type { AccountQuotaState } from './copilot-usage/quotaUtils'
+import type { OrgBudgetState } from './copilot-usage/types'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
-import { OrgBudgetsSection } from './copilot-usage/OrgBudgetsSection'
 import { TopUsersSection } from './copilot-usage/TopUsersSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
-import { useCopilotSeats } from '../hooks/useCopilotSeats'
 import './CopilotUsagePanel.css'
 
 function resolveProjection(
@@ -23,9 +23,13 @@ function resolveProjection(
 function AccountsGrid({
   accounts,
   quotas,
+  orgBudgets,
+  orgOverageFromQuotas,
 }: {
   accounts: { username: string; org?: string }[]
   quotas: Record<string, AccountQuotaState>
+  orgBudgets: Record<string, OrgBudgetState>
+  orgOverageFromQuotas: Map<string, number>
 }) {
   if (accounts.length === 0) {
     return (
@@ -46,6 +50,8 @@ function AccountsGrid({
                 key={account.username}
                 account={{ username: account.username, org: account.org ?? '' }}
                 state={quotas[account.username]}
+                budgetState={account.org ? orgBudgets[account.org] : undefined}
+                quotaOverage={account.org ? (orgOverageFromQuotas.get(account.org) ?? 0) : 0}
               />,
             ]
       )}
@@ -54,49 +60,49 @@ function AccountsGrid({
 }
 
 export function CopilotUsagePanel() {
+  const [enterpriseUsersRefreshToken, setEnterpriseUsersRefreshToken] = useState(0)
   const {
     accounts,
     quotas,
     orgBudgets,
-    uniqueOrgs,
     refreshAll,
     anyLoading,
     aggregateTotals,
     aggregateProjections,
+    aggregateSpend,
     orgOverageFromQuotas,
   } = useCopilotUsage()
-  const topUsers = useCopilotSeats(uniqueOrgs)
 
   const projections = resolveProjection(aggregateProjections)
+  const handleRefreshAll = useCallback(() => {
+    refreshAll()
+    setEnterpriseUsersRefreshToken(token => token + 1)
+  }, [refreshAll])
 
   return (
     <div className="copilot-usage-panel">
       <UsageHeader
         totalUsed={aggregateTotals.totalUsed}
+        totalEntitlement={aggregateTotals.totalEntitlement}
         totalOverageCost={aggregateTotals.totalOverageCost}
+        totalSpent={aggregateSpend?.totalSpent ?? null}
+        projectedSpend={aggregateSpend?.projectedSpend ?? null}
         projectedTotal={projections.projectedTotal}
         projectedOverageCost={projections.projectedOverageCost}
         anyLoading={anyLoading}
-        onRefreshAll={refreshAll}
+        onRefreshAll={handleRefreshAll}
       />
 
       <div className="usage-accounts-grid">
-        <AccountsGrid accounts={accounts} quotas={quotas} />
+        <AccountsGrid
+          accounts={accounts}
+          quotas={quotas}
+          orgBudgets={orgBudgets}
+          orgOverageFromQuotas={orgOverageFromQuotas}
+        />
       </div>
 
-      <TopUsersSection
-        seats={topUsers.seats}
-        loading={topUsers.loading}
-        orgErrors={topUsers.orgErrors}
-        truncated={topUsers.truncated}
-        hasOrgs={uniqueOrgs.size > 0}
-      />
-
-      <OrgBudgetsSection
-        uniqueOrgs={uniqueOrgs}
-        orgBudgets={orgBudgets}
-        orgOverageFromQuotas={orgOverageFromQuotas}
-      />
+      <TopUsersSection refreshToken={enterpriseUsersRefreshToken} />
     </div>
   )
 }

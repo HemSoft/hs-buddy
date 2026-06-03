@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getErrorMessage } from '../utils/errorUtils'
 
-export interface CopilotSeatInfo {
+interface CopilotSeatInfo {
   login: string
   displayName: string | null
   org: string

@@ -14,6 +14,8 @@ import {
   computeProjection,
   type AccountQuotaState,
 } from './quotaUtils'
+import { OrgBudgetSummary } from './OrgBudgetsSection'
+import type { OrgBudgetState } from './types'
 import type { GitHubAccount } from '../../types/config'
 import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../../utils/copilotFormatUtils'
 import { formatTime } from '../../utils/dateUtils'
@@ -28,6 +30,8 @@ const INITIAL_QUOTA_STATE: AccountQuotaState = {
 interface AccountQuotaCardProps {
   account: GitHubAccount
   state: AccountQuotaState | undefined
+  budgetState?: OrgBudgetState
+  quotaOverage?: number
 }
 
 const PLAN_ICONS: Record<string, typeof Building2> = {
@@ -197,12 +201,16 @@ function QuotaDataView({
   premium,
   metrics,
   projection,
+  budgetState,
+  quotaOverage,
 }: {
   state: AccountQuotaState
   data: NonNullable<AccountQuotaState['data']>
   premium: NonNullable<AccountQuotaState['data']>['quota_snapshots']['premium_interactions']
   metrics: QuotaMetrics
   projection: ReturnType<typeof computeProjection>
+  budgetState: OrgBudgetState | undefined
+  quotaOverage: number
 }) {
   return (
     <>
@@ -227,6 +235,7 @@ function QuotaDataView({
       />
 
       <ShareOfOrgBar used={metrics.used} orgConsumed={data.orgConsumed} />
+      <OrgBudgetSummary state={budgetState} quotaOverage={quotaOverage} />
 
       <QuotaProjectionView projection={projection} />
       <QuotaFooter state={state} data={data} />
@@ -248,7 +257,10 @@ function ShareOfOrgBar({ used, orgConsumed }: { used: number; orgConsumed?: numb
         </span>
       </div>
       <div className="usage-budget-bar-track">
-        <div className="usage-budget-bar-fill" style={{ width: `${pct}%`, background: '#5babe3' }} />
+        <div
+          className="usage-budget-bar-fill"
+          style={{ width: `${pct}%`, background: '#5babe3' }}
+        />
       </div>
     </div>
   )
@@ -303,10 +315,14 @@ function QuotaCardContent({
   state,
   account,
   quotaView,
+  budgetState,
+  quotaOverage,
 }: {
   state: AccountQuotaState
   account: AccountQuotaCardProps['account']
   quotaView: QuotaViewData | null
+  budgetState: OrgBudgetState | undefined
+  quotaOverage: number
 }) {
   if (isLoadingWithoutData(state.loading, state.data)) return <QuotaLoadingView />
   if (state.error && !state.data) {
@@ -321,17 +337,30 @@ function QuotaCardContent({
       premium={quotaView.premium}
       metrics={quotaView.metrics}
       projection={quotaView.projection}
+      budgetState={budgetState}
+      quotaOverage={quotaOverage}
     />
   )
 }
 
-export function AccountQuotaCard({ account, state: rawState }: AccountQuotaCardProps) {
+export function AccountQuotaCard({
+  account,
+  state: rawState,
+  budgetState,
+  quotaOverage = 0,
+}: AccountQuotaCardProps) {
   const state = rawState ?? INITIAL_QUOTA_STATE
   const quotaView = prepareQuotaViewData(state)
 
   return (
     <div className="usage-account-card">
-      <QuotaCardContent state={state} account={account} quotaView={quotaView} />
+      <QuotaCardContent
+        state={state}
+        account={account}
+        quotaView={quotaView}
+        budgetState={budgetState}
+        quotaOverage={quotaOverage}
+      />
     </div>
   )
 }

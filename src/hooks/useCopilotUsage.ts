@@ -10,6 +10,7 @@ import { useGitHubAccounts } from './useConfig'
 import {
   OVERAGE_COST_PER_CREDIT,
   computeProjection,
+  computeBudgetProjection,
   synthesizeQuotaData,
   type AccountQuotaState,
 } from '../components/copilot-usage/quotaUtils'
@@ -124,11 +125,48 @@ function computeAggregateTotals(reps: { org: string; state: AccountQuotaState }[
       const used = premium.entitlement - premium.remaining
       const overageRequests = computeOverageRequests(premium)
       acc.totalUsed += used
+      acc.totalEntitlement += premium.entitlement
       acc.totalOverageCost += overageRequests * OVERAGE_COST_PER_CREDIT
       return acc
     },
-    { totalUsed: 0, totalOverageCost: 0 }
+    { totalUsed: 0, totalEntitlement: 0, totalOverageCost: 0 }
   )
+}
+
+/**
+ * Aggregate dollar spend across every org budget.
+ *
+ * `totalSpent` sums each org's net billed spend so far this period. `projectedSpend`
+ * extrapolates each org to month-end (same linear model as the per-org card) and sums
+ * the results, so the header total stays consistent with the individual projections.
+ *
+ * Orgs whose card hides a projection — those billing from the quota pool
+ * (`useQuotaOverage`) or with unavailable spend (`spentUnavailable`) — are excluded
+ * from both sums to avoid mixing dollar spend with credit-pool overage estimates.
+ * Returns null when no org contributes a usable dollar figure.
+ */
+function computeAggregateSpend(
+  orgBudgets: Record<string, OrgBudgetState>
+): { totalSpent: number; projectedSpend: number } | null {
+  let totalSpent = 0
+  let projectedSpend = 0
+  let hasAny = false
+
+  for (const state of Object.values(orgBudgets)) {
+    const d = state.data
+    if (!d || d.useQuotaOverage || d.spentUnavailable) continue
+    if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) continue
+
+    hasAny = true
+    totalSpent += d.spent
+
+    const projection = computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
+    projectedSpend += projection ? projection.projectedSpend : d.spent
+  }
+
+  if (!hasAny) return null
+
+  return { totalSpent, projectedSpend }
 }
 
 function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): boolean {
@@ -321,6 +359,8 @@ export function useCopilotUsage() {
     [orgRepresentatives]
   )
 
+  const aggregateSpend = useMemo(() => computeAggregateSpend(orgBudgets), [orgBudgets])
+
   return {
     accounts,
     quotas,
@@ -330,6 +370,7 @@ export function useCopilotUsage() {
     anyLoading,
     aggregateTotals,
     aggregateProjections,
+    aggregateSpend,
     orgOverageFromQuotas,
   }
 }

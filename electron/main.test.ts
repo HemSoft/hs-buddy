@@ -77,8 +77,10 @@ vi.mock('./zoom', () => ({ loadZoomLevel: vi.fn(() => 1.0) }))
 vi.mock('./menu', () => ({ buildMenu: vi.fn(() => ({})), registerKeyboardShortcuts: vi.fn() }))
 vi.mock('./ipc', () => ({ registerAllHandlers: vi.fn() }))
 const mockDispatcher = { start: vi.fn(), stop: vi.fn() }
-vi.mock('./workers', () => ({
+vi.mock('./workers/dispatcher', () => ({
   getDispatcher: vi.fn(() => mockDispatcher),
+}))
+vi.mock('./workers/offlineSync', () => ({
   runOfflineSync: vi.fn(async () => ({
     runsCreated: 0,
     schedulesProcessed: 0,

@@ -192,13 +192,12 @@ function withRemainder(value: number, unit: string, remainder: number, rUnit: st
 
 export function formatUptime(ms: number): string {
   if (ms <= 0) return '0s'
-  const totalSeconds = Math.floor(ms / 1_000)
-  if (totalSeconds < 60) return `${totalSeconds}s`
-  const totalMinutes = Math.floor(ms / MINUTE)
-  if (totalMinutes < 60) return `${totalMinutes}m`
-  const hours = Math.floor(totalMinutes / 60)
-  if (hours < 24) return withRemainder(hours, 'h', totalMinutes % 60, 'm')
-  return withRemainder(Math.floor(hours / 24), 'd', hours % 24, 'h')
+  if (ms < MINUTE) return `${Math.floor(ms / 1_000)}s`
+  if (ms < HOUR) return `${Math.floor(ms / MINUTE)}m`
+  if (ms < DAY) {
+    return withRemainder(Math.floor(ms / HOUR), 'h', Math.floor((ms % HOUR) / MINUTE), 'm')
+  }
+  return withRemainder(Math.floor(ms / DAY), 'd', Math.floor((ms % DAY) / HOUR), 'h')
 }
 
 const FORMAT_TIME_DEFAULTS = {

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.788] - 2026-06-03
+
+### Fixed
+
+- Address Copilot usage review feedback
+
 ## [0.1.787] - 2026-06-03
 
 ### Changed

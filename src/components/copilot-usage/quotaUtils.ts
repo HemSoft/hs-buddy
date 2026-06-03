@@ -165,13 +165,13 @@ export function getQuotaColor(pct: number | null): string {
  * AI Credits included per seat per billing month.
  * GitHub's promotional allotment is 7,000 for 2026-06..2026-08, otherwise 3,900.
  */
-export function creditsPerSeat(year: number, month: number): number {
+function creditsPerSeat(year: number, month: number): number {
   if (year === 2026 && month >= 6 && month <= 8) return 7000
   return 3900
 }
 
 /** Total AI Credit allotment for an org = seats × per-seat credits (rounded). */
-export function computeCreditAllotment(seats: number, year: number, month: number): number {
+function computeCreditAllotment(seats: number, year: number, month: number): number {
   return Math.round(seats * creditsPerSeat(year, month))
 }
 

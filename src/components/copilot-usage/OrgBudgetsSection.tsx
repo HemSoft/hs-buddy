@@ -16,7 +16,7 @@ interface OrgBudgetSummaryProps {
 
 interface BudgetCardMetrics {
   effectiveBudget: number | null
-  displaySpent: number
+  displaySpent: number | null
   myShare: number
   pct: number | null
   mySharePct: number | null
@@ -24,7 +24,7 @@ interface BudgetCardMetrics {
 }
 
 interface BudgetUsageAmounts {
-  displaySpent: number
+  displaySpent: number | null
   myShare: number
 }
 
@@ -40,13 +40,13 @@ function resolveBudgetUsageAmounts(
   d: NonNullable<OrgBudgetState['data']>,
   quotaOverage: number
 ): BudgetUsageAmounts {
-  const spent = d.spent ?? 0
-
   if (d.useQuotaOverage) {
     return { displaySpent: quotaOverage, myShare: 0 }
   }
 
-  return { displaySpent: spent, myShare: quotaOverage }
+  const displaySpent = typeof d.spent === 'number' && Number.isFinite(d.spent) ? d.spent : null
+
+  return { displaySpent, myShare: quotaOverage }
 }
 
 function resolveMySharePct(myShare: number, effectiveBudget: number, pct: number): number | null {
@@ -61,7 +61,7 @@ function computeBudgetCardMetrics(
 ): BudgetCardMetrics {
   const effectiveBudget = resolveEffectiveBudget(d)
   const { displaySpent, myShare } = resolveBudgetUsageAmounts(d, quotaOverage)
-  const barValue = Math.max(displaySpent, myShare)
+  const barValue = Math.max(displaySpent ?? 0, myShare)
 
   if (effectiveBudget === null || effectiveBudget === 0) {
     return {
@@ -83,10 +83,12 @@ function computeBudgetCardMetrics(
 function canRenderBudgetProjection(d: NonNullable<OrgBudgetState['data']>): boolean {
   if (d.useQuotaOverage) return false
 
-  return !d.spentUnavailable
+  return !d.spentUnavailable && typeof d.spent === 'number' && Number.isFinite(d.spent)
 }
 
 function resolveBudgetProjection(d: NonNullable<OrgBudgetState['data']>) {
+  if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) return null
+
   return computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
 }
 
@@ -168,6 +170,30 @@ function resolveBudgetBarWidth(pct: number | null): string {
 
 function resolveSpentLabel(useQuotaOverage: boolean): string {
   return useQuotaOverage ? 'overage' : 'spent'
+}
+
+function BudgetSpentLabel({
+  displaySpent,
+  useQuotaOverage,
+  barColor,
+}: {
+  displaySpent: number | null
+  useQuotaOverage: boolean
+  barColor: string
+}) {
+  if (displaySpent === null) {
+    return (
+      <span className="usage-budget-spent" style={{ color: barColor }}>
+        Spend unavailable
+      </span>
+    )
+  }
+
+  return (
+    <span className="usage-budget-spent" style={{ color: barColor }}>
+      {formatCurrency(displaySpent)} {resolveSpentLabel(useQuotaOverage)}
+    </span>
+  )
 }
 
 function BudgetMyShareBar({ mySharePct, myShare }: { mySharePct: number | null; myShare: number }) {
@@ -268,9 +294,11 @@ function BudgetCardBody({
         myShare={myShare}
       />
       <div className="usage-budget-amounts">
-        <span className="usage-budget-spent" style={{ color: barColor }}>
-          {formatCurrency(displaySpent)} {resolveSpentLabel(d.useQuotaOverage)}
-        </span>
+        <BudgetSpentLabel
+          displaySpent={displaySpent}
+          useQuotaOverage={d.useQuotaOverage}
+          barColor={barColor}
+        />
         <BudgetGrossLabel gross={d.gross ?? 0} useQuotaOverage={d.useQuotaOverage} />
         <BudgetMyShareLabel myShare={myShare} useQuotaOverage={d.useQuotaOverage} />
         <BudgetLimitLabel effectiveBudget={effectiveBudget} useQuotaOverage={d.useQuotaOverage} />

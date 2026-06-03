@@ -155,6 +155,7 @@ function computeAggregateSpend(
   for (const state of Object.values(orgBudgets)) {
     const d = state.data
     if (!d || d.useQuotaOverage || d.spentUnavailable) continue
+    if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) continue
 
     hasAny = true
     totalSpent += d.spent

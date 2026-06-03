@@ -88,6 +88,18 @@ describe('TopUsersSection', () => {
     expect(screen.getByText('2 active')).toBeInTheDocument()
   })
 
+  it('uses a safe fallback for invalid snapshot update dates', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: { ...snapshot, generatedAt: 'not-a-date' },
+      loading: false,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.getByText('Updated Unknown date')).toBeInTheDocument()
+  })
+
   it('renders one table row per enterprise user from the metrics file', () => {
     render(<TopUsersSection />)
     expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(3)
@@ -138,6 +150,7 @@ describe('TopUsersSection', () => {
     fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
 
     expect(screen.getByRole('dialog', { name: 'fhemmerrelias' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Close source JSON dialog')).toHaveFocus()
     expect(screen.getByText(snapshot.sourceFile)).toBeInTheDocument()
     expect(screen.getByText(/"User": "fhemmerrelias"/)).toBeInTheDocument()
   })
@@ -149,6 +162,39 @@ describe('TopUsersSection', () => {
     fireEvent.click(screen.getByLabelText('Close source JSON dialog'))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('closes the source JSON modal with Escape', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('keeps tab focus inside the source JSON modal', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    const closeButton = screen.getByLabelText('Close source JSON dialog')
+
+    expect(closeButton).toHaveFocus()
+    fireEvent.keyDown(closeButton, { key: 'Tab' })
+    expect(closeButton).toHaveFocus()
+    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true })
+    expect(closeButton).toHaveFocus()
+  })
+
+  it('restores focus when the source JSON modal closes', () => {
+    render(<TopUsersSection />)
+    const row = screen.getByTitle('View source JSON for fhemmerrelias')
+
+    row.focus()
+    fireEvent.click(row)
+    fireEvent.click(screen.getByLabelText('Close source JSON dialog'))
+
+    expect(row).toHaveFocus()
   })
 
   it('does not render a loading spinner for file data', () => {

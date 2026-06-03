@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { CalendarClock, Search, Users, X } from 'lucide-react'
 import { useCopilotEnterpriseUsers } from '../../hooks/useCopilotEnterpriseUsers'
 import type {
@@ -12,13 +12,16 @@ function formatCredits(value: number): string {
 }
 
 function formatUpdatedAt(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Unknown date'
+
   return new Intl.DateTimeFormat(undefined, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(value))
+  }).format(date)
 }
 
 function SnapshotMeta({ snapshot }: { snapshot: CopilotEnterpriseUsersSnapshot }) {
@@ -134,7 +137,7 @@ function filterUsers(users: CopilotEnterpriseUser[], filterText: string) {
 }
 
 interface EnterpriseUsersContentProps extends ReturnType<typeof useCopilotEnterpriseUsers> {
-  filterText: string
+  filteredUsers: CopilotEnterpriseUser[]
   onSelectUser: (user: CopilotEnterpriseUser) => void
 }
 
@@ -142,16 +145,11 @@ function EnterpriseUsersContent({
   data,
   loading,
   error,
-  filterText,
+  filteredUsers,
   onSelectUser,
 }: EnterpriseUsersContentProps) {
-  const visibleUsers = useMemo(
-    () => (data ? filterUsers(data.users, filterText) : []),
-    [data, filterText]
-  )
-
-  if (data && visibleUsers.length > 0)
-    return <EnterpriseUsersTable users={visibleUsers} onSelectUser={onSelectUser} />
+  if (data && filteredUsers.length > 0)
+    return <EnterpriseUsersTable users={filteredUsers} onSelectUser={onSelectUser} />
   if (data && data.users.length > 0)
     return <div className="enterprise-users-message">No users match this filter.</div>
   if (loading)
@@ -164,6 +162,51 @@ function EnterpriseUsersContent({
   return null
 }
 
+const FOCUSABLE_MODAL_SELECTOR =
+  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+function getFocusableModalElements(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR)).filter(
+    element => !element.hasAttribute('disabled') && element.tabIndex >= 0
+  )
+}
+
+function focusFirstModalElement(container: HTMLElement): void {
+  const firstFocusableElement = getFocusableModalElements(container)[0]
+  ;(firstFocusableElement ?? container).focus()
+}
+
+function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
+  const focusableElements = getFocusableModalElements(event.currentTarget)
+  if (focusableElements.length === 0) {
+    event.preventDefault()
+    event.currentTarget.focus()
+    return
+  }
+
+  const firstFocusableElement = focusableElements[0]
+  const lastFocusableElement = focusableElements[focusableElements.length - 1]
+  const activeElement = document.activeElement
+
+  if (event.shiftKey && activeElement === firstFocusableElement) {
+    event.preventDefault()
+    lastFocusableElement.focus()
+  } else if (!event.shiftKey && activeElement === lastFocusableElement) {
+    event.preventDefault()
+    firstFocusableElement.focus()
+  }
+}
+
+function handleModalKeyDown(event: KeyboardEvent<HTMLDialogElement>, onClose: () => void): void {
+  if (event.key === 'Escape') {
+    event.stopPropagation()
+    onClose()
+    return
+  }
+
+  if (event.key === 'Tab') handleModalTabKey(event)
+}
+
 function SourceJsonModal({
   user,
   sourceFile,
@@ -173,19 +216,36 @@ function SourceJsonModal({
   sourceFile: string
   onClose: () => void
 }) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+
+  useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const dialog = dialogRef.current
+    if (dialog) focusFirstModalElement(dialog)
+
+    return () => {
+      previouslyFocused?.focus()
+    }
+  }, [])
+
   return (
     <div className="enterprise-users-json-overlay" role="presentation">
       <button
         type="button"
         className="enterprise-users-json-backdrop"
         aria-label="Close source JSON"
+        tabIndex={-1}
         onClick={onClose}
       />
-      <div
+      <dialog
+        open
+        ref={dialogRef}
         className="enterprise-users-json-modal"
-        role="dialog"
         aria-modal="true"
         aria-labelledby="enterprise-users-json-title"
+        tabIndex={-1}
+        onKeyDown={event => handleModalKeyDown(event, onClose)}
       >
         <div className="enterprise-users-json-header">
           <div>
@@ -203,7 +263,7 @@ function SourceJsonModal({
           </button>
         </div>
         <pre className="enterprise-users-json-block">{user.sourceJson}</pre>
-      </div>
+      </dialog>
     </div>
   )
 }
@@ -217,7 +277,11 @@ export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
   const { data } = enterpriseUsers
   const [filterText, setFilterText] = useState('')
   const [selectedUser, setSelectedUser] = useState<CopilotEnterpriseUser | null>(null)
-  const visibleUsers = data ? filterUsers(data.users, filterText).length : 0
+  const filteredUsers = useMemo(
+    () => (data ? filterUsers(data.users, filterText) : []),
+    [data, filterText]
+  )
+  const visibleUsers = filteredUsers.length
 
   return (
     <div className="top-users-section">
@@ -236,7 +300,7 @@ export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
       ) : null}
       <EnterpriseUsersContent
         {...enterpriseUsers}
-        filterText={filterText}
+        filteredUsers={filteredUsers}
         onSelectUser={setSelectedUser}
       />
       {selectedUser && data ? (

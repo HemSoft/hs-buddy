@@ -1,5 +1,6 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   normalizeCopilotEnterpriseUsersSnapshot,
@@ -8,21 +9,29 @@ import {
 import type { CopilotEnterpriseUsersResponse } from '../../src/types/copilotEnterpriseUsers'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 
-const COPILOT_METRICS_FILE = 'D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json'
+const COPILOT_METRICS_FILE_ENV = 'COPILOT_METRICS_FILE'
+
+export function resolveCopilotMetricsFile(): string {
+  const configuredPath = process.env[COPILOT_METRICS_FILE_ENV]?.trim()
+  if (configuredPath) return resolve(configuredPath)
+
+  return join(app.getPath('userData'), 'copilot-metrics.json')
+}
 
 export function registerCopilotMetricsHandlers(): void {
   ipcMain.handle(
     IPC_INVOKE.GITHUB_GET_COPILOT_ENTERPRISE_USERS,
     async (): Promise<CopilotEnterpriseUsersResponse> => {
       try {
+        const metricsFile = resolveCopilotMetricsFile()
         const [fileStats, content] = await Promise.all([
-          stat(COPILOT_METRICS_FILE),
-          readFile(COPILOT_METRICS_FILE, 'utf-8'),
+          stat(metricsFile),
+          readFile(metricsFile, 'utf-8'),
         ])
         const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
           parseCopilotEnterpriseUsersContent(content),
           {
-            sourceFile: COPILOT_METRICS_FILE,
+            sourceFile: metricsFile,
             fileLastWriteTime: fileStats.mtime.toISOString(),
           }
         )

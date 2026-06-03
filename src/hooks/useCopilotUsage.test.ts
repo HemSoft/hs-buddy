@@ -331,6 +331,17 @@ describe('useCopilotUsage', () => {
     expect(result.current.aggregateSpend).toBeNull()
   })
 
+  it('aggregateSpend skips orgs with null spent values', async () => {
+    mockGetCopilotBudget.mockResolvedValue({
+      success: true,
+      data: makeBudgetData({ useQuotaOverage: false, spentUnavailable: false, spent: null }),
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+    expect(result.current.aggregateSpend).toBeNull()
+  })
+
   it('aggregateSpend falls back to spent when a projection is unavailable', async () => {
     // Billing period in the past -> computeBudgetProjection returns null,
     // so projectedSpend should fall back to the raw spent figure.

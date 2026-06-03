@@ -1,2 +1,4 @@
+src/**/* text=auto eol=lf
+
 .github/workflows/*.lock.yml linguist-generated=true merge=ours
 .husky/* text eol=lf

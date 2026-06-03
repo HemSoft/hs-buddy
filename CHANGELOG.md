@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.787] - 2026-06-03
+
+### Changed
+
+- Enforce LF for source files
+
 ## [0.1.786] - 2026-06-01
 
 ### Changed

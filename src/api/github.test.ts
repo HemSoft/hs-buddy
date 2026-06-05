@@ -439,6 +439,9 @@ describe('GitHubClient', () => {
       })
 
       const result = await client.fetchPRHistory('myorg', 'repo', 42)
+      const [historyQuery] = mockGraphql.mock.calls[0] as [string]
+      expect(historyQuery).toContain('... on User')
+      expect(historyQuery).not.toContain('… on')
 
       expect(result.createdAt).toBe('2026-01-01T00:00:00Z')
       expect(result.mergedAt).toBeNull()

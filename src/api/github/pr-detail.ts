@@ -152,7 +152,7 @@ const PR_HISTORY_QUERY = `
           nodes {
             requestedReviewer {
               __typename
-              … on User {
+              ... on User {
                 login
                 name
                 avatarUrl
@@ -169,7 +169,7 @@ const PR_HISTORY_QUERY = `
             author {
               login
               avatarUrl
-              … on User {
+              ... on User {
                 name
               }
             }

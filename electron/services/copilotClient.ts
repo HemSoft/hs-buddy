@@ -1,17 +1,16 @@
 /**
  * Shared Copilot SDK Client — singleton CopilotClient with prompt helper.
  *
- * The SDK's `autoStart` and `autoRestart` keep the underlying JSON-RPC
- * server alive across calls.  Each prompt creates a lightweight session,
- * sends, and destroys — no repeated start/stop overhead.
+ * The shared client keeps the underlying JSON-RPC server alive across calls.
+ * Each prompt creates a lightweight session, sends, and disconnects.
  *
  * IMPORTANT: In Electron, `process.execPath` is the Electron binary, NOT
  * Node.js, so the SDK's default `getBundledCliPath()` would fail.  We
  * resolve the **platform-specific native binary** (e.g. `copilot-win32-x64/copilot.exe`
- * or `copilot-darwin-arm64/copilot`) and pass it as `cliPath` to bypass this.
+ * or `copilot-darwin-arm64/copilot`) and pass it via `RuntimeConnection`.
  */
 
-import { CopilotClient, approveAll } from '@github/copilot-sdk'
+import { CopilotClient, RuntimeConnection, approveAll } from '@github/copilot-sdk'
 import path from 'node:path'
 import { existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -79,6 +78,10 @@ function resolveCopilotCliPath(): string {
   return fallback
 }
 
+function createRuntimeConnection() {
+  return RuntimeConnection.forStdio({ path: resolveCopilotCliPath() })
+}
+
 // ── Singleton client ─────────────────────────────────────────────────────
 
 let sharedClient: CopilotClient | null = null
@@ -88,20 +91,25 @@ let startPromise: Promise<void> | null = null
 /**
  * Get (or create) the singleton CopilotClient.
  *
- * Uses `autoStart: true` so the server starts lazily on first use,
- * and `autoRestart: true` so it recovers from crashes automatically.
+ * The server starts lazily on first use through ensureClientStarted().
  */
 function getSharedClient(): CopilotClient {
   if (!sharedClient) {
-    const cliPath = resolveCopilotCliPath()
     sharedClient = new CopilotClient({
-      cliPath,
-      autoStart: true,
-      autoRestart: true,
+      connection: createRuntimeConnection(),
     })
     console.log('[CopilotClient] Shared client created')
   }
   return sharedClient
+}
+
+async function isClientConnected(client: CopilotClient): Promise<boolean> {
+  try {
+    await client.getStatus()
+    return true
+  } catch (_: unknown) {
+    return false
+  }
 }
 
 /**
@@ -113,7 +121,7 @@ function getSharedClient(): CopilotClient {
  */
 export async function ensureClientStarted(): Promise<CopilotClient> {
   const client = getSharedClient()
-  if (client.getState() === 'connected') return client
+  if (await isClientConnected(client)) return client
 
   // If a start is already in progress, piggyback on it
   if (startPromise) {
@@ -185,7 +193,7 @@ function assertNotAborted(signal: AbortSignal | undefined, msg: string): void {
 /**
  * Send a prompt via the shared CopilotClient and return the response text.
  *
- * Creates a session → sends → destroys.  The client itself persists.
+ * Creates a session, sends the prompt, and disconnects the session. The client itself persists.
  */
 export async function sendPrompt(options: SendPromptOptions): Promise<string> {
   const { prompt, model = DEFAULT_MODEL, timeout = 120_000, signal, cwd } = options
@@ -200,8 +208,10 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
     let client: CopilotClient
 
     if (needsTempClient) {
-      const cliPath = resolveCopilotCliPath()
-      tempClient = new CopilotClient({ cliPath, cwd })
+      tempClient = new CopilotClient({
+        connection: createRuntimeConnection(),
+        workingDirectory: cwd,
+      })
       await Promise.race([
         tempClient.start(),
         rejectAfter(SESSION_TIMEOUT, 'Timeout starting Copilot client'),
@@ -225,7 +235,7 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
       const response = await session.sendAndWait({ prompt }, timeout)
       return extractAssistantContent(response)
     } finally {
-      await session.destroy().catch(() => {})
+      await session.disconnect().catch(() => {})
     }
   } finally {
     if (tempClient) {

@@ -9,7 +9,12 @@ const mockStart = vi.fn().mockResolvedValue(undefined)
 const mockStop = vi.fn().mockResolvedValue(undefined)
 const mockCreateSession = vi.fn()
 const mockListModels = vi.fn()
-const mockGetState = vi.fn(() => 'disconnected')
+const mockGetStatus = vi.fn().mockRejectedValue(new Error('not connected'))
+const mockRuntimeConnectionForStdio = vi.fn((opts?: Record<string, unknown>) => ({
+  kind: 'stdio',
+  ...opts,
+}))
+const mockClientOptions: unknown[] = []
 
 vi.mock('@github/copilot-sdk', () => ({
   CopilotClient: class MockCopilotClient {
@@ -17,8 +22,13 @@ vi.mock('@github/copilot-sdk', () => ({
     stop = mockStop
     createSession = mockCreateSession
     listModels = mockListModels
-    getState = mockGetState
-    constructor(_opts?: unknown) {}
+    getStatus = mockGetStatus
+    constructor(opts?: unknown) {
+      mockClientOptions.push(opts)
+    }
+  },
+  RuntimeConnection: {
+    forStdio: mockRuntimeConnectionForStdio,
   },
   approveAll: vi.fn(() => () => {}),
 }))
@@ -47,7 +57,8 @@ describe('copilotClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.resetModules()
-    mockGetState.mockReturnValue('disconnected')
+    mockClientOptions.length = 0
+    mockGetStatus.mockRejectedValue(new Error('not connected'))
   })
 
   it('exports DEFAULT_MODEL as a non-empty string', async () => {
@@ -59,7 +70,7 @@ describe('copilotClient', () => {
   describe('ensureClientStarted', () => {
     it('starts the client when disconnected', async () => {
       const { ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
 
       await ensureClientStarted()
@@ -69,7 +80,7 @@ describe('copilotClient', () => {
 
     it('returns immediately if already connected', async () => {
       const { ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
 
       await ensureClientStarted()
 
@@ -78,7 +89,7 @@ describe('copilotClient', () => {
 
     it('serializes concurrent callers to single start', async () => {
       const { ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       let resolveStart: () => void
       mockStart.mockImplementation(
         () =>
@@ -90,6 +101,7 @@ describe('copilotClient', () => {
       const p1 = ensureClientStarted()
       const p2 = ensureClientStarted()
 
+      await vi.waitFor(() => expect(mockStart).toHaveBeenCalledOnce())
       resolveStart!()
       await Promise.all([p1, p2])
 
@@ -100,7 +112,7 @@ describe('copilotClient', () => {
   describe('stopSharedClient', () => {
     it('stops the shared client and cleans up', async () => {
       const { ensureClientStarted, stopSharedClient } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
 
       await ensureClientStarted()
@@ -113,7 +125,7 @@ describe('copilotClient', () => {
   describe('restartSharedClient', () => {
     it('stops and recreates the client', async () => {
       const { ensureClientStarted, restartSharedClient } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
 
       await ensureClientStarted()
@@ -126,18 +138,18 @@ describe('copilotClient', () => {
   describe('sendPrompt', () => {
     it('creates a session, sends prompt, and destroys session', async () => {
       const { sendPrompt, ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
 
       const mockDestroy = vi.fn().mockResolvedValue(undefined)
       const mockSendAndWait = vi.fn().mockResolvedValue('Hello from AI')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       await ensureClientStarted()
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
 
       const result = await sendPrompt({ prompt: 'test prompt' })
 
@@ -149,10 +161,10 @@ describe('copilotClient', () => {
 
     it('throws if abort signal is already aborted', async () => {
       const { sendPrompt, ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
       await ensureClientStarted()
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
 
       const controller = new AbortController()
       controller.abort()
@@ -166,18 +178,18 @@ describe('copilotClient', () => {
   describe('sendChatMessage', () => {
     it('builds prompt with context and history', async () => {
       const { sendChatMessage, ensureClientStarted } = await import('./copilotClient')
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
 
       const mockDestroy = vi.fn().mockResolvedValue(undefined)
       const mockSendAndWait = vi.fn().mockResolvedValue('Chat response')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       await ensureClientStarted()
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
 
       const result = await sendChatMessage({
         message: 'How are you?',
@@ -205,7 +217,7 @@ describe('copilotClient', () => {
     })
 
     it('aborts the active chat controller when one exists', async () => {
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
       mockStart.mockResolvedValue(undefined)
       mockExistSync.mockImplementation(() => false)
       await mockRequireResolution()
@@ -214,7 +226,7 @@ describe('copilotClient', () => {
       const mockSendAndWait = vi.fn().mockResolvedValue('response')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       const { sendChatMessage, abortChat } = await import('./copilotClient')
@@ -265,7 +277,13 @@ describe('copilotClient', () => {
       const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
       const platformPkg = `copilot-${process.platform}-${process.arch}`
       const binaryName = process.platform === 'win32' ? 'copilot.exe' : 'copilot'
-      const pkgJsonPath = path.join('/resolved', 'node_modules', '@github', platformPkg, 'package.json')
+      const pkgJsonPath = path.join(
+        '/resolved',
+        'node_modules',
+        '@github',
+        platformPkg,
+        'package.json'
+      )
       const cliPath = path.join(path.dirname(pkgJsonPath), binaryName)
 
       mockStart.mockResolvedValue(undefined)
@@ -332,7 +350,7 @@ describe('copilotClient', () => {
   describe('additional ensureClientStarted coverage', () => {
     it('throws when starting the shared client times out', async () => {
       vi.useFakeTimers()
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockImplementation(() => new Promise(() => {}))
       await mockRequireResolution()
       mockExistSync.mockImplementation(() => false)
@@ -372,14 +390,14 @@ describe('copilotClient', () => {
       const mockSendAndWait = vi.fn().mockResolvedValue('Scoped response')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       const { sendPrompt } = await import('./copilotClient')
       const result = await sendPrompt({ prompt: 'test prompt', cwd: '/some/dir' })
 
       expect(result).toBe('Scoped response')
-      expect(mockGetState).not.toHaveBeenCalled()
+      expect(mockGetStatus).not.toHaveBeenCalled()
       expect(mockStart).toHaveBeenCalledOnce()
       expect(mockCreateSession).toHaveBeenCalledOnce()
       expect(mockSendAndWait).toHaveBeenCalledWith({ prompt: 'test prompt' }, 120_000)
@@ -410,7 +428,7 @@ describe('copilotClient', () => {
     })
 
     it('throws if the signal is aborted after session creation', async () => {
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
       mockExistSync.mockImplementation(() => false)
       await mockRequireResolution()
@@ -422,21 +440,21 @@ describe('copilotClient', () => {
         controller.abort()
         return {
           sendAndWait: mockSendAndWait,
-          destroy: mockDestroy,
+          disconnect: mockDestroy,
         }
       })
 
       const { sendPrompt } = await import('./copilotClient')
 
-      await expect(sendPrompt({ prompt: 'test prompt', signal: controller.signal })).rejects.toThrow(
-        'Cancelled after session creation'
-      )
+      await expect(
+        sendPrompt({ prompt: 'test prompt', signal: controller.signal })
+      ).rejects.toThrow('Cancelled after session creation')
       expect(mockSendAndWait).not.toHaveBeenCalled()
       expect(mockDestroy).toHaveBeenCalledOnce()
     })
 
     it('swallows session destruction errors', async () => {
-      mockGetState.mockReturnValue('disconnected')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
       mockStart.mockResolvedValue(undefined)
       mockExistSync.mockImplementation(() => false)
       await mockRequireResolution()
@@ -445,7 +463,7 @@ describe('copilotClient', () => {
       const mockSendAndWait = vi.fn().mockResolvedValue('Hello despite cleanup failure')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       const { sendPrompt } = await import('./copilotClient')
@@ -459,7 +477,7 @@ describe('copilotClient', () => {
 
   describe('additional sendChatMessage coverage', () => {
     it('aborts the previous chat request when called again', async () => {
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
       mockStart.mockResolvedValue(undefined)
       mockExistSync.mockImplementation(() => false)
       await mockRequireResolution()
@@ -470,7 +488,7 @@ describe('copilotClient', () => {
       const secondSendAndWait = vi.fn().mockResolvedValue('second response')
       let resolveFirstSession: (session: {
         sendAndWait: typeof firstSendAndWait
-        destroy: typeof firstDestroy
+        disconnect: typeof firstDestroy
       }) => void
 
       mockCreateSession
@@ -482,7 +500,7 @@ describe('copilotClient', () => {
         )
         .mockResolvedValueOnce({
           sendAndWait: secondSendAndWait,
-          destroy: secondDestroy,
+          disconnect: secondDestroy,
         })
 
       const { sendChatMessage } = await import('./copilotClient')
@@ -492,8 +510,7 @@ describe('copilotClient', () => {
         conversationHistory: [{ role: 'user', content: 'Earlier message' }],
       })
 
-      await Promise.resolve()
-      await Promise.resolve()
+      await vi.waitFor(() => expect(mockCreateSession).toHaveBeenCalledOnce())
 
       const secondPromise = sendChatMessage({
         message: 'Second question',
@@ -503,7 +520,7 @@ describe('copilotClient', () => {
 
       resolveFirstSession!({
         sendAndWait: firstSendAndWait,
-        destroy: firstDestroy,
+        disconnect: firstDestroy,
       })
 
       await expect(firstPromise).rejects.toThrow('Cancelled after session creation')
@@ -514,7 +531,7 @@ describe('copilotClient', () => {
     })
 
     it('omits conversation history text when history is empty', async () => {
-      mockGetState.mockReturnValue('connected')
+      mockGetStatus.mockResolvedValue({})
       mockStart.mockResolvedValue(undefined)
       mockExistSync.mockImplementation(() => false)
       await mockRequireResolution()
@@ -523,7 +540,7 @@ describe('copilotClient', () => {
       const mockSendAndWait = vi.fn().mockResolvedValue('Chat response')
       mockCreateSession.mockResolvedValue({
         sendAndWait: mockSendAndWait,
-        destroy: mockDestroy,
+        disconnect: mockDestroy,
       })
 
       const { sendChatMessage } = await import('./copilotClient')

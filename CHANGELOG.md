@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.791] - 2026-06-06
+
+### Changed
+
+- Remove SFL and gh-aw workflows
+
 ## [0.1.790] - 2026-06-05
 
 ### Fixed

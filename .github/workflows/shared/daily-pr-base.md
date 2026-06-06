@@ -39,5 +39,15 @@ safe-outputs:
     title-prefix: "${{ github.aw.import-inputs.title-prefix }}"
     labels: ${{ github.aw.import-inputs.labels }}
     reviewers: ${{ github.aw.import-inputs.reviewers }}
+  messages:
+    footer-install: |
+      <details><summary>Add this agentic workflow to your repo</summary>
+
+      ```bash
+      gh aw add {workflow_source}
+      ```
+
+      Source: {workflow_source_url}
+      </details>
   noop:
 ---

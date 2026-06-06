@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.794] - 2026-06-06
+
+### Fixed
+
+- Avoid gh-aw footer install template lookup
+
 ## [0.1.793] - 2026-06-06
 
 ### Fixed

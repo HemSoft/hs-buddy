@@ -1,17 +1,10 @@
-# CODEOWNERS - auto-assign reviewers for pull requests
+# CODEOWNERS - auto-assign reviewers for HemSoft repositories
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
 
-# Default owner for everything in the repo
-* @relias-engineering/developer-experience
+* @HemSoft
 
-# Electron shell
-/electron/ @relias-engineering/developer-experience
-
-# Convex backend
-/convex/ @relias-engineering/developer-experience
-
-# CI and workflow configuration
-/.github/ @relias-engineering/developer-experience
-
-# Scripts
-/scripts/ @relias-engineering/developer-experience
+# Automation and SFL-managed files
+/.github/ @HemSoft
+/.github/workflows/ @HemSoft
+/.sfl/ @HemSoft
+/.sfl/** @HemSoft

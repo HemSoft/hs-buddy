@@ -8,14 +8,14 @@ description: |
 on:
   workflow_dispatch:
 
+engine:
+  id: codex
+  model: gpt-5.5
+
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-engine:
-  id: copilot
-  model: claude-sonnet-4.6
 
 network: defaults
 
@@ -144,8 +144,7 @@ export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
 gh auth status
 ```
 
-If `gh auth status` fails or both `$GITHUB_TOKEN` and `$COPILOT_GITHUB_TOKEN`
-are unavailable, call `noop` with message
+If `gh auth status` fails or `$GITHUB_TOKEN` is unavailable, call `noop` with message
 "PR #<number> cannot promote: gh auth unavailable" and exit.
 
 ## Step 7 — Convert PR to ready-for-review

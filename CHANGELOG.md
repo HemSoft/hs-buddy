@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.798] - 2026-06-07
+
+### Fixed
+
+- Run SFL workflows on Codex
+
 ## [0.1.797] - 2026-06-07
 
 ### Fixed

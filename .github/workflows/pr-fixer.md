@@ -3,8 +3,8 @@ description: |
   PR Fixer — Authority model. Reads all analyzer review comments on a draft
   PR labeled agent:pr, implements all blocking and non-blocking fixes, commits
   to the PR branch, increments the cycle label, and exits. Does NOT un-draft
-  the PR — that is the Promoter's job. Intended model: claude-opus-4
-  (set via GH_AW_MODEL_AGENT_COPILOT repo variable).
+  the PR — that is the Promoter's job. This repo runs SFL on Codex gpt-5.5
+  because it is provisioned with OPENAI_API_KEY.
 
 on:
   workflow_dispatch:
@@ -15,8 +15,8 @@ permissions:
   pull-requests: read
 
 engine:
-  id: copilot
-  model: claude-opus-4.6
+  id: codex
+  model: gpt-5.5
 
 network: defaults
 
@@ -72,7 +72,7 @@ cycles and still has issues. Escalate:
 1. Call `update_issue` to add the label `agent:human-required` to the PR
    (keep all existing labels) and append body:
 
-   ```
+   ```markdown
    🚨 **PR Fixer**: This PR has reached cycle 3 without resolving all issues. Escalating to human review.
    ```
 
@@ -265,7 +265,7 @@ pipeline will re-fix this PR every 30 minutes forever.
 [MARKER:pr-fixer cycle:N]
 ## 🔧 PR Fixer — Cycle N Fix Summary
 
-**Fixer**: Authority (Claude Opus)
+**Fixer**: Authority (Codex gpt-5.5)
 **Cycle**: N → N+1
 **PR**: #<number>
 **Linked Issue**: #<issue-number>

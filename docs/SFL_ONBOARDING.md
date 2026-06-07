@@ -1,145 +1,67 @@
-# SFL Onboarding — Token Setup
+# SFL Onboarding - Token Setup
 
-> How to configure GitHub Actions secrets for the Set it Free Loop.
+How to configure GitHub Actions credentials for the Set it Free Loop in this repo.
 
----
+## Current hs-buddy Configuration
 
-## Prerequisites
+`HemSoft/hs-buddy` runs the SFL gh-aw workflows on the Codex engine.
 
-- The repo has SFL workflows deployed (see [README.md](README.md))
-- Labels are configured via `setup-labels.ps1`
-- The user setting up tokens has **admin** access to the repo
-- **GitHub Discussions is enabled** on the repo — required by `daily-repo-status` (SFL Repo Status) and `repo-audit` (Repo Audit)
-  workflows, which post reports as Discussions rather than issues.
-  Enable it under **Settings → Features → Discussions**. A "General" category must exist
-  (created automatically when Discussions is first enabled).
+Required Actions secret:
 
----
-
-## Tokens Required
-
-The SFL needs **two fine-grained Personal Access Tokens** stored as GitHub Actions secrets.
-They cannot be combined into one because of GitHub's permission model constraints.
-
-| Secret Name | Purpose | Who Creates It |
+| Secret Name | Purpose | Current state |
 |---|---|---|
-| `COPILOT_GITHUB_TOKEN` | Authenticates Copilot CLI (AI engine) | Each user individually |
-| `GH_AW_GITHUB_TOKEN` | GitHub API operations (issues, PRs, branches) | Repo admin (shared) |
+| `OPENAI_API_KEY` | Authenticates the Codex AI engine | Configured |
 
----
+Optional Actions secret:
 
-## Token 1: `COPILOT_GITHUB_TOKEN`
+| Secret Name | Purpose | When to add it |
+|---|---|---|
+| `GH_AW_GITHUB_TOKEN` | Overrides the default `GITHUB_TOKEN` for GitHub API operations | Add only when the built-in token cannot perform a required write operation |
 
-This token authorizes Copilot inference. Usage counts against the **token owner's**
-premium request quota — so each user should create their own.
+The standard SFL infrastructure workflows (`sfl-dispatcher.yml` and
+`sfl-auditor.yml`) use `GH_AW_GITHUB_TOKEN` when present and otherwise fall back
+to `github.token`.
 
-**Create at:** <https://github.com/settings/personal-access-tokens/new>
-
-| Setting | Value |
-|---|---|
-| Token name | `sfl-copilot` (or any descriptive name) |
-| Resource owner | **Your user account** (not an organization) |
-| Expiration | 90 days (recommended) |
-| Repository access | **Public repositories** (required — see note below) |
-
-**Account permissions:**
-
-| Permission | Access |
-|---|---|
-| Copilot Requests | **Read** |
-
-**Repository permissions:** None.
-
-> **Why "Public repositories"?** GitHub only surfaces the Copilot Requests
-> account permission when repository access is set to "Public repositories."
-> This is a GitHub UI constraint, not a security concern — the token has zero
-> repository permissions. See [gh-aw auth docs](https://github.github.com/gh-aw/reference/auth/#copilot_github_token).
->
-> **Important:** The token owner must have an active **Copilot Pro+** (or Copilot Business/Enterprise)
-> license. Without a Copilot license, inference calls will fail.
-
----
-
-## Token 2: `GH_AW_GITHUB_TOKEN`
-
-This token authorizes GitHub API operations: listing/creating/updating issues and PRs,
-triggering workflows, reading repo contents, and managing branches.
-
-**Create at:** <https://github.com/settings/personal-access-tokens/new>
-
-| Setting | Value |
-|---|---|
-| Token name | `sfl-github-api` (or any descriptive name) |
-| Resource owner | **The organization** that owns the repo (e.g., `relias-engineering`) |
-| Expiration | 90 days (recommended) |
-| Repository access | **All repositories** or **Only select repositories** → the SFL repo(s) |
-
-**Repository permissions:**
-
-| Permission | Access |
-|---|---|
-| Actions | **Read & Write** |
-| Contents | **Read & Write** |
-| Issues | **Read & Write** |
-| Metadata | **Read** (auto-granted) |
-| Pull requests | **Read & Write** |
-
-**Account / Organization permissions:** None.
-
-> **Scaling note:** This token can be shared across multiple SFL repos if you
-> select "All repositories." For tighter security, scope it to specific repos.
-> Long-term, consider replacing this with a **GitHub App** for short-lived tokens
-> and no PAT rotation — gh-aw supports this natively.
-
----
-
-## Setting the Secrets
+## Setting Secrets
 
 ```powershell
-# Interactive paste (recommended — avoids shell escaping issues)
-gh secret set COPILOT_GITHUB_TOKEN --repo <owner>/<repo>
-gh secret set GH_AW_GITHUB_TOKEN  --repo <owner>/<repo>
-# Paste each token value when prompted, then press Enter.
+# Codex engine secret. Already present for HemSoft/hs-buddy.
+gh secret set OPENAI_API_KEY --repo HemSoft/hs-buddy
+
+# Optional GitHub API override, only if GITHUB_TOKEN is insufficient.
+gh secret set GH_AW_GITHUB_TOKEN --repo HemSoft/hs-buddy
 ```
 
----
+Use interactive paste for secret values to avoid shell escaping issues.
 
 ## Verification
 
 ```powershell
-# Confirm secrets exist
-gh secret list --repo <owner>/<repo>
+# Confirm Actions secrets.
+gh secret list --repo HemSoft/hs-buddy --app actions
 
-# Check recent issue processor runs
-gh run list --workflow="sfl-issue-processor.lock.yml" --repo <owner>/<repo> --limit 1
+# Confirm gh-aw sees the compiled workflows.
+gh aw status --repo HemSoft/hs-buddy
+
+# Confirm SFL metadata and labels.
+gh sfl status --repo HemSoft/hs-buddy
+
+# Check recent scheduled SFL runs.
+gh run list --repo HemSoft/hs-buddy --workflow daily-repo-status.lock.yml --limit 5
+gh run list --repo HemSoft/hs-buddy --workflow repo-audit.lock.yml --limit 5
+gh run list --repo HemSoft/hs-buddy --workflow simplisticate.lock.yml --limit 5
 ```
 
-A successful issue-processor run confirms `GH_AW_GITHUB_TOKEN` works.
-To verify `COPILOT_GITHUB_TOKEN`, check that a downstream workflow
-(e.g., `sfl-analyzer-a`) completes without
-`401` or Copilot inference errors.
-
----
-
-## When Onboarding a New Team Member
-
-If a new developer wants their Copilot quota used instead of yours:
-
-1. They create **Token 1** (`COPILOT_GITHUB_TOKEN`) with their own user account
-2. Update the repo secret `COPILOT_GITHUB_TOKEN` with their token value
-3. **Token 2** (`GH_AW_GITHUB_TOKEN`) stays the same — it's org-scoped
-
-> **Future:** When multiple users need concurrent SFL access, use per-user
-> Copilot tokens via workflow inputs or a GitHub App for API operations.
-
----
+A successful Codex-backed gh-aw run proves the AI engine secret works. A
+successful dispatcher or auditor run proves the standard SFL infrastructure can
+operate with the available GitHub token.
 
 ## Troubleshooting
 
 | Error | Cause | Fix |
 |---|---|---|
-| `401 Bad credentials` | Token value is invalid or expired | Regenerate and re-set the secret |
-| `Could not resolve to a Repository` | `GH_AW_GITHUB_TOKEN` resource owner is wrong (user instead of org) | Recreate with org as resource owner |
-| `OAuth tokens are not supported` | Secret contains a `gho_` token from `gh auth` | Create a fine-grained PAT (`github_pat_...`) instead |
-| `402 You have no quota` | Copilot premium request limit exceeded | Wait for reset or switch to a user with available quota |
-| Copilot Requests permission not visible | Repository access is not "Public repositories" | Change to "Public repositories" in PAT settings |
+| `None of the following secrets are set: OPENAI_API_KEY` | Codex engine secret is missing or not accessible to the repo | Set `OPENAI_API_KEY` as a repo or org Actions secret with repo access |
+| `None of the following secrets are set: COPILOT_GITHUB_TOKEN` | A workflow was compiled for the Copilot engine instead of Codex | Recompile SFL workflows after setting `engine.id: codex` |
+| `Resource not accessible by integration` | The built-in `GITHUB_TOKEN` lacks a required permission | Add a properly scoped `GH_AW_GITHUB_TOKEN` or configure a GitHub App |
+| `401 Bad credentials` | Secret value is invalid or expired | Regenerate and re-set the affected secret |
+| `OAuth tokens are not supported` | Secret contains a `gho_` token from `gh auth` | Use a fine-grained PAT (`github_pat_...`) for token overrides |

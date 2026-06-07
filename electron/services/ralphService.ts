@@ -384,6 +384,35 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
   return args
 }
 
+function createRunInfo(runId: string, config: RalphLaunchConfig, proc: ChildProcess): RalphRunInfo {
+  const now = Date.now()
+  return {
+    runId,
+    config,
+    status: 'running',
+    phase: 'initializing',
+    pid: proc.pid ?? null,
+    currentIteration: 0,
+    totalIterations: config.iterations ?? null,
+    startedAt: now,
+    updatedAt: now,
+    completedAt: null,
+    exitCode: null,
+    error: null,
+    logBuffer: [],
+    stats: {
+      checks: 0,
+      agentTurns: 0,
+      reviews: 0,
+      copilotPRs: 0,
+      issuesCreated: 0,
+      scanIterations: 0,
+      totalCost: null,
+      totalPremium: 0,
+    },
+  }
+}
+
 export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   const validationError = validateLaunchConfig(config)
   if (validationError) return { success: false, error: validationError }
@@ -406,31 +435,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
     env: { ...process.env },
   })
 
-  const run: RalphRunInfo = {
-    runId,
-    config,
-    status: 'running',
-    phase: 'initializing',
-    pid: proc.pid ?? null,
-    currentIteration: 0,
-    totalIterations: config.iterations ?? null,
-    startedAt: Date.now(),
-    updatedAt: Date.now(),
-    completedAt: null,
-    exitCode: null,
-    error: null,
-    logBuffer: [],
-    stats: {
-      checks: 0,
-      agentTurns: 0,
-      reviews: 0,
-      copilotPRs: 0,
-      issuesCreated: 0,
-      scanIterations: 0,
-      totalCost: null,
-      totalPremium: 0,
-    },
-  }
+  const run = createRunInfo(runId, config, proc)
 
   activeRuns.set(runId, run)
   activeProcesses.set(runId, proc)

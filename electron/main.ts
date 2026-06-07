@@ -224,5 +224,7 @@ app.on('before-quit', event => {
   }
 
   const timeout = new Promise<void>(resolve => setTimeout(resolve, 5_000))
-  Promise.race([shutdownTelemetry(), timeout]).finally(() => app.quit())
+  Promise.race([shutdownTelemetry(), timeout]).finally(() => {
+    app.quit()
+  })
 })

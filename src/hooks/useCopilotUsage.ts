@@ -19,6 +19,11 @@ import type { GitHubAccount } from '../types/config'
 import { MS_PER_MINUTE } from '../constants'
 import { getErrorMessage } from '../utils/errorUtils'
 
+interface OrgAccountGroup {
+  org: string
+  usernames: string[]
+}
+
 function getPremiumInteractions(state: AccountQuotaState | undefined) {
   return state?.data?.quota_snapshots?.premium_interactions ?? null
 }
@@ -38,6 +43,34 @@ function getQuotaProjection(state: AccountQuotaState) {
   return computeProjection(premium, state.data.quota_reset_date_utc)
 }
 
+function groupAccountsByOrg(accounts: { username: string; org: string }[]): OrgAccountGroup[] {
+  const groups = new Map<string, OrgAccountGroup>()
+  for (const account of accounts) {
+    if (!account.org) continue
+    let group = groups.get(account.org)
+    if (!group) {
+      group = { org: account.org, usernames: [] }
+      groups.set(account.org, group)
+    }
+    group.usernames.push(account.username)
+  }
+  return [...groups.values()]
+}
+
+function selectRepresentativeState(
+  usernames: string[],
+  quotas: Partial<Record<string, AccountQuotaState>>
+): AccountQuotaState | undefined {
+  let fallback: AccountQuotaState | undefined
+  for (const username of usernames) {
+    const state = quotas[username]
+    if (!state) continue
+    if (state.data) return state
+    fallback ??= state
+  }
+  return fallback
+}
+
 /**
  * One representative quota state per unique org.
  *
@@ -55,29 +88,9 @@ function selectOrgRepresentatives(
   accounts: { username: string; org: string }[],
   quotas: Record<string, AccountQuotaState>
 ): { org: string; state: AccountQuotaState }[] {
-  const orderedOrgs: string[] = []
-  const usernamesByOrg = new Map<string, string[]>()
-  for (const account of accounts) {
-    if (!account.org) continue
-    if (!usernamesByOrg.has(account.org)) {
-      usernamesByOrg.set(account.org, [])
-      orderedOrgs.push(account.org)
-    }
-    usernamesByOrg.get(account.org)!.push(account.username)
-  }
-
   const reps: { org: string; state: AccountQuotaState }[] = []
-  for (const org of orderedOrgs) {
-    let chosen: AccountQuotaState | undefined
-    for (const username of usernamesByOrg.get(org)!) {
-      const state = quotas[username]
-      if (!state) continue
-      if (state.data) {
-        chosen = state
-        break
-      }
-      chosen ??= state
-    }
+  for (const { org, usernames } of groupAccountsByOrg(accounts)) {
+    const chosen = selectRepresentativeState(usernames, quotas)
     if (chosen) reps.push({ org, state: chosen })
   }
   return reps
@@ -334,7 +347,9 @@ export function useCopilotUsage() {
       if (needsMonthRolloverRefresh(orgBudgets)) refreshAll()
     }, 5 * MS_PER_MINUTE)
 
-    return () => clearInterval(refreshInterval)
+    return () => {
+      clearInterval(refreshInterval)
+    }
   }, [orgBudgets, refreshAll])
 
   const orgRepresentatives = useMemo(

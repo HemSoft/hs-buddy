@@ -103,6 +103,84 @@ describe('normalizeCopilotEnterpriseUsersSnapshot', () => {
     expect(snapshot.generatedAt).toBe('2026-06-02T03:00:00.000Z')
   })
 
+  it('normalizes direct aggregate totals when usage items are absent', () => {
+    const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
+      {
+        users: [
+          {
+            login: 'direct-user',
+            grossQuantity: 42,
+            grossAmount: 0.42,
+            netAmount: 0.1,
+            topModel: 'Claude Sonnet 4.5',
+          },
+        ],
+      },
+      {
+        sourceFile: 'D:\\\\github\\\\HemSoft\\\\codexbar\\\\data\\\\copilot-metrics.json',
+        fileLastWriteTime: '2026-06-02T03:00:00.000Z',
+      }
+    )
+
+    expect(snapshot.users[0]).toMatchObject({
+      login: 'direct-user',
+      grossQuantity: 42,
+      grossAmount: 0.42,
+      netAmount: 0.1,
+      modelCount: 1,
+      topModel: 'Claude Sonnet 4.5',
+      topModelQuantity: 42,
+    })
+  })
+
+  it('ignores malformed usage entries and supports alternate usage key casing', () => {
+    const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
+      {
+        members: [
+          {
+            memberLogin: 'mixed-user',
+            success: false,
+            error_message: 'partial data',
+            data: {
+              Items: [
+                null,
+                'ignored',
+                {
+                  Model: 'Claude Opus 4.8',
+                  GrossQuantity: 12,
+                  GrossAmount: 0.12,
+                  NetAmount: 0.03,
+                },
+                {
+                  model: 'Zero Usage Model',
+                  gross_quantity: 0,
+                  gross_amount: 0,
+                  net_amount: 0,
+                },
+              ],
+            },
+          },
+        ],
+      },
+      {
+        sourceFile: 'D:\\\\github\\\\HemSoft\\\\codexbar\\\\data\\\\copilot-metrics.json',
+        fileLastWriteTime: '2026-06-02T03:00:00.000Z',
+      }
+    )
+
+    expect(snapshot.users[0]).toMatchObject({
+      login: 'mixed-user',
+      grossQuantity: 12,
+      grossAmount: 0.12,
+      netAmount: 0.03,
+      modelCount: 1,
+      topModel: 'Claude Opus 4.8',
+      topModelQuantity: 12,
+      success: false,
+      errorMessage: 'partial data',
+    })
+  })
+
   it('parses metrics content with a UTF-8 BOM', () => {
     expect(parseCopilotEnterpriseUsersContent('\uFEFF{"GeneratedAtUtc":"now","Users":[]}')).toEqual(
       {

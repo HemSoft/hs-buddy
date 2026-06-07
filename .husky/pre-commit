@@ -15,10 +15,11 @@ bun run format:check
 
 # copilot-hooks:begin markdown gate
 # Block commits on markdownlint violations for staged .md files
-if [ -f ".git/hooks/pre-commit-markdown.ps1" ]; then
-  pwsh -NoProfile -ExecutionPolicy Bypass -File ".git/hooks/pre-commit-markdown.ps1"
+MARKDOWN_HOOK="$(git rev-parse --git-common-dir)/hooks/pre-commit-markdown.ps1"
+if [ -f "$MARKDOWN_HOOK" ]; then
+  pwsh -NoProfile -ExecutionPolicy Bypass -File "$MARKDOWN_HOOK"
 else
-  echo "Missing .git/hooks/pre-commit-markdown.ps1. Reinstall copilot-hooks."
+  echo "Missing $MARKDOWN_HOOK. Reinstall copilot-hooks."
   exit 1
 fi
 # copilot-hooks:end markdown gate

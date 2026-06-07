@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.800] - 2026-06-07
+
+### Fixed
+
+- Guard Copilot enterprise preload API
+
 ## [0.1.799] - 2026-06-07
 
 ### Fixed

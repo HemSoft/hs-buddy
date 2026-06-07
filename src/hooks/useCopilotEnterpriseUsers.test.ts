@@ -6,9 +6,6 @@ import type {
 } from '../types/copilotEnterpriseUsers'
 
 const mockGetCopilotEnterpriseUsers = vi.fn<() => Promise<CopilotEnterpriseUsersResponse>>()
-type EnterpriseUsersGithub = typeof window.github & {
-  getCopilotEnterpriseUsers?: () => Promise<CopilotEnterpriseUsersResponse>
-}
 
 Object.defineProperty(window, 'github', {
   value: { getCopilotEnterpriseUsers: mockGetCopilotEnterpriseUsers },
@@ -48,8 +45,11 @@ const snapshot: CopilotEnterpriseUsersSnapshot = {
 describe('useCopilotEnterpriseUsers', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const github = window.github as EnterpriseUsersGithub
-    github.getCopilotEnterpriseUsers = mockGetCopilotEnterpriseUsers
+    Object.defineProperty(window, 'github', {
+      value: { getCopilotEnterpriseUsers: mockGetCopilotEnterpriseUsers },
+      writable: true,
+      configurable: true,
+    })
     mockGetCopilotEnterpriseUsers.mockResolvedValue({ success: true, data: snapshot })
   })
 
@@ -89,6 +89,20 @@ describe('useCopilotEnterpriseUsers', () => {
 
   it('reports unavailable preload API', async () => {
     window.github = {} as typeof window.github
+
+    const { result } = renderHook(() => useCopilotEnterpriseUsers())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.data).toBeNull()
+    expect(result.current.error).toBe('Copilot Enterprise users source is unavailable.')
+  })
+
+  it('reports unavailable preload API when window.github is absent', async () => {
+    Object.defineProperty(window, 'github', {
+      value: undefined,
+      writable: true,
+      configurable: true,
+    })
 
     const { result } = renderHook(() => useCopilotEnterpriseUsers())
     await waitFor(() => expect(result.current.loading).toBe(false))

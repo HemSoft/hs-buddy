@@ -140,7 +140,7 @@ Before running `gh pr ready`, ensure gh CLI is authenticated in this runtime.
 Use:
 
 ```bash
-export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
+export GH_TOKEN="${GITHUB_TOKEN:-$GH_AW_GITHUB_TOKEN}"
 gh auth status
 ```
 
@@ -274,7 +274,7 @@ Before running `gh pr merge`, ensure gh CLI is authenticated in this runtime.
 Use:
 
 ```bash
-export GH_TOKEN="${GITHUB_TOKEN:-$COPILOT_GITHUB_TOKEN}"
+export GH_TOKEN="${GITHUB_TOKEN:-$GH_AW_GITHUB_TOKEN}"
 gh auth status
 ```
 

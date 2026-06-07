@@ -8,6 +8,9 @@ param(
     [string]$Model,
     [string]$Provider,
     [string[]]$Agents,
+    [string]$StatsPath,
+    [string]$ReviewProduct,
+    [string]$ReviewMode,
     [switch]$Once,
     [switch]$CleanupWorktree,
     [switch]$NoPR,
@@ -133,6 +136,9 @@ if ($Help) {
     Write-Host "  -Provider <name>       CLI provider: $((Get-RalphProviderNames) -join ', ') (default: $(Get-RalphDefaultProvider))"
     Write-Host "  -Agents <specs>        Agent roles (comma-separated), supports role@model"
     Write-Host "                         Dev agents go to work loop, review agents go to ralph-pr"
+    Write-Host "  -StatsPath <path>      Write run stats JSON to this path (for parent rollup)"
+    Write-Host "  -ReviewProduct <name>  Accepted for wrapper compatibility"
+    Write-Host "  -ReviewMode <name>     Accepted for wrapper compatibility"
     Write-Host "  -CleanupWorktree       Remove worktree after completion if clean"
     Write-Host "  -NoPR                  Skip PR creation and ralph-pr handoff"
     Write-Host "  -Autopilot             Skip interactive prompts, auto-merge PR when clean"
@@ -874,6 +880,15 @@ if ($prStats) {
     $grandCost = [math]::Round($grandCost + [double]$prStats.prPhaseCost, 2)
 }
 
+$grandTokensIn = $totalTokensIn
+$grandTokensOut = $totalTokensOut
+$grandTokensCached = $totalTokensCached
+if ($prStats) {
+    $grandTokensIn += [double]$prStats.tokensIn
+    $grandTokensOut += [double]$prStats.tokensOut
+    $grandTokensCached += [double]$prStats.tokensCached
+}
+
 $summary = @"
 
 [$logTag] ====================================
@@ -937,6 +952,24 @@ if ($earlyExitReason) {
 Write-Host "====================================" -ForegroundColor Cyan
 
 $summary | Out-File $logFile -Append -Encoding UTF8
+
+# --- Write stats file for parent rollup ---
+if ($StatsPath) {
+    @{
+        premiumRequests = $grandPremium
+        estimatedCost = $grandCost
+        tokenCost = $grandCost
+        tokensIn = $grandTokensIn
+        tokensOut = $grandTokensOut
+        tokensCached = $grandTokensCached
+        modelId = $script:ModelId
+        provider = $script:ProviderName
+        iterations = $completedIterations
+        copilotInvocations = $copilotInvocations
+        prNumber = $newPRNumber
+        handedOff = $handedOff
+    } | ConvertTo-Json | Set-Content -Path $StatsPath -Encoding UTF8
+}
 
 # --- Summary log entry ---
 $dot = [char]0x2022

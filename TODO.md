@@ -2,13 +2,15 @@
 
 | Status | Priority | Task                                                                               | Notes                                                                                                                                                                                                                                                     |
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 📋     | Medium   | [Reduce CRAP scores](#reduce-crap-scores)                                         | Perfection audit: 331 functions with cyclomatic complexity > 5. Target: all functions CRAP < 6 via refactoring + coverage |
-| 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | Perfection audit: 82/100 — 138 warnings across 47 files (Date.now in JSX, filter().map() chains, sequential setState, etc.) |
-| 📋     | Medium   | [Performance Testing Suite](#performance-testing-suite)                            | #10 — Remaining: Lighthouse CI. Done: bench-compare.ts + benchmarks.yml CI workflow, react-scan (replaces WDYR for React 19), startup/memory/IPC bench infra |
-| 📋     | Medium   | [Code Quality & Architecture Enforcement](#code-quality--architecture-enforcement) | #9 — Remaining: `electronegativity` for Electron security, expand axe-core to more component tests. Done: `dependency-cruiser` ✅, `unicorn` ✅, `strict` ✅, `vitest-axe` + axe-helper (4 tests) ✅ |
-| 📋     | Low      | [Fix Prettier formatting violations](#fix-prettier-formatting-violations)          | Down from 33 to 10 files — auto-fix with `bun run format` |
-| 📋     | Low      | [Fix Markdown lint errors](#fix-markdown-lint-errors)                              | Down from 7 to 5 errors (MD040 ×3, MD032 ×1, MD047 ×1) — mostly auto-fixable |
-| 📋     | Low      | Fix e18e pkg.main packaging config                                                | Perfection audit: pkg.main references dist-electron/main.js but file not in pkg.files — update package.json |
+| 📋     | Medium   | [Refresh CRAP baseline and reduce quality-warning debt](#refresh-crap-baseline-and-reduce-quality-warning-debt) | #87 — Current CRAP log has no critical/high methods, but `bun run lint:quality` reports 1,567 warnings |
+| 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | #88 — Current React Doctor score is 63/100 with 154 issues |
+| 📋     | Medium   | [Stabilize Lighthouse CI](#stabilize-lighthouse-ci)                                | #89 — LHCI is installed/wired, but local `bun run lhci` fails and needs a stable baseline |
+| 📋     | Medium   | [Harden or replace Electron webviewTag usage](#harden-or-replace-electron-webviewtag-usage) | #90 — `security:electron` has 0 high/medium findings, but `webviewTag: true` remains an info risk |
+| 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
+| 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
+| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Open PRs #78-#83; e18e reports 137 duplicate dependency warnings |
+| ✅     | Low      | Fix Prettier formatting violations                                                | 2026-06-07: `bun run format:check` passes; stale TODO removed |
+| ✅     | Low      | Fix e18e pkg.main packaging config                                                | 2026-06-07: `package.json` `files` includes `dist-electron/main.js`; stale TODO removed |
 | ✅     | High     | Update bundle-size baseline                                                       | 2026-05-07: Fixed stale-artifact bug in collectLargestMain, updated baseline, cleaned 32 stale artifacts |
 | ✅     | High     | Close test coverage gap to 100%                                                   | 2026-05-07: PR #14 merged — 100% statements, branches, functions, lines (10981/6990/3498/9940) |
 | ✅     | High     | Terminal Folder View & File Preview                                                | 2026-05-05: FolderExplorerView, FolderTree, FilePreview in src/components/explorer/. FilesystemHandlers IPC. Shiki syntax highlighting. (#8 closed)                                                                                                  |
@@ -100,93 +102,103 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 88** (93%)
+**Remaining: 7** | **Completed: 90** (93%)
 
 ---
 
 ## Remaining Items
 
-### Code Quality & Architecture Enforcement
+### Refresh CRAP baseline and reduce quality-warning debt
 
-Remaining work: `electronegativity` + expand axe-core coverage. Other items are complete.
+**Issue:** #87
 
-**Already done:**
+**Current state** (2026-06-07 audit):
 
-- ✅ `dependency-cruiser` — installed, configured, `deps:check` script
-- ✅ `eslint-plugin-unicorn` — installed and active
-- ✅ TypeScript `strict` preset rules — key rules promoted as warnings
-- ✅ `vitest-axe` + `axe-helper.ts` — 4 component tests have a11y checks (AboutModal, ActivityBar, ConfirmDialog, StatusBar)
+- `docs/crap-score-log.md` has a 2026-05-23 Electron snapshot: 0 critical, 0 high, 7 moderate, highest CRAP 10.5.
+- `bun run lint:quality` currently reports 1,567 warnings.
+- The old TODO text claiming 331 complex functions is stale and should be replaced by a refreshed CRAP snapshot.
 
-#### Remaining: Electronegativity
-
-1. `bun add -d electronegativity`
-2. Run initial audit: `npx electronegativity -i electron/ -r`
-3. Triage findings, add as informational CI step
-
-#### Remaining: Expand axe-core Coverage
-
-1. Add `axe()` + `toHaveNoViolations()` to more component test suites
-2. Prioritize heavy UI components: PullRequestList, RepoIssueList, SettingsPanel, TerminalPane
-3. Add `test:a11y` script to package.json
-
-### Performance Testing Suite
-
-Remaining work: Lighthouse CI only. Other items are complete.
-
-**Already done:**
-
-- ✅ Benchmark CI gating — `benchmarks.yml` workflow with `bench-compare.ts` comparator
-- ✅ React render profiling — `react-scan` (React 19 compatible replacement for WDYR) in dev mode
-- ✅ Startup timing, memory monitoring, IPC throughput benchmarks in `perf/`
-- ✅ `vitest-axe` installed with `axe-helper.ts` util and 4 component test suites covering a11y
-
-#### Remaining: Lighthouse CI
-
-1. Add `@lhci/cli` as dev dependency
-2. Create `lighthouse.config.ts` for Electron renderer URL
-3. Add LH CI step to CI workflow (informational initially)
-
----
-
-### Reduce CRAP scores
-
-**Current state** (2026-05-07 perfection audit):
-
-- 331 functions with cyclomatic complexity > 5
-- Notable: `appendOptionalArgs` (10), `validateTimingConfig` (9), `comparePrompts` (8), `resolveScriptPath` (8), `launchLoop` (8)
-
-**Approach**: Prioritize functions with both high complexity AND low coverage (highest CRAP). Refactor by extracting helper functions, using early returns, and simplifying conditionals. Add tests to increase coverage for complex paths.
+**Approach:** Refresh the CRAP baseline, then reduce the highest-value production-code complexity and quality-warning tranche before sweeping test-only warnings.
 
 ---
 
 ### Improve React Doctor score
 
-**Current state** (2026-05-07 perfection audit):
+**Issue:** #88
 
-- Score: 82/100 (138 warnings, 47 files)
-- Top findings: Date.now() in JSX (64), .filter().map() chains (13), useState never read (7), multiple setState in useEffect (5), sequential awaits (4)
+**Current state** (2026-06-07 audit):
 
-**Approach**: Fix by category — largest impact first:
+- Score: 63/100
+- 154 total issues
+- 78 bugs, 33 performance warnings, 2 accessibility warnings, 41 maintainability warnings
 
-1. Date.now() in JSX → wrap in useEffect+useState
-2. .filter().map() → single .reduce() or for...of
-3. Unused useState → convert to useRef
-4. Multiple setState → useReducer
+**Approach:** Fix high-count categories first: derived state/effect logic, parent synchronization effects, changing-callback re-subscriptions, sequential awaits, array index keys, and non-interactive handlers.
 
 ---
 
-### Fix Prettier formatting violations
+### Stabilize Lighthouse CI
 
-10 files failing `prettier --check` (mostly new test files from PR #14). Auto-fix: `bun run format`. Verify no unintended changes before committing.
+**Issue:** #89
+
+**Current state** (2026-06-07 audit):
+
+- `@lhci/cli`, `lighthouserc.cjs`, `package.json` `lhci`, and the CI Lighthouse step all exist.
+- Local `bun run lhci` failed because LHCI timed out waiting for Vite readiness, then Lighthouse failed and hit a Windows temp cleanup EPERM.
+
+**Approach:** Fix LHCI readiness/cleanup locally, confirm CI stays green, then capture stable baseline scores.
 
 ---
 
-### Fix Markdown lint errors
+### Harden or replace Electron webviewTag usage
 
-5 errors across 4 files:
+**Issue:** #90
 
-- MD040 (fenced code blocks need language): debug/SKILL.md, CONTRIBUTING.md ×2
-- MD032 (blank lines around lists): perfection/SKILL.md
-- MD047 (trailing newline): todo/History/2026-05-05.md
+**Current state** (2026-06-07 audit):
 
-Auto-fix: `bun run lint:md:fix`, then manually add language specifiers to fenced code blocks.
+- `bun run security:electron` reports 0 high and 0 medium findings.
+- It still flags `webviewTag: true` in `electron/main.ts` as an informational security risk.
+
+**Approach:** Confirm whether the in-app browser still requires webviews. If yes, document and test the guardrails; if not, replace it with a safer alternative.
+
+---
+
+### Expand axe accessibility coverage
+
+**Issue:** #91
+
+**Current state** (2026-06-07 audit):
+
+- `vitest-axe`, `src/test/axe-helper.ts`, and `test:a11y` already exist.
+- Axe coverage already includes AboutModal, ActivityBar, ConfirmDialog, ContributionGraph, InlineDropdown, PullRequestList, RateLimitGauge, RepoIssueList, and StatusBar.
+
+**Approach:** Add explicit a11y coverage for remaining high-traffic surfaces: TerminalPane/workspace, settings panels, Tempo views, dashboard cards, and interactive sidebar panels.
+
+---
+
+### Fix remaining markdownlint MD040 failure
+
+**Issue:** #92
+
+**Current state** (2026-06-07 audit):
+
+- `bun run lint:md` reports one remaining error.
+- `.sfl/governance/policy.md:66` needs a fenced code block language.
+
+**Approach:** Add the correct fence language, or `text` for plain output/config prose, then rerun `bun run lint:md`.
+
+---
+
+### Triage current Dependabot dependency queue
+
+**Issue:** #93
+
+**Current state** (2026-06-07 audit):
+
+- Open Dependabot PRs: #78, #79, #80, #81, #82, #83.
+- #78 and #82 show full CI green in the current PR rollup.
+- #79, #80, #81, and #83 currently show only lockfile validation in the PR rollup.
+- `bun run e18e` reports 137 duplicate dependency warnings.
+
+**Approach:** Land low-risk fully green PRs first, ensure full CI for the remaining queue, then rerun e18e and record whether dependency duplication improves.
+
+---

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.796] - 2026-06-07
+
+### Changed
+
+- Complete SFL workflow installation
+
 ## [0.1.795] - 2026-06-06
 
 ### Fixed

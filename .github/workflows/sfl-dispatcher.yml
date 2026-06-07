@@ -32,7 +32,7 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
       REPO: ${{ github.repository }}
     steps:
       - name: Check for fixable issues
@@ -155,6 +155,7 @@ jobs:
 
       - name: Summary
         run: |
+          # shellcheck disable=SC2129
           echo "## SFL Dispatcher Summary" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Workflow | Dispatched |" >> "$GITHUB_STEP_SUMMARY"

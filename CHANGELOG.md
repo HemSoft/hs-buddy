@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.797] - 2026-06-07
+
+### Fixed
+
+- Allow SFL infrastructure to use GitHub token
+
 ## [0.1.796] - 2026-06-07
 
 ### Changed

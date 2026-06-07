@@ -26,14 +26,14 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
       REPO: ${{ github.repository }}
     steps:
       - name: Verify authentication
         run: |
           set -euo pipefail
           if ! gh auth status 2>&1; then
-            echo "::error::GH_AW_GITHUB_TOKEN is not valid"
+            echo "::error::GitHub token is not valid"
             exit 1
           fi
 

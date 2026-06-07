@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Remove Copilot token fallback from PR promoter
+- Reduce CRAP quality debt
 
 ## [0.1.798] - 2026-06-07
 

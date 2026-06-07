@@ -18,15 +18,15 @@ const EMPTY_STATE: CopilotEnterpriseUsersState = {
 }
 
 async function loadEnterpriseUsers(): Promise<CopilotEnterpriseUsersResponse> {
-  const github = window.github as typeof window.github & {
+  const { getCopilotEnterpriseUsers } = window.github as typeof window.github & {
     getCopilotEnterpriseUsers?: () => Promise<CopilotEnterpriseUsersResponse>
   }
 
-  if (!github?.getCopilotEnterpriseUsers) {
+  if (!getCopilotEnterpriseUsers) {
     return { success: false, error: 'Copilot Enterprise users source is unavailable.' }
   }
 
-  return github.getCopilotEnterpriseUsers()
+  return getCopilotEnterpriseUsers()
 }
 
 export function useCopilotEnterpriseUsers(refreshToken = 0): CopilotEnterpriseUsersState {

@@ -128,7 +128,9 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
           setLoaded(true)
         }
       }, 2000)
-      return () => clearTimeout(timeout)
+      return () => {
+        clearTimeout(timeout)
+      }
     }
 
     restoredRef.current = true
@@ -165,7 +167,9 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
         saveWorkspaceMutation({
           nodes: payload,
           activeNodeId: data.activeNodeId ?? undefined,
-        }).catch(err => console.warn('Failed to persist terminal workspace:', err))
+        }).catch(err => {
+          console.warn('Failed to persist terminal workspace:', err)
+        })
       }, SAVE_DEBOUNCE_MS)
     },
     [saveWorkspaceMutation, clearSaveTimeout]
@@ -183,8 +187,9 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
       setNodes(prev => {
         const next = transform(prev)
         nodesRef.current = next
-        const activeId = newActiveNodeId !== undefined ? newActiveNodeId : activeNodeIdRef.current
-        if (newActiveNodeId !== undefined) {
+        const hasNewActiveNodeId = newActiveNodeId !== undefined
+        const activeId = hasNewActiveNodeId ? newActiveNodeId : activeNodeIdRef.current
+        if (hasNewActiveNodeId) {
           setActiveNodeId(activeId)
           activeNodeIdRef.current = activeId
         }

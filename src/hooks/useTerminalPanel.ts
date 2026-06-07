@@ -318,8 +318,12 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       selectOrAddTabForContext(
         terminalTabsRef.current,
         repoContext,
-        id => setActiveTerminalTabId(id),
-        ctx => void addTerminalTab(ctx)
+        id => {
+          setActiveTerminalTabId(id)
+        },
+        ctx => {
+          void addTerminalTab(ctx)
+        }
       )
     },
     [addTerminalTab]
@@ -388,7 +392,9 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       }
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [toggleTerminal])
 
   // Kill all terminal sessions on unmount (app close)

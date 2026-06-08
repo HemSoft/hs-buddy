@@ -9,9 +9,11 @@
 import { describe, it, expect, vi } from 'vitest'
 
 // Track lifecycle callbacks registered with app.on / app.whenReady
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const appOnCalls: [string, (...args: any[]) => any][] = []
+const appOnCalls: [string, (...args: unknown[]) => unknown][] = []
 let whenReadyCb: (() => void) | null = null
+let browserSessionPermissionHandler:
+  | ((webContents: unknown, permission: string, callback: (allowed: boolean) => void) => void)
+  | null = null
 
 const mockWin = {
   webContents: { on: vi.fn(), send: vi.fn() },
@@ -48,6 +50,21 @@ vi.mock('electron', () => ({
     getAllDisplays: vi.fn(() => []),
     getPrimaryDisplay: vi.fn(() => ({ workArea: { x: 0, y: 0, width: 1920, height: 1040 } })),
     getDisplayMatching: vi.fn(() => ({ id: 1, bounds: {}, workArea: {} })),
+  },
+  session: {
+    fromPartition: vi.fn(() => ({
+      setPermissionRequestHandler: vi.fn(
+        (
+          handler: (
+            webContents: unknown,
+            permission: string,
+            callback: (allowed: boolean) => void
+          ) => void
+        ) => {
+          browserSessionPermissionHandler = handler
+        }
+      ),
+    })),
   },
 }))
 
@@ -126,6 +143,149 @@ describe('main process lifecycle', () => {
     expect(Menu.setApplicationMenu).toHaveBeenCalled()
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()
+  })
+
+  it('registers webview attach and popup guardrails', async () => {
+    await import('./main')
+    const { session } = await import('electron')
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+    expect(session.fromPartition).toHaveBeenCalledWith('persist:browser')
+
+    const webContentsCreatedCb = appOnCalls.find(([e]) => e === 'web-contents-created')?.[1]
+    expect(webContentsCreatedCb).toBeDefined()
+
+    const webContentsListeners = new Map<string, (...args: unknown[]) => void>()
+    const setWindowOpenHandler = vi.fn()
+    webContentsCreatedCb!(
+      {},
+      {
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          webContentsListeners.set(event, handler)
+        }),
+        setWindowOpenHandler,
+      }
+    )
+
+    expect(setWindowOpenHandler).toHaveBeenCalled()
+    expect(setWindowOpenHandler.mock.calls[0][0]({ url: 'https://example.com/popup' })).toEqual({
+      action: 'deny',
+    })
+
+    const attachHandler = webContentsListeners.get('will-attach-webview')
+    expect(attachHandler).toBeDefined()
+
+    const event = { preventDefault: vi.fn() }
+    const webPreferences = {
+      allowRunningInsecureContent: true,
+      contextIsolation: false,
+      nodeIntegration: true,
+      nodeIntegrationInSubFrames: true,
+      partition: 'persist:untrusted',
+      plugins: true,
+      preload: 'file:///tmp/preload.js',
+      preloadURL: 'file:///tmp/preload.js',
+      sandbox: false,
+      webSecurity: false,
+    }
+
+    attachHandler!(event, webPreferences, {
+      partition: 'persist:browser',
+      src: 'https://example.com',
+    })
+
+    expect(event.preventDefault).not.toHaveBeenCalled()
+    expect(webPreferences).toMatchObject({
+      allowRunningInsecureContent: false,
+      contextIsolation: true,
+      nodeIntegration: false,
+      nodeIntegrationInSubFrames: false,
+      partition: 'persist:browser',
+      plugins: false,
+      sandbox: true,
+      webSecurity: true,
+    })
+    expect('preload' in webPreferences).toBe(false)
+    expect('preloadURL' in webPreferences).toBe(false)
+  })
+
+  it('blocks webviews with unsafe source or partition', async () => {
+    await import('./main')
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+
+    const webContentsCreatedCb = appOnCalls.find(([e]) => e === 'web-contents-created')?.[1]
+    expect(webContentsCreatedCb).toBeDefined()
+
+    const webContentsListeners = new Map<string, (...args: unknown[]) => void>()
+    webContentsCreatedCb!(
+      {},
+      {
+        on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+          webContentsListeners.set(event, handler)
+        }),
+        setWindowOpenHandler: vi.fn(),
+      }
+    )
+
+    const attachHandler = webContentsListeners.get('will-attach-webview')
+    expect(attachHandler).toBeDefined()
+
+    const unsafeSourceEvent = { preventDefault: vi.fn() }
+    attachHandler!(
+      unsafeSourceEvent,
+      {},
+      {
+        partition: 'persist:browser',
+        src: 'file:///etc/passwd',
+      }
+    )
+    expect(unsafeSourceEvent.preventDefault).toHaveBeenCalled()
+
+    const unsafePartitionEvent = { preventDefault: vi.fn() }
+    attachHandler!(
+      unsafePartitionEvent,
+      {},
+      {
+        partition: 'persist:other',
+        src: 'https://example.com',
+      }
+    )
+    expect(unsafePartitionEvent.preventDefault).toHaveBeenCalled()
+
+    const missingPartitionEvent = { preventDefault: vi.fn() }
+    attachHandler!(
+      missingPartitionEvent,
+      {},
+      {
+        src: 'https://example.com',
+      }
+    )
+    expect(missingPartitionEvent.preventDefault).toHaveBeenCalled()
+
+    const missingSrcEvent = { preventDefault: vi.fn() }
+    attachHandler!(
+      missingSrcEvent,
+      {},
+      {
+        partition: 'persist:browser',
+      }
+    )
+    expect(missingSrcEvent.preventDefault).toHaveBeenCalled()
+  })
+
+  it('denies browser webview permission prompts by default', async () => {
+    await import('./main')
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+    expect(browserSessionPermissionHandler).toBeTypeOf('function')
+
+    const callback = vi.fn()
+    browserSessionPermissionHandler!({}, 'camera', callback)
+    expect(callback).toHaveBeenCalledWith(false)
   })
 
   it('window-all-closed handler calls app.quit on non-darwin', async () => {

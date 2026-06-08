@@ -137,7 +137,7 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.58.2",
     "vite": "8.0.16",
-    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron": "^1.0.4",
     "vite-plugin-electron-renderer": "^1.0.0",
     "vitest": "^4.1.0",
     "vitest-axe": "^0.1.0",

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   extractRepoFromUrl,
   mapSearchItemToUserPR,
@@ -501,13 +501,18 @@ describe('computeQuartiles', () => {
 
 describe('buildContributionCalendar', () => {
   it('builds weeks with contribution data', () => {
-    const dates = ['2025-06-01T10:00:00Z', '2025-06-01T15:00:00Z', '2025-06-02T08:00:00Z']
-    const result = buildContributionCalendar(dates)
-    expect(result.totalContributions).toBe(3)
-    expect(result.weeks.length).toBeGreaterThan(0)
-    const allDays = result.weeks.flatMap(w => w.contributionDays)
-    const totalFromDays = allDays.reduce((sum, d) => sum + d.contributionCount, 0)
-    expect(totalFromDays).toBe(3)
+    vi.useFakeTimers({ now: new Date('2025-06-03T12:00:00Z') })
+    try {
+      const dates = ['2025-06-01T10:00:00Z', '2025-06-01T15:00:00Z', '2025-06-02T08:00:00Z']
+      const result = buildContributionCalendar(dates)
+      expect(result.totalContributions).toBe(3)
+      expect(result.weeks.length).toBeGreaterThan(0)
+      const allDays = result.weeks.flatMap(w => w.contributionDays)
+      const totalFromDays = allDays.reduce((sum, d) => sum + d.contributionCount, 0)
+      expect(totalFromDays).toBe(3)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('handles empty dates', () => {

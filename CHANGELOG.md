@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.802] - 2026-06-08
+
+### Changed
+
+- Stabilize contribution calendar dates
+
 ## [0.1.801] - 2026-06-07
 
 ### Fixed

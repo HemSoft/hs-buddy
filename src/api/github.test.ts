@@ -1988,20 +1988,25 @@ describe('GitHubClient', () => {
 
   describe('buildContributionCalendar', () => {
     it('builds weeks aligned to Sundays from commit dates', async () => {
-      const { buildContributionCalendar } = await import('./github')
-      const result = buildContributionCalendar([
-        '2026-03-15T10:00:00Z',
-        '2026-03-15T11:00:00Z',
-        '2026-03-16T09:00:00Z',
-      ])
-      expect(result.totalContributions).toBe(3)
-      expect(result.weeks.length).toBeGreaterThan(50)
-      const activeDays = result.weeks
-        .flatMap(w => w.contributionDays)
-        .filter(d => d.contributionCount > 0)
-      expect(activeDays).toHaveLength(2)
-      expect(activeDays.find(d => d.date === '2026-03-15')?.contributionCount).toBe(2)
-      expect(activeDays.find(d => d.date === '2026-03-16')?.contributionCount).toBe(1)
+      vi.useFakeTimers({ now: new Date('2026-03-17T12:00:00Z') })
+      try {
+        const { buildContributionCalendar } = await import('./github')
+        const result = buildContributionCalendar([
+          '2026-03-15T10:00:00Z',
+          '2026-03-15T11:00:00Z',
+          '2026-03-16T09:00:00Z',
+        ])
+        expect(result.totalContributions).toBe(3)
+        expect(result.weeks.length).toBeGreaterThan(50)
+        const activeDays = result.weeks
+          .flatMap(w => w.contributionDays)
+          .filter(d => d.contributionCount > 0)
+        expect(activeDays).toHaveLength(2)
+        expect(activeDays.find(d => d.date === '2026-03-15')?.contributionCount).toBe(2)
+        expect(activeDays.find(d => d.date === '2026-03-16')?.contributionCount).toBe(1)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('returns empty weeks for no commits', async () => {

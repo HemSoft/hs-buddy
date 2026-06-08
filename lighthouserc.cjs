@@ -3,9 +3,10 @@
 module.exports = {
   ci: {
     collect: {
-      startServerCommand: 'npx vite --mode e2e --port 9222',
-      startServerReadyPattern: 'Local:',
-      url: ['http://localhost:9222/'],
+      startServerCommand:
+        'node ./node_modules/vite/bin/vite.js --mode e2e --host 127.0.0.1 --port 9222 --strictPort',
+      startServerReadyPattern: 'ready in',
+      url: ['http://127.0.0.1:9222/'],
       numberOfRuns: 3,
       settings: {
         chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage',

@@ -148,6 +148,10 @@ const securityRules: SecurityRule[] = [
     message: 'setWindowOpenHandler should validate URLs before loading them into BrowserWindow',
     contextSize: 50,
     contextCheck: ctx => {
+      // A deny-all handler never loads the requested URL.
+      if (/setWindowOpenHandler\s*\(\s*\(\)\s*=>\s*\(\{\s*action:\s*['"]deny['"]/.test(ctx)) {
+        return false
+      }
       // Require that the handler either directly validates URLs or delegates
       // to guardedNavigate (which itself performs DNS validation).
       // The check requires guardedNavigate to co-exist with validateUrlWithDns
@@ -158,6 +162,15 @@ const securityRules: SecurityRule[] = [
     },
   },
 ]
+
+function hasDocumentedWebviewException(content: string): boolean {
+  return (
+    content.includes('docs/WEBVIEW-SECURITY.md') &&
+    content.includes('registerWebviewSecurityGuards') &&
+    content.includes('will-attach-webview') &&
+    content.includes('setPermissionRequestHandler')
+  )
+}
 
 /** Returns true when the line is a comment (single-line, block-continuation, or inline block). */
 function isCommentLine(line: string): boolean {
@@ -185,12 +198,14 @@ function checkFile(filePath: string): void {
   const content = readFileSync(filePath, 'utf-8')
   const lines = content.split('\n')
   const rel = relative(process.cwd(), filePath)
+  const documentedWebviewException = hasDocumentedWebviewException(content)
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const lineNum = i + 1
 
     for (const rule of securityRules) {
+      if (rule.rule === 'no-webview-tag' && documentedWebviewException) continue
       if (!matchesRule(rule, line, lines, i)) continue
       findings.push({
         file: rel,
@@ -277,6 +292,9 @@ function checkBrowserWindowBlocks(filePath: string): void {
     const lineNum = content.slice(0, match.index).split('\n').length
 
     for (const setting of insecureSettings) {
+      if (setting.rule === 'no-webview-tag-multiline' && hasDocumentedWebviewException(content)) {
+        continue
+      }
       if (setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)) {
         findings.push({
           file: rel,

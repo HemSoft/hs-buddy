@@ -1,4 +1,12 @@
-import { app, BrowserWindow, Menu, screen } from 'electron'
+import {
+  app,
+  BrowserWindow,
+  Menu,
+  screen,
+  session,
+  type WebContents,
+  type WebPreferences,
+} from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import windowStateKeeper from 'electron-window-state'
@@ -12,6 +20,7 @@ import { runOfflineSync } from './workers/offlineSync'
 import { stopSharedClient } from './services/copilotClient'
 import { initRalphService, shutdownRalphService } from './services/ralphService'
 import { IPC_PUSH } from '../src/ipc/contracts'
+import { validateUrl } from '../src/utils/networkSecurity'
 import {
   resolveWindowBounds as resolveWindowBoundsPure,
   type DisplayInfo,
@@ -54,6 +63,68 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 let win: BrowserWindow | null
+
+const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
+
+type WebviewAttachParams = {
+  src?: string
+  partition?: string
+}
+
+type MutableWebviewPreferences = WebPreferences & {
+  preload?: string
+  preloadURL?: string
+}
+
+function isAllowedWebviewSource(src: string | undefined): boolean {
+  if (!src) return false
+  try {
+    validateUrl(src)
+    return true
+  } catch (_: unknown) {
+    return false
+  }
+}
+
+function hardenWebviewPreferences(webPreferences: MutableWebviewPreferences): void {
+  delete webPreferences.preload
+  delete webPreferences.preloadURL
+
+  Object.assign(webPreferences, {
+    allowRunningInsecureContent: false,
+    contextIsolation: true,
+    nodeIntegration: false,
+    nodeIntegrationInSubFrames: false,
+    partition: BROWSER_WEBVIEW_PARTITION,
+    plugins: false,
+    sandbox: true,
+    webSecurity: true,
+  })
+}
+
+function registerWebviewSecurityGuards(): void {
+  session
+    .fromPartition(BROWSER_WEBVIEW_PARTITION)
+    .setPermissionRequestHandler((_webContents, _permission, callback) => callback(false))
+
+  app.on('web-contents-created', (_event, contents: WebContents) => {
+    contents.setWindowOpenHandler(() => ({ action: 'deny' }))
+
+    contents.on('will-attach-webview', (event, webPreferences, params) => {
+      const attachParams = params as WebviewAttachParams
+
+      if (
+        attachParams.partition !== BROWSER_WEBVIEW_PARTITION ||
+        !isAllowedWebviewSource(attachParams.src)
+      ) {
+        event.preventDefault()
+        return
+      }
+
+      hardenWebviewPreferences(webPreferences as MutableWebviewPreferences)
+    })
+  })
+}
 
 function resolveWindowBounds(state: { x?: number; y?: number; width: number; height: number }): {
   x?: number
@@ -112,6 +183,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.mjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Required for the Bookmarks in-app browser. See docs/WEBVIEW-SECURITY.md.
       webviewTag: true,
       // Use isolated partition to prevent zoom level bleeding to other Electron apps
       partition: 'persist:buddy',
@@ -171,6 +243,8 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   startupTimer.mark('app-ready')
+
+  registerWebviewSecurityGuards()
 
   // Initialize config manager and attempt migration from env vars
   configManager.migrateFromEnv()

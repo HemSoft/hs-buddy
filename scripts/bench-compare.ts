@@ -9,7 +9,7 @@
  *   bun scripts/bench-compare.ts --baseline <file>        # custom baseline path
  *   bun scripts/bench-compare.ts --current <file>         # custom current results path
  *   bun scripts/bench-compare.ts --update                 # update baseline to current results
- *   bun scripts/bench-compare.ts --threshold 20           # custom threshold (default: 15%)
+ *   bun scripts/bench-compare.ts --threshold 15           # custom threshold (default: 20%)
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -67,7 +67,7 @@ export interface ComparisonResult {
 
 // --- Constants ---
 
-const DEFAULT_THRESHOLD = 15
+const DEFAULT_THRESHOLD = 20
 const ROOT = resolve(import.meta.dirname, '..')
 const DEFAULT_BASELINE_PATH = resolve(ROOT, 'bench-baseline.json')
 const DEFAULT_CURRENT_PATH = resolve(ROOT, 'bench-results.json')

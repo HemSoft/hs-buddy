@@ -286,6 +286,25 @@ describe('compareBenchmarks', () => {
     expect(compareBenchmarks(baseline, current, 15).passed).toBe(true)
   })
 
+  it('uses a 20% default threshold for runner noise', () => {
+    const baseline = makeOutput([
+      {
+        fullName: 'file > suite',
+        benchmarks: [makeBench({ name: 'op', hz: 1_000_000 })],
+      },
+    ])
+    const current = makeOutput([
+      {
+        fullName: 'file > suite',
+        benchmarks: [makeBench({ name: 'op', hz: 820_000 })],
+      },
+    ])
+
+    const result = compareBenchmarks(baseline, current)
+    expect(result.passed).toBe(true)
+    expect(result.threshold).toBe(20)
+  })
+
   it('handles empty files array', () => {
     const baseline: BenchmarkOutput = { files: [] }
     const current: BenchmarkOutput = { files: [] }

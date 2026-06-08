@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.803] - 2026-06-08
+
+### Changed
+
+- Relax benchmark regression threshold
+
 ## [0.1.802] - 2026-06-08
 
 ### Changed

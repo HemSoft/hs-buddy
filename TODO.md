@@ -4,7 +4,7 @@
 | ------ | -------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 📋     | Medium   | [Refresh CRAP baseline and reduce quality-warning debt](#refresh-crap-baseline-and-reduce-quality-warning-debt) | #87 — Current CRAP log has no critical/high methods, but `bun run lint:quality` reports 1,567 warnings |
 | 📋     | Medium   | [Improve React Doctor score](#improve-react-doctor-score)                          | #88 — Current React Doctor score is 63/100 with 154 issues |
-| 📋     | Medium   | [Stabilize Lighthouse CI](#stabilize-lighthouse-ci)                                | #89 — LHCI is installed/wired, but local `bun run lhci` fails and needs a stable baseline |
+| ✅     | Medium   | Stabilize Lighthouse CI                                                            | 2026-06-08: Fixed local LHCI readiness/cleanup and documented the baseline in `docs/lighthouse-baseline.md` (#89) |
 | 📋     | Medium   | [Harden or replace Electron webviewTag usage](#harden-or-replace-electron-webviewtag-usage) | #90 — `security:electron` has 0 high/medium findings, but `webviewTag: true` remains an info risk |
 | 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
 | 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
@@ -102,7 +102,7 @@
 
 ## Progress
 
-**Remaining: 7** | **Completed: 90** (93%)
+**Remaining: 6** | **Completed: 91** (94%)
 
 ---
 
@@ -133,19 +133,6 @@
 - 78 bugs, 33 performance warnings, 2 accessibility warnings, 41 maintainability warnings
 
 **Approach:** Fix high-count categories first: derived state/effect logic, parent synchronization effects, changing-callback re-subscriptions, sequential awaits, array index keys, and non-interactive handlers.
-
----
-
-### Stabilize Lighthouse CI
-
-**Issue:** #89
-
-**Current state** (2026-06-07 audit):
-
-- `@lhci/cli`, `lighthouserc.cjs`, `package.json` `lhci`, and the CI Lighthouse step all exist.
-- Local `bun run lhci` failed because LHCI timed out waiting for Vite readiness, then Lighthouse failed and hit a Windows temp cleanup EPERM.
-
-**Approach:** Fix LHCI readiness/cleanup locally, confirm CI stays green, then capture stable baseline scores.
 
 ---
 

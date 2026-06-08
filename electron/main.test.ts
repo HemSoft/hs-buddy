@@ -264,6 +264,16 @@ describe('main process lifecycle', () => {
       }
     )
     expect(missingPartitionEvent.preventDefault).toHaveBeenCalled()
+
+    const missingSrcEvent = { preventDefault: vi.fn() }
+    attachHandler!(
+      missingSrcEvent,
+      {},
+      {
+        partition: 'persist:browser',
+      }
+    )
+    expect(missingSrcEvent.preventDefault).toHaveBeenCalled()
   })
 
   it('denies browser webview permission prompts by default', async () => {

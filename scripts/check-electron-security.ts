@@ -64,6 +64,11 @@ interface SecurityRule {
   contextCheck?: (context: string) => boolean
 }
 
+const windowOpenHandlerArgsPattern = String.raw`(?:\([^)]*\)|[$A-Z_a-z][$\w]*)`
+const denyAllWindowOpenHandlerPattern = new RegExp(
+  String.raw`setWindowOpenHandler\s*\(\s*${windowOpenHandlerArgsPattern}\s*=>\s*(?:\(\s*\{\s*action:\s*['"]deny['"]|\{\s*return\s*\{\s*action:\s*['"]deny['"])`
+)
+
 const securityRules: SecurityRule[] = [
   {
     pattern: /nodeIntegration\s*:\s*true/,
@@ -149,7 +154,7 @@ const securityRules: SecurityRule[] = [
     contextSize: 50,
     contextCheck: ctx => {
       // A deny-all handler never loads the requested URL.
-      if (/setWindowOpenHandler\s*\(\s*\(\)\s*=>\s*\(\{\s*action:\s*['"]deny['"]/.test(ctx)) {
+      if (denyAllWindowOpenHandlerPattern.test(ctx)) {
         return false
       }
       // Require that the handler either directly validates URLs or delegates

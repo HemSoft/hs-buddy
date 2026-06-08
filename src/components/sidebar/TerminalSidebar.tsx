@@ -133,19 +133,12 @@ function TerminalFolderRow({
   handleAddTerminal,
   ...editableProps
 }: TerminalFolderRowProps) {
+  const isEditing = editableProps.editingId === folder.id
+
   return (
-    // react-doctor-disable-next-line react-doctor/prefer-tag-over-role -- Folder rows contain disclosure/add controls and inline rename input, so a native button wrapper would be invalid.
     <div
       className={selectedClass('terminal-sidebar-folder-row', selected)}
       style={folderRowStyle(folder)}
-      onClick={() => handleSelectTerminal(folder.id)}
-      onDoubleClick={() => startEditing(folder.id, folder.name)}
-      onContextMenu={e => handleContextMenu(e, folder.id)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={onKeyboardActivate(() => handleSelectTerminal(folder.id))}
-      aria-label={`Project: ${folder.name}`}
-      aria-expanded={expanded}
     >
       <button
         type="button"
@@ -163,7 +156,22 @@ function TerminalFolderRow({
       ) : (
         <Folder size={14} className="terminal-sidebar-folder-icon" />
       )}
-      <EditableNodeName node={folder} {...editableProps} />
+      {isEditing ? (
+        <EditableNodeName node={folder} {...editableProps} />
+      ) : (
+        <button
+          type="button"
+          className="terminal-sidebar-folder-main"
+          onClick={() => handleSelectTerminal(folder.id)}
+          onDoubleClick={() => startEditing(folder.id, folder.name)}
+          onContextMenu={e => handleContextMenu(e, folder.id)}
+          onKeyDown={onKeyboardActivate(() => handleSelectTerminal(folder.id))}
+          aria-label={`Project: ${folder.name}`}
+          aria-expanded={expanded}
+        >
+          <EditableNodeName node={folder} {...editableProps} />
+        </button>
+      )}
       <button
         type="button"
         className="terminal-sidebar-folder-add"

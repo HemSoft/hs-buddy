@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { axe } from '../../test/axe-helper'
 import { DashboardConfigDropdown } from './DashboardConfigDropdown'
 
 vi.mock('lucide-react', () => ({
@@ -34,6 +35,16 @@ describe('DashboardConfigDropdown', () => {
     )
     expect(screen.getByTitle('Configure dashboard cards')).toBeInTheDocument()
     expect(screen.getByText('Customize')).toBeInTheDocument()
+  })
+
+  it('has no accessibility violations with the menu open', async () => {
+    const { container } = render(
+      <DashboardConfigDropdown cards={sampleCards} isVisible={isVisible} toggleCard={toggleCard} />
+    )
+    fireEvent.click(screen.getByTitle('Configure dashboard cards'))
+
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('menu is closed by default', () => {

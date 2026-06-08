@@ -2,6 +2,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import type { TempoWorklog } from '../../types/tempo'
+import { axe } from '../../test/axe-helper'
 import { TempoWorklogEditor } from './TempoWorklogEditor'
 
 const getAccounts = vi.fn()
@@ -95,6 +96,15 @@ describe('TempoWorklogEditor', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Create' }))
 
     expect(screen.getByText('Issue key is required')).toBeInTheDocument()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<TempoWorklogEditor {...buildEditorProps({})} />)
+    await waitFor(() => {
+      expect(screen.getByRole('option', { name: 'Operations (OPS)' })).toBeInTheDocument()
+    })
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('loads project accounts after the issue key debounce and auto-selects the default', async () => {

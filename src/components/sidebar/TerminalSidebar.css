@@ -105,6 +105,20 @@
   flex-shrink: 0;
 }
 
+.terminal-sidebar-folder-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
 .terminal-sidebar-folder-add {
   margin-left: auto;
   background: none;

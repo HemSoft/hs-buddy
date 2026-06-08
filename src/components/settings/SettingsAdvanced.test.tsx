@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { axe } from '../../test/axe-helper'
 import { SettingsAdvanced } from './SettingsAdvanced'
 
 const { mockUseConfig } = vi.hoisted(() => ({
@@ -31,6 +32,13 @@ describe('SettingsAdvanced', () => {
   it('renders Advanced heading', () => {
     render(<SettingsAdvanced />)
     expect(screen.getByText('Advanced')).toBeTruthy()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<SettingsAdvanced />)
+    await screen.findByText('/path/to/config.json')
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('renders Configuration File section', () => {

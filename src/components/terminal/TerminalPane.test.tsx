@@ -1,5 +1,6 @@
 import { cleanup, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { axe } from '../../test/axe-helper'
 
 // Mock terminalSessions before importing the component
 vi.mock('./terminalSessions', () => ({
@@ -136,6 +137,13 @@ describe('TerminalPane', () => {
   it('renders the terminal pane container', () => {
     const { container } = render(<TerminalPane viewKey="test-key" />)
     expect(container.querySelector('.terminal-pane')).toBeInTheDocument()
+  })
+
+  it('has no accessibility violations', async () => {
+    vi.useRealTimers()
+    const { container } = render(<TerminalPane viewKey="test-key" />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('registers and unregisters terminal paste handler for the view', () => {

@@ -334,6 +334,7 @@ export function TempoWorklogEditor({
             className="tempo-editor-close"
             onClick={onCancel}
             disabled={state.saving}
+            aria-label="Dismiss worklog editor"
           >
             <X size={16} />
           </button>

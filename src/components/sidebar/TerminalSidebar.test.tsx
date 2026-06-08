@@ -1,5 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { axe } from '../../test/axe-helper'
 import { TerminalSidebar } from './TerminalSidebar'
 import type { TerminalTreeNode } from '../terminal-workspace/types'
 
@@ -64,6 +65,20 @@ describe('TerminalSidebar', () => {
     workspace.loaded = true
     rerender(<TerminalSidebar onItemSelect={onItemSelect} selectedItem={null} />)
     expect(screen.getByRole('button', { name: '+ New Project' })).toBeInTheDocument()
+  })
+
+  it('has no accessibility violations', async () => {
+    workspace.nodes = [
+      folder('folder-1', 'Project 1', 1, '#4ec9b0'),
+      terminal('terminal-1', 'Shell', 'folder-1', 1),
+    ]
+
+    const { container } = render(
+      <TerminalSidebar onItemSelect={onItemSelect} selectedItem="terminal-workspace" />
+    )
+
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('adds projects and terminals', () => {

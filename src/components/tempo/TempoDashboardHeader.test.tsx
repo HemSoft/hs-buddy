@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
+import { axe } from '../../test/axe-helper'
 import { TempoDashboardHeader } from './TempoDashboardHeader'
 
 vi.mock('lucide-react', () => ({
@@ -33,6 +34,12 @@ describe('TempoDashboardHeader', () => {
   it('renders the title', () => {
     render(<TempoDashboardHeader {...defaultProps} />)
     expect(screen.getByText('Tempo Tracking')).toBeInTheDocument()
+  })
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<TempoDashboardHeader {...defaultProps} />)
+    const results = await axe(container)
+    expect(results).toHaveNoViolations()
   })
 
   it('renders month label', () => {

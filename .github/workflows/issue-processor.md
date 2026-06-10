@@ -49,11 +49,34 @@ And do NOT have any of:
 - `agent:in-progress`
 - `agent:pause`
 - `agent:human-required`
+- `agent:blocked`
 - `no-agent`
 
 Sort results by creation date ascending. Take the **single oldest** result.
 
 If no issue matches, exit immediately — nothing to do.
+
+## Step 1a — Refuse known PR fallback loops
+
+Before claiming the selected issue, search open issues labeled `agent:pr` whose
+body contains both:
+
+- `gh-aw-workflow-id: issue-processor`
+- `Closes #<selected issue number>` or `Closes \#<selected issue number>`
+
+If any such issue exists, it is a `create_pull_request` fallback issue, not a
+real pull request. Do **not** implement the fix again and do **not** call
+`create_pull_request`. Call `update_issue` on the selected source issue with:
+
+- `labels`: replace the lifecycle label with `agent:blocked` while preserving
+  non-lifecycle labels such as `report`, `action-item`, `audit`, and risk labels
+- `body`: append "🛑 Issue Processor blocked this issue because a previous
+  create_pull_request attempt produced a fallback issue instead of a PR. A
+  human must fix repository workflow permissions or the Issue Processor
+  guardrail before retrying."
+- `operation`: `"append"`
+
+Then exit cleanly.
 
 ## Step 2 — Claim the issue
 
@@ -113,6 +136,10 @@ because the workflow token does not have push permissions.
 
 Call the `create_pull_request` safe output tool. This is the ONLY way to
 create a PR — it handles pushing the branch and opening the PR in one step.
+
+Only call `create_pull_request` after Step 1a confirms there is no existing PR
+fallback for this source issue. A safe-output fallback issue is a failure
+signal, not an SFL-managed PR, and must not be treated as progress.
 
 The tool will use your committed changes on the current branch. Provide:
 

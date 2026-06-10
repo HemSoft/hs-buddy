@@ -2,7 +2,7 @@
 #
 # Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
-#   - Issue Processor: when agent:fixable issues exist
+#   - Issue Processor: when claimable agent:fixable issues exist and PR creation is allowed
 #   - PR Analyzers A/B/C: when draft PRs with agent:pr exist
 #   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
@@ -35,18 +35,72 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
       REPO: ${{ github.repository }}
     steps:
-      - name: Check for fixable issues
+      - name: Check pull request creation permission
+        id: pr-permission
+        run: |
+          set -euo pipefail
+
+          CAN_CREATE_PRS=false
+          REASON="Unable to verify repository workflow permissions."
+
+          if PERMISSIONS=$(gh api "repos/$REPO/actions/permissions/workflow" \
+            --jq '[.default_workflow_permissions, (.can_approve_pull_request_reviews | tostring)] | @tsv' \
+            2>/tmp/pr_permission_error); then
+            DEFAULT_PERMISSION=$(echo "$PERMISSIONS" | cut -f1)
+            CAN_APPROVE=$(echo "$PERMISSIONS" | cut -f2)
+
+            if [ "$DEFAULT_PERMISSION" = "write" ] && [ "$CAN_APPROVE" = "true" ]; then
+              CAN_CREATE_PRS=true
+              REASON="Repository Actions workflow permissions allow PR creation."
+            else
+              REASON="Repository Actions workflow permissions block PR creation: default=$DEFAULT_PERMISSION allow_prs=$CAN_APPROVE."
+            fi
+          else
+            REASON="Unable to verify repository workflow permissions. See the preflight log."
+            tr '\n' ' ' < /tmp/pr_permission_error | head -c 240 || true
+            echo ""
+          fi
+
+          echo "can_create_prs=$CAN_CREATE_PRS" >> "$GITHUB_OUTPUT"
+          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
+          echo "$REASON"
+
+      - name: Check for PR fallback issues
+        id: pr-fallbacks
+        run: |
+          set -euo pipefail
+
+          COUNT=$(gh issue list --repo "$REPO" --state open --label "agent:pr" \
+            --json number,body --limit 100 \
+            --jq '[.[] | select((.body // "") | contains("This was originally intended as a pull request"))] | length')
+          echo "pr_fallback_count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$COUNT" -gt 0 ]; then
+            echo "Found $COUNT create_pull_request fallback issue(s) — blocking Issue Processor dispatch."
+          else
+            echo "No create_pull_request fallback issues found."
+          fi
+
+      - name: Check for claimable fixable issues
         id: issues
         run: |
           set -euo pipefail
 
-          COUNT=$(gh issue list --repo "$REPO" --label "agent:fixable" --state open --json number --jq 'length')
+          COUNT=$(gh issue list --repo "$REPO" --label "agent:fixable" --label "action-item" \
+            --state open --json number,labels --limit 100 \
+            --jq '[.[] | select([.labels[].name] | (
+              index("agent:in-progress") == null and
+              index("agent:pause") == null and
+              index("agent:human-required") == null and
+              index("agent:blocked") == null and
+              index("no-agent") == null
+            ))] | length')
           echo "fixable_count=$COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT fixable issue(s) — will dispatch Issue Processor."
+            echo "Found $COUNT claimable fixable issue(s)."
           else
-            echo "No fixable issues — skipping Issue Processor."
+            echo "No claimable fixable issues — skipping Issue Processor."
           fi
 
       - name: Check for draft PRs with agent:pr
@@ -101,7 +155,7 @@ jobs:
           fi
 
       - name: Dispatch Issue Processor
-        if: steps.issues.outputs.fixable_count != '0'
+        if: steps.issues.outputs.fixable_count != '0' && steps.pr-permission.outputs.can_create_prs == 'true' && steps.pr-fallbacks.outputs.pr_fallback_count == '0'
         run: |
           echo "Dispatching Issue Processor..."
           gh workflow run issue-processor.lock.yml --repo "$REPO"
@@ -161,10 +215,14 @@ jobs:
           echo "| Workflow | Dispatched |" >> "$GITHUB_STEP_SUMMARY"
           echo "|----------|------------|" >> "$GITHUB_STEP_SUMMARY"
 
-          if [ "${{ steps.issues.outputs.fixable_count }}" != "0" ]; then
-            echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.issues.outputs.fixable_count }}" = "0" ]; then
+            echo "| Issue Processor | No (0 claimable fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.pr-permission.outputs.can_create_prs }}" != "true" ]; then
+            echo "| Issue Processor | No (${{ steps.pr-permission.outputs.reason }}) |" >> "$GITHUB_STEP_SUMMARY"
+          elif [ "${{ steps.pr-fallbacks.outputs.pr_fallback_count }}" != "0" ]; then
+            echo "| Issue Processor | No (${{ steps.pr-fallbacks.outputs.pr_fallback_count }} PR fallback issues need audit repair) |" >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "| Issue Processor | No (0 fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} claimable fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
           fi
 
           if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then

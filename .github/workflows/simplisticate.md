@@ -134,6 +134,18 @@ Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the app
 
 Issue title format: `[simplisticate] <short description of the specific simplification>`
 
+Before creating a per-finding issue, compute a stable idempotency key from the
+finding source, location, and proposed simplification. Include it in the body:
+
+```md
+<!-- agent:idempotency-key: simplisticate:<normalized-source>:<normalized-finding> -->
+```
+
+Search open issues for either that exact idempotency key or the exact issue
+title. If a matching open issue already exists, update that issue with the
+latest evidence instead of creating a new issue. Do not create duplicate
+action-item issues for the same file, finding, and proposed simplification.
+
 Issue body must include:
 
 - **Finding**: What complexity was detected and where (file path, line range)

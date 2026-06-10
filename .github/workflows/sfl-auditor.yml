@@ -52,13 +52,113 @@ jobs:
             --json number,headRefName,labels,title --limit 100 > /tmp/all_prs.json
 
           jq '[.[] | select(.headRefName | startswith("agent-fix/issue-")) |
-            . + {linkedIssue: (.headRefName | capture("agent-fix/issue-(?<num>[0-9]+)-") | .num | tonumber)}]' \
+            . + {linkedIssue: (.headRefName | capture("agent-fix/issue-(?<num>[0-9]+)(?:-|$)") | .num | tonumber)}]' \
             /tmp/all_prs.json > /tmp/agent_prs.json
 
           PR_COUNT=$(jq 'length' /tmp/agent_prs.json)
           echo "Found $PR_COUNT open agent PRs"
 
+          gh issue list --repo "$REPO" --state open --label "agent:pr" \
+            --json number,title,body,labels,url --limit 100 > /tmp/agent_pr_issues.json
+
+          jq '[.[] | select((.body // "") | contains("This was originally intended as a pull request"))]' \
+            /tmp/agent_pr_issues.json > /tmp/pr_fallback_issues.json
+
+          FALLBACK_COUNT=$(jq 'length' /tmp/pr_fallback_issues.json)
+          echo "Found $FALLBACK_COUNT create_pull_request fallback issues"
+
           echo "discrepancies=0" >> "$GITHUB_OUTPUT"
+
+      - name: "Check: create_pull_request fallback issues"
+        id: pr-fallbacks
+        run: |
+          set -euo pipefail
+
+          FIXED=0
+          touch /tmp/fallback_source_issues.txt
+
+          while IFS= read -r ROW; do
+            FALLBACK_NUM=$(echo "$ROW" | jq '.number')
+            BODY=$(echo "$ROW" | jq -r '.body // ""')
+            SOURCE_NUM=$(printf '%s\n' "$BODY" \
+              | grep -oE 'Closes[[:space:]]+\\?#[0-9]+' \
+              | head -n1 \
+              | grep -oE '[0-9]+' || true)
+
+            if [ -n "$SOURCE_NUM" ]; then
+              echo "$SOURCE_NUM" >> /tmp/fallback_source_issues.txt
+
+              if gh issue view "$SOURCE_NUM" --repo "$REPO" --json number,state >/tmp/source_issue.json 2>/dev/null; then
+                ALREADY_FLAGGED=$(gh issue view "$SOURCE_NUM" --repo "$REPO" --json comments \
+                  --jq '.comments[].body' | grep -c 'create_pull_request fallback' || true)
+
+                if [ "$ALREADY_FLAGGED" -eq 0 ]; then
+                  gh issue comment "$SOURCE_NUM" --repo "$REPO" \
+                    --body "🛑 **SFL Auditor**: Issue Processor produced fallback issue #$FALLBACK_NUM instead of a pull request. Blocking this source issue because the automation cannot continue until repository workflow permissions or the Issue Processor guardrail are fixed."
+                fi
+
+                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:in-progress" 2>/dev/null || true
+                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:fixable" 2>/dev/null || true
+                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:pause" 2>/dev/null || true
+                gh issue edit "$SOURCE_NUM" --repo "$REPO" --add-label "agent:blocked"
+              else
+                echo "Fallback issue #$FALLBACK_NUM references source issue #$SOURCE_NUM, but that issue could not be read."
+              fi
+            else
+              echo "Fallback issue #$FALLBACK_NUM did not contain a parseable source issue."
+            fi
+
+            ALREADY_CLOSED=$(gh issue view "$FALLBACK_NUM" --repo "$REPO" --json comments \
+              --jq '.comments[].body' | grep -c 'Closing this issue because it is a create_pull_request fallback' || true)
+
+            if [ "$ALREADY_CLOSED" -eq 0 ]; then
+              if [ -n "$SOURCE_NUM" ]; then
+                gh issue comment "$FALLBACK_NUM" --repo "$REPO" \
+                  --body "🛑 **SFL Auditor**: Closing this issue because it is a create_pull_request fallback, not an SFL-managed pull request. Source issue: #$SOURCE_NUM."
+              else
+                gh issue comment "$FALLBACK_NUM" --repo "$REPO" \
+                  --body "🛑 **SFL Auditor**: Closing this issue because it is a create_pull_request fallback, not an SFL-managed pull request. No source issue could be parsed from the body."
+              fi
+            fi
+
+            gh issue close "$FALLBACK_NUM" --repo "$REPO" --reason "not planned"
+            FIXED=$((FIXED + 1))
+          done < <(jq -c '.[]' /tmp/pr_fallback_issues.json)
+
+          echo "pr_fallbacks_fixed=$FIXED" >> "$GITHUB_OUTPUT"
+          echo "Fixed $FIXED create_pull_request fallback issues"
+
+      - name: "Check: duplicate action-item issues"
+        id: duplicate-issues
+        run: |
+          set -euo pipefail
+
+          CLOSED=0
+
+          gh issue list --repo "$REPO" --state open --label "action-item" \
+            --json number,title,createdAt,labels --limit 100 > /tmp/action_item_issues.json
+
+          while IFS=$'\t' read -r KEEP_NUM DUP_NUM TITLE; do
+            echo "Issue #$DUP_NUM duplicates #$KEEP_NUM: $TITLE"
+
+            gh issue comment "$DUP_NUM" --repo "$REPO" \
+              --body "🛑 **SFL Auditor**: Closing this action item as a duplicate of #$KEEP_NUM. Future audit workflows should update the existing issue instead of creating another issue for the same finding."
+
+            gh issue close "$DUP_NUM" --repo "$REPO" --reason "duplicate" --duplicate-of "$KEEP_NUM"
+            CLOSED=$((CLOSED + 1))
+          done < <(jq -r '
+            group_by(.title)[]
+            | select(length > 1)
+            | sort_by(.createdAt, .number)
+            | .[0].number as $keep
+            | .[0].title as $title
+            | .[1:][]
+            | [$keep, .number, $title]
+            | @tsv
+          ' /tmp/action_item_issues.json)
+
+          echo "duplicate_issues_closed=$CLOSED" >> "$GITHUB_OUTPUT"
+          echo "Closed $CLOSED duplicate action-item issues"
 
       - name: "Check: orphaned agent:in-progress labels"
         id: orphaned-labels
@@ -68,6 +168,11 @@ jobs:
           FIXED=0
 
           for ISSUE_NUM in $(jq -r '.[].number' /tmp/in_progress_issues.json); do
+            if grep -qxF "$ISSUE_NUM" /tmp/fallback_source_issues.txt 2>/dev/null; then
+              echo "Skipping issue #$ISSUE_NUM — create_pull_request fallback handling already blocked it"
+              continue
+            fi
+
             HAS_PR=$(jq --argjson n "$ISSUE_NUM" '[.[] | select(.linkedIssue == $n)] | length' /tmp/agent_prs.json)
 
             if [ "$HAS_PR" -eq 0 ]; then
@@ -162,7 +267,7 @@ jobs:
             fi
 
             # Skip if issue has blocking labels
-            HAS_BLOCKING=$(echo "$ROW" | jq '[.labels[].name] | any(. == "agent:in-progress" or . == "agent:pause" or . == "agent:human-required" or . == "agent:escalated")')
+            HAS_BLOCKING=$(echo "$ROW" | jq '[.labels[].name] | any(. == "agent:in-progress" or . == "agent:pause" or . == "agent:human-required" or . == "agent:blocked" or . == "agent:escalated" or . == "no-agent")')
             if [ "$HAS_BLOCKING" = "true" ]; then
               continue
             fi
@@ -265,19 +370,23 @@ jobs:
       - name: Summary
         run: |
           ORPHANED_LABELS="${{ steps.orphaned-labels.outputs.orphaned_labels_fixed }}"
+          PR_FALLBACKS="${{ steps.pr-fallbacks.outputs.pr_fallbacks_fixed }}"
+          DUPLICATES="${{ steps.duplicate-issues.outputs.duplicate_issues_closed }}"
           CONFLICTING="${{ steps.conflicting.outputs.conflicting_fixed }}"
           ORPHANED_PRS="${{ steps.orphaned-prs.outputs.orphaned_prs_found }}"
           STALE_UNCLAIMED="${{ steps.stale-unclaimed.outputs.stale_unclaimed_found }}"
           STALLED_PRS="${{ steps.stalled-prs.outputs.stalled_prs_found }}"
           PAUSED="${{ steps.paused.outputs.unexplained_pause_found }}"
 
-          TOTAL=$((ORPHANED_LABELS + CONFLICTING + ORPHANED_PRS + STALE_UNCLAIMED + STALLED_PRS + PAUSED))
+          TOTAL=$((ORPHANED_LABELS + PR_FALLBACKS + DUPLICATES + CONFLICTING + ORPHANED_PRS + STALE_UNCLAIMED + STALLED_PRS + PAUSED))
 
           echo "## SFL Auditor Summary"
           echo ""
           echo "| Check | Count |"
           echo "|-------|-------|"
           echo "| Orphaned in-progress labels fixed | $ORPHANED_LABELS |"
+          echo "| PR fallback issues closed | $PR_FALLBACKS |"
+          echo "| Duplicate action-item issues closed | $DUPLICATES |"
           echo "| Conflicting labels fixed | $CONFLICTING |"
           echo "| Orphaned agent PRs flagged | $ORPHANED_PRS |"
           echo "| Stale unclaimed issues flagged | $STALE_UNCLAIMED |"

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.809",
+  "version": "0.1.810",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -109,6 +109,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",

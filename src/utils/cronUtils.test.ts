@@ -60,6 +60,19 @@ describe('enumerateCronOccurrences', () => {
     expect(result).toEqual([])
   })
 
+  it('supports common predefined expressions', () => {
+    const from = new Date('2025-01-01T00:00:00Z').getTime()
+    const to = new Date('2025-01-01T03:00:00Z').getTime()
+    const result = enumerateCronOccurrences('@hourly', 'UTC', from, to)
+
+    expect(result).toEqual([
+      new Date('2025-01-01T00:00:00Z').getTime(),
+      new Date('2025-01-01T01:00:00Z').getTime(),
+      new Date('2025-01-01T02:00:00Z').getTime(),
+      new Date('2025-01-01T03:00:00Z').getTime(),
+    ])
+  })
+
   it('supports timezone parameter', () => {
     // Daily at midnight: "0 0 * * *"
     const from = new Date('2025-06-01T00:00:00-04:00').getTime()
@@ -108,5 +121,9 @@ describe('validateCronExpression', () => {
 
   it('accepts cron without timezone parameter', () => {
     expect(() => validateCronExpression('*/5 * * * *')).not.toThrow()
+  })
+
+  it('accepts common predefined expressions', () => {
+    expect(() => validateCronExpression('@daily')).not.toThrow()
   })
 })

@@ -59,10 +59,12 @@ If no issue matches, exit immediately — nothing to do.
 ## Step 1a — Refuse known PR fallback loops
 
 Before claiming the selected issue, search open issues labeled `agent:pr` whose
-body contains both:
+body contains all of:
 
 - `gh-aw-workflow-id: issue-processor`
-- `Closes #<selected issue number>` or `Closes \#<selected issue number>`
+- `This was originally intended as a pull request`
+- a source reference matching `Closes[[:space:]]+\\?#<selected issue number>`
+  so both `Closes #123` and `Closes \#123` are treated as the same source issue
 
 If any such issue exists, it is a `create_pull_request` fallback issue, not a
 real pull request. Do **not** implement the fix again and do **not** call

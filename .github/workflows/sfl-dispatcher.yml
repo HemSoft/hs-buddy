@@ -72,7 +72,11 @@ jobs:
 
           COUNT=$(gh issue list --repo "$REPO" --state open --label "agent:pr" \
             --json number,body --limit 100 \
-            --jq '[.[] | select((.body // "") | contains("This was originally intended as a pull request"))] | length')
+            --jq '[.[] | select(
+              ((.body // "") | contains("gh-aw-workflow-id: issue-processor")) and
+              ((.body // "") | contains("This was originally intended as a pull request")) and
+              ((.body // "") | test("Closes[[:space:]]+\\\\?#[0-9]+"))
+            )] | length')
           echo "pr_fallback_count=$COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -gt 0 ]; then

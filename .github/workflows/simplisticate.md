@@ -134,17 +134,36 @@ Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the app
 
 Issue title format: `[simplisticate] <short description of the specific simplification>`
 
-Before creating a per-finding issue, compute a stable idempotency key from the
-finding source, location, and proposed simplification. Include it in the body:
+Before creating a per-finding issue, compute a stable idempotency key:
+
+1. Normalize the source token from the finding file path:
+   - resolve to a repo-relative path
+   - replace backslashes with forward slashes
+   - remove leading `./`, trailing slashes, and non-printable characters
+   - lowercase, trim, and collapse whitespace to a single space
+   - if the result is longer than 120 characters or contains `-->`, replace it
+     with `source-<sha256(normalized source).slice(0, 16)>`
+2. Normalize the finding input by concatenating line range, complexity signal,
+   and the first 100 characters of the proposed simplification with `|`
+   separators, then lowercase, trim, collapse whitespace to a single space, and
+   remove non-printable characters.
+3. Hash the normalized finding input as
+   `<sha256(normalized finding input).slice(0, 16)>`.
+
+Include the key in the body:
 
 ```md
-<!-- agent:idempotency-key: simplisticate:<normalized-source>:<normalized-finding> -->
+<!-- agent:idempotency-key: simplisticate:<normalized-source>:<finding-hash> -->
 ```
 
-Search open issues for either that exact idempotency key or the exact issue
-title. If a matching open issue already exists, update that issue with the
-latest evidence instead of creating a new issue. Do not create duplicate
-action-item issues for the same file, finding, and proposed simplification.
+Search open issues labeled `action-item` for the exact idempotency key in the
+issue body HTML comment. If a matching open issue already exists, update that
+issue by replacing the **Finding**, **Complexity Signal**,
+**Proposed Simplification**, **Before/After**, **Acceptance Criteria**, and
+**Risk** sections with the latest evidence while preserving the original title
+and labels. If no key match is found, create a new issue. Do not rely on exact
+title matching for deduplication, and do not create duplicate action-item issues
+for the same file, finding, and proposed simplification.
 
 Issue body must include:
 

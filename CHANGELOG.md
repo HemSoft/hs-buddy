@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.808] - 2026-06-10
+
+### Fixed
+
+- Guard sfl issue processor fallback loops
+
 ## [0.1.807] - 2026-06-08
 
 ### Changed

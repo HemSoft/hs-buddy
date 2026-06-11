@@ -134,6 +134,47 @@ Label each agent-fixable issue with: `action-item`, `agent:fixable`, and the app
 
 Issue title format: `[simplisticate] <short description of the specific simplification>`
 
+Before creating a per-finding issue, compute a stable idempotency key:
+
+1. Normalize the source token from the finding file path:
+   - resolve to a repo-relative path
+   - replace backslashes with forward slashes
+   - remove leading `./`, trailing slashes, and non-printable characters
+   - lowercase, trim, and collapse whitespace to a single space
+   - if the result is longer than 120 characters or contains `-->`, replace it
+     with `source-<sha256-hex-lowercase(normalized-source).substring(0, 16)>`,
+     where the digest is SHA-256 encoded as lowercase hexadecimal and truncated
+     to the first 16 hex characters.
+2. Normalize the finding input by concatenating the line range, complexity
+   signal, and proposed simplification preview with `|` separators:
+   - format the line range as `<start>-<end>` with no spaces or prefixes, for
+     example `42-58`; convert variants such as `L42-L58`, `42:58`, or
+     `42 - 58` to that canonical format before concatenation
+   - use the exact complexity signal string from the Complexity Signals table
+   - use the first 100 Unicode code points of the proposed simplification, not
+     UTF-8 bytes or grapheme clusters
+   - lowercase, trim, collapse whitespace to a single space, and remove
+     non-printable characters after concatenation
+3. Hash the normalized finding input by computing its SHA-256 digest, encoding
+   it as lowercase hexadecimal, then taking the first 16 hex characters:
+   `<sha256-hex-lowercase(normalized-finding).substring(0, 16)>`. Do not use
+   base64, uppercase hexadecimal, or any other digest encoding.
+
+Include the key in the body:
+
+```md
+<!-- agent:idempotency-key: simplisticate:<normalized-source>:<finding-hash> -->
+```
+
+Search open issues labeled `action-item` for the exact idempotency key in the
+issue body HTML comment. If a matching open issue already exists, update that
+issue by replacing the **Finding**, **Complexity Signal**,
+**Proposed Simplification**, **Before/After**, **Acceptance Criteria**, and
+**Risk** sections with the latest evidence while preserving the original title
+and labels. If no key match is found, create a new issue. Do not rely on exact
+title matching for deduplication, and do not create duplicate action-item issues
+for the same file, finding, and proposed simplification.
+
 Issue body must include:
 
 - **Finding**: What complexity was detected and where (file path, line range)

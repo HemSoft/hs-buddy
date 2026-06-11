@@ -142,13 +142,23 @@ Before creating a per-finding issue, compute a stable idempotency key:
    - remove leading `./`, trailing slashes, and non-printable characters
    - lowercase, trim, and collapse whitespace to a single space
    - if the result is longer than 120 characters or contains `-->`, replace it
-     with `source-<sha256(normalized source).slice(0, 16)>`
-2. Normalize the finding input by concatenating line range, complexity signal,
-   and the first 100 characters of the proposed simplification with `|`
-   separators, then lowercase, trim, collapse whitespace to a single space, and
-   remove non-printable characters.
-3. Hash the normalized finding input as
-   `<sha256(normalized finding input).slice(0, 16)>`.
+     with `source-<sha256-hex-lowercase(normalized-source).substring(0, 16)>`,
+     where the digest is SHA-256 encoded as lowercase hexadecimal and truncated
+     to the first 16 hex characters.
+2. Normalize the finding input by concatenating the line range, complexity
+   signal, and proposed simplification preview with `|` separators:
+   - format the line range as `<start>-<end>` with no spaces or prefixes, for
+     example `42-58`; convert variants such as `L42-L58`, `42:58`, or
+     `42 - 58` to that canonical format before concatenation
+   - use the exact complexity signal string from the Complexity Signals table
+   - use the first 100 Unicode code points of the proposed simplification, not
+     UTF-8 bytes or grapheme clusters
+   - lowercase, trim, collapse whitespace to a single space, and remove
+     non-printable characters after concatenation
+3. Hash the normalized finding input by computing its SHA-256 digest, encoding
+   it as lowercase hexadecimal, then taking the first 16 hex characters:
+   `<sha256-hex-lowercase(normalized-finding).substring(0, 16)>`. Do not use
+   base64, uppercase hexadecimal, or any other digest encoding.
 
 Include the key in the body:
 

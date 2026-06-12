@@ -6,10 +6,10 @@ local verification where needed, and conservative merge ordering.
 ## Progress Tracking
 
 - **Total Items**: 7
-- **Completed**: 1
-- **Remaining**: 6
+- **Completed**: 3
+- **Remaining**: 4
 - **Status**: In Progress
-- **Last Updated**: 2026-06-12 02:51
+- **Last Updated**: 2026-06-12 03:13
 
 ## Items
 
@@ -17,16 +17,18 @@ local verification where needed, and conservative merge ordering.
   - Current evidence: mergeable; full CI green.
   - Risk note: touches generated `.lock.yml` workflow files.
   - Result: squash-merged at 7c7ccc848685892ceec354caba260f393b0ee553.
-- [ ] HemSoft/hs-buddy#157 - @opentelemetry/instrumentation-dns 0.57.0 to 0.62.0
+- [x] HemSoft/hs-buddy#157 - @opentelemetry/instrumentation-dns 0.57.0 to 0.62.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
+  - Result: resolved after #161, full CI green, squash-merged at adff1a0068cce5edd217644622b019e4c97b7c1b.
 - [ ] HemSoft/hs-buddy#158 - convex 1.40.0 to 1.41.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
 - [ ] HemSoft/hs-buddy#159 - sharp 0.34.5 to 0.35.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
 - [ ] HemSoft/hs-buddy#160 - vscode-jsonrpc 8.2.1 to 9.0.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
-- [ ] HemSoft/hs-buddy#161 - @opentelemetry/sdk-logs 0.218.0 to 0.219.0
+- [x] HemSoft/hs-buddy#161 - @opentelemetry/sdk-logs 0.218.0 to 0.219.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
+  - Result: local typecheck and telemetry tests passed; squash-merged at 04bc7dd41720dcdbfafd8735198895c9ee51c373.
 - [ ] HemSoft/TCE-Admin#2 - Newtonsoft.Json 12.0.2 to 13.0.2
   - Current evidence: open since 2022; local checkout absent.
   - Risk note: stale out-of-repo major dependency update; inspect separately.

@@ -8,7 +8,7 @@
 | 📋     | Medium   | [Harden or replace Electron webviewTag usage](#harden-or-replace-electron-webviewtag-usage) | #90 — `security:electron` has 0 high/medium findings, but `webviewTag: true` remains an info risk |
 | 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
 | 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
-| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Current hs-buddy PRs #156-#161; e18e duplication impact to recheck after merges |
+| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Current hs-buddy PRs #158-#160; e18e duplication impact to recheck after merges |
 | ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Risk item — 2022 Newtonsoft.Json major update; local checkout absent |
 | ✅     | Low      | Fix Prettier formatting violations                                                | 2026-06-07: `bun run format:check` passes; stale TODO removed |
 | ✅     | Low      | Fix e18e pkg.main packaging config                                                | 2026-06-07: `package.json` `files` includes `dist-electron/main.js`; stale TODO removed |
@@ -182,9 +182,10 @@
 
 **Current state** (2026-06-12 audit):
 
-- Open hs-buddy Dependabot PRs: #156, #157, #158, #159, #160, #161.
+- Open hs-buddy Dependabot PRs: #158, #159, #160.
 - #156 was squash-merged on 2026-06-12 after full CI green; it touched generated `.lock.yml` workflow files only.
-- #157, #158, #159, #160, and #161 currently show only lightweight Dependabot checks in the PR rollup.
+- #157 and #161 were squash-merged on 2026-06-12 after local OpenTelemetry validation; #157 also reran full remote CI after branch conflict resolution.
+- #158, #159, and #160 currently show only lightweight Dependabot checks in the PR rollup.
 - `bun run e18e` reports 137 duplicate dependency warnings.
 
 **Approach:** Land low-risk fully green PRs first, locally verify the remaining dependency updates before merging, then rerun e18e and record whether dependency duplication improves.

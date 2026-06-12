@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.816] - 2026-06-12
+
+### Changed
+
+- Record archived Dependabot blocker
+
 ## [0.1.815] - 2026-06-12
 
 ### Changed

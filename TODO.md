@@ -9,7 +9,7 @@
 | 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
 | 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
 | 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — No open hs-buddy Dependabot PRs; e18e recheck blocked by external CLI module failure |
-| ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Blocked — archived/read-only repo; PR branch needs `.csproj` repair before merge |
+| ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Blocked — archived/read-only repo rejects close/push/merge; PR branch needs `.csproj` repair before merge |
 | ✅     | Low      | Fix Prettier formatting violations                                                | 2026-06-07: `bun run format:check` passes; stale TODO removed |
 | ✅     | Low      | Fix e18e pkg.main packaging config                                                | 2026-06-07: `package.json` `files` includes `dist-electron/main.js`; stale TODO removed |
 | ✅     | High     | Update bundle-size baseline                                                       | 2026-05-07: Fixed stale-artifact bug in collectLargestMain, updated baseline, cleaned 32 stale artifacts |
@@ -203,6 +203,7 @@
 - Open Dependabot PR last updated in 2022.
 - Updates Newtonsoft.Json from 12.0.2 to 13.0.2.
 - Repository is archived/read-only, so the PR branch cannot be pushed or merged.
+- Closing the PR is also blocked: `gh pr close` returns `GraphQL: Repository was archived so is read-only (closePullRequest)`.
 - PR branch only updates `packages.config`; `TCE Admin.csproj` still references `Newtonsoft.Json.12.0.2`.
 - Required repair: update the `.csproj` assembly reference to `Version=13.0.0.0` and the HintPath to `..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll`.
 - Local static validation confirmed package/project consistency and that the NuGet 13.0.2 package contains `lib/net45/Newtonsoft.Json.dll`.

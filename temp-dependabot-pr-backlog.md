@@ -8,8 +8,8 @@ local verification where needed, and conservative merge ordering.
 - **Total Items**: 7
 - **Completed**: 6
 - **Remaining**: 1
-- **Status**: In Progress
-- **Last Updated**: 2026-06-12 04:11
+- **Status**: Blocked
+- **Last Updated**: 2026-06-12 04:19
 
 ## Items
 
@@ -35,7 +35,8 @@ local verification where needed, and conservative merge ordering.
 - [ ] HemSoft/TCE-Admin#2 - Newtonsoft.Json 12.0.2 to 13.0.2
   - Current evidence: open since 2022; repo is archived/read-only; PR changes only `packages.config`.
   - Risk note: PR is incomplete because `TCE Admin.csproj` still references `Newtonsoft.Json.12.0.2`.
-  - Blocker: required `.csproj` repair was validated locally but cannot be pushed or merged while `HemSoft/TCE-Admin` is archived.
+  - Blocker: required `.csproj` repair was validated locally but cannot be pushed, closed, or merged while `HemSoft/TCE-Admin` is archived.
+  - Close attempt: GitHub rejected `gh pr close` with `GraphQL: Repository was archived so is read-only (closePullRequest)`.
 
 ## Merge Order
 

@@ -4,7 +4,7 @@
     "language": "typescript/nodejs"
   },
   "sdk": {
-    "version": "13.2.2"
+    "version": "13.5.0-preview.1.26310.3"
   },
   "channel": "daily",
   "profiles": {
@@ -17,6 +17,6 @@
     }
   },
   "packages": {
-    "Aspire.Hosting.JavaScript": "13.2.2"
+    "Aspire.Hosting.JavaScript": "13.5.0-preview.1.26310.3"
   }
 }

@@ -6,10 +6,10 @@ local verification where needed, and conservative merge ordering.
 ## Progress Tracking
 
 - **Total Items**: 7
-- **Completed**: 3
-- **Remaining**: 4
+- **Completed**: 4
+- **Remaining**: 3
 - **Status**: In Progress
-- **Last Updated**: 2026-06-12 03:13
+- **Last Updated**: 2026-06-12 03:39
 
 ## Items
 
@@ -20,8 +20,9 @@ local verification where needed, and conservative merge ordering.
 - [x] HemSoft/hs-buddy#157 - @opentelemetry/instrumentation-dns 0.57.0 to 0.62.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
   - Result: resolved after #161, full CI green, squash-merged at adff1a0068cce5edd217644622b019e4c97b7c1b.
-- [ ] HemSoft/hs-buddy#158 - convex 1.40.0 to 1.41.0
+- [x] HemSoft/hs-buddy#158 - convex 1.40.0 to 1.41.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
+  - Result: updated against main, local install/typecheck/Convex tests passed, full remote CI/security/benchmarks/E2E/lockfile workflow passed, squash-merged at b51a0a29d37c84789be91ffb5dfc0927e0d61165.
 - [ ] HemSoft/hs-buddy#159 - sharp 0.34.5 to 0.35.0
   - Current evidence: mergeable; lightweight Dependabot checks only.
 - [ ] HemSoft/hs-buddy#160 - vscode-jsonrpc 8.2.1 to 9.0.0

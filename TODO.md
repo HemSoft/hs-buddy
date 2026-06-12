@@ -8,8 +8,8 @@
 | 📋     | Medium   | [Harden or replace Electron webviewTag usage](#harden-or-replace-electron-webviewtag-usage) | #90 — `security:electron` has 0 high/medium findings, but `webviewTag: true` remains an info risk |
 | 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
 | 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
-| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Current hs-buddy PRs #159-#160; e18e duplication impact to recheck after merges |
-| ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Risk item — 2022 Newtonsoft.Json major update; local checkout absent |
+| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — No open hs-buddy Dependabot PRs; e18e recheck blocked by external CLI module failure |
+| ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Blocked — archived/read-only repo; PR branch needs `.csproj` repair before merge |
 | ✅     | Low      | Fix Prettier formatting violations                                                | 2026-06-07: `bun run format:check` passes; stale TODO removed |
 | ✅     | Low      | Fix e18e pkg.main packaging config                                                | 2026-06-07: `package.json` `files` includes `dist-electron/main.js`; stale TODO removed |
 | ✅     | High     | Update bundle-size baseline                                                       | 2026-05-07: Fixed stale-artifact bug in collectLargestMain, updated baseline, cleaned 32 stale artifacts |
@@ -182,14 +182,15 @@
 
 **Current state** (2026-06-12 audit):
 
-- Open hs-buddy Dependabot PRs: #159, #160.
+- Open hs-buddy Dependabot PRs: none.
 - #156 was squash-merged on 2026-06-12 after full CI green; it touched generated `.lock.yml` workflow files only.
 - #157 and #161 were squash-merged on 2026-06-12 after local OpenTelemetry validation; #157 also reran full remote CI after branch conflict resolution.
 - #158 was squash-merged on 2026-06-12 after branch refresh, local Convex validation, and full remote CI/security/benchmarks/E2E/lockfile workflow success.
-- #159 and #160 currently show only lightweight Dependabot checks in the PR rollup.
-- `bun run e18e` reports 137 duplicate dependency warnings.
+- #159 was squash-merged on 2026-06-12 after local sharp/icon-generation validation and full remote CI/security/benchmarks/E2E/lockfile workflow success.
+- #160 was squash-merged on 2026-06-12 after local vscode-jsonrpc/AppHost validation and full remote CI/security/benchmarks/E2E/lockfile workflow success.
+- `bun run e18e` and direct `npx @e18e/cli analyze` currently fail with `ERR_MODULE_NOT_FOUND` for `@e18e/web-features-codemods`.
 
-**Approach:** Land low-risk fully green PRs first, locally verify the remaining dependency updates before merging, then rerun e18e and record whether dependency duplication improves.
+**Approach:** Repair or pin the e18e analyzer path, then rerun e18e and record whether dependency duplication improved after the Dependabot merges.
 
 ---
 
@@ -201,8 +202,12 @@
 
 - Open Dependabot PR last updated in 2022.
 - Updates Newtonsoft.Json from 12.0.2 to 13.0.2.
-- Local checkout is absent at `D:\github\HemSoft\TCE-Admin`.
+- Repository is archived/read-only, so the PR branch cannot be pushed or merged.
+- PR branch only updates `packages.config`; `TCE Admin.csproj` still references `Newtonsoft.Json.12.0.2`.
+- Required repair: update the `.csproj` assembly reference to `Version=13.0.0.0` and the HintPath to `..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll`.
+- Local static validation confirmed package/project consistency and that the NuGet 13.0.2 package contains `lib/net45/Newtonsoft.Json.dll`.
+- Local build is blocked by missing .NET Framework 4.7.2 Developer Pack (`MSB3644`).
 
-**Approach:** Clone or inspect the repository separately, verify framework compatibility and tests, then merge only if the stale branch is still valid.
+**Approach:** Unarchive the repository only if it should remain maintained, push the `.csproj` repair, install the .NET Framework 4.7.2 Developer Pack or run on a machine that has it, build the WinForms project, then merge or close the PR.
 
 ---

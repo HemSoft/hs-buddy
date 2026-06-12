@@ -142,7 +142,7 @@
     "vite-plugin-electron-renderer": "^1.0.0",
     "vitest": "^4.1.0",
     "vitest-axe": "^0.1.0",
-    "vscode-jsonrpc": "^8.2.0"
+    "vscode-jsonrpc": "^9.0.0"
   },
   "optionalDependencies": {
     "@github/copilot-darwin-arm64": "^1.0.36",

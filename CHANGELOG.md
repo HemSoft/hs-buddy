@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.813] - 2026-06-12
+
+### Changed
+
+- Update Dependabot backlog progress
+
+## [0.1.812] - 2026-06-12
+
+### Changed
+
+- Merge main into DNS instrumentation update
+
+## [0.1.811] - 2026-06-12
+
+### Changed
+
+- Track Dependabot PR backlog
+
+## [0.1.810] - 2026-06-11
+
+### Fixed
+
+- Stabilize Aspire debug startup
+
+## [0.1.809] - 2026-06-11
+
+### Changed
+
+- Fix markdown fence language
+
 ## [0.1.808] - 2026-06-10
 
 ### Fixed

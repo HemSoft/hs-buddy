@@ -11,11 +11,15 @@ import 'vscode-jsonrpc'
 const builder = await createBuilder()
 
 // Convex local dev server (backend on port 3210, dashboard on 6790)
-const convex = await builder.addJavaScriptApp('convex', '.').withNpm().withRunScript('convex:dev')
+const convex = await builder
+  .addJavaScriptApp('convex', '.')
+  .withBun({ install: false })
+  .withRunScript('convex:dev')
 
 // Vite dev server + Electron (vite-plugin-electron handles Electron launch)
 await builder
   .addViteApp('buddy', '.')
+  .withBun({ install: false })
   .withReference(convex)
   .waitFor(convex)
   .withExternalHttpEndpoints()

@@ -8,7 +8,8 @@
 | 📋     | Medium   | [Harden or replace Electron webviewTag usage](#harden-or-replace-electron-webviewtag-usage) | #90 — `security:electron` has 0 high/medium findings, but `webviewTag: true` remains an info risk |
 | 📋     | Medium   | [Expand axe accessibility coverage](#expand-axe-accessibility-coverage)            | #91 — Tooling exists; add coverage for terminal, settings, Tempo, dashboard, and sidebar surfaces |
 | 📋     | Low      | [Fix remaining markdownlint MD040 failure](#fix-remaining-markdownlint-md040-failure) | #92 — One remaining MD040 in `.sfl/governance/policy.md` |
-| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Open PRs #78-#83; e18e reports 137 duplicate dependency warnings |
+| 📋     | Medium   | [Triage current Dependabot dependency queue](#triage-current-dependabot-dependency-queue) | #93 — Current hs-buddy PRs #156-#161; e18e duplication impact to recheck after merges |
+| ⏸️     | High     | [Review stale HemSoft/TCE-Admin Dependabot PR #2](#review-stale-hemsofttce-admin-dependabot-pr-2) | Risk item — 2022 Newtonsoft.Json major update; local checkout absent |
 | ✅     | Low      | Fix Prettier formatting violations                                                | 2026-06-07: `bun run format:check` passes; stale TODO removed |
 | ✅     | Low      | Fix e18e pkg.main packaging config                                                | 2026-06-07: `package.json` `files` includes `dist-electron/main.js`; stale TODO removed |
 | ✅     | High     | Update bundle-size baseline                                                       | 2026-05-07: Fixed stale-artifact bug in collectLargestMain, updated baseline, cleaned 32 stale artifacts |
@@ -102,7 +103,7 @@
 
 ## Progress
 
-**Remaining: 6** | **Completed: 91** (94%)
+**Remaining: 7** | **Completed: 91** (93%)
 
 ---
 
@@ -179,13 +180,27 @@
 
 **Issue:** #93
 
-**Current state** (2026-06-07 audit):
+**Current state** (2026-06-12 audit):
 
-- Open Dependabot PRs: #78, #79, #80, #81, #82, #83.
-- #78 and #82 show full CI green in the current PR rollup.
-- #79, #80, #81, and #83 currently show only lockfile validation in the PR rollup.
+- Open hs-buddy Dependabot PRs: #156, #157, #158, #159, #160, #161.
+- #156 was squash-merged on 2026-06-12 after full CI green; it touched generated `.lock.yml` workflow files only.
+- #157, #158, #159, #160, and #161 currently show only lightweight Dependabot checks in the PR rollup.
 - `bun run e18e` reports 137 duplicate dependency warnings.
 
-**Approach:** Land low-risk fully green PRs first, ensure full CI for the remaining queue, then rerun e18e and record whether dependency duplication improves.
+**Approach:** Land low-risk fully green PRs first, locally verify the remaining dependency updates before merging, then rerun e18e and record whether dependency duplication improves.
+
+---
+
+### Review stale HemSoft/TCE-Admin Dependabot PR #2
+
+**Issue:** HemSoft/TCE-Admin#2
+
+**Current state** (2026-06-12 audit):
+
+- Open Dependabot PR last updated in 2022.
+- Updates Newtonsoft.Json from 12.0.2 to 13.0.2.
+- Local checkout is absent at `D:\github\HemSoft\TCE-Admin`.
+
+**Approach:** Clone or inspect the repository separately, verify framework compatibility and tests, then merge only if the stale branch is still valid.
 
 ---

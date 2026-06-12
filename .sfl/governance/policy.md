@@ -63,7 +63,7 @@ All agent-generated issues and PRs must carry exactly **one** agent lifecycle la
 
 ### Label lifecycle state machine
 
-```
+```text
 # Report issue (no automation ever touches this)
 [report created] → type:report  (permanent — no further transitions)
 

@@ -16,6 +16,9 @@ param(
 
 . "$PSScriptRoot/lib/PortUtils.ps1"
 
+$repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$exitCode = 0
+
 $InformationPreference = 'Continue'
 $esc = [char]27
 $Cyan = "${esc}[36m"
@@ -23,6 +26,9 @@ $DGray = "${esc}[90m"
 $Red = "${esc}[31m"
 $Yellow = "${esc}[33m"
 $Reset = "${esc}[0m"
+
+Push-Location $repoRoot
+try {
 
 # -- Preflight: Aspire CLI --
 Initialize-DotnetRoot
@@ -67,11 +73,21 @@ if ($portInUse) {
 
 # -- Set debug environment and launch via Aspire --
 $env:BUDDY_DEBUG_PORT = $Port
+if (-not $env:ASPIRE_CLI_START_TIMEOUT) {
+    $env:ASPIRE_CLI_START_TIMEOUT = '300'
+}
 
 Write-Information ""
 Write-Information "${Cyan}Starting hs-buddy with Aspire orchestration (DEBUG mode)${Reset}"
+Write-Information "${DGray}  AppHost timeout: $($env:ASPIRE_CLI_START_TIMEOUT)s${Reset}"
 Write-Information "${DGray}  CDP port:   http://127.0.0.1:$Port${Reset}"
 Write-Information "${DGray}  Connect:    npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:$Port${Reset}"
 Write-Information ""
 
 & $aspireCmd run
+$exitCode = $LASTEXITCODE
+} finally {
+    Pop-Location
+}
+
+exit $exitCode

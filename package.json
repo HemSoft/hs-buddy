@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.811",
+  "version": "0.1.812",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -74,7 +74,7 @@
     "@opentelemetry/exporter-logs-otlp-proto": "^0.218.0",
     "@opentelemetry/exporter-metrics-otlp-proto": "^0.218.0",
     "@opentelemetry/exporter-trace-otlp-proto": "^0.218.0",
-    "@opentelemetry/instrumentation-dns": "^0.57.0",
+    "@opentelemetry/instrumentation-dns": "^0.62.0",
     "@opentelemetry/instrumentation-http": "^0.218.0",
     "@opentelemetry/resources": "^2.6.1",
     "@opentelemetry/sdk-logs": "^0.219.0",

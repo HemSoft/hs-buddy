@@ -60,6 +60,13 @@ describe('enumerateCronOccurrences', () => {
     expect(result).toEqual([])
   })
 
+  it('returns empty array when timezone parsing fails', () => {
+    const from = new Date('2025-01-01T00:00:00Z').getTime()
+    const to = new Date('2025-01-01T01:00:00Z').getTime()
+    const result = enumerateCronOccurrences('0 * * * *', 'Not/A_Timezone', from, to)
+    expect(result).toEqual([])
+  })
+
   it('supports common predefined expressions', () => {
     const from = new Date('2025-01-01T00:00:00Z').getTime()
     const to = new Date('2025-01-01T03:00:00Z').getTime()
@@ -104,6 +111,20 @@ describe('enumerateCronOccurrences', () => {
     const result = enumerateCronOccurrences('* * * * *', 'UTC', from, to)
     expect(result).toEqual([])
   })
+
+  it('normalizes day-of-week 7 to Sunday', () => {
+    const from = new Date('2025-01-05T00:00:00Z').getTime()
+    const to = new Date('2025-01-05T00:01:00Z').getTime()
+    const result = enumerateCronOccurrences('0 0 * * 7', 'UTC', from, to)
+    expect(result).toEqual([from])
+  })
+
+  it('matches either day field when both day fields are restricted', () => {
+    const from = new Date('2025-01-15T00:00:00Z').getTime()
+    const to = new Date('2025-01-15T00:01:00Z').getTime()
+    const result = enumerateCronOccurrences('0 0 15 * 1', 'UTC', from, to)
+    expect(result).toEqual([from])
+  })
 })
 
 describe('validateCronExpression', () => {
@@ -125,5 +146,20 @@ describe('validateCronExpression', () => {
 
   it('accepts common predefined expressions', () => {
     expect(() => validateCronExpression('@daily')).not.toThrow()
+  })
+
+  it('accepts aliases, question wildcards, ranges, and stepped ranges', () => {
+    expect(() => validateCronExpression('*/15 9-17 ? jan mon-fri')).not.toThrow()
+  })
+
+  it.each([
+    '*/0 * * * *',
+    '*/*/2 * * * *',
+    '5-3 * * * *',
+    '0,,15 * * * *',
+    '61 * * * *',
+    '0 0 * nope *',
+  ])('throws for malformed parser segment %s', cronExpression => {
+    expect(() => validateCronExpression(cronExpression)).toThrow()
   })
 })

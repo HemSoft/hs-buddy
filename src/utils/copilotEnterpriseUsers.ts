@@ -26,6 +26,10 @@ const EMPTY_TOTALS: UsageTotals = {
   models: new Map<string, number>(),
 }
 
+function createEmptyTotals(): UsageTotals {
+  return { ...EMPTY_TOTALS, models: new Map<string, number>() }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -95,45 +99,56 @@ function collectUsageItemsFromValue(value: unknown): unknown[] {
 }
 
 function totalsFromUsageItems(items: unknown[]): UsageTotals {
-  const totals: UsageTotals = { ...EMPTY_TOTALS, models: new Map<string, number>() }
+  const totals = createEmptyTotals()
 
   for (const item of items) {
-    if (!isRecord(item)) continue
-
-    const grossQuantity = readNumber(item, 'grossQuantity', 'GrossQuantity', 'gross_quantity') ?? 0
-    const grossAmount = readNumber(item, 'grossAmount', 'GrossAmount', 'gross_amount') ?? 0
-    const netAmount = readNumber(item, 'netAmount', 'NetAmount', 'net_amount') ?? 0
-    const model = readString(item, 'model', 'Model')
-
-    totals.grossQuantity += grossQuantity
-    totals.grossAmount += grossAmount
-    totals.netAmount += netAmount
-    if (model && grossQuantity > 0) {
-      totals.models.set(model, (totals.models.get(model) ?? 0) + grossQuantity)
-    }
+    if (isRecord(item)) addUsageItemTotals(totals, item)
   }
 
   return totals
+}
+
+function addUsageItemTotals(totals: UsageTotals, item: Record<string, unknown>): void {
+  const grossQuantity = readNumber(item, 'grossQuantity', 'GrossQuantity', 'gross_quantity') ?? 0
+  totals.grossQuantity += grossQuantity
+  totals.grossAmount += readNumber(item, 'grossAmount', 'GrossAmount', 'gross_amount') ?? 0
+  totals.netAmount += readNumber(item, 'netAmount', 'NetAmount', 'net_amount') ?? 0
+  addModelQuantity(totals.models, readString(item, 'model', 'Model'), grossQuantity)
+}
+
+function addModelQuantity(
+  models: Map<string, number>,
+  model: string | null,
+  quantity: number
+): void {
+  if (!model || quantity <= 0) return
+
+  models.set(model, (models.get(model) ?? 0) + quantity)
 }
 
 function directTotalsFromRecord(record: Record<string, unknown>): UsageTotals | null {
   const grossQuantity = readNumber(record, 'grossQuantity', 'GrossQuantity', 'gross_quantity')
   if (grossQuantity === null) return null
 
-  const totals: UsageTotals = {
-    grossQuantity,
-    grossAmount: readNumber(record, 'grossAmount', 'GrossAmount', 'gross_amount') ?? 0,
-    netAmount: readNumber(record, 'netAmount', 'NetAmount', 'net_amount') ?? 0,
-    models: new Map<string, number>(),
-  }
+  const totals = createEmptyTotals()
+  totals.grossQuantity = grossQuantity
+  totals.grossAmount = readNumber(record, 'grossAmount', 'GrossAmount', 'gross_amount') ?? 0
+  totals.netAmount = readNumber(record, 'netAmount', 'NetAmount', 'net_amount') ?? 0
+  addDirectTopModel(record, totals.models, grossQuantity)
 
+  return totals
+}
+
+function addDirectTopModel(
+  record: Record<string, unknown>,
+  models: Map<string, number>,
+  grossQuantity: number
+): void {
   const topModel = readString(record, 'topModel', 'TopModel', 'top_model')
   const topModelQuantity =
     readNumber(record, 'topModelQuantity', 'TopModelQuantity', 'top_model_quantity') ??
     grossQuantity
-  if (topModel && topModelQuantity > 0) totals.models.set(topModel, topModelQuantity)
-
-  return totals
+  addModelQuantity(models, topModel, topModelQuantity)
 }
 
 function resolveTopModel(models: Map<string, number>): {
@@ -157,7 +172,7 @@ function normalizeUserRecord(record: Record<string, unknown>): CopilotEnterprise
   const login = readString(record, 'User', 'user', 'login', 'Login', 'memberLogin', 'member_login')
   if (!login) return null
 
-  const totals: UsageTotals = { ...EMPTY_TOTALS, models: new Map<string, number>() }
+  const totals = createEmptyTotals()
   const directTotals = directTotalsFromRecord(record)
   if (directTotals) {
     mergeTotals(totals, directTotals)

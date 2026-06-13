@@ -41,6 +41,8 @@ const PREDEFINED_EXPRESSIONS: Record<string, string> = {
   '@weekends': '0 0 * * 0,6',
 }
 
+const CRON_FIELD_KEYS = ['minute', 'hour', 'dayOfMonth', 'month', 'dayOfWeek'] as const
+
 interface CronField {
   values: Set<number>
   wildcard: boolean
@@ -52,6 +54,10 @@ interface ParsedCron {
   dayOfMonth: CronField
   month: CronField
   dayOfWeek: CronField
+}
+
+type ParsedCronFields = {
+  [Field in keyof ParsedCron]: CronField | null
 }
 
 interface TimeParts {
@@ -72,14 +78,33 @@ function parseValue(
   max: number,
   aliases?: Record<string, number>
 ): number | null {
-  const normalized = rawValue.toLowerCase()
-  const aliasValue = aliases?.[normalized.slice(0, 3)]
-  if (aliasValue !== undefined) return aliasValue
+  const aliasValue = resolveAliasValue(rawValue, aliases)
+  if (aliasValue !== null) return aliasValue
 
+  const parsed = parseNumericValue(rawValue)
+  if (parsed === null) return null
+
+  return isInRange(parsed, min, max) ? parsed : null
+}
+
+function resolveAliasValue(rawValue: string, aliases?: Record<string, number>): number | null {
+  if (!aliases) return null
+
+  return aliases[rawValue.toLowerCase().slice(0, 3)] ?? null
+}
+
+function parseNumericValue(rawValue: string): number | null {
   if (!/^\d+$/.test(rawValue)) return null
 
-  const parsed = Number.parseInt(rawValue, 10)
-  return parsed >= min && parsed <= max ? parsed : null
+  return Number.parseInt(rawValue, 10)
+}
+
+function isInRange(value: number, min: number, max: number): boolean {
+  return value >= min && value <= max
+}
+
+function identityValue(value: number): number {
+  return value
 }
 
 function parseSegment(
@@ -89,20 +114,39 @@ function parseSegment(
   aliases?: Record<string, number>,
   wildcardMax = max
 ): number[] | null {
-  const [rangePart, stepPart, extraPart] = segment.split('/')
-  if (extraPart !== undefined) return null
+  const parts = segment.split('/')
+  if (parts.length > 2) return null
 
-  const step = stepPart === undefined ? 1 : Number.parseInt(stepPart, 10)
-  if (!Number.isInteger(step) || step < 1 || stepPart === '') return null
+  const [rangePart, stepPart] = parts
+  const step = parseStep(stepPart)
+  if (step === null) return null
 
-  const rangeValues =
-    rangePart === '*' || rangePart === '?'
-      ? numberRange(min, wildcardMax)
-      : parseExplicitRange(rangePart, min, max, aliases)
-
-  if (!rangeValues) return null
+  const rangeValues = parseSegmentRange(rangePart, min, max, aliases, wildcardMax)
+  if (rangeValues === null) return null
 
   return rangeValues.filter((_value, index) => index % step === 0)
+}
+
+function parseStep(rawStep?: string): number | null {
+  if (rawStep === undefined) return 1
+  if (rawStep === '') return null
+
+  const step = Number.parseInt(rawStep, 10)
+  return Number.isInteger(step) && step >= 1 ? step : null
+}
+
+function parseSegmentRange(
+  rangePart: string,
+  min: number,
+  max: number,
+  aliases?: Record<string, number>,
+  wildcardMax = max
+): number[] | null {
+  if (rangePart === '*' || rangePart === '?') {
+    return numberRange(min, wildcardMax)
+  }
+
+  return parseExplicitRange(rangePart, min, max, aliases)
 }
 
 function parseExplicitRange(
@@ -111,18 +155,32 @@ function parseExplicitRange(
   max: number,
   aliases?: Record<string, number>
 ): number[] | null {
-  const [startRaw, endRaw, extraPart] = rangePart.split('-')
-  if (extraPart !== undefined) return null
+  const parts = rangePart.split('-')
+  if (parts.length > 2) return null
 
+  const [startRaw, endRaw] = parts
   const start = parseValue(startRaw, min, max, aliases)
   if (start === null) return null
 
-  if (endRaw === undefined) return [start]
-
-  const end = parseValue(endRaw, min, max, aliases)
-  if (end === null || start > end) return null
+  const end = parseRangeEnd(endRaw, start, min, max, aliases)
+  if (end === null) return null
 
   return numberRange(start, end)
+}
+
+function parseRangeEnd(
+  endRaw: string | undefined,
+  start: number,
+  min: number,
+  max: number,
+  aliases?: Record<string, number>
+): number | null {
+  if (endRaw === undefined) return start
+
+  const end = parseValue(endRaw, min, max, aliases)
+  if (end === null) return null
+
+  return start <= end ? end : null
 }
 
 function parseField(
@@ -130,24 +188,58 @@ function parseField(
   min: number,
   max: number,
   aliases?: Record<string, number>,
-  normalizeValue: (value: number) => number = value => value,
+  normalizeValue: (value: number) => number = identityValue,
   wildcardMax = max
 ): CronField | null {
   if (!rawField) return null
 
+  const values = parseFieldValues(rawField, min, max, aliases, normalizeValue, wildcardMax)
+  if (!values) return null
+
+  return { values, wildcard: isWildcardField(rawField) }
+}
+
+function parseFieldValues(
+  rawField: string,
+  min: number,
+  max: number,
+  aliases: Record<string, number> | undefined,
+  normalizeValue: (value: number) => number,
+  wildcardMax = max
+): Set<number> | null {
   const values = new Set<number>()
-  const wildcard = rawField === '*' || rawField === '?'
-
   for (const segment of rawField.split(',')) {
-    if (segment === '') return null
-
-    const segmentValues = parseSegment(segment, min, max, aliases, wildcardMax)
-    if (!segmentValues) return null
-
-    for (const value of segmentValues) values.add(normalizeValue(value))
+    if (!addSegmentValues(values, segment, min, max, aliases, normalizeValue, wildcardMax))
+      return null
   }
 
-  return values.size > 0 ? { values, wildcard } : null
+  return hasValues(values) ? values : null
+}
+
+function isWildcardField(rawField: string): boolean {
+  return rawField === '*' || rawField === '?'
+}
+
+function addSegmentValues(
+  values: Set<number>,
+  segment: string,
+  min: number,
+  max: number,
+  aliases: Record<string, number> | undefined,
+  normalizeValue: (value: number) => number,
+  wildcardMax = max
+): boolean {
+  if (segment === '') return false
+
+  const segmentValues = parseSegment(segment, min, max, aliases, wildcardMax)
+  if (!segmentValues) return false
+
+  for (const value of segmentValues) values.add(normalizeValue(value))
+  return true
+}
+
+function hasValues(values: Set<number>): boolean {
+  return values.size > 0
 }
 
 function parseCronExpression(cronExpression: string): ParsedCron | null {
@@ -155,20 +247,28 @@ function parseCronExpression(cronExpression: string): ParsedCron | null {
   const parts = expression.trim().split(/\s+/)
   if (parts.length !== 5) return null
 
+  return parseCronParts(parts)
+}
+
+function parseCronParts(parts: string[]): ParsedCron | null {
   const [minute, hour, dayOfMonth, month, dayOfWeek] = parts
-  const parsed = {
+  const parsed: ParsedCronFields = {
     minute: parseField(minute, 0, 59),
     hour: parseField(hour, 0, 23),
     dayOfMonth: parseField(dayOfMonth, 1, 31),
     month: parseField(month, 1, 12, MONTH_ALIASES),
-    dayOfWeek: parseField(dayOfWeek, 0, 7, WEEKDAY_ALIASES, value => (value === 7 ? 0 : value), 6),
+    dayOfWeek: parseField(dayOfWeek, 0, 7, WEEKDAY_ALIASES, normalizeDayOfWeek, 6),
   }
 
-  if (!parsed.minute || !parsed.hour || !parsed.dayOfMonth || !parsed.month || !parsed.dayOfWeek) {
-    return null
-  }
+  return hasAllCronFields(parsed) ? parsed : null
+}
 
-  return parsed as ParsedCron
+function normalizeDayOfWeek(value: number): number {
+  return value === 7 ? 0 : value
+}
+
+function hasAllCronFields(parsed: ParsedCronFields): parsed is ParsedCron {
+  return CRON_FIELD_KEYS.every(field => parsed[field])
 }
 
 function getTimezoneFormatter(timezone: string): Intl.DateTimeFormat {
@@ -273,25 +373,76 @@ export function enumerateCronOccurrences(
   maxRuns = 100,
   includeStart = true
 ): number[] {
-  if (fromTimestamp >= toTimestamp || maxRuns <= 0) return []
+  if (!canEnumerateCron(fromTimestamp, toTimestamp, maxRuns)) return []
 
+  return safelyEnumerateCron(
+    cronExpression,
+    timezone,
+    fromTimestamp,
+    toTimestamp,
+    maxRuns,
+    includeStart
+  )
+}
+
+function safelyEnumerateCron(
+  cronExpression: string,
+  timezone: string,
+  fromTimestamp: number,
+  toTimestamp: number,
+  maxRuns: number,
+  includeStart: boolean
+): number[] {
   try {
-    const parsed = parseCronExpression(cronExpression)
-    if (!parsed) return []
-
-    const results: number[] = []
-    for (
-      let timestamp = firstCandidateTimestamp(fromTimestamp, includeStart);
-      timestamp <= toTimestamp && results.length < maxRuns;
-      timestamp += MS_PER_MINUTE
-    ) {
-      if (matchesCron(parsed, new Date(timestamp), timezone)) {
-        results.push(timestamp)
-      }
-    }
-
-    return results
+    return enumerateParsedCron(
+      cronExpression,
+      timezone,
+      fromTimestamp,
+      toTimestamp,
+      maxRuns,
+      includeStart
+    )
   } catch (_: unknown) {
     return []
   }
+}
+
+function enumerateParsedCron(
+  cronExpression: string,
+  timezone: string,
+  fromTimestamp: number,
+  toTimestamp: number,
+  maxRuns: number,
+  includeStart: boolean
+): number[] {
+  const parsed = parseCronExpression(cronExpression)
+  if (!parsed) return []
+
+  return collectCronOccurrences(parsed, timezone, fromTimestamp, toTimestamp, maxRuns, includeStart)
+}
+
+function canEnumerateCron(fromTimestamp: number, toTimestamp: number, maxRuns: number): boolean {
+  return fromTimestamp < toTimestamp && maxRuns > 0
+}
+
+function collectCronOccurrences(
+  parsed: ParsedCron,
+  timezone: string,
+  fromTimestamp: number,
+  toTimestamp: number,
+  maxRuns: number,
+  includeStart: boolean
+): number[] {
+  const results: number[] = []
+  for (
+    let timestamp = firstCandidateTimestamp(fromTimestamp, includeStart);
+    timestamp <= toTimestamp && results.length < maxRuns;
+    timestamp += MS_PER_MINUTE
+  ) {
+    if (matchesCron(parsed, new Date(timestamp), timezone)) {
+      results.push(timestamp)
+    }
+  }
+
+  return results
 }

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.817",
+  "version": "0.1.818",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -35,7 +35,7 @@
     "bench:update": "bun run bench:json && bun scripts/bench-compare.ts --update",
     "perf:memory": "bun perf/memory-monitor.ts",
     "perf:startup": "bun perf/run-startup.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json && tsc --noEmit -p tsconfig.apphost.json",
     "knip": "knip",
     "e18e": "npx --yes @e18e/cli analyze --log-level error --report-level warn",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",

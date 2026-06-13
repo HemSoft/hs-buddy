@@ -5,6 +5,7 @@ yarn.lock
 
 # Aspire generated SDK (regenerate with: aspire restore)
 .modules/
+.aspire/integrations/
 
 # Build outputs (created by `bun run build` or `npm run build`)
 dist/

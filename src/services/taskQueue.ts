@@ -224,7 +224,7 @@ export class TaskQueue {
    * Get names of all pending tasks in queue order.
    */
   getPendingTaskNames(): string[] {
-    return this.pendingTasks.map(t => t.name).filter((n): n is string => !!n)
+    return this.pendingTasks.flatMap(task => (task.name ? [task.name] : []))
   }
 
   /**

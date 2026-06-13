@@ -359,14 +359,18 @@ describe('TaskQueue', () => {
       const { promise: bp } = queue.enqueue(async () => {
         await blocker
       })
+      const { promise: unnamedPending } = queue.enqueue(async () => {})
       const { promise: ap } = queue.enqueue(async () => {}, { name: 'alpha' })
+      const { promise: emptyNamePending } = queue.enqueue(async () => {}, { name: '' })
       const { promise: btp } = queue.enqueue(async () => {}, { name: 'beta' })
 
       expect(queue.getPendingTaskNames()).toEqual(['alpha', 'beta'])
 
       queue.cancelAll()
       unblock!()
+      await expect(unnamedPending).rejects.toThrow()
       await expect(ap).rejects.toThrow()
+      await expect(emptyNamePending).rejects.toThrow()
       await expect(btp).rejects.toThrow()
       await expect(bp).rejects.toThrow()
     })

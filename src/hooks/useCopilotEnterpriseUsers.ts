@@ -32,6 +32,31 @@ async function loadEnterpriseUsers(): Promise<CopilotEnterpriseUsersResponse> {
   return getCopilotEnterpriseUsers()
 }
 
+function loadingState(previous: CopilotEnterpriseUsersState): CopilotEnterpriseUsersState {
+  return { ...previous, loading: true, error: null }
+}
+
+function successState(data: CopilotEnterpriseUsersSnapshot): CopilotEnterpriseUsersState {
+  return { data, loading: false, error: null }
+}
+
+function failureState(error?: string): CopilotEnterpriseUsersState {
+  return {
+    data: null,
+    loading: false,
+    error: error ?? 'Failed to read Copilot Enterprise users.',
+  }
+}
+
+function stateFromEnterpriseUsersResult(
+  result: CopilotEnterpriseUsersResponse
+): CopilotEnterpriseUsersState {
+  if (!result.success) return failureState(result.error)
+  if (!result.data) return failureState(result.error)
+
+  return successState(result.data)
+}
+
 export function useCopilotEnterpriseUsers(refreshToken = 0): CopilotEnterpriseUsersState {
   const [state, setState] = useState<CopilotEnterpriseUsersState>(EMPTY_STATE)
 
@@ -39,25 +64,16 @@ export function useCopilotEnterpriseUsers(refreshToken = 0): CopilotEnterpriseUs
     let canceled = false
 
     async function load(): Promise<void> {
-      setState(prev => ({ ...prev, loading: true, error: null }))
+      setState(loadingState)
 
       try {
         const result = await loadEnterpriseUsers()
         if (canceled) return
 
-        if (!result.success || !result.data) {
-          setState({
-            data: null,
-            loading: false,
-            error: result.error ?? 'Failed to read Copilot Enterprise users.',
-          })
-          return
-        }
-
-        setState({ data: result.data, loading: false, error: null })
+        setState(stateFromEnterpriseUsersResult(result))
       } catch (error: unknown) {
         if (canceled) return
-        setState({ data: null, loading: false, error: getErrorMessage(error) })
+        setState(failureState(getErrorMessage(error)))
       }
     }
 

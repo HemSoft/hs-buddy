@@ -148,18 +148,37 @@ function EnterpriseUsersContent({
   filteredUsers,
   onSelectUser,
 }: EnterpriseUsersContentProps) {
-  if (data && filteredUsers.length > 0)
-    return <EnterpriseUsersTable users={filteredUsers} onSelectUser={onSelectUser} />
-  if (data && data.users.length > 0)
-    return <div className="enterprise-users-message">No users match this filter.</div>
+  if (data)
+    return (
+      <EnterpriseUsersDataContent
+        data={data}
+        filteredUsers={filteredUsers}
+        onSelectUser={onSelectUser}
+      />
+    )
   if (loading)
     return <div className="enterprise-users-message">Loading Copilot Enterprise users...</div>
   if (error)
     return <div className="enterprise-users-message enterprise-users-message-error">{error}</div>
-  if (data)
-    return <div className="enterprise-users-message">No Copilot Enterprise users found.</div>
 
   return null
+}
+
+function EnterpriseUsersDataContent({
+  data,
+  filteredUsers,
+  onSelectUser,
+}: {
+  data: CopilotEnterpriseUsersSnapshot
+  filteredUsers: CopilotEnterpriseUser[]
+  onSelectUser: (user: CopilotEnterpriseUser) => void
+}) {
+  if (filteredUsers.length > 0)
+    return <EnterpriseUsersTable users={filteredUsers} onSelectUser={onSelectUser} />
+  if (data.users.length > 0)
+    return <div className="enterprise-users-message">No users match this filter.</div>
+
+  return <div className="enterprise-users-message">No Copilot Enterprise users found.</div>
 }
 
 const FOCUSABLE_MODAL_SELECTOR =
@@ -176,6 +195,22 @@ function focusFirstModalElement(container: HTMLElement): void {
   ;(firstFocusableElement ?? container).focus()
 }
 
+function shouldWrapFocusBackward(
+  event: KeyboardEvent<HTMLDialogElement>,
+  activeElement: Element | null,
+  firstFocusableElement: HTMLElement
+): boolean {
+  return event.shiftKey && activeElement === firstFocusableElement
+}
+
+function shouldWrapFocusForward(
+  event: KeyboardEvent<HTMLDialogElement>,
+  activeElement: Element | null,
+  lastFocusableElement: HTMLElement
+): boolean {
+  return !event.shiftKey && activeElement === lastFocusableElement
+}
+
 function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
   const focusableElements = getFocusableModalElements(event.currentTarget)
   if (focusableElements.length === 0) {
@@ -188,10 +223,10 @@ function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
   const lastFocusableElement = focusableElements[focusableElements.length - 1]
   const activeElement = document.activeElement
 
-  if (event.shiftKey && activeElement === firstFocusableElement) {
+  if (shouldWrapFocusBackward(event, activeElement, firstFocusableElement)) {
     event.preventDefault()
     lastFocusableElement.focus()
-  } else if (!event.shiftKey && activeElement === lastFocusableElement) {
+  } else if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
     event.preventDefault()
     firstFocusableElement.focus()
   }
@@ -272,16 +307,86 @@ interface TopUsersSectionProps {
   refreshToken?: number
 }
 
+function getFilteredUsers(
+  data: CopilotEnterpriseUsersSnapshot | null,
+  filterText: string
+): CopilotEnterpriseUser[] {
+  if (!data) return []
+
+  return filterUsers(data.users, filterText)
+}
+
+function EnterpriseUsersControls({
+  data,
+  filterText,
+  visibleUsers,
+  onFilterChange,
+}: {
+  data: CopilotEnterpriseUsersSnapshot | null
+  filterText: string
+  visibleUsers: number
+  onFilterChange: (value: string) => void
+}) {
+  if (!data) return null
+
+  return (
+    <>
+      <SnapshotMeta snapshot={data} />
+      <EnterpriseUsersFilterPanel
+        data={data}
+        filterText={filterText}
+        visibleUsers={visibleUsers}
+        onFilterChange={onFilterChange}
+      />
+    </>
+  )
+}
+
+function EnterpriseUsersFilterPanel({
+  data,
+  filterText,
+  visibleUsers,
+  onFilterChange,
+}: {
+  data: CopilotEnterpriseUsersSnapshot
+  filterText: string
+  visibleUsers: number
+  onFilterChange: (value: string) => void
+}) {
+  if (data.users.length === 0) return null
+
+  return (
+    <EnterpriseUsersFilter
+      value={filterText}
+      totalUsers={data.users.length}
+      visibleUsers={visibleUsers}
+      onChange={onFilterChange}
+    />
+  )
+}
+
+function SelectedUserSourceModal({
+  data,
+  selectedUser,
+  onClose,
+}: {
+  data: CopilotEnterpriseUsersSnapshot | null
+  selectedUser: CopilotEnterpriseUser | null
+  onClose: () => void
+}) {
+  if (!selectedUser || !data) return null
+
+  return <SourceJsonModal user={selectedUser} sourceFile={data.sourceFile} onClose={onClose} />
+}
+
 export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
   const enterpriseUsers = useCopilotEnterpriseUsers(refreshToken)
   const { data } = enterpriseUsers
   const [filterText, setFilterText] = useState('')
   const [selectedUser, setSelectedUser] = useState<CopilotEnterpriseUser | null>(null)
-  const filteredUsers = useMemo(
-    () => (data ? filterUsers(data.users, filterText) : []),
-    [data, filterText]
-  )
+  const filteredUsers = useMemo(() => getFilteredUsers(data, filterText), [data, filterText])
   const visibleUsers = filteredUsers.length
+  const closeSourceModal = () => setSelectedUser(null)
 
   return (
     <div className="top-users-section">
@@ -289,27 +394,18 @@ export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
         <Users size={14} />
         Copilot Enterprise Users
       </h3>
-      {data ? <SnapshotMeta snapshot={data} /> : null}
-      {data && data.users.length > 0 ? (
-        <EnterpriseUsersFilter
-          value={filterText}
-          totalUsers={data.users.length}
-          visibleUsers={visibleUsers}
-          onChange={setFilterText}
-        />
-      ) : null}
+      <EnterpriseUsersControls
+        data={data}
+        filterText={filterText}
+        visibleUsers={visibleUsers}
+        onFilterChange={setFilterText}
+      />
       <EnterpriseUsersContent
         {...enterpriseUsers}
         filteredUsers={filteredUsers}
         onSelectUser={setSelectedUser}
       />
-      {selectedUser && data ? (
-        <SourceJsonModal
-          user={selectedUser}
-          sourceFile={data.sourceFile}
-          onClose={() => setSelectedUser(null)}
-        />
-      ) : null}
+      <SelectedUserSourceModal data={data} selectedUser={selectedUser} onClose={closeSourceModal} />
     </div>
   )
 }

@@ -1,3 +1,41 @@
+## 2026-06-13 — CRAP Score Snapshot (TypeScript)
+
+| Metric | Value |
+|--------|-------|
+| Methods Analyzed | 2,659 (src/) |
+| Methods > 30 (Critical) | 0 |
+| Methods 16–30 (High) | 0 |
+| Methods 6–15 (Moderate) | 62 |
+| Methods >= 10 (Repo Threshold) | 0 |
+| Highest CRAP | 7.0 (multiple fully covered complexity-only functions) |
+| Overall Coverage | 99.90% lines / 99.35% branches / 99.97% functions / 99.82% statements |
+
+**Critical Methods (CRAP > 30):** None — repo passes Gold scorecard rule.
+
+**Threshold Rationale:**
+
+- Issue #94 allowed documenting why a repo threshold of 10 is more appropriate than 6 for fully covered complexity-only functions.
+- After this pass, the worst CRAP score is 7.0 and every function at the top of the report is at or near full branch coverage, so the remaining score is driven by modest cyclomatic complexity rather than poor tests.
+- `crap-report.ps1 -Threshold 10 -Top 20 -Format json -Stack ts -SkipCoverage` exits 0 with 0 findings.
+- Keep using threshold 6 for discovery, but treat threshold 10 as the actionable repo threshold unless coverage drops or CRAP exceeds 10.
+
+**Improvements This Session:**
+
+- `src/utils/cronUtils.ts` :: `enumerateCronOccurrences`, `parseSegment`, and `parseField`: CRAP 11.6 -> below threshold (split parsing/enumeration helpers and added malformed cron parser coverage)
+- `src/utils/copilotEnterpriseUsers.ts` :: `totalsFromUsageItems`: CRAP 9.3 -> below threshold (extracted usage item accumulation helpers)
+- `src/hooks/useCopilotUsage.ts` :: `computeAggregateSpend`: CRAP 9.0 -> below threshold (extracted dollar-spend eligibility and projection helpers)
+- `src/components/copilot-usage/TopUsersSection.tsx` :: `EnterpriseUsersContent` and `TopUsersSection`: CRAP 8.4/7.3 -> below threshold (split render states into focused components)
+- `src/hooks/useCopilotEnterpriseUsers.ts` :: `load`: CRAP 7.6 -> below threshold (extracted result-to-state conversion helpers)
+- `src/utils/copilotEnterpriseUsers.ts` :: `directTotalsFromRecord`: CRAP 7.2 -> below threshold (reused model quantity accumulation helpers)
+
+**Session Notes:**
+
+- Fresh coverage was generated with `bun run test:coverage -- --reporter=dot --silent`.
+- Fresh CRAP reports were generated with `crap-report.ps1 -Threshold 6` and `-Threshold 10` using the refreshed coverage summary.
+- The threshold-6 report still has 62 moderate findings; the threshold-10 report has 0 findings and worst CRAP 7.0.
+
+---
+
 ## 2026-06-07 — CRAP Score Snapshot (TypeScript)
 
 | Metric | Value |

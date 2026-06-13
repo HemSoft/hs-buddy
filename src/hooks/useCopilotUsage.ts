@@ -166,20 +166,43 @@ function computeAggregateSpend(
   let hasAny = false
 
   for (const state of Object.values(orgBudgets)) {
-    const d = state.data
-    if (!d || d.useQuotaOverage || d.spentUnavailable) continue
-    if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) continue
+    const data = getDollarSpendData(state)
+    if (!data) continue
 
     hasAny = true
-    totalSpent += d.spent
-
-    const projection = computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
-    projectedSpend += projection ? projection.projectedSpend : d.spent
+    totalSpent += data.spent
+    projectedSpend += computeProjectedSpend(data)
   }
 
   if (!hasAny) return null
 
   return { totalSpent, projectedSpend }
+}
+
+function getDollarSpendData(state: OrgBudgetState): (BudgetData & { spent: number }) | null {
+  const data = state.data
+  if (!data) return null
+  if (!isDollarSpendData(data)) return null
+
+  return data
+}
+
+function isDollarSpendData(data: BudgetData): data is BudgetData & { spent: number } {
+  return !data.useQuotaOverage && !data.spentUnavailable && isFiniteNumber(data.spent)
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
+}
+
+function computeProjectedSpend(data: BudgetData & { spent: number }): number {
+  const projection = computeBudgetProjection(
+    data.spent,
+    data.billingYear,
+    data.billingMonth,
+    data.fetchedAt
+  )
+  return projection ? projection.projectedSpend : data.spent
 }
 
 function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): boolean {
@@ -194,14 +217,89 @@ function needsMonthRolloverRefresh(orgBudgets: Record<string, OrgBudgetState>): 
 
 type QuotaSetter = Dispatch<SetStateAction<Record<string, AccountQuotaState>>>
 type BudgetSetter = Dispatch<SetStateAction<Record<string, OrgBudgetState>>>
+type BudgetData = NonNullable<OrgBudgetState['data']>
+type CopilotUsageResult = Awaited<ReturnType<(typeof window.github)['getCopilotUsage']>>
+type CopilotUsageData = NonNullable<CopilotUsageResult['data']>
 
 const NO_ORG_POOL_ERROR = 'Per-account AI Credit data requires an organization with Copilot seats.'
+
+function setQuotaLoading(setQuotas: QuotaSetter, username: string): void {
+  setQuotas(prev => ({
+    ...prev,
+    [username]: {
+      data: prev[username]?.data ?? null,
+      loading: true,
+      error: null,
+      fetchedAt: prev[username]?.fetchedAt ?? null,
+    },
+  }))
+}
 
 function setQuotaError(setQuotas: QuotaSetter, username: string, error: string): void {
   setQuotas(prev => ({
     ...prev,
     [username]: { data: null, loading: false, error, fetchedAt: null },
   }))
+}
+
+function setQuotaData(
+  setQuotas: QuotaSetter,
+  username: string,
+  data: AccountQuotaState['data']
+): void {
+  setQuotas(prev => ({
+    ...prev,
+    [username]: { data, loading: false, error: null, fetchedAt: Date.now() },
+  }))
+}
+
+function getSuccessfulUsageData(result: CopilotUsageResult): CopilotUsageData | null {
+  if (!result.success) return null
+
+  return result.data ?? null
+}
+
+function usageResultError(result: CopilotUsageResult): string {
+  return result.error || 'Unknown error'
+}
+
+function quotaDataFromUsage(
+  username: string,
+  org: string,
+  data: CopilotUsageData
+): AccountQuotaState['data'] {
+  return synthesizeQuotaData({
+    login: username,
+    plan: data.seatPlan,
+    org,
+    usedCredits: data.premiumRequests,
+    grossCost: data.grossCost,
+    netCost: data.netCost,
+    seats: data.seats,
+    billingYear: data.billingYear,
+    billingMonth: data.billingMonth,
+    userCredits: data.userCredits,
+  })
+}
+
+function handleQuotaResult(
+  setQuotas: QuotaSetter,
+  username: string,
+  org: string,
+  result: CopilotUsageResult
+): void {
+  const data = getSuccessfulUsageData(result)
+  if (!data) {
+    setQuotaError(setQuotas, username, usageResultError(result))
+    return
+  }
+
+  if (data.seats <= 0) {
+    setQuotaError(setQuotas, username, NO_ORG_POOL_ERROR)
+    return
+  }
+
+  setQuotaData(setQuotas, username, quotaDataFromUsage(username, org, data))
 }
 
 /**
@@ -214,15 +312,7 @@ function setQuotaError(setQuotas: QuotaSetter, username: string, error: string):
 async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Promise<void> {
   const { username, org } = account
 
-  setQuotas(prev => ({
-    ...prev,
-    [username]: {
-      data: prev[username]?.data ?? null,
-      loading: true,
-      error: null,
-      fetchedAt: prev[username]?.fetchedAt ?? null,
-    },
-  }))
+  setQuotaLoading(setQuotas, username)
 
   if (!org) {
     setQuotaError(setQuotas, username, NO_ORG_POOL_ERROR)
@@ -231,33 +321,7 @@ async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Pro
 
   try {
     const result = await window.github.getCopilotUsage(org, username)
-    if (!result.success || !result.data) {
-      setQuotaError(setQuotas, username, result.error || 'Unknown error')
-      return
-    }
-
-    const d = result.data
-    if (d.seats <= 0) {
-      setQuotaError(setQuotas, username, NO_ORG_POOL_ERROR)
-      return
-    }
-
-    const data = synthesizeQuotaData({
-      login: username,
-      plan: d.seatPlan,
-      org,
-      usedCredits: d.premiumRequests,
-      grossCost: d.grossCost,
-      netCost: d.netCost,
-      seats: d.seats,
-      billingYear: d.billingYear,
-      billingMonth: d.billingMonth,
-      userCredits: d.userCredits,
-    })
-    setQuotas(prev => ({
-      ...prev,
-      [username]: { data, loading: false, error: null, fetchedAt: Date.now() },
-    }))
+    handleQuotaResult(setQuotas, username, org, result)
   } catch (error: unknown) {
     setQuotaError(setQuotas, username, getErrorMessage(error))
   }

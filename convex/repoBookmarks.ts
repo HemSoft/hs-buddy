@@ -10,7 +10,7 @@ import { notFoundError } from './lib/domain'
 export const list = query({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('repoBookmarks').collect()
+    return ctx.db.query('repoBookmarks').collect()
   },
 })
 
@@ -18,7 +18,7 @@ export const list = query({
 export const listByFolder = query({
   args: { folder: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('repoBookmarks')
       .withIndex('by_folder', q => q.eq('folder', args.folder))
       .collect()
@@ -29,7 +29,7 @@ export const listByFolder = query({
 export const get = query({
   args: { id: v.id('repoBookmarks') },
   handler: async (ctx, args) => {
-    return await ctx.db.get('repoBookmarks', args.id)
+    return ctx.db.get('repoBookmarks', args.id)
   },
 })
 

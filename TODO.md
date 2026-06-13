@@ -180,9 +180,10 @@
 
 **Issue:** #93
 
-**Current state** (2026-06-12 audit):
+**Current state** (2026-06-13 audit):
 
 - Open hs-buddy Dependabot PRs: none.
+- Live HemSoft Dependabot search shows only `HemSoft/TCE-Admin#2` remains open; live fhemmer search shows none.
 - #156 was squash-merged on 2026-06-12 after full CI green; it touched generated `.lock.yml` workflow files only.
 - #157 and #161 were squash-merged on 2026-06-12 after local OpenTelemetry validation; #157 also reran full remote CI after branch conflict resolution.
 - #158 was squash-merged on 2026-06-12 after branch refresh, local Convex validation, and full remote CI/security/benchmarks/E2E/lockfile workflow success.
@@ -198,9 +199,9 @@
 
 **Issue:** HemSoft/TCE-Admin#2
 
-**Current state** (2026-06-12 audit):
+**Current state** (2026-06-13 audit):
 
-- Open Dependabot PR last updated in 2022.
+- Open Dependabot PR last updated in 2022; live PR state remains `OPEN`, `mergeable: MERGEABLE`, and `mergeStateStatus: BLOCKED`.
 - Updates Newtonsoft.Json from 12.0.2 to 13.0.2.
 - Repository is archived/read-only, so the PR branch cannot be pushed or merged.
 - Closing the PR is also blocked: `gh pr close` returns `GraphQL: Repository was archived so is read-only (closePullRequest)`.

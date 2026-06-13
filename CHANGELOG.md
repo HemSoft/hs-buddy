@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.819] - 2026-06-13
+
+### Changed
+
+- Refresh Dependabot backlog audit
+
 ## [0.1.818] - 2026-06-13
 
 ### Fixed

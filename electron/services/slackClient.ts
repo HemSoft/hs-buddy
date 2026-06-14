@@ -21,13 +21,7 @@ function getBotToken(): string {
   // then Relias Assistant token (lacks users:read.email).
   // Uses createEnvResolver which checks Machine scope + process.env on Windows.
   const token =
-    getEnv('SLACK_BOT_TOKEN') ||
-    getEnv('SLACK_TOKEN') ||
-    getEnv('SLACK_RAE_BOT_USER_OAUTH_TOKEN') ||
-    // Direct process.env fallback in case Machine-scope PowerShell lookup fails
-    process.env.SLACK_BOT_TOKEN ||
-    process.env.SLACK_TOKEN ||
-    process.env.SLACK_RAE_BOT_USER_OAUTH_TOKEN
+    getEnv('SLACK_BOT_TOKEN') || getEnv('SLACK_TOKEN') || getEnv('SLACK_RAE_BOT_USER_OAUTH_TOKEN')
   if (!token) {
     throw new Error(
       'No Slack bot token found. Set SLACK_BOT_TOKEN or SLACK_TOKEN as an environment variable.'

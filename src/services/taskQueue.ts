@@ -213,18 +213,22 @@ export class TaskQueue {
    * Get names of all currently running tasks.
    */
   getRunningTaskNames(): string[] {
-    const names: string[] = []
-    for (const task of this.runningTasks.values()) {
-      if (task.name) names.push(task.name)
-    }
-    return names
+    return this.collectTaskNames(this.runningTasks.values())
   }
 
   /**
    * Get names of all pending tasks in queue order.
    */
   getPendingTaskNames(): string[] {
-    return this.pendingTasks.flatMap(task => (task.name ? [task.name] : []))
+    return this.collectTaskNames(this.pendingTasks)
+  }
+
+  private collectTaskNames(tasks: Iterable<Task>): string[] {
+    const names: string[] = []
+    for (const task of tasks) {
+      if (task.name) names.push(task.name)
+    }
+    return names
   }
 
   /**

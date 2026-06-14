@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.825] - 2026-06-14
+
+### Fixed
+
+- Consolidate task name collection
+
 ## [0.1.824] - 2026-06-14
 
 ### Fixed

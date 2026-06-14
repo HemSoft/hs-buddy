@@ -7,7 +7,7 @@ import { query, mutation, internalQuery } from './_generated/server'
 export const listForSnapshotRun = internalQuery({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('githubAccounts').collect()
+    return ctx.db.query('githubAccounts').collect()
   },
 })
 
@@ -17,7 +17,7 @@ export const listForSnapshotRun = internalQuery({
 export const list = query({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('githubAccounts').collect()
+    return ctx.db.query('githubAccounts').collect()
   },
 })
 
@@ -27,7 +27,7 @@ export const list = query({
 export const get = query({
   args: { id: v.id('githubAccounts') },
   handler: async (ctx, { id }) => {
-    return await ctx.db.get('githubAccounts', id)
+    return ctx.db.get('githubAccounts', id)
   },
 })
 

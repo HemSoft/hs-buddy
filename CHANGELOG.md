@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.824] - 2026-06-14
+
+### Fixed
+
+- Simplify github account queries
+
 ## [0.1.823] - 2026-06-13
 
 ### Fixed

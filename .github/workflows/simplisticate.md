@@ -6,7 +6,6 @@ description: |
   agent-fixable issues for low-risk simplifications an agent can apply autonomously.
 
 on:
-  schedule: "0 6 * * *"   # 1:00 AM EST
   workflow_dispatch:
 
 engine:

@@ -1,6 +1,6 @@
 # SFL Auditor — standard workflow (not gh-aw)
 #
-# Runs every 30 minutes (offset from dispatcher). Audits the relationship
+# Runs manually. Audits the relationship
 # between issue labels and open pull requests. Detects and repairs state
 # discrepancies to keep the agentic pipeline self-consistent.
 # Never modifies PR content — only updates issues.
@@ -10,8 +10,6 @@
 name: "SFL Auditor"
 
 on:
-  schedule:
-    - cron: "15,45 * * * *"
   workflow_dispatch:
 
 permissions:

@@ -1,13 +1,13 @@
 # SFL Dispatcher — lightweight gate that prevents wasteful gh-aw runs
 #
-# Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
+# Runs manually and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
 #   - Issue Processor: when claimable agent:fixable issues exist and PR creation is allowed
 #   - PR Analyzers A/B/C: when draft PRs with agent:pr exist
 #   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
 #
-# This eliminates ~240 no-op Copilot inference calls/day.
+# Keep this workflow manually dispatchable for targeted pipeline checks.
 #
 # DEPLOYMENT: Copy this file to the consumer repo's .github/workflows/ directory.
 # Adjust workflow filenames in the Dispatch steps if your consumer uses different names.
@@ -15,8 +15,6 @@
 name: "SFL Dispatcher"
 
 on:
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:

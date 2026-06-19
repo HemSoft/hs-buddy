@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.826] - 2026-06-14
+## [0.1.826] - 2026-06-18
+
+### Changed
+
+- Pause scheduled workflows
 
 ### Fixed
 
@@ -827,7 +831,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add error handling to useRalphLoops hook
 - Auto-open dashboard when Ralph section is selected
 - Fix scripts path resolution and template array guard
-- Define __dirname for ESM in ralphService + update debug skill to V1.1
+- Define \_\_dirname for ESM in ralphService + update debug skill to V1.1
 - Wire sidebar script clicks to open launch form with pre-selected script
 - Update branch placeholder text
 - Template script launch failure + redesign run detail panel
@@ -896,7 +900,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Remove 13 individual *-repeat scripts
+- Remove 13 individual \*-repeat scripts
 - Log perfection audit results for 2026-04-28
 - Add Code Index as primary code discovery tool
 - Cover non-Escape keydown branch in TempoWorklogEditor

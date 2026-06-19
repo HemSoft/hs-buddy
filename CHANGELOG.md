@@ -9,11 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.826] - 2026-06-18
+## [0.1.827] - 2026-06-18
 
 ### Changed
 
 - Pause scheduled workflows
+- Align changelog version
 
 ### Fixed
 

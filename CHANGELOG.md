@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.829] - 2026-06-21
+
+### Fixed
+
+- Remove redundant feature intake awaits
+
 ## [0.1.828] - 2026-06-21
 
 ### Changed

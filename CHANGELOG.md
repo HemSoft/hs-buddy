@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.831] - 2026-06-21
+
+### Changed
+
+- Fix agent entrypoint guidance
+
 ## [0.1.830] - 2026-06-21
 
 ### Fixed

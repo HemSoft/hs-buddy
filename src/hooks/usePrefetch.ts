@@ -25,14 +25,14 @@ import { isAbortError } from '../utils/errorUtils'
 async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
   switch (mode) {
     case 'needs-review':
-      return await client.fetchNeedsReview()
+      return client.fetchNeedsReview()
     case 'recently-merged':
-      return await client.fetchRecentlyMerged()
+      return client.fetchRecentlyMerged()
     case 'need-a-nudge':
-      return await client.fetchNeedANudge()
+      return client.fetchNeedANudge()
     case 'my-prs':
     default:
-      return await client.fetchMyPRs()
+      return client.fetchMyPRs()
   }
 }
 

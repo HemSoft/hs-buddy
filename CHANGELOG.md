@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.833] - 2026-06-21
+
+### Fixed
+
+- Remove redundant prefetch awaits
+
 ## [0.1.832] - 2026-06-21
 
 ### Fixed

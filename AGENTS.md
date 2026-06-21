@@ -1,6 +1,6 @@
 # Copilot Instructions for hs-buddy
 
-> **Start here → [GOAL-AND-GUIDING-PRINCIPLES.md](GOAL-AND-GUIDING-PRINCIPLES.md)** — the goal and guiding principles
+> **Start here → [GOAL-AND-GUIDING-PRINCIPLES.md](docs/GOAL-AND-GUIDING-PRINCIPLES.md)** — the goal and guiding principles
 > for this repository. Everything in this file serves that goal.
 >
 > **This file should ideally be empty until the architecture changes.**
@@ -23,20 +23,22 @@ code retrieval with significantly lower token usage than brute-force grep.
   Fall back to grep/glob only if Code Index returns no results or is offline.
 
 <!-- lean-ctx -->
+
 ## lean-ctx — Tool preference
 
 ALWAYS use lean-ctx MCP tools instead of native equivalents. This saves
 tokens and provides caching, compression, and persistent context.
 
-| Use this | Instead of | Why |
-|----------|------------|-----|
-| `ctx_read` | `cat`, `view`, `Read` | Cached reads, 10 compression modes |
-| `ctx_search` | `grep`, `rg`, `Select-String` | Compact, token-efficient results |
-| `ctx_shell` | `bash`, `powershell` | Pattern compression on output |
-| `ctx_tree` | `ls`, `dir`, `find`, `glob` | Compact directory maps |
-| `ctx_knowledge` | ad-hoc notes | Persistent cross-session memory |
+| Use this        | Instead of                    | Why                                |
+| --------------- | ----------------------------- | ---------------------------------- |
+| `ctx_read`      | `cat`, `view`, `Read`         | Cached reads, 10 compression modes |
+| `ctx_search`    | `grep`, `rg`, `Select-String` | Compact, token-efficient results   |
+| `ctx_shell`     | `bash`, `powershell`          | Pattern compression on output      |
+| `ctx_tree`      | `ls`, `dir`, `find`, `glob`   | Compact directory maps             |
+| `ctx_knowledge` | ad-hoc notes                  | Persistent cross-session memory    |
 
 Full rules: @LEAN-CTX.md
+
 <!-- /lean-ctx -->
 
 ## Agentic Loop — Standing Orders

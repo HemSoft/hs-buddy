@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockEnvValues = vi.hoisted(() => new Map<string, string | undefined>())
+
 vi.mock('child_process', () => ({
   execSync: vi.fn((cmd: string) => {
     if (cmd.includes('gh api')) return 'test@example.com\n'
@@ -8,10 +10,7 @@ vi.mock('child_process', () => ({
 }))
 
 vi.mock('../../src/utils/envLookup', () => ({
-  createEnvResolver: vi.fn(() => (name: string) => {
-    if (name === 'SLACK_BOT_TOKEN') return 'xoxb-test-token'
-    return undefined
-  }),
+  createEnvResolver: vi.fn(() => (name: string) => mockEnvValues.get(name)),
 }))
 
 // Mock global fetch
@@ -23,7 +22,31 @@ import { nudgePRAuthor } from './slackClient'
 describe('slackClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockEnvValues.clear()
+    mockEnvValues.set('SLACK_BOT_TOKEN', 'xoxb-test-token')
     mockFetch.mockReset()
+  })
+
+  it('does not use direct process.env fallback when resolver has no token', async () => {
+    const previousToken = process.env.SLACK_BOT_TOKEN
+    mockEnvValues.clear()
+    process.env.SLACK_BOT_TOKEN = 'xoxb-direct-token'
+
+    try {
+      const result = await nudgePRAuthor('testuser', 'Fix: bug', 'https://github.com/pr/1')
+
+      expect(result).toEqual({
+        success: false,
+        error: 'SLACK_BOT_TOKEN not configured. Set it as a system environment variable.',
+      })
+      expect(mockFetch).not.toHaveBeenCalled()
+    } finally {
+      if (previousToken === undefined) {
+        delete process.env.SLACK_BOT_TOKEN
+      } else {
+        process.env.SLACK_BOT_TOKEN = previousToken
+      }
+    }
   })
 
   it('nudgePRAuthor resolves github login, opens DM, sends message', async () => {

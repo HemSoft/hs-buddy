@@ -13,7 +13,7 @@ const workerTypeValidator = v.union(v.literal('exec'), v.literal('ai'), v.litera
 export const list = query({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('jobs').collect()
+    return ctx.db.query('jobs').collect()
   },
 })
 
@@ -23,7 +23,7 @@ export const listByType = query({
     workerType: workerTypeValidator,
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('jobs')
       .withIndex('by_worker_type', q => q.eq('workerType', args.workerType))
       .collect()
@@ -34,7 +34,7 @@ export const listByType = query({
 export const get = query({
   args: { id: v.id('jobs') },
   handler: async (ctx, args) => {
-    return await ctx.db.get('jobs', args.id)
+    return ctx.db.get('jobs', args.id)
   },
 })
 
@@ -42,7 +42,7 @@ export const get = query({
 export const getByName = query({
   args: { name: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('jobs')
       .withIndex('by_name', q => q.eq('name', args.name))
       .first()

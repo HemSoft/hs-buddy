@@ -37,7 +37,7 @@ const intakeStatusValidator = v.union(
 export const list = query({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('featureIntakes').withIndex('by_created').order('desc').collect()
+    return ctx.db.query('featureIntakes').withIndex('by_created').order('desc').collect()
   },
 })
 
@@ -46,7 +46,7 @@ export const listByStatus = query({
     status: intakeStatusValidator,
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('featureIntakes')
       .withIndex('by_status', q => q.eq('status', args.status))
       .order('desc')
@@ -59,7 +59,7 @@ export const get = query({
     id: v.id('featureIntakes'),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id)
+    return ctx.db.get(args.id)
   },
 })
 
@@ -69,7 +69,7 @@ export const getBySourceExternal = query({
     externalId: v.string(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('featureIntakes')
       .withIndex('by_source_external', q =>
         q.eq('source', args.source).eq('externalId', args.externalId)
@@ -125,11 +125,13 @@ function resolveRiskLabel(riskLabel: RiskLabel | undefined): RiskLabel {
   return riskLabel ?? 'risk:low'
 }
 
-function getExistingCanonicalFields(existingByCanonical: {
-  _id: Id<'featureIntakes'>
-  canonicalIssueNumber?: number
-  canonicalIssueUrl?: string
-} | null): {
+function getExistingCanonicalFields(
+  existingByCanonical: {
+    _id: Id<'featureIntakes'>
+    canonicalIssueNumber?: number
+    canonicalIssueUrl?: string
+  } | null
+): {
   duplicateOfId?: Id<'featureIntakes'>
   canonicalIssueNumber?: number
   canonicalIssueUrl?: string
@@ -310,7 +312,7 @@ export const normalize = mutation({
       ? normalizeWhitespace(args.requestedOutcome)
       : undefined
 
-    return await insertAndResolve(ctx, {
+    return insertAndResolve(ctx, {
       ...args,
       externalId,
       title,

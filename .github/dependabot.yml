@@ -4,6 +4,13 @@ updates:
   directory: /
   labels:
   - dependencies
+  groups:
+    opentelemetry:
+      patterns:
+      - "@opentelemetry/*"
+      update-types:
+      - minor
+      - patch
   open-pull-requests-limit: 5
   package-ecosystem: npm
   schedule:

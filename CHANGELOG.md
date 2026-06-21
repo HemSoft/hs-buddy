@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.828] - 2026-06-21
+
+### Changed
+
+- Group opentelemetry dependabot updates
+
 ## [0.1.827] - 2026-06-18
 
 ### Changed

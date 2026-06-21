@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.830] - 2026-06-21
+
+### Fixed
+
+- Remove redundant tempo ipc awaits
+
 ## [0.1.829] - 2026-06-21
 
 ### Fixed

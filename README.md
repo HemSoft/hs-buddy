@@ -34,7 +34,7 @@
 - **React 19** — UI framework with Lucide icons
 - **TypeScript 6** — Type-safe development
 - **Vite 8** — Dev server and bundler
-- **Convex** — Serverless backend with real-time sync (16 tables)
+- **Convex** — Serverless backend with real-time sync (16 schema tables)
 - **Copilot SDK** — GitHub Copilot integration for AI prompts and PR reviews
 - **OpenTelemetry** — OTLP traces, metrics, and logs
 - **.NET Aspire** — Orchestration and dashboard (optional)
@@ -222,7 +222,7 @@ hs-buddy/
 │   ├── utils/             # Utilities
 │   ├── App.tsx            # Main application component
 │   └── main.tsx           # React entry point
-├── convex/                # Serverless backend (16 tables, crons, lib/)
+├── convex/                # Serverless backend (16 schema tables, crons, lib/)
 ├── scripts/               # Helper scripts (bump, coverage, SFL debug, etc.)
 ├── assets/                # Images and design assets
 ├── public/                # Static assets

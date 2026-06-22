@@ -14,7 +14,7 @@ export const listRecent = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50
-    return await ctx.db.query('copilotResults').withIndex('by_created').order('desc').take(limit)
+    return ctx.db.query('copilotResults').withIndex('by_created').order('desc').take(limit)
   },
 })
 
@@ -26,7 +26,7 @@ export const listByCategory = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50
-    return await ctx.db
+    return ctx.db
       .query('copilotResults')
       .withIndex('by_category', q => q.eq('category', args.category))
       .order('desc')
@@ -42,7 +42,7 @@ export const listByStatus = query({
   },
   handler: async (ctx, args) => {
     const limit = args.limit ?? 50
-    return await ctx.db
+    return ctx.db
       .query('copilotResults')
       .withIndex('by_status', q => q.eq('status', args.status))
       .order('desc')
@@ -54,7 +54,7 @@ export const listByStatus = query({
 export const get = query({
   args: { id: v.id('copilotResults') },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id)
+    return ctx.db.get(args.id)
   },
 })
 

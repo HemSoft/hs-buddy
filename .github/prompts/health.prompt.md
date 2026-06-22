@@ -18,13 +18,15 @@ Run these queries in parallel:
 1. **Open issues** with any agent label: `agent:fixable`, `agent:in-progress`, `agent:pause`, `agent:human-required`
 2. **All open PRs** (including draft) with branch names matching `agent-fix/*`
 3. **Recent workflow runs** (last 5) for each of:
-   - `sfl-auditor.lock.yml`
-   - `sfl-gate.yml`
-   - `sfl-implement.lock.yml`
+   - `sfl-auditor.yml`
+   - `sfl-dispatcher.yml`
+   - `issue-processor.lock.yml`
    - `repo-audit.lock.yml`
-   - `sfl-analyzer-a.lock.yml`
-   - `sfl-analyzer-b.lock.yml`
-   - `sfl-analyzer-c.lock.yml`
+   - `pr-analyzer-a.lock.yml`
+   - `pr-analyzer-b.lock.yml`
+   - `pr-analyzer-c.lock.yml`
+   - `pr-fixer.lock.yml`
+   - `pr-promoter.lock.yml`
 4. **Open issues** with labels `agent:pause` or `agent:escalated` that mention workflow failures
 
 ---
@@ -51,7 +53,7 @@ For each check, state: ✅ Pass / ❌ Fail / ⚠️ Warning — and list the spe
 
 ## Step 3 — Evaluate SFL Auditor health
 
-The SFL Auditor (`sfl-auditor.lock.yml`) is the health guardian. Evaluate:
+The SFL Auditor (`sfl-auditor.yml`) is the health guardian. Evaluate:
 
 - Did the last run **succeed** (conclusion: `success`)?
 - Did it produce **safe outputs** (no "no safe outputs" warning in associated issues)?
@@ -64,8 +66,9 @@ State: ✅ Healthy / ❌ Failing / ⚠️ Degraded — with specific run IDs and
 
 ## Step 4 — Evaluate other workflow health
 
-For each of `sfl-gate.yml`, `sfl-implement.lock.yml`, `repo-audit.lock.yml`,
-`sfl-analyzer-a.lock.yml`, `sfl-analyzer-b.lock.yml`, and `sfl-analyzer-c.lock.yml`:
+For each of `sfl-dispatcher.yml`, `issue-processor.lock.yml`,
+`repo-audit.lock.yml`, `pr-analyzer-a.lock.yml`, `pr-analyzer-b.lock.yml`,
+`pr-analyzer-c.lock.yml`, `pr-fixer.lock.yml`, and `pr-promoter.lock.yml`:
 
 - Last run conclusion (success/failure/cancelled)
 - Last run timestamp
@@ -104,6 +107,10 @@ Produce a concise health report in this format:
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 
+### SFL Dispatcher
+- Last run: <run ID> at <time> — <conclusion>
+- Open failure issues: none | #<numbers>
+
 ### Repo Audit
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
@@ -114,11 +121,11 @@ Produce a concise health report in this format:
 - Analyzer C last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 
-### PR Router
+### PR Fixer
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 
-### PR Label Actions
+### PR Promoter
 - Last run: <run ID> at <time> — <conclusion>
 - Open failure issues: none | #<numbers>
 

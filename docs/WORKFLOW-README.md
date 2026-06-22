@@ -25,20 +25,23 @@ That repo contains:
 
 ## Workflows active in this repo
 
-| Workflow                                                | Schedule                                        | Output                                                                                                                   | Source                                                                                 |
-| ------------------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `react-doctor-audit` (`React Doctor Audit`)             | Daily ~1:17 AM EDT                              | Rolling React Doctor issue stream; older issues stay open while an active agent PR still depends on them                 | Local                                                                                  |
-| `test-coverage-audit` (`Test Coverage Audit`)           | Daily 7:17 AM EDT                               | Single `agent:fixable` test-coverage issue                                                                               | Local                                                                                  |
-| `simplisticate-audit` (`Simplisticate Audit`)           | Daily ~2:27 AM EDT                              | Single `agent:fixable` simplification issue                                                                              | Local                                                                                  |
-| `daily-repo-status` (`SFL Repo Status`)                 | Daily ~3:37 AM EDT                              | `report` Discussion                                                                                                      | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `repo-audit` (`Repo Audit`)                             | Daily ~4:47 AM EDT                              | Single consolidated `agent:fixable` issue                                                                                | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
-| `sfl-improve-scorecard` (`Scorecard Improvement Audit`) | Daily ~5:37 AM EDT                              | Single `agent:fixable` scorecard improvement issue                                                                       | Local                                                                                  |
-| `sfl-auditor`                                           | Daily ~5:57 AM EDT                              | Repairs issue/PR label discrepancies                                                                                     | Local                                                                                  |
-| `sfl-implement` (`SFL Implementer`)                     | `issues: opened/reopened` + Analyzer C dispatch | Single implementer: claims new issues or advances existing draft PRs from analyzer feedback                              | Local                                                                                  |
-| `sfl-analyzer-a`                                        | `pull_request: opened`                          | Starts the sequential A -> B -> C review chain for draft PRs (Model A)                                                   | Local                                                                                  |
-| `sfl-analyzer-b`                                        | Analyzer A dispatch                             | Continues the sequential full-spectrum review chain (Model B)                                                            | Local                                                                                  |
-| `sfl-analyzer-c`                                        | Analyzer B dispatch                             | Finishes the sequential full-spectrum review chain; dispatches label-actions for ready-for-review or fix-cycle decisions | Local                                                                                  |
-| `sfl-gate` (`SFL Gate`)                                 | `issues: labeled` / Analyzer C dispatch / manual dispatch | Deterministic orchestrator: validates entry, dispatches implementer, aggregates verdicts, flips draft → ready-for-review | Local                                                                                  |
+Schedules are currently paused in this repository. The workflow files keep
+manual dispatch entry points, and `sfl-dispatcher.yml` can dispatch gh-aw
+workflows when there is work to process.
+
+| Workflow file | Trigger | Output | Source |
+| --- | --- | --- | --- |
+| `sfl-dispatcher.yml` | Manual dispatch | Checks whether SFL work exists and dispatches issue, analyzer, fixer, and promoter workflows when useful | Local |
+| `sfl-auditor.yml` | Manual dispatch | Detects and repairs issue/PR label discrepancies and stale SFL state | Local |
+| `issue-processor.md` / `.lock.yml` | Manual dispatch through dispatcher | Claims the oldest eligible `agent:fixable` + `action-item` issue and opens one draft PR | Local |
+| `pr-analyzer-a.md` / `.lock.yml` | Pull request opened or dispatcher | Starts the sequential A -> B -> C review chain for SFL draft PRs | Local |
+| `pr-analyzer-b.md` / `.lock.yml` | Analyzer A dispatch or dispatcher | Continues the sequential full-spectrum review chain | Local |
+| `pr-analyzer-c.md` / `.lock.yml` | Analyzer B dispatch or dispatcher | Finishes the review chain and records the final analyzer verdict | Local |
+| `pr-fixer.md` / `.lock.yml` | Manual dispatch through dispatcher | Applies analyzer feedback to one draft PR branch and advances the review cycle | Local |
+| `pr-promoter.md` / `.lock.yml` | Manual dispatch through dispatcher | Promotes clean draft PRs to ready-for-review and merges approved ready PRs | Local |
+| `repo-audit.md` / `.lock.yml` | Manual dispatch | Repository documentation/configuration audit | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
+| `simplisticate.md` / `.lock.yml` | Manual dispatch | Code simplification audit and action-item creation | Local |
+| `daily-repo-status.md` / `.lock.yml` | Manual dispatch | Repository status report | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |
 
 ---
 

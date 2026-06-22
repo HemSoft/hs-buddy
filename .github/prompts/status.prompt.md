@@ -25,13 +25,15 @@ Run these queries:
 1. **All open issues** with any `agent:*` label — get number, title, labels
 2. **All open PRs** — get number, title, draft status, head branch name
 3. **Workflow runs since `LAST_CHECK`** for each of:
-   - `sfl-auditor.lock.yml`
-   - `sfl-gate.yml`
-   - `sfl-implement.lock.yml`
+   - `sfl-auditor.yml`
+   - `sfl-dispatcher.yml`
+   - `issue-processor.lock.yml`
    - `repo-audit.lock.yml`
-   - `sfl-analyzer-a.lock.yml`
-   - `sfl-analyzer-b.lock.yml`
-   - `sfl-analyzer-c.lock.yml`
+   - `pr-analyzer-a.lock.yml`
+   - `pr-analyzer-b.lock.yml`
+   - `pr-analyzer-c.lock.yml`
+   - `pr-fixer.lock.yml`
+   - `pr-promoter.lock.yml`
 
    Get their conclusion (success / failure / cancelled) and timestamp.
 
@@ -54,13 +56,14 @@ Print a concise report:
 | Workflow | Runs | Failed |
 |----------|------|--------|
 | SFL Auditor | N | 0 or list |
+| SFL Dispatcher | N | 0 or list |
 | Issue Processor | N | 0 or list |
 | Repo Audit | N | 0 or list |
 | PR Analyzer A | N | 0 or list |
 | PR Analyzer B | N | 0 or list |
 | PR Analyzer C | N | 0 or list |
-| PR Router | N | 0 or list |
-| PR Label Actions | N | 0 or list |
+| PR Fixer | N | 0 or list |
+| PR Promoter | N | 0 or list |
 
 ### Verdict: ✅ ALL GOOD | ⚠️ ISSUES FOUND
 <one-line summary>

@@ -36,9 +36,9 @@ The happy path from issue to human-ready PR. Every handoff is deterministic.
 |---|---|---|---|---|---|---|
 | 0 | `repo-audit` / `simplisticate` | Repository state | GitHub Issue | `workflow_dispatch` | Adds `agent:fixable`, `action-item`, and risk label to new action items | Produces focused, agent-fixable follow-up issues from audit findings |
 | 1 | `issue-processor` | Issue with `agent:fixable` + `action-item` | Draft PR | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:fixable`; adds `agent:in-progress` to issue, `agent:pr` to PR | Claims the issue, implements the fix, and creates a draft PR |
-| 2 | `pr-analyzer-a` | Draft PR | PR review/comment marker | `pull_request: opened` / dispatch | Reads `agent:pr`, `pr:cycle-N` | First full-spectrum review pass. Writes `[MARKER:pr-analyzer-a cycle:N]` + verdict and dispatches Analyzer B |
-| 3 | `pr-analyzer-b` | Analyzer A dispatch | PR review/comment marker | `workflow_dispatch` | Reads `agent:pr`, `pr:cycle-N` | Second full-spectrum review pass. Writes `[MARKER:pr-analyzer-b cycle:N]` + verdict and dispatches Analyzer C |
-| 4 | `pr-analyzer-c` | Analyzer B dispatch | PR review/comment marker | `workflow_dispatch` | Reads `agent:pr`, `pr:cycle-N` | Final review pass. Writes `[MARKER:pr-analyzer-c cycle:N]` + verdict |
+| 2 | `pr-analyzer-a` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | First full-spectrum review pass. Writes `[MARKER:pr-analyzer-a cycle:N]` + verdict |
+| 3 | `pr-analyzer-b` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | Second full-spectrum review pass. Writes `[MARKER:pr-analyzer-b cycle:N]` + verdict |
+| 4 | `pr-analyzer-c` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | Final review pass. Writes `[MARKER:pr-analyzer-c cycle:N]` + verdict |
 | 5 | `pr-fixer` | Draft PR with analyzer findings | Updated draft PR | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N`; advances cycle labels when fixes are applied | Applies analyzer feedback on the PR branch and leaves promotion to `pr-promoter` |
 | 6 | `pr-promoter` | Draft PR with all analyzer PASS verdicts | Ready PR or merged PR | `workflow_dispatch` via `sfl-dispatcher` | Adds `human:ready-for-review` after promotion; merges approved ready PRs | Converts clean draft PRs to ready-for-review and squash-merges approved ready PRs |
 

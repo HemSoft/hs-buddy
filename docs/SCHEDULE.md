@@ -26,9 +26,9 @@ These fire in response to GitHub events, manual dispatches, or other workflows.
 |---|---|---|
 | Manual dispatch | **SFL Dispatcher** (`sfl-dispatcher.yml`) | Checks for queued SFL work and dispatches gh-aw workflows when useful |
 | Dispatcher / manual | **Issue Processor** (`issue-processor.lock.yml`) | Claims one eligible issue and creates a draft PR |
-| `pull_request: opened` / dispatcher | **PR Analyzer A** (`pr-analyzer-a.lock.yml`) | First full-spectrum review pass |
-| Analyzer A dispatch / dispatcher | **PR Analyzer B** (`pr-analyzer-b.lock.yml`) | Second full-spectrum review pass |
-| Analyzer B dispatch / dispatcher | **PR Analyzer C** (`pr-analyzer-c.lock.yml`) | Final full-spectrum review pass |
+| Dispatcher / manual | **PR Analyzer A** (`pr-analyzer-a.lock.yml`) | First full-spectrum review pass |
+| Dispatcher / manual | **PR Analyzer B** (`pr-analyzer-b.lock.yml`) | Second full-spectrum review pass |
+| Dispatcher / manual | **PR Analyzer C** (`pr-analyzer-c.lock.yml`) | Final full-spectrum review pass |
 | Dispatcher / manual | **PR Fixer** (`pr-fixer.lock.yml`) | Applies analyzer feedback and advances the review cycle |
 | Dispatcher / manual | **PR Promoter** (`pr-promoter.lock.yml`) | Promotes clean draft PRs or merges approved ready PRs |
 | Manual dispatch | **SFL Auditor** (`sfl-auditor.yml`) | Detects and repairs issue/PR state discrepancies |
@@ -39,14 +39,14 @@ These fire in response to GitHub events, manual dispatches, or other workflows.
 
 ```text
 Manual audit/report workflow dispatch
-  ↓ creates issue with agent:fixable
+  ↓ creates issue with agent:fixable + action-item
 SFL Dispatcher
   ↓ dispatches work only when there is useful queued state
 Issue Processor
   ↓ claims issue → creates branch + draft PR
   ↓ labels: agent:in-progress, agent:pr
-PR Analyzer A → B → C (sequential review chain)
-  ↓ each model reviews the PR
+SFL Dispatcher
+  ↓ dispatches PR Analyzer A, B, and C when review passes are missing
 PR Fixer
   ↓ applies analyzer feedback when needed
 PR Promoter

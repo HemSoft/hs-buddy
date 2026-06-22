@@ -6,16 +6,17 @@
 
 ## Quick Start
 
-Create a GitHub issue with the label `agent:fixable` and the loop takes over:
+Create a GitHub issue with the labels `agent:fixable` and `action-item`, and
+the loop takes over:
 
 1. **Title**: Start with `[agent-fix]` followed by a clear description
-2. **Labels**: Apply `agent:fixable` + a risk label (`risk:low`, `risk:medium`, `risk:high`)
+2. **Labels**: Apply `agent:fixable` + `action-item` + a risk label (`risk:low`, `risk:medium`, `risk:high`)
 3. **Body**: Describe what needs to change and the acceptance criteria
 
 ### Example
 
 **Title**: `[agent-fix] Update README badges to reflect new CI pipeline`
-**Labels**: `agent:fixable`, `risk:low`
+**Labels**: `agent:fixable`, `action-item`, `risk:low`
 **Body**:
 
 ```markdown
@@ -55,6 +56,7 @@ Add the `no-agent` label to any issue to exclude it from SFL processing.
 | Label | When to use |
 |-------|------------|
 | `agent:fixable` | Agent can auto-fix this |
+| `action-item` | Eligible for the SFL dispatcher and Issue Processor |
 | `agent:blocked` | Agent stopped — human intervention required |
 | `no-agent` | Opt out entirely |
 

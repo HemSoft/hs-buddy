@@ -34,9 +34,9 @@ workflows when there is work to process.
 | `sfl-dispatcher.yml` | Manual dispatch | Checks whether SFL work exists and dispatches issue, analyzer, fixer, and promoter workflows when useful | Local |
 | `sfl-auditor.yml` | Manual dispatch | Detects and repairs issue/PR label discrepancies and stale SFL state | Local |
 | `issue-processor.md` / `.lock.yml` | Manual dispatch through dispatcher | Claims the oldest eligible `agent:fixable` + `action-item` issue and opens one draft PR | Local |
-| `pr-analyzer-a.md` / `.lock.yml` | Pull request opened or dispatcher | Starts the sequential A -> B -> C review chain for SFL draft PRs | Local |
-| `pr-analyzer-b.md` / `.lock.yml` | Analyzer A dispatch or dispatcher | Continues the sequential full-spectrum review chain | Local |
-| `pr-analyzer-c.md` / `.lock.yml` | Analyzer B dispatch or dispatcher | Finishes the review chain and records the final analyzer verdict | Local |
+| `pr-analyzer-a.md` / `.lock.yml` | Manual dispatch through dispatcher | Runs the first full-spectrum review pass for SFL draft PRs | Local |
+| `pr-analyzer-b.md` / `.lock.yml` | Manual dispatch through dispatcher | Runs the second full-spectrum review pass for SFL draft PRs | Local |
+| `pr-analyzer-c.md` / `.lock.yml` | Manual dispatch through dispatcher | Runs the final review pass and records the final analyzer verdict | Local |
 | `pr-fixer.md` / `.lock.yml` | Manual dispatch through dispatcher | Applies analyzer feedback to one draft PR branch and advances the review cycle | Local |
 | `pr-promoter.md` / `.lock.yml` | Manual dispatch through dispatcher | Promotes clean draft PRs to ready-for-review and merges approved ready PRs | Local |
 | `repo-audit.md` / `.lock.yml` | Manual dispatch | Repository documentation/configuration audit | [CATALOG](https://github.com/relias-engineering/set-it-free-loop/blob/main/CATALOG.md) |

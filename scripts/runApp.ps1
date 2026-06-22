@@ -24,7 +24,7 @@ if (-not $apiUp) {
         Write-Information "${Yellow}(Dashboard on $dashPort is up but the dev watcher is not -- orphaned backend?)${Reset}"
     }
     Write-Information ""
-    Write-Information "Start the server first with: ${Yellow}./runServer.ps1${Reset}"
+    Write-Information "Start the server first with: ${Yellow}./scripts/runServer.ps1${Reset}"
     Write-Information ""
     exit 1
 }

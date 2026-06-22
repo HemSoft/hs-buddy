@@ -132,7 +132,7 @@ export default tseslint.config(
       'unicorn/throw-new-error': 'error',
       'unicorn/no-useless-promise-resolve-reject': 'error',
       'unicorn/prefer-ternary': 'off',
-      'unicorn/prevent-abbreviations': 'off',
+      'unicorn/name-replacements': 'off',
       'unicorn/filename-case': 'off',
     },
   },

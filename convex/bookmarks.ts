@@ -11,7 +11,7 @@ import {
 export const list = query({
   args: {},
   handler: async ctx => {
-    return await ctx.db.query('bookmarks').collect()
+    return ctx.db.query('bookmarks').collect()
   },
 })
 
@@ -19,7 +19,7 @@ export const list = query({
 export const listByCategory = query({
   args: { category: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
+    return ctx.db
       .query('bookmarks')
       .withIndex('by_category', q => q.eq('category', args.category))
       .collect()
@@ -30,7 +30,7 @@ export const listByCategory = query({
 export const get = query({
   args: { id: v.id('bookmarks') },
   handler: async (ctx, args) => {
-    return await ctx.db.get(args.id)
+    return ctx.db.get(args.id)
   },
 })
 
@@ -81,7 +81,7 @@ export const create = mutation({
       sortOrder = categoryBookmarks.length
     }
 
-    return await ctx.db.insert('bookmarks', {
+    return ctx.db.insert('bookmarks', {
       url: args.url,
       title: args.title,
       description: args.description,

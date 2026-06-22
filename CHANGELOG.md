@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.834] - 2026-06-22
+
+### Changed
+
+- Update unicorn rule name
+
 ## [0.1.833] - 2026-06-21
 
 ### Fixed

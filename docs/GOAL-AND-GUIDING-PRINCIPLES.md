@@ -34,14 +34,16 @@ The happy path from issue to human-ready PR. Every handoff is deterministic.
 
 | # | Workflow Name | Source | Destination | Trigger Mechanism | Label(s) | Description |
 |---|---|---|---|---|---|---|
-| 0 | `discussion-processor` | Audit/Doctor/Simplisticate discussion | GitHub Issue | `discussion: labeled` | Adds `agent:fixable` + risk label to new issue | Groups agent-fixable findings from audit discussions into categorized issues |
-| 1 | `sfl-issue-processor` | Issue with `agent:fixable` | Draft PR | `issues: opened/reopened` | Reads `agent:fixable`; adds `agent:in-progress` to issue, `agent:pr` + `pr:cycle-0` to PR | Claims the issue, implements the fix, creates a draft PR, dispatches Analyzer A |
-| 2 | `sfl-analyzer-a` | Draft PR | PR comment marker | `pull_request: opened` / dispatch | Reads `agent:pr`, `pr:cycle-N` | Claude Sonnet reviews for correctness, security, performance, style. Writes `<!-- MARKER:sfl-analyzer-a -->` + verdict to PR comment. Dispatches Analyzer B |
-| 3 | `sfl-analyzer-b` | Analyzer A dispatch | PR comment marker | `workflow_dispatch` | Reads `agent:pr`, `pr:cycle-N` | Claude Opus 4.6 reviews (different model than A). Writes `<!-- MARKER:sfl-analyzer-b -->` + verdict. Dispatches Analyzer C |
-| 4 | `sfl-analyzer-c` | Analyzer B dispatch | PR comment marker + label | `workflow_dispatch` | Reads `agent:pr`, `pr:cycle-N`; adds `analyzer:blocked` if BLOCKING | GPT reviews (third model). Writes `<!-- MARKER:sfl-analyzer-c -->` + verdict. Dispatches label-actions |
-| 5 | `sfl-pr-label-actions` | Analyzer C dispatch | Ready PR or fix cycle | `workflow_dispatch` | Reads `analyzer:blocked`, `human:ready-for-review` | Deterministic aggregator: if `analyzer:blocked` → removes label, dispatches issue-processor for fix. If all PASS → adds `human:ready-for-review`, flips draft → ready |
+| 0 | `repo-audit` / `simplisticate` | Repository state | GitHub Issue | `workflow_dispatch` | Adds `agent:fixable`, `action-item`, and risk label to new action items | Produces focused, agent-fixable follow-up issues from audit findings |
+| 1 | `issue-processor` | Issue with `agent:fixable` + `action-item` | Draft PR | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:fixable`; adds `agent:in-progress` to issue, `agent:pr` to PR | Claims the issue, implements the fix, and creates a draft PR |
+| 2 | `pr-analyzer-a` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | First full-spectrum review pass. Writes `[MARKER:pr-analyzer-a cycle:N]` + verdict |
+| 3 | `pr-analyzer-b` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | Second full-spectrum review pass. Writes `[MARKER:pr-analyzer-b cycle:N]` + verdict |
+| 4 | `pr-analyzer-c` | Draft PR | PR review/comment marker | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N` | Final review pass. Writes `[MARKER:pr-analyzer-c cycle:N]` + verdict |
+| 5 | `pr-fixer` | Draft PR with analyzer findings | Updated draft PR | `workflow_dispatch` via `sfl-dispatcher` | Reads `agent:pr`, `pr:cycle-N`; advances cycle labels when fixes are applied | Applies analyzer feedback on the PR branch and leaves promotion to `pr-promoter` |
+| 6 | `pr-promoter` | Draft PR with all analyzer PASS verdicts | Ready PR or merged PR | `workflow_dispatch` via `sfl-dispatcher` | Adds `human:ready-for-review` after promotion; merges approved ready PRs | Converts clean draft PRs to ready-for-review and squash-merges approved ready PRs |
 
-**Background:** `sfl-auditor` runs daily (~5:57 AM EDT) to detect and repair state
+**Background:** `sfl-dispatcher` is the manual orchestration entry point for
+the SFL workflow set, and `sfl-auditor` detects and repairs state
 discrepancies (orphaned labels, stale in-progress issues, missing PRs, etc.).
 
 ---

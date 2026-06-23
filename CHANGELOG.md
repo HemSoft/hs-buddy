@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.836] - 2026-06-22
+
+### Changed
+
+- Align sfl intake and analyzer triggers
+
+## [0.1.835] - 2026-06-22
+
+### Changed
+
+- Refresh sfl workflow references
+
 ## [0.1.834] - 2026-06-22
 
 ### Changed

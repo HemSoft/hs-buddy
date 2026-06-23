@@ -6,16 +6,17 @@
 
 ## Quick Start
 
-Create a GitHub issue with the label `agent:fixable` and the loop takes over:
+Create a GitHub issue with the labels `agent:fixable` and `action-item`, and
+the loop takes over:
 
 1. **Title**: Start with `[agent-fix]` followed by a clear description
-2. **Labels**: Apply `agent:fixable` + a risk label (`risk:low`, `risk:medium`, `risk:high`)
+2. **Labels**: Apply `agent:fixable` + `action-item` + a risk label (`risk:low`, `risk:medium`, `risk:high`)
 3. **Body**: Describe what needs to change and the acceptance criteria
 
 ### Example
 
 **Title**: `[agent-fix] Update README badges to reflect new CI pipeline`
-**Labels**: `agent:fixable`, `risk:low`
+**Labels**: `agent:fixable`, `action-item`, `risk:low`
 **Body**:
 
 ```markdown
@@ -33,12 +34,12 @@ GitHub Actions three months ago.
 
 ## What Happens Next
 
-1. `sfl-loop` claims the issue and starts the fix workflow
-2. `sfl-implement` opens or updates a Draft PR with the proposed fix
-3. Three independent analyzers (A, B, C) review the PR in parallel
-4. If changes are requested, `sfl-loop` routes the feedback back to `sfl-implement`, updates the PR, and runs the analyzers again
-5. If the analyzers pass, the PR is marked `human:ready-for-review`
-6. A human reviews and merges
+1. `sfl-dispatcher` sees eligible queued work and dispatches the next useful workflow
+2. `issue-processor` claims the issue and opens a draft PR with the proposed fix
+3. `pr-analyzer-a`, `pr-analyzer-b`, and `pr-analyzer-c` review the PR sequentially
+4. If changes are requested, `pr-fixer` applies the feedback and advances the review cycle
+5. If all analyzers pass, `pr-promoter` marks the PR `human:ready-for-review`
+6. A human reviews the ready PR; `pr-promoter` can squash-merge approved ready PRs
 
 ---
 
@@ -55,6 +56,7 @@ Add the `no-agent` label to any issue to exclude it from SFL processing.
 | Label | When to use |
 |-------|------------|
 | `agent:fixable` | Agent can auto-fix this |
+| `action-item` | Eligible for the SFL dispatcher and Issue Processor |
 | `agent:blocked` | Agent stopped — human intervention required |
 | `no-agent` | Opt out entirely |
 

@@ -171,25 +171,24 @@ The operating model, workflow library, and governance live at:
 
 | # | Workflow | What it does |
 |---|---------|-------------|
-| 0 | `discussion-processor` | Audit findings → categorized GitHub Issues |
-| 1 | `sfl-issue-processor` | Issue → draft PR with implementation |
-| 2 | `sfl-analyzer-a` | Claude Sonnet code review (marker + verdict) |
-| 3 | `sfl-analyzer-b` | Claude Opus code review (marker + verdict) |
-| 4 | `sfl-analyzer-c` | GPT code review (marker + verdict) |
-| 5 | `sfl-pr-label-actions` | Aggregate verdicts → ready-for-review or fix cycle |
+| 0 | `repo-audit` / `simplisticate` | Audit findings → categorized GitHub Issues |
+| 1 | `sfl-dispatcher` | Dispatches SFL workflows only when useful queued work exists |
+| 2 | `issue-processor` | Issue → draft PR with implementation |
+| 3 | `pr-analyzer-a` | First full-spectrum PR review pass (marker + verdict) |
+| 4 | `pr-analyzer-b` | Second full-spectrum PR review pass (marker + verdict) |
+| 5 | `pr-analyzer-c` | Final full-spectrum PR review pass (marker + verdict) |
+| 6 | `pr-fixer` | Applies analyzer feedback and advances the review cycle |
+| 7 | `pr-promoter` | Promotes clean draft PRs and merges approved ready PRs |
 
 ### Supporting Workflows
 
 | Workflow | Cadence | Purpose |
 |---------|---------|---------|
-| `sfl-auditor` | Daily (~5:57 AM EDT) | Detects/repairs state discrepancies |
-| `sfl-queue-monitor` | Scheduled | Monitors agent queue depth |
-| `sfl-improve-scorecard` | On demand | Scorecard keyword detection improvements |
-| `daily-repo-status` | Daily | Repository health report |
-| `repo-audit` | Scheduled | Comprehensive code/config audit |
-| `simplisticate-audit` | Scheduled | Complexity reduction audit |
-| `test-coverage-audit` | Scheduled | Coverage gap analysis |
-| `react-doctor-audit` | Scheduled | React code health audit |
+| `sfl-auditor` | Manual dispatch | Detects/repairs state discrepancies |
+| `sfl-dispatcher` | Manual dispatch | Finds queued work and dispatches the relevant SFL workflow |
+| `daily-repo-status` | Manual dispatch | Repository health report |
+| `repo-audit` | Manual dispatch | Comprehensive documentation/config audit |
+| `simplisticate` | Manual dispatch | Complexity reduction audit |
 
 ---
 

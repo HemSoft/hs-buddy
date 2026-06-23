@@ -2,10 +2,10 @@
 
 > Your universal productivity companion
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.2-blue.svg)](https://www.typescriptlang.org/)
-[![Electron](https://img.shields.io/badge/Electron-30-47848F.svg)](https://www.electronjs.org/)
-[![React](https://img.shields.io/badge/React-18-61DAFB.svg)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-5-646CFF.svg)](https://vitejs.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-blue.svg)](https://www.typescriptlang.org/)
+[![Electron](https://img.shields.io/badge/Electron-42-47848F.svg)](https://www.electronjs.org/)
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)](https://vitejs.dev/)
 [![Set it Free Loop](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FHemSoft%2Fhs-buddy%2Fmain%2Fsfl.json&query=%24.version&prefix=v&label=Set%20it%20Free%20Loop&color=FFD700&style=flat&logo=githubactions&logoColor=white)](docs/SET_IT_FREE_GOVERNANCE.md)
 
 ## Overview
@@ -30,11 +30,11 @@
 
 ## Tech Stack
 
-- **Electron 30** — Cross-platform desktop framework (frameless window)
-- **React 18** — UI framework with Lucide icons
-- **TypeScript 5** — Type-safe development
-- **Vite 5** — Dev server and bundler
-- **Convex** — Serverless backend with real-time sync (13 tables)
+- **Electron 42** — Cross-platform desktop framework (frameless window)
+- **React 19** — UI framework with Lucide icons
+- **TypeScript 6** — Type-safe development
+- **Vite 8** — Dev server and bundler
+- **Convex** — Serverless backend with real-time sync (16 schema tables)
 - **Copilot SDK** — GitHub Copilot integration for AI prompts and PR reviews
 - **OpenTelemetry** — OTLP traces, metrics, and logs
 - **.NET Aspire** — Orchestration and dashboard (optional)
@@ -46,27 +46,23 @@
 ### Prerequisites
 
 - **Node.js 22+** - [Download](https://nodejs.org/)
-- **Bun** (optional, for faster package management) - [Install](https://bun.sh/)
+- **Bun** - [Install](https://bun.sh/)
 
 ### Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/relias-engineering/hs-buddy.git
+git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
 
 # Install dependencies
 bun install
-# or with npm
-npm install
 
 # Optional: copy .env.example to .env for first-launch account auto-migration
 cp .env.example .env
 # Edit VITE_GITHUB_USERNAME and VITE_GITHUB_ORG if you want auto-migration on first launch
 
 # Start development
-npm run dev
-# or with bun
 bun run dev
 ```
 
@@ -149,10 +145,10 @@ hs-buddy uses [Convex](https://docs.convex.dev) as its serverless backend for re
 
 ```bash
 # Start Convex dev server
-./runServer.ps1          # or: bun run convex:dev
+./scripts/runServer.ps1 # or: bun run convex:dev
 
 # Start the Electron app
-./runApp.ps1             # or: bun dev
+./scripts/runApp.ps1    # or: bun dev
 
 # Generate Convex types
 bun run convex:codegen
@@ -167,21 +163,21 @@ Local dashboard (when dev server is running): <http://127.0.0.1:6790/>
 
 ```bash
 # Start development server
-npm run dev
+bun run dev
 
 # Type checking
-npm run typecheck
+bun run typecheck
 
 # Linting
-npm run lint
-npm run lint:fix
+bun run lint
+bun run lint:fix
 
 # Formatting
-npm run format
-npm run format:check
+bun run format
+bun run format:check
 
 # Build for production
-npm run build
+bun run build
 ```
 
 ## Project Structure
@@ -226,7 +222,7 @@ hs-buddy/
 │   ├── utils/             # Utilities
 │   ├── App.tsx            # Main application component
 │   └── main.tsx           # React entry point
-├── convex/                # Serverless backend (13 tables, crons, lib/)
+├── convex/                # Serverless backend (16 schema tables, crons, lib/)
 ├── scripts/               # Helper scripts (bump, coverage, SFL debug, etc.)
 ├── assets/                # Images and design assets
 ├── public/                # Static assets

@@ -86,10 +86,10 @@ Check your Convex database for GitHub account configurations:
 
 ```powershell
 # Terminal 1: Start Convex backend
-.\runServer.ps1
+.\scripts\runServer.ps1
 
 # Terminal 2: Start Electron app
-.\runApp.ps1
+.\scripts\runApp.ps1
 ```
 
 #### Check Convex Dashboard
@@ -216,8 +216,8 @@ bun run convex:dev        # Start dev server
 bun run convex:codegen    # Generate types
 
 # App
-.\runServer.ps1           # Start Convex backend
-.\runApp.ps1              # Start Electron app
+.\scripts\runServer.ps1  # Start Convex backend
+.\scripts\runApp.ps1     # Start Electron app
 ```
 
 ### Important Files

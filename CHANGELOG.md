@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.837] - 2026-06-22
+
+### Changed
+
+- Clarify convex table count
+- Align remaining helper path guidance
+- Refresh readme and helper guidance
+
 ## [0.1.836] - 2026-06-22
 
 ### Changed

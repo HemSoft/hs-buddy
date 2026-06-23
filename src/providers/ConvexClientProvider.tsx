@@ -13,7 +13,7 @@ const CONVEX_URL = import.meta.env.VITE_CONVEX_URL
 
 if (!CONVEX_URL) {
   throw new Error(
-    "VITE_CONVEX_URL is not set. Run 'npx convex dev' or './runServer.ps1' first to generate .env.local"
+    "VITE_CONVEX_URL is not set. Run 'npx convex dev' or './scripts/runServer.ps1' first to generate .env.local"
   )
 }
 

@@ -11,11 +11,12 @@ Run `bun run bench` to execute vitest benchmarks. Compare results against the ba
 
 ### Run (default)
 
-1. Run `bun run bench` **five times** and take the **median** hz for each benchmark. This filters CPU jitter and GC noise.
-2. Compare each median ops/sec (hz) against the baseline table below.
-3. **Regression threshold**: Any benchmark whose median hz drops **more than 5%** below baseline is a failure. Fix every regression before proceeding.
-4. If all benchmarks pass, report a summary table showing current median vs baseline with pass/fail per row.
-5. Run the **Gaps** check automatically after every Run.
+1. Run `bun install --frozen-lockfile`, then record `bun --version`, `node --version`, and `bun pm ls --all` entries for `vitest` and `@vitest/coverage-v8` before benchmarking.
+2. Run `bun run bench` **five times** and take the **median** hz for each benchmark. This filters CPU jitter and GC noise.
+3. Compare each median ops/sec (hz) against the baseline table below only when Bun, Node, and Vitest match the captured baseline toolchain. If they differ, refresh the baseline or run a same-runner base/candidate comparison instead.
+4. **Regression threshold**: Any benchmark whose median hz drops **more than 5%** below baseline is a failure. Fix every regression before proceeding.
+5. If all benchmarks pass, report a summary table showing current median vs baseline with pass/fail per row.
+6. Run the **Gaps** check automatically after every Run.
 
 ### Compare
 
@@ -59,130 +60,131 @@ Report a table of uncovered functions with file path, function name, and priorit
 | `src/components/tempo/tempoUtils.bench.ts` | nextStartTime (3/10/50 worklogs) |
 | `electron/services/copilotSessionService.bench.ts` | resolveWorkspaceName (single-folder, multi-root, encoded URI, empty JSON fallback, missing file catch path) |
 
-## Baseline (2026-03-30, refresh #2)
+## Baseline (2026-06-26, refresh #3)
 
-Captured on: Windows, Bun, Vitest 4.1.0. Median of 5 runs.
+Captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5. Median of 5 runs.
+Vitest packages are pinned to 4.1.5 in `package.json` and `bun.lock`; refresh this baseline after any Bun, Node, or Vitest change.
 
 ### dateUtils
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| formatDistanceToNow — recent timestamp | 6,071,596 | 0.0002 |
-| formatDistanceToNow — old timestamp | 5,749,211 | 0.0002 |
-| formatDistanceToNow — string date | 2,666,121 | 0.0004 |
-| formatDistanceToNow — Date object | 4,917,533 | 0.0002 |
-| format — yyyy-MM-dd | 428,098 | 0.0023 |
-| format — MMMM dd, yyyy HH:mm:ss | 270,754 | 0.0037 |
-| format — MMM d, yyyy h:mm a | 291,757 | 0.0034 |
-| format — timestamp input | 306,792 | 0.0033 |
-| formatDateKey | 5,081,765 | 0.0002 |
-| formatDuration — milliseconds | 19,396,202 | 0.0001 |
-| formatDuration — seconds | 8,229,614 | 0.0001 |
-| formatDuration — minutes | 18,517,654 | 0.0001 |
-| formatUptime — seconds | 19,237,574 | 0.0001 |
-| formatUptime — hours and minutes | 18,190,577 | 0.0001 |
-| formatUptime — days and hours | 18,744,322 | 0.0001 |
-| formatDateFull — timestamp | 23,695 | 0.0422 |
-| formatDateFull — string | 23,702 | 0.0422 |
-| formatDateFull — null | 19,789,666 | 0.0001 |
-| formatDateCompact — timestamp | 25,813 | 0.0387 |
-| formatHour12 — all 24 hours | 3,740,753 | 0.0003 |
+| formatDistanceToNow — recent timestamp | 8,300,100 | 0.0001 |
+| formatDistanceToNow — old timestamp | 8,530,604 | 0.0001 |
+| formatDistanceToNow — string date | 3,815,798 | 0.0003 |
+| formatDistanceToNow — Date object | 6,864,482 | 0.0001 |
+| format — yyyy-MM-dd | 2,343,776 | 0.0004 |
+| format — MMMM dd, yyyy HH:mm:ss | 1,804,986 | 0.0006 |
+| format — MMM d, yyyy h:mm a | 1,831,093 | 0.0005 |
+| format — timestamp input | 1,730,055 | 0.0006 |
+| formatDateKey | 7,142,922 | 0.0001 |
+| formatDuration — milliseconds | 25,176,673 | 0.0001 |
+| formatDuration — seconds | 11,311,410 | 0.0001 |
+| formatDuration — minutes | 24,463,938 | 0.0001 |
+| formatUptime — seconds | 24,672,901 | 0.0001 |
+| formatUptime — hours and minutes | 24,343,726 | 0.0001 |
+| formatUptime — days and hours | 24,888,753 | 0.0001 |
+| formatDateFull — timestamp | 38,046 | 0.0263 |
+| formatDateFull — string | 37,285 | 0.0268 |
+| formatDateFull — null | 25,303,864 | 0.0001 |
+| formatDateCompact — timestamp | 38,440 | 0.0260 |
+| formatHour12 — all 24 hours | 5,388,644 | 0.0002 |
 
 ### jsonSerialization
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| JSON.stringify — 10 entries | 176,260 | 0.0057 |
-| JSON.stringify — 100 entries | 16,721 | 0.0598 |
-| JSON.stringify — 1000 entries | 1,103 | 0.9067 |
-| JSON.parse — 10 entries | 104,154 | 0.0096 |
-| JSON.parse — 100 entries | 10,034 | 0.0997 |
-| JSON.parse — 1000 entries | 871 | 1.1476 |
-| cache entry lookup (1000 entries) | 902 | 1.1091 |
+| JSON.stringify — 10 entries | 219,253 | 0.0046 |
+| JSON.stringify — 100 entries | 21,086 | 0.0474 |
+| JSON.stringify — 1000 entries | 1,649 | 0.6063 |
+| JSON.parse — 10 entries | 133,187 | 0.0075 |
+| JSON.parse — 100 entries | 13,278 | 0.0753 |
+| JSON.parse — 1000 entries | 1,254 | 0.7977 |
+| cache entry lookup (1000 entries) | 1,234 | 0.8104 |
 
 ### copilotSessionParsing
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| getSessionDetail — 10 requests | 2,798 | 0.3574 |
-| getSessionDetail — 100 requests | 1,636 | 0.6111 |
-| getSessionDetail — 500 requests | 510 | 1.9600 |
-| extractScanInfo regexes | 1,977,156 | 0.0005 |
-| extractResultData JSON.parse | 807,552 | 0.0012 |
-| extractResultData regex fallback | 8,224,198 | 0.0001 |
-| kind detection regex | 9,933,782 | 0.0001 |
-| key path extraction regex | 8,211,544 | 0.0001 |
+| getSessionDetail — 10 requests | 12,237 | 0.0817 |
+| getSessionDetail — 100 requests | 3,389 | 0.2951 |
+| getSessionDetail — 500 requests | 634 | 1.5779 |
+| extractScanInfo regexes | 2,741,559 | 0.0004 |
+| extractResultData JSON.parse | 1,099,546 | 0.0009 |
+| extractResultData regex fallback | 11,517,732 | 0.0001 |
+| kind detection regex | 13,026,773 | 0.0001 |
+| key path extraction regex | 10,871,368 | 0.0001 |
 
 ### quotaUtils
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| computeProjection — mid-cycle with overage | 2,134,164 | 0.0005 |
-| computeProjection — early cycle low usage | 2,229,690 | 0.0004 |
-| computeProjection — near-reset heavy usage | 2,078,517 | 0.0005 |
-| computeProjection — zero remaining | 2,085,200 | 0.0005 |
+| computeProjection — mid-cycle with overage | 2,837,512 | 0.0004 |
+| computeProjection — early cycle low usage | 2,874,755 | 0.0003 |
+| computeProjection — near-reset heavy usage | 2,644,847 | 0.0004 |
+| computeProjection — zero remaining | 2,784,350 | 0.0004 |
 
 ### taskQueue
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| enqueue 10 tasks (serial) | 181,023 | 0.0055 |
-| enqueue 10 tasks (concurrent=5) | 154,751 | 0.0065 |
-| enqueue 50 tasks (mixed priority) | 33,672 | 0.0297 |
-| cancel 10 of 20 pending | 5,012 | 0.1995 |
-| insert 100 prioritized tasks | 27,076 | 0.0369 |
+| enqueue 10 tasks (serial) | 242,353 | 0.0041 |
+| enqueue 10 tasks (concurrent=5) | 216,733 | 0.0046 |
+| enqueue 50 tasks (mixed priority) | 46,895 | 0.0213 |
+| cancel 10 of 20 pending | 6,476 | 0.1544 |
+| insert 100 prioritized tasks | 37,910 | 0.0264 |
 
 ### reactions
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| applyReaction — small PR (9 comments) | 5,064,119 | 0.0002 |
-| applyReaction — medium PR (53 comments) | 1,866,764 | 0.0005 |
-| applyReaction — large PR (303 comments) | 452,496 | 0.0022 |
-| applyReaction — miss (not found) | 2,276,403 | 0.0004 |
-| applyReaction — add new type | 1,796,814 | 0.0006 |
+| applyReaction — small PR (9 comments) | 7,035,854 | 0.0001 |
+| applyReaction — medium PR (53 comments) | 2,509,577 | 0.0004 |
+| applyReaction — large PR (303 comments) | 625,380 | 0.0016 |
+| applyReaction — miss (not found) | 3,189,610 | 0.0003 |
+| applyReaction — add new type | 2,520,882 | 0.0004 |
 
 ### cronUtils
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| calculateNextRunAt — every minute | 13,000 | 0.0769 |
-| calculateNextRunAt — every 5 minutes | 12,335 | 0.0811 |
-| calculateNextRunAt — daily at midnight | 24,379 | 0.0410 |
-| calculateNextRunAt — weekdays at 9am | 11,119 | 0.0899 |
-| calculateNextRunAt — complex | 27,065 | 0.0369 |
-| calculateNextRunAt — no timezone (UTC) | 45,004 | 0.0222 |
+| calculateNextRunAt — every minute | 18,631 | 0.0537 |
+| calculateNextRunAt — every 5 minutes | 17,322 | 0.0577 |
+| calculateNextRunAt — daily at midnight | 34,507 | 0.0290 |
+| calculateNextRunAt — weekdays at 9am | 15,309 | 0.0653 |
+| calculateNextRunAt — complex | 39,383 | 0.0254 |
+| calculateNextRunAt — no timezone (UTC) | 62,718 | 0.0159 |
 
 ### budgetUtils
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| findCopilotBudget — 5 budgets | 8,417,272 | 0.0001 |
-| findCopilotBudget — 50 budgets | 2,185,721 | 0.0005 |
-| findCopilotBudget — 200 budgets | 410,643 | 0.0024 |
-| findCopilotBudget — 50 w/ filter (match) | 698,423 | 0.0014 |
-| findCopilotBudget — 50 w/ filter (no match) | 967,797 | 0.0010 |
-| findBudgetAcrossPages — found page 1 | 589,980 | 0.0017 |
-| findBudgetAcrossPages — found page 3 of 5 | 209,192 | 0.0048 |
-| findBudgetAcrossPages — not found (5 pages) | 140,891 | 0.0071 |
+| findCopilotBudget — 5 budgets | 11,310,276 | 0.0001 |
+| findCopilotBudget — 50 budgets | 2,855,225 | 0.0004 |
+| findCopilotBudget — 200 budgets | 529,934 | 0.0019 |
+| findCopilotBudget — 50 w/ filter (match) | 944,346 | 0.0011 |
+| findCopilotBudget — 50 w/ filter (no match) | 1,289,115 | 0.0008 |
+| findBudgetAcrossPages — found page 1 | 916,082 | 0.0011 |
+| findBudgetAcrossPages — found page 3 of 5 | 286,275 | 0.0035 |
+| findBudgetAcrossPages — not found (5 pages) | 191,442 | 0.0052 |
 
 ### tempoUtils
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| nextStartTime — 3 worklogs | 13,838,211 | 0.0001 |
-| nextStartTime — 10 worklogs | 12,706,606 | 0.0001 |
-| nextStartTime — 50 worklogs | 9,782,148 | 0.0001 |
+| nextStartTime — 3 worklogs | 15,372,925 | 0.0001 |
+| nextStartTime — 10 worklogs | 14,841,679 | 0.0001 |
+| nextStartTime — 50 worklogs | 11,595,382 | 0.0001 |
 
 ### copilotSessionService
 
 | Benchmark | ops/sec (hz) | mean (ms) |
 |-----------|-------------|-----------|
-| resolveWorkspaceName — single-folder workspace | 27,088 | 0.0369 |
-| resolveWorkspaceName — multi-root workspace | 32,147 | 0.0311 |
-| resolveWorkspaceName — encoded URI with spaces | 29,893 | 0.0335 |
-| resolveWorkspaceName — empty JSON (fallback to dirname) | 39,494 | 0.0253 |
-| resolveWorkspaceName — missing file (catch path) | 56,560 | 0.0177 |
+| resolveWorkspaceName — single-folder workspace | 21,247 | 0.0471 |
+| resolveWorkspaceName — multi-root workspace | 21,951 | 0.0456 |
+| resolveWorkspaceName — encoded URI with spaces | 21,729 | 0.0460 |
+| resolveWorkspaceName — empty JSON (fallback to dirname) | 23,739 | 0.0421 |
+| resolveWorkspaceName — missing file (catch path) | 72,182 | 0.0139 |
 
 ## Known Coverage Gaps
 
@@ -194,9 +196,10 @@ No known gaps. Run the **Gaps** check to scan for new uncovered functions.
 
 When benchmark improvements are intentional (e.g., you optimized a function), update the baseline:
 
-1. Run `bun run bench` five times and take the median hz values.
-2. Update the tables in this file with the new numbers.
-3. Note the date and reason in a commit message.
+1. Confirm Bun, Node, and Vitest versions and decide whether the toolchain change justifies a baseline refresh.
+2. Run `bun run bench` five times and take the median hz values.
+3. Update the tables in this file with the new numbers and captured toolchain versions.
+4. Note the date and reason in a commit message.
 
 ## Adding New Benchmarks
 

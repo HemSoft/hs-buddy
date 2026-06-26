@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.838] - 2026-06-26
+
+### Changed
+
+- Recalibrate benchmark baseline
+
 ## [0.1.837] - 2026-06-22
 
 ### Changed

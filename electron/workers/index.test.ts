@@ -27,6 +27,10 @@ vi.mock('./skillWorker', () => ({
   skillWorker: { execute: vi.fn() },
 }))
 
+vi.mock('../ipc/githubHandlers', () => ({
+  fetchCopilotMetrics: vi.fn(),
+}))
+
 vi.mock('./offlineSync', () => ({
   runOfflineSync: vi
     .fn()

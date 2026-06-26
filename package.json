@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.838",
+  "version": "0.1.839",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -50,7 +50,7 @@
     "convex:deploy": "convex deploy",
     "convex:codegen": "convex codegen",
     "test:e2e": "npx playwright test --project=browser-e2e",
-    "test:e2e:install": "npx playwright install chromium",
+    "test:e2e:install": "npx playwright install chrome",
     "test:ipc-contracts": "vitest run src/ipc/contracts.test.ts src/ipc/contracts.registration.test.ts",
     "prepare": "husky"
   },

@@ -11,17 +11,7 @@
  * @vitest-environment node
  */
 import { bench, describe } from 'vitest'
-
-// Simulate the ipcHandler wrapper pattern from electron/ipc/ipcHandler.ts
-function ipcHandlerSim<A extends unknown[], T>(fn: (...args: A) => Promise<T>) {
-  return async (...args: A): Promise<T | { success: false; error: string }> => {
-    try {
-      return await fn(...args)
-    } catch (error: unknown) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-  }
-}
+import { ipcHandler } from '../electron/ipc/ipcHandler'
 
 // Simulate typical handler payloads with fixed data for deterministic benchmarks
 const FIXED_TIMESTAMP = 1_700_000_000_000
@@ -45,27 +35,28 @@ const largePayload = {
 }
 
 describe('IPC handler dispatch overhead', () => {
-  const fastHandler = ipcHandlerSim(async () => smallPayload)
-  const mediumHandler = ipcHandlerSim(async () => mediumPayload)
-  const largeHandler = ipcHandlerSim(async () => largePayload)
-  const errorHandler = ipcHandlerSim(async () => {
+  const event = {} as Parameters<ReturnType<typeof ipcHandler>>[0]
+  const fastHandler = ipcHandler(async () => smallPayload)
+  const mediumHandler = ipcHandler(async () => mediumPayload)
+  const largeHandler = ipcHandler(async () => largePayload)
+  const errorHandler = ipcHandler(async () => {
     throw new Error('simulated failure')
   })
 
   bench('small payload (~50B)', async () => {
-    await fastHandler()
+    await fastHandler(event)
   })
 
   bench('medium payload (~5KB)', async () => {
-    await mediumHandler()
+    await mediumHandler(event)
   })
 
   bench('large payload (~50KB)', async () => {
-    await largeHandler()
+    await largeHandler(event)
   })
 
   bench('error path', async () => {
-    await errorHandler()
+    await errorHandler(event)
   })
 })
 

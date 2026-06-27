@@ -72,6 +72,26 @@ describe('buildMedianBenchmarkOutput', () => {
     ).toThrow(/missing benchmark|unexpected benchmark/)
   })
 
+  it('keeps the latest duplicate benchmark key to match bench-compare behavior', () => {
+    const result = buildMedianBenchmarkOutput([
+      {
+        files: [
+          {
+            filepath: 'src/utils/test.bench.ts',
+            groups: [
+              {
+                fullName: 'src/utils/test.bench.ts > suite',
+                benchmarks: [makeBench({ hz: 100 }), makeBench({ hz: 200 })],
+              },
+            ],
+          },
+        ],
+      },
+    ])
+
+    expect(result.files[0].groups[0].benchmarks[1].hz).toBe(200)
+  })
+
   it('requires at least one run', () => {
     expect(() => buildMedianBenchmarkOutput([])).toThrow(/At least one benchmark run/)
   })

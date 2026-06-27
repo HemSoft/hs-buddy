@@ -65,11 +65,34 @@ jobs:
         run: |
           cd "$RUNNER_TEMP/bench-baseline"
           bun install --frozen-lockfile
-          bun run bench:json
-          cp bench-results.json "$GITHUB_WORKSPACE/bench-baseline.json"
+          for run in 1 2 3 4 5; do
+            echo "Baseline benchmark run ${run}/5"
+            bunx vitest bench --outputJson "$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
+          done
 
-      - name: Run benchmarks (JSON output)
-        run: bun run bench:json
+      - name: Run benchmarks on this runner
+        shell: bash
+        run: |
+          for run in 1 2 3 4 5; do
+            echo "Candidate benchmark run ${run}/5"
+            bunx vitest bench --outputJson "bench-results-run-${run}.json"
+          done
+
+      - name: Build median benchmark outputs
+        shell: bash
+        run: |
+          bun scripts/bench-median.ts --output bench-baseline.json \
+            bench-baseline-run-1.json \
+            bench-baseline-run-2.json \
+            bench-baseline-run-3.json \
+            bench-baseline-run-4.json \
+            bench-baseline-run-5.json
+          bun scripts/bench-median.ts --output bench-results.json \
+            bench-results-run-1.json \
+            bench-results-run-2.json \
+            bench-results-run-3.json \
+            bench-results-run-4.json \
+            bench-results-run-5.json
 
       - name: Compare against baseline
         run: bun run bench:compare
@@ -79,6 +102,10 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bench-results
-          path: bench-results.json
+          path: |
+            bench-baseline.json
+            bench-results.json
+            bench-baseline-run-*.json
+            bench-results-run-*.json
           if-no-files-found: warn
           retention-days: 30

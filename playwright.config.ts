@@ -41,6 +41,7 @@ export default defineConfig({
     {
       name: 'browser-e2e',
       use: {
+        ...(process.env.CI ? { channel: 'chrome' } : {}),
         // Tests run in Chromium with IPC mocks (from e2e/fixtures.ts)
       },
     },

@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.845] - 2026-06-27
+
+### Changed
+
+- Install chrome fallback dependencies
+
+## [0.1.844] - 2026-06-27
+
+### Changed
+
+- Harden benchmark comparison workflow
+
+## [0.1.843] - 2026-06-27
+
+### Changed
+
+- Align benchmark median duplicate handling
+
+## [0.1.842] - 2026-06-27
+
+### Changed
+
+- Make harness benchmark comparisons advisory
+
+## [0.1.841] - 2026-06-27
+
+### Changed
+
+- Compare benchmark medians
+
+## [0.1.840] - 2026-06-27
+
+### Changed
+
+- Centralize bun setup
+
+## [0.1.839] - 2026-06-26
+
+### Changed
+
+- Pin runner toolchain for benchmark baseline
+
+## [0.1.838] - 2026-06-26
+
+### Changed
+
+- Recalibrate benchmark baseline
+
 ## [0.1.837] - 2026-06-22
 
 ### Changed

@@ -26,10 +26,10 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
-          node-version: 22
+          node-version: 24.12.0
 
-      - name: Install Bun
-        run: npm install -g bun@1.2.0
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
 
       - name: Cache Bun dependencies
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v4
@@ -60,25 +60,90 @@ jobs:
           git fetch --no-tags --depth=1 origin "${{ steps.baseline.outputs.ref }}"
           git worktree add --detach "$RUNNER_TEMP/bench-baseline" FETCH_HEAD
 
-      - name: Run baseline benchmarks on this runner
+      - name: Determine benchmark gate mode
+        id: gate
         shell: bash
         run: |
-          cd "$RUNNER_TEMP/bench-baseline"
-          bun install --frozen-lockfile
-          bun run bench:json
-          cp bench-results.json "$GITHUB_WORKSPACE/bench-baseline.json"
+          changed_files="$(git diff --name-only FETCH_HEAD HEAD)"
+          printf '%s\n' "$changed_files"
+          if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json|bun\.lock|\.github/workflows/benchmarks\.yml|scripts/bench-.*\.ts)$'; then
+            echo "advisory=true" >> "$GITHUB_OUTPUT"
+            echo "Benchmark harness or toolchain changed; comparison failures will be advisory."
+          else
+            echo "advisory=false" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Run benchmarks (JSON output)
-        run: bun run bench:json
+      - name: Run baseline benchmarks on this runner
+        id: baseline_benchmarks
+        shell: bash
+        env:
+          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
+        run: |
+          cd "$RUNNER_TEMP/bench-baseline"
+          if ! bun install --frozen-lockfile; then
+            if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
+              echo "::warning::Baseline dependency install failed, but this run is advisory because the benchmark harness or toolchain changed."
+              echo "skip_compare=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "skip_compare=false" >> "$GITHUB_OUTPUT"
+          for run in 1 2 3 4 5; do
+            echo "Baseline benchmark run ${run}/5"
+            bunx vitest bench --outputJson "$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
+          done
+
+      - name: Run benchmarks on this runner
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
+        shell: bash
+        run: |
+          for run in 1 2 3 4 5; do
+            echo "Candidate benchmark run ${run}/5"
+            bunx vitest bench --outputJson "bench-results-run-${run}.json"
+          done
+
+      - name: Build median benchmark outputs
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
+        shell: bash
+        run: |
+          bun scripts/bench-median.ts --output bench-baseline.json \
+            bench-baseline-run-1.json \
+            bench-baseline-run-2.json \
+            bench-baseline-run-3.json \
+            bench-baseline-run-4.json \
+            bench-baseline-run-5.json
+          bun scripts/bench-median.ts --output bench-results.json \
+            bench-results-run-1.json \
+            bench-results-run-2.json \
+            bench-results-run-3.json \
+            bench-results-run-4.json \
+            bench-results-run-5.json
 
       - name: Compare against baseline
-        run: bun run bench:compare
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
+        shell: bash
+        env:
+          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
+        run: |
+          if bun run bench:compare; then
+            exit 0
+          fi
+          if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
+            echo "::warning::Benchmark comparison failed, but this run is advisory because the benchmark harness or toolchain changed."
+            exit 0
+          fi
+          exit 1
 
       - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bench-results
-          path: bench-results.json
+          path: |
+            bench-baseline.json
+            bench-results.json
+            bench-baseline-run-*.json
+            bench-results-run-*.json
           if-no-files-found: warn
           retention-days: 30

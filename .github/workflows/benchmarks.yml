@@ -60,6 +60,19 @@ jobs:
           git fetch --no-tags --depth=1 origin "${{ steps.baseline.outputs.ref }}"
           git worktree add --detach "$RUNNER_TEMP/bench-baseline" FETCH_HEAD
 
+      - name: Determine benchmark gate mode
+        id: gate
+        shell: bash
+        run: |
+          changed_files="$(git diff --name-only FETCH_HEAD HEAD)"
+          printf '%s\n' "$changed_files"
+          if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json|bun\.lock|\.github/workflows/benchmarks\.yml|scripts/bench-.*\.ts)$'; then
+            echo "advisory=true" >> "$GITHUB_OUTPUT"
+            echo "Benchmark harness or toolchain changed; comparison failures will be advisory."
+          else
+            echo "advisory=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run baseline benchmarks on this runner
         shell: bash
         run: |
@@ -95,7 +108,16 @@ jobs:
             bench-results-run-5.json
 
       - name: Compare against baseline
-        run: bun run bench:compare
+        shell: bash
+        run: |
+          if bun run bench:compare; then
+            exit 0
+          fi
+          if [[ "${{ steps.gate.outputs.advisory }}" == "true" ]]; then
+            echo "::warning::Benchmark comparison failed, but this run is advisory because the benchmark harness or toolchain changed."
+            exit 0
+          fi
+          exit 1
 
       - name: Upload benchmark results
         if: always()

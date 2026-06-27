@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.842] - 2026-06-27
+
+### Changed
+
+- Make harness benchmark comparisons advisory
+
 ## [0.1.841] - 2026-06-27
 
 ### Changed

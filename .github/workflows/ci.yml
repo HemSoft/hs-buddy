@@ -287,7 +287,7 @@ jobs:
           if command -v google-chrome >/dev/null 2>&1; then
             google-chrome --version
           else
-            npx playwright install chrome
+            npx playwright install --with-deps chrome
           fi
 
       - name: Run E2E tests

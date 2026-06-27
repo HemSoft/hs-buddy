@@ -59,6 +59,9 @@ function mapBenchmarks(output: BenchmarkOutput): Map<string, BenchmarkResult> {
     for (const group of file.groups) {
       for (const bench of group.benchmarks) {
         const key = buildBenchmarkKey(group, bench, normalizedPath)
+        if (map.has(key)) {
+          console.warn(`Duplicate benchmark key: "${key}" - using latest occurrence`)
+        }
         map.set(key, bench)
       }
     }

@@ -74,16 +74,28 @@ jobs:
           fi
 
       - name: Run baseline benchmarks on this runner
+        id: baseline_benchmarks
         shell: bash
+        env:
+          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
         run: |
           cd "$RUNNER_TEMP/bench-baseline"
-          bun install --frozen-lockfile
+          if ! bun install --frozen-lockfile; then
+            if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
+              echo "::warning::Baseline dependency install failed, but this run is advisory because the benchmark harness or toolchain changed."
+              echo "skip_compare=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            exit 1
+          fi
+          echo "skip_compare=false" >> "$GITHUB_OUTPUT"
           for run in 1 2 3 4 5; do
             echo "Baseline benchmark run ${run}/5"
             bunx vitest bench --outputJson "$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
           done
 
       - name: Run benchmarks on this runner
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
         shell: bash
         run: |
           for run in 1 2 3 4 5; do
@@ -92,6 +104,7 @@ jobs:
           done
 
       - name: Build median benchmark outputs
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
         shell: bash
         run: |
           bun scripts/bench-median.ts --output bench-baseline.json \
@@ -108,12 +121,15 @@ jobs:
             bench-results-run-5.json
 
       - name: Compare against baseline
+        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
         shell: bash
+        env:
+          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
         run: |
           if bun run bench:compare; then
             exit 0
           fi
-          if [[ "${{ steps.gate.outputs.advisory }}" == "true" ]]; then
+          if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
             echo "::warning::Benchmark comparison failed, but this run is advisory because the benchmark harness or toolchain changed."
             exit 0
           fi

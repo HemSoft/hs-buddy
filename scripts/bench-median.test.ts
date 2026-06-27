@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildMedianBenchmarkOutput } from './bench-median'
 import type { BenchmarkOutput, BenchmarkResult } from './bench-compare'
 
@@ -39,6 +39,10 @@ function makeOutput(bench: BenchmarkResult, name = 'test bench'): BenchmarkOutpu
 }
 
 describe('buildMedianBenchmarkOutput', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('uses median numeric values across odd-numbered compatible runs', () => {
     const result = buildMedianBenchmarkOutput([
       makeOutput(makeBench({ hz: 100, rme: 3, sampleCount: 10 })),
@@ -73,6 +77,8 @@ describe('buildMedianBenchmarkOutput', () => {
   })
 
   it('keeps the latest duplicate benchmark key to match bench-compare behavior', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
     const result = buildMedianBenchmarkOutput([
       {
         files: [
@@ -90,6 +96,9 @@ describe('buildMedianBenchmarkOutput', () => {
     ])
 
     expect(result.files[0].groups[0].benchmarks[1].hz).toBe(200)
+    expect(warn).toHaveBeenCalledWith(
+      'Duplicate benchmark key: "src/utils/test.bench.ts > suite > test bench" - using latest occurrence'
+    )
   })
 
   it('requires at least one run', () => {

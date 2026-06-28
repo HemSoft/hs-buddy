@@ -137,7 +137,15 @@ function StatsGrid({ stats }: { stats: RalphRunStats }) {
 }
 
 function hasVisibleStats(stats: RalphRunStats): boolean {
-  return stats.checks > 0 || stats.agentTurns > 0 || stats.scanIterations > 0
+  return [
+    stats.checks,
+    stats.agentTurns,
+    stats.scanIterations,
+    stats.issuesCreated,
+    stats.reviews,
+    stats.copilotPRs,
+    stats.totalPremium,
+  ].some(value => value > 0)
 }
 
 function ProgressSection({ run }: { run: RalphRunInfo }) {

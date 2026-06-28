@@ -565,9 +565,8 @@ function getAliasSelectOption(
   supportedProviders: Set<string> | null
 ) {
   const targetModel = models.models[target]
-  if (supportedProviders && (!targetModel || !supportedProviders.has(targetModel.provider))) {
-    return null
-  }
+  if (!targetModel) return null
+  if (supportedProviders && !supportedProviders.has(targetModel.provider)) return null
   return { value: alias, label: `${alias} → ${target}` }
 }
 

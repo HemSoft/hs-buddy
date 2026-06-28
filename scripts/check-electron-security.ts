@@ -210,7 +210,7 @@ function passesContextCheck(
 ): boolean {
   if (!rule.contextCheck) return true
   const size = rule.contextSize ?? 5
-  const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size).join('\n')
+  const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size + 1).join('\n')
   return rule.contextCheck(context)
 }
 

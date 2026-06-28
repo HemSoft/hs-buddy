@@ -18,7 +18,7 @@ function isValidOptionalBoolean(value: unknown): boolean {
 function isValidLoginList(logins: unknown): logins is string[] {
   return (
     Array.isArray(logins) &&
-    logins.every(login => typeof login === 'string' && login.trim().length > 0)
+    Array.from(logins).every(login => typeof login === 'string' && login.trim().length > 0)
   )
 }
 

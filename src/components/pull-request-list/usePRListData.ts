@@ -83,7 +83,7 @@ async function fetchPRsByMode(
 
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
   return items.map(item =>
-    item.repository === pr.repository && item.id === pr.id && !item.iApproved
+    item.url === pr.url && !item.iApproved
       ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
       : item
   )

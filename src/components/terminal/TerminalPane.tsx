@@ -119,7 +119,7 @@ function applyExistingSessionResult(
 ) {
   if (result.buffer) term.write(result.buffer)
   if (result.cursor != null) attachCursorRef.current = result.cursor
-  if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+  if (result.alive === false) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
 }
 
 function applyAttachResult(

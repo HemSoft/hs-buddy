@@ -33,6 +33,9 @@ const largePayload = {
     nested: { level1: { level2: { value: i * 0.7 } } },
   })),
 }
+const smallPayloadJson = JSON.stringify(smallPayload)
+const mediumPayloadJson = JSON.stringify(mediumPayload)
+const largePayloadJson = JSON.stringify(largePayload)
 
 describe('IPC handler dispatch overhead', () => {
   const event = {} as Parameters<ReturnType<typeof ipcHandler>>[0]
@@ -73,15 +76,15 @@ describe('JSON serialization (IPC transport simulation)', () => {
     JSON.stringify(largePayload)
   })
 
-  bench('round-trip small (serialize + parse)', () => {
-    JSON.parse(JSON.stringify(smallPayload))
+  bench('parse small serialized payload', () => {
+    JSON.parse(smallPayloadJson)
   })
 
-  bench('round-trip medium (serialize + parse)', () => {
-    JSON.parse(JSON.stringify(mediumPayload))
+  bench('parse medium serialized payload', () => {
+    JSON.parse(mediumPayloadJson)
   })
 
-  bench('round-trip large (serialize + parse)', () => {
-    JSON.parse(JSON.stringify(largePayload))
+  bench('parse large serialized payload', () => {
+    JSON.parse(largePayloadJson)
   })
 })

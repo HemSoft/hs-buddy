@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarClock, Search, Users, X } from 'lucide-react'
 import { useCopilotEnterpriseUsers } from '../../hooks/useCopilotEnterpriseUsers'
 import type {
@@ -196,7 +196,7 @@ function focusFirstModalElement(container: HTMLElement): void {
 }
 
 function shouldWrapFocusBackward(
-  event: KeyboardEvent<HTMLDialogElement>,
+  event: Pick<globalThis.KeyboardEvent, 'shiftKey'>,
   activeElement: Element | null,
   firstFocusableElement: HTMLElement
 ): boolean {
@@ -204,18 +204,21 @@ function shouldWrapFocusBackward(
 }
 
 function shouldWrapFocusForward(
-  event: KeyboardEvent<HTMLDialogElement>,
+  event: Pick<globalThis.KeyboardEvent, 'shiftKey'>,
   activeElement: Element | null,
   lastFocusableElement: HTMLElement
 ): boolean {
   return !event.shiftKey && activeElement === lastFocusableElement
 }
 
-function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
-  const focusableElements = getFocusableModalElements(event.currentTarget)
+function handleModalTabKey(
+  event: Pick<globalThis.KeyboardEvent, 'shiftKey' | 'preventDefault'>,
+  container: HTMLElement
+): void {
+  const focusableElements = getFocusableModalElements(container)
   if (focusableElements.length === 0) {
     event.preventDefault()
-    event.currentTarget.focus()
+    container.focus()
     return
   }
 
@@ -232,14 +235,19 @@ function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
   }
 }
 
-function handleModalKeyDown(event: KeyboardEvent<HTMLDialogElement>, onClose: () => void): void {
+function handleModalKeyDown(
+  event: globalThis.KeyboardEvent,
+  onClose: () => void,
+  container: HTMLElement
+): void {
   if (event.key === 'Escape') {
     event.stopPropagation()
+    event.stopImmediatePropagation()
     onClose()
     return
   }
 
-  if (event.key === 'Tab') handleModalTabKey(event)
+  if (event.key === 'Tab') handleModalTabKey(event, container)
 }
 
 function SourceJsonModal({
@@ -258,11 +266,17 @@ function SourceJsonModal({
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     const dialog = dialogRef.current
     if (dialog) focusFirstModalElement(dialog)
+    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
+      const activeDialog = dialogRef.current
+      if (activeDialog) handleModalKeyDown(event, onClose, activeDialog)
+    }
+    document.addEventListener('keydown', handleDocumentKeyDown, true)
 
     return () => {
+      document.removeEventListener('keydown', handleDocumentKeyDown, true)
       previouslyFocused?.focus()
     }
-  }, [])
+  }, [onClose])
 
   return (
     <div className="enterprise-users-json-overlay" role="presentation">
@@ -280,7 +294,6 @@ function SourceJsonModal({
         aria-modal="true"
         aria-labelledby="enterprise-users-json-title"
         tabIndex={-1}
-        onKeyDown={event => handleModalKeyDown(event, onClose)}
       >
         <div className="enterprise-users-json-header">
           <div>
@@ -386,7 +399,7 @@ export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
   const [selectedUser, setSelectedUser] = useState<CopilotEnterpriseUser | null>(null)
   const filteredUsers = useMemo(() => getFilteredUsers(data, filterText), [data, filterText])
   const visibleUsers = filteredUsers.length
-  const closeSourceModal = () => setSelectedUser(null)
+  const closeSourceModal = useCallback(() => setSelectedUser(null), [])
 
   return (
     <div className="top-users-section">

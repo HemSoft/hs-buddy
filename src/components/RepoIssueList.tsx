@@ -382,6 +382,7 @@ function RepoIssueListFallback({
   repo,
   issueState,
   refresh,
+  children,
 }: {
   isEmpty: boolean
   loading: boolean
@@ -390,6 +391,7 @@ function RepoIssueListFallback({
   repo: string
   issueState: string
   refresh: () => void
+  children: React.ReactNode
 }) {
   if (isEmpty && loading)
     return (
@@ -397,7 +399,7 @@ function RepoIssueListFallback({
     )
   if (isEmpty && error)
     return <PanelErrorState title="Failed to load issues" error={error} onRetry={refresh} />
-  return null
+  return children
 }
 
 export function RepoIssueList(props: RepoIssueListProps) {
@@ -433,53 +435,52 @@ export function RepoIssueList(props: RepoIssueListProps) {
       onOpenIssue
     )
 
-  const fallback = RepoIssueListFallback({
-    isEmpty,
-    loading,
-    error,
-    owner,
-    repo,
-    issueState,
-    refresh,
-  })
-  if (fallback) return fallback
-
   return (
-    <div className="repo-issues-container">
-      <IssueListHeader
-        owner={owner}
-        repo={repo}
-        issueState={issueState}
-        issueCount={issues.length}
-        loading={loading}
-        refresh={refresh}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-      />
-
-      <IssueListBody
-        issues={issues}
-        loading={loading}
-        issueState={issueState}
-        viewMode={viewMode}
-        onOpenIssue={onOpenIssue}
-        onContextMenu={handleContextMenu}
-      />
-
-      {contextMenu && (
-        <IssueContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          issue={contextMenu.issue}
+    <RepoIssueListFallback
+      isEmpty={isEmpty}
+      loading={loading}
+      error={error}
+      owner={owner}
+      repo={repo}
+      issueState={issueState}
+      refresh={refresh}
+    >
+      <div className="repo-issues-container">
+        <IssueListHeader
           owner={owner}
           repo={repo}
-          onStartRalphLoop={handleStartRalphLoop}
-          onViewDetails={handleViewDetails}
-          onCopyLink={handleCopyLink}
-          onOpenOnGitHub={handleOpenOnGitHub}
-          onClose={() => setContextMenu(null)}
+          issueState={issueState}
+          issueCount={issues.length}
+          loading={loading}
+          refresh={refresh}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
         />
-      )}
-    </div>
+
+        <IssueListBody
+          issues={issues}
+          loading={loading}
+          issueState={issueState}
+          viewMode={viewMode}
+          onOpenIssue={onOpenIssue}
+          onContextMenu={handleContextMenu}
+        />
+
+        {contextMenu && (
+          <IssueContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            issue={contextMenu.issue}
+            owner={owner}
+            repo={repo}
+            onStartRalphLoop={handleStartRalphLoop}
+            onViewDetails={handleViewDetails}
+            onCopyLink={handleCopyLink}
+            onOpenOnGitHub={handleOpenOnGitHub}
+            onClose={() => setContextMenu(null)}
+          />
+        )}
+      </div>
+    </RepoIssueListFallback>
   )
 }

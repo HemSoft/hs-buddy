@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.848] - 2026-06-28
+
+### Fixed
+
+- Resolve react doctor audit findings
+
 ## [0.1.847] - 2026-06-28
 
 ### Changed

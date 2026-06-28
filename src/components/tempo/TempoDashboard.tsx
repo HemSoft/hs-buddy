@@ -257,35 +257,70 @@ function useTempoDashboardHandlers(
   }
 
   const handleCopyToDay = async (sourceWorklogs: TempoWorklog[]) => {
-    dispatch({ type: 'setActionError', error: null })
-    if (today.loading) {
-      dispatch({ type: 'setActionError', error: 'Today data is still loading, please wait' })
-      return
-    }
-    const targetDate = todayKey
-    const targetWorklogs = today.data?.worklogs ?? month.worklogs.filter(w => w.date === targetDate)
-    let offset = targetWorklogs.slice()
-
-    for (const src of sourceWorklogs) {
-      const startTime = nextStartTime(offset)
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Copying worklogs is sequential because each created entry determines the next start time.
-      const result = await actions.create({
-        issueKey: src.issueKey,
-        hours: src.hours,
-        date: targetDate,
-        startTime,
-        description: src.description,
-        accountKey: src.accountKey,
-      })
-      if (!result.success) {
-        dispatch({ type: 'setActionError', error: result.error || 'Copy failed' })
-        return
-      }
-      offset = [...offset, { ...src, date: targetDate, startTime }]
-    }
+    await copyWorklogsToToday(sourceWorklogs, today, month, todayKey, actions.create, dispatch)
   }
 
   return { handleEdit, handleDelete, handleAddForDate, handleEditorSave, handleCopyToDay }
+}
+
+function ensureTodayDataReady(
+  loading: boolean,
+  dispatch: React.Dispatch<TempoDashboardAction>
+): boolean {
+  if (!loading) return true
+
+  dispatch({ type: 'setActionError', error: 'Today data is still loading, please wait' })
+  return false
+}
+
+function resolveTargetWorklogs(
+  todayWorklogs: TempoWorklog[] | undefined,
+  monthWorklogs: TempoWorklog[],
+  targetDate: string
+): TempoWorklog[] {
+  return todayWorklogs ?? monthWorklogs.filter(w => w.date === targetDate)
+}
+
+async function copyWorklogsToToday(
+  sourceWorklogs: TempoWorklog[],
+  today: ReturnType<typeof useTempoToday>,
+  month: ReturnType<typeof useTempoMonth>,
+  todayKey: string,
+  createWorklog: ReturnType<typeof useTempoActions>['create'],
+  dispatch: React.Dispatch<TempoDashboardAction>
+): Promise<void> {
+  dispatch({ type: 'setActionError', error: null })
+  if (!ensureTodayDataReady(today.loading, dispatch)) return
+
+  let offset = resolveTargetWorklogs(today.data?.worklogs, month.worklogs, todayKey).slice()
+  for (const sourceWorklog of sourceWorklogs) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Copying worklogs is sequential because each created entry determines the next start time.
+    const copied = await copySingleWorklogToDate(sourceWorklog, todayKey, offset, createWorklog)
+    if (!copied.success) {
+      dispatch({ type: 'setActionError', error: copied.error })
+      return
+    }
+    offset = [...offset, copied.worklog]
+  }
+}
+
+async function copySingleWorklogToDate(
+  sourceWorklog: TempoWorklog,
+  targetDate: string,
+  offset: TempoWorklog[],
+  createWorklog: ReturnType<typeof useTempoActions>['create']
+): Promise<{ success: true; worklog: TempoWorklog } | { success: false; error: string }> {
+  const startTime = nextStartTime(offset)
+  const result = await createWorklog({
+    issueKey: sourceWorklog.issueKey,
+    hours: sourceWorklog.hours,
+    date: targetDate,
+    startTime,
+    description: sourceWorklog.description,
+    accountKey: sourceWorklog.accountKey,
+  })
+  if (!result.success) return { success: false, error: result.error || 'Copy failed' }
+  return { success: true, worklog: { ...sourceWorklog, date: targetDate, startTime } }
 }
 
 function shouldReplaceTemplateWorklog(

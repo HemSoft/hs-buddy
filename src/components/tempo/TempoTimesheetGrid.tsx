@@ -68,18 +68,40 @@ interface DayColumn {
 }
 
 function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
-  const parts = ['tempo-grid-total-cell']
-  if (col.isWeekend) parts.push('weekend')
-  if (col.isHoliday) parts.push('holiday')
-  if (col.isToday) parts.push('today')
-  if (isDayComplete) parts.push('full')
-  else if (dayTotal > 0) parts.push('partial')
-  return parts.join(' ')
+  return [
+    'tempo-grid-total-cell',
+    col.isWeekend ? 'weekend' : '',
+    col.isHoliday ? 'holiday' : '',
+    col.isToday ? 'today' : '',
+    totalCellCompletionClass(isDayComplete, dayTotal),
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function totalCellCompletionClass(isDayComplete: boolean, dayTotal: number): string {
+  if (isDayComplete) return 'full'
+  return dayTotal > 0 ? 'partial' : ''
 }
 
 function renderTotalCellContent(isDayComplete: boolean, dayTotal: number) {
   if (isDayComplete) return <Check size={14} className="tempo-day-check" />
   return dayTotal > 0 ? dayTotal : 0
+}
+
+function buildDayHeaderClass(col: DayColumn): string {
+  return [
+    'tempo-grid-day-header',
+    col.isWeekend ? 'weekend' : '',
+    col.isHoliday ? 'holiday' : '',
+    col.isToday ? 'today' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function dayHeaderLabel(col: DayColumn): string {
+  return col.isHoliday ? '🎉' : col.dayLabel
 }
 
 const DAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
@@ -189,6 +211,24 @@ function TimesheetRow({
   onWorklogDelete: (worklog: TempoWorklog) => void
   onCopyToToday: (worklogs: TempoWorklog[]) => void
 }) {
+  const handleCellClick = (
+    event: React.MouseEvent,
+    col: DayColumn,
+    issueKey: string,
+    hours: number,
+    cellWorklogs: TempoWorklog[]
+  ) => {
+    if (isModKey(event) && cellWorklogs.length > 0) {
+      onCopyToToday(cellWorklogs)
+      return
+    }
+    if (cellWorklogs.length === 1) {
+      onWorklogEdit(cellWorklogs[0])
+      return
+    }
+    if (hours === 0) onCellClick(col.date, issueKey)
+  }
+
   return (
     <tr className={`tempo-grid-row ${isCapex ? 'capex' : ''}`}>
       <td className="tempo-grid-issue-cell" title={issue.issueSummary}>
@@ -198,46 +238,87 @@ function TimesheetRow({
         <span className={`tempo-issue-pill ${isCapex ? 'capex' : ''}`}>{issue.issueKey}</span>
       </td>
       <td className="tempo-grid-logged-cell">{issue.totalHours}</td>
-      {columns.map(col => {
-        const hours = issue.hoursByDate[col.date] || 0
-        const cellWorklogs =
-          hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
-
-        return (
-          <td
-            key={col.date}
-            className={getCellClassName(col, hours, isCapex)}
-            title={
-              hours > 0
-                ? `${issue.issueKey} · ${hours}h on ${col.date}${cellWorklogs.length === 1 ? '\nRight-click to delete' : ''}\n${modLabel}+click to copy to today`
-                : `Click to log time on ${col.date}`
-            }
-            onClick={e => {
-              if (isModKey(e) && cellWorklogs.length > 0) {
-                onCopyToToday(cellWorklogs)
-              } else if (cellWorklogs.length === 1) {
-                onWorklogEdit(cellWorklogs[0])
-              } else if (hours === 0) {
-                onCellClick(col.date, issue.issueKey)
-              }
-            }}
-            onContextMenu={e => {
-              if (cellWorklogs.length === 1) {
-                e.preventDefault()
-                onWorklogDelete(cellWorklogs[0])
-              }
-            }}
-            onMouseEnter={e =>
-              showTooltip(e, buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length))
-            }
-            onMouseLeave={hideTooltip}
-          >
-            {hours > 0 ? hours : ''}
-          </td>
-        )
-      })}
+      {columns.map(col => (
+        <TimesheetCell
+          key={col.date}
+          col={col}
+          issue={issue}
+          worklogs={worklogs}
+          isCapex={isCapex}
+          onClick={handleCellClick}
+          onWorklogDelete={onWorklogDelete}
+          showTooltip={showTooltip}
+          hideTooltip={hideTooltip}
+        />
+      ))}
     </tr>
   )
+}
+
+function TimesheetCell({
+  col,
+  issue,
+  worklogs,
+  isCapex,
+  onClick,
+  onWorklogDelete,
+  showTooltip,
+  hideTooltip,
+}: {
+  col: DayColumn
+  issue: TempoIssueSummary
+  worklogs: TempoWorklog[]
+  isCapex: boolean
+  onClick: (
+    event: React.MouseEvent,
+    col: DayColumn,
+    issueKey: string,
+    hours: number,
+    cellWorklogs: TempoWorklog[]
+  ) => void
+  onWorklogDelete: (worklog: TempoWorklog) => void
+  showTooltip: (e: React.MouseEvent, text: string) => void
+  hideTooltip: () => void
+}) {
+  const hours = issue.hoursByDate[col.date] || 0
+  const cellWorklogs = hours > 0 ? findWorklogsForCell(worklogs, issue.issueKey, col.date) : []
+
+  return (
+    <td
+      className={getCellClassName(col, hours, isCapex)}
+      title={buildCellTitle(issue.issueKey, hours, col.date, cellWorklogs.length)}
+      onClick={e => onClick(e, col, issue.issueKey, hours, cellWorklogs)}
+      onContextMenu={e => handleCellContextMenu(e, cellWorklogs, onWorklogDelete)}
+      onMouseEnter={e =>
+        showTooltip(e, buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length))
+      }
+      onMouseLeave={hideTooltip}
+    >
+      {hours > 0 ? hours : ''}
+    </td>
+  )
+}
+
+function buildCellTitle(
+  issueKey: string,
+  hours: number,
+  date: string,
+  worklogCount: number
+): string {
+  if (hours === 0) return `Click to log time on ${date}`
+
+  const deleteHint = worklogCount === 1 ? '\nRight-click to delete' : ''
+  return `${issueKey} · ${hours}h on ${date}${deleteHint}\n${modLabel}+click to copy to today`
+}
+
+function handleCellContextMenu(
+  event: React.MouseEvent,
+  cellWorklogs: TempoWorklog[],
+  onWorklogDelete: (worklog: TempoWorklog) => void
+): void {
+  if (cellWorklogs.length !== 1) return
+  event.preventDefault()
+  onWorklogDelete(cellWorklogs[0])
 }
 
 function TimesheetFooterRow({
@@ -257,6 +338,16 @@ function TimesheetFooterRow({
   hideTooltip: () => void
   onCopyToToday: (worklogs: TempoWorklog[]) => void
 }) {
+  const handleTotalClick = (event: React.MouseEvent, col: DayColumn, dayTotal: number) => {
+    if (!isModKey(event) || dayTotal <= 0) return
+    onCopyToToday(worklogs.filter(w => w.date === col.date))
+  }
+
+  const handleTotalMouseEnter = (event: React.MouseEvent, dayTotal: number) => {
+    if (dayTotal <= 0) return
+    showTooltip(event, `${dayTotal}h total\n${modLabel}+click — copy all worklogs to today`)
+  }
+
   return (
     <tr className="tempo-grid-totals">
       <td className="tempo-grid-total-label">Total</td>
@@ -270,16 +361,8 @@ function TimesheetFooterRow({
             key={col.date}
             aria-label={`${col.date} total ${dayTotal} hours`}
             className={buildTotalCellClass(col, isDayComplete, dayTotal)}
-            onClick={e => {
-              if (isModKey(e) && dayTotal > 0) {
-                onCopyToToday(worklogs.filter(w => w.date === col.date))
-              }
-            }}
-            onMouseEnter={e => {
-              if (dayTotal > 0) {
-                showTooltip(e, `${dayTotal}h total\n${modLabel}+click — copy all worklogs to today`)
-              }
-            }}
+            onClick={e => handleTotalClick(e, col, dayTotal)}
+            onMouseEnter={e => handleTotalMouseEnter(e, dayTotal)}
             onMouseLeave={hideTooltip}
             style={dayTotal > 0 ? { cursor: 'copy' } : undefined}
           >
@@ -398,13 +481,11 @@ export function TempoTimesheetGrid({
                 <th
                   key={col.date}
                   ref={col.isToday ? todayRef : undefined}
-                  className={`tempo-grid-day-header ${col.isWeekend ? 'weekend' : ''} ${col.isHoliday ? 'holiday' : ''} ${col.isToday ? 'today' : ''}`}
+                  className={buildDayHeaderClass(col)}
                   title={col.holidayName}
                 >
                   <span className="tempo-grid-day-num">{String(col.dayNum).padStart(2, '0')}</span>
-                  <span className="tempo-grid-day-label">
-                    {col.isHoliday ? '🎉' : col.dayLabel}
-                  </span>
+                  <span className="tempo-grid-day-label">{dayHeaderLabel(col)}</span>
                 </th>
               ))}
             </tr>

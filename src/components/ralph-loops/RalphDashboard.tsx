@@ -48,16 +48,23 @@ type DashboardAction =
     }
   | { type: 'setError'; error: string | null }
 
+function setDashboardView(
+  state: DashboardState,
+  action: Extract<DashboardAction, { type: 'setView' }>
+): DashboardState {
+  return {
+    ...state,
+    viewMode: action.mode,
+    selectedScript: action.script ?? null,
+    prLaunchData: action.prLaunchData ?? null,
+    issueLaunchData: action.issueLaunchData ?? null,
+  }
+}
+
 function reducer(state: DashboardState, action: DashboardAction): DashboardState {
   switch (action.type) {
     case 'setView':
-      return {
-        ...state,
-        viewMode: action.mode,
-        selectedScript: action.script ?? null,
-        prLaunchData: action.prLaunchData ?? null,
-        issueLaunchData: action.issueLaunchData ?? null,
-      }
+      return setDashboardView(state, action)
     case 'setError':
       return { ...state, error: action.error }
   }

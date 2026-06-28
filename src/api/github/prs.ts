@@ -650,31 +650,12 @@ async function fetchPRsForAccount(
 
   const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
 
-  let mergedAfter: string | undefined
-  if (mode === 'recently-merged') {
-    const mergedAfterDate = new Date()
-    mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
-    mergedAfter = mergedAfterDate.toISOString().split('T')[0]
-  }
-
+  const mergedAfter = resolveMergedAfter(recentlyMergedDays, mode)
   const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
   const allPrs = await executeSearchQueries(config, octokit, queries, org)
 
-  if (allPrs.length === 0 && mode === 'my-prs') {
-    allPrs.push(...(await tryGraphQLFallback(config, username, org, orgAvatarUrl)))
-  }
-
-  // Batch fetch reviews in parallel (with concurrency limit)
-  const prsWithMeta = allPrs as (PullRequest & {
-    _owner: string
-    _repo: string
-    _prNumber: number
-  })[]
-
-  await batchProcess(prsWithMeta, pr => hydrateSearchPRReviewState(octokit, pr, username))
-
-  // Batch-fetch thread stats via a single GraphQL query per owner (more reliable than per-PR calls)
-  await fetchBatchThreadStats(config, prsWithMeta)
+  await appendGraphQLFallbackPRs(allPrs, config, username, org, orgAvatarUrl, mode)
+  await hydrateSearchPRMetadata(config, octokit, allPrs, username)
 
   // Clean up metadata and filter by mode
   return allPrs.flatMap(pr => cleanPRForMode(pr, mode))
@@ -686,28 +667,45 @@ async function hydrateSearchPRReviewState(
   username: string
 ): Promise<void> {
   try {
-    const [reviewsData, prData] = await Promise.all([
-      octokit.pulls.listReviews({
-        owner: pr._owner,
-        repo: pr._repo,
-        pull_number: pr._prNumber,
-        per_page: 100,
-      }),
-      octokit.pulls.get({
-        owner: pr._owner,
-        repo: pr._repo,
-        pull_number: pr._prNumber,
-      }),
-    ])
-
-    const { approvalCount, iApproved } = countApprovals(reviewsData.data, username)
-    pr.approvalCount = approvalCount
-    pr.iApproved = iApproved
-    pr.headBranch = prData.data.head?.ref || ''
-    pr.baseBranch = prData.data.base?.ref || ''
+    const { reviewsData, prData } = await fetchSearchPRReviewDetails(octokit, pr)
+    applySearchPRReviewState(pr, reviewsData.data, prData.data, username)
   } catch (error: unknown) {
     console.debug(`Failed to get reviews for PR #${pr._prNumber}:`, error)
   }
+}
+
+async function fetchSearchPRReviewDetails(
+  octokit: Octokit,
+  pr: PullRequest & { _owner: string; _repo: string; _prNumber: number }
+) {
+  const [reviewsData, prData] = await Promise.all([
+    octokit.pulls.listReviews({
+      owner: pr._owner,
+      repo: pr._repo,
+      pull_number: pr._prNumber,
+      per_page: 100,
+    }),
+    octokit.pulls.get({
+      owner: pr._owner,
+      repo: pr._repo,
+      pull_number: pr._prNumber,
+    }),
+  ])
+
+  return { reviewsData, prData }
+}
+
+function applySearchPRReviewState(
+  pr: PullRequest,
+  reviews: Awaited<ReturnType<Octokit['pulls']['listReviews']>>['data'],
+  prData: Awaited<ReturnType<Octokit['pulls']['get']>>['data'],
+  username: string
+): void {
+  const { approvalCount, iApproved } = countApprovals(reviews, username)
+  pr.approvalCount = approvalCount
+  pr.iApproved = iApproved
+  pr.headBranch = prData.head?.ref || ''
+  pr.baseBranch = prData.base?.ref || ''
 }
 
 function cleanPRForMode(pr: PullRequest, mode: PRSearchMode): PullRequest[] {
@@ -720,6 +718,70 @@ function cleanPRForMode(pr: PullRequest, mode: PRSearchMode): PullRequest[] {
   if (mode === 'needs-review' && cleanPr.iApproved) return []
   if (mode === 'need-a-nudge' && !cleanPr.iApproved) return []
   return [cleanPr]
+}
+
+function resolveMergedAfter(recentlyMergedDays: number, mode: PRSearchMode): string | undefined {
+  if (mode !== 'recently-merged') return undefined
+
+  const mergedAfterDate = new Date()
+  mergedAfterDate.setDate(mergedAfterDate.getDate() - recentlyMergedDays)
+  return mergedAfterDate.toISOString().split('T')[0]
+}
+
+async function appendGraphQLFallbackPRs(
+  allPrs: PullRequest[],
+  config: PRConfig['github'],
+  username: string,
+  org: string,
+  orgAvatarUrl: string | null,
+  mode: PRSearchMode
+): Promise<void> {
+  if (allPrs.length > 0 || mode !== 'my-prs') return
+
+  allPrs.push(...(await tryGraphQLFallback(config, username, org, orgAvatarUrl)))
+}
+
+async function hydrateSearchPRMetadata(
+  config: PRConfig['github'],
+  octokit: Octokit,
+  allPrs: PullRequest[],
+  username: string
+): Promise<void> {
+  const prsWithMeta = allPrs as (PullRequest & {
+    _owner: string
+    _repo: string
+    _prNumber: number
+  })[]
+
+  await batchProcess(prsWithMeta, pr => hydrateSearchPRReviewState(octokit, pr, username))
+  await fetchBatchThreadStats(config, prsWithMeta)
+}
+
+function sortPRsForMode(prs: PullRequest[], mode: PRSearchMode): void {
+  if (mode !== 'recently-merged') return
+
+  prs.sort((a, b) => {
+    const dateA = a.date ? new Date(a.date).getTime() : 0
+    const dateB = b.date ? new Date(b.date).getTime() : 0
+    return dateB - dateA
+  })
+}
+
+function dedupePRsByUrl(prs: PullRequest[]): PullRequest[] {
+  const seenUrls = new Set<string>()
+  return prs.filter(pr => {
+    if (seenUrls.has(pr.url)) return false
+    seenUrls.add(pr.url)
+    return true
+  })
+}
+
+function assertAnyAccountAuthenticated(authenticationErrors: number, accountCount: number): void {
+  if (authenticationErrors !== accountCount) return
+
+  throw new Error(
+    'GitHub CLI authentication not available for any configured account. Please run: gh auth login'
+  )
 }
 
 /**
@@ -751,31 +813,9 @@ async function fetchPRs(
     allPrs.push(...result.prs)
   }
 
-  // If all accounts failed due to auth, throw error
-  if (authenticationErrors === config.accounts.length) {
-    throw new Error(
-      'GitHub CLI authentication not available for any configured account. Please run: gh auth login'
-    )
-  }
-
-  // Sort recently-merged PRs by merge date (newest first) after combining all accounts
-  if (mode === 'recently-merged') {
-    allPrs.sort((a, b) => {
-      const dateA = a.date ? new Date(a.date).getTime() : 0
-      const dateB = b.date ? new Date(b.date).getTime() : 0
-      return dateB - dateA // Descending (newest first)
-    })
-  }
-
-  // Deduplicate across accounts — the same PR can appear from multiple accounts
-  const seenUrls = new Set<string>()
-  const dedupedPrs = allPrs.filter(pr => {
-    if (seenUrls.has(pr.url)) return false
-    seenUrls.add(pr.url)
-    return true
-  })
-
-  return dedupedPrs
+  assertAnyAccountAuthenticated(authenticationErrors, config.accounts.length)
+  sortPRsForMode(allPrs, mode)
+  return dedupePRsByUrl(allPrs)
 }
 
 async function fetchPRsForConfiguredAccount(
@@ -913,6 +953,22 @@ export async function fetchRepoPRs(
   state: 'open' | 'closed' = 'open'
 ): Promise<RepoPullRequest[]> {
   const octokit = await getOctokitForOwner(config, owner)
+  const { response, viewerLogin } = await fetchRepoPRPage(octokit, owner, repo, state)
+  const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
+
+  await batchProcess(prs, pr => hydrateRepoPRReviewState(octokit, owner, repo, pr, viewerLogin))
+  await fetchRepoThreadStats(config, owner, repo, prs)
+
+  return prs
+}
+/* v8 ignore stop */
+
+async function fetchRepoPRPage(
+  octokit: Octokit,
+  owner: string,
+  repo: string,
+  state: 'open' | 'closed'
+) {
   const [response, viewer] = await Promise.all([
     octokit.pulls.list({
       owner,
@@ -925,22 +981,27 @@ export async function fetchRepoPRs(
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  const viewerLogin = viewer?.data?.login?.toLowerCase() || null
+  return { response, viewerLogin: resolveViewerLogin(viewer) }
+}
 
-  const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
+function resolveViewerLogin(
+  viewer: Awaited<ReturnType<Octokit['users']['getAuthenticated']>> | null
+): string | null {
+  return viewer?.data?.login?.toLowerCase() || null
+}
 
-  await batchProcess(prs, pr => hydrateRepoPRReviewState(octokit, owner, repo, pr, viewerLogin))
-
-  // Batch-fetch unresolved thread counts via GraphQL (single query for same repo)
+async function fetchRepoThreadStats(
+  config: PRConfig['github'],
+  owner: string,
+  repo: string,
+  prs: RepoPullRequest[]
+): Promise<void> {
   try {
     await fetchUnresolvedThreadCounts(config, owner, repo, prs)
   } catch (error: unknown) {
     console.debug(`Failed to fetch thread stats for ${owner}/${repo}:`, error)
   }
-
-  return prs
 }
-/* v8 ignore stop */
 
 async function hydrateRepoPRReviewState(
   octokit: Octokit,

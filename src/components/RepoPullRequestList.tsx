@@ -291,6 +291,43 @@ function RepoPRListBody({
   )
 }
 
+function renderInitialRepoPRState({
+  isEmpty,
+  loading,
+  error,
+  owner,
+  repo,
+  refresh,
+}: {
+  isEmpty: boolean
+  loading: boolean
+  error: string | null
+  owner: string
+  repo: string
+  refresh: () => void
+}) {
+  if (!isEmpty) return null
+  if (loading) {
+    return <PanelLoadingState message="Loading pull requests…" subtitle={`${owner}/${repo}`} />
+  }
+  if (error) {
+    return <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
+  }
+  return null
+}
+
+function openRepoPullRequest(
+  pr: RepoPullRequest,
+  owner: string,
+  onOpenPR: RepoPullRequestListProps['onOpenPR']
+): void {
+  if (onOpenPR) {
+    onOpenPR(mapToPRDetailId(pr, owner))
+    return
+  }
+  window.shell?.openExternal(pr.url)
+}
+
 export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { owner, repo, onOpenPR } = props
   const prState = props.prState ?? 'open'
@@ -304,26 +341,12 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const [viewMode, setViewMode] = useViewMode(`repo-prs-${owner}-${repo}`)
 
   const handlePRClick = useCallback(
-    (pr: RepoPullRequest) => {
-      if (onOpenPR) {
-        onOpenPR(mapToPRDetailId(pr, owner))
-      } else {
-        window.shell?.openExternal(pr.url)
-      }
-    },
+    (pr: RepoPullRequest) => openRepoPullRequest(pr, owner, onOpenPR),
     [onOpenPR, owner]
   )
 
-  if (isEmpty) {
-    if (loading) {
-      return <PanelLoadingState message="Loading pull requests…" subtitle={`${owner}/${repo}`} />
-    }
-    if (error) {
-      return (
-        <PanelErrorState title="Failed to load pull requests" error={error} onRetry={refresh} />
-      )
-    }
-  }
+  const initialState = renderInitialRepoPRState({ isEmpty, loading, error, owner, repo, refresh })
+  if (initialState) return initialState
 
   return (
     <div className="repo-prs-container">

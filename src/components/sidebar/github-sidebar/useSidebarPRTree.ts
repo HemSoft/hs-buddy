@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, type Dispatch, type SetStateAction } from 'react'
 import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
@@ -27,24 +27,25 @@ function initPrTreeData(): Record<string, PullRequest[]> {
 }
 
 function isSamePR(a: PullRequest, b: PullRequest): boolean {
-  return (
-    a.id === b.id &&
-    a.repository === b.repository &&
-    (a.org ?? '') === (b.org ?? '') &&
-    a.source === b.source
-  )
+  return prIdentity(a) === prIdentity(b)
+}
+
+function prIdentity(pr: PullRequest): string {
+  return [pr.source, pr.org ?? '', pr.repository, pr.id].join('|')
 }
 
 /** Resolve owner/repo for a PR using direct fields or URL parsing fallback. */
 /* v8 ignore start */
 function resolvePROwnerRepo(pr: PullRequest): { owner: string; repo: string } | null {
   const parsed = parseOwnerRepoFromUrl(pr.url)
-  const owner = pr.org || parsed?.owner
-  const repo = pr.repository || parsed?.repo
+  return toOwnerRepo(pr.org || parsed?.owner, pr.repository || parsed?.repo)
+}
+/* v8 ignore stop */
+
+function toOwnerRepo(owner: string | undefined, repo: string | undefined) {
   if (!owner || !repo) return null
   return { owner, repo }
 }
-/* v8 ignore stop */
 
 interface UseSidebarPRTreeOptions {
   accounts: GitHubAccount[]
@@ -173,33 +174,11 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
       /* v8 ignore start */
       if (!resolved) return
       /* v8 ignore stop */
-      const { owner, repo } = resolved
-      const prKey = `${pr.source}-${pr.org ?? ''}-${pr.repository}-${pr.id}`
+      const prKey = prIdentity(pr)
       if (approvingPrKeys.has(prKey)) return
-      setApprovingPrKeys(prev => new Set(prev).add(prKey))
-      try {
-        await enqueueRef.current(
-          async signal => {
-            /* v8 ignore next */
-            if (signal) throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, 7)
-            await client.approvePullRequest(owner, repo, pr.id)
-          },
-          { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
-        )
+      await approveSidebarPR(pr, resolved, prKey, accounts, enqueueRef, setApprovingPrKeys, () =>
         applyApproveToTree(pr)
-      } catch (error: unknown) {
-        /* v8 ignore start */
-        if (isAbortError(error)) return
-        /* v8 ignore stop */
-        console.error('Failed to approve PR from sidebar:', error)
-      } finally {
-        setApprovingPrKeys(prev => {
-          const next = new Set(prev)
-          next.delete(prKey)
-          return next
-        })
-      }
+      )
     },
     [accounts, approvingPrKeys, applyApproveToTree, enqueueRef]
   )
@@ -222,4 +201,54 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
     copyToClipboard,
     openPRReview,
   }
+}
+
+async function approveSidebarPR(
+  pr: PullRequest,
+  resolved: { owner: string; repo: string },
+  prKey: string,
+  accounts: GitHubAccount[],
+  enqueueRef: UseSidebarPRTreeOptions['enqueueRef'],
+  setApprovingPrKeys: Dispatch<SetStateAction<Set<string>>>,
+  onApproved: () => void
+): Promise<void> {
+  setApprovingPrKeys(prev => new Set(prev).add(prKey))
+  try {
+    await enqueueApprovePR(pr, resolved, accounts, enqueueRef)
+    onApproved()
+  } catch (error: unknown) {
+    handleApproveError(error)
+  } finally {
+    setApprovingPrKeys(prev => removeApprovingPRKey(prev, prKey))
+  }
+}
+
+async function enqueueApprovePR(
+  pr: PullRequest,
+  { owner, repo }: { owner: string; repo: string },
+  accounts: GitHubAccount[],
+  enqueueRef: UseSidebarPRTreeOptions['enqueueRef']
+): Promise<void> {
+  await enqueueRef.current(
+    async signal => {
+      /* v8 ignore next */
+      if (signal) throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      await client.approvePullRequest(owner, repo, pr.id)
+    },
+    { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
+  )
+}
+
+function handleApproveError(error: unknown): void {
+  /* v8 ignore start */
+  if (isAbortError(error)) return
+  /* v8 ignore stop */
+  console.error('Failed to approve PR from sidebar:', error)
+}
+
+function removeApprovingPRKey(keys: Set<string>, prKey: string): Set<string> {
+  const next = new Set(keys)
+  next.delete(prKey)
+  return next
 }

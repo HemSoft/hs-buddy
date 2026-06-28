@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import type { PullRequest } from '../../types/pullRequest'
 import { GitHubClient } from '../../api/github/client'
 import type { ProgressCallback, PRSearchMode } from '../../api/github'
@@ -313,30 +314,15 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
 
   const handleApprove = useCallback(
     async (pr: PullRequest) => {
-      if (pr.iApproved) return
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) return
-      const approveKey = `${pr.repository}-${pr.id}`
-      setApproving(approveKey)
-      try {
-        await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, recentlyMergedDays)
-            await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
-          },
-          { name: `approve-pr-${pr.repository}-${pr.id}` }
-        )
-        setPrs(prev => markApproved(prev, pr))
-        const cached = dataCache.get<PullRequest[]>(mode)
-        if (cached?.data) {
-          dataCache.set(mode, markApproved(cached.data, pr))
-        }
-      } catch (error: unknown) {
-        console.error('Failed to approve PR:', error)
-      } finally {
-        setApproving(null)
-      }
+      await approveListPullRequest(
+        pr,
+        accounts,
+        recentlyMergedDays,
+        mode,
+        enqueueRef,
+        setPrs,
+        setApproving
+      )
     },
     [accounts, mode, recentlyMergedDays, enqueueRef, setPrs, setApproving]
   )
@@ -356,6 +342,57 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
     handleApprove,
     handleApproveFromMenu,
   }
+}
+
+async function approveListPullRequest(
+  pr: PullRequest,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  recentlyMergedDays: number,
+  mode: PRSearchMode,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
+  setPrs: Dispatch<SetStateAction<PullRequest[]>>,
+  setApproving: (value: string | null) => void
+): Promise<void> {
+  if (pr.iApproved) return
+  const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+  if (!ownerRepo) return
+
+  setApproving(`${pr.repository}-${pr.id}`)
+  try {
+    await enqueueApprovalTask(pr, ownerRepo, accounts, recentlyMergedDays, enqueueRef)
+    markPRApprovedInState(pr, mode, setPrs)
+  } catch (error: unknown) {
+    console.error('Failed to approve PR:', error)
+  } finally {
+    setApproving(null)
+  }
+}
+
+async function enqueueApprovalTask(
+  pr: PullRequest,
+  ownerRepo: { owner: string; repo: string },
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  recentlyMergedDays: number,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] }
+): Promise<void> {
+  await enqueueRef.current(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, recentlyMergedDays)
+      await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+    },
+    { name: `approve-pr-${pr.repository}-${pr.id}` }
+  )
+}
+
+function markPRApprovedInState(
+  pr: PullRequest,
+  mode: PRSearchMode,
+  setPrs: Dispatch<SetStateAction<PullRequest[]>>
+): void {
+  setPrs(prev => markApproved(prev, pr))
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (cached?.data) dataCache.set(mode, markApproved(cached.data, pr))
 }
 
 export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {

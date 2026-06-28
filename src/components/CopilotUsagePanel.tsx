@@ -42,13 +42,17 @@ function AccountsGrid({
       </div>
     )
   }
-  return (
-    <>
-      {accounts
-        .filter(account => account.org !== 'hemsoft')
-        .map(account => renderAccountQuotaCard(account, quotas, orgBudgets, orgOverageFromQuotas))}
-    </>
+  const accountQuotaCards = accounts.reduce<ReturnType<typeof renderAccountQuotaCard>[]>(
+    (cards, account) => {
+      if (account.org !== 'hemsoft') {
+        cards.push(renderAccountQuotaCard(account, quotas, orgBudgets, orgOverageFromQuotas))
+      }
+      return cards
+    },
+    []
   )
+
+  return <>{accountQuotaCards}</>
 }
 
 function renderAccountQuotaCard(

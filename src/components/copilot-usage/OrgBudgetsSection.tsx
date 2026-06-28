@@ -225,20 +225,21 @@ function BudgetProgressBar({
   if (effectiveBudget === null || pct === null) return null
 
   return (
-    <div
-      className="usage-budget-bar-track"
-      role="progressbar"
-      aria-label="Budget usage"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={pct}
-    >
-      <div
-        className="usage-budget-bar-fill"
-        style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
+    <>
+      <progress
+        className="usage-budget-progress-native"
+        aria-label="Budget usage"
+        max={100}
+        value={pct}
       />
-      <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
-    </div>
+      <div className="usage-budget-bar-track" aria-hidden="true">
+        <div
+          className="usage-budget-bar-fill"
+          style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
+        />
+        <BudgetMyShareBar mySharePct={mySharePct} myShare={myShare} />
+      </div>
+    </>
   )
 }
 

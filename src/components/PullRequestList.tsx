@@ -396,6 +396,7 @@ function PRListFallback({
   getProgressColor,
   refreshing,
   handleManualRefresh,
+  children,
 }: {
   loading: boolean
   error: string | null
@@ -408,6 +409,7 @@ function PRListFallback({
   getProgressColor: unknown
   refreshing: boolean
   handleManualRefresh: () => void
+  children: React.ReactNode
 }) {
   if (loading)
     return (
@@ -436,7 +438,7 @@ function PRListFallback({
         handleManualRefresh={handleManualRefresh}
       />
     )
-  return null
+  return children
 }
 
 export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestListProps) {
@@ -468,68 +470,67 @@ export function PullRequestList({ mode, onCountChange, onOpenPR }: PullRequestLi
 
   const [viewMode, setViewMode] = useViewMode(`pr-list-${mode}`)
 
-  const fallback = PRListFallback({
-    loading,
-    error,
-    prs,
-    getTitle,
-    progress,
-    totalPrsFound,
-    accounts,
-    updateTimes,
-    getProgressColor,
-    refreshing,
-    handleManualRefresh,
-  })
-  if (fallback) return fallback
-
   const openPR = (pr: PullRequest) =>
     onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
 
   return (
-    <div className="pr-list-container">
-      <PRListActiveHeader
-        title={getTitle()}
-        prCount={prs.length}
-        refreshing={refreshing}
-        updateTimes={updateTimes}
-        getProgressColor={getProgressColor}
-        viewMode={viewMode}
-        setViewMode={setViewMode}
-        handleManualRefresh={handleManualRefresh}
-      />
-      {viewMode === 'list' ? (
-        <PRListTableView prs={prs} onOpenPR={onOpenPR} handleContextMenu={handleContextMenu} />
-      ) : (
-        <div className="pr-list">
-          {prs.map(pr => (
-            <PRItem
-              key={`${pr.source}-${pr.id}-${pr.repository}`}
-              pr={pr}
-              mode={mode}
-              approving={approving}
-              onApprove={handleApprove}
-              onContextMenu={handleContextMenu}
-              onOpen={openPR}
-            />
-          ))}
-        </div>
-      )}
-      {contextMenu && (
-        <PRContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          pr={contextMenu.pr}
-          bookmarkedRepoKeys={bookmarkedRepoKeys}
-          onAIReview={handleAIReview}
-          onRequestCopilotReview={handleRequestCopilotReview}
-          onAddressComments={handleAddressComments}
-          onApprove={handleApproveFromMenu}
-          onCopyLink={handleCopyLink}
-          onBookmark={handleBookmarkRepo}
-          onClose={closeContextMenu}
+    <PRListFallback
+      loading={loading}
+      error={error}
+      prs={prs}
+      getTitle={getTitle}
+      progress={progress}
+      totalPrsFound={totalPrsFound}
+      accounts={accounts}
+      updateTimes={updateTimes}
+      getProgressColor={getProgressColor}
+      refreshing={refreshing}
+      handleManualRefresh={handleManualRefresh}
+    >
+      <div className="pr-list-container">
+        <PRListActiveHeader
+          title={getTitle()}
+          prCount={prs.length}
+          refreshing={refreshing}
+          updateTimes={updateTimes}
+          getProgressColor={getProgressColor}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          handleManualRefresh={handleManualRefresh}
         />
-      )}
-    </div>
+        {viewMode === 'list' ? (
+          <PRListTableView prs={prs} onOpenPR={onOpenPR} handleContextMenu={handleContextMenu} />
+        ) : (
+          <div className="pr-list">
+            {prs.map(pr => (
+              <PRItem
+                key={`${pr.source}-${pr.id}-${pr.repository}`}
+                pr={pr}
+                mode={mode}
+                approving={approving}
+                onApprove={handleApprove}
+                onContextMenu={handleContextMenu}
+                onOpen={openPR}
+              />
+            ))}
+          </div>
+        )}
+        {contextMenu && (
+          <PRContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            pr={contextMenu.pr}
+            bookmarkedRepoKeys={bookmarkedRepoKeys}
+            onAIReview={handleAIReview}
+            onRequestCopilotReview={handleRequestCopilotReview}
+            onAddressComments={handleAddressComments}
+            onApprove={handleApproveFromMenu}
+            onCopyLink={handleCopyLink}
+            onBookmark={handleBookmarkRepo}
+            onClose={closeContextMenu}
+          />
+        )}
+      </div>
+    </PRListFallback>
   )
 }

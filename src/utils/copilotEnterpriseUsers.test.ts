@@ -103,6 +103,15 @@ describe('normalizeCopilotEnterpriseUsersSnapshot', () => {
     expect(snapshot.generatedAt).toBe('2026-06-02T03:00:00.000Z')
   })
 
+  it('rejects non-object metrics payloads', () => {
+    expect(() =>
+      normalizeCopilotEnterpriseUsersSnapshot(null, {
+        sourceFile: 'D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json',
+        fileLastWriteTime: '2026-06-02T03:00:00.000Z',
+      })
+    ).toThrow('JSON object')
+  })
+
   it('normalizes direct aggregate totals when usage items are absent', () => {
     const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
       {
@@ -178,6 +187,73 @@ describe('normalizeCopilotEnterpriseUsersSnapshot', () => {
       topModelQuantity: 12,
       success: false,
       errorMessage: 'partial data',
+    })
+  })
+
+  it('ignores malformed users and days while sorting equal-usage users by login', () => {
+    const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
+      {
+        Days: [1, 'bad-day', Number.NaN, 2],
+        Users: [
+          null,
+          { Success: true },
+          {
+            User: 'beta',
+            Responses: [{ Response: 'not-an-object' }],
+          },
+          {
+            User: 'no-quantity',
+            usageItems: [{ model: 'Claude' }],
+          },
+          {
+            User: 'alpha',
+            usageItems: [
+              { Model: 'Claude', GrossQuantity: 0, GrossAmount: 0, NetAmount: 0 },
+              { model: 'Ignored zero', grossQuantity: 0 },
+            ],
+          },
+        ],
+      },
+      {
+        sourceFile: 'D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json',
+        fileLastWriteTime: '2026-06-02T03:00:00.000Z',
+      }
+    )
+
+    expect(snapshot.days).toEqual([1, 2])
+    expect(snapshot.users.map(user => user.login)).toEqual(['alpha', 'beta', 'no-quantity'])
+    expect(snapshot.users[0]).toMatchObject({
+      grossQuantity: 0,
+      grossAmount: 0,
+      netAmount: 0,
+      modelCount: 0,
+      topModel: null,
+    })
+  })
+
+  it('uses zero defaults for direct aggregate users without optional money totals', () => {
+    const snapshot = normalizeCopilotEnterpriseUsersSnapshot(
+      {
+        Users: [
+          {
+            User: 'direct-user',
+            GrossQuantity: 5,
+            TopModel: 'Claude',
+          },
+        ],
+      },
+      {
+        sourceFile: 'D:\\github\\HemSoft\\codexbar\\data\\copilot-metrics.json',
+        fileLastWriteTime: '2026-06-02T03:00:00.000Z',
+      }
+    )
+
+    expect(snapshot.users[0]).toMatchObject({
+      grossQuantity: 5,
+      grossAmount: 0,
+      netAmount: 0,
+      topModel: 'Claude',
+      topModelQuantity: 5,
     })
   })
 

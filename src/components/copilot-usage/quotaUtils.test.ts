@@ -198,6 +198,27 @@ describe('synthesizeQuotaData', () => {
     expect(data.grossCost).toBe(109.4)
   })
 
+  it('uses an empty organization list when synthesized metrics omit org', () => {
+    const data = synthesizeQuotaData({ ...baseMetrics, org: '' })
+
+    expect(data.organization_login_list).toEqual([])
+  })
+
+  it('marks zero-seat usage as fully depleted when credits are consumed', () => {
+    const data = synthesizeQuotaData({ ...baseMetrics, seats: 0, usedCredits: 10 })
+    const pool = data.quota_snapshots.premium_interactions
+
+    expect(pool.entitlement).toBe(0)
+    expect(pool.percent_remaining).toBe(0)
+    expect(pool.overage_count).toBe(10)
+  })
+
+  it('marks zero-seat zero-usage data as fully remaining', () => {
+    const data = synthesizeQuotaData({ ...baseMetrics, seats: 0, usedCredits: 0 })
+
+    expect(data.quota_snapshots.premium_interactions.percent_remaining).toBe(100)
+  })
+
   it('attaches a personal snapshot and org denominator when userCredits is provided', () => {
     const data = synthesizeQuotaData({ ...baseMetrics, userCredits: 8235.4 })
     expect(data.personal).toBeDefined()

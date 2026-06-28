@@ -90,6 +90,16 @@ describe('useCopilotUsage', () => {
     expect(result.current.quotas['user1']?.error).toMatch(/organization with Copilot seats/)
   })
 
+  it('marks successful usage responses without data as unavailable', async () => {
+    mockGetCopilotUsage.mockResolvedValue({ success: true })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.anyLoading).toBe(false))
+
+    expect(result.current.quotas['user1']?.data).toBeNull()
+    expect(result.current.quotas['user1']?.error).toBe('Unknown error')
+  })
+
   it('fetches budget for unique orgs', async () => {
     const { result } = renderHook(() => useCopilotUsage())
     await waitFor(() => expect(result.current.anyLoading).toBe(false))

@@ -252,10 +252,9 @@ describe('OrgBudgetsSection', () => {
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
     )
 
-    expect(screen.getByRole('progressbar', { name: 'Budget usage' })).toHaveAttribute(
-      'aria-valuenow',
-      '0'
-    )
+    const progress = screen.getByRole('progressbar', { name: 'Budget usage' })
+    expect(progress).toHaveAttribute('value', '0')
+    expect(progress).toHaveAttribute('max', '100')
   })
 
   it('shows gross consumption when gross spend is positive and budget is not quota-backed', () => {

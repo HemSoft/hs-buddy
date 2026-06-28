@@ -840,29 +840,34 @@ function PRDetailBanners({
 type OwnerRepo = { owner: string; repo: string }
 type PRBranches = { headBranch: string; baseBranch: string }
 
-function getKnownBranches(pr: PRDetailInfo): PRBranches | null {
-  if (!pr.headBranch || !pr.baseBranch) return null
-  return { headBranch: pr.headBranch, baseBranch: pr.baseBranch }
+function getKnownBranches(
+  headBranch: string | undefined,
+  baseBranch: string | undefined
+): PRBranches | null {
+  if (!headBranch || !baseBranch) return null
+  return { headBranch, baseBranch }
 }
 
 async function fetchPRBranchesFromGitHub({
   enqueue,
   accounts,
   ownerRepo,
-  pr,
+  prId,
+  repository,
 }: {
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
   accounts: ReturnType<typeof useGitHubAccounts>['accounts']
   ownerRepo: OwnerRepo
-  pr: PRDetailInfo
+  prId: number
+  repository: string
 }): Promise<PRBranches> {
   return enqueue(
     async signal => {
       throwIfAborted(signal)
       const client = new GitHubClient({ accounts }, 7)
-      return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, pr.id)
+      return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, prId)
     },
-    { name: `pr-branches-${pr.repository}-${pr.id}` }
+    { name: `pr-branches-${repository}-${prId}` }
   )
 }
 
@@ -1045,7 +1050,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   }, [enqueue])
 
   const fetchBranches = useCallback(async () => {
-    const knownBranches = getKnownBranches(pr)
+    const knownBranches = getKnownBranches(pr.headBranch, pr.baseBranch)
     if (knownBranches) {
       setBranches(knownBranches)
       return
@@ -1061,13 +1066,14 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         enqueue: enqueueRef.current,
         accounts,
         ownerRepo,
-        pr,
+        prId: pr.id,
+        repository: pr.repository,
       })
       setBranches(result)
     } catch (_: unknown) {
       setBranches(null)
     }
-  }, [accounts, ownerRepo, pr])
+  }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
 
   useEffect(() => {
     fetchBranches()

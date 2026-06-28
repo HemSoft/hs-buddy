@@ -15,19 +15,34 @@ type TerminalWorkspaceNode = {
   parentId?: string
 }
 
+function shouldRemoveNode(node: TerminalWorkspaceNode, idsToRemove: Set<string>): boolean {
+  if (!node.parentId) return false
+  return idsToRemove.has(node.parentId) && !idsToRemove.has(node.id)
+}
+
 function collectNodeIdsToRemove(nodes: TerminalWorkspaceNode[], rootNodeId: string): Set<string> {
   const idsToRemove = new Set<string>([rootNodeId])
   let changed = true
   while (changed) {
     changed = false
     for (const node of nodes) {
-      if (node.parentId && idsToRemove.has(node.parentId) && !idsToRemove.has(node.id)) {
+      if (shouldRemoveNode(node, idsToRemove)) {
         idsToRemove.add(node.id)
         changed = true
       }
     }
   }
   return idsToRemove
+}
+
+function resolveActiveNodeAfterRemoval(
+  activeNodeId: string | undefined,
+  idsToRemove: Set<string>,
+  remainingNodes: TerminalWorkspaceNode[]
+): string | undefined {
+  if (!activeNodeId) return activeNodeId
+  if (!idsToRemove.has(activeNodeId)) return activeNodeId
+  return remainingNodes[0]?.id
 }
 
 /** Get the terminal workspace (singleton). */
@@ -111,10 +126,7 @@ export const removeNode = mutation({
 
     const idsToRemove = collectNodeIdsToRemove(workspace.nodes, args.nodeId)
     const nodes = workspace.nodes.filter(n => !idsToRemove.has(n.id))
-    const activeNodeId =
-      workspace.activeNodeId && idsToRemove.has(workspace.activeNodeId)
-        ? (nodes[0]?.id ?? undefined)
-        : workspace.activeNodeId
+    const activeNodeId = resolveActiveNodeAfterRemoval(workspace.activeNodeId, idsToRemove, nodes)
 
     await ctx.db.patch(workspace._id, { nodes, activeNodeId, updatedAt: Date.now() })
   },

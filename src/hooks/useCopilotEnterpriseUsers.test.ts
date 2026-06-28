@@ -149,7 +149,8 @@ describe('useCopilotEnterpriseUsers', () => {
       })
     )
 
-    const { unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    const { result, unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    expect(result.current).toMatchObject({ data: null, error: null, loading: true })
     unmount()
 
     await act(async () => {
@@ -157,6 +158,7 @@ describe('useCopilotEnterpriseUsers', () => {
     })
 
     expect(mockGetCopilotEnterpriseUsers).toHaveBeenCalledOnce()
+    expect(result.current).toMatchObject({ data: null, error: null, loading: true })
   })
 
   it('ignores rejected loader responses after unmount', async () => {
@@ -167,7 +169,8 @@ describe('useCopilotEnterpriseUsers', () => {
       })
     )
 
-    const { unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    const { result, unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    expect(result.current).toMatchObject({ data: null, error: null, loading: true })
     unmount()
 
     await act(async () => {
@@ -175,5 +178,6 @@ describe('useCopilotEnterpriseUsers', () => {
     })
 
     expect(mockGetCopilotEnterpriseUsers).toHaveBeenCalledOnce()
+    expect(result.current).toMatchObject({ data: null, error: null, loading: true })
   })
 })

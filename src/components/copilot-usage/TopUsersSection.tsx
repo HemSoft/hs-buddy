@@ -229,7 +229,6 @@ function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
     return
   }
 
-  /* v8 ignore next -- jsdom keeps the single modal control focused through this path. */
   if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
     event.preventDefault()
     firstFocusableElement.focus()
@@ -258,15 +257,11 @@ function SourceJsonModal({
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    /* v8 ignore next -- dialog-triggered focus is an HTMLElement in browser and jsdom flows. */
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const dialog = dialogRef.current
-    /* v8 ignore next -- ref is assigned before this mount effect runs. */
-    if (dialog) focusFirstModalElement(dialog)
+    const previouslyFocused = document.activeElement as HTMLElement
+    focusFirstModalElement(dialogRef.current!)
 
     return () => {
-      previouslyFocused?.focus()
+      previouslyFocused.focus()
     }
   }, [])
 

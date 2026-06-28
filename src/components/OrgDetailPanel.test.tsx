@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { OrgDetailPanel } from './OrgDetailPanel'
 
 /* ── hoisted mocks ─────────────────────────────────────────────────── */
@@ -374,7 +374,9 @@ describe('OrgDetailPanel', () => {
 
       render(<OrgDetailPanel org="test-org" />)
 
-      expect(screen.getAllByText('3').length).toBeGreaterThan(0)
+      const repoMetric = screen.getByText('Repositories').closest('.org-detail-metric-card')
+      expect(repoMetric).not.toBeNull()
+      expect(within(repoMetric as HTMLElement).getByText('3')).toBeInTheDocument()
       expect(screen.getByText('1 private · 1 archived')).toBeInTheDocument()
     })
 

@@ -115,7 +115,7 @@ describe('TopUsersSection', () => {
 
   it('renders one table row per enterprise user from the metrics file', () => {
     render(<TopUsersSection />)
-    expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(3)
+    expect(screen.getAllByTitle(/View source JSON for /)).toHaveLength(3)
   })
 
   it('renders high-usage users with credit and dollar totals', () => {
@@ -168,7 +168,7 @@ describe('TopUsersSection', () => {
     })
 
     expect(screen.getByText('No users match this filter.')).toBeInTheDocument()
-    expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(0)
+    expect(screen.queryByTitle(/View source JSON for /)).not.toBeInTheDocument()
     expect(screen.getByText('0 of 3 users')).toBeInTheDocument()
   })
 
@@ -197,7 +197,7 @@ describe('TopUsersSection', () => {
     expect(screen.getByText('Copilot Enterprise Users')).toBeInTheDocument()
     expect(screen.queryByText('Loading Copilot Enterprise users...')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Filter Copilot Enterprise users')).not.toBeInTheDocument()
-    expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(0)
+    expect(screen.queryByText(snapshot.users[0].login)).not.toBeInTheDocument()
   })
 
   it('shows an empty users message without rendering the filter panel', () => {
@@ -249,9 +249,22 @@ describe('TopUsersSection', () => {
     const closeButton = screen.getByLabelText('Close source JSON dialog')
 
     expect(closeButton).toHaveFocus()
-    fireEvent.keyDown(closeButton, { key: 'Tab' })
+    const forwardEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    })
+    closeButton.dispatchEvent(forwardEvent)
+    expect(forwardEvent.defaultPrevented).toBe(true)
     expect(closeButton).toHaveFocus()
-    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true })
+    const backwardEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    })
+    closeButton.dispatchEvent(backwardEvent)
+    expect(backwardEvent.defaultPrevented).toBe(true)
     expect(closeButton).toHaveFocus()
   })
 
@@ -263,9 +276,24 @@ describe('TopUsersSection', () => {
     const closeButton = screen.getByLabelText('Close source JSON dialog')
 
     closeButton.focus()
-    fireEvent.keyDown(dialog, { key: 'Tab' })
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    dialog.dispatchEvent(event)
 
+    expect(event.defaultPrevented).toBe(true)
     expect(closeButton).toHaveFocus()
+  })
+
+  it('does not intercept Tab when modal focus is not on a boundary control', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
+
+    dialog.focus()
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    dialog.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
   })
 
   it('keeps focus on the source JSON modal when no focusable elements remain', () => {
@@ -276,8 +304,10 @@ describe('TopUsersSection', () => {
     screen.getByLabelText('Close source JSON dialog').setAttribute('disabled', '')
 
     dialog.focus()
-    fireEvent.keyDown(dialog, { key: 'Tab' })
+    const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+    dialog.dispatchEvent(event)
 
+    expect(event.defaultPrevented).toBe(true)
     expect(dialog).toHaveFocus()
   })
 
@@ -287,8 +317,14 @@ describe('TopUsersSection', () => {
     fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
     const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
 
-    fireEvent.keyDown(dialog, { key: 'ArrowDown' })
+    const event = new KeyboardEvent('keydown', {
+      key: 'ArrowDown',
+      bubbles: true,
+      cancelable: true,
+    })
+    dialog.dispatchEvent(event)
 
+    expect(event.defaultPrevented).toBe(false)
     expect(dialog).toBeInTheDocument()
   })
 
@@ -305,7 +341,7 @@ describe('TopUsersSection', () => {
 
   it('does not render a loading spinner for file data', () => {
     render(<TopUsersSection />)
-    expect(document.querySelector('.spin')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading Copilot Enterprise users...')).not.toBeInTheDocument()
   })
 
   it('shows source errors without a spinner', () => {
@@ -318,6 +354,6 @@ describe('TopUsersSection', () => {
     render(<TopUsersSection />)
 
     expect(screen.getByText('copilot-metrics.json was not found')).toBeInTheDocument()
-    expect(document.querySelector('.spin')).not.toBeInTheDocument()
+    expect(screen.queryByText('Loading Copilot Enterprise users...')).not.toBeInTheDocument()
   })
 })

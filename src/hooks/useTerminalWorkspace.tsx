@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, use, useCallback, useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import type { Dispatch, MutableRefObject, ReactNode, SetStateAction } from 'react'
 import { useQuery, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import {
@@ -39,6 +39,18 @@ interface UseTerminalWorkspaceReturn {
   movePaneToNode: (sourcePaneId: string, sourceNodeId: string, targetNodeId: string) => void
 }
 
+interface PersistedTerminalWorkspace {
+  nodes: Array<{
+    id: string
+    name: string
+    color?: string | null
+    parentId?: string | null
+    sortOrder: number
+    layout: unknown
+  }>
+  activeNodeId?: string | null
+}
+
 const TerminalWorkspaceContext = createContext<UseTerminalWorkspaceReturn | null>(null)
 
 function collectNodeAndDescendantIds(nodes: TerminalTreeNode[], nodeId: string): Set<string> {
@@ -47,13 +59,19 @@ function collectNodeAndDescendantIds(nodes: TerminalTreeNode[], nodeId: string):
   while (changed) {
     changed = false
     for (const node of nodes) {
-      if (node.parentId && idsToRemove.has(node.parentId) && !idsToRemove.has(node.id)) {
+      if (shouldCollectDescendantNode(node, idsToRemove)) {
         idsToRemove.add(node.id)
         changed = true
       }
     }
   }
   return idsToRemove
+}
+
+function shouldCollectDescendantNode(node: TerminalTreeNode, idsToRemove: Set<string>): boolean {
+  if (!node.parentId) return false
+  if (!idsToRemove.has(node.parentId)) return false
+  return !idsToRemove.has(node.id)
 }
 
 function killSessionsForNodes(nodes: TerminalTreeNode[], nodeIds: Set<string>) {
@@ -74,6 +92,65 @@ function resolveNextActiveNodeId(
     return remainingNodes[0]?.id ?? null
   }
   return currentActiveNodeId
+}
+
+function restoreTerminalWorkspace(
+  workspace: PersistedTerminalWorkspace | null | undefined,
+  restoredRef: MutableRefObject<boolean>,
+  nodesRef: MutableRefObject<TerminalTreeNode[]>,
+  activeNodeIdRef: MutableRefObject<string | null>,
+  setNodes: Dispatch<SetStateAction<TerminalTreeNode[]>>,
+  setActiveNodeId: Dispatch<SetStateAction<string | null>>,
+  setLoaded: Dispatch<SetStateAction<boolean>>
+) {
+  if (restoredRef.current) return
+  if (workspace === undefined) {
+    return scheduleWorkspaceFallback(restoredRef, setLoaded)
+  }
+
+  restoredRef.current = true
+  applyRestoredWorkspace(workspace, nodesRef, activeNodeIdRef, setNodes, setActiveNodeId)
+  setLoaded(true)
+}
+
+function scheduleWorkspaceFallback(
+  restoredRef: MutableRefObject<boolean>,
+  setLoaded: Dispatch<SetStateAction<boolean>>
+) {
+  const timeout = setTimeout(() => {
+    if (!restoredRef.current) {
+      restoredRef.current = true
+      setLoaded(true)
+    }
+  }, 2000)
+  return () => clearTimeout(timeout)
+}
+
+function applyRestoredWorkspace(
+  workspace: PersistedTerminalWorkspace | null,
+  nodesRef: MutableRefObject<TerminalTreeNode[]>,
+  activeNodeIdRef: MutableRefObject<string | null>,
+  setNodes: Dispatch<SetStateAction<TerminalTreeNode[]>>,
+  setActiveNodeId: Dispatch<SetStateAction<string | null>>
+): void {
+  if (!workspace) return
+
+  const restored = workspace.nodes.map(toTerminalTreeNode)
+  setNodes(restored)
+  nodesRef.current = restored
+  setActiveNodeId(workspace.activeNodeId ?? null)
+  activeNodeIdRef.current = workspace.activeNodeId ?? null
+}
+
+function toTerminalTreeNode(node: PersistedTerminalWorkspace['nodes'][number]): TerminalTreeNode {
+  return {
+    id: node.id,
+    name: node.name,
+    color: node.color ?? undefined,
+    parentId: node.parentId ?? null,
+    sortOrder: node.sortOrder,
+    layout: node.layout as TerminalLayout,
+  }
 }
 
 export function TerminalWorkspaceProvider({ children }: { children: ReactNode }) {
@@ -115,41 +192,19 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
   // Load from Convex on first fetch — with timeout fallback so UI isn't blocked
   // if Convex hasn't deployed the new functions yet.
   const restoredRef = useRef(false)
-  useEffect(() => {
-    /* v8 ignore next */
-    if (restoredRef.current) return
-
-    if (workspace === undefined) {
-      // Still loading — set a timeout so UI isn't stuck forever
-      const timeout = setTimeout(() => {
-        /* v8 ignore next */
-        if (!restoredRef.current) {
-          restoredRef.current = true
-          setLoaded(true)
-        }
-      }, 2000)
-      return () => {
-        clearTimeout(timeout)
-      }
-    }
-
-    restoredRef.current = true
-    if (workspace) {
-      const restored: TerminalTreeNode[] = workspace.nodes.map(n => ({
-        id: n.id,
-        name: n.name,
-        color: n.color ?? undefined,
-        parentId: n.parentId ?? null,
-        sortOrder: n.sortOrder,
-        layout: n.layout as TerminalLayout,
-      }))
-      setNodes(restored)
-      nodesRef.current = restored
-      setActiveNodeId(workspace.activeNodeId ?? null)
-      activeNodeIdRef.current = workspace.activeNodeId ?? null
-    }
-    setLoaded(true)
-  }, [workspace])
+  useEffect(
+    () =>
+      restoreTerminalWorkspace(
+        workspace,
+        restoredRef,
+        nodesRef,
+        activeNodeIdRef,
+        setNodes,
+        setActiveNodeId,
+        setLoaded
+      ),
+    [workspace]
+  )
 
   // Debounced save to Convex
   const persistToConvex = useCallback(

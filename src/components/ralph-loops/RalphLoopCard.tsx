@@ -89,10 +89,31 @@ function computeProgress(run: RalphRunInfo): number | null {
   return Math.round((run.currentIteration / run.totalIterations) * 100)
 }
 
+function isActiveRun(run: RalphRunInfo): boolean {
+  return run.status === 'running' || run.status === 'pending'
+}
+
+function statusIconClass(status: RalphRunStatus): string {
+  return status === 'running' ? 'ralph-spin' : ''
+}
+
+function ProgressSection({ run, progress }: { run: RalphRunInfo; progress: number | null }) {
+  if (!isActiveRun(run) || progress === null) return null
+
+  return (
+    <div className="ralph-progress-bar">
+      <div className="ralph-progress-fill" style={{ width: `${progress}%` }} />
+      <span className="ralph-progress-label">
+        {run.currentIteration}/{run.totalIterations}
+      </span>
+    </div>
+  )
+}
+
 export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
   const statusCfg = STATUS_CONFIG[run.status]
   const StatusIcon = statusCfg.icon
-  const isActive = run.status === 'running' || run.status === 'pending'
+  const isActive = isActiveRun(run)
   const progress = computeProgress(run)
 
   return (
@@ -103,22 +124,14 @@ export function RalphLoopCard({ run, onStop }: RalphLoopCardProps) {
           {run.config.branch && <span className="ralph-card-branch">{run.config.branch}</span>}
         </div>
         <div className="ralph-card-status">
-          <StatusIcon size={14} className={run.status === 'running' ? 'ralph-spin' : ''} />
+          <StatusIcon size={14} className={statusIconClass(run.status)} />
           <span>{statusCfg.label}</span>
         </div>
       </div>
 
       <div className="ralph-card-body">
         <CardMeta run={run} />
-
-        {isActive && progress !== null && (
-          <div className="ralph-progress-bar">
-            <div className="ralph-progress-fill" style={{ width: `${progress}%` }} />
-            <span className="ralph-progress-label">
-              {run.currentIteration}/{run.totalIterations}
-            </span>
-          </div>
-        )}
+        <ProgressSection run={run} progress={progress} />
 
         <CardFooter run={run} isActive={isActive} onStop={onStop} />
       </div>

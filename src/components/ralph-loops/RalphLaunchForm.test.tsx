@@ -1212,6 +1212,50 @@ describe('RalphLaunchForm', () => {
       })
     })
 
+    it('rejects zero ralph-pr number before launch', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      await userEvent.selectOptions(screen.getByLabelText(/script/i), 'ralph-pr')
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/PR Number/i)).toBeInTheDocument()
+      })
+      await userEvent.type(screen.getByLabelText(/PR Number/i), '0')
+
+      const form = screen.getByRole('button', { name: /launch/i }).closest('form')
+      expect(form).not.toBeNull()
+      fireEvent.submit(form!)
+
+      await waitFor(() => {
+        expect(screen.getByText('PR number is required for ralph-pr')).toBeInTheDocument()
+      })
+      expect(mockOnLaunch).not.toHaveBeenCalled()
+    })
+
+    it('rejects decimal ralph-pr number before launch', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      await userEvent.selectOptions(screen.getByLabelText(/script/i), 'ralph-pr')
+
+      await waitFor(() => {
+        expect(screen.getByLabelText(/PR Number/i)).toBeInTheDocument()
+      })
+      await userEvent.type(screen.getByLabelText(/PR Number/i), '1.5')
+
+      const form = screen.getByRole('button', { name: /launch/i }).closest('form')
+      expect(form).not.toBeNull()
+      fireEvent.submit(form!)
+
+      await waitFor(() => {
+        expect(screen.getByText('PR number is required for ralph-pr')).toBeInTheDocument()
+      })
+      expect(mockOnLaunch).not.toHaveBeenCalled()
+    })
+
     it('submits with issueNumber in config via initialIssue', async () => {
       const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
       render(

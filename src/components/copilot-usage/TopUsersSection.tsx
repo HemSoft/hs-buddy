@@ -191,8 +191,8 @@ function getFocusableModalElements(container: HTMLElement): HTMLElement[] {
 }
 
 function focusFirstModalElement(container: HTMLElement): void {
-  const firstFocusableElement = getFocusableModalElements(container)[0]
-  ;(firstFocusableElement ?? container).focus()
+  const firstFocusableElement = getFocusableModalElements(container)[0]!
+  firstFocusableElement.focus()
 }
 
 function shouldWrapFocusBackward(
@@ -229,7 +229,10 @@ function handleModalTabKey(
   if (shouldWrapFocusBackward(event, activeElement, firstFocusableElement)) {
     event.preventDefault()
     lastFocusableElement.focus()
-  } else if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
+    return
+  }
+
+  if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
     event.preventDefault()
     firstFocusableElement.focus()
   }

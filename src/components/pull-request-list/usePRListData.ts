@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import type { PullRequest } from '../../types/pullRequest'
 import { GitHubClient } from '../../api/github/client'
 import type { ProgressCallback, PRSearchMode } from '../../api/github'
@@ -82,7 +83,7 @@ async function fetchPRsByMode(
 
 function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
   return items.map(item =>
-    item.repository === pr.repository && item.id === pr.id && !item.iApproved
+    item.url === pr.url && !item.iApproved
       ? { ...item, iApproved: true, approvalCount: item.approvalCount + 1 }
       : item
   )
@@ -123,6 +124,162 @@ function sortPRResults(results: PullRequest[], mode: string): PullRequest[] {
     }
     return a.id - b.id
   })
+}
+
+type PRDataCacheEntry = ReturnType<typeof dataCache.get<PullRequest[]>>
+
+interface FetchStateSetters {
+  setLoading: (v: boolean) => void
+  setRefreshing: (v: boolean) => void
+  setError: (v: string | null) => void
+  setProgress: (v: LoadingProgress | null) => void
+  setTotalPrsFound: (v: number) => void
+}
+
+interface FetchLifecycleParams extends FetchStateSetters {
+  mode: PRSearchMode
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+  recentlyMergedDays: number
+  refreshInterval: number
+  forceRefresh: number
+  currentPrs: PullRequest[]
+  cached: PRDataCacheEntry
+  enqueueTask: ReturnType<typeof useTaskQueue>['enqueue']
+  handleProgress: ProgressCallback
+  setPrs: (prs: PullRequest[]) => void
+  onCountChangeRef: React.RefObject<((count: number) => void) | undefined>
+  fetchIdRef: { current: number }
+  fetchInProgressRef: { current: boolean }
+}
+
+function tryApplyFreshCachedPRs(
+  mode: PRSearchMode,
+  cached: PRDataCacheEntry,
+  forceRefresh: number,
+  refreshInterval: number,
+  setters: Pick<FetchStateSetters, 'setLoading' | 'setRefreshing' | 'setError'> & {
+    setPrs: (prs: PullRequest[]) => void
+    onCountChangeRef: React.RefObject<((count: number) => void) | undefined>
+  }
+): boolean {
+  if (!cached || forceRefresh > 0) return false
+  const timeSinceLastFetch = Date.now() - cached.fetchedAt
+  if (timeSinceLastFetch >= refreshInterval * MS_PER_MINUTE) return false
+
+  console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
+  applyCachedPRs(
+    cached.data,
+    setters.setPrs,
+    setters.setLoading,
+    setters.setRefreshing,
+    setters.setError,
+    setters.onCountChangeRef
+  )
+  return true
+}
+
+function resetPRFetchState(
+  hasExistingData: boolean,
+  { setLoading, setRefreshing, setError, setProgress, setTotalPrsFound }: FetchStateSetters
+): void {
+  setRefreshing(hasExistingData)
+  setLoading(!hasExistingData)
+  setError(null)
+  setProgress(null)
+  setTotalPrsFound(0)
+}
+
+async function enqueuePRListFetch({
+  mode,
+  refreshInterval,
+  forceRefresh,
+  enqueueTask,
+  recentlyMergedDays,
+  accounts,
+  handleProgress,
+}: Pick<
+  FetchLifecycleParams,
+  | 'mode'
+  | 'refreshInterval'
+  | 'forceRefresh'
+  | 'enqueueTask'
+  | 'recentlyMergedDays'
+  | 'accounts'
+  | 'handleProgress'
+>): Promise<PullRequest[]> {
+  const githubClient = new GitHubClient({ accounts }, recentlyMergedDays)
+  console.log(
+    'Fetching PRs for',
+    accounts.length,
+    'account(s)…',
+    'mode:',
+    mode,
+    'recentlyMergedDays:',
+    recentlyMergedDays
+  )
+  return enqueueTask(
+    async signal => {
+      const freshData = forceRefresh > 0 ? null : getFreshCachedData(mode, refreshInterval)
+      if (freshData) {
+        console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
+        return freshData
+      }
+      throwIfAborted(signal)
+      return fetchPRsByMode(githubClient, mode, handleProgress)
+    },
+    { name: `fetch-${mode}` }
+  )
+}
+
+function applyPRFetchSuccess(
+  results: PullRequest[],
+  currentFetchId: number,
+  params: Pick<FetchLifecycleParams, 'fetchIdRef' | 'mode' | 'setPrs' | 'onCountChangeRef'>
+): void {
+  if (currentFetchId !== params.fetchIdRef.current) {
+    console.log('Ignoring stale fetch result for', params.mode)
+    return
+  }
+  console.log('Found PRs:', results.length)
+  sortPRResults(results, params.mode)
+  applyFetchResults(results, params.setPrs, params.onCountChangeRef)
+  dataCache.set(params.mode, results)
+}
+
+function finishPRFetch(
+  currentFetchId: number,
+  {
+    fetchIdRef,
+    fetchInProgressRef,
+    setLoading,
+    setRefreshing,
+  }: Pick<
+    FetchLifecycleParams,
+    'fetchIdRef' | 'fetchInProgressRef' | 'setLoading' | 'setRefreshing'
+  >
+): void {
+  if (currentFetchId !== fetchIdRef.current) return
+  setLoading(false)
+  setRefreshing(false)
+  fetchInProgressRef.current = false
+}
+
+async function runPRListFetch(params: FetchLifecycleParams, currentFetchId: number): Promise<void> {
+  const hasExistingData = hasExistingPRData(params.currentPrs, params.cached)
+  resetPRFetchState(hasExistingData, params)
+  try {
+    if (params.accounts.length === 0) {
+      params.setError('No GitHub accounts configured. Please add an account in Settings.')
+      params.setLoading(false)
+      return
+    }
+    const results = await enqueuePRListFetch(params)
+    applyPRFetchSuccess(results, currentFetchId, params)
+  } catch (err: unknown) {
+    handlePRFetchError(err, currentFetchId, params.fetchIdRef, params.mode, params.setError)
+  } finally {
+    finishPRFetch(currentFetchId, params)
+  }
 }
 
 interface PRContextMenuDeps {
@@ -313,30 +470,15 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
 
   const handleApprove = useCallback(
     async (pr: PullRequest) => {
-      if (pr.iApproved) return
-      const ownerRepo = parseOwnerRepoFromUrl(pr.url)
-      if (!ownerRepo) return
-      const approveKey = `${pr.repository}-${pr.id}`
-      setApproving(approveKey)
-      try {
-        await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            const client = new GitHubClient({ accounts }, recentlyMergedDays)
-            await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
-          },
-          { name: `approve-pr-${pr.repository}-${pr.id}` }
-        )
-        setPrs(prev => markApproved(prev, pr))
-        const cached = dataCache.get<PullRequest[]>(mode)
-        if (cached?.data) {
-          dataCache.set(mode, markApproved(cached.data, pr))
-        }
-      } catch (error: unknown) {
-        console.error('Failed to approve PR:', error)
-      } finally {
-        setApproving(null)
-      }
+      await approveListPullRequest(
+        pr,
+        accounts,
+        recentlyMergedDays,
+        mode,
+        enqueueRef,
+        setPrs,
+        setApproving
+      )
     },
     [accounts, mode, recentlyMergedDays, enqueueRef, setPrs, setApproving]
   )
@@ -356,6 +498,57 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
     handleApprove,
     handleApproveFromMenu,
   }
+}
+
+async function approveListPullRequest(
+  pr: PullRequest,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  recentlyMergedDays: number,
+  mode: PRSearchMode,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
+  setPrs: Dispatch<SetStateAction<PullRequest[]>>,
+  setApproving: (value: string | null) => void
+): Promise<void> {
+  if (pr.iApproved) return
+  const ownerRepo = parseOwnerRepoFromUrl(pr.url)
+  if (!ownerRepo) return
+
+  setApproving(`${pr.repository}-${pr.id}`)
+  try {
+    await enqueueApprovalTask(pr, ownerRepo, accounts, recentlyMergedDays, enqueueRef)
+    markPRApprovedInState(pr, mode, setPrs)
+  } catch (error: unknown) {
+    console.error('Failed to approve PR:', error)
+  } finally {
+    setApproving(null)
+  }
+}
+
+async function enqueueApprovalTask(
+  pr: PullRequest,
+  ownerRepo: { owner: string; repo: string },
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
+  recentlyMergedDays: number,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] }
+): Promise<void> {
+  await enqueueRef.current(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, recentlyMergedDays)
+      await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+    },
+    { name: `approve-pr-${pr.repository}-${pr.id}` }
+  )
+}
+
+function markPRApprovedInState(
+  pr: PullRequest,
+  mode: PRSearchMode,
+  setPrs: Dispatch<SetStateAction<PullRequest[]>>
+): void {
+  setPrs(prev => markApproved(prev, pr))
+  const cached = dataCache.get<PullRequest[]>(mode)
+  if (cached?.data) dataCache.set(mode, markApproved(cached.data, pr))
 }
 
 export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {
@@ -496,102 +689,50 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     if (accountsLoading || prSettingsLoading) {
       return
     }
-    /* v8 ignore start */
     if (fetchInProgressRef.current) {
       console.log(`Skipping duplicate fetch for ${mode} - fetch already in progress`)
       return
-      /* v8 ignore stop */
     }
     const cached = dataCache.get<PullRequest[]>(mode)
     const currentPrs = prsRef.current
     const enqueueTask = enqueueRef.current
     const cancelQueuedTasks = cancelAllRef.current
-    const isForceRefresh = forceRefresh > 0
-    if (cached && !isForceRefresh) {
-      const intervalMs = refreshInterval * MS_PER_MINUTE
-      const timeSinceLastFetch = Date.now() - cached.fetchedAt
-      if (timeSinceLastFetch < intervalMs) {
-        console.log(`Using cached PRs for ${mode} (${Math.round(timeSinceLastFetch / 1000)}s old)`)
-        applyCachedPRs(cached.data, setPrs, setLoading, setRefreshing, setError, onCountChangeRef)
-        return
-      }
+    if (
+      tryApplyFreshCachedPRs(mode, cached, forceRefresh, refreshInterval, {
+        setPrs,
+        setLoading,
+        setRefreshing,
+        setError,
+        onCountChangeRef,
+      })
+    ) {
+      return
     }
     fetchInProgressRef.current = true
     const currentFetchId = ++fetchIdRef.current
-    const fetchPRs = async () => {
-      /* v8 ignore start */
-      const hasExistingData = hasExistingPRData(currentPrs, cached)
-      /* v8 ignore stop */
-      if (hasExistingData) {
-        setRefreshing(true)
-        setLoading(false)
-      } else {
-        setLoading(true)
-      }
-      setError(null)
-      setProgress(null)
-      setTotalPrsFound(0)
-      try {
-        if (accounts.length === 0) {
-          setError('No GitHub accounts configured. Please add an account in Settings.')
-          setLoading(false)
-          return
-        }
-        const config = {
-          github: { accounts },
-        }
-        const githubClient = new GitHubClient(config.github, recentlyMergedDays)
-        console.log(
-          'Fetching PRs for',
-          accounts.length,
-          'account(s)…',
-          'mode:',
-          mode,
-          'recentlyMergedDays:',
-          recentlyMergedDays
-        )
-        const results = await enqueueTask(
-          async signal => {
-            /* v8 ignore start */
-            if (!isForceRefresh) {
-              const freshData = getFreshCachedData(mode, refreshInterval)
-              if (freshData) {
-                console.log(
-                  `[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`
-                )
-                return freshData
-              }
-            }
-            /* v8 ignore stop */
-            throwIfAborted(signal)
-            const prs = await fetchPRsByMode(githubClient, mode, handleProgress)
-            return prs
-          },
-          { name: `fetch-${mode}` }
-        )
-        /* v8 ignore start */
-        if (currentFetchId !== fetchIdRef.current) {
-          console.log('Ignoring stale fetch result for', mode)
-          return
-          /* v8 ignore stop */
-        }
-        console.log('Found PRs:', results.length)
-        sortPRResults(results, mode)
-        applyFetchResults(results, setPrs, onCountChangeRef)
-        dataCache.set(mode, results)
-      } catch (err: unknown) {
-        handlePRFetchError(err, currentFetchId, fetchIdRef, mode, setError)
-      } finally {
-        /* v8 ignore start */
-        if (currentFetchId === fetchIdRef.current) {
-          /* v8 ignore stop */
-          setLoading(false)
-          setRefreshing(false)
-          fetchInProgressRef.current = false
-        }
-      }
-    }
-    fetchPRs()
+    void runPRListFetch(
+      {
+        mode,
+        accounts,
+        recentlyMergedDays,
+        refreshInterval,
+        forceRefresh,
+        currentPrs,
+        cached,
+        enqueueTask,
+        handleProgress,
+        setPrs,
+        setLoading,
+        setRefreshing,
+        setError,
+        setProgress,
+        setTotalPrsFound,
+        onCountChangeRef,
+        fetchIdRef,
+        fetchInProgressRef,
+      },
+      currentFetchId
+    )
     return () => {
       fetchInProgressRef.current = false
       cancelQueuedTasks()

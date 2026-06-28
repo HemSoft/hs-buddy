@@ -44,6 +44,25 @@ function comparePrompts(a: PromptSortable, b: PromptSortable) {
   return a.title.localeCompare(b.title)
 }
 
+function buildPromptPatch(args: { title?: string; content?: string; sortOrder?: number }): {
+  title?: string
+  content?: string
+  sortOrder?: number
+  updatedAt?: number
+} {
+  const patch: {
+    title?: string
+    content?: string
+    sortOrder?: number
+  } = {}
+
+  if (args.title !== undefined) patch.title = args.title.trim()
+  if (args.content !== undefined) patch.content = normalizeContent(args.content)
+  if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder
+
+  return patch
+}
+
 export const list = query({
   args: {},
   handler: async ctx => {
@@ -90,16 +109,7 @@ export const update = mutation({
 
     validatePromptFields(args)
 
-    const patch: {
-      title?: string
-      content?: string
-      sortOrder?: number
-      updatedAt?: number
-    } = {}
-
-    if (args.title !== undefined) patch.title = args.title.trim()
-    if (args.content !== undefined) patch.content = normalizeContent(args.content)
-    if (args.sortOrder !== undefined) patch.sortOrder = args.sortOrder
+    const patch = buildPromptPatch(args)
 
     if (Object.keys(patch).length === 0) {
       return args.id

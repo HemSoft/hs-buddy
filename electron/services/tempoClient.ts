@@ -212,12 +212,7 @@ export async function getProjectAccountLinks(
     // Ensure accounts are loaded so accountIdToKey is populated
     await getAccounts()
     const accountMap = await getAccountMap()
-    const links = resp.results.flatMap(link => {
-      // Resolve account key from numeric ID in the self URL
-      const numericId = link.account.id ?? Number(link.account.self?.split('/').pop())
-      const key = accountIdToKey.get(numericId) || ''
-      return key ? [{ key, name: accountMap.get(key) || key, isDefault: link.default }] : []
-    })
+    const links = resp.results.flatMap(link => accountLinkResult(link, accountMap))
     return { success: true, data: links }
   } catch (err: unknown) {
     return { success: false, error: getErrorMessage(err) }
@@ -228,6 +223,21 @@ export async function getProjectAccountLinks(
 
 /** Map of numeric account ID → account key, built alongside getAccounts() */
 let accountIdToKey = new Map<number, string>()
+
+function numericAccountId(link: { account: { id: number; self: string } }): number {
+  return link.account.id ?? Number(link.account.self?.split('/').pop())
+}
+
+function accountLinkResult(
+  link: {
+    account: { id: number; self: string }
+    default: boolean
+  },
+  accountMap: Map<string, string>
+): { key: string; name: string; isDefault: boolean }[] {
+  const key = accountIdToKey.get(numericAccountId(link)) || ''
+  return key ? [{ key, name: accountMap.get(key) || key, isDefault: link.default }] : []
+}
 
 export async function getAccounts(): Promise<TempoResult<TempoAccount[]>> {
   try {

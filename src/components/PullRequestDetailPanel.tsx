@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { MouseEvent, ReactNode } from 'react'
 import {
   Check,
   CheckCircle2,
@@ -197,6 +198,86 @@ interface PRDetailHeaderProps {
   aiReviewProviders: AIReviewProviderEntry[]
 }
 
+function PRBranchFlow({ branches }: { branches: PRDetailHeaderProps['branches'] }) {
+  if (!branches?.baseBranch || !branches.headBranch) return null
+  return (
+    <>
+      <span className="pr-detail-dot">·</span>
+      <span className="pr-detail-branch-flow">
+        <GitBranch size={12} />
+        into <strong>{branches.baseBranch}</strong> from <strong>{branches.headBranch}</strong>
+      </span>
+    </>
+  )
+}
+
+function closeAfter(action: () => void, close: () => void): () => void {
+  return () => {
+    action()
+    close()
+  }
+}
+
+function buildMenuReviewProviders(
+  providers: AIReviewProviderEntry[],
+  close: () => void
+): AIReviewProviderEntry[] {
+  return providers.map(provider => ({
+    ...provider,
+    onRequest: closeAfter(provider.onRequest, close),
+  }))
+}
+
+interface PRDetailHeaderContextMenuProps {
+  contextMenu: { x: number; y: number } | null
+  youApproved: boolean
+  copilotReviewState: string
+  nudgeState: PRDetailHeaderProps['nudgeState']
+  aiReviewProviders: AIReviewProviderEntry[]
+  prUrl: string
+  onRequestCopilotReview: () => void
+  onApprove: () => void
+  onNudge: () => void
+  onRefresh: () => void
+  onStartRalphReview: () => void
+  onClose: () => void
+}
+
+function PRDetailHeaderContextMenu({
+  contextMenu,
+  youApproved,
+  copilotReviewState,
+  nudgeState,
+  aiReviewProviders,
+  prUrl,
+  onRequestCopilotReview,
+  onApprove,
+  onNudge,
+  onRefresh,
+  onStartRalphReview,
+  onClose,
+}: PRDetailHeaderContextMenuProps) {
+  if (!contextMenu) return null
+  return (
+    <PRDetailContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      youApproved={youApproved}
+      copilotReviewState={copilotReviewState}
+      nudgeState={nudgeState}
+      aiReviewProviders={buildMenuReviewProviders(aiReviewProviders, onClose)}
+      onRequestCopilotReview={closeAfter(onRequestCopilotReview, onClose)}
+      onApprove={closeAfter(onApprove, onClose)}
+      onNudge={closeAfter(onNudge, onClose)}
+      onRefresh={closeAfter(onRefresh, onClose)}
+      onCopyLink={closeAfter(() => navigator.clipboard.writeText(prUrl), onClose)}
+      onOpenExternal={closeAfter(() => window.shell.openExternal(prUrl), onClose)}
+      onStartRalphReview={closeAfter(onStartRalphReview, onClose)}
+      onClose={onClose}
+    />
+  )
+}
+
 function PRDetailHeader({
   pr,
   stateLabel,
@@ -214,8 +295,10 @@ function PRDetailHeader({
   aiReviewProviders,
 }: PRDetailHeaderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const copilotStateConfig = getCopilotStateConfig(copilotReviewState)
+  const closeContextMenu = () => setContextMenu(null)
 
-  const handleMoreClick = (e: React.MouseEvent) => {
+  const handleMoreClick = (e: MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
     setContextMenu({ x: rect.right - 180, y: rect.bottom + 4 })
   }
@@ -239,24 +322,15 @@ function PRDetailHeader({
           <span>{pr.org || pr.source}</span>
           <span className="pr-detail-dot">·</span>
           <span>{pr.repository}</span>
-          {branches?.baseBranch && branches?.headBranch && (
-            <>
-              <span className="pr-detail-dot">·</span>
-              <span className="pr-detail-branch-flow">
-                <GitBranch size={12} />
-                into <strong>{branches.baseBranch}</strong> from{' '}
-                <strong>{branches.headBranch}</strong>
-              </span>
-            </>
-          )}
+          <PRBranchFlow branches={branches} />
         </div>
       </div>
       <div className="pr-detail-header-actions">
         <button
           type="button"
-          className={`pr-detail-refresh-btn${getCopilotStateConfig(copilotReviewState).buttonClass}`}
+          className={`pr-detail-refresh-btn${copilotStateConfig.buttonClass}`}
           onClick={handleRequestCopilotReview}
-          title={getCopilotStateConfig(copilotReviewState).title}
+          title={copilotStateConfig.title}
           disabled={copilotReviewState !== 'idle'}
         >
           <CopilotReviewButtonIcon state={copilotReviewState} />
@@ -290,51 +364,20 @@ function PRDetailHeader({
           Open on GitHub
         </button>
       </div>
-      {contextMenu && (
-        <PRDetailContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          youApproved={youApproved}
-          copilotReviewState={copilotReviewState}
-          nudgeState={nudgeState}
-          aiReviewProviders={aiReviewProviders.map(p => ({
-            ...p,
-            onRequest: () => {
-              p.onRequest()
-              setContextMenu(null)
-            },
-          }))}
-          onRequestCopilotReview={() => {
-            handleRequestCopilotReview()
-            setContextMenu(null)
-          }}
-          onApprove={() => {
-            onApprove()
-            setContextMenu(null)
-          }}
-          onNudge={() => {
-            onNudge()
-            setContextMenu(null)
-          }}
-          onRefresh={() => {
-            onRefresh()
-            setContextMenu(null)
-          }}
-          onCopyLink={() => {
-            navigator.clipboard.writeText(pr.url)
-            setContextMenu(null)
-          }}
-          onOpenExternal={() => {
-            window.shell.openExternal(pr.url)
-            setContextMenu(null)
-          }}
-          onStartRalphReview={() => {
-            onStartRalphReview()
-            setContextMenu(null)
-          }}
-          onClose={() => setContextMenu(null)}
-        />
-      )}
+      <PRDetailHeaderContextMenu
+        contextMenu={contextMenu}
+        youApproved={youApproved}
+        copilotReviewState={copilotReviewState}
+        nudgeState={nudgeState}
+        aiReviewProviders={aiReviewProviders}
+        prUrl={pr.url}
+        onRequestCopilotReview={handleRequestCopilotReview}
+        onApprove={onApprove}
+        onNudge={onNudge}
+        onRefresh={onRefresh}
+        onStartRalphReview={onStartRalphReview}
+        onClose={closeContextMenu}
+      />
     </div>
   )
 }
@@ -445,6 +488,88 @@ interface PROverviewSectionProps {
   activityAt: string | null
 }
 
+function PRMetricCard({ title, value }: { title: string; value: ReactNode }) {
+  return (
+    <div className="pr-detail-card">
+      <div className="pr-detail-card-title">{title}</div>
+      <div className="pr-detail-card-value">{value}</div>
+    </div>
+  )
+}
+
+function LinkedIssueMetricCard({ issue }: { issue: PROverviewSectionProps['effectiveIssue'] }) {
+  if (!issue) {
+    return (
+      <div className="pr-detail-card" title="No linked issue">
+        <div className="pr-detail-card-title">
+          <CircleDot size={12} />
+          Linked Issue
+        </div>
+        <div className="pr-detail-card-value">
+          <span className="pr-detail-card-secondary">None</span>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      className="pr-detail-card pr-detail-card-interactive"
+      onClick={() => window.shell.openExternal(issue.url)}
+      onKeyDown={onKeyboardActivate(() => window.shell.openExternal(issue.url))}
+      title={`Open Issue #${issue.number} on GitHub`}
+    >
+      <div className="pr-detail-card-title">
+        <CircleDot size={12} />
+        Linked Issue
+      </div>
+      <div className="pr-detail-card-value">
+        <span className="pr-detail-linked-issue">#{issue.number}</span>
+      </div>
+    </button>
+  )
+}
+
+function AuthorMetaItem({ pr }: { pr: PRDetailInfo }) {
+  return (
+    <div className="pr-detail-meta-item pr-detail-meta-item-author">
+      <div className="pr-detail-meta-label">
+        <User size={14} />
+        Author
+      </div>
+      <div className="pr-detail-meta-value">
+        {pr.authorAvatarUrl && (
+          <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
+        )}
+        <span className="pr-detail-author-text">{pr.author}</span>
+      </div>
+    </div>
+  )
+}
+
+function RelativeMetaItem({
+  icon,
+  label,
+  relative,
+  value,
+}: {
+  icon: ReactNode
+  label: string
+  relative: string
+  value: string | null
+}) {
+  return (
+    <div className="pr-detail-meta-item">
+      <div className="pr-detail-meta-label">
+        {icon}
+        {label}
+        {relative && <span className="pr-detail-meta-relative">({relative})</span>}
+      </div>
+      <div className="pr-detail-meta-value">{formatDateFull(value)}</div>
+    </div>
+  )
+}
+
 function PROverviewSection({
   pr,
   youApproved,
@@ -456,82 +581,29 @@ function PROverviewSection({
   return (
     <>
       <div className="pr-detail-grid">
-        <div className="pr-detail-card">
-          <div className="pr-detail-card-title">Status</div>
-          <div className="pr-detail-card-value pr-detail-state">{pr.state}</div>
-        </div>
-        <div className="pr-detail-card">
-          <div className="pr-detail-card-title">Approvals</div>
-          <div className="pr-detail-card-value">
-            {pr.approvalCount}/{pr.assigneeCount > 0 ? pr.assigneeCount : '?'}
-          </div>
-        </div>
-        <div className="pr-detail-card">
-          <div className="pr-detail-card-title">You Approved</div>
-          <div className="pr-detail-card-value">{youApproved ? 'Yes' : 'No'}</div>
-        </div>
-        {effectiveIssue ? (
-          <button
-            type="button"
-            className="pr-detail-card pr-detail-card-interactive"
-            onClick={() => window.shell.openExternal(effectiveIssue.url)}
-            onKeyDown={onKeyboardActivate(() => window.shell.openExternal(effectiveIssue.url))}
-            title={`Open Issue #${effectiveIssue.number} on GitHub`}
-          >
-            <div className="pr-detail-card-title">
-              <CircleDot size={12} />
-              Linked Issue
-            </div>
-            <div className="pr-detail-card-value">
-              <span className="pr-detail-linked-issue">#{effectiveIssue.number}</span>
-            </div>
-          </button>
-        ) : (
-          <div className="pr-detail-card" title="No linked issue">
-            <div className="pr-detail-card-title">
-              <CircleDot size={12} />
-              Linked Issue
-            </div>
-            <div className="pr-detail-card-value">
-              <span className="pr-detail-card-secondary">None</span>
-            </div>
-          </div>
-        )}
+        <PRMetricCard title="Status" value={<span className="pr-detail-state">{pr.state}</span>} />
+        <PRMetricCard
+          title="Approvals"
+          value={`${pr.approvalCount}/${pr.assigneeCount > 0 ? pr.assigneeCount : '?'}`}
+        />
+        <PRMetricCard title="You Approved" value={youApproved ? 'Yes' : 'No'} />
+        <LinkedIssueMetricCard issue={effectiveIssue} />
       </div>
 
       <div className="pr-detail-meta-list">
-        <div className="pr-detail-meta-item pr-detail-meta-item-author">
-          <div className="pr-detail-meta-label">
-            <User size={14} />
-            Author
-          </div>
-          <div className="pr-detail-meta-value">
-            {pr.authorAvatarUrl && (
-              <img src={pr.authorAvatarUrl} alt={pr.author} className="pr-detail-avatar" />
-            )}
-            <span className="pr-detail-author-text">{pr.author}</span>
-          </div>
-        </div>
-        <div className="pr-detail-meta-item">
-          <div className="pr-detail-meta-label">
-            <Clock size={14} />
-            Created
-            {createdRelative && (
-              <span className="pr-detail-meta-relative">({createdRelative})</span>
-            )}
-          </div>
-          <div className="pr-detail-meta-value">{formatDateFull(pr.created)}</div>
-        </div>
-        <div className="pr-detail-meta-item">
-          <div className="pr-detail-meta-label">
-            <Check size={14} />
-            Last Activity
-            {activityRelative && (
-              <span className="pr-detail-meta-relative">({activityRelative})</span>
-            )}
-          </div>
-          <div className="pr-detail-meta-value">{formatDateFull(activityAt)}</div>
-        </div>
+        <AuthorMetaItem pr={pr} />
+        <RelativeMetaItem
+          icon={<Clock size={14} />}
+          label="Created"
+          relative={createdRelative}
+          value={pr.created}
+        />
+        <RelativeMetaItem
+          icon={<Check size={14} />}
+          label="Last Activity"
+          relative={activityRelative}
+          value={activityAt}
+        />
       </div>
     </>
   )
@@ -632,42 +704,63 @@ interface FocusedSectionContentProps {
   onHistoryLoaded: (history: PRHistorySummary) => void
 }
 
+type FocusedSectionRenderer = (props: FocusedSectionContentProps) => ReactNode
+
+const FOCUSED_SECTION_RENDERERS: Partial<Record<PRDetailSection, FocusedSectionRenderer>> = {
+  conversation: ({ pr, refreshKey }) => <PRThreadsPanel key={refreshKey} pr={pr} />,
+  commits: ({ pr, refreshKey, onHistoryLoaded }) => (
+    <PullRequestHistoryPanel
+      key={refreshKey}
+      pr={pr}
+      embedded
+      focus="commits"
+      onLoaded={onHistoryLoaded}
+    />
+  ),
+  checks: ({ pr, refreshKey }) => <PRChecksPanel key={refreshKey} pr={pr} />,
+  'files-changed': ({ pr, refreshKey }) => <PRFilesChangedPanel key={refreshKey} pr={pr} />,
+  'ai-reviews': ({ pr, refreshKey }) => <PRReviewsPanel key={refreshKey} pr={pr} />,
+}
+
 function FocusedSectionContent({
   section,
   pr,
   refreshKey,
   onHistoryLoaded,
 }: FocusedSectionContentProps) {
-  switch (section) {
-    case 'conversation':
-      return <PRThreadsPanel key={refreshKey} pr={pr} />
-    case 'commits':
-      return (
-        <PullRequestHistoryPanel
-          key={refreshKey}
-          pr={pr}
-          embedded
-          focus="commits"
-          onLoaded={onHistoryLoaded}
-        />
-      )
-    case 'checks':
-      return <PRChecksPanel key={refreshKey} pr={pr} />
-    case 'files-changed':
-      return <PRFilesChangedPanel key={refreshKey} pr={pr} />
-    case 'ai-reviews':
-      return <PRReviewsPanel key={refreshKey} pr={pr} />
-  }
+  const render = FOCUSED_SECTION_RENDERERS[section]
+  return render?.({ section, pr, refreshKey, onHistoryLoaded }) ?? null
+}
+
+function resolveActivityAt(pr: PRDetailInfo, historyUpdatedAt: string | null): string | null {
+  return historyUpdatedAt || pr.updatedAt || pr.date || pr.created
+}
+
+function formatRelativeDate(date: string | null | undefined): string {
+  return date ? formatDistanceToNow(date) : ''
 }
 
 function resolveActivityDates(
   pr: PRDetailInfo,
   historyUpdatedAt: string | null
 ): { activityAt: string | null; activityRelative: string; createdRelative: string } {
-  const activityAt = historyUpdatedAt || pr.updatedAt || pr.date || pr.created
-  const activityRelative = activityAt ? formatDistanceToNow(activityAt) : ''
-  const createdRelative = pr.created ? formatDistanceToNow(pr.created) : ''
+  const activityAt = resolveActivityAt(pr, historyUpdatedAt)
+  const activityRelative = formatRelativeDate(activityAt)
+  const createdRelative = formatRelativeDate(pr.created)
   return { activityAt, activityRelative, createdRelative }
+}
+
+function resolveSectionLabel(section: PRDetailSection | null): string | null {
+  return section ? (SECTION_LABELS[section] ?? null) : null
+}
+
+function resolveEffectiveIssue(
+  pr: PRDetailInfo,
+  linkedIssues: PRLinkedIssue[],
+  branches: { headBranch: string; baseBranch: string } | null,
+  ownerRepo: { owner: string; repo: string } | null
+): { number: number; url: string } | null {
+  return linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
 }
 
 function resolveLabelsAndIssue(
@@ -683,10 +776,9 @@ function resolveLabelsAndIssue(
   effectiveIssue: { number: number; url: string } | null
 } {
   const stateLabel = pr.state?.trim() || 'open'
-  const sectionLabel = section ? (SECTION_LABELS[section] ?? null) : null
+  const sectionLabel = resolveSectionLabel(section)
   const isFocusedSection = section !== null
-  const effectiveIssue =
-    linkedIssues[0] ?? deriveBranchIssue(linkedIssues, branches, pr.headBranch, ownerRepo)
+  const effectiveIssue = resolveEffectiveIssue(pr, linkedIssues, branches, ownerRepo)
   return { stateLabel, sectionLabel, isFocusedSection, effectiveIssue }
 }
 
@@ -745,6 +837,146 @@ function PRDetailBanners({
   )
 }
 
+type OwnerRepo = { owner: string; repo: string }
+type PRBranches = { headBranch: string; baseBranch: string }
+
+function getKnownBranches(
+  headBranch: string | undefined,
+  baseBranch: string | undefined
+): PRBranches | null {
+  if (!headBranch || !baseBranch) return null
+  return { headBranch, baseBranch }
+}
+
+async function fetchPRBranchesFromGitHub({
+  enqueue,
+  accounts,
+  ownerRepo,
+  prId,
+  repository,
+}: {
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+  ownerRepo: OwnerRepo
+  prId: number
+  repository: string
+}): Promise<PRBranches> {
+  return enqueue(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, prId)
+    },
+    { name: `pr-branches-${repository}-${prId}` }
+  )
+}
+
+function isNudgeBusy(state: 'idle' | 'sending' | 'sent' | 'error'): boolean {
+  return state === 'sending' || state === 'sent'
+}
+
+function setNudgeFailure(
+  message: string,
+  setNudgeState: (state: 'idle' | 'sending' | 'sent' | 'error') => void,
+  setNudgeError: (error: string | null) => void
+): void {
+  setNudgeError(message)
+  setNudgeState('error')
+  setTimeout(() => setNudgeState('idle'), 5000)
+}
+
+function applyNudgeResult(
+  result: Awaited<ReturnType<typeof window.slack.nudgeAuthor>>,
+  setNudgeState: (state: 'idle' | 'sending' | 'sent' | 'error') => void,
+  setNudgeError: (error: string | null) => void
+): void {
+  if (result.success) {
+    setNudgeState('sent')
+    return
+  }
+  console.warn('[Nudge] Failed:', result.error)
+  setNudgeFailure(result.error || 'Unknown error', setNudgeState, setNudgeError)
+}
+
+function resolveRalphReviewOrg(pr: PRDetailInfo, ownerRepo: OwnerRepo | null): string {
+  return pr.org || ownerRepo?.owner || ''
+}
+
+function resolveRalphReviewRepoPath(
+  org: string,
+  repository: string,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+): string {
+  const repoRoot = accounts.find(a => a.org.toLowerCase() === org.toLowerCase())?.repoRoot
+  return repoRoot ? `${repoRoot.replace(/[\\/]$/, '')}/${repository}` : ''
+}
+
+function startRalphPRReview(
+  pr: PRDetailInfo,
+  ownerRepo: OwnerRepo | null,
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+): void {
+  const org = resolveRalphReviewOrg(pr, ownerRepo)
+  const repoPath = resolveRalphReviewRepoPath(org, pr.repository, accounts)
+  window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } }))
+  setTimeout(() => {
+    window.dispatchEvent(
+      new CustomEvent('ralph:launch-pr-review', {
+        detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
+      })
+    )
+  }, 100)
+}
+
+function syncPRDetailIdentity({
+  pr,
+  prIdentityKey,
+  approvalKey,
+  previousPrIdentityKey,
+  previousApprovalKey,
+  setPreviousPrIdentityKey,
+  setPreviousApprovalKey,
+  setYouApproved,
+  setHistoryUpdatedAt,
+  setLinkedIssues,
+  setBranches,
+  setNudgeState,
+  setNudgeError,
+  branchFetchKeyRef,
+}: {
+  pr: PRDetailInfo
+  prIdentityKey: string
+  approvalKey: string
+  previousPrIdentityKey: string
+  previousApprovalKey: string
+  setPreviousPrIdentityKey: (value: string) => void
+  setPreviousApprovalKey: (value: string) => void
+  setYouApproved: (value: boolean) => void
+  setHistoryUpdatedAt: (value: string | null) => void
+  setLinkedIssues: (value: PRLinkedIssue[]) => void
+  setBranches: (value: { headBranch: string; baseBranch: string } | null) => void
+  setNudgeState: (value: 'idle' | 'sending' | 'sent' | 'error') => void
+  setNudgeError: (value: string | null) => void
+  branchFetchKeyRef: { current: string }
+}): void {
+  if (previousPrIdentityKey !== prIdentityKey) {
+    branchFetchKeyRef.current = prIdentityKey
+    setPreviousPrIdentityKey(prIdentityKey)
+    setPreviousApprovalKey(approvalKey)
+    setYouApproved(pr.iApproved)
+    setHistoryUpdatedAt(null)
+    setLinkedIssues([])
+    setBranches(initialBranches(pr))
+    setNudgeState('idle')
+    setNudgeError(null)
+    return
+  }
+  if (previousApprovalKey !== approvalKey) {
+    setPreviousApprovalKey(approvalKey)
+    setYouApproved(pr.iApproved)
+  }
+}
+
 export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const { pr } = props
   const section = props.section ?? null
@@ -800,30 +1032,37 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [nudgeError, setNudgeError] = useState<string | null>(null)
   const prIdentityKey = `${pr.id}:${pr.repository}:${pr.url}`
+  const branchFetchKeyRef = useRef(prIdentityKey)
   const approvalKey = `${prIdentityKey}:${pr.iApproved}`
   const [previousPrIdentityKey, setPreviousPrIdentityKey] = useState(prIdentityKey)
   const [previousApprovalKey, setPreviousApprovalKey] = useState(approvalKey)
 
-  if (previousPrIdentityKey !== prIdentityKey) {
-    setPreviousPrIdentityKey(prIdentityKey)
-    setPreviousApprovalKey(approvalKey)
-    setYouApproved(pr.iApproved)
-    setHistoryUpdatedAt(null)
-    setLinkedIssues([])
-    setNudgeState('idle')
-    setNudgeError(null)
-  } else if (previousApprovalKey !== approvalKey) {
-    setPreviousApprovalKey(approvalKey)
-    setYouApproved(pr.iApproved)
-  }
+  syncPRDetailIdentity({
+    pr,
+    prIdentityKey,
+    approvalKey,
+    previousPrIdentityKey,
+    previousApprovalKey,
+    setPreviousPrIdentityKey,
+    setPreviousApprovalKey,
+    setYouApproved,
+    setHistoryUpdatedAt,
+    setLinkedIssues,
+    setBranches,
+    setNudgeState,
+    setNudgeError,
+    branchFetchKeyRef,
+  })
 
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
 
   const fetchBranches = useCallback(async () => {
-    if (pr.headBranch && pr.baseBranch) {
-      setBranches({ headBranch: pr.headBranch, baseBranch: pr.baseBranch })
+    branchFetchKeyRef.current = prIdentityKey
+    const knownBranches = getKnownBranches(pr.headBranch, pr.baseBranch)
+    if (knownBranches) {
+      setBranches(knownBranches)
       return
     }
 
@@ -833,23 +1072,22 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     }
 
     try {
-      const result = await enqueueRef.current(
-        /* v8 ignore start */
-        async signal => {
-          throwIfAborted(signal)
-          const client = new GitHubClient({ accounts }, 7)
-          return await client.fetchPRBranches(ownerRepo.owner, ownerRepo.repo, pr.id)
-          /* v8 ignore stop */
-        },
-        { name: `pr-branches-${pr.repository}-${pr.id}` }
-      )
-      /* v8 ignore start */
-      setBranches(result)
-      /* v8 ignore stop */
-    } catch (_: unknown) {
-      setBranches(null)
+      const result = await fetchPRBranchesFromGitHub({
+        enqueue: enqueueRef.current,
+        accounts,
+        ownerRepo,
+        prId: pr.id,
+        repository: pr.repository,
+      })
+      if (branchFetchKeyRef.current === prIdentityKey) {
+        setBranches(result)
+      }
+    } catch (_error: unknown) {
+      if (branchFetchKeyRef.current === prIdentityKey) {
+        setBranches(null)
+      }
     }
-  }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
+  }, [accounts, ownerRepo, prIdentityKey, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
 
   useEffect(() => {
     fetchBranches()
@@ -896,9 +1134,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   }, [accounts, ownerRepo, pr.id, pr.repository, youApproved, isApproving])
 
   const handleNudgeAuthor = useCallback(async () => {
-    /* v8 ignore start -- button is disabled in sending/sent states */
-    if (nudgeState === 'sending' || nudgeState === 'sent') return
-    /* v8 ignore stop */
+    if (isNudgeBusy(nudgeState)) return
     setNudgeState('sending')
     setNudgeError(null)
     try {
@@ -907,19 +1143,10 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         prTitle: pr.title,
         prUrl: pr.url,
       })
-      if (result.success) {
-        setNudgeState('sent')
-      } else {
-        console.warn('[Nudge] Failed:', result.error)
-        setNudgeError(result.error || 'Unknown error')
-        setNudgeState('error')
-        setTimeout(() => setNudgeState('idle'), 5000)
-      }
+      applyNudgeResult(result, setNudgeState, setNudgeError)
     } catch (err: unknown) {
       console.error('[Nudge] Error:', err)
-      setNudgeError(String(err))
-      setNudgeState('error')
-      setTimeout(() => setNudgeState('idle'), 5000)
+      setNudgeFailure(String(err), setNudgeState, setNudgeError)
     }
   }, [nudgeState, pr.author, pr.title, pr.url])
 
@@ -939,21 +1166,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         nudgeError={nudgeError}
         onNudge={handleNudgeAuthor}
         aiReviewProviders={aiReviewProviders}
-        onStartRalphReview={() => {
-          const org = pr.org || ownerRepo?.owner || ''
-          const repoRoot = accounts.find(a => a.org.toLowerCase() === org.toLowerCase())?.repoRoot
-          const repoPath = repoRoot ? `${repoRoot.replace(/[\\/]$/, '')}/${pr.repository}` : ''
-          window.dispatchEvent(
-            new CustomEvent('app:navigate', { detail: { viewId: 'ralph-dashboard' } })
-          )
-          setTimeout(() => {
-            window.dispatchEvent(
-              new CustomEvent('ralph:launch-pr-review', {
-                detail: { prNumber: pr.id, repository: pr.repository, org, repoPath },
-              })
-            )
-          }, 100)
-        }}
+        onStartRalphReview={() => startRalphPRReview(pr, ownerRepo, accounts)}
       />
 
       <div className="pr-detail-body">

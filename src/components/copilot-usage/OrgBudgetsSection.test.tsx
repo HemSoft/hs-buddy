@@ -1,16 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { OrgBudgetsSection } from './OrgBudgetsSection'
+import { OrgBudgetSummary, OrgBudgetsSection } from './OrgBudgetsSection'
 import type { OrgBudgetState } from './types'
 
 vi.mock('../../utils/dateUtils', () => ({
   formatTime: (ts: number) => `time:${ts}`,
 }))
 
-function makeOrgBudgetData(overrides: Record<string, unknown> = {}) {
+type OrgBudgetData = NonNullable<OrgBudgetState['data']>
+
+function makeOrgBudgetData(overrides: Partial<OrgBudgetData> = {}): OrgBudgetData {
   return {
+    org: 'acme',
     budgetAmount: 100,
     spent: 42,
+    gross: 0,
+    spentUnavailable: false,
     useQuotaOverage: false,
     preventFurtherUsage: false,
     billingYear: 2026,
@@ -18,6 +23,10 @@ function makeOrgBudgetData(overrides: Record<string, unknown> = {}) {
     fetchedAt: 1700000000000,
     ...overrides,
   }
+}
+
+function makeMalformedOrgBudgetData(overrides: Record<string, unknown>): OrgBudgetData {
+  return { ...makeOrgBudgetData(), ...overrides } as OrgBudgetData
 }
 
 describe('OrgBudgetsSection', () => {
@@ -43,7 +52,7 @@ describe('OrgBudgetsSection', () => {
   it('renders budget data with spent amount', () => {
     const orgs = new Map([['acme', 'acme-token']])
     const budgets: Record<string, OrgBudgetState> = {
-      acme: { data: makeOrgBudgetData() as OrgBudgetState['data'], loading: false, error: null },
+      acme: { data: makeOrgBudgetData(), loading: false, error: null },
     }
 
     render(
@@ -55,13 +64,13 @@ describe('OrgBudgetsSection', () => {
   it('shows loading spinner', () => {
     const orgs = new Map([['acme', 'acme-token']])
     const budgets: Record<string, OrgBudgetState> = {
-      acme: { data: makeOrgBudgetData() as OrgBudgetState['data'], loading: true, error: null },
+      acme: { data: makeOrgBudgetData(), loading: true, error: null },
     }
 
-    const { container } = render(
+    render(
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
     )
-    expect(container.querySelector('.spin')).toBeTruthy()
+    expect(screen.getByLabelText('Loading org budget')).toBeInTheDocument()
   })
 
   it('shows "Not on enhanced billing" for enhanced billing errors', () => {
@@ -92,7 +101,7 @@ describe('OrgBudgetsSection', () => {
     const orgs = new Map([['acme', 'acme-token']])
     const budgets: Record<string, OrgBudgetState> = {
       acme: {
-        data: makeOrgBudgetData({ preventFurtherUsage: true }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ preventFurtherUsage: true }),
         loading: false,
         error: null,
       },
@@ -104,11 +113,29 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('Stop at limit')).toBeInTheDocument()
   })
 
+  it('shows loading and stop-at-limit badges together', () => {
+    const orgs = new Map([['acme', 'acme-token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ preventFurtherUsage: true }),
+        loading: true,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByLabelText('Loading org budget')).toBeInTheDocument()
+    expect(screen.getByText('Stop at limit')).toBeInTheDocument()
+  })
+
   it('shows "no budget set" when budget amount is null', () => {
     const orgs = new Map([['unknown-org', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       'unknown-org': {
-        data: makeOrgBudgetData({ budgetAmount: null }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ budgetAmount: null }),
         loading: false,
         error: null,
       },
@@ -124,7 +151,7 @@ describe('OrgBudgetsSection', () => {
     const orgs = new Map([['unknown-org', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       'unknown-org': {
-        data: makeOrgBudgetData({ budgetAmount: null }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ budgetAmount: null }),
         loading: false,
         error: null,
       },
@@ -134,7 +161,7 @@ describe('OrgBudgetsSection', () => {
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
     )
 
-    expect(document.querySelector('.usage-budget-bar-track')).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar', { name: 'Budget usage' })).not.toBeInTheDocument()
   })
 
   it('shows overage when useQuotaOverage is true', () => {
@@ -142,7 +169,7 @@ describe('OrgBudgetsSection', () => {
     const overages = new Map([['acme', 25]])
     const budgets: Record<string, OrgBudgetState> = {
       acme: {
-        data: makeOrgBudgetData({ useQuotaOverage: true }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ useQuotaOverage: true }),
         loading: false,
         error: null,
       },
@@ -159,7 +186,7 @@ describe('OrgBudgetsSection', () => {
     const overages = new Map([['acme', 0]])
     const budgets: Record<string, OrgBudgetState> = {
       acme: {
-        data: makeOrgBudgetData({ useQuotaOverage: false, spent: null }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ useQuotaOverage: false, spent: null }),
         loading: false,
         error: null,
       },
@@ -175,11 +202,97 @@ describe('OrgBudgetsSection', () => {
     expect(screen.queryByText(/overage/i)).not.toBeInTheDocument()
   })
 
+  it('treats non-finite spend as unavailable', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ spent: Number.NaN }),
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('Spend unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+  })
+
+  it('does not project when spend is not numeric', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeMalformedOrgBudgetData({ spent: '42' }),
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('Spend unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+  })
+
+  it('renders zero-width budget progress when spend and share are zero', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ spent: 0, budgetAmount: 100 }),
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByRole('progressbar', { name: 'Budget usage' })).toHaveAttribute(
+      'aria-valuenow',
+      '0'
+    )
+  })
+
+  it('shows gross consumption when gross spend is positive and budget is not quota-backed', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ gross: 120.5, useQuotaOverage: false }),
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('$120.50 consumed')).toBeInTheDocument()
+  })
+
+  it('renders loading and stop-at-limit badges in the compact org budget summary', () => {
+    const state: OrgBudgetState = {
+      data: makeOrgBudgetData({ preventFurtherUsage: true }),
+      loading: true,
+      error: null,
+    }
+
+    render(<OrgBudgetSummary state={state} quotaOverage={0} />)
+
+    expect(screen.getByLabelText('Loading org budget summary')).toBeInTheDocument()
+    expect(screen.getByText('Stop at limit')).toBeInTheDocument()
+  })
+
   it('shows "no budget set" for hemsoft org when budget amount is null', () => {
     const orgs = new Map([['Hemsoft', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       Hemsoft: {
-        data: makeOrgBudgetData({ budgetAmount: null }) as OrgBudgetState['data'],
+        data: makeOrgBudgetData({ budgetAmount: null }),
         loading: false,
         error: null,
       },
@@ -197,9 +310,9 @@ describe('OrgBudgetsSection', () => {
       ['hemsoft', 'token'],
     ])
     const budgets: Record<string, OrgBudgetState> = {
-      acme: { data: makeOrgBudgetData() as OrgBudgetState['data'], loading: false, error: null },
+      acme: { data: makeOrgBudgetData(), loading: false, error: null },
       hemsoft: {
-        data: makeOrgBudgetData() as OrgBudgetState['data'],
+        data: makeOrgBudgetData(),
         loading: false,
         error: null,
       },
@@ -216,7 +329,7 @@ describe('OrgBudgetsSection', () => {
     const orgs = new Map([['acme', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       acme: {
-        data: makeOrgBudgetData() as OrgBudgetState['data'],
+        data: makeOrgBudgetData(),
         loading: false,
         error: null,
       },
@@ -238,7 +351,7 @@ describe('OrgBudgetsSection', () => {
         data: makeOrgBudgetData({
           useQuotaOverage: false,
           budgetAmount: 100,
-        }) as OrgBudgetState['data'],
+        }),
         loading: false,
         error: null,
       },
@@ -248,7 +361,7 @@ describe('OrgBudgetsSection', () => {
       <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={overages} />
     )
     expect(screen.getByText(/mine/)).toBeInTheDocument()
-    expect(document.querySelector('.usage-budget-bar-myshare')).toBeTruthy()
+    expect(screen.getByTitle('My share: $15.00')).toBeInTheDocument()
   })
 
   it('shows "from quota" when useQuotaOverage is true and no budget is set', () => {
@@ -258,7 +371,7 @@ describe('OrgBudgetsSection', () => {
         data: makeOrgBudgetData({
           useQuotaOverage: true,
           budgetAmount: null,
-        }) as OrgBudgetState['data'],
+        }),
         loading: false,
         error: null,
       },
@@ -274,7 +387,7 @@ describe('OrgBudgetsSection', () => {
     const orgs = new Map([['acme', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
       acme: {
-        data: makeOrgBudgetData() as OrgBudgetState['data'],
+        data: makeOrgBudgetData(),
         loading: false,
         error: 'Some error',
       },
@@ -300,7 +413,7 @@ describe('OrgBudgetsSection', () => {
             budgetAmount: 1000,
             fetchedAt: midApril2026,
             spentUnavailable: false,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -326,7 +439,7 @@ describe('OrgBudgetsSection', () => {
             spent: 300,
             useQuotaOverage: true,
             fetchedAt: midApril2026,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -350,7 +463,7 @@ describe('OrgBudgetsSection', () => {
             spent: 300,
             spentUnavailable: true,
             fetchedAt: midApril2026,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -373,7 +486,7 @@ describe('OrgBudgetsSection', () => {
           data: makeOrgBudgetData({
             spent: 300,
             fetchedAt: 1700000000000, // Nov 2023 — outside Apr 2026
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -400,7 +513,7 @@ describe('OrgBudgetsSection', () => {
             budgetAmount: 1000,
             fetchedAt: fiveDaysIn,
             spentUnavailable: false,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -427,7 +540,7 @@ describe('OrgBudgetsSection', () => {
             budgetAmount: 1000,
             fetchedAt: latePeriod,
             spentUnavailable: false,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },
@@ -452,7 +565,7 @@ describe('OrgBudgetsSection', () => {
             budgetAmount: null,
             fetchedAt: midApril2026,
             spentUnavailable: false,
-          }) as OrgBudgetState['data'],
+          }),
           loading: false,
           error: null,
         },

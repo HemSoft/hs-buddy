@@ -37,14 +37,22 @@ interface Finding {
 const findings: Finding[] = []
 const electronDir = join(process.cwd(), 'electron')
 
+function isSourceFile(filePath: string): boolean {
+  return filePath.endsWith('.ts') || filePath.endsWith('.js')
+}
+
+function isSkippedDirectory(entry: string): boolean {
+  return entry === 'node_modules'
+}
+
 function walkDir(dir: string): string[] {
   const files: string[] = []
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) {
-      if (entry === 'node_modules') continue
+      if (isSkippedDirectory(entry)) continue
       files.push(...walkDir(full))
-    } else if (full.endsWith('.ts') || full.endsWith('.js')) {
+    } else if (isSourceFile(full)) {
       files.push(full)
     }
   }
@@ -191,12 +199,19 @@ function matchesRule(
 ): boolean {
   if (!rule.pattern.test(line)) return false
   if (rule.skipComments && isCommentLine(line)) return false
-  if (rule.contextCheck) {
-    const size = rule.contextSize ?? 5
-    const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size).join('\n')
-    if (!rule.contextCheck(context)) return false
-  }
+  if (!passesContextCheck(rule, lines, lineIdx)) return false
   return true
+}
+
+function passesContextCheck(
+  rule: (typeof securityRules)[number],
+  lines: string[],
+  lineIdx: number
+): boolean {
+  if (!rule.contextCheck) return true
+  const size = rule.contextSize ?? 5
+  const context = lines.slice(Math.max(0, lineIdx - size), lineIdx + size + 1).join('\n')
+  return rule.contextCheck(context)
 }
 
 function checkFile(filePath: string): void {
@@ -209,18 +224,36 @@ function checkFile(filePath: string): void {
     const line = lines[i]
     const lineNum = i + 1
 
-    for (const rule of securityRules) {
-      if (rule.rule === 'no-webview-tag' && documentedWebviewException) continue
-      if (!matchesRule(rule, line, lines, i)) continue
-      findings.push({
-        file: rel,
-        line: lineNum,
-        severity: rule.severity,
-        rule: rule.rule,
-        message: rule.message,
-      })
-    }
+    for (const rule of securityRules)
+      checkLineRule(rule, line, lines, i, rel, lineNum, documentedWebviewException)
   }
+}
+
+function checkLineRule(
+  rule: (typeof securityRules)[number],
+  line: string,
+  lines: string[],
+  lineIdx: number,
+  file: string,
+  lineNum: number,
+  documentedWebviewException: boolean
+): void {
+  if (shouldSkipLineRule(rule, documentedWebviewException)) return
+  if (!matchesRule(rule, line, lines, lineIdx)) return
+  findings.push({
+    file,
+    line: lineNum,
+    severity: rule.severity,
+    rule: rule.rule,
+    message: rule.message,
+  })
+}
+
+function shouldSkipLineRule(
+  rule: (typeof securityRules)[number],
+  documentedWebviewException: boolean
+): boolean {
+  return rule.rule === 'no-webview-tag' && documentedWebviewException
 }
 
 interface InsecureSettingDef {
@@ -264,11 +297,16 @@ function findMatchingClose(content: string, startIdx: number): number {
   let depth = 1
   let endIdx = startIdx
   for (let i = startIdx; i < content.length && depth > 0; i++) {
-    if (content[i] === '(' || content[i] === '{') depth++
-    else if (content[i] === ')' || content[i] === '}') depth--
+    depth += bracketDepthDelta(content[i])
     endIdx = i
   }
   return endIdx
+}
+
+function bracketDepthDelta(char: string): number {
+  if (char === '(' || char === '{') return 1
+  if (char === ')' || char === '}') return -1
+  return 0
 }
 
 /**
@@ -297,20 +335,32 @@ function checkBrowserWindowBlocks(filePath: string): void {
     const lineNum = content.slice(0, match.index).split('\n').length
 
     for (const setting of insecureSettings) {
-      if (setting.rule === 'no-webview-tag-multiline' && hasDocumentedWebviewException(content)) {
-        continue
-      }
-      if (setting.pattern.test(block) && !isEntireBlockComment(block, setting.keyword)) {
-        findings.push({
-          file: rel,
-          line: lineNum,
-          severity: setting.severity ?? 'high',
-          rule: setting.rule,
-          message: setting.message,
-        })
-      }
+      checkBrowserWindowSetting(setting, block, content, rel, lineNum)
     }
   }
+}
+
+function checkBrowserWindowSetting(
+  setting: InsecureSettingDef,
+  block: string,
+  content: string,
+  file: string,
+  line: number
+): void {
+  if (shouldSkipBrowserWindowSetting(setting, content)) return
+  if (!setting.pattern.test(block)) return
+  if (isEntireBlockComment(block, setting.keyword)) return
+  findings.push({
+    file,
+    line,
+    severity: setting.severity ?? 'high',
+    rule: setting.rule,
+    message: setting.message,
+  })
+}
+
+function shouldSkipBrowserWindowSetting(setting: InsecureSettingDef, content: string): boolean {
+  return setting.rule === 'no-webview-tag-multiline' && hasDocumentedWebviewException(content)
 }
 
 /** Returns true if the given keyword appears only inside a comment in the block. */

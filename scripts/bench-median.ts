@@ -75,17 +75,29 @@ function assertCompatibleRuns(runs: BenchmarkOutput[]): void {
 
   for (let i = 1; i < runs.length; i++) {
     const candidate = mapBenchmarks(runs[i])
-    for (const key of reference.keys()) {
-      if (!candidate.has(key)) {
-        throw new Error(`Run ${i + 1} is missing benchmark: ${key}`)
-      }
-    }
-    for (const key of candidate.keys()) {
-      if (!reference.has(key)) {
-        throw new Error(`Run ${i + 1} has unexpected benchmark: ${key}`)
-      }
-    }
+    assertRunContainsBenchmarks(candidate, reference, i, 'missing')
+    assertRunContainsBenchmarks(reference, candidate, i, 'unexpected')
   }
+}
+
+function assertRunContainsBenchmarks(
+  expected: Map<string, BenchmarkResult>,
+  actual: Map<string, BenchmarkResult>,
+  runIndex: number,
+  errorKind: 'missing' | 'unexpected'
+): void {
+  for (const key of actual.keys()) {
+    if (!expected.has(key)) throwIncompatibleBenchmarkRun(runIndex, errorKind, key)
+  }
+}
+
+function throwIncompatibleBenchmarkRun(
+  runIndex: number,
+  errorKind: 'missing' | 'unexpected',
+  key: string
+): never {
+  const problem = errorKind === 'missing' ? 'is missing' : 'has unexpected'
+  throw new Error(`Run ${runIndex + 1} ${problem} benchmark: ${key}`)
 }
 
 export function buildMedianBenchmarkOutput(runs: BenchmarkOutput[]): BenchmarkOutput {

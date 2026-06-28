@@ -45,6 +45,10 @@ interface SlackNudgeResult {
   error?: string
 }
 
+function slackError(prefix: string, error: string | undefined): SlackNudgeResult {
+  return { success: false, error: `${prefix}: ${error || 'unknown'}` }
+}
+
 /**
  * Look up a Slack user by their email address.
  * Returns the Slack user ID or null if not found.
@@ -78,7 +82,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     error?: string
   }
   if (!openData.ok || !openData.channel) {
-    return { success: false, error: `Failed to open DM: ${openData.error || 'unknown'}` }
+    return slackError('Failed to open DM', openData.error)
   }
 
   // Send the nudge message
@@ -93,7 +97,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
   })
   const msgData = (await msgRes.json()) as { ok: boolean; error?: string }
   if (!msgData.ok) {
-    return { success: false, error: `Failed to send message: ${msgData.error || 'unknown'}` }
+    return slackError('Failed to send message', msgData.error)
   }
 
   return { success: true }

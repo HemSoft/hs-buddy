@@ -53,6 +53,7 @@ interface GoogleForecastResponse {
 }
 
 type PollenTypeKey = 'tree' | 'grass' | 'weed'
+type GoogleForecastDay = NonNullable<GoogleForecastResponse['dailyInfo']>[number]
 
 const POLLEN_TYPE_KEYS: Record<string, PollenTypeKey> = {
   TREE: 'tree',
@@ -83,13 +84,21 @@ function normalizePollenType(raw: string | undefined): 'TREE' | 'GRASS' | 'WEED'
   return VALID_POLLEN_TYPES.has(upper) ? (upper as 'TREE' | 'GRASS' | 'WEED') : 'TREE'
 }
 
+function readPollenIndex(indexInfo: GoogleIndexInfo | undefined): number {
+  return indexInfo?.value ?? 0
+}
+
+function readPollenCategory(indexInfo: GoogleIndexInfo | undefined): string {
+  return indexInfo?.category ?? 'None'
+}
+
 function buildSpeciesFromPlant(plant: GooglePlantInfo): PollenSpecies {
   return {
     code: plant.code!,
     displayName: plant.displayName!,
-    index: plant.indexInfo?.value ?? 0,
-    category: plant.indexInfo?.category ?? 'None',
-    inSeason: plant.inSeason ?? false,
+    index: readPollenIndex(plant.indexInfo),
+    category: readPollenCategory(plant.indexInfo),
+    inSeason: Boolean(plant.inSeason),
     type: normalizePollenType(plant.plantDescription?.type),
   }
 }
@@ -100,11 +109,27 @@ function parsePlantInfo(plant: GooglePlantInfo): PollenSpecies | null {
 }
 
 function extractDayData(json: GoogleForecastResponse) {
-  const day = json.dailyInfo?.[0]
+  const day = firstForecastDay(json)
   if (!day) return null
-  const types = day.pollenTypeInfo ?? []
-  const plants = day.plantInfo ?? []
-  return types.length === 0 && plants.length === 0 ? null : { types, plants }
+  const types = readPollenTypes(day)
+  const plants = readPlants(day)
+  return hasPollenDayData(types, plants) ? { types, plants } : null
+}
+
+function hasPollenDayData(types: GooglePollenTypeInfo[], plants: GooglePlantInfo[]): boolean {
+  return types.length > 0 || plants.length > 0
+}
+
+function firstForecastDay(json: GoogleForecastResponse): GoogleForecastDay | null {
+  return json.dailyInfo?.[0] ?? null
+}
+
+function readPollenTypes(day: GoogleForecastDay): GooglePollenTypeInfo[] {
+  return day.pollenTypeInfo ?? []
+}
+
+function readPlants(day: GoogleForecastDay): GooglePlantInfo[] {
+  return day.plantInfo ?? []
 }
 
 function parseGooglePollenResponse(json: GoogleForecastResponse): PollenData | null {

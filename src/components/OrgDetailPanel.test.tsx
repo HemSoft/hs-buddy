@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { OrgDetailPanel } from './OrgDetailPanel'
 
 /* ── hoisted mocks ─────────────────────────────────────────────────── */
@@ -311,6 +311,73 @@ describe('OrgDetailPanel', () => {
       })
       expect(screen.getByText('25')).toBeInTheDocument()
       expect(screen.getByText('10 private · 3 archived')).toBeInTheDocument()
+    })
+
+    it('builds an initial overview from cached repos when overview cache is absent', () => {
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return null
+        if (key === 'org-repos:test-org')
+          return {
+            data: {
+              authenticatedAs: 'alice',
+              isUserNamespace: false,
+              repos: [
+                {
+                  name: 'one',
+                  fullName: 'test-org/one',
+                  description: null,
+                  url: 'https://github.com/test-org/one',
+                  defaultBranch: 'main',
+                  language: null,
+                  stargazersCount: 1,
+                  forksCount: 0,
+                  isPrivate: false,
+                  isArchived: false,
+                  updatedAt: null,
+                  pushedAt: '2026-04-01T00:00:00Z',
+                },
+                {
+                  name: 'two',
+                  fullName: 'test-org/two',
+                  description: null,
+                  url: 'https://github.com/test-org/two',
+                  defaultBranch: 'main',
+                  language: null,
+                  stargazersCount: 2,
+                  forksCount: 1,
+                  isPrivate: true,
+                  isArchived: false,
+                  updatedAt: null,
+                  pushedAt: '2026-04-02T00:00:00Z',
+                },
+                {
+                  name: 'three',
+                  fullName: 'test-org/three',
+                  description: null,
+                  url: 'https://github.com/test-org/three',
+                  defaultBranch: 'main',
+                  language: null,
+                  stargazersCount: 0,
+                  forksCount: 0,
+                  isPrivate: false,
+                  isArchived: true,
+                  updatedAt: null,
+                  pushedAt: '2026-03-31T00:00:00Z',
+                },
+              ],
+            },
+            fetchedAt: Date.now(),
+          }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      const repoMetric = screen.getByText('Repositories').closest('.org-detail-metric-card')
+      expect(repoMetric).not.toBeNull()
+      expect(within(repoMetric as HTMLElement).getByText('3')).toBeInTheDocument()
+      expect(screen.getByText('1 private · 1 archived')).toBeInTheDocument()
     })
 
     it('renders commits today', async () => {

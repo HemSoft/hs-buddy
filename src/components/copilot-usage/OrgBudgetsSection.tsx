@@ -28,7 +28,10 @@ interface BudgetUsageAmounts {
   myShare: number
 }
 
-function resolveEffectiveBudget(d: NonNullable<OrgBudgetState['data']>): number | null {
+type OrgBudgetData = NonNullable<OrgBudgetState['data']>
+type OrgBudgetDataWithSpend = OrgBudgetData & { spent: number }
+
+function resolveEffectiveBudget(d: OrgBudgetData): number | null {
   return d.budgetAmount ?? null
 }
 
@@ -36,10 +39,7 @@ function clampPct(value: number, budget: number): number {
   return Math.min((value / budget) * 100, 100)
 }
 
-function resolveBudgetUsageAmounts(
-  d: NonNullable<OrgBudgetState['data']>,
-  quotaOverage: number
-): BudgetUsageAmounts {
+function resolveBudgetUsageAmounts(d: OrgBudgetData, quotaOverage: number): BudgetUsageAmounts {
   if (d.useQuotaOverage) {
     return { displaySpent: quotaOverage, myShare: 0 }
   }
@@ -55,10 +55,7 @@ function resolveMySharePct(myShare: number, effectiveBudget: number, pct: number
   return Math.min((myShare / effectiveBudget) * 100, pct)
 }
 
-function computeBudgetCardMetrics(
-  d: NonNullable<OrgBudgetState['data']>,
-  quotaOverage: number
-): BudgetCardMetrics {
+function computeBudgetCardMetrics(d: OrgBudgetData, quotaOverage: number): BudgetCardMetrics {
   const effectiveBudget = resolveEffectiveBudget(d)
   const { displaySpent, myShare } = resolveBudgetUsageAmounts(d, quotaOverage)
   const barValue = Math.max(displaySpent ?? 0, myShare)
@@ -80,15 +77,13 @@ function computeBudgetCardMetrics(
   return { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor }
 }
 
-function canRenderBudgetProjection(d: NonNullable<OrgBudgetState['data']>): boolean {
+function canRenderBudgetProjection(d: OrgBudgetData): d is OrgBudgetDataWithSpend {
   if (d.useQuotaOverage) return false
 
   return !d.spentUnavailable && typeof d.spent === 'number' && Number.isFinite(d.spent)
 }
 
-function resolveBudgetProjection(d: NonNullable<OrgBudgetState['data']>) {
-  if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) return null
-
+function resolveBudgetProjection(d: OrgBudgetDataWithSpend) {
   return computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
 }
 
@@ -113,7 +108,7 @@ function BudgetProjectionView({
   d,
   effectiveBudget,
 }: {
-  d: NonNullable<OrgBudgetState['data']>
+  d: OrgBudgetData
   effectiveBudget: number | null
 }) {
   if (!canRenderBudgetProjection(d)) return null
@@ -164,8 +159,8 @@ function BudgetLimitLabel({
   )
 }
 
-function resolveBudgetBarWidth(pct: number | null): string {
-  return `${pct ?? 0}%`
+function resolveBudgetBarWidth(pct: number): string {
+  return `${pct}%`
 }
 
 function resolveSpentLabel(useQuotaOverage: boolean): string {
@@ -230,7 +225,14 @@ function BudgetProgressBar({
   if (effectiveBudget === null || pct === null) return null
 
   return (
-    <div className="usage-budget-bar-track">
+    <div
+      className="usage-budget-bar-track"
+      role="progressbar"
+      aria-label="Budget usage"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+    >
       <div
         className="usage-budget-bar-fill"
         style={{ width: resolveBudgetBarWidth(pct), background: barColor }}
@@ -275,13 +277,7 @@ function BudgetCardFooter({
   )
 }
 
-function BudgetCardBody({
-  d,
-  metrics,
-}: {
-  d: NonNullable<OrgBudgetState['data']>
-  metrics: BudgetCardMetrics
-}) {
+function BudgetCardBody({ d, metrics }: { d: OrgBudgetData; metrics: BudgetCardMetrics }) {
   const { effectiveBudget, displaySpent, myShare, pct, mySharePct, barColor } = metrics
 
   return (
@@ -329,7 +325,7 @@ function BudgetCardHeader({
         <Building2 size={13} />
         {org}
       </span>
-      {loading && <RefreshCw size={12} className="spin" />}
+      {loading && <RefreshCw size={12} className="spin" aria-label="Loading org budget" />}
       {preventFurtherUsage && (
         <span className="usage-budget-stop-badge" title="Usage stopped at limit">
           <ShieldAlert size={11} />
@@ -396,7 +392,9 @@ export function OrgBudgetSummary({ state, quotaOverage }: OrgBudgetSummaryProps)
           <Building2 size={12} />
           Org Budget
         </span>
-        {loading && <RefreshCw size={12} className="spin" />}
+        {loading && (
+          <RefreshCw size={12} className="spin" aria-label="Loading org budget summary" />
+        )}
         {preventFurtherUsage && (
           <span className="usage-budget-stop-badge" title="Usage stopped at limit">
             <ShieldAlert size={11} />

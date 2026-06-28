@@ -191,8 +191,8 @@ function getFocusableModalElements(container: HTMLElement): HTMLElement[] {
 }
 
 function focusFirstModalElement(container: HTMLElement): void {
-  const firstFocusableElement = getFocusableModalElements(container)[0]
-  ;(firstFocusableElement ?? container).focus()
+  const firstFocusableElement = getFocusableModalElements(container)[0]!
+  firstFocusableElement.focus()
 }
 
 function shouldWrapFocusBackward(
@@ -226,7 +226,10 @@ function handleModalTabKey(event: KeyboardEvent<HTMLDialogElement>): void {
   if (shouldWrapFocusBackward(event, activeElement, firstFocusableElement)) {
     event.preventDefault()
     lastFocusableElement.focus()
-  } else if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
+    return
+  }
+
+  if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
     event.preventDefault()
     firstFocusableElement.focus()
   }
@@ -254,13 +257,11 @@ function SourceJsonModal({
   const dialogRef = useRef<HTMLDialogElement>(null)
 
   useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const dialog = dialogRef.current
-    if (dialog) focusFirstModalElement(dialog)
+    const previouslyFocused = document.activeElement as HTMLElement
+    focusFirstModalElement(dialogRef.current!)
 
     return () => {
-      previouslyFocused?.focus()
+      previouslyFocused.focus()
     }
   }, [])
 

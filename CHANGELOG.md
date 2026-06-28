@@ -37,7 +37,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Reduce complexity hotspots
+- Raise coverage to 100 percent
+- Address coverage review feedback
 
 ## [0.1.847] - 2026-06-28
 

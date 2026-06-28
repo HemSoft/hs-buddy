@@ -125,6 +125,20 @@ describe('enumerateCronOccurrences', () => {
     const result = enumerateCronOccurrences('0 0 15 * 1', 'UTC', from, to)
     expect(result).toEqual([from])
   })
+
+  it('enumerates cron expressions with month and weekday aliases', () => {
+    const from = new Date('2025-01-06T00:00:00Z').getTime()
+    const to = new Date('2025-01-06T00:01:00Z').getTime()
+    const result = enumerateCronOccurrences('0 0 * jan mon', 'UTC', from, to)
+    expect(result).toEqual([from])
+  })
+
+  it('does not match when both restricted day fields miss', () => {
+    const from = new Date('2025-01-16T00:00:00Z').getTime()
+    const to = new Date('2025-01-16T00:01:00Z').getTime()
+    const result = enumerateCronOccurrences('0 0 15 * 1', 'UTC', from, to)
+    expect(result).toEqual([])
+  })
 })
 
 describe('validateCronExpression', () => {
@@ -154,9 +168,14 @@ describe('validateCronExpression', () => {
 
   it.each([
     '*/0 * * * *',
+    '*/ * * * *',
     '*/*/2 * * * *',
     '5-3 * * * *',
+    '1-2-3 * * * *',
+    '1-nope * * * *',
+    '0 0 0 * *',
     '0,,15 * * * *',
+    ' * * * *',
     '61 * * * *',
     '0 0 * nope *',
   ])('throws for malformed parser segment %s', cronExpression => {

@@ -191,8 +191,6 @@ function parseField(
   normalizeValue: (value: number) => number = identityValue,
   wildcardMax = max
 ): CronField | null {
-  if (!rawField) return null
-
   const values = parseFieldValues(rawField, min, max, aliases, normalizeValue, wildcardMax)
   if (!values) return null
 
@@ -213,7 +211,7 @@ function parseFieldValues(
       return null
   }
 
-  return hasValues(values) ? values : null
+  return values
 }
 
 function isWildcardField(rawField: string): boolean {
@@ -236,10 +234,6 @@ function addSegmentValues(
 
   for (const value of segmentValues) values.add(normalizeValue(value))
   return true
-}
-
-function hasValues(values: Set<number>): boolean {
-  return values.size > 0
 }
 
 function parseCronExpression(cronExpression: string): ParsedCron | null {

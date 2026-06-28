@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.846] - 2026-06-27
+
+### Added
+
+- Add benchmark coverage for performance audit gaps
+
+### Changed
+
+- Cover performance audit gaps
+
 ## [0.1.845] - 2026-06-27
 
 ### Changed

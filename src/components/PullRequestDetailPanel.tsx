@@ -1026,6 +1026,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [nudgeError, setNudgeError] = useState<string | null>(null)
   const prIdentityKey = `${pr.id}:${pr.repository}:${pr.url}`
+  const branchFetchKeyRef = useRef(prIdentityKey)
   const approvalKey = `${prIdentityKey}:${pr.iApproved}`
   const [previousPrIdentityKey, setPreviousPrIdentityKey] = useState(prIdentityKey)
   const [previousApprovalKey, setPreviousApprovalKey] = useState(approvalKey)
@@ -1050,6 +1051,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   }, [enqueue])
 
   const fetchBranches = useCallback(async () => {
+    branchFetchKeyRef.current = prIdentityKey
     const knownBranches = getKnownBranches(pr.headBranch, pr.baseBranch)
     if (knownBranches) {
       setBranches(knownBranches)
@@ -1069,11 +1071,15 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         prId: pr.id,
         repository: pr.repository,
       })
-      setBranches(result)
-    } catch (_: unknown) {
-      setBranches(null)
+      if (branchFetchKeyRef.current === prIdentityKey) {
+        setBranches(result)
+      }
+    } catch (_error: unknown) {
+      if (branchFetchKeyRef.current === prIdentityKey) {
+        setBranches(null)
+      }
     }
-  }, [accounts, ownerRepo, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
+  }, [accounts, ownerRepo, prIdentityKey, pr.id, pr.repository, pr.headBranch, pr.baseBranch])
 
   useEffect(() => {
     fetchBranches()

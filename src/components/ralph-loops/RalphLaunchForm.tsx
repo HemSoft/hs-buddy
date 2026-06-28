@@ -853,9 +853,14 @@ export function RalphLaunchForm({
       dryRun,
       autoApprove,
     })
-    const result = await onLaunch?.(config)
-    applyLaunchResult(result, setError)
-    setLaunching(false)
+    try {
+      const result = await onLaunch?.(config)
+      applyLaunchResult(result, setError)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to launch Ralph run')
+    } finally {
+      setLaunching(false)
+    }
   }
 
   const { defaultModel, defaultProvider } = getConfigDefaults(models, providers)

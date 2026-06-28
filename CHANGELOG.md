@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.850] - 2026-06-28
+
+### Changed
+
+- Eliminate complexity warnings
+
 ## [0.1.849] - 2026-06-28
 
 ### Changed

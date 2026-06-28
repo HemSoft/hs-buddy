@@ -39,6 +39,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reduce complexity hotspots
 
+## [0.1.847] - 2026-06-28
+
+### Changed
+
+- Refresh bun lockfile metadata
+
 ## [0.1.846] - 2026-06-27
 
 ### Added

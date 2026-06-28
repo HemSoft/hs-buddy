@@ -9,6 +9,7 @@ import {
   parseBillingUsage,
   extractBudgetFromResult,
   extractUsageSpend,
+  extractCopilotSpend,
   computeOverageSpend,
   classifyCliTokenError,
   assembleCopilotMetrics,
@@ -224,6 +225,22 @@ describe('parseBillingUsage', () => {
       makePremiumItem({ sku: 'Copilot AI Credits', quantity: 6 }),
     ]
     expect(parseBillingUsage(items).premiumRequests).toBe(6)
+  })
+
+  it('extracts gross and net Copilot spend from fulfilled usage output', () => {
+    const result = stdoutResult({
+      usageItems: [
+        makePremiumItem({ grossAmount: 0.4, netAmount: 0.3 }),
+        makePremiumItem({ grossAmount: 0.2, netAmount: 0.1 }),
+        makeSeatItem({ grossAmount: 95, netAmount: 95 }),
+      ],
+    })
+
+    expect(extractCopilotSpend(result)).toEqual({ gross: 0.6, net: 0.4 })
+  })
+
+  it('returns zero Copilot spend when usage output is unavailable', () => {
+    expect(extractCopilotSpend(rejected('err'))).toEqual({ gross: 0, net: 0 })
   })
 })
 

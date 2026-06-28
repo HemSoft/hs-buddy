@@ -104,4 +104,25 @@ describe('UsageHeader', () => {
     expect(screen.getByText('0')).toBeInTheDocument()
     expect(screen.getByText('$0.00')).toBeInTheDocument()
   })
+
+  it('hides the org pool when no entitlement is configured', () => {
+    render(<UsageHeader {...baseProps} totalEntitlement={0} />)
+
+    expect(screen.queryByTestId('org-pool')).not.toBeInTheDocument()
+  })
+
+  it('labels tiny positive org pool usage without rounding to zero', () => {
+    render(<UsageHeader {...baseProps} totalUsed={1} totalEntitlement={2000} />)
+
+    expect(screen.getByText('1 / 2,000 (<0.1%)')).toBeInTheDocument()
+  })
+
+  it('caps the org pool fill width when usage exceeds entitlement', () => {
+    const { container } = render(<UsageHeader {...baseProps} totalUsed={9000} />)
+
+    expect(screen.getByText('9,000 / 7,000 (128.6%)')).toBeInTheDocument()
+    expect(container.querySelector<HTMLElement>('.usage-budget-bar-fill')).toHaveStyle({
+      width: '100%',
+    })
+  })
 })

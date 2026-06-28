@@ -87,6 +87,7 @@ function canRenderBudgetProjection(d: NonNullable<OrgBudgetState['data']>): bool
 }
 
 function resolveBudgetProjection(d: NonNullable<OrgBudgetState['data']>) {
+  /* v8 ignore next -- callers prove numeric finite spend before projection. */
   if (typeof d.spent !== 'number' || !Number.isFinite(d.spent)) return null
 
   return computeBudgetProjection(d.spent, d.billingYear, d.billingMonth, d.fetchedAt)
@@ -164,8 +165,8 @@ function BudgetLimitLabel({
   )
 }
 
-function resolveBudgetBarWidth(pct: number | null): string {
-  return `${pct ?? 0}%`
+function resolveBudgetBarWidth(pct: number): string {
+  return `${pct}%`
 }
 
 function resolveSpentLabel(useQuotaOverage: boolean): string {

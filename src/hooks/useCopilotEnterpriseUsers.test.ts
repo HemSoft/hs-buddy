@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, waitFor } from '@testing-library/react'
+import { act, renderHook, waitFor } from '@testing-library/react'
 import type {
   CopilotEnterpriseUsersResponse,
   CopilotEnterpriseUsersSnapshot,
@@ -87,6 +87,26 @@ describe('useCopilotEnterpriseUsers', () => {
     expect(result.current.error).toBe('No file')
   })
 
+  it('uses the default failure message when API failures omit an error', async () => {
+    mockGetCopilotEnterpriseUsers.mockResolvedValue({ success: false })
+
+    const { result } = renderHook(() => useCopilotEnterpriseUsers())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.data).toBeNull()
+    expect(result.current.error).toBe('Failed to read Copilot Enterprise users.')
+  })
+
+  it('uses the default failure message when a successful response omits data', async () => {
+    mockGetCopilotEnterpriseUsers.mockResolvedValue({ success: true })
+
+    const { result } = renderHook(() => useCopilotEnterpriseUsers())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.data).toBeNull()
+    expect(result.current.error).toBe('Failed to read Copilot Enterprise users.')
+  })
+
   it('reports unavailable preload API', async () => {
     window.github = {} as typeof window.github
 
@@ -119,5 +139,41 @@ describe('useCopilotEnterpriseUsers', () => {
 
     expect(result.current.data).toBeNull()
     expect(result.current.error).toBe('Disk unavailable')
+  })
+
+  it('ignores resolved loader responses after unmount', async () => {
+    let resolveLoader!: (value: CopilotEnterpriseUsersResponse) => void
+    mockGetCopilotEnterpriseUsers.mockReturnValue(
+      new Promise<CopilotEnterpriseUsersResponse>(resolve => {
+        resolveLoader = resolve
+      })
+    )
+
+    const { unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    unmount()
+
+    await act(async () => {
+      resolveLoader({ success: true, data: snapshot })
+    })
+
+    expect(mockGetCopilotEnterpriseUsers).toHaveBeenCalledOnce()
+  })
+
+  it('ignores rejected loader responses after unmount', async () => {
+    let rejectLoader!: (reason?: unknown) => void
+    mockGetCopilotEnterpriseUsers.mockReturnValue(
+      new Promise<CopilotEnterpriseUsersResponse>((_resolve, reject) => {
+        rejectLoader = reject
+      })
+    )
+
+    const { unmount } = renderHook(() => useCopilotEnterpriseUsers())
+    unmount()
+
+    await act(async () => {
+      rejectLoader(new Error('Disk unavailable'))
+    })
+
+    expect(mockGetCopilotEnterpriseUsers).toHaveBeenCalledOnce()
   })
 })

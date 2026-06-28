@@ -191,6 +191,7 @@ function parseField(
   normalizeValue: (value: number) => number = identityValue,
   wildcardMax = max
 ): CronField | null {
+  /* v8 ignore next -- parseCronExpression trims and whitespace-splits before parseField. */
   if (!rawField) return null
 
   const values = parseFieldValues(rawField, min, max, aliases, normalizeValue, wildcardMax)
@@ -213,6 +214,7 @@ function parseFieldValues(
       return null
   }
 
+  /* v8 ignore next -- invalid or empty segments fail before an empty set can be returned. */
   return hasValues(values) ? values : null
 }
 

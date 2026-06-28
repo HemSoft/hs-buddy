@@ -88,6 +88,19 @@ describe('TopUsersSection', () => {
     expect(screen.getByText('2 active')).toBeInTheDocument()
   })
 
+  it('omits organization metadata when the snapshot has no organization', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: { ...snapshot, organization: '' },
+      loading: false,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.queryByText('Relias-Engineering')).not.toBeInTheDocument()
+    expect(screen.getByText('3 users')).toBeInTheDocument()
+  })
+
   it('uses a safe fallback for invalid snapshot update dates', () => {
     mockUseCopilotEnterpriseUsers.mockReturnValue({
       data: { ...snapshot, generatedAt: 'not-a-date' },
@@ -120,6 +133,21 @@ describe('TopUsersSection', () => {
     expect(screen.getAllByText('No usage').length).toBeGreaterThan(0)
   })
 
+  it('shows failed status for unsuccessful enterprise user records', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: {
+        ...snapshot,
+        users: [{ ...snapshot.users[0], success: false, errorMessage: 'API failed' }],
+      },
+      loading: false,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.getByText('Failed')).toBeInTheDocument()
+  })
+
   it('filters users by login text', () => {
     render(<TopUsersSection />)
 
@@ -142,6 +170,47 @@ describe('TopUsersSection', () => {
     expect(screen.getByText('No users match this filter.')).toBeInTheDocument()
     expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(0)
     expect(screen.getByText('0 of 3 users')).toBeInTheDocument()
+  })
+
+  it('shows a loading message before Enterprise users are available', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: null,
+      loading: true,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.getByText('Loading Copilot Enterprise users...')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter Copilot Enterprise users')).not.toBeInTheDocument()
+  })
+
+  it('omits content and controls when no Enterprise users state is available', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: null,
+      loading: false,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.getByText('Copilot Enterprise Users')).toBeInTheDocument()
+    expect(screen.queryByText('Loading Copilot Enterprise users...')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter Copilot Enterprise users')).not.toBeInTheDocument()
+    expect(document.querySelectorAll('.enterprise-users-row')).toHaveLength(0)
+  })
+
+  it('shows an empty users message without rendering the filter panel', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: { ...snapshot, totalUsers: 0, activeUsers: 0, users: [] },
+      loading: false,
+      error: null,
+    })
+
+    render(<TopUsersSection />)
+
+    expect(screen.getByText('No Copilot Enterprise users found.')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Filter Copilot Enterprise users')).not.toBeInTheDocument()
   })
 
   it('opens the source JSON modal when a user row is clicked', () => {
@@ -184,6 +253,43 @@ describe('TopUsersSection', () => {
     expect(closeButton).toHaveFocus()
     fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true })
     expect(closeButton).toHaveFocus()
+  })
+
+  it('wraps focus forward when Tab is handled by the dialog', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
+    const closeButton = screen.getByLabelText('Close source JSON dialog')
+
+    closeButton.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+
+    expect(closeButton).toHaveFocus()
+  })
+
+  it('keeps focus on the source JSON modal when no focusable elements remain', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
+    screen.getByLabelText('Close source JSON dialog').setAttribute('disabled', '')
+
+    dialog.focus()
+    fireEvent.keyDown(dialog, { key: 'Tab' })
+
+    expect(dialog).toHaveFocus()
+  })
+
+  it('does not trap non-Tab keys in the source JSON modal', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
+
+    fireEvent.keyDown(dialog, { key: 'ArrowDown' })
+
+    expect(dialog).toBeInTheDocument()
   })
 
   it('restores focus when the source JSON modal closes', () => {

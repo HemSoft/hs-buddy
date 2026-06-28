@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { OrgBudgetsSection } from './OrgBudgetsSection'
+import { OrgBudgetSummary, OrgBudgetsSection } from './OrgBudgetsSection'
 import type { OrgBudgetState } from './types'
 
 vi.mock('../../utils/dateUtils', () => ({
@@ -104,6 +104,24 @@ describe('OrgBudgetsSection', () => {
     expect(screen.getByText('Stop at limit')).toBeInTheDocument()
   })
 
+  it('shows loading and stop-at-limit badges together', () => {
+    const orgs = new Map([['acme', 'acme-token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ preventFurtherUsage: true }) as OrgBudgetState['data'],
+        loading: true,
+        error: null,
+      },
+    }
+
+    const { container } = render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(container.querySelector('.spin')).toBeInTheDocument()
+    expect(screen.getByText('Stop at limit')).toBeInTheDocument()
+  })
+
   it('shows "no budget set" when budget amount is null', () => {
     const orgs = new Map([['unknown-org', 'token']])
     const budgets: Record<string, OrgBudgetState> = {
@@ -173,6 +191,91 @@ describe('OrgBudgetsSection', () => {
     expect(screen.queryByText(/\$0\.00 spent/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/NaN/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/overage/i)).not.toBeInTheDocument()
+  })
+
+  it('treats non-finite spend as unavailable', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ spent: Number.NaN }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('Spend unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+  })
+
+  it('does not project when spend is not numeric', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ spent: '42' }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('Spend unavailable')).toBeInTheDocument()
+    expect(screen.queryByText('Month-End Projection')).not.toBeInTheDocument()
+  })
+
+  it('renders zero-width budget progress when spend and share are zero', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ spent: 0, budgetAmount: 100 }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    const { container } = render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(container.querySelector<HTMLElement>('.usage-budget-bar-fill')).toHaveStyle({
+      width: '0%',
+    })
+  })
+
+  it('shows gross consumption when gross spend is positive and budget is not quota-backed', () => {
+    const orgs = new Map([['acme', 'token']])
+    const budgets: Record<string, OrgBudgetState> = {
+      acme: {
+        data: makeOrgBudgetData({ gross: 120.5, useQuotaOverage: false }) as OrgBudgetState['data'],
+        loading: false,
+        error: null,
+      },
+    }
+
+    render(
+      <OrgBudgetsSection uniqueOrgs={orgs} orgBudgets={budgets} orgOverageFromQuotas={new Map()} />
+    )
+
+    expect(screen.getByText('$120.50 consumed')).toBeInTheDocument()
+  })
+
+  it('renders loading and stop-at-limit badges in the compact org budget summary', () => {
+    const state: OrgBudgetState = {
+      data: makeOrgBudgetData({ preventFurtherUsage: true }) as OrgBudgetState['data'],
+      loading: true,
+      error: null,
+    }
+
+    const { container } = render(<OrgBudgetSummary state={state} quotaOverage={0} />)
+
+    expect(container.querySelector('.spin')).toBeInTheDocument()
+    expect(screen.getByText('Stop at limit')).toBeInTheDocument()
   })
 
   it('shows "no budget set" for hemsoft org when budget amount is null', () => {

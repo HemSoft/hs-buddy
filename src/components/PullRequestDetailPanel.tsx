@@ -939,8 +939,10 @@ function syncPRDetailIdentity({
   setYouApproved,
   setHistoryUpdatedAt,
   setLinkedIssues,
+  setBranches,
   setNudgeState,
   setNudgeError,
+  branchFetchKeyRef,
 }: {
   pr: PRDetailInfo
   prIdentityKey: string
@@ -952,15 +954,19 @@ function syncPRDetailIdentity({
   setYouApproved: (value: boolean) => void
   setHistoryUpdatedAt: (value: string | null) => void
   setLinkedIssues: (value: PRLinkedIssue[]) => void
+  setBranches: (value: { headBranch: string; baseBranch: string } | null) => void
   setNudgeState: (value: 'idle' | 'sending' | 'sent' | 'error') => void
   setNudgeError: (value: string | null) => void
+  branchFetchKeyRef: { current: string }
 }): void {
   if (previousPrIdentityKey !== prIdentityKey) {
+    branchFetchKeyRef.current = prIdentityKey
     setPreviousPrIdentityKey(prIdentityKey)
     setPreviousApprovalKey(approvalKey)
     setYouApproved(pr.iApproved)
     setHistoryUpdatedAt(null)
     setLinkedIssues([])
+    setBranches(initialBranches(pr))
     setNudgeState('idle')
     setNudgeError(null)
     return
@@ -1042,8 +1048,10 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     setYouApproved,
     setHistoryUpdatedAt,
     setLinkedIssues,
+    setBranches,
     setNudgeState,
     setNudgeError,
+    branchFetchKeyRef,
   })
 
   useEffect(() => {

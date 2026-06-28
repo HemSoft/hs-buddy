@@ -155,6 +155,13 @@ function buildRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
   }
 }
 
+function parsePositiveInteger(value: string): number | undefined {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) return undefined
+  const parsedValue = Number(trimmedValue)
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : undefined
+}
+
 function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
   const reviewerSpecs = opts.reviewAgents.map(role => {
     const m = opts.reviewerModels[role]
@@ -170,14 +177,14 @@ function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig>
 }
 
 function buildLaunchConfig(opts: LaunchFormValues): RalphLaunchConfig {
-  const prNum = opts.prNumber ? Number(opts.prNumber) : undefined
-  const issueNum = opts.issueNumber ? Number(opts.issueNumber) : undefined
+  const prNum = parsePositiveInteger(opts.prNumber)
+  const issueNum = parsePositiveInteger(opts.issueNumber)
   return {
     repoPath: opts.repoPath,
     ...resolveScriptType(opts.scriptChoice),
     iterations: opts.iterations,
-    ...(prNum && { prNumber: prNum }),
-    ...(issueNum && { issueNumber: issueNum }),
+    ...(prNum !== undefined ? { prNumber: prNum } : {}),
+    ...(issueNum !== undefined ? { issueNumber: issueNum } : {}),
     ...buildOptionalFields(opts),
   }
 }
@@ -819,7 +826,12 @@ export function RalphLaunchForm({
 
   const validateForm = (): string | null => {
     if (!repoPath) return 'Select a repository path'
-    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    if (scriptChoice === 'ralph-pr' && parsePositiveInteger(prNumber) === undefined) {
+      return 'PR number is required for ralph-pr'
+    }
+    if (issueNumber && parsePositiveInteger(issueNumber) === undefined) {
+      return 'Issue number must be a positive integer'
+    }
     return null
   }
 

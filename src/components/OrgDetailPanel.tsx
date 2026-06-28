@@ -99,13 +99,19 @@ function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOver
   }
 }
 
+function getCachedOverview(org: string): OrgOverviewResult | null {
+  return normalizeOverview(dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null)
+}
+
+function getCachedRepos(org: string): OrgRepoResult | null {
+  return dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+}
+
 function buildSeedOverview(org: string): OrgOverviewResult | null {
-  const cachedOverview = normalizeOverview(
-    dataCache.get<OrgOverviewResult>(`org-overview:${org}`)?.data ?? null
-  )
+  const cachedOverview = getCachedOverview(org)
   if (cachedOverview) return cachedOverview
 
-  const cachedRepos = dataCache.get<OrgRepoResult>(`org-repos:${org}`)?.data ?? null
+  const cachedRepos = getCachedRepos(org)
   if (!cachedRepos) return null
 
   return buildMetricsFromRepos(org, cachedRepos)
@@ -302,6 +308,15 @@ function formatBudgetAmount(budgetAmount: number | null | undefined): string {
   return budgetAmount != null ? formatCurrency(budgetAmount) : 'Not set'
 }
 
+function getOrgBudgetValues(budgetState: CopilotBudgetState, quotaOverage: number) {
+  const budget = budgetState?.data
+  return {
+    budgetAmount: formatBudgetAmount(budget?.budgetAmount),
+    spent: formatCurrency(budget?.spent ?? 0),
+    quotaOverage: formatCurrency(quotaOverage),
+  }
+}
+
 function OrgBudgetBand({
   budgetState,
   quotaOverage,
@@ -309,22 +324,39 @@ function OrgBudgetBand({
   budgetState: CopilotBudgetState
   quotaOverage: number
 }) {
+  const values = getOrgBudgetValues(budgetState, quotaOverage)
   return (
     <div className="org-detail-budget-band">
       <div>
         <span className="org-detail-budget-label">Budget</span>
-        <strong>{formatBudgetAmount(budgetState?.data?.budgetAmount)}</strong>
+        <strong>{values.budgetAmount}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">Spent</span>
-        <strong>{formatCurrency(budgetState?.data?.spent ?? 0)}</strong>
+        <strong>{values.spent}</strong>
       </div>
       <div>
         <span className="org-detail-budget-label">My Share</span>
-        <strong>{formatCurrency(quotaOverage)}</strong>
+        <strong>{values.quotaOverage}</strong>
       </div>
     </div>
   )
+}
+
+function getCopilotSectionTitle(isUserNamespace: boolean): string {
+  return isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'
+}
+
+function getCopilotHeaderTimestamp({
+  isUserNamespace,
+  copilotFetchedAt,
+  personalQuotaFetchedAt,
+}: {
+  isUserNamespace: boolean
+  copilotFetchedAt?: number
+  personalQuotaFetchedAt?: number
+}): number | undefined {
+  return isUserNamespace ? personalQuotaFetchedAt : copilotFetchedAt
 }
 
 function CopilotSectionHeader({
@@ -336,20 +368,18 @@ function CopilotSectionHeader({
   copilotFetchedAt?: number
   personalQuotaFetchedAt?: number
 }) {
+  const fetchedAt = getCopilotHeaderTimestamp({
+    isUserNamespace,
+    copilotFetchedAt,
+    personalQuotaFetchedAt,
+  })
   return (
     <div className="org-detail-section-header">
       <h3>
         <Sparkles size={15} />
-        {isUserNamespace ? 'Copilot Quota' : 'Copilot Pulse'}
+        {getCopilotSectionTitle(isUserNamespace)}
       </h3>
-      {/* v8 ignore start */}
-      {!isUserNamespace && copilotFetchedAt && (
-        /* v8 ignore stop */
-        <span className="org-detail-fetched-at">{formatTime(copilotFetchedAt)}</span>
-      )}
-      {isUserNamespace && personalQuotaFetchedAt ? (
-        <span className="org-detail-fetched-at">{formatTime(personalQuotaFetchedAt)}</span>
-      ) : null}
+      {fetchedAt ? <span className="org-detail-fetched-at">{formatTime(fetchedAt)}</span> : null}
     </div>
   )
 }
@@ -379,6 +409,46 @@ function getHeaderTimestamps(
     copilotFetchedAt: copilotUsage?.fetchedAt,
     personalQuotaFetchedAt: personalQuotaSummary?.fetchedAt,
   }
+}
+
+function CopilotPulseGrid({
+  shouldShowPersonalQuotaPulse,
+  personalQuotaSummary,
+  copilotUsage,
+}: {
+  shouldShowPersonalQuotaPulse: boolean
+  personalQuotaSummary: PersonalQuotaSummary | null
+  copilotUsage: OrgCopilotUsageData | null
+}) {
+  if (shouldShowPersonalQuotaPulse && personalQuotaSummary) {
+    return <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
+  }
+  return <OrgCopilotGrid copilotUsage={copilotUsage} />
+}
+
+function CopilotBudgetBand({
+  isUserNamespace,
+  configuredAccountsCount,
+  personalQuotaSummary,
+  quotaOverage,
+  budgetState,
+}: {
+  isUserNamespace: boolean
+  configuredAccountsCount: number
+  personalQuotaSummary: PersonalQuotaSummary | null
+  quotaOverage: number
+  budgetState: CopilotBudgetState
+}) {
+  if (isUserNamespace) {
+    return (
+      <PersonalBudgetBand
+        configuredAccountsCount={configuredAccountsCount}
+        personalQuotaSummary={personalQuotaSummary}
+        quotaOverage={quotaOverage}
+      />
+    )
+  }
+  return <OrgBudgetBand budgetState={budgetState} quotaOverage={quotaOverage} />
 }
 
 function OrgCopilotSection({
@@ -416,22 +486,20 @@ function OrgCopilotSection({
         personalQuotaFetchedAt={personalQuotaFetchedAt}
       />
       <div className="org-detail-copilot-grid">
-        {shouldShowPersonalQuotaPulse && personalQuotaSummary ? (
-          <PersonalCopilotGrid personalQuotaSummary={personalQuotaSummary} />
-        ) : (
-          <OrgCopilotGrid copilotUsage={copilotUsage} />
-        )}
+        <CopilotPulseGrid
+          shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
+          personalQuotaSummary={personalQuotaSummary}
+          copilotUsage={copilotUsage}
+        />
       </div>
       <CopilotWarmingMessage show={showWarmingMessage} isUserNamespace={overview.isUserNamespace} />
-      {overview.isUserNamespace ? (
-        <PersonalBudgetBand
-          configuredAccountsCount={configuredAccountsCount}
-          personalQuotaSummary={personalQuotaSummary}
-          quotaOverage={quotaOverage}
-        />
-      ) : (
-        <OrgBudgetBand budgetState={budgetState} quotaOverage={quotaOverage} />
-      )}
+      <CopilotBudgetBand
+        isUserNamespace={overview.isUserNamespace}
+        configuredAccountsCount={configuredAccountsCount}
+        personalQuotaSummary={personalQuotaSummary}
+        quotaOverage={quotaOverage}
+        budgetState={budgetState}
+      />
     </section>
   )
 }
@@ -494,6 +562,8 @@ function OrgMemberSpotlightSection({
   selectedConfiguredAccount: GitHubAccount | null
   selectedMemberQuotaState: CopilotQuotaState | null
 }) {
+  const displayName = formatMemberDisplayName(selectedMember)
+  const memberMeta = formatSpotlightMemberMeta(selectedMember, selectedContributor)
   return (
     <section className="org-detail-section org-detail-member-spotlight">
       <div className="org-detail-section-header">
@@ -504,18 +574,8 @@ function OrgMemberSpotlightSection({
       </div>
       <div className="org-detail-member-card">
         <div>
-          <div className="org-detail-member-name">
-            {selectedMember.name
-              ? `${selectedMember.name} (${selectedMember.login})`
-              : selectedMember.login}
-          </div>
-          <div className="org-detail-member-meta">
-            {selectedMember.name ? `@${selectedMember.login} · ` : ''}
-            {selectedMember.type}
-            {selectedContributor
-              ? ` · ${selectedContributor.commits} commits today`
-              : ' · no commits today'}
-          </div>
+          <div className="org-detail-member-name">{displayName}</div>
+          <div className="org-detail-member-meta">{memberMeta}</div>
         </div>
         <button
           type="button"
@@ -526,14 +586,60 @@ function OrgMemberSpotlightSection({
           Profile
         </button>
       </div>
-      {selectedConfiguredAccount && selectedMemberQuotaState ? (
-        <div className="org-detail-account-grid org-detail-account-grid-single">
-          <AccountQuotaCard account={selectedConfiguredAccount} state={selectedMemberQuotaState} />
-        </div>
-      ) : (
-        <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
-      )}
+      <MemberQuotaSpotlight
+        selectedConfiguredAccount={selectedConfiguredAccount}
+        selectedMemberQuotaState={selectedMemberQuotaState}
+      />
     </section>
+  )
+}
+
+function formatMemberDisplayName(member: OrgMember): string {
+  return member.name ? `${member.name} (${member.login})` : member.login
+}
+
+function formatSpotlightMemberMeta(member: OrgMember, contributor: OrgContributor | null): string {
+  const loginPrefix = member.name ? `@${member.login} · ` : ''
+  const commitText = contributor ? ` · ${contributor.commits} commits today` : ' · no commits today'
+  return `${loginPrefix}${member.type}${commitText}`
+}
+
+function MemberQuotaSpotlight({
+  selectedConfiguredAccount,
+  selectedMemberQuotaState,
+}: {
+  selectedConfiguredAccount: GitHubAccount | null
+  selectedMemberQuotaState: CopilotQuotaState | null
+}) {
+  if (!selectedConfiguredAccount || !selectedMemberQuotaState) {
+    return <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
+  }
+  return (
+    <div className="org-detail-account-grid org-detail-account-grid-single">
+      <AccountQuotaCard account={selectedConfiguredAccount} state={selectedMemberQuotaState} />
+    </div>
+  )
+}
+
+function SelectedMemberSpotlight({
+  selectedMember,
+  selectedContributor,
+  selectedConfiguredAccount,
+  selectedMemberQuotaState,
+}: {
+  selectedMember: OrgMember | null
+  selectedContributor: OrgContributor | null
+  selectedConfiguredAccount: GitHubAccount | null
+  selectedMemberQuotaState: CopilotQuotaState | null
+}) {
+  if (!selectedMember) return null
+  return (
+    <OrgMemberSpotlightSection
+      selectedMember={selectedMember}
+      selectedContributor={selectedContributor}
+      selectedConfiguredAccount={selectedConfiguredAccount}
+      selectedMemberQuotaState={selectedMemberQuotaState}
+    />
   )
 }
 
@@ -693,6 +799,57 @@ function handleCopilotCatchError(
 }
 /* v8 ignore stop */
 
+function hydrateCachedCopilot(
+  cacheKey: string,
+  forceRefresh: boolean,
+  dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+): boolean {
+  const cached = getCachedCopilotData(cacheKey)
+  if (!cached || forceRefresh) return false
+  dispatchCopilot({ type: 'hydrate-cache', usage: cached })
+  return true
+}
+
+async function runCopilotFetch({
+  org,
+  preferredAccount,
+  forceRefresh,
+  isUserNamespace,
+  copilotCacheKey,
+  copilotTaskName,
+  enqueue,
+  hasUsage,
+  dispatchCopilot,
+}: {
+  org: string
+  preferredAccount?: string
+  forceRefresh: boolean
+  isUserNamespace: boolean
+  copilotCacheKey: string
+  copilotTaskName: string
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  hasUsage: boolean
+  dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
+}): Promise<void> {
+  if (isUserNamespace) return
+  if (hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
+  const queue = getTaskQueue('github')
+  if (queue.hasTaskWithName(copilotTaskName)) return
+  dispatchCopilot({ type: 'start-loading', hasUsage })
+  try {
+    const result = await enqueue(
+      async signal => {
+        throwIfAborted(signal)
+        return await window.github.getCopilotUsage(org, preferredAccount)
+      },
+      { name: copilotTaskName, priority: -1 }
+    )
+    handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
+  } catch (fetchError: unknown) {
+    handleCopilotCatchError(fetchError, dispatchCopilot)
+  }
+}
+
 function useOrgCopilotData({
   org,
   enqueue,
@@ -735,43 +892,17 @@ function useOrgCopilotData({
 
   const fetchCopilot = useCallback(
     async (forceRefresh = false) => {
-      /* v8 ignore start */
-      if (isUserNamespace) {
-        return
-        /* v8 ignore stop */
-      }
-
-      const queue = getTaskQueue('github')
-      const cached = getCachedCopilotData(copilotCacheKey)
-      /* v8 ignore start */
-      if (cached && !forceRefresh) {
-        dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-        return
-        /* v8 ignore stop */
-      }
-
-      if (queue.hasTaskWithName(copilotTaskName)) {
-        return
-      }
-
-      dispatchCopilot({ type: 'start-loading', hasUsage: hasCopilotRef.current })
-
-      try {
-        const result = await enqueueRef.current(
-          async signal => {
-            throwIfAborted(signal)
-            return await window.github.getCopilotUsage(org, preferredAccount)
-          },
-          { name: copilotTaskName, priority: -1 }
-        )
-        /* v8 ignore start */
-        handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
-        /* v8 ignore stop */
-      } catch (fetchError: unknown) {
-        /* v8 ignore start */
-        handleCopilotCatchError(fetchError, dispatchCopilot)
-        /* v8 ignore stop */
-      }
+      await runCopilotFetch({
+        org,
+        preferredAccount,
+        forceRefresh,
+        isUserNamespace,
+        copilotCacheKey,
+        copilotTaskName,
+        enqueue: enqueueRef.current,
+        hasUsage: hasCopilotRef.current,
+        dispatchCopilot,
+      })
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
   )
@@ -1228,22 +1359,33 @@ function MemberRosterItem({
   contributor: OrgContributor | undefined
   isConfigured: boolean
 }) {
+  const displayName = formatRosterMemberName(member)
+  const meta = formatRosterMemberMeta(member, contributor, isConfigured)
   return (
     <button
       type="button"
       className={`org-detail-roster-item ${memberLogin === member.login ? 'active' : ''}`}
       onClick={() => navigateToOrgUser(org, member.login)}
     >
-      <span className="org-detail-roster-name">
-        {member.name ? `${member.name} (${member.login})` : member.login}
-      </span>
-      <span className="org-detail-roster-meta">
-        {member.name ? `@${member.login} · ` : ''}
-        {contributor ? `${contributor.commits} today` : 'idle today'}
-        {isConfigured ? ' · configured' : ''}
-      </span>
+      <span className="org-detail-roster-name">{displayName}</span>
+      <span className="org-detail-roster-meta">{meta}</span>
     </button>
   )
+}
+
+function formatRosterMemberName(member: OrgMember): string {
+  return member.name ? `${member.name} (${member.login})` : member.login
+}
+
+function formatRosterMemberMeta(
+  member: OrgMember,
+  contributor: OrgContributor | undefined,
+  isConfigured: boolean
+): string {
+  const loginPrefix = member.name ? `@${member.login} · ` : ''
+  const activity = contributor ? `${contributor.commits} today` : 'idle today'
+  const configured = isConfigured ? ' · configured' : ''
+  return `${loginPrefix}${activity}${configured}`
 }
 
 function MemberRosterSection({
@@ -1325,30 +1467,97 @@ function OrgDetailAlerts({
 }) {
   return (
     <>
-      {isUpdating && (
-        <div className="org-detail-update-banner">
-          <RefreshCw size={14} className="spin" />
-          <span>
-            Updating live organization signals in the background. Existing data stays interactive.
-          </span>
-        </div>
-      )}
-      {membersError && liveMembersPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Members" message={membersError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
-      {copilotError && liveCopilotPhase === 'error' && (
-        /* v8 ignore start */
-        <InlineErrorBanner label="Copilot" message={copilotError} onRetry={onRetry} />
-        /* v8 ignore stop */
-      )}
+      <OrgUpdatingBanner show={isUpdating} />
+      <OrgPhaseErrorBanner
+        label="Members"
+        message={membersError}
+        phase={liveMembersPhase}
+        onRetry={onRetry}
+      />
+      <OrgPhaseErrorBanner
+        label="Copilot"
+        message={copilotError}
+        phase={liveCopilotPhase}
+        onRetry={onRetry}
+      />
     </>
   )
 }
 
+function OrgUpdatingBanner({ show }: { show: boolean }) {
+  if (!show) return null
+  return (
+    <div className="org-detail-update-banner">
+      <RefreshCw size={14} className="spin" />
+      <span>
+        Updating live organization signals in the background. Existing data stays interactive.
+      </span>
+    </div>
+  )
+}
+
+function OrgPhaseErrorBanner({
+  label,
+  message,
+  phase,
+  onRetry,
+}: {
+  label: string
+  message: string | null
+  phase: LoadPhase
+  onRetry: () => void
+}) {
+  if (!message || phase !== 'error') return null
+  return <InlineErrorBanner label={label} message={message} onRetry={onRetry} />
+}
+
 function getHighlightedLogin(member: { login: string } | undefined | null): string | null {
   return member?.login ?? null
+}
+
+function buildOrgNameMap(members: OrgMember[]): Map<string, string> {
+  const map = new Map<string, string>()
+  for (const member of members) {
+    if (member.name) map.set(member.login, member.name)
+  }
+  return map
+}
+
+function countActiveMembers(
+  members: OrgMember[],
+  contributorMap: Map<string, OrgContributor>
+): number {
+  return members.filter(member => contributorMap.has(member.login)).length
+}
+
+function countConfiguredMembers(members: OrgMember[], configuredLogins: Set<string>): number {
+  return members.filter(member => configuredLogins.has(member.login)).length
+}
+
+function filterRosterMembers(
+  members: OrgMember[],
+  rosterFilter: RosterFilter,
+  contributorMap: Map<string, OrgContributor>,
+  configuredLogins: Set<string>
+): OrgMember[] {
+  if (rosterFilter === 'active') return members.filter(member => contributorMap.has(member.login))
+  if (rosterFilter === 'configured')
+    return members.filter(member => configuredLogins.has(member.login))
+  if (rosterFilter === 'idle') return members.filter(member => !contributorMap.has(member.login))
+  return members
+}
+
+function sortRosterMembers(
+  members: OrgMember[],
+  rosterSort: RosterSort,
+  contributorMap: Map<string, OrgContributor>
+): OrgMember[] {
+  return rosterSort === 'commits'
+    ? Array.from(members).sort(
+        (a, b) =>
+          (contributorMap.get(b.login)?.commits ?? 0) - (contributorMap.get(a.login)?.commits ?? 0)
+      )
+    : Array.from(members).sort((a, b) => (a.name ?? a.login).localeCompare(b.name ?? b.login))
 }
 
 export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
@@ -1384,13 +1593,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const [rosterFilter, setRosterFilter] = useState<RosterFilter>('all')
   const [rosterSort, setRosterSort] = useState<RosterSort>('name')
 
-  const nameMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const m of members) {
-      if (m.name) map.set(m.login, m.name)
-    }
-    return map
-  }, [members])
+  const nameMap = useMemo(() => buildOrgNameMap(members), [members])
 
   const configuredLogins = useMemo(
     () => new Set(configuredAccounts.map(a => a.username)),
@@ -1398,8 +1601,8 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   )
 
   const rosterCounts = useMemo(() => {
-    const active = members.filter(m => contributorMap.has(m.login)).length
-    const configured = members.filter(m => configuredLogins.has(m.login)).length
+    const active = countActiveMembers(members, contributorMap)
+    const configured = countConfiguredMembers(members, configuredLogins)
     return {
       all: members.length,
       active,
@@ -1409,36 +1612,13 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   }, [members, contributorMap, configuredLogins])
 
   const filteredMembers = useMemo(() => {
-    let result = members
-    switch (rosterFilter) {
-      case 'active':
-        result = result.filter(m => contributorMap.has(m.login))
-        break
-      case 'configured':
-        result = result.filter(m => configuredLogins.has(m.login))
-        break
-      case 'idle':
-        result = result.filter(m => !contributorMap.has(m.login))
-        break
-    }
-    if (rosterSort === 'commits') {
-      result = Array.from(result).sort((a, b) => {
-        const ac = contributorMap.get(a.login)?.commits ?? 0
-        /* v8 ignore start */
-        const bc = contributorMap.get(b.login)?.commits ?? 0
-        /* v8 ignore stop */
-        return bc - ac
-      })
-    } else {
-      result = Array.from(result).sort((a, b) => {
-        const an = a.name ?? a.login
-        /* v8 ignore start */
-        const bn = b.name ?? b.login
-        /* v8 ignore stop */
-        return an.localeCompare(bn)
-      })
-    }
-    return result
+    const rosterMembers = filterRosterMembers(
+      members,
+      rosterFilter,
+      contributorMap,
+      configuredLogins
+    )
+    return sortRosterMembers(rosterMembers, rosterSort, contributorMap)
   }, [members, rosterFilter, rosterSort, contributorMap, configuredLogins])
 
   if (isInitialLoading) {
@@ -1509,14 +1689,12 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         />
       </div>
 
-      {selectedMember && (
-        <OrgMemberSpotlightSection
-          selectedMember={selectedMember}
-          selectedContributor={selectedContributor}
-          selectedConfiguredAccount={selectedConfiguredAccount}
-          selectedMemberQuotaState={selectedMemberQuotaState}
-        />
-      )}
+      <SelectedMemberSpotlight
+        selectedMember={selectedMember}
+        selectedContributor={selectedContributor}
+        selectedConfiguredAccount={selectedConfiguredAccount}
+        selectedMemberQuotaState={selectedMemberQuotaState}
+      />
 
       <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
 

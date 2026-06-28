@@ -42,12 +42,16 @@ export const STARTUP_SENTINEL = '::PERF_STARTUP_REPORT::'
 
 const DEFAULT_TARGET_MS = 3000
 
+function isPositiveFiniteNumber(value: number): boolean {
+  return Number.isFinite(value) && value > 0
+}
+
 function resolveStartupTarget(explicit?: number): number {
   if (explicit != null) {
-    return Number.isFinite(explicit) && explicit > 0 ? explicit : DEFAULT_TARGET_MS
+    return isPositiveFiniteNumber(explicit) ? explicit : DEFAULT_TARGET_MS
   }
   const envTarget = Number(process.env.PERF_STARTUP_TARGET_MS)
-  return Number.isFinite(envTarget) && envTarget > 0 ? envTarget : DEFAULT_TARGET_MS
+  return isPositiveFiniteNumber(envTarget) ? envTarget : DEFAULT_TARGET_MS
 }
 
 function printReportTable(report: StartupReport, target: number): void {

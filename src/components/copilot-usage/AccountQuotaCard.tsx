@@ -273,6 +273,10 @@ interface QuotaViewData {
   projection: ReturnType<typeof computeProjection>
 }
 
+function resolvePremiumQuota(data: NonNullable<AccountQuotaState['data']>) {
+  return data.personal ?? data.quota_snapshots.premium_interactions
+}
+
 function prepareQuotaViewData(state: AccountQuotaState): QuotaViewData | null {
   const data = state.data
   const orgPremium = data?.quota_snapshots?.premium_interactions
@@ -280,7 +284,7 @@ function prepareQuotaViewData(state: AccountQuotaState): QuotaViewData | null {
   // The card foregrounds the account holder's personal quota when available,
   // falling back to the org-wide pool. The header/aggregates keep using the
   // org pool (premium_interactions) independently.
-  const premium = data.personal ?? orgPremium
+  const premium = resolvePremiumQuota(data)
   const metrics = computeQuotaMetrics(premium)
   const projection = computeProjection(premium, data.quota_reset_date_utc)
   return { data, premium, metrics, projection }

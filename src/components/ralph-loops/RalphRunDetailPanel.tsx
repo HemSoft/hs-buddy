@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import type { Dispatch, MutableRefObject, SetStateAction } from 'react'
 import {
   Loader2,
   Clock,
@@ -121,7 +122,7 @@ function StatItem({
 }
 
 function StatsGrid({ stats }: { stats: RalphRunStats }) {
-  if (stats.checks <= 0 && stats.agentTurns <= 0 && stats.scanIterations <= 0) return null
+  if (!hasVisibleStats(stats)) return null
   return (
     <div className="ralph-run-stats-grid">
       <StatItem value={stats.scanIterations} label="Scans" />
@@ -135,45 +136,86 @@ function StatsGrid({ stats }: { stats: RalphRunStats }) {
   )
 }
 
+function hasVisibleStats(stats: RalphRunStats): boolean {
+  return [
+    stats.checks,
+    stats.agentTurns,
+    stats.scanIterations,
+    stats.issuesCreated,
+    stats.reviews,
+    stats.copilotPRs,
+    stats.totalPremium,
+  ].some(value => value > 0)
+}
+
 function ProgressSection({ run }: { run: RalphRunInfo }) {
   const [, setTick] = useState(0)
 
   useEffect(() => {
-    if (!isActive(run.status)) return
-    const timer = setInterval(() => setTick(t => t + 1), 1_000)
-    return () => clearInterval(timer)
+    return startProgressTicker(run.status, setTick)
   }, [run.status])
 
-  const model = run.config.model || 'default'
-  const branch = run.config.branch || '(auto)'
-  const phase = PHASE_LABELS[run.phase]
-  const duration = formatDuration(run.startedAt, run.completedAt)
-  const stats = run.stats
+  const meta = buildProgressMeta(run)
 
   return (
     <div className="ralph-run-detail-card">
       <h3>Progress</h3>
       <div className="ralph-run-progress-meta">
         <span>
-          Model: <strong>{model}</strong>
+          Model: <strong>{meta.model}</strong>
         </span>
         <span>
-          Branch: <strong>{branch}</strong>
+          Branch: <strong>{meta.branch}</strong>
         </span>
       </div>
-      {run.totalIterations != null && run.totalIterations > 0 && (
-        <ProgressBar
-          current={run.currentIteration}
-          total={run.totalIterations}
-          label={`Iteration`}
-        />
-      )}
-      <StatsGrid stats={stats} />
-      <div className="ralph-run-progress-meta ralph-run-progress-footer">
-        <span>{phase}</span>
-        <span>{duration}</span>
-        {run.exitCode != null && <span>Exit: {run.exitCode}</span>}
-      </div>
+      <IterationProgress run={run} />
+      <StatsGrid stats={meta.stats} />
+      <ProgressFooter run={run} phase={meta.phase} duration={meta.duration} />
+    </div>
+  )
+}
+
+function startProgressTicker(
+  status: RalphRunInfo['status'],
+  setTick: Dispatch<SetStateAction<number>>
+) {
+  if (!isActive(status)) return
+  const timer = setInterval(() => setTick(t => t + 1), 1_000)
+  return () => clearInterval(timer)
+}
+
+function buildProgressMeta(run: RalphRunInfo) {
+  return {
+    model: run.config.model || 'default',
+    branch: run.config.branch || '(auto)',
+    phase: PHASE_LABELS[run.phase],
+    duration: formatDuration(run.startedAt, run.completedAt),
+    stats: run.stats,
+  }
+}
+
+function IterationProgress({ run }: { run: RalphRunInfo }) {
+  if (run.totalIterations == null || run.totalIterations <= 0) return null
+
+  return (
+    <ProgressBar current={run.currentIteration} total={run.totalIterations} label="Iteration" />
+  )
+}
+
+function ProgressFooter({
+  run,
+  phase,
+  duration,
+}: {
+  run: RalphRunInfo
+  phase: string
+  duration: string
+}) {
+  return (
+    <div className="ralph-run-progress-meta ralph-run-progress-footer">
+      <span>{phase}</span>
+      <span>{duration}</span>
+      {run.exitCode != null && <span>Exit: {run.exitCode}</span>}
     </div>
   )
 }
@@ -237,17 +279,7 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
   const mountedRef = useRef(true)
 
   const fetchRun = useCallback(async () => {
-    try {
-      const result = await window.ralph.getStatus(runId)
-      if (!mountedRef.current) return
-      setRun(result)
-      setError(result ? null : 'Run not found')
-    } catch (err: unknown) {
-      if (!mountedRef.current) return
-      setError(err instanceof Error ? err.message : 'Failed to load run')
-    } finally {
-      if (mountedRef.current) setLoading(false)
-    }
+    await fetchRalphRunStatus(runId, mountedRef, setRun, setError, setLoading)
   }, [runId])
 
   useEffect(() => {
@@ -293,28 +325,9 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
     [fetchRun]
   )
 
-  if (loading) {
-    return (
-      <div className="ralph-run-detail">
-        <div className="ralph-run-detail-loading">
-          <Loader2 size={18} className="ralph-spin" />
-          Loading run…
-        </div>
-      </div>
-    )
-  }
-
-  if (error || !run) {
-    return (
-      <div className="ralph-run-detail">
-        <div className="ralph-run-detail-empty">
-          <AlertCircle size={32} />
-          <span>{error}</span>
-          <span className="ralph-run-detail-runid">{runId}</span>
-        </div>
-      </div>
-    )
-  }
+  const statusView = renderRunStatusView(loading, error, run, runId)
+  if (statusView) return statusView
+  if (!run) return null
 
   return (
     <div className="ralph-run-detail">
@@ -325,6 +338,77 @@ export function RalphRunDetailPanel({ runId }: RalphRunDetailPanelProps) {
       {run.error && <div className="ralph-run-detail-error">{run.error}</div>}
 
       <LogViewer run={run} />
+    </div>
+  )
+}
+
+async function fetchRalphRunStatus(
+  runId: string,
+  mountedRef: MutableRefObject<boolean>,
+  setRun: Dispatch<SetStateAction<RalphRunInfo | null>>,
+  setError: Dispatch<SetStateAction<string | null>>,
+  setLoading: Dispatch<SetStateAction<boolean>>
+): Promise<void> {
+  try {
+    const result = await window.ralph.getStatus(runId)
+    applyRunFetchResult(result, mountedRef, setRun, setError)
+  } catch (err: unknown) {
+    applyRunFetchError(err, mountedRef, setError)
+  } finally {
+    if (mountedRef.current) setLoading(false)
+  }
+}
+
+function applyRunFetchResult(
+  result: RalphRunInfo | null,
+  mountedRef: MutableRefObject<boolean>,
+  setRun: Dispatch<SetStateAction<RalphRunInfo | null>>,
+  setError: Dispatch<SetStateAction<string | null>>
+): void {
+  if (!mountedRef.current) return
+  setRun(result)
+  setError(result ? null : 'Run not found')
+}
+
+function applyRunFetchError(
+  err: unknown,
+  mountedRef: MutableRefObject<boolean>,
+  setError: Dispatch<SetStateAction<string | null>>
+): void {
+  if (!mountedRef.current) return
+  setError(err instanceof Error ? err.message : 'Failed to load run')
+}
+
+function renderRunStatusView(
+  loading: boolean,
+  error: string | null,
+  run: RalphRunInfo | null,
+  runId: string
+) {
+  if (loading) return <RunLoadingView />
+  if (error || !run) return <RunEmptyView error={error} runId={runId} />
+  return null
+}
+
+function RunLoadingView() {
+  return (
+    <div className="ralph-run-detail">
+      <div className="ralph-run-detail-loading">
+        <Loader2 size={18} className="ralph-spin" />
+        Loading run…
+      </div>
+    </div>
+  )
+}
+
+function RunEmptyView({ error, runId }: { error: string | null; runId: string }) {
+  return (
+    <div className="ralph-run-detail">
+      <div className="ralph-run-detail-empty">
+        <AlertCircle size={32} />
+        <span>{error}</span>
+        <span className="ralph-run-detail-runid">{runId}</span>
+      </div>
     </div>
   )
 }

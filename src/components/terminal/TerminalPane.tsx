@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import type { MutableRefObject } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -92,6 +93,77 @@ function createTerminalInstance(container: HTMLElement): { term: Terminal; fitAd
   return { term, fitAddon }
 }
 
+interface TerminalAttachResult {
+  success: boolean
+  buffer?: string
+  cursor?: number | null
+  alive?: boolean
+}
+
+interface TerminalSpawnResult {
+  success: boolean
+  sessionId?: string
+  cwd?: string
+  error?: string
+}
+
+interface SuccessfulTerminalSpawnResult extends TerminalSpawnResult {
+  success: true
+  sessionId: string
+}
+
+function applyExistingSessionResult(
+  term: Terminal,
+  result: TerminalAttachResult,
+  attachCursorRef: MutableRefObject<number>
+) {
+  if (result.buffer) term.write(result.buffer)
+  if (result.cursor != null) attachCursorRef.current = result.cursor
+  if (result.alive === false) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+}
+
+function applyAttachResult(
+  term: Terminal,
+  result: TerminalAttachResult,
+  attachCursorRef: MutableRefObject<number>
+) {
+  if (!result.success) return
+  if (result.buffer) term.write(result.buffer)
+  if (result.cursor != null) attachCursorRef.current = result.cursor
+}
+
+function hasSpawnSession(result: TerminalSpawnResult): result is SuccessfulTerminalSpawnResult {
+  return result.success && Boolean(result.sessionId)
+}
+
+function writeSpawnFailure(term: Terminal, result: TerminalSpawnResult) {
+  term.writeln(`\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`)
+}
+
+function applySpawnSuccess(
+  viewKey: string,
+  result: SuccessfulTerminalSpawnResult,
+  sessionIdRef: MutableRefObject<string | null>,
+  onCwdChange: TerminalPaneProps['onCwdChange']
+) {
+  sessionIdRef.current = result.sessionId
+  setSessionId(viewKey, result.sessionId)
+  if (result.cwd) onCwdChange?.(result.cwd)
+}
+
+function getResizeDimensions(fit: FitAddon): { cols: number; rows: number } | null {
+  const dimensions = fit.proposeDimensions()
+  if (!dimensions?.cols || !dimensions.rows) return null
+  return { cols: dimensions.cols, rows: dimensions.rows }
+}
+
+function hasResizeChanged(
+  last: { cols: number; rows: number } | null,
+  next: { cols: number; rows: number }
+): boolean {
+  return !last || last.cols !== next.cols || last.rows !== next.rows
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -154,16 +226,11 @@ export function TerminalPane({
 
       if (!result.success) {
         removeSession(viewKey)
-        /* v8 ignore start */
-        if (!active) return
-        /* v8 ignore stop */
         await spawnNew()
         return
       }
 
-      if (result.buffer) term.write(result.buffer)
-      if (result.cursor != null) attachCursorRef.current = result.cursor
-      if (!result.alive) term.writeln('\r\n\x1b[90m[Process has exited]\x1b[0m')
+      applyExistingSessionResult(term, result, attachCursorRef)
     }
 
     async function initSession() {
@@ -208,17 +275,12 @@ export function TerminalPane({
         /* v8 ignore stop */
       }
 
-      if (!result.success || !result.sessionId) {
-        term.writeln(
-          `\r\n\x1b[31mFailed to spawn terminal: ${result.error || 'Unknown error'}\x1b[0m`
-        )
+      if (!hasSpawnSession(result)) {
+        writeSpawnFailure(term, result)
         return
       }
 
-      sessionIdRef.current = result.sessionId
-      setSessionId(viewKey, result.sessionId)
-      if (result.cwd) onCwdChange?.(result.cwd)
-
+      applySpawnSuccess(viewKey, result, sessionIdRef, onCwdChange)
       await applyAttachBuffer(term, result.sessionId)
     }
 
@@ -227,12 +289,7 @@ export function TerminalPane({
       /* v8 ignore start */
       if (!active) return
       /* v8 ignore stop */
-      if (attachResult.success && attachResult.buffer) {
-        term.write(attachResult.buffer)
-      }
-      if (attachResult.success && attachResult.cursor != null) {
-        attachCursorRef.current = attachResult.cursor
-      }
+      applyAttachResult(term, attachResult, attachCursorRef)
     }
 
     // Forward keystrokes via fire-and-forget (no OTel span per keystroke)
@@ -295,13 +352,10 @@ export function TerminalPane({
       }
     }
     function applyResizeDimensions(fit: FitAddon, sid: string) {
-      const d = fit.proposeDimensions()
-      /* v8 ignore start */
+      const d = getResizeDimensions(fit)
       if (!d) return
-      if (!d.cols || !d.rows) return
-      /* v8 ignore stop */
       const last = lastResizeRef.current
-      if (last && last.cols === d.cols && last.rows === d.rows) return
+      if (!hasResizeChanged(last, d)) return
       lastResizeRef.current = { cols: d.cols, rows: d.rows }
       window.terminal.resize(sid, d.cols, d.rows)
     }

@@ -47,6 +47,28 @@ function isModelIncompatible(
   return !!entry && !supported.includes(entry.provider)
 }
 
+function getModelOption(
+  provKey: string,
+  modelKey: string,
+  model: RalphModelsConfig['models'][string],
+  supportedProviders: Set<string>
+): { value: string; label: string } | null {
+  if (!supportedProviders.has(model.provider)) return null
+  return { value: `${provKey}:${modelKey}`, label: `${model.label} (${model.reasoningEffort})` }
+}
+
+function getAliasModelOption(
+  provKey: string,
+  alias: string,
+  target: string,
+  models: RalphModelsConfig,
+  supportedProviders: Set<string>
+): { value: string; label: string } | null {
+  const targetModel = models.models[target]
+  if (!targetModel || !supportedProviders.has(targetModel.provider)) return null
+  return { value: `${provKey}:${alias}`, label: `${alias} → ${target}` }
+}
+
 function collectModelOptions(
   provKey: string,
   models: RalphModelsConfig,
@@ -55,14 +77,12 @@ function collectModelOptions(
   const opts: { value: string; label: string }[] = []
   const supportedProviders = new Set(supported)
   for (const [modelKey, m] of Object.entries(models.models)) {
-    if (supportedProviders.has(m.provider)) {
-      opts.push({ value: `${provKey}:${modelKey}`, label: `${m.label} (${m.reasoningEffort})` })
-    }
+    const option = getModelOption(provKey, modelKey, m, supportedProviders)
+    if (option) opts.push(option)
   }
   for (const [alias, target] of Object.entries(models.aliases)) {
-    if (models.models[target] && supportedProviders.has(models.models[target].provider)) {
-      opts.push({ value: `${provKey}:${alias}`, label: `${alias} → ${target}` })
-    }
+    const option = getAliasModelOption(provKey, alias, target, models, supportedProviders)
+    if (option) opts.push(option)
   }
   return opts
 }
@@ -102,22 +122,44 @@ function resolveScriptType(choice: ScriptChoice): {
   scriptType: RalphLaunchConfig['scriptType']
   templateScript?: string
 } {
-  const isTemplate = choice !== 'ralph' && choice !== 'ralph-pr' && choice !== 'ralph-issues'
-  return isTemplate
+  return !isBuiltInScriptChoice(choice)
     ? { scriptType: 'template', templateScript: choice }
     : { scriptType: choice as RalphLaunchConfig['scriptType'] }
 }
 
-function buildRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
+function isBuiltInScriptChoice(choice: ScriptChoice): boolean {
+  return choice === 'ralph' || choice === 'ralph-pr' || choice === 'ralph-issues'
+}
+
+function buildPromptRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
   const trimmedPrompt = opts.prompt.trim()
   return {
-    ...(opts.repeats > 1 && { repeats: opts.repeats }),
     ...(opts.branch && { branch: opts.branch }),
     ...(trimmedPrompt && { prompt: trimmedPrompt }),
     ...(opts.labels.trim() && { labels: opts.labels.trim() }),
+  }
+}
+
+function buildControlRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
+  return {
+    ...(opts.repeats > 1 && { repeats: opts.repeats }),
     ...(opts.dryRun && { dryRun: true }),
     ...(opts.autoApprove && { autoApprove: true }),
   }
+}
+
+function buildRunFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
+  return {
+    ...buildPromptRunFields(opts),
+    ...buildControlRunFields(opts),
+  }
+}
+
+function parsePositiveInteger(value: string): number | undefined {
+  const trimmedValue = value.trim()
+  if (!trimmedValue) return undefined
+  const parsedValue = Number(trimmedValue)
+  return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : undefined
 }
 
 function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
@@ -135,14 +177,14 @@ function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig>
 }
 
 function buildLaunchConfig(opts: LaunchFormValues): RalphLaunchConfig {
-  const prNum = opts.prNumber ? Number(opts.prNumber) : undefined
-  const issueNum = opts.issueNumber ? Number(opts.issueNumber) : undefined
+  const prNum = parsePositiveInteger(opts.prNumber)
+  const issueNum = parsePositiveInteger(opts.issueNumber)
   return {
     repoPath: opts.repoPath,
     ...resolveScriptType(opts.scriptChoice),
     iterations: opts.iterations,
-    ...(prNum && { prNumber: prNum }),
-    ...(issueNum && { issueNumber: issueNum }),
+    ...(prNum !== undefined ? { prNumber: prNum } : {}),
+    ...(issueNum !== undefined ? { issueNumber: issueNum } : {}),
     ...buildOptionalFields(opts),
   }
 }
@@ -353,6 +395,17 @@ function ScriptSelect({
   )
 }
 
+function hasPresetPrompt(scriptChoice: ScriptChoice, prompt: string): boolean {
+  return Boolean(prompt) && !isBuiltInScriptChoice(scriptChoice)
+}
+
+function getPromptPlaceholder(scriptChoice: ScriptChoice): string {
+  if (scriptChoice === 'ralph') return 'Enter a prompt for the loop (required for ralph core)'
+  if (scriptChoice === 'ralph-issues')
+    return 'Scan instructions (e.g. "Find security vulnerabilities")'
+  return 'Prompt will be auto-filled from script, or enter a custom one'
+}
+
 function PromptField({
   scriptChoice,
   prompt,
@@ -362,11 +415,7 @@ function PromptField({
   prompt: string
   onChange: (v: string) => void
 }) {
-  const hasPreset =
-    !!prompt &&
-    scriptChoice !== 'ralph' &&
-    scriptChoice !== 'ralph-pr' &&
-    scriptChoice !== 'ralph-issues'
+  const hasPreset = hasPresetPrompt(scriptChoice, prompt)
   return (
     <div className="ralph-form-field">
       <label htmlFor="ralph-prompt">
@@ -376,13 +425,7 @@ function PromptField({
         id="ralph-prompt"
         value={prompt}
         onChange={e => onChange(e.target.value)}
-        placeholder={
-          scriptChoice === 'ralph'
-            ? 'Enter a prompt for the loop (required for ralph core)'
-            : scriptChoice === 'ralph-issues'
-              ? 'Scan instructions (e.g. "Find security vulnerabilities")'
-              : 'Prompt will be auto-filled from script, or enter a custom one'
-        }
+        placeholder={getPromptPlaceholder(scriptChoice)}
         rows={5}
       />
     </div>
@@ -466,6 +509,109 @@ function getConfigDefaults(
   return { defaultModel: models?.default, defaultProvider: providers?.default }
 }
 
+function findTemplatePrompt(
+  scriptChoice: ScriptChoice,
+  templates: RalphTemplateInfo[]
+): string | null {
+  if (isBuiltInScriptChoice(scriptChoice)) return null
+  const key = scriptChoice.replace(/\.ps1$/, '')
+  const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
+  return template?.defaultPrompt ?? null
+}
+
+function canValidateModelCompatibility(deps: {
+  model: string
+  provider: string
+  providers: RalphProvidersConfig | null | undefined
+  models: RalphModelsConfig | null | undefined
+}): deps is {
+  model: string
+  provider: string
+  providers: RalphProvidersConfig
+  models: RalphModelsConfig
+} {
+  return Boolean(deps.model && deps.provider && deps.providers && deps.models)
+}
+
+function getProviderMap(
+  providers: RalphProvidersConfig | null | undefined
+): RalphProvidersConfig['providers'] | null {
+  return providers?.providers ?? null
+}
+
+function toSupportedProviderSet(supported: string[] | undefined): Set<string> | null {
+  if (!supported) return null
+  return new Set(supported)
+}
+
+function getSupportedProviderSet(
+  provider: string,
+  providers: RalphProvidersConfig | null | undefined
+): Set<string> | null {
+  if (!provider) return null
+  const providerMap = getProviderMap(providers)
+  if (!providerMap) return null
+  const entry = providerMap[provider]
+  if (!entry) return null
+  return toSupportedProviderSet(entry.supportedModelProviders)
+}
+
+function getModelSelectOption(
+  key: string,
+  model: RalphModelsConfig['models'][string],
+  supportedProviders: Set<string> | null
+) {
+  if (supportedProviders && !supportedProviders.has(model.provider)) return null
+  return { value: key, label: `${model.label} (${model.reasoningEffort})` }
+}
+
+function getAliasSelectOption(
+  alias: string,
+  target: string,
+  models: RalphModelsConfig,
+  supportedProviders: Set<string> | null
+) {
+  const targetModel = models.models[target]
+  if (!targetModel) return null
+  if (supportedProviders && !supportedProviders.has(targetModel.provider)) return null
+  return { value: alias, label: `${alias} → ${target}` }
+}
+
+function buildModelSelectOptions(
+  models: RalphModelsConfig,
+  providers: RalphProvidersConfig | null | undefined,
+  provider: string
+) {
+  const supportedProviders = getSupportedProviderSet(provider, providers)
+  const modelOptions = Object.entries(models.models).flatMap(([key, model]) => {
+    const option = getModelSelectOption(key, model, supportedProviders)
+    return option ? [option] : []
+  })
+  const aliasOptions = Object.entries(models.aliases).flatMap(([alias, target]) => {
+    const option = getAliasSelectOption(alias, target, models, supportedProviders)
+    return option ? [option] : []
+  })
+  return [...modelOptions, ...aliasOptions]
+}
+
+function buildAgentOptions(
+  agents: ReturnType<typeof useRalphAgents>['data'],
+  category: 'dev' | 'review'
+) {
+  if (!agents) return []
+  return Object.entries(agents.roles).flatMap(([key, role]) =>
+    role.category === category ? [{ value: key, label: `${key} — ${role.description}` }] : []
+  )
+}
+
+function applyLaunchResult(
+  result: RalphLaunchResult | undefined,
+  setError: (value: string | null) => void
+): void {
+  if (!result || result.success) return
+  setError(result.error ?? 'Launch failed')
+}
+
 function useRalphFormSync(
   initialScript: RalphLaunchFormProps['initialScript'],
   initialPR: RalphLaunchFormProps['initialPR'],
@@ -497,6 +643,7 @@ function useRalphFormSync(
     setPrompt,
     setModel,
   } = setters
+  const { scriptChoice, model, provider, providers, models } = deps
 
   useEffect(() => {
     if (initialScript) setScriptChoice(initialScript)
@@ -535,24 +682,16 @@ function useRalphFormSync(
   }, [])
 
   useEffect(() => {
-    if (
-      deps.scriptChoice === 'ralph' ||
-      deps.scriptChoice === 'ralph-pr' ||
-      deps.scriptChoice === 'ralph-issues'
-    ) {
-      return
-    }
-    const key = deps.scriptChoice.replace(/\.ps1$/, '')
-    const template = templates.find(t => t.filename.replace(/\.ps1$/, '') === key)
-    if (template?.defaultPrompt != null) {
-      setPrompt(template.defaultPrompt)
-    }
-  }, [deps.scriptChoice, templates, setPrompt])
+    const defaultPrompt = findTemplatePrompt(scriptChoice, templates)
+    if (defaultPrompt != null) setPrompt(defaultPrompt)
+  }, [scriptChoice, templates, setPrompt])
 
   useEffect(() => {
-    if (!deps.model || !deps.provider || !deps.providers || !deps.models) return
-    if (isModelIncompatible(deps.model, deps.provider, deps.providers, deps.models)) setModel('')
-  }, [deps.provider, deps.providers, deps.models, deps.model, setModel])
+    const validationDeps = { model, provider, providers, models }
+    if (!canValidateModelCompatibility(validationDeps)) return
+    if (isModelIncompatible(model, provider, validationDeps.providers, validationDeps.models))
+      setModel('')
+  }, [provider, providers, models, model, setModel])
 
   return { templates }
 }
@@ -565,28 +704,7 @@ function useRalphFormOptions(
 ) {
   const modelOptions = useMemo(() => {
     if (!models) return []
-    const supported = provider
-      ? providers?.providers?.[provider]?.supportedModelProviders
-      : undefined
-    const supportedProviders = supported ? new Set(supported) : null
-    const filteredModels = Object.entries(models.models).flatMap(([key, m]) =>
-      supportedProviders && !supportedProviders.has(m.provider)
-        ? []
-        : [
-            {
-              value: key,
-              label: `${m.label} (${m.reasoningEffort})`,
-            },
-          ]
-    )
-    const filteredAliases = Object.entries(models.aliases).flatMap(([alias, target]) => {
-      const targetModel = models.models[target]
-      if (supportedProviders && (!targetModel || !supportedProviders.has(targetModel.provider))) {
-        return []
-      }
-      return [{ value: alias, label: `${alias} → ${target}` }]
-    })
-    return [...filteredModels, ...filteredAliases]
+    return buildModelSelectOptions(models, providers, provider)
   }, [models, provider, providers])
 
   const reviewerModelOptions = useMemo(() => {
@@ -606,17 +724,11 @@ function useRalphFormOptions(
   }, [providers])
 
   const devAgentOptions = useMemo(() => {
-    if (!agents) return []
-    return Object.entries(agents.roles).flatMap(([key, role]) =>
-      role.category === 'dev' ? [{ value: key, label: `${key} — ${role.description}` }] : []
-    )
+    return buildAgentOptions(agents, 'dev')
   }, [agents])
 
   const reviewAgentOptions = useMemo(() => {
-    if (!agents) return []
-    return Object.entries(agents.roles).flatMap(([key, role]) =>
-      role.category === 'review' ? [{ value: key, label: `${key} — ${role.description}` }] : []
-    )
+    return buildAgentOptions(agents, 'review')
   }, [agents])
 
   return {
@@ -714,7 +826,12 @@ export function RalphLaunchForm({
 
   const validateForm = (): string | null => {
     if (!repoPath) return 'Select a repository path'
-    if (scriptChoice === 'ralph-pr' && !prNumber) return 'PR number is required for ralph-pr'
+    if (scriptChoice === 'ralph-pr' && parsePositiveInteger(prNumber) === undefined) {
+      return 'PR number is required for ralph-pr'
+    }
+    if (issueNumber && parsePositiveInteger(issueNumber) === undefined) {
+      return 'Issue number must be a positive integer'
+    }
     return null
   }
 
@@ -748,11 +865,14 @@ export function RalphLaunchForm({
       dryRun,
       autoApprove,
     })
-    const result = await onLaunch?.(config)
-    if (result && !result.success) {
-      setError(result.error ?? 'Launch failed')
+    try {
+      const result = await onLaunch?.(config)
+      applyLaunchResult(result, setError)
+    } catch (error: unknown) {
+      setError(error instanceof Error ? error.message : 'Failed to launch Ralph run')
+    } finally {
+      setLaunching(false)
     }
-    setLaunching(false)
   }
 
   const { defaultModel, defaultProvider } = getConfigDefaults(models, providers)

@@ -186,7 +186,7 @@ function PollenSpeciesDetail({
 }) {
   const [expanded, setExpanded] = useState(false)
 
-  const hasDetail = species.some(s => s.inSeason) || species.some(s => !s.inSeason)
+  const hasDetail = species.length > 0
 
   if (!hasDetail && healthRecommendations.length === 0) return null
 
@@ -205,23 +205,43 @@ function PollenSpeciesDetail({
       </button>
 
       {expanded && (
-        <div className="pollen-detail-content">
-          {typeGroups.map(g => (
-            <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
-          ))}
-
-          {healthRecommendations.length > 0 && (
-            <div className="pollen-health-recs">
-              <span className="pollen-health-recs-label">Health Tips</span>
-              <ul className="pollen-health-recs-list">
-                {healthRecommendations.map((rec, i) => (
-                  <li key={i}>{rec}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <PollenDetailContent
+          typeGroups={typeGroups}
+          healthRecommendations={healthRecommendations}
+        />
       )}
+    </div>
+  )
+}
+
+function PollenDetailContent({
+  typeGroups,
+  healthRecommendations,
+}: {
+  typeGroups: Array<{ type: string; label: string; items: PollenSpecies[] }>
+  healthRecommendations: string[]
+}) {
+  return (
+    <div className="pollen-detail-content">
+      {typeGroups.map(g => (
+        <SpeciesGroup key={g.type} type={g.type} label={g.label} species={g.items} />
+      ))}
+      <PollenHealthRecommendations recommendations={healthRecommendations} />
+    </div>
+  )
+}
+
+function PollenHealthRecommendations({ recommendations }: { recommendations: string[] }) {
+  if (recommendations.length === 0) return null
+
+  return (
+    <div className="pollen-health-recs">
+      <span className="pollen-health-recs-label">Health Tips</span>
+      <ul className="pollen-health-recs-list">
+        {recommendations.map((rec, i) => (
+          <li key={i}>{rec}</li>
+        ))}
+      </ul>
     </div>
   )
 }
@@ -336,22 +356,9 @@ function WeatherExpandedContent({
         disabled={loading}
       />
 
-      {loading && !data && (
-        <div className="weather-loading">
-          <RefreshCw size={16} className="spin" />
-          <span>Fetching weather…</span>
-        </div>
-      )}
-
-      {error && !data && (
-        <div className="weather-error">
-          <span>{error}</span>
-        </div>
-      )}
-
-      {data && <WeatherCurrentSection data={data} />}
-
-      {data && <PollenArea pollen={pollen} error={pollenError} />}
+      <WeatherLoadingState loading={loading} data={data} />
+      <WeatherErrorState error={error} data={data} />
+      <WeatherDataContent data={data} pollen={pollen} pollenError={pollenError} />
 
       <CardActionBar
         onRefresh={autoRefresh.refresh}
@@ -373,6 +380,58 @@ function WeatherExpandedContent({
           <span>Use My Location</span>
         </button>
       </CardActionBar>
+    </>
+  )
+}
+
+function WeatherLoadingState({
+  loading,
+  data,
+}: {
+  loading: boolean
+  data: ReturnType<typeof useWeather>['data']
+}) {
+  if (!loading || data) return null
+
+  return (
+    <div className="weather-loading">
+      <RefreshCw size={16} className="spin" />
+      <span>Fetching weather…</span>
+    </div>
+  )
+}
+
+function WeatherErrorState({
+  error,
+  data,
+}: {
+  error: string | null
+  data: ReturnType<typeof useWeather>['data']
+}) {
+  if (!error || data) return null
+
+  return (
+    <div className="weather-error">
+      <span>{error}</span>
+    </div>
+  )
+}
+
+function WeatherDataContent({
+  data,
+  pollen,
+  pollenError,
+}: {
+  data: ReturnType<typeof useWeather>['data']
+  pollen: PollenData | null
+  pollenError: string | null
+}) {
+  if (!data) return null
+
+  return (
+    <>
+      <WeatherCurrentSection data={data} />
+      <PollenArea pollen={pollen} error={pollenError} />
     </>
   )
 }
@@ -406,10 +465,7 @@ export function WeatherCard() {
   const { expanded, toggle } = useExpandCollapse('weather:expanded')
 
   const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setLocationBySearch(searchQuery.trim())
-      setSearchQuery('')
-    }
+    applyWeatherSearch(searchQuery, setLocationBySearch, setSearchQuery)
   }
 
   return (
@@ -422,37 +478,66 @@ export function WeatherCard() {
         />
       </CardHeader>
 
-      {/* Collapsed summary — always visible */}
-      {!expanded && data && (
-        <div className="weather-collapsed-summary">
-          <div className="weather-collapsed-left">
-            <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
-            <span className="weather-collapsed-temp">
-              {`${data.temperature}${data.temperatureUnit}`}
-            </span>
-            <span className="weather-collapsed-desc">{data.description}</span>
-          </div>
-          <span className="weather-collapsed-hilo">
-            H: {data.high}° &nbsp; L: {data.low}°
-          </span>
-        </div>
-      )}
-
-      {/* Expanded content */}
-      {expanded && (
-        <WeatherExpandedContent
-          data={data}
-          loading={loading}
-          error={error}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          onSearch={handleSearch}
-          autoRefresh={autoRefresh}
-          onUseMyLocation={useMyLocation}
-          pollen={pollenData}
-          pollenError={pollenError}
-        />
-      )}
+      <WeatherCollapsedSummary expanded={expanded} data={data} />
+      <WeatherExpandedPanel
+        expanded={expanded}
+        data={data}
+        loading={loading}
+        error={error}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        onSearch={handleSearch}
+        autoRefresh={autoRefresh}
+        onUseMyLocation={useMyLocation}
+        pollen={pollenData}
+        pollenError={pollenError}
+      />
     </section>
   )
+}
+
+function WeatherCollapsedSummary({
+  expanded,
+  data,
+}: {
+  expanded: boolean
+  data: ReturnType<typeof useWeather>['data']
+}) {
+  if (expanded || !data) return null
+
+  return (
+    <div className="weather-collapsed-summary">
+      <div className="weather-collapsed-left">
+        <div className="weather-icon-small">{weatherIcon(data.weatherCode, 16)}</div>
+        <span className="weather-collapsed-temp">
+          {`${data.temperature}${data.temperatureUnit}`}
+        </span>
+        <span className="weather-collapsed-desc">{data.description}</span>
+      </div>
+      <span className="weather-collapsed-hilo">
+        H: {data.high}° &nbsp; L: {data.low}°
+      </span>
+    </div>
+  )
+}
+
+function WeatherExpandedPanel({
+  expanded,
+  ...props
+}: Parameters<typeof WeatherExpandedContent>[0] & { expanded: boolean }) {
+  if (!expanded) return null
+
+  return <WeatherExpandedContent {...props} />
+}
+
+function applyWeatherSearch(
+  searchQuery: string,
+  setLocationBySearch: (location: string) => void,
+  setSearchQuery: (query: string) => void
+): void {
+  const trimmedQuery = searchQuery.trim()
+  if (!trimmedQuery) return
+
+  setLocationBySearch(trimmedQuery)
+  setSearchQuery('')
 }

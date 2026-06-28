@@ -7,6 +7,33 @@ import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../src/ipc/contracts'
 type IpcListener = (event: Electron.IpcRendererEvent, ...args: any[]) => void
 const ipcListenerWrappers = new Map<string, Map<IpcListener, IpcListener>>()
 
+function isValidOptionalString(value: unknown): boolean {
+  return value == null || typeof value === 'string'
+}
+
+function isValidOptionalBoolean(value: unknown): boolean {
+  return value == null || typeof value === 'boolean'
+}
+
+function isValidLoginList(logins: unknown): logins is string[] {
+  return (
+    Array.isArray(logins) &&
+    Array.from(logins).every(login => typeof login === 'string' && login.trim().length > 0)
+  )
+}
+
+function isValidBatchMonthlyRequestArgs(
+  logins: unknown,
+  username: unknown,
+  skipDayProbing: unknown
+): logins is string[] {
+  return (
+    isValidLoginList(logins) &&
+    isValidOptionalString(username) &&
+    isValidOptionalBoolean(skipDayProbing)
+  )
+}
+
 // --------- Expose some API to the Renderer process ---------
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
@@ -67,10 +94,7 @@ contextBridge.exposeInMainWorld('github', {
       ? ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_SEATS, org, username)
       : Promise.resolve({ success: false, error: 'Invalid arguments' }),
   getBatchMonthlyRequests: (logins: string[], username?: string, skipDayProbing?: boolean) =>
-    Array.isArray(logins) &&
-    logins.every(login => typeof login === 'string' && login.trim().length > 0) &&
-    (username == null || typeof username === 'string') &&
-    (skipDayProbing == null || typeof skipDayProbing === 'boolean')
+    isValidBatchMonthlyRequestArgs(logins, username, skipDayProbing)
       ? ipcRenderer.invoke(
           IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
           logins,

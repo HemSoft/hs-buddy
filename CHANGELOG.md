@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.854] - 2026-06-28
+
+### Fixed
+
+- Resolve main merge conflicts for complexity audit cleanup
+
+## [0.1.853] - 2026-06-28
+
+### Fixed
+
+- Refresh complexity cleanup after review feedback
+
+## [0.1.852] - 2026-06-28
+
+### Fixed
+
+- Address automated review findings
+
+## [0.1.851] - 2026-06-28
+
+### Fixed
+
+- Stabilize PR branch fetch dependencies
+
+## [0.1.850] - 2026-06-28
+
+### Changed
+
+- Eliminate complexity warnings
+
+## [0.1.849] - 2026-06-28
+
+### Changed
+
+- Reduce complexity hotspots
+
 ## [0.1.848] - 2026-06-28
 
 ### Changed

@@ -154,16 +154,25 @@ function extractDescriptionFromScript(filePath: string): string | undefined {
 
   const titleLine = leadingComments[0]
   if (!titleLine) return undefined
-  const titleMatch = titleLine.match(/^.+?\s+[-—]\s*(.*)$/)
-  const titleDescription = titleMatch?.[1]?.trim()
+  const titleDescription = parseTitleDescription(titleLine)
   if (titleDescription) {
     return titleDescription
   }
 
-  const fallbackComments = titleMatch ? leadingComments.slice(1) : leadingComments
+  const fallbackComments = hasTitleDescriptionPattern(titleLine)
+    ? leadingComments.slice(1)
+    : leadingComments
   return fallbackComments.find(
     line => line.length > 0 && !line.toLowerCase().startsWith('version:')
   )
+}
+
+function parseTitleDescription(titleLine: string): string | undefined {
+  return titleLine.match(/^.+?\s+[-—]\s*(.*)$/)?.[1]?.trim()
+}
+
+function hasTitleDescriptionPattern(titleLine: string): boolean {
+  return /^.+?\s+[-—]\s*(.*)$/.test(titleLine)
 }
 
 export function listTemplateScripts(): {
@@ -306,12 +315,21 @@ function collectAgents(config: RalphLaunchConfig): string[] {
 // ralph-pr uses separate -DevAgent param; ralph.ps1 mixes dev into -Agents
 function appendAgentArgs(args: string[], config: RalphLaunchConfig): void {
   if (config.scriptType === 'ralph-pr') {
-    if (config.devAgent) args.push('-DevAgent', config.devAgent)
-    if (config.agents?.length) args.push('-Agents', config.agents.join(','))
-  } else {
-    const allAgents = collectAgents(config)
-    if (allAgents.length) args.push('-Agents', allAgents.join(','))
+    appendRalphPrAgentArgs(args, config)
+    return
   }
+
+  appendMixedAgentArgs(args, config)
+}
+
+function appendRalphPrAgentArgs(args: string[], config: RalphLaunchConfig): void {
+  if (config.devAgent) args.push('-DevAgent', config.devAgent)
+  if (config.agents?.length) args.push('-Agents', config.agents.join(','))
+}
+
+function appendMixedAgentArgs(args: string[], config: RalphLaunchConfig): void {
+  const allAgents = collectAgents(config)
+  if (allAgents.length) args.push('-Agents', allAgents.join(','))
 }
 
 // Write multi-line or long prompts to a temp file to avoid Windows
@@ -335,11 +353,15 @@ function appendExecutionArgs(args: string[], config: RalphLaunchConfig): void {
 }
 
 function appendContentArgs(args: string[], config: RalphLaunchConfig): void {
-  if (config.branch) args.push('-Branch', config.branch)
+  appendStringArg(args, '-Branch', config.branch)
   if (config.prompt) args.push('-Prompt', resolvePromptArg(config.prompt))
-  if (config.prNumber) args.push('-PRNumber', String(config.prNumber))
-  if (config.labels) args.push('-Labels', config.labels)
+  appendStringArg(args, '-PRNumber', config.prNumber ? String(config.prNumber) : undefined)
+  appendStringArg(args, '-Labels', config.labels)
   if (config.dryRun) args.push('-DryRun')
+}
+
+function appendStringArg(args: string[], name: string, value: string | undefined): void {
+  if (value) args.push(name, value)
 }
 
 function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
@@ -511,31 +533,33 @@ function detectPhase(run: RalphRunInfo, clean: string): void {
   const iterMatch = clean.match(/=== ITERATION (\d+)/)
   if (iterMatch) {
     run.currentIteration = Number.parseInt(iterMatch[1], 10)
-    run.phase = 'iterating'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
+    updateRunPhase(run, 'iterating')
   }
 
   if (clean.includes('Handing off to ralph-pr')) {
-    run.phase = 'pr-handoff'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
+    updateRunPhase(run, 'pr-handoff')
   }
 
-  if (clean.includes('PR review cycle') || clean.includes('Checking CI status')) {
-    run.phase = 'pr-resolving'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
+  if (isPrResolvingLine(clean)) {
+    updateRunPhase(run, 'pr-resolving')
   }
 
   // ralph-issues scan iteration markers: "== Scan Iteration N/"
   if (/^={2,}\s*Scan Iteration\s+\d+/i.test(clean)) {
     run.stats.scanIterations++
     run.currentIteration = run.stats.scanIterations
-    run.phase = 'scanning'
-    run.updatedAt = Date.now()
-    emitStatusChange(run)
+    updateRunPhase(run, 'scanning')
   }
+}
+
+function updateRunPhase(run: RalphRunInfo, phase: RalphRunInfo['phase']): void {
+  run.phase = phase
+  run.updatedAt = Date.now()
+  emitStatusChange(run)
+}
+
+function isPrResolvingLine(clean: string): boolean {
+  return clean.includes('PR review cycle') || clean.includes('Checking CI status')
 }
 
 type StatMatcher = {
@@ -634,7 +658,7 @@ export function stopLoop(runId: string): RalphStopResult {
   const run = activeRuns.get(runId)
 
   if (!run) return { success: false, error: `Run not found: ${runId}` }
-  if (!proc || run.status !== 'running') {
+  if (!isStoppableRun(proc, run)) {
     return { success: false, error: `Run ${runId} is not running (status: ${run.status})` }
   }
 
@@ -648,6 +672,10 @@ export function stopLoop(runId: string): RalphStopResult {
     markRunStopped(run, 'failed', errorMsg)
     return { success: false, error: errorMsg }
   }
+}
+
+function isStoppableRun(proc: ChildProcess | undefined, run: RalphRunInfo): proc is ChildProcess {
+  return Boolean(proc) && run.status === 'running'
 }
 
 export function listLoops(): RalphRunInfo[] {

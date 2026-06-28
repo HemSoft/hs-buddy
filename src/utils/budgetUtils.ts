@@ -15,6 +15,17 @@ interface BudgetMatch {
   prevent_further_usage: boolean
 }
 
+function toBudgetMatch(budget: BudgetItem): BudgetMatch {
+  return {
+    budget_amount: budget.budget_amount,
+    prevent_further_usage: budget.prevent_further_usage,
+  }
+}
+
+function readBudgetItems(data: BudgetPageResponse): BudgetItem[] {
+  return data.budgets ?? []
+}
+
 /** Check if a budget entity name matches the given filter (case-insensitive, bidirectional substring). */
 function matchesEntityFilter(entityName: string | undefined, filter: string): boolean {
   const entity = (entityName || '').toLowerCase()
@@ -58,13 +69,8 @@ export async function findBudgetAcrossPages(
   for (let page = 1; page <= maxPages; page++) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Budget pages are searched sequentially until the matching org budget is found.
     const data = await fetchPage(page)
-    const match = findCopilotBudget(data.budgets ?? [], org)
-    if (match) {
-      return {
-        budget_amount: match.budget_amount,
-        prevent_further_usage: match.prevent_further_usage,
-      }
-    }
+    const match = findCopilotBudget(readBudgetItems(data), org)
+    if (match) return toBudgetMatch(match)
     if (!data.has_next_page) break
   }
   return null

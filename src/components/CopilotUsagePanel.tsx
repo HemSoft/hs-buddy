@@ -8,6 +8,8 @@ import { TopUsersSection } from './copilot-usage/TopUsersSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
 import './CopilotUsagePanel.css'
 
+type CopilotUsageAccount = { username: string; org?: string }
+
 function resolveProjection(
   aggregateProjections:
     | { projectedTotal?: number; projectedOverageCost?: number }
@@ -26,7 +28,7 @@ function AccountsGrid({
   orgBudgets,
   orgOverageFromQuotas,
 }: {
-  accounts: { username: string; org?: string }[]
+  accounts: CopilotUsageAccount[]
   quotas: Record<string, AccountQuotaState>
   orgBudgets: Record<string, OrgBudgetState>
   orgOverageFromQuotas: Map<string, number>
@@ -42,20 +44,28 @@ function AccountsGrid({
   }
   return (
     <>
-      {accounts.flatMap((account: { username: string; org?: string }) =>
-        account.org === 'hemsoft'
-          ? []
-          : [
-              <AccountQuotaCard
-                key={account.username}
-                account={{ username: account.username, org: account.org ?? '' }}
-                state={quotas[account.username]}
-                budgetState={account.org ? orgBudgets[account.org] : undefined}
-                quotaOverage={account.org ? (orgOverageFromQuotas.get(account.org) ?? 0) : 0}
-              />,
-            ]
-      )}
+      {accounts
+        .filter(account => account.org !== 'hemsoft')
+        .map(account => renderAccountQuotaCard(account, quotas, orgBudgets, orgOverageFromQuotas))}
     </>
+  )
+}
+
+function renderAccountQuotaCard(
+  account: CopilotUsageAccount,
+  quotas: Record<string, AccountQuotaState>,
+  orgBudgets: Record<string, OrgBudgetState>,
+  orgOverageFromQuotas: Map<string, number>
+) {
+  const org = account.org ?? ''
+  return (
+    <AccountQuotaCard
+      key={account.username}
+      account={{ username: account.username, org }}
+      state={quotas[account.username]}
+      budgetState={account.org ? orgBudgets[account.org] : undefined}
+      quotaOverage={account.org ? (orgOverageFromQuotas.get(account.org) ?? 0) : 0}
+    />
   )
 }
 

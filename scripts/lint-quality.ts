@@ -125,7 +125,7 @@ if (current.totalWarnings > baseline.totalWarnings || regressions.length > 0) {
     console.error(`...and ${regressions.length - 20} more increased file/rule bucket(s).`)
   }
   console.error(
-    'Fix the new warnings or intentionally run `bun scripts/lint-quality.ts --update-baseline`.'
+    'Fix the new warnings first. Run `bun scripts/lint-quality.ts --update-baseline` only after a cleanup PR reduces the warning baseline.'
   )
   process.exit(1)
 }

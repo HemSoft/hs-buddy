@@ -54,8 +54,7 @@ jobs:
         run: bun run format:check
 
       - name: Analyze dependency health
-        run: npx --yes @e18e/cli analyze
-        continue-on-error: true
+        run: bun run e18e
 
       - name: Check architecture boundaries (dependency-cruiser)
         run: |
@@ -117,7 +116,7 @@ jobs:
       - name: Commit updated lockfile
         id: commit-lockfile
         env:
-          HUSKY: "0"
+          HUSKY: '0'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"

@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.858] - 2026-06-29
+
+### Fixed
+
+- Handle unavailable e18e output
+
+## [0.1.857] - 2026-06-29
+
+### Fixed
+
+- Enforce e18e wrapper in CI
+
+## [0.1.856] - 2026-06-29
+
+### Fixed
+
+- Reduce e18e direct dependency findings
+
 ## [0.1.855] - 2026-06-28
 
 ### Fixed

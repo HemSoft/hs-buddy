@@ -114,6 +114,9 @@ jobs:
       - name: Run tests with coverage
         run: bun run test:coverage
 
+      - name: Report coverage perfection target
+        run: bun run coverage:perfection
+
       - name: Report coverage summary
         if: always()
         run: |

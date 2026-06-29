@@ -48,15 +48,13 @@ jobs:
         run: bun run format:check
 
       - name: Analyze dependency health
-        run: npx --yes @e18e/cli analyze
-        continue-on-error: true
+        run: bun run e18e
 
       - name: Check architecture boundaries (dependency-cruiser)
         run: |
           # depcruise exits non-zero for any violations including warnings.
-          # --ignore-known excludes pre-existing violations baselined in .dependency-cruiser-known-violations.json.
           # Only fail CI on error-level violations to support gradual rollout.
-          bunx depcruise src electron convex --config .dependency-cruiser.cjs --ignore-known -T json > /tmp/dc-output.json || true
+          bunx depcruise src electron convex --config .dependency-cruiser.cjs -T json > /tmp/dc-output.json || true
           node -e "
             const r = require('/tmp/dc-output.json');
             const e = r.summary?.error || 0;

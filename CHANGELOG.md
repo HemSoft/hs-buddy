@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.856] - 2026-06-29
+
+### Fixed
+
+- Reduce e18e direct dependency findings
+
 ## [0.1.855] - 2026-06-28
 
 ### Fixed

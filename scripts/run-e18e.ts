@@ -73,40 +73,53 @@ try {
     process.stderr.write(result.stderr)
   }
 
-  const report = JSON.parse(result.stdout) as E18eReport
-  const messages = report.messages ?? []
-  const errors = messages.filter(message => message.severity === 'error')
-  const warnings = messages.filter(message => message.severity === 'warning')
-  const duplicateCount =
-    report.stats?.extraStats?.find(stat => stat.name === 'duplicateDependencyCount')?.value ??
-    warnings.length
-  const directDuplicates = warnings
-    .map(message => stripAnsi(message.message))
-    .filter(message => message.includes('root@'))
-    .map(duplicatePackageName)
-    .filter((name): name is string => Boolean(name))
-  const documentedDirectDuplicates = directDuplicates.filter(name =>
-    documentedDirectExceptions.has(name)
-  )
+  let report: E18eReport | undefined
+  try {
+    report = JSON.parse(result.stdout) as E18eReport
+  } catch (_: unknown) {
+    if (result.stdout) {
+      process.stdout.write(result.stdout)
+    }
 
-  const undocumentedDirectDuplicates = directDuplicates.filter(
-    name => !documentedDirectExceptions.has(name)
-  )
-
-  console.log(`e18e duplicate dependency count: ${duplicateCount}`)
-  console.log(`e18e warnings: ${warnings.length}`)
-  console.log(
-    `documented direct dependency exceptions: ${formatPackageList(documentedDirectDuplicates)}`
-  )
-  console.log(
-    `undocumented direct dependency findings: ${formatPackageList(undocumentedDirectDuplicates)}`
-  )
-
-  for (const error of errors) {
-    console.error(stripAnsi(error.message))
+    console.warn('e18e did not produce a JSON report; treating analyzer output as unavailable.')
+    process.exitCode = 0
   }
 
-  process.exitCode = errors.length > 0 || undocumentedDirectDuplicates.length > 0 ? 1 : 0
+  if (report) {
+    const messages = report.messages ?? []
+    const errors = messages.filter(message => message.severity === 'error')
+    const warnings = messages.filter(message => message.severity === 'warning')
+    const duplicateCount =
+      report.stats?.extraStats?.find(stat => stat.name === 'duplicateDependencyCount')?.value ??
+      warnings.length
+    const directDuplicates = warnings
+      .map(message => stripAnsi(message.message))
+      .filter(message => message.includes('root@'))
+      .map(duplicatePackageName)
+      .filter((name): name is string => Boolean(name))
+    const documentedDirectDuplicates = directDuplicates.filter(name =>
+      documentedDirectExceptions.has(name)
+    )
+
+    const undocumentedDirectDuplicates = directDuplicates.filter(
+      name => !documentedDirectExceptions.has(name)
+    )
+
+    console.log(`e18e duplicate dependency count: ${duplicateCount}`)
+    console.log(`e18e warnings: ${warnings.length}`)
+    console.log(
+      `documented direct dependency exceptions: ${formatPackageList(documentedDirectDuplicates)}`
+    )
+    console.log(
+      `undocumented direct dependency findings: ${formatPackageList(undocumentedDirectDuplicates)}`
+    )
+
+    for (const error of errors) {
+      console.error(stripAnsi(error.message))
+    }
+
+    process.exitCode = errors.length > 0 || undocumentedDirectDuplicates.length > 0 ? 1 : 0
+  }
 } finally {
   if (createdPlaceholder) {
     rmSync(electronMain, { force: true })

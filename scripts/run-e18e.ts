@@ -85,6 +85,9 @@ try {
     .filter(message => message.includes('root@'))
     .map(duplicatePackageName)
     .filter((name): name is string => Boolean(name))
+  const documentedDirectDuplicates = directDuplicates.filter(name =>
+    documentedDirectExceptions.has(name)
+  )
 
   const undocumentedDirectDuplicates = directDuplicates.filter(
     name => !documentedDirectExceptions.has(name)
@@ -92,7 +95,9 @@ try {
 
   console.log(`e18e duplicate dependency count: ${duplicateCount}`)
   console.log(`e18e warnings: ${warnings.length}`)
-  console.log(`documented direct dependency exceptions: ${formatPackageList(directDuplicates)}`)
+  console.log(
+    `documented direct dependency exceptions: ${formatPackageList(documentedDirectDuplicates)}`
+  )
   console.log(
     `undocumented direct dependency findings: ${formatPackageList(undocumentedDirectDuplicates)}`
   )

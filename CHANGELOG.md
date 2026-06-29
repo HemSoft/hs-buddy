@@ -9,7 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.863] - 2026-06-29
+## [0.1.867] - 2026-06-29
+
+### Fixed
+
+- Keep dependabot quality lint report-only
+- Prevent lint quality baseline increases
+- Enforce lint quality gate in ci
+- Ratchet lint quality warnings
+- Address lint quality review feedback
+
+## [0.1.864] - 2026-06-29
 
 ### Changed
 

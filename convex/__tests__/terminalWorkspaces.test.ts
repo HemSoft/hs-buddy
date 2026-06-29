@@ -63,15 +63,20 @@ describe('terminalWorkspaces', () => {
     expect(updated?.activeNodeId).toBe('solo')
     expect(updated?.updatedAt).toBeGreaterThanOrEqual(created?.updatedAt ?? 0)
   })
+})
 
-  test('updateNode patches one node and leaves missing workspaces unchanged', async () => {
+describe('terminalWorkspaces node updates', () => {
+  test('updateNode leaves missing workspaces unchanged', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.updateNode, {
       nodeId: 'missing',
       patch: { name: 'Ignored' },
     })
     await expect(t.query(api.terminalWorkspaces.getWorkspace)).resolves.toBeNull()
+  })
 
+  test('updateNode patches one node', async () => {
+    const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.saveWorkspace, {
       nodes: workspaceNodes(),
       activeNodeId: 'root',
@@ -98,7 +103,9 @@ describe('terminalWorkspaces', () => {
     })
     expect(workspace?.nodes.find(node => node.id === 'root')?.name).toBe('Root')
   })
+})
 
+describe('terminalWorkspaces node removal', () => {
   test('removeNode removes descendants and moves active node to the first remaining node', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.saveWorkspace, {
@@ -142,7 +149,9 @@ describe('terminalWorkspaces', () => {
     expect(workspace?.nodes).toEqual([])
     expect(workspace?.activeNodeId).toBeUndefined()
   })
+})
 
+describe('terminalWorkspaces active node', () => {
   test('setActiveNode updates and clears the active node', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.setActiveNode, { nodeId: 'ignored' })

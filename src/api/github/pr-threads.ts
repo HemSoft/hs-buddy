@@ -1,7 +1,7 @@
 /* v8 ignore start -- imports pull in API modules that aren't available in test */
 import type { PullRequest, PRConfig } from '../../types/pullRequest'
 import { graphql, getTokenForOwner } from './shared'
-import type { RepoPullRequest } from './prs'
+import type { RepoPullRequest } from './types'
 /* v8 ignore stop */
 
 // ── Pure helpers (testable) ─────────────────────────────────────────

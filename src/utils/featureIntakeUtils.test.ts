@@ -81,6 +81,22 @@ describe('toCanonicalKey', () => {
     })
     expect(with_).not.toBe(without)
   })
+
+  it('normalizes source consistently with other fields', () => {
+    const upper = toCanonicalKey({
+      source: ' Email ',
+      title: 'T',
+      problem: 'P',
+      acceptanceCriteria: [],
+    })
+    const lower = toCanonicalKey({
+      source: 'email',
+      title: 'T',
+      problem: 'P',
+      acceptanceCriteria: [],
+    })
+    expect(upper).toBe(lower)
+  })
 })
 
 describe('sourceToLabel', () => {
@@ -136,14 +152,17 @@ describe('validateIntakeInput', () => {
 
   it('throws for empty externalId', () => {
     expect(() => validateIntakeInput('', 'Title', 'Problem')).toThrow('externalId is required')
+    expect(() => validateIntakeInput('   ', 'Title', 'Problem')).toThrow('externalId is required')
   })
 
   it('throws for empty title', () => {
     expect(() => validateIntakeInput('EXT-1', '', 'Problem')).toThrow('title is required')
+    expect(() => validateIntakeInput('EXT-1', '   ', 'Problem')).toThrow('title is required')
   })
 
   it('throws for empty problem', () => {
     expect(() => validateIntakeInput('EXT-1', 'Title', '')).toThrow('problem is required')
+    expect(() => validateIntakeInput('EXT-1', 'Title', '   ')).toThrow('problem is required')
   })
 })
 

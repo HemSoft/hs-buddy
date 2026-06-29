@@ -22,7 +22,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov', 'json-summary', 'cobertura'],
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['src/**/*.{ts,tsx}', 'shared/**/*.ts'],
       exclude: [
         'src/main.tsx',
         'src/browser-ipc-mock.ts',

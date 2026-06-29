@@ -1,7 +1,7 @@
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError, shellValidator } from './lib/domain'
-import { buildUpdateData } from '../src/utils/convexPatchUtils'
+import { buildUpdateData } from '../shared/utils/convexPatchUtils'
 
 /**
  * Job CRUD operations

@@ -3,7 +3,7 @@ import { mutation, query } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
-import { buildScheduleUpdateFields } from '../src/utils/scheduleUtils'
+import { buildScheduleUpdateFields } from '../shared/utils/scheduleUtils'
 
 /**
  * Schedule CRUD operations

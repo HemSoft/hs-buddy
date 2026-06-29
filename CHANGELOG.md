@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.863] - 2026-06-29
+
+### Changed
+
+- Assert terminal workspace no-op mutations
+- Cover terminal workspace convex functions
+
 ## [0.1.862] - 2026-06-29
 
 ### Fixed

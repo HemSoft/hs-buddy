@@ -28,7 +28,7 @@ export function toCanonicalKey(input: {
     .join('-')
 
   const joined = [
-    input.source,
+    toCanonicalFragment(input.source),
     toCanonicalFragment(input.title),
     toCanonicalFragment(input.problem),
     toCanonicalFragment(input.requestedOutcome ?? ''),
@@ -75,9 +75,9 @@ export function ensureAcceptanceCriteria(raw?: string[]): string[] {
 
 /** Validate required intake fields. Throws if any are empty. */
 export function validateIntakeInput(externalId: string, title: string, problem: string): void {
-  if (!externalId) throw new Error('externalId is required')
-  if (!title) throw new Error('title is required')
-  if (!problem) throw new Error('problem is required')
+  if (!externalId.trim()) throw new Error('externalId is required')
+  if (!title.trim()) throw new Error('title is required')
+  if (!problem.trim()) throw new Error('problem is required')
 }
 
 /** Build the GitHub issue title with [feature-intake] prefix. */

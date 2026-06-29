@@ -13,6 +13,11 @@ describe('buildUpdateData', () => {
     expect(result).not.toHaveProperty('id')
   })
 
+  it('keeps updatedAt controlled by the mutation timestamp', () => {
+    const result = buildUpdateData({ updatedAt: 123, name: 'test' }, 2500)
+    expect(result).toEqual({ updatedAt: 2500, name: 'test' })
+  })
+
   it('excludes undefined values', () => {
     const result = buildUpdateData({ name: 'test', desc: undefined }, 3000)
     expect(result).toEqual({ updatedAt: 3000, name: 'test' })

@@ -5,14 +5,14 @@
  * patches records from a partial-update args shape.
  */
 
-/** Build a patch object from mutation args, excluding `id` and setting `updatedAt`. */
+/** Build a patch object from mutation args, excluding controlled fields and setting `updatedAt`. */
 export function buildUpdateData(
   args: Record<string, unknown>,
   now: number
 ): Record<string, unknown> {
   const updateData: Record<string, unknown> = { updatedAt: now }
   for (const [key, value] of Object.entries(args)) {
-    if (key !== 'id' && value !== undefined) updateData[key] = value
+    if (key !== 'id' && key !== 'updatedAt' && value !== undefined) updateData[key] = value
   }
   return updateData
 }

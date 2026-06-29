@@ -57,18 +57,7 @@ jobs:
         run: bun run e18e
 
       - name: Check architecture boundaries (dependency-cruiser)
-        run: |
-          # depcruise exits non-zero for any violations including warnings.
-          # Only fail CI on error-level violations to support gradual rollout.
-          bunx depcruise src electron convex --config .dependency-cruiser.cjs -T json > /tmp/dc-output.json || true
-          node -e "
-            const r = require('/tmp/dc-output.json');
-            const e = r.summary?.error || 0;
-            const w = r.summary?.warn || 0;
-            console.log('Architecture boundaries: ' + e + ' errors, ' + w + ' warnings');
-            if (e > 0) { console.error('Error-level boundary violations found'); process.exit(1); }
-            console.log('No error-level boundary violations');
-          "
+        run: bun run deps:check
 
       - name: Quality gate lint (informational)
         run: bun run lint:quality

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.859",
+  "version": "0.1.860",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -40,7 +40,7 @@
     "knip": "knip",
     "e18e": "bun scripts/run-e18e.ts",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
-    "deps:check": "depcruise src electron convex --config .dependency-cruiser.cjs",
+    "deps:check": "depcruise src electron convex shared --config .dependency-cruiser.cjs",
     "security:electron": "bun scripts/check-electron-security.ts",
     "coverage:ratchet": "bun scripts/coverage-ratchet.ts",
     "coverage:ratchet:electron": "bun scripts/coverage-ratchet.ts --config vitest.electron.config.ts --summary coverage-electron/coverage-summary.json",

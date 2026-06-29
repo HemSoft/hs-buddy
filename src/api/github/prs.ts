@@ -1,6 +1,7 @@
 import type { Octokit } from '@octokit/rest'
 import type { PullRequest, PRConfig } from '../../types/pullRequest'
 import { getErrorMessage } from '../../utils/errorUtils'
+import type { RepoPullRequest } from './types'
 import {
   type DiffFile,
   type ProgressCallback,
@@ -22,25 +23,7 @@ export { fetchBatchThreadStats }
 
 // ── Types ────────────────────────────────────────────────────────────
 
-export interface RepoPullRequest {
-  number: number
-  title: string
-  state: string
-  author: string
-  authorAvatarUrl: string | null
-  url: string
-  createdAt: string
-  updatedAt: string
-  labels: Array<{ name: string; color: string }>
-  draft: boolean
-  headBranch: string
-  baseBranch: string
-  assigneeCount: number
-  approvalCount: number
-  changesRequestedCount: number
-  threadsUnaddressed: number | null
-  iApproved: boolean
-}
+export type { RepoPullRequest } from './types'
 
 type PRFileChange = DiffFile
 

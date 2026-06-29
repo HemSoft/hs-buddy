@@ -5,7 +5,7 @@ import {
   validateBookmarkUpdate,
   buildUpdateData,
   resolveBookmarkUpdateTargets,
-} from '../src/utils/bookmarkValidation'
+} from '../shared/utils/bookmarkValidation'
 
 // List all bookmarks
 export const list = query({

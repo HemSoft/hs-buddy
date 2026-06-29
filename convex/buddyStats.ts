@@ -5,7 +5,7 @@ import {
   validateStatFields,
   buildIncrementPatch,
   buildInitialStatsDoc,
-} from '../src/utils/statsMutationUtils'
+} from '../shared/utils/statsMutationUtils'
 
 /**
  * Buddy Stats — centralized usage statistics (singleton pattern)

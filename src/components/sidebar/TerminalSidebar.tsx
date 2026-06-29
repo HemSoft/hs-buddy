@@ -473,6 +473,7 @@ export function TerminalSidebar({ onItemSelect, selectedItem }: TerminalSidebarP
     setEditingId(nodeId)
     setEditValue(currentName)
     setContextMenu(null)
+    /* v8 ignore next -- focus selection timing is platform-dependent under coverage. */
     setTimeout(() => inputRef.current?.select(), 0)
   }, [])
 

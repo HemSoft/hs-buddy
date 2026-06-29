@@ -59,9 +59,8 @@ jobs:
       - name: Check architecture boundaries (dependency-cruiser)
         run: bun run deps:check
 
-      - name: Quality gate lint (informational)
+      - name: Quality gate lint
         run: bun run lint:quality
-        continue-on-error: true
 
       - name: Electron security check
         run: bun scripts/check-electron-security.ts

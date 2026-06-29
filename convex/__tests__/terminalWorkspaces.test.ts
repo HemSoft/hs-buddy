@@ -70,6 +70,7 @@ describe('terminalWorkspaces', () => {
       nodeId: 'missing',
       patch: { name: 'Ignored' },
     })
+    await expect(t.query(api.terminalWorkspaces.getWorkspace)).resolves.toBeNull()
 
     await t.mutation(api.terminalWorkspaces.saveWorkspace, {
       nodes: workspaceNodes(),
@@ -115,6 +116,7 @@ describe('terminalWorkspaces', () => {
   test('removeNode preserves an active node outside the removed subtree', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.removeNode, { nodeId: 'missing' })
+    await expect(t.query(api.terminalWorkspaces.getWorkspace)).resolves.toBeNull()
 
     await t.mutation(api.terminalWorkspaces.saveWorkspace, {
       nodes: workspaceNodes(),
@@ -144,6 +146,7 @@ describe('terminalWorkspaces', () => {
   test('setActiveNode updates and clears the active node', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.terminalWorkspaces.setActiveNode, { nodeId: 'ignored' })
+    await expect(t.query(api.terminalWorkspaces.getWorkspace)).resolves.toBeNull()
 
     await t.mutation(api.terminalWorkspaces.saveWorkspace, {
       nodes: workspaceNodes(),

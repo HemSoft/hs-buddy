@@ -74,16 +74,6 @@ if (errorCount > 0) {
   process.exit(1)
 }
 
-if (isUpdate) {
-  writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`)
-  console.log(
-    `Updated lint quality baseline: ${current.totalWarnings} warning(s), ${
-      Object.keys(current.entries).length
-    } file/rule bucket(s).`
-  )
-  process.exit(0)
-}
-
 let baseline: Baseline
 try {
   baseline = JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) as Baseline
@@ -96,6 +86,31 @@ try {
 const regressions = Object.entries(current.entries)
   .map(([key, count]) => ({ key, count, baselineCount: baseline.entries[key] ?? 0 }))
   .filter(entry => entry.count > entry.baselineCount)
+
+if (isUpdate) {
+  if (current.totalWarnings > baseline.totalWarnings || regressions.length > 0) {
+    console.error(
+      `Refusing to increase lint quality baseline: current=${current.totalWarnings}, baseline=${baseline.totalWarnings}.`
+    )
+    for (const regression of regressions.slice(0, 20)) {
+      console.error(
+        `+ ${regression.key}: ${regression.count} warning(s), baseline ${regression.baselineCount}`
+      )
+    }
+    if (regressions.length > 20) {
+      console.error(`...and ${regressions.length - 20} more increased file/rule bucket(s).`)
+    }
+    process.exit(1)
+  }
+
+  writeFileSync(BASELINE_PATH, `${JSON.stringify(current, null, 2)}\n`)
+  console.log(
+    `Updated lint quality baseline: ${current.totalWarnings} warning(s), ${
+      Object.keys(current.entries).length
+    } file/rule bucket(s).`
+  )
+  process.exit(0)
+}
 
 if (current.totalWarnings > baseline.totalWarnings || regressions.length > 0) {
   console.error(

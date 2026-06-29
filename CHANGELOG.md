@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.864] - 2026-06-29
+
+### Fixed
+
+- Prevent lint quality baseline increases
+
 ## [0.1.863] - 2026-06-29
 
 ### Fixed

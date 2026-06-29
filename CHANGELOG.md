@@ -14,19 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Keep dependabot quality lint report-only
+- Prevent lint quality baseline increases
+- Enforce lint quality gate in ci
+- Ratchet lint quality warnings
 
 ## [0.1.864] - 2026-06-29
 
-### Fixed
+### Changed
 
-- Prevent lint quality baseline increases
-
-## [0.1.863] - 2026-06-29
-
-### Fixed
-
-- Enforce lint quality gate in ci
-- Ratchet lint quality warnings
+- Assert terminal workspace no-op mutations
+- Cover terminal workspace convex functions
 
 ## [0.1.862] - 2026-06-29
 

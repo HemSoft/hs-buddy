@@ -32,10 +32,9 @@ const summaryPath = resolve(root, values.summary as string)
 type MetricKey = 'statements' | 'branches' | 'functions' | 'lines'
 const METRICS: MetricKey[] = ['statements', 'branches', 'functions', 'lines']
 
-// The coverage bar is capped at 90%. The ratchet may raise thresholds toward
-// this cap as coverage improves, but never above it — we intentionally do not
-// chase the final few percent.
-const MAX_THRESHOLD = 90
+// The coverage bar ratchets toward perfection. It may raise thresholds as
+// coverage improves, but never above the target.
+const MAX_THRESHOLD = 100
 
 // Parse coverage-summary.json (vitest json-summary reporter output)
 function parseSummary(path: string): Record<MetricKey, number> {
@@ -82,7 +81,7 @@ try {
   const config = readFileSync(configPath, 'utf-8')
   const existing = parseThresholds(config)
 
-  // Ratchet: only go UP, and never above the capped bar.
+  // Ratchet: only go UP, and never above the target bar.
   const next = {} as Record<MetricKey, number>
   for (const key of METRICS) {
     next[key] = Math.min(MAX_THRESHOLD, Math.max(existing[key], current[key]))
@@ -94,6 +93,9 @@ try {
     console.log(
       `  Current: S=${existing.statements}% B=${existing.branches}% F=${existing.functions}% L=${existing.lines}%`
     )
+    if (METRICS.some(k => existing[k] < MAX_THRESHOLD)) {
+      console.log(`  Target:  ${MAX_THRESHOLD}% across all metrics`)
+    }
     process.exit(0)
   }
 

@@ -42,6 +42,8 @@
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
     "deps:check": "depcruise src electron convex shared --config .dependency-cruiser.cjs",
     "security:electron": "bun scripts/check-electron-security.ts",
+    "coverage:perfection": "bun scripts/coverage-perfection.ts",
+    "coverage:perfection:strict": "bun scripts/coverage-perfection.ts --strict",
     "coverage:ratchet": "bun scripts/coverage-ratchet.ts",
     "coverage:ratchet:electron": "bun scripts/coverage-ratchet.ts --config vitest.electron.config.ts --summary coverage-electron/coverage-summary.json",
     "bundle-size": "bun scripts/bundle-size.ts",

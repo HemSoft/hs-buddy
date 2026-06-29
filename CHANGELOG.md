@@ -26,12 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Enforce lint quality gate in ci
+- Ratchet lint quality warnings
 
 ## [0.1.862] - 2026-06-29
 
 ### Fixed
 
-- Ratchet lint quality warnings
+- Align coverage ratchet with perfection target
 
 ## [0.1.861] - 2026-06-29
 

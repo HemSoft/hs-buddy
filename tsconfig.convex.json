@@ -12,6 +12,6 @@
     "isolatedModules": true,
     "types": ["vite/client"]
   },
-  "include": ["convex"],
+  "include": ["convex", "shared"],
   "exclude": ["convex/_generated"]
 }

@@ -9,19 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.860] - 2026-06-29
+## [0.1.863] - 2026-06-29
 
 ### Changed
 
 - Assert terminal workspace no-op mutations
+- Cover terminal workspace convex functions
+
+## [0.1.862] - 2026-06-29
+
+### Fixed
+
+- Align coverage ratchet with perfection target
+
+## [0.1.861] - 2026-06-29
+
+### Fixed
+
+- Enforce shared dependency boundaries
+
+## [0.1.860] - 2026-06-29
+
+### Fixed
+
+- Address dependency cruiser review feedback
 
 ## [0.1.859] - 2026-06-29
 
-### Changed
+### Fixed
 
-- Cover terminal workspace convex functions
+- Resolve dependency cruiser PR feedback
 
 ## [0.1.858] - 2026-06-29
+
+### Changed
+
+- Include shared helpers in coverage
 
 ### Fixed
 
@@ -31,12 +54,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Keep empty dependency cruiser baseline
 - Enforce e18e wrapper in CI
 
 ## [0.1.856] - 2026-06-29
 
 ### Fixed
 
+- Eliminate dependency cruiser known violations
 - Reduce e18e direct dependency findings
 
 ## [0.1.855] - 2026-06-28

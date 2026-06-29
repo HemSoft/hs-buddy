@@ -22,7 +22,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['text', 'text-summary', 'lcov', 'json-summary', 'cobertura'],
-      include: ['src/**/*.{ts,tsx}'],
+      include: ['src/**/*.{ts,tsx}', 'shared/**/*.ts'],
       exclude: [
         'src/main.tsx',
         'src/browser-ipc-mock.ts',
@@ -38,10 +38,10 @@ export default defineConfig({
         'src/components/copilot-usage/types.ts',
       ],
       thresholds: {
-        statements: 90,
-        branches: 90,
-        functions: 90,
-        lines: 90,
+        statements: 99,
+        branches: 99,
+        functions: 100,
+        lines: 99,
       },
     },
   },

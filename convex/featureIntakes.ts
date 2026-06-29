@@ -11,7 +11,7 @@ import {
   validateIntakeInput,
   buildIssueTitle,
   buildIssueBody,
-} from '../src/utils/featureIntakeUtils'
+} from '../shared/utils/featureIntakeUtils'
 
 const intakeSourceValidator = v.union(
   v.literal('jira'),

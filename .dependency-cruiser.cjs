@@ -55,6 +55,14 @@ module.exports = {
       from: { path: '^convex/', pathNot: '^convex/_generated/' },
       to: { path: '^src/' },
     },
+    {
+      name: 'no-shared-to-runtime-layers',
+      severity: 'error',
+      comment:
+        'Shared utilities must stay platform-neutral and must not import renderer, main, or Convex runtime code.',
+      from: { path: '^shared/' },
+      to: { path: '^(src|electron|convex)/' },
+    },
   ],
   options: {
     doNotFollow: {

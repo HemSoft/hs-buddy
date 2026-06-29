@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.861] - 2026-06-29
+
+### Fixed
+
+- Enforce shared dependency boundaries
+
 ## [0.1.860] - 2026-06-29
 
 ### Fixed

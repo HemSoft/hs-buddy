@@ -4,6 +4,7 @@
 # Usage:
 #   ./runAspire.debug.ps1              # default CDP port 9222
 #   ./runAspire.debug.ps1 -Port 9333   # custom CDP port
+#   ./runAspire.debug.ps1 -FullBuild   # run Aspire's full pre-run build/restore
 #
 # Once running:
 #   - Aspire dashboard opens automatically (logs, traces, metrics)
@@ -11,7 +12,8 @@
 #     npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:9222
 
 param(
-    [int]$Port = 9222
+    [int]$Port = 9222,
+    [switch]$FullBuild
 )
 
 . "$PSScriptRoot/lib/PortUtils.ps1"
@@ -29,6 +31,16 @@ $Reset = "${esc}[0m"
 
 Push-Location $repoRoot
 try {
+
+# -- Check if debug port is already in use --
+$portInUse = Test-PortOpen -Port $Port
+if ($portInUse) {
+    Write-Information ""
+    Write-Information "${Yellow}WARNING: Port $Port is already in use.${Reset}"
+    Write-Information "${Yellow}Another debug instance may be running. Kill it first or use -Port to pick another.${Reset}"
+    Write-Information ""
+    exit 1
+}
 
 # -- Preflight: Aspire CLI --
 Initialize-DotnetRoot
@@ -51,6 +63,25 @@ if (-not (Test-Path ".modules/aspire.ts")) {
     }
 }
 
+# -- Preflight: AppHost dependencies for the fast path --
+if (-not $FullBuild -and -not (Test-Path "node_modules")) {
+    $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
+    if (-not $bunCmd) {
+        Write-Information ""
+        Write-Information "${Red}ERROR: Bun not found and node_modules is missing.${Reset}"
+        Write-Information "Install dependencies with: ${Yellow}bun install --frozen-lockfile${Reset}"
+        Write-Information ""
+        exit 1
+    }
+
+    Write-Information "${Cyan}node_modules not found. Installing dependencies...${Reset}"
+    & $bunCmd.Source install --frozen-lockfile
+    if ($LASTEXITCODE -ne 0) {
+        Write-Information "${Red}ERROR: bun install --frozen-lockfile failed.${Reset}"
+        exit 1
+    }
+}
+
 # -- Kill orphaned Convex processes --
 $orphan = Get-Process -Name "convex-local-backend" -ErrorAction SilentlyContinue
 if ($orphan) {
@@ -61,16 +92,6 @@ if ($orphan) {
 
 Stop-PortOwner -Port 3210 -Label "Convex port 3210"
 
-# -- Check if debug port is already in use --
-$portInUse = Test-PortOpen -Port $Port
-if ($portInUse) {
-    Write-Information ""
-    Write-Information "${Yellow}WARNING: Port $Port is already in use.${Reset}"
-    Write-Information "${Yellow}Another debug instance may be running. Kill it first or use -Port to pick another.${Reset}"
-    Write-Information ""
-    exit 1
-}
-
 # -- Set debug environment and launch via Aspire --
 $env:BUDDY_DEBUG_PORT = $Port
 if (-not $env:ASPIRE_CLI_START_TIMEOUT) {
@@ -80,11 +101,21 @@ if (-not $env:ASPIRE_CLI_START_TIMEOUT) {
 Write-Information ""
 Write-Information "${Cyan}Starting hs-buddy with Aspire orchestration (DEBUG mode)${Reset}"
 Write-Information "${DGray}  AppHost timeout: $($env:ASPIRE_CLI_START_TIMEOUT)s${Reset}"
+if ($FullBuild) {
+    Write-Information "${DGray}  Startup mode: full Aspire build/restore${Reset}"
+} else {
+    Write-Information "${DGray}  Startup mode: fast (--no-build)${Reset}"
+}
 Write-Information "${DGray}  CDP port:   http://127.0.0.1:$Port${Reset}"
 Write-Information "${DGray}  Connect:    npx -y chrome-devtools-mcp@latest --browserUrl http://127.0.0.1:$Port${Reset}"
 Write-Information ""
 
-& $aspireCmd run
+$aspireArgs = @('run')
+if (-not $FullBuild) {
+    $aspireArgs += '--no-build'
+}
+
+& $aspireCmd @aspireArgs
 $exitCode = $LASTEXITCODE
 } finally {
     Pop-Location

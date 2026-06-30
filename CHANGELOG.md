@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Stabilize shared prettier line endings
+- Speed up Aspire debug launcher
 
 ## [0.1.867] - 2026-06-29
 

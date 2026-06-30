@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.868] - 2026-06-30
+
+### Fixed
+
+- Stabilize shared prettier line endings
+
 ## [0.1.867] - 2026-06-29
 
 ### Fixed

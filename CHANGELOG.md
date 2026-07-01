@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.870] - 2026-07-01
+
+### Fixed
+
+- Address audit review feedback
+
+## [0.1.869] - 2026-07-01
+
+### Fixed
+
+- Resolve bun audit advisories; `bun audit` now reports no vulnerabilities.
+
 ## [0.1.868] - 2026-06-30
 
 ### Fixed

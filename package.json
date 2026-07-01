@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.868",
+  "version": "0.1.869",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -121,7 +121,7 @@
     "dependency-cruiser": "^17.3.10",
     "electron": "^42.0.1",
     "electron-builder": "^26.8.1",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "eslint": "^10",
     "eslint-plugin-jsx-a11y": "^6.10.2",
     "eslint-plugin-react-hooks": "^7",
@@ -151,6 +151,23 @@
     "@github/copilot-darwin-arm64": "^1.0.65",
     "@github/copilot-darwin-x64": "^1.0.65",
     "@github/copilot-win32-x64": "^1.0.65"
+  },
+  "overrides": {
+    "@babel/core": "^7.29.1",
+    "@grpc/grpc-js": "^1.14.4",
+    "brace-expansion": "^5.0.6",
+    "fast-uri": "^3.1.2",
+    "form-data": "^4.0.6",
+    "js-yaml": "^3.15.0",
+    "linkify-it": "^5.0.1",
+    "markdown-it": "^14.2.0",
+    "protobufjs": "^7.5.8",
+    "qs": "^6.15.2",
+    "tar": "^7.5.16",
+    "tmp": "^0.2.6",
+    "undici": "^7.28.0",
+    "uuid": "^11.1.1",
+    "ws": "^8.20.1"
   },
   "engines": {
     "node": ">=22.0.0"

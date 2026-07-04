@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.872] - 2026-07-04
+
+### Fixed
+
+- Cache terminal shell PATH lookup
+
 ## [0.1.871] - 2026-07-04
 
 ### Changed

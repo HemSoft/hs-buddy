@@ -70,14 +70,26 @@ function getPty(): typeof import('node-pty') {
 
 const MAX_SCROLLBACK_BUFFER = 100_000
 
-function executableExistsOnPath(executable: string): boolean {
-  const pathValue = process.env.PATH
-  if (!pathValue) return false
+const executablePathCache = new Map<string, boolean>()
 
-  return pathValue
+function executableExistsOnPath(executable: string): boolean {
+  const pathValue = process.env.PATH ?? ''
+  const cacheKey = `${executable}\0${pathValue}`
+  const cached = executablePathCache.get(cacheKey)
+  if (cached !== undefined) return cached
+
+  if (!pathValue) {
+    executablePathCache.set(cacheKey, false)
+    return false
+  }
+
+  const exists = pathValue
     .split(path.delimiter)
     .filter(Boolean)
     .some(directory => existsSync(path.join(directory, executable)))
+
+  executablePathCache.set(cacheKey, exists)
+  return exists
 }
 
 /** Resolve the best available PowerShell executable on Windows.

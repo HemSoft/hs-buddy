@@ -398,8 +398,10 @@ describe('terminalHandlers', () => {
       ptyHarness.createRequireImpl
     )
 
+    const originalPath = process.env.PATH
     const originalPlatform = process.platform
     try {
+      process.env.PATH = `C:\\missing-pwsh-${Date.now()}`
       Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
 
       const { existsSync } = await import('node:fs')
@@ -418,6 +420,7 @@ describe('terminalHandlers', () => {
         expect.any(Object)
       )
     } finally {
+      process.env.PATH = originalPath
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
       restore()
     }

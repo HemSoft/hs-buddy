@@ -188,8 +188,7 @@ function getAuthorDate(commit: { author?: { date?: string } } | undefined): stri
 
 function extractCommitActivityDate(item: Record<string, unknown>): string | undefined {
   const commit = item.commit as
-    | { committer?: { date?: string }; author?: { date?: string } }
-    | undefined
+    { committer?: { date?: string }; author?: { date?: string } } | undefined
   return getCommitterDate(commit) ?? getAuthorDate(commit)
 }
 

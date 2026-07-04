@@ -231,9 +231,7 @@ type PRHistoryGraphQLResponse = {
       reviewRequests: {
         nodes: Array<{
           requestedReviewer:
-            | { __typename: 'User'; login: string; avatarUrl: string }
-            | { __typename: string }
-            | null
+            { __typename: 'User'; login: string; avatarUrl: string } | { __typename: string } | null
         }>
       }
       reviews: {

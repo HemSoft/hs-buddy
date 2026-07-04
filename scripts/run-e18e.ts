@@ -5,8 +5,13 @@ import { spawnSync } from 'node:child_process'
 const electronMain = 'dist-electron/main.js'
 const createdPlaceholder = !existsSync(electronMain)
 const documentedDirectExceptions = new Set([
+  '@opentelemetry/api-logs',
+  '@opentelemetry/resources',
+  '@opentelemetry/sdk-metrics',
   '@types/node',
   'esbuild',
+  'globals',
+  'prettier',
   'typescript',
   'vscode-jsonrpc',
 ])

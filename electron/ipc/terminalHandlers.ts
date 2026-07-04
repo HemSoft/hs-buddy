@@ -1,5 +1,4 @@
 import { ipcMain, app, type WebContents } from 'electron'
-import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -71,15 +70,20 @@ function getPty(): typeof import('node-pty') {
 
 const MAX_SCROLLBACK_BUFFER = 100_000
 
+function executableExistsOnPath(executable: string): boolean {
+  const pathValue = process.env.PATH
+  if (!pathValue) return false
+
+  return pathValue
+    .split(path.delimiter)
+    .filter(Boolean)
+    .some(directory => existsSync(path.join(directory, executable)))
+}
+
 /** Resolve the best available PowerShell executable on Windows.
  *  Prefers pwsh.exe (PowerShell 7+), falls back to powershell.exe (Windows PowerShell 5.x). */
 function resolveWindowsShell(): string {
-  try {
-    execFileSync('where.exe', ['pwsh.exe'], { stdio: 'ignore' })
-    return 'pwsh.exe'
-  } catch (_: unknown) {
-    return 'powershell.exe'
-  }
+  return executableExistsOnPath('pwsh.exe') ? 'pwsh.exe' : 'powershell.exe'
 }
 
 interface PtyDisposable {

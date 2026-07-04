@@ -1,20 +1,20 @@
 {
-  "updatedAt": "2026-05-31T04:23:07.498Z",
+  "updatedAt": "2026-07-04T01:43:41.853Z",
   "bundles": [
     {
       "file": "dist/assets/index.js",
-      "sizeBytes": 2495735,
-      "sizeHuman": "2.38 MB"
-    },
-    {
-      "file": "dist-electron/main.js",
-      "sizeBytes": 1396698,
-      "sizeHuman": "1.33 MB"
+      "sizeBytes": 1719194,
+      "sizeHuman": "1.64 MB"
     },
     {
       "file": "dist/assets/emacs-lisp.js",
       "sizeBytes": 779873,
       "sizeHuman": "761.59 kB"
+    },
+    {
+      "file": "dist-electron/main.js",
+      "sizeBytes": 726149,
+      "sizeHuman": "709.13 kB"
     },
     {
       "file": "dist/assets/cpp.js",
@@ -28,13 +28,13 @@
     },
     {
       "file": "dist/assets/TerminalPane.js",
-      "sizeBytes": 375260,
-      "sizeHuman": "366.46 kB"
+      "sizeBytes": 375480,
+      "sizeHuman": "366.68 kB"
     },
     {
       "file": "dist/assets/index.css",
-      "sizeBytes": 337644,
-      "sizeHuman": "329.73 kB"
+      "sizeBytes": 344997,
+      "sizeHuman": "336.91 kB"
     },
     {
       "file": "dist/assets/wolfram.js",
@@ -88,8 +88,8 @@
     },
     {
       "file": "dist/assets/php.js",
-      "sizeBytes": 111314,
-      "sizeHuman": "108.71 kB"
+      "sizeBytes": 113085,
+      "sizeHuman": "110.43 kB"
     },
     {
       "file": "dist/assets/objective-c.js",
@@ -113,8 +113,8 @@
     },
     {
       "file": "dist/assets/csharp.js",
-      "sizeBytes": 89680,
-      "sizeHuman": "87.58 kB"
+      "sizeBytes": 90182,
+      "sizeHuman": "88.07 kB"
     },
     {
       "file": "dist/assets/fortran-free-form.js",
@@ -128,8 +128,8 @@
     },
     {
       "file": "dist/assets/hack.js",
-      "sizeBytes": 80184,
-      "sizeHuman": "78.30 kB"
+      "sizeBytes": 81052,
+      "sizeHuman": "79.15 kB"
     },
     {
       "file": "dist/assets/vyper.js",
@@ -138,8 +138,8 @@
     },
     {
       "file": "dist/assets/latex.js",
-      "sizeBytes": 72617,
-      "sizeHuman": "70.92 kB"
+      "sizeBytes": 72875,
+      "sizeHuman": "71.17 kB"
     },
     {
       "file": "dist/assets/c.js",
@@ -212,6 +212,11 @@
       "sizeHuman": "46.95 kB"
     },
     {
+      "file": "dist/assets/apex.js",
+      "sizeBytes": 47767,
+      "sizeHuman": "46.65 kB"
+    },
+    {
       "file": "dist/assets/catppuccin-macchiato.js",
       "sizeBytes": 47260,
       "sizeHuman": "46.15 kB"
@@ -230,11 +235,6 @@
       "file": "dist/assets/catppuccin-mocha.js",
       "sizeBytes": 47252,
       "sizeHuman": "46.14 kB"
-    },
-    {
-      "file": "dist/assets/apex.js",
-      "sizeBytes": 46978,
-      "sizeHuman": "45.88 kB"
     },
     {
       "file": "dist/assets/go.js",
@@ -323,8 +323,8 @@
     },
     {
       "file": "dist/assets/julia.js",
-      "sizeBytes": 30998,
-      "sizeHuman": "30.27 kB"
+      "sizeBytes": 31008,
+      "sizeHuman": "30.28 kB"
     },
     {
       "file": "dist/assets/applescript.js",
@@ -372,6 +372,11 @@
       "sizeHuman": "26.62 kB"
     },
     {
+      "file": "dist/assets/c3.js",
+      "sizeBytes": 26969,
+      "sizeHuman": "26.34 kB"
+    },
+    {
       "file": "dist/assets/codeql.js",
       "sizeBytes": 26876,
       "sizeHuman": "26.25 kB"
@@ -390,11 +395,6 @@
       "file": "dist/assets/night-owl-light.js",
       "sizeBytes": 25899,
       "sizeHuman": "25.29 kB"
-    },
-    {
-      "file": "dist/assets/c3.js",
-      "sizeBytes": 25624,
-      "sizeHuman": "25.02 kB"
     },
     {
       "file": "dist/assets/marko.js",
@@ -458,8 +458,8 @@
     },
     {
       "file": "dist/assets/sql.js",
-      "sizeBytes": 23462,
-      "sizeHuman": "22.91 kB"
+      "sizeBytes": 23483,
+      "sizeHuman": "22.93 kB"
     },
     {
       "file": "dist/assets/bird2.js",
@@ -632,11 +632,6 @@
       "sizeHuman": "18.18 kB"
     },
     {
-      "file": "dist-electron/preload.mjs",
-      "sizeBytes": 18417,
-      "sizeHuman": "17.99 kB"
-    },
-    {
       "file": "dist/assets/svelte.js",
       "sizeBytes": 18249,
       "sizeHuman": "17.82 kB"
@@ -707,6 +702,11 @@
       "sizeHuman": "15.47 kB"
     },
     {
+      "file": "dist/assets/luau.js",
+      "sizeBytes": 15621,
+      "sizeHuman": "15.25 kB"
+    },
+    {
       "file": "dist/assets/lua.js",
       "sizeBytes": 15589,
       "sizeHuman": "15.22 kB"
@@ -772,11 +772,6 @@
       "sizeHuman": "13.70 kB"
     },
     {
-      "file": "dist/assets/luau.js",
-      "sizeBytes": 13957,
-      "sizeHuman": "13.63 kB"
-    },
-    {
       "file": "dist/assets/pug.js",
       "sizeBytes": 13849,
       "sizeHuman": "13.52 kB"
@@ -802,6 +797,11 @@
       "sizeHuman": "13.29 kB"
     },
     {
+      "file": "dist-electron/preload.mjs",
+      "sizeBytes": 13567,
+      "sizeHuman": "13.25 kB"
+    },
+    {
       "file": "dist/assets/v.js",
       "sizeBytes": 13207,
       "sizeHuman": "12.90 kB"
@@ -818,8 +818,8 @@
     },
     {
       "file": "dist/assets/vesper.js",
-      "sizeBytes": 12689,
-      "sizeHuman": "12.39 kB"
+      "sizeBytes": 12730,
+      "sizeHuman": "12.43 kB"
     },
     {
       "file": "dist/assets/apache.js",
@@ -878,8 +878,8 @@
     },
     {
       "file": "dist/assets/just.js",
-      "sizeBytes": 10769,
-      "sizeHuman": "10.52 kB"
+      "sizeBytes": 10817,
+      "sizeHuman": "10.56 kB"
     },
     {
       "file": "dist/assets/yaml.js",

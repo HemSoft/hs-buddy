@@ -28,6 +28,7 @@ import type {
 const MAX_LOG_BUFFER = 5000
 const VENDORED_SCRIPTS_DIR = 'scripts/ralph-loops'
 const KILL_TIMEOUT_MS = 5_000
+const POWERSHELL_CORE_EXECUTABLE = 'pwsh'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -450,7 +451,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
 
   const args = buildArgs(config, scriptPath)
 
-  const proc = spawn('pwsh', args, {
+  const proc = spawn(POWERSHELL_CORE_EXECUTABLE, args, {
     cwd: config.repoPath,
     shell: false,
     stdio: ['ignore', 'pipe', 'pipe'],

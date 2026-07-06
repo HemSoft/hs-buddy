@@ -12,9 +12,7 @@ type CopilotUsageAccount = { username: string; org?: string }
 
 function resolveProjection(
   aggregateProjections:
-    | { projectedTotal?: number; projectedOverageCost?: number }
-    | null
-    | undefined
+    { projectedTotal?: number; projectedOverageCost?: number } | null | undefined
 ) {
   return {
     projectedTotal: aggregateProjections?.projectedTotal ?? null,

@@ -8,8 +8,7 @@ const mockUpdate = vi.fn()
 const mockIncrement = vi.fn()
 
 let mockJobs:
-  | Array<{ _id: string; name: string; workerType: string; description?: string }>
-  | undefined
+  Array<{ _id: string; name: string; workerType: string; description?: string }> | undefined
 let mockSchedule:
   | {
       _id: string

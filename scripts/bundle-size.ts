@@ -12,6 +12,7 @@
  */
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { deduplicateBundles, normalizeBundleFile, type BundleEntry } from './bundle-size-utils'
 
 const root = resolve(import.meta.dirname, '..')
 const baselinePath = resolve(root, 'bundle-size-baseline.json')
@@ -19,12 +20,6 @@ const baselinePath = resolve(root, 'bundle-size-baseline.json')
 // 5% growth allowed before warning, 10% before failure
 const WARN_THRESHOLD = 0.05
 const FAIL_THRESHOLD = 0.1
-
-interface BundleEntry {
-  file: string
-  sizeBytes: number
-  sizeHuman: string
-}
 
 interface Baseline {
   updatedAt: string
@@ -81,11 +76,6 @@ function collectBundles(): BundleEntry[] {
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }
 
-// Normalize filenames by stripping Vite content hashes: index-DBd6EIt0.js → index.js
-function normalizeFile(file: string): string {
-  return file.replace(/-[A-Za-z0-9_-]{8}\./, '.')
-}
-
 const isUpdate = process.argv.includes('--update')
 
 function warnStaleArtifacts(): void {
@@ -102,7 +92,7 @@ function warnStaleArtifacts(): void {
 
 try {
   warnStaleArtifacts()
-  const bundles = collectBundles()
+  const bundles = deduplicateBundles(collectBundles())
 
   if (bundles.length === 0) {
     console.error('No bundles found. Run `npx vite build` first.')
@@ -110,19 +100,9 @@ try {
   }
 
   if (isUpdate) {
-    // Deduplicate by normalized name, keeping the largest file for each
-    const deduped = new Map<string, BundleEntry>()
-    for (const b of bundles) {
-      const norm = normalizeFile(b.file)
-      const existing = deduped.get(norm)
-      if (!existing || b.sizeBytes > existing.sizeBytes) {
-        deduped.set(norm, { file: norm, sizeBytes: b.sizeBytes, sizeHuman: b.sizeHuman })
-      }
-    }
-
     const baseline: Baseline = {
       updatedAt: new Date().toISOString(),
-      bundles: [...deduped.values()].sort((a, b) => b.sizeBytes - a.sizeBytes),
+      bundles,
     }
     writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
     console.log('Bundle size baseline updated:')
@@ -136,7 +116,7 @@ try {
   if (!existsSync(baselinePath)) {
     console.log('No baseline found. Current bundle sizes:')
     for (const b of bundles) {
-      console.log(`  ${normalizeFile(b.file).padEnd(35)} ${b.sizeHuman}`)
+      console.log(`  ${normalizeBundleFile(b.file).padEnd(35)} ${b.sizeHuman}`)
     }
     console.log('\nRun with --update to create the baseline.')
     process.exit(0)
@@ -155,7 +135,7 @@ try {
   console.log(`  ${'─'.repeat(35)} ${'─'.repeat(12)} ${'─'.repeat(12)} ${'─'.repeat(10)}`)
 
   for (const bundle of bundles) {
-    const norm = normalizeFile(bundle.file)
+    const norm = normalizeBundleFile(bundle.file)
     const base = baselineMap.get(norm)
 
     if (!base) {

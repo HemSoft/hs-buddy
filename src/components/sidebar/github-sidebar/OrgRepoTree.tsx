@@ -1041,7 +1041,7 @@ export function OrgRepoTree({ uniqueOrgs, ...props }: OrgRepoTreeProps) {
           <span className="sidebar-item-label">No accounts configured</span>
         </div>
       ) : (
-        uniqueOrgs.map(org => <OrgTreeNode key={org} org={org} {...props} />)
+        uniqueOrgs.map(org => <OrgTreeNode org={org} {...props} key={org} />)
       )}
     </div>
   )

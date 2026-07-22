@@ -351,7 +351,7 @@ export function PRTreeSection(props: PRTreeSectionProps) {
   return (
     <>
       {props.prItems.map(item => (
-        <PRGroupNode key={item.id} item={item} {...props} />
+        <PRGroupNode item={item} {...props} key={item.id} />
       ))}
     </>
   )

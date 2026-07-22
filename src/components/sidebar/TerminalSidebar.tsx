@@ -263,10 +263,10 @@ function TerminalChildrenList({
     <div className="terminal-sidebar-children">
       {terminalChildren.map(child => (
         <TerminalNodeRow
-          key={child.id}
           child={child}
           selected={activeNodeId === child.id && selectedItem === 'terminal-workspace'}
           {...rowProps}
+          key={child.id}
         />
       ))}
       {terminalChildren.length === 0 && (
@@ -384,13 +384,13 @@ function TerminalFolderList({
     <div className="terminal-sidebar-list">
       {folders.map(folder => (
         <TerminalFolder
-          key={folder.id}
           folder={folder}
           terminalChildren={getChildren(folder.id)}
           expanded={isFolderExpanded(folder.id)}
           activeNodeId={activeNodeId}
           selectedItem={selectedItem}
           {...folderProps}
+          key={folder.id}
         />
       ))}
 

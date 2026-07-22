@@ -38,7 +38,7 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Brand</h4>
         <div className="color-grid">
           {brandColors.map(c => (
-            <ColorPicker key={c.id} {...c} />
+            <ColorPicker {...c} key={c.id} />
           ))}
         </div>
       </div>
@@ -47,7 +47,7 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Backgrounds</h4>
         <div className="color-grid">
           {backgroundColors.map(c => (
-            <ColorPicker key={c.id} {...c} />
+            <ColorPicker {...c} key={c.id} />
           ))}
         </div>
       </div>
@@ -56,7 +56,7 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Status Bar</h4>
         <div className="color-grid">
           {statusBarColors.map(c => (
-            <ColorPicker key={c.id} {...c} />
+            <ColorPicker {...c} key={c.id} />
           ))}
         </div>
       </div>

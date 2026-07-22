@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import { installBrowserIpcMock } from './browser-ipc-mock'
+import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { dataCache } from './services/dataCache'
 import { IPC_PUSH } from './ipc/contracts'
@@ -26,7 +27,9 @@ dataCache.initialize().then(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
       <ConvexClientProvider>
-        <App />
+        <AppErrorBoundary>
+          <App />
+        </AppErrorBoundary>
       </ConvexClientProvider>
     </React.StrictMode>
   )

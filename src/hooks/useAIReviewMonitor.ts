@@ -139,14 +139,11 @@ function useResetAIReviewMonitorState(
   setReviewState: (state: AIReviewState) => void,
   setReviewBanner: (banner: { completedAt: number } | null) => void
 ) {
-  const [previousMonitorResetKey, setPreviousMonitorResetKey] = useState(monitorResetKey)
-
   /* v8 ignore start */
-  if (previousMonitorResetKey !== monitorResetKey) {
-    setPreviousMonitorResetKey(monitorResetKey)
+  useEffect(() => {
     setReviewState('idle')
     setReviewBanner(null)
-  }
+  }, [monitorResetKey, setReviewState, setReviewBanner])
   /* v8 ignore stop */
 }
 

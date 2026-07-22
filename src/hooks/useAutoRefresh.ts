@@ -211,9 +211,12 @@ export function useAutoRefresh(
   }, [cardId, settings])
 
   const refreshRef = useRef(refreshFn)
-  refreshRef.current = refreshFn
   const pausedRef = useRef(paused)
-  pausedRef.current = paused
+  // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- latest callback avoids restarting the refresh interval when callers pass a fresh function
+  refreshRef.current = refreshFn
+  useEffect(() => {
+    pausedRef.current = paused
+  }, [paused])
   const mountedRef = useRef(true)
   useEffect(
     () => () => {

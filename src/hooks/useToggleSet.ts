@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useLayoutEffect, useMemo, useRef } from 'react'
 
 /**
  * Manages a Set<string> of toggled keys (e.g. expanded sections, selected items).
@@ -18,7 +18,9 @@ import { useState, useCallback, useMemo, useRef } from 'react'
 export function useToggleSet(initial: Iterable<string> = []) {
   const [set, setSet] = useState(() => new Set(initial))
   const currentRef = useRef(set)
-  currentRef.current = set
+  useLayoutEffect(() => {
+    currentRef.current = set
+  }, [set])
 
   const toggle = useCallback((key: string): boolean => {
     const wasPresent = currentRef.current.has(key)

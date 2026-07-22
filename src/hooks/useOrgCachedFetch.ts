@@ -134,7 +134,10 @@ export function useOrgCachedFetch<T>({
   const [error, setError] = useState<string | null>(null)
   const hasDataRef = useRef(seedData != null)
   const seedDataRef = useRef(seedData)
-  seedDataRef.current = seedData
+
+  useLayoutEffect(() => {
+    seedDataRef.current = seedData
+  }, [seedData])
 
   // Reset state when cacheKey changes (e.g., navigating between orgs).
   // useLayoutEffect prevents a flash of stale data before paint.

@@ -119,6 +119,32 @@ describe('useAIReviewMonitor', () => {
     expect(result.current.reviewBanner).not.toBeNull()
   })
 
+  it('resets completed review state after the monitored pull request changes', async () => {
+    const provider = makeProvider({
+      poll: vi.fn().mockResolvedValue({ status: 'completed' }),
+    })
+    const { result, rerender } = renderHook(
+      (options: typeof defaultOptions) => useAIReviewMonitor({ provider, ...options }),
+      { initialProps: defaultOptions }
+    )
+
+    await act(async () => {
+      await result.current.handleRequestReview()
+      vi.advanceTimersByTime(POLL_MS)
+    })
+    expect(result.current.reviewState).toBe('done')
+    expect(result.current.reviewBanner).not.toBeNull()
+
+    rerender({
+      ...defaultOptions,
+      prId: 43,
+      prUrl: 'https://github.com/org/repo/pull/43',
+    })
+
+    expect(result.current.reviewState).toBe('idle')
+    expect(result.current.reviewBanner).toBeNull()
+  })
+
   it('does not request if state is not idle', async () => {
     const triggerFn = vi.fn().mockResolvedValue(undefined)
     const provider = makeProvider({

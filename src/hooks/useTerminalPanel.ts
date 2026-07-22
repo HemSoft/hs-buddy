@@ -124,11 +124,18 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const heightSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tabsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const terminalTabsRef = useRef(terminalTabs)
-  terminalTabsRef.current = terminalTabs
   const terminalOpenRef = useRef(terminalOpen)
-  terminalOpenRef.current = terminalOpen
   const activeViewIdRef = useRef(activeViewId)
-  activeViewIdRef.current = activeViewId
+
+  useEffect(() => {
+    terminalTabsRef.current = terminalTabs
+  }, [terminalTabs])
+  useEffect(() => {
+    terminalOpenRef.current = terminalOpen
+  }, [terminalOpen])
+  useEffect(() => {
+    activeViewIdRef.current = activeViewId
+  }, [activeViewId])
 
   // Convex persistence
   const settings = useSettings()

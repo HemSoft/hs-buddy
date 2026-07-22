@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.873",
+  "version": "0.1.874",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -116,7 +116,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
-    "@vitest/coverage-v8": "4.1.9",
+    "@vitest/coverage-v8": "4.1.10",
     "convex-test": "0.0.53",
     "dependency-cruiser": "^17.4.3",
     "electron": "^42.6.0",
@@ -143,7 +143,7 @@
     "vite": "8.1.3",
     "vite-plugin-electron": "^1.1.0",
     "vite-plugin-electron-renderer": "^1.0.0",
-    "vitest": "4.1.9",
+    "vitest": "4.1.10",
     "vitest-axe": "^0.1.0",
     "vscode-jsonrpc": "^9.0.1"
   },

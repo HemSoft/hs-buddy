@@ -35,7 +35,7 @@ const requireShim = [
 const MAX_SPLIT_CHUNK_SIZE = 450 * 1024
 const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
 
-function codeSplittingGroups(sourcePattern: RegExp, preserveShikiChunks = false) {
+function codeSplittingGroups(sourcePattern: RegExp, preserveRendererLazyChunks = false) {
   return {
     minSize: 20 * 1024,
     groups: [
@@ -43,12 +43,13 @@ function codeSplittingGroups(sourcePattern: RegExp, preserveShikiChunks = false)
         name: 'vendor',
         test: (id: string) => {
           if (!/[\\/]node_modules[\\/]/.test(id)) return false
-          if (!preserveShikiChunks) return true
+          if (!preserveRendererLazyChunks) return true
 
           const normalizedId = id.replaceAll('\\', '/')
           return (
             !normalizedId.includes('/node_modules/shiki/') &&
-            !normalizedId.includes('/node_modules/@shikijs/')
+            !normalizedId.includes('/node_modules/@shikijs/') &&
+            !normalizedId.includes('/node_modules/@xterm/')
           )
         },
         maxSize: MAX_SPLIT_CHUNK_SIZE,
@@ -56,7 +57,12 @@ function codeSplittingGroups(sourcePattern: RegExp, preserveShikiChunks = false)
       },
       {
         name: 'app',
-        test: sourcePattern,
+        test: (id: string) => {
+          if (!sourcePattern.test(id)) return false
+          if (!preserveRendererLazyChunks) return true
+
+          return !id.replaceAll('\\', '/').includes('/src/components/terminal/TerminalPane.')
+        },
         maxSize: MAX_SPLIT_CHUNK_SIZE,
         priority: 10,
       },

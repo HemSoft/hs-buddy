@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-22T19:39:21.644Z",
+  "updatedAt": "2026-07-22T20:08:32.942Z",
   "bundles": [
     {
       "file": "dist/assets/emacs-lisp.js",
@@ -17,9 +17,14 @@
       "sizeHuman": "607.74 kB"
     },
     {
+      "file": "dist/assets/TerminalPane.js",
+      "sizeBytes": 375588,
+      "sizeHuman": "366.79 kB"
+    },
+    {
       "file": "dist/assets/vendor.js",
-      "sizeBytes": 340338,
-      "sizeHuman": "332.36 kB"
+      "sizeBytes": 293136,
+      "sizeHuman": "286.27 kB"
     },
     {
       "file": "dist/assets/wolfram.js",
@@ -28,8 +33,13 @@
     },
     {
       "file": "dist/assets/app.js",
-      "sizeBytes": 243523,
-      "sizeHuman": "237.82 kB"
+      "sizeBytes": 243767,
+      "sizeHuman": "238.05 kB"
+    },
+    {
+      "file": "dist-electron/vendor.js",
+      "sizeBytes": 226499,
+      "sizeHuman": "221.19 kB"
     },
     {
       "file": "dist/assets/vue-vine.js",
@@ -65,6 +75,11 @@
       "file": "dist/assets/objective-cpp.js",
       "sizeBytes": 171965,
       "sizeHuman": "167.93 kB"
+    },
+    {
+      "file": "dist-electron/app.js",
+      "sizeBytes": 161475,
+      "sizeHuman": "157.69 kB"
     },
     {
       "file": "dist/assets/app.css",
@@ -312,6 +327,11 @@
       "sizeHuman": "32.71 kB"
     },
     {
+      "file": "dist/assets/vendor.css",
+      "sizeBytes": 32307,
+      "sizeHuman": "31.55 kB"
+    },
+    {
       "file": "dist/assets/stylus.js",
       "sizeBytes": 31067,
       "sizeHuman": "30.34 kB"
@@ -373,11 +393,6 @@
     },
     {
       "file": "dist/assets/codeql.js",
-      "sizeBytes": 26876,
-      "sizeHuman": "26.25 kB"
-    },
-    {
-      "file": "dist/assets/vendor.css",
       "sizeBytes": 26876,
       "sizeHuman": "26.25 kB"
     },
@@ -1247,6 +1262,11 @@
       "sizeHuman": "4.55 kB"
     },
     {
+      "file": "dist/assets/TerminalPane.css",
+      "sizeBytes": 4552,
+      "sizeHuman": "4.45 kB"
+    },
+    {
       "file": "dist/assets/rosmsg.js",
       "sizeBytes": 4516,
       "sizeHuman": "4.41 kB"
@@ -1485,6 +1505,11 @@
       "file": "dist/assets/xsl.js",
       "sizeBytes": 1360,
       "sizeHuman": "1.33 kB"
+    },
+    {
+      "file": "dist-electron/rolldown-runtime.js",
+      "sizeBytes": 1261,
+      "sizeHuman": "1.23 kB"
     },
     {
       "file": "dist/assets/git-commit.js",

@@ -171,57 +171,89 @@ function describeRun(run: WorkflowRun): string {
   return `${run.name ?? 'unnamed'} (${run.path ?? 'unknown path'}, run ${run.id ?? 'unknown'})`
 }
 
+interface PollState {
+  approvedRunIds: Set<number>
+  emptyPollsAfterApproval: number
+}
+
+async function approveCandidatesForPoll(
+  runs: WorkflowRun[],
+  scope: ApprovalScope,
+  apiUrl: string,
+  token: string,
+  state: PollState
+): Promise<boolean> {
+  const candidates = approvalCandidates(runs, scope).filter(
+    run => !state.approvedRunIds.has(run.id as number)
+  )
+  if (candidates.length === 0) return false
+
+  for (const run of candidates) {
+    const runId = run.id as number
+    console.log(`Approving ${describeRun(run)} for ${scope.headSha}`)
+    await approveRun(apiUrl, token, scope.repository, runId)
+    state.approvedRunIds.add(runId)
+  }
+  return true
+}
+
+async function pollOnce(
+  apiUrl: string,
+  token: string,
+  scope: ApprovalScope,
+  state: PollState
+): Promise<boolean> {
+  const runs = await listActionRequiredRuns(apiUrl, token, scope)
+  if (await approveCandidatesForPoll(runs, scope, apiUrl, token, state)) {
+    state.emptyPollsAfterApproval = 0
+    return false
+  }
+
+  if (state.approvedRunIds.size === 0) return false
+  state.emptyPollsAfterApproval += 1
+  return state.emptyPollsAfterApproval >= EMPTY_POLLS_AFTER_APPROVAL
+}
+
+function isRemainingRelevant(run: WorkflowRun, scope: ApprovalScope): boolean {
+  return (
+    run.path !== scope.excludedWorkflowPath &&
+    targetsExactPullRequest(run, scope) &&
+    isPendingApproval(run)
+  )
+}
+
+async function assertNoRelevantRunsRemain(
+  apiUrl: string,
+  token: string,
+  scope: ApprovalScope
+): Promise<void> {
+  const remainingRuns = await listActionRequiredRuns(apiUrl, token, scope)
+  const remainingRelevant = remainingRuns.filter(run => isRemainingRelevant(run, scope))
+  if (remainingRelevant.length === 0) return
+
+  throw new Error(
+    `Refusing to leave non-excluded action_required runs: ${remainingRelevant.map(describeRun).join(', ')}`
+  )
+}
+
 async function main(): Promise<void> {
   const environment = process.env as Environment
   const token = required(environment, 'GH_TOKEN')
   const apiUrl = (environment.GITHUB_API_URL ?? 'https://api.github.com').replace(/\/$/, '')
   const scope = approvalScopeFromEnvironment(environment)
-  const approvedRunIds = new Set<number>()
-  let emptyPollsAfterApproval = 0
+  const state: PollState = { approvedRunIds: new Set(), emptyPollsAfterApproval: 0 }
 
   for (let attempt = 1; attempt <= MAX_POLL_ATTEMPTS; attempt++) {
-    const runs = await listActionRequiredRuns(apiUrl, token, scope)
-    const candidates = approvalCandidates(runs, scope).filter(
-      run => !approvedRunIds.has(run.id as number)
-    )
-
-    if (candidates.length === 0) {
-      if (approvedRunIds.size > 0) {
-        emptyPollsAfterApproval += 1
-        if (emptyPollsAfterApproval >= EMPTY_POLLS_AFTER_APPROVAL) break
-      }
-    } else {
-      emptyPollsAfterApproval = 0
-      for (const run of candidates) {
-        const runId = run.id as number
-        console.log(`Approving ${describeRun(run)} for ${scope.headSha}`)
-        await approveRun(apiUrl, token, scope.repository, runId)
-        approvedRunIds.add(runId)
-      }
-    }
-
+    if (await pollOnce(apiUrl, token, scope, state)) break
     if (attempt < MAX_POLL_ATTEMPTS) await sleep(POLL_INTERVAL_MS)
   }
 
-  const remainingRuns = await listActionRequiredRuns(apiUrl, token, scope)
-  const remainingRelevant = remainingRuns.filter(
-    run =>
-      run.path !== scope.excludedWorkflowPath &&
-      run.repository?.full_name === scope.repository &&
-      run.head_sha?.toLowerCase() === scope.headSha &&
-      run.event === 'pull_request' &&
-      run.pull_requests?.some(pullRequest => pullRequest.number === scope.pullNumber) === true
-  )
-  if (remainingRelevant.length > 0) {
-    throw new Error(
-      `Refusing to leave non-excluded action_required runs: ${remainingRelevant.map(describeRun).join(', ')}`
-    )
-  }
+  await assertNoRelevantRunsRemain(apiUrl, token, scope)
 
   console.log(
-    approvedRunIds.size === 0
+    state.approvedRunIds.size === 0
       ? `No non-excluded action_required follow-up runs appeared for ${scope.headSha}`
-      : `Approved ${approvedRunIds.size} validated follow-up run(s) for ${scope.headSha}`
+      : `Approved ${state.approvedRunIds.size} validated follow-up run(s) for ${scope.headSha}`
   )
 }
 

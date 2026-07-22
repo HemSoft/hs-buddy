@@ -774,7 +774,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bootstrap lean-ctx section in AGENTS.md
 - Swap pollen API from Tomorrow.io to Google Pollen API
 - Bump @opentelemetry/api-logs from 0.216.0 to 0.218.0
 - Reduce CRAP scores across codebase (batch 2)

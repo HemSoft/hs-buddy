@@ -11,7 +11,7 @@
  * The baseline is stored in bundle-size-baseline.json (committed to repo).
  */
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { basename, dirname, relative, resolve } from 'node:path'
 import { deduplicateBundles, normalizeBundleFile, type BundleEntry } from './bundle-size-utils'
 
 const root = resolve(import.meta.dirname, '..')
@@ -44,13 +44,40 @@ function collectRendererAssets(distDir: string): BundleEntry[] {
     })
 }
 
-function collectElectronMain(distElectronDir: string): BundleEntry | null {
-  if (!existsSync(distElectronDir)) return null
-  // Use the exact unhashed main.js — hashed variants (main-*.js) are stale build artifacts
+function collectElectronMainChunks(distElectronDir: string): BundleEntry[] {
   const mainPath = resolve(distElectronDir, 'main.js')
-  if (!existsSync(mainPath)) return null
-  const size = statSync(mainPath).size
-  return { file: 'dist-electron/main.js', sizeBytes: size, sizeHuman: humanSize(size) }
+  if (!existsSync(mainPath)) return []
+
+  const chunks: BundleEntry[] = []
+  const pending = [mainPath]
+  const visited = new Set<string>()
+  const importPattern = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)(["'])(\.[^"']+\.js)\1/g
+
+  while (pending.length > 0) {
+    const filePath = pending.pop()
+    if (!filePath || visited.has(filePath)) continue
+    visited.add(filePath)
+
+    const size = statSync(filePath).size
+    chunks.push({
+      file: `dist-electron/${relative(distElectronDir, filePath).replaceAll('\\', '/')}`,
+      sizeBytes: size,
+      sizeHuman: humanSize(size),
+    })
+
+    const source = readFileSync(filePath, 'utf-8')
+    for (const match of source.matchAll(importPattern)) {
+      const importedPath = resolve(dirname(filePath), match[2])
+      if (!existsSync(importedPath)) {
+        throw new Error(
+          `Missing Electron chunk ${basename(importedPath)} imported by ${basename(filePath)}.`
+        )
+      }
+      pending.push(importedPath)
+    }
+  }
+
+  return chunks
 }
 
 function collectBundles(): BundleEntry[] {
@@ -65,33 +92,20 @@ function collectBundles(): BundleEntry[] {
     bundles.push({ file: 'dist-electron/preload.mjs', sizeBytes: size, sizeHuman: humanSize(size) })
   }
 
-  const mainEntry = collectElectronMain(distElectronDir)
-  if (!mainEntry) {
+  const mainChunks = collectElectronMainChunks(distElectronDir)
+  if (mainChunks.length === 0) {
     throw new Error(
       'Missing dist-electron/main.js. Run a clean Electron build before bundle-size check.'
     )
   }
-  bundles.push(mainEntry)
+  bundles.push(...mainChunks)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }
 
 const isUpdate = process.argv.includes('--update')
 
-function warnStaleArtifacts(): void {
-  const distElectronDir = resolve(root, 'dist-electron')
-  if (!existsSync(distElectronDir)) return
-  const stale = readdirSync(distElectronDir).filter(f => f.startsWith('main-') && f.endsWith('.js'))
-  if (stale.length > 0) {
-    console.warn(
-      `⚠  ${stale.length} stale main-*.js artifact(s) in dist-electron/. ` +
-        'Run a clean build to remove them (Unix: rm dist-electron/main-*.js, PowerShell: Remove-Item dist-electron\\main-*.js)'
-    )
-  }
-}
-
 try {
-  warnStaleArtifacts()
   const bundles = deduplicateBundles(collectBundles())
 
   if (bundles.length === 0) {

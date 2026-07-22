@@ -99,13 +99,21 @@ function wasCreatedByActions(run: WorkflowRun): boolean {
   return run.actor?.login === EXPECTED_ACTOR && run.triggering_actor?.login === EXPECTED_ACTOR
 }
 
+function workflowFilePath(path: string | undefined): string | undefined {
+  return path?.split('@', 1)[0]
+}
+
+function isExcludedWorkflow(run: WorkflowRun, scope: ApprovalScope): boolean {
+  return workflowFilePath(run.path) === scope.excludedWorkflowPath
+}
+
 export function isApprovalCandidate(run: WorkflowRun, scope: ApprovalScope): boolean {
   return (
     Number.isSafeInteger(run.id) &&
     targetsExactPullRequest(run, scope) &&
     isPendingApproval(run) &&
     wasCreatedByActions(run) &&
-    run.path !== scope.excludedWorkflowPath &&
+    !isExcludedWorkflow(run, scope) &&
     typeof run.path === 'string'
   )
 }
@@ -216,9 +224,7 @@ async function pollOnce(
 
 function isRemainingRelevant(run: WorkflowRun, scope: ApprovalScope): boolean {
   return (
-    run.path !== scope.excludedWorkflowPath &&
-    targetsExactPullRequest(run, scope) &&
-    isPendingApproval(run)
+    !isExcludedWorkflow(run, scope) && targetsExactPullRequest(run, scope) && isPendingApproval(run)
   )
 }
 

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.880] - 2026-07-22
+
+### Fixed
+
+- Normalize workflow paths before approval
+
 ## [0.1.879] - 2026-07-22
 
 ### Changed

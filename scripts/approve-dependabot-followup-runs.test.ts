@@ -50,15 +50,20 @@ describe('isApprovalCandidate', () => {
   })
 
   it('rejects the recursive Dependabot Lockfile Fix run', () => {
-    expect(
-      isApprovalCandidate(
-        candidate({
-          name: 'Dependabot Lockfile Fix',
-          path: '.github/workflows/dependabot-lockfile.yml',
-        }),
-        scope
-      )
-    ).toBe(false)
+    for (const path of [
+      '.github/workflows/dependabot-lockfile.yml',
+      '.github/workflows/dependabot-lockfile.yml@refs/pull/267/merge',
+    ]) {
+      expect(
+        isApprovalCandidate(
+          candidate({
+            name: 'Dependabot Lockfile Fix',
+            path,
+          }),
+          scope
+        )
+      ).toBe(false)
+    }
   })
 })
 

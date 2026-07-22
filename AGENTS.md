@@ -101,6 +101,13 @@ CLI operation, switch back to the previous active account before continuing;
 multiple local processes may be using `gh` concurrently and expect the default
 identity.
 
+Copilot sessions may export `GH_TOKEN`, which overrides the account selected in
+the GitHub CLI keyring and prevents `gh auth switch` from taking effect. For a
+temporary write as `HemSoft`, clear `GH_TOKEN` only in that child PowerShell
+process, switch accounts, perform the write, and restore `fhemmerrelias` in a
+`finally` block. Keep the switch, write, and restoration in the same process so
+restoration is guaranteed even when the write fails.
+
 ### 6. Risk Acknowledgment for Agent Fixes
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.

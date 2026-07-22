@@ -54,6 +54,11 @@ The dashboard component imports three CSS modules that are never referenced.
 
 After composing the issue, ask the user to confirm before creating.
 
+For writes to `HemSoft/hs-buddy`, follow the credential-attribution requirement
+in `AGENTS.md`. A Copilot session's `GH_TOKEN` overrides the GitHub CLI keyring;
+clear it only in the child PowerShell process, switch to `HemSoft`, create the
+issue, and restore `fhemmerrelias` in a `finally` block within that same process.
+
 ### `sfl status`
 
 Check current SFL pipeline state by running:

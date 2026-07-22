@@ -12,8 +12,7 @@ const DEFAULT_PROMPT_TEMPLATE = (url: string) =>
 const PR_URL_TOKEN = '{{prUrl}}'
 
 type ReviewSnapshot =
-  | { reviewedHeadSha: string | undefined; reviewedThreadStats: Record<string, number> }
-  | undefined
+  { reviewedHeadSha: string | undefined; reviewedThreadStats: Record<string, number> } | undefined
 
 /** Build the metadata object for a Copilot PR review execution. */
 function buildReviewMetadata(

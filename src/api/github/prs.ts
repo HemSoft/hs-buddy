@@ -62,9 +62,7 @@ type ReviewEntryForMap = {
 
 type ReviewRequestNode = {
   requestedReviewer:
-    | { __typename: 'User'; login: string; avatarUrl: string }
-    | { __typename: string }
-    | null
+    { __typename: 'User'; login: string; avatarUrl: string } | { __typename: string } | null
 }
 
 interface ViewerPRNode {
@@ -147,9 +145,7 @@ const VIEWER_PRS_QUERY = `
 /* v8 ignore start -- API response null-guards in review/event mapping helpers */
 function buildReviewEntry(review: ReviewNodeForMap): ReviewEntryForMap {
   const author = review.author as
-    | { login?: string; avatarUrl?: string | null; name?: string | null }
-    | null
-    | undefined
+    { login?: string; avatarUrl?: string | null; name?: string | null } | null | undefined
   return {
     state: review.state,
     submittedAt: review.submittedAt,

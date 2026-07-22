@@ -119,8 +119,8 @@ vi.mock('@opentelemetry/sdk-metrics', () => ({
 function buildSdkLogsModule() {
   return {
     BatchLogRecordProcessor: class {
-      constructor(exporter: unknown) {
-        telemetryState.mockBatchLogRecordProcessorConstructor(exporter)
+      constructor(options: unknown) {
+        telemetryState.mockBatchLogRecordProcessorConstructor(options)
       }
     },
     LoggerProvider: class {
@@ -401,7 +401,7 @@ describe('telemetry', () => {
         expect.objectContaining({ exportIntervalMillis: 15_000, exporter: expect.any(Object) })
       )
       expect(telemetryState.mockBatchLogRecordProcessorConstructor).toHaveBeenCalledWith(
-        expect.any(Object)
+        expect.objectContaining({ exporter: expect.any(Object) })
       )
       expect(telemetryState.mockLoggerProviderConstructor).toHaveBeenCalledWith(
         expect.objectContaining({

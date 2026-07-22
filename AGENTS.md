@@ -22,25 +22,6 @@ code retrieval with significantly lower token usage than brute-force grep.
 - Typical workflow: `Query` with the symbol, pattern, or concept you need.
   Fall back to grep/glob only if Code Index returns no results or is offline.
 
-<!-- lean-ctx -->
-
-## lean-ctx — Tool preference
-
-ALWAYS use lean-ctx MCP tools instead of native equivalents. This saves
-tokens and provides caching, compression, and persistent context.
-
-| Use this        | Instead of                    | Why                                |
-| --------------- | ----------------------------- | ---------------------------------- |
-| `ctx_read`      | `cat`, `view`, `Read`         | Cached reads, 10 compression modes |
-| `ctx_search`    | `grep`, `rg`, `Select-String` | Compact, token-efficient results   |
-| `ctx_shell`     | `bash`, `powershell`          | Pattern compression on output      |
-| `ctx_tree`      | `ls`, `dir`, `find`, `glob`   | Compact directory maps             |
-| `ctx_knowledge` | ad-hoc notes                  | Persistent cross-session memory    |
-
-Full rules: @LEAN-CTX.md
-
-<!-- /lean-ctx -->
-
 ## Agentic Loop — Standing Orders
 
 The agentic loop lives in `.github/workflows/`. Its mission:
@@ -150,29 +131,6 @@ CI and should be run locally before pushing.
 - **CI**: runs in the `lint` job as an informational step (`continue-on-error:
 true`) since most findings are in transitive dependencies we don't control
   directly. Treat direct-dependency findings as actionable.
-
----
-
-## Prime Directive — Learn from the past, teach the future
-
-Every agent session MUST use `ctx_knowledge` (lean-ctx) for both **input** and
-**output** operations. This is non-negotiable.
-
-### Input — Recall before you act
-
-Before planning or implementing any non-trivial change, recall relevant context:
-
-```text
-ctx_knowledge(action: "recall", query: "<topic you're about to change>")
-```
-
-### Output — Remember what you learned
-
-After completing work, persist new knowledge for future sessions:
-
-```text
-ctx_knowledge(action: "remember", category: "<category>", key: "<slug>", value: "<what you learned>")
-```
 
 ---
 

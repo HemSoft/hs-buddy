@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronRight, FileText, GitPullRequest } from 'lucide-react'
+import { Fragment } from 'react'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { prSubNodes, sectionIcons } from './prConstants'
@@ -351,7 +352,9 @@ export function PRTreeSection(props: PRTreeSectionProps) {
   return (
     <>
       {props.prItems.map(item => (
-        <PRGroupNode item={item} {...props} key={item.id} />
+        <Fragment key={item.id}>
+          <PRGroupNode item={item} {...props} />
+        </Fragment>
       ))}
     </>
   )

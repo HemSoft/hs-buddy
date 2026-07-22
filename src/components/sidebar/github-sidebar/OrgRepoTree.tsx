@@ -9,6 +9,7 @@ import {
   UserRound,
   UsersRound,
 } from 'lucide-react'
+import { Fragment } from 'react'
 import type {
   OrgRepo,
   OrgMember,
@@ -1041,7 +1042,11 @@ export function OrgRepoTree({ uniqueOrgs, ...props }: OrgRepoTreeProps) {
           <span className="sidebar-item-label">No accounts configured</span>
         </div>
       ) : (
-        uniqueOrgs.map(org => <OrgTreeNode org={org} {...props} key={org} />)
+        uniqueOrgs.map(org => (
+          <Fragment key={org}>
+            <OrgTreeNode org={org} {...props} />
+          </Fragment>
+        ))
       )}
     </div>
   )

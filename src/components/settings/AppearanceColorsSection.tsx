@@ -1,4 +1,5 @@
 import { Palette, RotateCcw } from 'lucide-react'
+import { Fragment } from 'react'
 import { ColorPicker } from './AppearanceColorPicker'
 import type { ColorDef } from './appearanceUtils'
 
@@ -38,7 +39,9 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Brand</h4>
         <div className="color-grid">
           {brandColors.map(c => (
-            <ColorPicker {...c} key={c.id} />
+            <Fragment key={c.id}>
+              <ColorPicker {...c} />
+            </Fragment>
           ))}
         </div>
       </div>
@@ -47,7 +50,9 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Backgrounds</h4>
         <div className="color-grid">
           {backgroundColors.map(c => (
-            <ColorPicker {...c} key={c.id} />
+            <Fragment key={c.id}>
+              <ColorPicker {...c} />
+            </Fragment>
           ))}
         </div>
       </div>
@@ -56,7 +61,9 @@ export function AppearanceColorsSection({
         <h4 className="color-group-label">Status Bar</h4>
         <div className="color-grid">
           {statusBarColors.map(c => (
-            <ColorPicker {...c} key={c.id} />
+            <Fragment key={c.id}>
+              <ColorPicker {...c} />
+            </Fragment>
           ))}
         </div>
       </div>

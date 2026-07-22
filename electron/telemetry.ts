@@ -133,7 +133,7 @@ export async function initTelemetry(): Promise<void> {
     const logExporter = new OTLPLogExporter({ url: `${config.endpoint}/v1/logs` })
     const lp = new LoggerProvider({
       resource,
-      processors: [new BatchLogRecordProcessor(logExporter)],
+      processors: [new BatchLogRecordProcessor({ exporter: logExporter })],
     })
     logs.setGlobalLoggerProvider(lp)
     loggerProvider = lp

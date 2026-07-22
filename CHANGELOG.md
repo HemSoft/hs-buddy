@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.875] - 2026-07-22
+
+### Changed
+
+- Align Vitest with Vite 8.1.3
+
+## [0.1.874] - 2026-07-22
+
+### Fixed
+
+- Protect list keys from spread props
+
+## [0.1.873] - 2026-07-06
+
+### Fixed
+
+- Update opentelemetry log processor options
+
+## [0.1.872] - 2026-07-04
+
+### Fixed
+
+- Cache terminal shell PATH lookup
+
+## [0.1.871] - 2026-07-04
+
+### Changed
+
+- Refresh compatible dependency backlog
+- Refresh bun lock metadata
+
 ## [0.1.870] - 2026-07-01
 
 ### Fixed
@@ -749,7 +780,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Bootstrap lean-ctx section in AGENTS.md
 - Swap pollen API from Tomorrow.io to Google Pollen API
 - Bump @opentelemetry/api-logs from 0.216.0 to 0.218.0
 - Reduce CRAP scores across codebase (batch 2)

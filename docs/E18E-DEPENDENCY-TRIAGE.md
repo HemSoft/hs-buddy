@@ -11,8 +11,16 @@ versions reported by e18e:
 
 - `@types/node`: the app targets Node 22, so the root type package stays on the
   Node 22 line even though Electron and other tooling bring Node 24 types.
+- `@opentelemetry/api-logs`, `@opentelemetry/resources`, and
+  `@opentelemetry/sdk-metrics`: the app keeps these OpenTelemetry packages
+  aligned for its direct instrumentation surface while upstream telemetry
+  toolchains may carry older compatible releases transitively.
 - `esbuild`: the app keeps a root `esbuild` for Vite/react-scan peer coverage,
   while Convex currently pins its own older `esbuild` release.
+- `globals`: the app keeps the root lint environment catalog current for ESLint
+  configuration while markdown and test tooling may carry older releases.
+- `prettier`: the app keeps the root formatter current for repository format
+  checks while markdown tooling may carry an older formatter release.
 - `typescript`: the app uses TypeScript 6, while `eslint-plugin-sonarjs` still
   carries a TypeScript 5 transitive dependency.
 - `vscode-jsonrpc`: the app uses v9 directly, while `@github/copilot-sdk`

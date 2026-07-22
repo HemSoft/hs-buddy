@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Approve validated Dependabot follow-ups
+- Deduplicate normalized asset rows
 
 ## [0.1.877] - 2026-07-22
 

@@ -9,6 +9,7 @@ on:
     branches: [main]
 
 permissions:
+  actions: write
   contents: write
   pull-requests: read
   statuses: write
@@ -130,3 +131,13 @@ jobs:
             -f context="Dependabot Lockfile Fix / validated" \
             -f description="Required CI checks passed before this lockfile commit was pushed" \
             -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+      - name: Approve validated follow-up runs
+        if: steps.commit-lockfile.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPOSITORY: ${{ github.repository }}
+          TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
+          TARGET_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EXCLUDED_WORKFLOW_PATH: .github/workflows/dependabot-lockfile.yml
+        run: bun scripts/approve-dependabot-followup-runs.ts

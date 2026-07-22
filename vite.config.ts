@@ -27,6 +27,49 @@ const requireShim = [
   'const require = __createRequire(import.meta.url);',
 ].join('\n')
 
+// Keep splittable application and dependency chunks below Vite's default
+// 500 kB budget. Shiki ships a few individual grammar modules that are larger
+// than that threshold and cannot be split further, so the renderer warning
+// limit is set just above the largest grammar while every multi-module group
+// remains capped below 500 kB.
+const MAX_SPLIT_CHUNK_SIZE = 450 * 1024
+const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
+
+function codeSplittingGroups(sourcePattern: RegExp, preserveRendererLazyChunks = false) {
+  return {
+    minSize: 20 * 1024,
+    groups: [
+      {
+        name: 'vendor',
+        test: (id: string) => {
+          if (!/[\\/]node_modules[\\/]/.test(id)) return false
+          if (!preserveRendererLazyChunks) return true
+
+          const normalizedId = id.replaceAll('\\', '/')
+          return (
+            !normalizedId.includes('/node_modules/shiki/') &&
+            !normalizedId.includes('/node_modules/@shikijs/') &&
+            !normalizedId.includes('/node_modules/@xterm/')
+          )
+        },
+        maxSize: MAX_SPLIT_CHUNK_SIZE,
+        priority: 20,
+      },
+      {
+        name: 'app',
+        test: (id: string) => {
+          if (!sourcePattern.test(id)) return false
+          if (!preserveRendererLazyChunks) return true
+
+          return !id.replaceAll('\\', '/').includes('/src/components/terminal/TerminalPane.')
+        },
+        maxSize: MAX_SPLIT_CHUNK_SIZE,
+        priority: 10,
+      },
+    ],
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // In E2E mode (--mode e2e OR VITE_E2E=1), skip the Electron plugin entirely
@@ -45,6 +88,14 @@ export default defineConfig(({ mode }) => {
           },
         }
       : {}),
+    build: {
+      chunkSizeWarningLimit: SHIKI_GRAMMAR_WARNING_LIMIT_KB,
+      rolldownOptions: {
+        output: {
+          codeSplitting: codeSplittingGroups(/[\\/]src[\\/]/, true),
+        },
+      },
+    },
     plugins: [
       react(),
       ...(!isE2E
@@ -55,12 +106,13 @@ export default defineConfig(({ mode }) => {
                 vite: {
                   build: {
                     target: 'esnext',
-                    rollupOptions: {
+                    rolldownOptions: {
                       // node-pty is a native module — must not be bundled.
                       // OTel SDK packages are dev-only (Aspire) — lazy-loaded at runtime.
                       external: ['node-pty', ...otelExternals],
                       output: {
                         banner: requireShim,
+                        codeSplitting: codeSplittingGroups(/[\\/](?:electron|shared)[\\/]/),
                       },
                     },
                   },

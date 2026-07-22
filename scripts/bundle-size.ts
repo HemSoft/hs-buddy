@@ -11,7 +11,8 @@
  * The baseline is stored in bundle-size-baseline.json (committed to repo).
  */
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { basename, dirname, relative, resolve } from 'node:path'
+import { deduplicateBundles, normalizeBundleFile, type BundleEntry } from './bundle-size-utils'
 
 const root = resolve(import.meta.dirname, '..')
 const baselinePath = resolve(root, 'bundle-size-baseline.json')
@@ -19,12 +20,6 @@ const baselinePath = resolve(root, 'bundle-size-baseline.json')
 // 5% growth allowed before warning, 10% before failure
 const WARN_THRESHOLD = 0.05
 const FAIL_THRESHOLD = 0.1
-
-interface BundleEntry {
-  file: string
-  sizeBytes: number
-  sizeHuman: string
-}
 
 interface Baseline {
   updatedAt: string
@@ -49,13 +44,40 @@ function collectRendererAssets(distDir: string): BundleEntry[] {
     })
 }
 
-function collectElectronMain(distElectronDir: string): BundleEntry | null {
-  if (!existsSync(distElectronDir)) return null
-  // Use the exact unhashed main.js — hashed variants (main-*.js) are stale build artifacts
+function collectElectronMainChunks(distElectronDir: string): BundleEntry[] {
   const mainPath = resolve(distElectronDir, 'main.js')
-  if (!existsSync(mainPath)) return null
-  const size = statSync(mainPath).size
-  return { file: 'dist-electron/main.js', sizeBytes: size, sizeHuman: humanSize(size) }
+  if (!existsSync(mainPath)) return []
+
+  const chunks: BundleEntry[] = []
+  const pending = [mainPath]
+  const visited = new Set<string>()
+  const importPattern = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)(["'])(\.[^"']+\.js)\1/g
+
+  while (pending.length > 0) {
+    const filePath = pending.pop()
+    if (!filePath || visited.has(filePath)) continue
+    visited.add(filePath)
+
+    const size = statSync(filePath).size
+    chunks.push({
+      file: `dist-electron/${relative(distElectronDir, filePath).replaceAll('\\', '/')}`,
+      sizeBytes: size,
+      sizeHuman: humanSize(size),
+    })
+
+    const source = readFileSync(filePath, 'utf-8')
+    for (const match of source.matchAll(importPattern)) {
+      const importedPath = resolve(dirname(filePath), match[2])
+      if (!existsSync(importedPath)) {
+        throw new Error(
+          `Missing Electron chunk ${basename(importedPath)} imported by ${basename(filePath)}.`
+        )
+      }
+      pending.push(importedPath)
+    }
+  }
+
+  return chunks
 }
 
 function collectBundles(): BundleEntry[] {
@@ -70,39 +92,21 @@ function collectBundles(): BundleEntry[] {
     bundles.push({ file: 'dist-electron/preload.mjs', sizeBytes: size, sizeHuman: humanSize(size) })
   }
 
-  const mainEntry = collectElectronMain(distElectronDir)
-  if (!mainEntry) {
+  const mainChunks = collectElectronMainChunks(distElectronDir)
+  if (mainChunks.length === 0) {
     throw new Error(
       'Missing dist-electron/main.js. Run a clean Electron build before bundle-size check.'
     )
   }
-  bundles.push(mainEntry)
+  bundles.push(...mainChunks)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)
 }
 
-// Normalize filenames by stripping Vite content hashes: index-DBd6EIt0.js → index.js
-function normalizeFile(file: string): string {
-  return file.replace(/-[A-Za-z0-9_-]{8}\./, '.')
-}
-
 const isUpdate = process.argv.includes('--update')
 
-function warnStaleArtifacts(): void {
-  const distElectronDir = resolve(root, 'dist-electron')
-  if (!existsSync(distElectronDir)) return
-  const stale = readdirSync(distElectronDir).filter(f => f.startsWith('main-') && f.endsWith('.js'))
-  if (stale.length > 0) {
-    console.warn(
-      `⚠  ${stale.length} stale main-*.js artifact(s) in dist-electron/. ` +
-        'Run a clean build to remove them (Unix: rm dist-electron/main-*.js, PowerShell: Remove-Item dist-electron\\main-*.js)'
-    )
-  }
-}
-
 try {
-  warnStaleArtifacts()
-  const bundles = collectBundles()
+  const bundles = deduplicateBundles(collectBundles())
 
   if (bundles.length === 0) {
     console.error('No bundles found. Run `npx vite build` first.')
@@ -110,19 +114,9 @@ try {
   }
 
   if (isUpdate) {
-    // Deduplicate by normalized name, keeping the largest file for each
-    const deduped = new Map<string, BundleEntry>()
-    for (const b of bundles) {
-      const norm = normalizeFile(b.file)
-      const existing = deduped.get(norm)
-      if (!existing || b.sizeBytes > existing.sizeBytes) {
-        deduped.set(norm, { file: norm, sizeBytes: b.sizeBytes, sizeHuman: b.sizeHuman })
-      }
-    }
-
     const baseline: Baseline = {
       updatedAt: new Date().toISOString(),
-      bundles: [...deduped.values()].sort((a, b) => b.sizeBytes - a.sizeBytes),
+      bundles,
     }
     writeFileSync(baselinePath, JSON.stringify(baseline, null, 2) + '\n')
     console.log('Bundle size baseline updated:')
@@ -136,7 +130,7 @@ try {
   if (!existsSync(baselinePath)) {
     console.log('No baseline found. Current bundle sizes:')
     for (const b of bundles) {
-      console.log(`  ${normalizeFile(b.file).padEnd(35)} ${b.sizeHuman}`)
+      console.log(`  ${normalizeBundleFile(b.file).padEnd(35)} ${b.sizeHuman}`)
     }
     console.log('\nRun with --update to create the baseline.')
     process.exit(0)
@@ -155,7 +149,7 @@ try {
   console.log(`  ${'─'.repeat(35)} ${'─'.repeat(12)} ${'─'.repeat(12)} ${'─'.repeat(10)}`)
 
   for (const bundle of bundles) {
-    const norm = normalizeFile(bundle.file)
+    const norm = normalizeBundleFile(bundle.file)
     const base = baselineMap.get(norm)
 
     if (!base) {

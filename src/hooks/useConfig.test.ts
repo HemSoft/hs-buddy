@@ -18,8 +18,7 @@ const mockUpdatePR = vi.fn()
 const mockUpdateCopilot = vi.fn()
 
 let mockConvexAccounts:
-  | Array<{ _id: string; username: string; org: string; repoRoot?: string }>
-  | undefined
+  Array<{ _id: string; username: string; org: string; repoRoot?: string }> | undefined
 let mockSettings: Record<string, unknown> | undefined
 
 vi.mock('./useConvex', () => ({

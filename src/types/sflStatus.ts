@@ -13,12 +13,7 @@ export const SFL_CORE_WORKFLOW_FRAGMENTS = [
 
 /** High-level SFL pipeline health states. */
 export type SFLOverallStatus =
-  | 'healthy'
-  | 'active-work'
-  | 'blocked'
-  | 'ready-for-review'
-  | 'recent-failure'
-  | 'unknown'
+  'healthy' | 'active-work' | 'blocked' | 'ready-for-review' | 'recent-failure' | 'unknown'
 
 /** Status of a single SFL workflow with its latest run. */
 export interface SFLWorkflowInfo {

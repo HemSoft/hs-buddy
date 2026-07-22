@@ -3,21 +3,10 @@
 // ── Status & Phase ──────────────────────────────────────────────
 
 export type RalphRunStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'orphaned'
+  'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'orphaned'
 
 export type RalphRunPhase =
-  | 'initializing'
-  | 'iterating'
-  | 'scanning'
-  | 'pr-handoff'
-  | 'pr-resolving'
-  | 'completed'
-  | 'failed'
+  'initializing' | 'iterating' | 'scanning' | 'pr-handoff' | 'pr-resolving' | 'completed' | 'failed'
 
 export type RalphProvider = 'copilot' | 'opencode' | 'copilot-go' | 'openrouter'
 type RalphAgentCategory = 'dev' | 'review'

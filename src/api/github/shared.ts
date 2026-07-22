@@ -59,14 +59,7 @@ export type ProgressCallback = (progress: {
 }) => void
 
 export type PRCommentReactionContent =
-  | 'THUMBS_UP'
-  | 'THUMBS_DOWN'
-  | 'LAUGH'
-  | 'HOORAY'
-  | 'CONFUSED'
-  | 'HEART'
-  | 'ROCKET'
-  | 'EYES'
+  'THUMBS_UP' | 'THUMBS_DOWN' | 'LAUGH' | 'HOORAY' | 'CONFUSED' | 'HEART' | 'ROCKET' | 'EYES'
 
 interface PRCommentReaction {
   content: PRCommentReactionContent

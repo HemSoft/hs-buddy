@@ -25,10 +25,7 @@ type PremiumUsageState =
   | { status: 'error'; data: null }
 
 type PremiumUsageAction =
-  | { type: 'reset' }
-  | { type: 'loading' }
-  | { type: 'done'; data: QuotaCache }
-  | { type: 'error' }
+  { type: 'reset' } | { type: 'loading' } | { type: 'done'; data: QuotaCache } | { type: 'error' }
 
 // Module-level cache so switching back to an account doesn't re-fetch
 const quotaCache = new Map<string, QuotaCache>()

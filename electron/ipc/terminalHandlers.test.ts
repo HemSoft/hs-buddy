@@ -398,14 +398,14 @@ describe('terminalHandlers', () => {
       ptyHarness.createRequireImpl
     )
 
+    const originalPath = process.env.PATH
     const originalPlatform = process.platform
     try {
+      process.env.PATH = `C:\\missing-pwsh-${Date.now()}`
       Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
 
-      const { execFileSync } = await import('node:child_process')
-      vi.mocked(execFileSync).mockImplementationOnce(() => {
-        throw new Error('pwsh missing')
-      })
+      const { existsSync } = await import('node:fs')
+      vi.mocked(existsSync).mockImplementation(candidate => !String(candidate).endsWith('pwsh.exe'))
 
       const spawnHandler = freshHandlers.get('terminal:spawn')!
       const result = await spawnHandler(
@@ -420,6 +420,7 @@ describe('terminalHandlers', () => {
         expect.any(Object)
       )
     } finally {
+      process.env.PATH = originalPath
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
       restore()
     }

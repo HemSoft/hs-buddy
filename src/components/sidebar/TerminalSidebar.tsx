@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { Fragment, useCallback, useRef, useState } from 'react'
 import {
   Plus,
   Trash2,
@@ -262,12 +262,13 @@ function TerminalChildrenList({
   return (
     <div className="terminal-sidebar-children">
       {terminalChildren.map(child => (
-        <TerminalNodeRow
-          key={child.id}
-          child={child}
-          selected={activeNodeId === child.id && selectedItem === 'terminal-workspace'}
-          {...rowProps}
-        />
+        <Fragment key={child.id}>
+          <TerminalNodeRow
+            child={child}
+            selected={activeNodeId === child.id && selectedItem === 'terminal-workspace'}
+            {...rowProps}
+          />
+        </Fragment>
       ))}
       {terminalChildren.length === 0 && (
         <div className="terminal-sidebar-no-terminals">
@@ -383,15 +384,16 @@ function TerminalFolderList({
   return (
     <div className="terminal-sidebar-list">
       {folders.map(folder => (
-        <TerminalFolder
-          key={folder.id}
-          folder={folder}
-          terminalChildren={getChildren(folder.id)}
-          expanded={isFolderExpanded(folder.id)}
-          activeNodeId={activeNodeId}
-          selectedItem={selectedItem}
-          {...folderProps}
-        />
+        <Fragment key={folder.id}>
+          <TerminalFolder
+            folder={folder}
+            terminalChildren={getChildren(folder.id)}
+            expanded={isFolderExpanded(folder.id)}
+            activeNodeId={activeNodeId}
+            selectedItem={selectedItem}
+            {...folderProps}
+          />
+        </Fragment>
       ))}
 
       {folders.length === 0 && (

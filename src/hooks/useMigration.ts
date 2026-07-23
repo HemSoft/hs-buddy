@@ -46,7 +46,7 @@ export function useMigrateToConvex() {
   const initSettings = useMutation(api.settings.initFromMigration)
   const [isComplete, setIsComplete] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
-  const migrationAttempted = useRef(false)
+  const migrationPromiseRef = useRef<Promise<void> | null>(null)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
@@ -73,28 +73,31 @@ export function useMigrateToConvex() {
       return
     }
 
-    // Only attempt migration once per session
-    if (migrationAttempted.current) {
-      setIsComplete(true)
-      return
+    let cancelled = false
+
+    if (!migrationPromiseRef.current) {
+      migrationPromiseRef.current = (async () => {
+        try {
+          // Get data from electron-store
+          const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
+
+          await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
+          await migrateSettings(config.pr, existingSettings, initSettings)
+        } catch (error: unknown) {
+          console.error('[Migration] Failed to migrate from electron-store:', error)
+        }
+      })()
     }
-    migrationAttempted.current = true
 
-    const migrate = async () => {
-      try {
-        // Get data from electron-store
-        const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
-
-        await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
-        await migrateSettings(config.pr, existingSettings, initSettings)
-      } catch (error: unknown) {
-        console.error('[Migration] Failed to migrate from electron-store:', error)
-      } finally {
+    void migrationPromiseRef.current.then(() => {
+      if (!cancelled) {
         setIsComplete(true)
       }
-    }
+    })
 
-    migrate()
+    return () => {
+      cancelled = true
+    }
   }, [isLoading, existingAccounts, existingSettings, bulkImportAccounts, initSettings])
 
   return { isComplete, isLoading }

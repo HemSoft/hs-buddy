@@ -77,6 +77,73 @@ describe('useTerminalPanel', () => {
     expect(result.current.panelHeight).toBe(400)
   })
 
+  it('ignores a stale Convex height lookup after settings change', async () => {
+    let heightReadCount = 0
+    let resolveStaleHeight!: (value: null) => void
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-terminal-open') return Promise.resolve(false)
+      if (channel === 'config:get-terminal-panel-height') {
+        heightReadCount += 1
+        if (heightReadCount === 1) return Promise.resolve(300)
+        if (heightReadCount === 2) {
+          return new Promise(resolve => {
+            resolveStaleHeight = resolve
+          })
+        }
+        return Promise.resolve(null)
+      }
+      return Promise.resolve()
+    })
+
+    const { result, rerender } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    mockSettingsReturn = { terminalPanelHeight: 400 }
+    rerender()
+    await vi.waitFor(() => expect(heightReadCount).toBe(2))
+
+    mockSettingsReturn = { terminalPanelHeight: 500 }
+    rerender()
+    await vi.waitFor(() => expect(result.current.panelHeight).toBe(500))
+
+    await act(async () => {
+      resolveStaleHeight(null)
+      await Promise.resolve()
+    })
+    expect(result.current.panelHeight).toBe(500)
+  })
+
+  it('ignores stale terminal tab restoration after settings change', async () => {
+    let resolveStalePath!: (value: { path: string }) => void
+    mockResolveRepoPath.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveStalePath = resolve
+      })
+    )
+
+    const { result, rerender } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    mockSettingsReturn = {
+      terminalTabs: [{ title: 'Old', cwd: '/old', repoSlug: 'acme/old' }],
+    }
+    rerender()
+    await vi.waitFor(() => expect(mockResolveRepoPath).toHaveBeenCalledWith('acme', 'old'))
+
+    mockResolveRepoPath.mockResolvedValueOnce({ path: '/new' })
+    mockSettingsReturn = {
+      terminalTabs: [{ title: 'New', cwd: '/new', repoSlug: 'acme/new' }],
+    }
+    rerender()
+    await vi.waitFor(() => expect(result.current.terminalTabs[0]?.title).toBe('New'))
+
+    await act(async () => {
+      resolveStalePath({ path: '/old' })
+      await Promise.resolve()
+    })
+    expect(result.current.terminalTabs[0]?.title).toBe('New')
+  })
+
   it('ignores invalid config values', async () => {
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'config:get-terminal-open') return Promise.resolve('not-boolean')

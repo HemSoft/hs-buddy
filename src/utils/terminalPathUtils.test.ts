@@ -6,6 +6,7 @@ import {
   getCloneRoots,
   processOsc7Buffer,
   buildTerminalShellArgs,
+  buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
 } from './terminalPathUtils'
@@ -177,17 +178,20 @@ describe('processOsc7Buffer', () => {
 // ─── buildTerminalShellArgs ─────────────────────────────
 
 describe('buildTerminalShellArgs', () => {
-  it('returns encoded command args for pwsh.exe on win32', () => {
+  it('returns interactive args for pwsh.exe on win32', () => {
     const args = buildTerminalShellArgs('pwsh.exe', 'win32')
-    expect(args).toContain('-NoLogo')
-    expect(args).toContain('-NoExit')
-    expect(args).toContain('-EncodedCommand')
-    expect(args.length).toBe(4)
+    expect(args).toEqual(['-NoLogo', '-NoExit'])
   })
 
-  it('returns encoded command args for powershell.exe on win32', () => {
+  it('returns interactive args for powershell.exe on win32', () => {
     const args = buildTerminalShellArgs('powershell.exe', 'win32')
-    expect(args).toContain('-EncodedCommand')
+    expect(args).toEqual(['-NoLogo', '-NoExit'])
+  })
+
+  it('returns encoded command args for an absolute PowerShell path on win32', () => {
+    const args = buildTerminalShellArgs('C:\\Program Files\\PowerShell\\7\\pwsh.exe', 'win32')
+    expect(args).toEqual(['-NoLogo', '-NoExit'])
+    expect(args).not.toContain('-EncodedCommand')
   })
 
   it('returns empty array for non-Windows platform', () => {
@@ -198,6 +202,22 @@ describe('buildTerminalShellArgs', () => {
   it('returns empty array for non-PowerShell shell on Windows', () => {
     expect(buildTerminalShellArgs('bash', 'win32')).toEqual([])
     expect(buildTerminalShellArgs('cmd.exe', 'win32')).toEqual([])
+  })
+})
+
+describe('buildTerminalStartupCommand', () => {
+  it('returns OSC 7 prompt setup for an absolute PowerShell path on win32', () => {
+    const command = buildTerminalStartupCommand(
+      'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      'win32'
+    )
+
+    expect(command).toContain('function global:prompt')
+    expect(command).toContain('file:///')
+  })
+
+  it('returns undefined for non-PowerShell shells', () => {
+    expect(buildTerminalStartupCommand('/bin/bash', 'linux')).toBeUndefined()
   })
 })
 

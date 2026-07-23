@@ -1,6 +1,6 @@
 import { ipcMain, app, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { existsSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import {
@@ -9,6 +9,7 @@ import {
   getOrgCandidates,
   processOsc7Buffer,
   buildTerminalShellArgs,
+  buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
 } from '../../src/utils/terminalPathUtils'
@@ -70,32 +71,52 @@ function getPty(): typeof import('node-pty') {
 
 const MAX_SCROLLBACK_BUFFER = 100_000
 
-const executablePathCache = new Map<string, boolean>()
+const executablePathCache = new Map<string, string | null>()
 
-function executableExistsOnPath(executable: string): boolean {
+function resolveExecutableOnPath(executable: string): string | null {
   const pathValue = process.env.PATH ?? ''
   const cacheKey = `${executable}\0${pathValue}`
   const cached = executablePathCache.get(cacheKey)
   if (cached !== undefined) return cached
 
   if (!pathValue) {
-    executablePathCache.set(cacheKey, false)
-    return false
+    executablePathCache.set(cacheKey, null)
+    return null
   }
 
-  const exists = pathValue
-    .split(path.delimiter)
-    .filter(Boolean)
-    .some(directory => existsSync(path.join(directory, executable)))
+  for (const rawDirectory of pathValue.split(path.delimiter)) {
+    const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
+    if (!directory) continue
 
-  executablePathCache.set(cacheKey, exists)
-  return exists
+    const candidate = path.win32.resolve(directory, executable)
+    try {
+      if (!existsSync(candidate) || !statSync(candidate).isFile()) continue
+      accessSync(candidate, constants.X_OK)
+      executablePathCache.set(cacheKey, candidate)
+      return candidate
+    } catch (_: unknown) {
+      // Keep searching: a PATH entry can exist but be inaccessible or not executable.
+    }
+  }
+
+  executablePathCache.set(cacheKey, null)
+  return null
 }
 
 /** Resolve the best available PowerShell executable on Windows.
  *  Prefers pwsh.exe (PowerShell 7+), falls back to powershell.exe (Windows PowerShell 5.x). */
 function resolveWindowsShell(): string {
-  return executableExistsOnPath('pwsh.exe') ? 'pwsh.exe' : 'powershell.exe'
+  return (
+    resolveExecutableOnPath('pwsh.exe') ??
+    resolveExecutableOnPath('powershell.exe') ??
+    path.win32.join(
+      process.env.SystemRoot || process.env.WINDIR || 'C:\\Windows',
+      'System32',
+      'WindowsPowerShell',
+      'v1.0',
+      'powershell.exe'
+    )
+  )
 }
 
 interface PtyDisposable {
@@ -124,13 +145,29 @@ interface TerminalSession {
 
 const sessions = new Map<string, TerminalSession>()
 
-function isValidCwd(dir: string): boolean {
+interface CwdAccess {
+  exists: boolean
+  accessible: boolean
+}
+
+function inspectCwdAccess(dir: string): CwdAccess {
+  let exists = false
   try {
     const resolved = path.resolve(dir)
-    return existsSync(resolved) && statSync(resolved).isDirectory()
+    exists = existsSync(resolved)
+    if (!exists || !statSync(resolved).isDirectory()) {
+      return { exists, accessible: false }
+    }
+    accessSync(resolved, constants.R_OK)
+    return { exists: true, accessible: true }
   } catch (_: unknown) {
-    return false
+    return { exists, accessible: false }
   }
+}
+
+function isValidCwd(dir: string): boolean {
+  const access = inspectCwdAccess(dir)
+  return access.exists && access.accessible
 }
 
 /** Safely send IPC to the renderer — guards against destroyed webContents */
@@ -281,6 +318,8 @@ function handleResolveRepoPath(_event: unknown, opts: unknown) {
 
 interface ParsedSpawnOpts {
   cwd: string
+  cwdAccess: CwdAccess
+  cwdFallback: boolean
   cols: number | undefined
   rows: number | undefined
   startupCommand: string | undefined
@@ -290,9 +329,18 @@ function asObject(raw: unknown): Record<string, unknown> {
   return raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
 }
 
-function parseValidCwd(cwdField: unknown): string {
-  if (typeof cwdField !== 'string') return resolveDefaultCwd()
-  return isValidCwd(cwdField) ? path.resolve(cwdField) : resolveDefaultCwd()
+function parseValidCwd(
+  cwdField: unknown
+): Pick<ParsedSpawnOpts, 'cwd' | 'cwdAccess' | 'cwdFallback'> {
+  if (typeof cwdField !== 'string') {
+    const cwd = resolveDefaultCwd()
+    return { cwd, cwdAccess: inspectCwdAccess(cwd), cwdFallback: false }
+  }
+
+  const cwdAccess = inspectCwdAccess(cwdField)
+  return cwdAccess.exists && cwdAccess.accessible
+    ? { cwd: path.resolve(cwdField), cwdAccess, cwdFallback: false }
+    : { cwd: resolveDefaultCwd(), cwdAccess, cwdFallback: true }
 }
 
 function parseNonEmptyString(value: unknown): string | undefined {
@@ -301,34 +349,48 @@ function parseNonEmptyString(value: unknown): string | undefined {
 
 function parseSpawnOpts(rawOpts: unknown): ParsedSpawnOpts {
   const opts = asObject(rawOpts)
-  const cwd = parseValidCwd(opts.cwd)
+  const { cwd, cwdAccess, cwdFallback } = parseValidCwd(opts.cwd)
   const cols = typeof opts.cols === 'number' ? opts.cols : undefined
   const rows = typeof opts.rows === 'number' ? opts.rows : undefined
   const startupCommand = parseNonEmptyString(opts.startupCommand)
-  return { cwd, cols, rows, startupCommand }
+  return { cwd, cwdAccess, cwdFallback, cols, rows, startupCommand }
 }
 
 async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
-  const { cwd, cols, rows, startupCommand } = parseSpawnOpts(rawOpts)
+  const { cwd, cwdAccess, cwdFallback, cols, rows, startupCommand } = parseSpawnOpts(rawOpts)
   const sessionId = randomUUID()
 
   const { shell, shellArgs } = resolveSpawnShell()
+  const shellStartupCommand = buildTerminalStartupCommand(shell, process.platform)
   const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
 
   let ptyProcess
+  let launchStage = 'native-pty-load'
   try {
-    ptyProcess = getPty().spawn(shell, shellArgs, spawnOptions)
+    const pty = getPty()
+    launchStage = 'native-pty-spawn'
+    ptyProcess = pty.spawn(shell, shellArgs, spawnOptions)
   } catch (error: unknown) {
+    const effectiveCwdAccess = inspectCwdAccess(cwd)
+    const message = getErrorMessageWithFallback(error, 'Failed to spawn terminal')
     return {
       success: false,
-      error: getErrorMessageWithFallback(error, 'Failed to spawn terminal'),
+      error:
+        `${message} ` +
+        `[stage=${launchStage}; shell=${shell}; ` +
+        `cwdExists=${cwdAccess.exists}; cwdAccessible=${cwdAccess.accessible}; ` +
+        `cwdFallback=${cwdFallback}; effectiveCwdExists=${effectiveCwdAccess.exists}; ` +
+        `effectiveCwdAccessible=${effectiveCwdAccess.accessible}]`,
     }
   }
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  if (startupCommand) {
-    scheduleStartupCommand(sessionId, startupCommand)
+  const startupCommands = [shellStartupCommand, startupCommand].filter(
+    (command): command is string => command !== undefined
+  )
+  if (startupCommands.length > 0) {
+    scheduleStartupCommand(sessionId, startupCommands.join(';'))
   }
 
   return { success: true, sessionId, cwd }

@@ -738,6 +738,26 @@ describe('useTerminalPanel', () => {
     expect(result.current.terminalTabs[0].color).toBeUndefined()
   })
 
+  it('composes consecutive tab updates from the latest committed snapshot', async () => {
+    const { result } = renderHook(() => useTerminalPanel())
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    let tab: Awaited<ReturnType<typeof result.current.addTerminalTab>>
+    await act(async () => {
+      tab = await result.current.addTerminalTab(null)
+    })
+
+    act(() => {
+      result.current.renameTerminalTab(tab!.id, 'Renamed')
+      result.current.setTerminalTabColor(tab!.id, '#ff0000')
+    })
+
+    expect(result.current.terminalTabs[0]).toMatchObject({
+      title: 'Renamed',
+      color: '#ff0000',
+    })
+  })
+
   it('reorderTerminalTabs with same ID should be no-op', async () => {
     const { result } = renderHook(() => useTerminalPanel())
     await vi.waitFor(() => expect(result.current.loaded).toBe(true))

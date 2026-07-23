@@ -83,6 +83,18 @@ describe('useRefreshIndicators', () => {
     expect(result.current['my-prs']).toBe('active')
   })
 
+  it('preserves state identity when the queue is unchanged', () => {
+    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    const initialIndicators = result.current
+
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+
+    expect(result.current).toBe(initialIndicators)
+  })
+
   it('clears indicators when queue becomes empty', () => {
     mockGetRunning.mockReturnValue(['prefetch-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())

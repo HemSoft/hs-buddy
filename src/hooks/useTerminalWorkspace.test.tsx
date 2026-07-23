@@ -447,7 +447,7 @@ describe('useTerminalWorkspace', () => {
     expect(targetLayout).toMatchObject({
       type: 'split',
       direction: 'vertical',
-      children: [expect.any(Object), { type: 'pane', id: sourcePaneId, cwd: '' }],
+      children: [expect.any(Object), { type: 'pane', id: sourcePaneId, cwd: 'D:/source' }],
     })
   })
 

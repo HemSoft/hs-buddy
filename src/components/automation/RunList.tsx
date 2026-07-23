@@ -98,7 +98,9 @@ function RunListTable({
             key={run._id}
             onClick={() => onToggle(run._id)}
             tabIndex={0}
-            onKeyDown={onKeyboardActivate(() => onToggle(run._id))}
+            onKeyDown={onKeyboardActivate(() => {
+              onToggle(run._id)
+            })}
           >
             <td className="col-status">{getStatusIcon(run.status)}</td>
             <td className="col-title">

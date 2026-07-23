@@ -94,7 +94,9 @@ function PRTableView({
               key={pr.number}
               onClick={() => handlePRClick(pr)}
               tabIndex={0}
-              onKeyDown={onKeyboardActivate(() => handlePRClick(pr))}
+              onKeyDown={onKeyboardActivate(() => {
+                handlePRClick(pr)
+              })}
             >
               <td className="col-status">
                 <PRStatusCell pr={pr} />

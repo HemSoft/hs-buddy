@@ -376,7 +376,9 @@ function TimesheetFooterRow({
             className={buildTotalCellClass(col, isDayComplete, dayTotal)}
             tabIndex={dayTotal > 0 ? 0 : undefined}
             onClick={e => handleTotalClick(e, col, dayTotal)}
-            onKeyDown={e => handleTotalKeyDown(e, col, dayTotal)}
+            onKeyDown={e => {
+              handleTotalKeyDown(e, col, dayTotal)
+            }}
             onMouseEnter={e => handleTotalMouseEnter(e, dayTotal)}
             onMouseLeave={hideTooltip}
             style={dayTotal > 0 ? { cursor: 'copy' } : undefined}

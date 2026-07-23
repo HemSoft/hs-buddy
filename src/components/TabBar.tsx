@@ -95,7 +95,9 @@ export function TabBar({
               tabIndex={0}
               aria-selected={activeTabId === tab.id}
               onClick={() => onTabSelect(tab.id)}
-              onKeyDown={onKeyboardActivate(() => onTabSelect(tab.id))}
+              onKeyDown={onKeyboardActivate(() => {
+                onTabSelect(tab.id)
+              })}
             >
               <span className="tab-label">{tab.label}</span>
             </button>

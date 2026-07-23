@@ -36,6 +36,8 @@ export interface PRFilesChangedSummary {
 
 export type PRSearchMode = 'my-prs' | 'needs-review' | 'recently-merged' | 'need-a-nudge'
 type PRProgressStatus = 'authenticating' | 'fetching' | 'done' | 'error'
+type PRProgress = Parameters<ProgressCallback>[0]
+const ACCOUNT_FETCH_CONCURRENCY = 2
 
 export interface PRReviewerSummary {
   login: string
@@ -763,6 +765,27 @@ function assertAnyAccountAuthenticated(authenticationErrors: number, accountCoun
   )
 }
 
+function createOrderedProgressReporter(
+  report: ProgressCallback,
+  totalAccounts: number
+): ProgressCallback {
+  const pending: PRProgress[][] = Array.from({ length: totalAccounts }, () => [])
+  const completed = new Set<number>()
+  let nextAccountIndex = 0
+
+  return progress => {
+    const accountIndex = progress.currentAccount - 1
+    pending[accountIndex].push(progress)
+    if (progress.status === 'done' || progress.status === 'error') completed.add(accountIndex)
+
+    while (nextAccountIndex < totalAccounts && pending[nextAccountIndex].length > 0) {
+      for (const update of pending[nextAccountIndex].splice(0)) report(update)
+      if (!completed.has(nextAccountIndex)) break
+      nextAccountIndex += 1
+    }
+  }
+}
+
 /**
  * Core fetch method with mode support — orchestrates multi-account PR fetching.
  */
@@ -773,26 +796,31 @@ async function fetchPRs(
   mode: PRSearchMode,
   onProgress?: ProgressCallback
 ): Promise<PullRequest[]> {
-  const allPrs: PullRequest[] = []
-  let authenticationErrors = 0
   const totalAccounts = config.accounts.length
   const report: ProgressCallback = ensureCallback(onProgress)
+  const orderedReport = createOrderedProgressReporter(report, totalAccounts)
+  const accountResults: Array<{ prs: PullRequest[]; authenticationError: boolean }> = new Array(
+    totalAccounts
+  )
 
-  // Process each configured GitHub account with its own token
-  for (let i = 0; i < config.accounts.length; i++) {
-    const result = await fetchPRsForConfiguredAccount(
-      config,
-      recentlyMergedDays,
-      mode,
-      report,
-      totalAccounts,
-      i
-    )
-    authenticationErrors += result.authenticationError ? 1 : 0
-    allPrs.push(...result.prs)
-  }
+  await batchProcess(
+    config.accounts,
+    async (_account, index) => {
+      accountResults[index] = await fetchPRsForConfiguredAccount(
+        config,
+        recentlyMergedDays,
+        mode,
+        orderedReport,
+        totalAccounts,
+        index
+      )
+    },
+    ACCOUNT_FETCH_CONCURRENCY
+  )
 
-  assertAnyAccountAuthenticated(authenticationErrors, config.accounts.length)
+  const authenticationErrors = accountResults.filter(result => result.authenticationError).length
+  assertAnyAccountAuthenticated(authenticationErrors, totalAccounts)
+  const allPrs = accountResults.flatMap(result => result.prs)
   sortPRsForMode(allPrs, mode)
   return dedupePRsByUrl(allPrs)
 }

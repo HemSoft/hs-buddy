@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import type { Octokit } from '@octokit/rest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   parseLabels,
   mapPRLabel,
@@ -10,8 +11,11 @@ import {
   includesLoginIgnoreCase,
   mapReactionGroups,
   batchProcess,
+  clearOrgAvatarCache,
+  getOrgAvatarCacheEntry,
   mapCommitFileToDiffFile,
   mapReviewCommentFields,
+  resolveOrgAvatar,
 } from './shared'
 
 describe('mapPRLabel', () => {
@@ -279,6 +283,37 @@ describe('batchProcess', () => {
     expect(maxInFlight).toBeLessThanOrEqual(2)
   })
 
+  it('preserves source indexes across multiple batches', async () => {
+    const results: string[] = []
+
+    await batchProcess(
+      ['first', 'second', 'third', 'fourth'],
+      async (item, index) => {
+        results[index] = item
+      },
+      2
+    )
+
+    expect(results).toEqual(['first', 'second', 'third', 'fourth'])
+  })
+
+  it('propagates failures without starting a later batch', async () => {
+    const started: number[] = []
+
+    await expect(
+      batchProcess(
+        [1, 2, 3],
+        async item => {
+          started.push(item)
+          if (item === 2) throw new Error('rate limited')
+        },
+        2
+      )
+    ).rejects.toThrow('rate limited')
+
+    expect(started).toEqual([1, 2])
+  })
+
   it('handles empty array', async () => {
     const processed: number[] = []
     await batchProcess([], async item => {
@@ -294,6 +329,34 @@ describe('batchProcess', () => {
       processed.push(item)
     })
     expect(processed).toHaveLength(25)
+  })
+})
+
+describe('resolveOrgAvatar', () => {
+  it('shares a successful in-flight lookup across accounts', async () => {
+    clearOrgAvatarCache()
+    let resolveSuccessfulLookup!: (value: { data: { avatar_url: string } }) => void
+    const successfulLookup = new Promise<{ data: { avatar_url: string } }>(resolve => {
+      resolveSuccessfulLookup = resolve
+    })
+    const successfulClient = {
+      orgs: { get: vi.fn(() => successfulLookup) },
+      users: { getByUsername: vi.fn() },
+    } as unknown as Octokit
+    const failingClient = {
+      orgs: { get: vi.fn() },
+      users: { getByUsername: vi.fn() },
+    } as unknown as Octokit
+
+    const successfulResult = resolveOrgAvatar(successfulClient, 'shared-org')
+    const failedResult = resolveOrgAvatar(failingClient, 'shared-org')
+
+    resolveSuccessfulLookup({ data: { avatar_url: 'https://avatars/shared-org' } })
+    await expect(successfulResult).resolves.toBe('https://avatars/shared-org')
+    await expect(failedResult).resolves.toBe('https://avatars/shared-org')
+    expect(failingClient.orgs.get).not.toHaveBeenCalled()
+    expect(failingClient.users.getByUsername).not.toHaveBeenCalled()
+    expect(getOrgAvatarCacheEntry('shared-org')).toBe('https://avatars/shared-org')
   })
 })
 

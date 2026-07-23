@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.893] - 2026-07-23
+
+### Changed
+
+- Satisfy GitHub quality lint gate
+
+## [0.1.892] - 2026-07-23
+
+### Changed
+
+- Batch GitHub account PR requests
+
 ## [0.1.891] - 2026-07-23
 
 ### Fixed

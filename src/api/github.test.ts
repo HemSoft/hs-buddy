@@ -97,7 +97,12 @@ import {
   clearAllCaches,
   getOrgAvatarCacheEntry,
 } from './github'
-import { getGitHubCLIToken, fetchUserNames, resolveOrgAvatar } from './github/shared'
+import {
+  type ProgressCallback,
+  getGitHubCLIToken,
+  fetchUserNames,
+  resolveOrgAvatar,
+} from './github/shared'
 import { fetchAllOrgOrUserRepos, fetchAllOrgOrUserMembers } from './github/orgs'
 import { fetchBatchThreadStats } from './github/prs'
 
@@ -106,6 +111,78 @@ const TEST_CONFIG = {
     { username: 'user1', org: 'myorg' },
     { username: 'user2', org: 'otherorg' },
   ],
+}
+
+function makeSearchPRItem(org: string, number: number) {
+  return {
+    number,
+    title: `PR ${number}`,
+    html_url: `https://github.com/${org}/repo/pull/${number}`,
+    user: { login: `author${number}`, avatar_url: '' },
+    state: 'open',
+    assignees: [],
+    created_at: `2026-01-0${number}T00:00:00Z`,
+    updated_at: `2026-01-0${number}T00:00:00Z`,
+    closed_at: null,
+  }
+}
+
+function makeViewerPRNode(org: string, number: number) {
+  return {
+    number,
+    title: `PR ${number}`,
+    url: `https://github.com/${org}/repo/pull/${number}`,
+    state: 'OPEN',
+    createdAt: `2026-01-0${number}T00:00:00Z`,
+    updatedAt: `2026-01-0${number}T00:00:00Z`,
+    closedAt: null,
+    mergedAt: null,
+    author: { login: `author${number}`, avatarUrl: '' },
+    assignees: { totalCount: 0 },
+    repository: { nameWithOwner: `${org}/repo`, owner: { login: org } },
+    headRefName: `feature-${number}`,
+    baseRefName: 'main',
+  }
+}
+
+function handleConcurrentFallbackGraphql(
+  query: string,
+  variables: { after?: string | null; headers?: { authorization?: string } }
+) {
+  const reviewThreads = {
+    totalCount: 0,
+    pageInfo: { hasNextPage: false, endCursor: null },
+    nodes: [],
+  }
+  if (!query.includes('query ViewerPRs')) {
+    return Promise.resolve({
+      pr0: { pullRequest: { reviewThreads } },
+      pr1: { pullRequest: { reviewThreads } },
+    })
+  }
+  if (variables.headers?.authorization === 'token token-user2') {
+    return Promise.reject(new Error('429 secondary rate limit'))
+  }
+  if (variables.after === 'org1-page-2') {
+    return Promise.resolve({
+      viewer: {
+        pullRequests: {
+          totalCount: 2,
+          pageInfo: { hasNextPage: false, endCursor: null },
+          nodes: [makeViewerPRNode('org1', 2)],
+        },
+      },
+    })
+  }
+  return Promise.resolve({
+    viewer: {
+      pullRequests: {
+        totalCount: 2,
+        pageInfo: { hasNextPage: true, endCursor: 'org1-page-2' },
+        nodes: [makeViewerPRNode('org1', 1)],
+      },
+    },
+  })
 }
 
 describe('GitHubClient', () => {
@@ -2466,7 +2543,7 @@ describe('GitHubClient', () => {
       mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })
       mockGraphql.mockResolvedValue({})
 
-      const progress = vi.fn()
+      const progress = vi.fn<ProgressCallback>()
       await client.fetchMyPRs(progress)
       // Should have been called with authenticating, fetching, done for each account
       expect(progress).toHaveBeenCalled()
@@ -2543,7 +2620,113 @@ describe('GitHubClient', () => {
       warnSpy.mockRestore()
     })
 
+    it('bounds concurrent account fetches and preserves configured account order', async () => {
+      const config = {
+        accounts: [
+          { username: 'user1', org: 'org1' },
+          { username: 'user2', org: 'org2' },
+          { username: 'user3', org: 'org3' },
+        ],
+      }
+      const concurrentClient = new GitHubClient(config)
+      const started = new Set<string>()
+      const releases = new Map<string, () => void>()
+      let inFlight = 0
+      let maxInFlight = 0
+
+      mockOctokit.orgs.get.mockImplementation(
+        ({ org }: { org: string }) =>
+          new Promise(resolve => {
+            started.add(org)
+            inFlight += 1
+            maxInFlight = Math.max(maxInFlight, inFlight)
+            releases.set(org, () => {
+              inFlight -= 1
+              resolve({ data: { avatar_url: `https://avatars/${org}` } })
+            })
+          })
+      )
+      mockOctokit.search.issuesAndPullRequests.mockImplementation(({ q }: { q: string }) => {
+        const org = /org:([^\s]+)/.exec(q)?.[1] ?? 'unknown'
+        const number = Number(org.replace('org', ''))
+        return Promise.resolve({ data: { items: [makeSearchPRItem(org, number)] } })
+      })
+      mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
+      mockOctokit.pulls.get.mockResolvedValue({
+        data: { head: { ref: 'feature' }, base: { ref: 'main' } },
+      })
+      mockGraphql.mockResolvedValue({
+        pr0: {
+          pullRequest: {
+            reviewThreads: {
+              totalCount: 0,
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: [],
+            },
+          },
+        },
+      })
+
+      const progress = vi.fn()
+      const resultPromise = concurrentClient.fetchMyPRs(progress)
+
+      await vi.waitFor(() => expect(Array.from(started)).toEqual(['org1', 'org2']))
+      expect(started.has('org3')).toBe(false)
+      releases.get('org2')?.()
+      await vi.waitFor(() => expect(inFlight).toBe(1))
+      expect(started.has('org3')).toBe(false)
+      releases.get('org1')?.()
+      await vi.waitFor(() => expect(started.has('org3')).toBe(true))
+      releases.get('org3')?.()
+
+      const result = await resultPromise
+      expect(maxInFlight).toBe(2)
+      expect(result.map(pr => pr.org)).toEqual(['org1', 'org2', 'org3'])
+      const reportedAccounts = progress.mock.calls.map(([update]) => update.currentAccount)
+      expect(reportedAccounts).toEqual([...reportedAccounts].sort((a, b) => a - b))
+    })
+
     describe('GraphQL fallback (search API degraded)', () => {
+      it('keeps pagination ordered and continues after an account is rate limited', async () => {
+        const config = {
+          accounts: [
+            { username: 'user1', org: 'org1' },
+            { username: 'user2', org: 'org2' },
+            { username: 'user3', org: 'org3' },
+          ],
+        }
+        const concurrentClient = new GitHubClient(config)
+
+        mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
+        mockOctokit.search.issuesAndPullRequests.mockImplementation(({ q }: { q: string }) => {
+          if (!q.includes('org:org3')) return Promise.resolve({ data: { items: [] } })
+          return Promise.resolve({ data: { items: [makeSearchPRItem('org3', 3)] } })
+        })
+        mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
+        mockOctokit.pulls.get.mockResolvedValue({
+          data: { head: { ref: 'feature' }, base: { ref: 'main' } },
+        })
+        mockGraphql.mockImplementation(handleConcurrentFallbackGraphql)
+
+        const result = await concurrentClient.fetchMyPRs()
+        const org1FallbackCalls = mockGraphql.mock.calls.filter(
+          ([query, variables]) =>
+            String(query).includes('query ViewerPRs') &&
+            (variables as { headers?: { authorization?: string } }).headers?.authorization ===
+              'token token-user1'
+        )
+
+        expect(org1FallbackCalls.map(([, variables]) => variables.after)).toEqual([
+          null,
+          'org1-page-2',
+        ])
+        expect(result.map(pr => pr.url)).toEqual([
+          'https://github.com/org1/repo/pull/1',
+          'https://github.com/org1/repo/pull/2',
+          'https://github.com/org3/repo/pull/3',
+        ])
+      })
+
       it('falls back to viewer.pullRequests when search returns 0 for my-prs', async () => {
         mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: 'https://av/myorg' } })
         mockOctokit.search.issuesAndPullRequests.mockResolvedValue({ data: { items: [] } })

@@ -186,15 +186,25 @@ function buildPowerShellOsc7Setup(): string {
   ].join(';')
 }
 
+function isWindowsPowerShell(shell: string, platform: string): boolean {
+  if (platform !== 'win32') return false
+  const shellExecutable = path.win32.basename(shell).toLowerCase()
+  return shellExecutable === 'pwsh.exe' || shellExecutable === 'powershell.exe'
+}
+
 /**
- * Build shell args for the terminal. For Windows PowerShell, generates
- * an encoded command that injects OSC 7 CWD reporting into the prompt.
+ * Build shell args for the terminal.
+ *
+ * PowerShell startup customization is intentionally not passed on the process
+ * command line because Windows application-control policies can reject the
+ * encoded command with error code 5. It is sent after spawn instead.
  */
 export function buildTerminalShellArgs(shell: string, platform: string): string[] {
-  if (platform === 'win32' && (shell === 'pwsh.exe' || shell === 'powershell.exe')) {
-    const osc7Setup = buildPowerShellOsc7Setup()
-    const encoded = Buffer.from(osc7Setup, 'utf16le').toString('base64')
-    return ['-NoLogo', '-NoExit', '-EncodedCommand', encoded]
-  }
+  if (isWindowsPowerShell(shell, platform)) return ['-NoLogo', '-NoExit']
   return []
+}
+
+/** Build the PowerShell prompt customization that is sent after the PTY launches. */
+export function buildTerminalStartupCommand(shell: string, platform: string): string | undefined {
+  return isWindowsPowerShell(shell, platform) ? buildPowerShellOsc7Setup() : undefined
 }

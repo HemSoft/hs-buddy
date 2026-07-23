@@ -11,8 +11,13 @@ vi.mock('node:child_process', () => ({
 }))
 
 vi.mock('node:fs', () => ({
+  accessSync: vi.fn(),
   existsSync: vi.fn(() => true),
-  statSync: vi.fn(() => ({ isDirectory: () => true })),
+  constants: { R_OK: 4, X_OK: 1 },
+  statSync: vi.fn((candidate: string) => ({
+    isDirectory: () => !String(candidate).toLowerCase().endsWith('.exe'),
+    isFile: () => String(candidate).toLowerCase().endsWith('.exe'),
+  })),
 }))
 
 vi.mock('node:module', () => ({
@@ -45,15 +50,19 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   getOrgCandidates: vi.fn((owner: string) => [owner]),
   processOsc7Buffer: vi.fn(() => ({ cwd: null, remainingBuffer: '' })),
   buildTerminalShellArgs: vi.fn(() => []),
+  buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
 }))
 
 vi.mock('../../src/utils/errorUtils', () => ({
-  getErrorMessageWithFallback: vi.fn((_err: unknown, fallback: string) => fallback),
+  getErrorMessageWithFallback: vi.fn((err: unknown, fallback: string) =>
+    err instanceof Error && err.message ? err.message : fallback
+  ),
 }))
 
 import { ipcMain } from 'electron'
+import { accessSync, existsSync, statSync } from 'node:fs'
 import { registerTerminalHandlers } from './terminalHandlers'
 
 describe('terminalHandlers', () => {
@@ -64,6 +73,15 @@ describe('terminalHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(accessSync).mockImplementation((): undefined => {})
+    vi.mocked(existsSync).mockImplementation(() => true)
+    vi.mocked(statSync).mockImplementation(
+      candidate =>
+        ({
+          isDirectory: () => !String(candidate).toLowerCase().endsWith('.exe'),
+          isFile: () => String(candidate).toLowerCase().endsWith('.exe'),
+        }) as ReturnType<typeof statSync>
+    )
     handlers = new Map()
     listeners = new Map()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
@@ -369,30 +387,82 @@ describe('terminalHandlers', () => {
     }
   }
 
-  it('terminal:spawn returns error when pty.spawn throws', async () => {
+  it('terminal:spawn reports safe launch context when Windows denies process creation', async () => {
     const ptyHarness = createTrackedPtyHarness()
-    ptyHarness.spawn.mockImplementationOnce(() => {
-      throw new Error('PTY spawn failed')
+    ptyHarness.spawn.mockImplementation(() => {
+      throw new Error('Cannot create process, error code: 5')
     })
 
     const { freshHandlers, restore } = await registerFreshTerminalHandlers(
       ptyHarness.createRequireImpl
     )
 
+    const originalPlatform = process.platform
+    const originalPath = process.env.PATH
     try {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+      process.env.PATH = 'C:\\Program Files\\PowerShell\\7'
+
       const spawnHandler = freshHandlers.get('terminal:spawn')!
       const result = await spawnHandler(
         { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
-        { cols: 80, rows: 24 }
+        { cwd: 'C:\\repos\\SFL', cols: 80, rows: 24 }
       )
 
-      expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
+      expect(result).toEqual({
+        success: false,
+        error: expect.stringContaining('Cannot create process, error code: 5'),
+      })
+      expect(result.error).toContain('stage=native-pty-spawn')
+      expect(result.error).toContain('shell=C:\\Program Files\\PowerShell\\7\\pwsh.exe')
+      expect(result.error).toContain('cwdExists=true')
+      expect(result.error).toContain('cwdAccessible=true')
+      expect(result.error).not.toContain('PATH=')
     } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      process.env.PATH = originalPath
       restore()
     }
   })
 
-  it('terminal:spawn falls back to powershell.exe when pwsh.exe is unavailable', async () => {
+  it('terminal:spawn distinguishes an existing but inaccessible cwd in diagnostics', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    ptyHarness.spawn.mockImplementation(() => {
+      throw new Error('Cannot create process, error code: 5')
+    })
+
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    const originalPlatform = process.platform
+    try {
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+      vi.mocked(accessSync).mockImplementation(candidate => {
+        if (String(candidate).includes('restricted')) {
+          throw Object.assign(new Error('access denied'), { code: 'EACCES' })
+        }
+      })
+
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cwd: 'C:\\repos\\restricted', cols: 80, rows: 24 }
+      )
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('cwdExists=true')
+      expect(result.error).toContain('cwdAccessible=false')
+      expect(result.error).toContain('cwdFallback=true')
+      expect(result.error).toContain('effectiveCwdExists=true')
+      expect(result.error).toContain('effectiveCwdAccessible=true')
+    } finally {
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      restore()
+    }
+  })
+
+  it('terminal:spawn resolves pwsh.exe to an accessible file instead of a PATH directory', async () => {
     const ptyHarness = createTrackedPtyHarness()
     const { freshHandlers, restore } = await registerFreshTerminalHandlers(
       ptyHarness.createRequireImpl
@@ -401,7 +471,47 @@ describe('terminalHandlers', () => {
     const originalPath = process.env.PATH
     const originalPlatform = process.platform
     try {
-      process.env.PATH = `C:\\missing-pwsh-${Date.now()}`
+      process.env.PATH = 'C:\\blocked;C:\\Program Files\\PowerShell\\7'
+      Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
+
+      const { statSync } = await import('node:fs')
+      vi.mocked(statSync).mockImplementation(
+        candidate =>
+          ({
+            isDirectory: () => String(candidate) === 'C:\\blocked\\pwsh.exe',
+            isFile: () => String(candidate) !== 'C:\\blocked\\pwsh.exe',
+          }) as ReturnType<typeof statSync>
+      )
+
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const result = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cols: 80, rows: 24 }
+      )
+
+      expect(result.success).toBe(true)
+      expect(ptyHarness.spawn).toHaveBeenCalledWith(
+        'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+        expect.any(Array),
+        expect.any(Object)
+      )
+    } finally {
+      process.env.PATH = originalPath
+      Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })
+      restore()
+    }
+  })
+
+  it('terminal:spawn resolves powershell.exe when pwsh.exe is unavailable', async () => {
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    const originalPath = process.env.PATH
+    const originalPlatform = process.platform
+    try {
+      process.env.PATH = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0'
       Object.defineProperty(process, 'platform', { value: 'win32', configurable: true })
 
       const { existsSync } = await import('node:fs')
@@ -415,7 +525,7 @@ describe('terminalHandlers', () => {
 
       expect(result.success).toBe(true)
       expect(ptyHarness.spawn).toHaveBeenCalledWith(
-        'powershell.exe',
+        'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe',
         expect.any(Array),
         expect.any(Object)
       )
@@ -486,7 +596,9 @@ describe('terminalHandlers', () => {
         { cols: 80, rows: 24 }
       )
 
-      expect(result).toEqual({ success: false, error: 'Failed to spawn terminal' })
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('node-pty unavailable')
+      expect(result.error).toContain('stage=native-pty-load')
     } finally {
       restore()
     }
@@ -554,6 +666,37 @@ describe('terminalHandlers', () => {
       vi.advanceTimersByTime(500)
 
       expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('echo hello\r')
+    } finally {
+      restore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('terminal:spawn sends PowerShell setup after launch instead of in process args', async () => {
+    vi.useFakeTimers()
+    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
+    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      await spawnHandler(
+        { sender: mockSender },
+        { cols: 80, rows: 24, startupCommand: 'echo hello' }
+      )
+
+      vi.advanceTimersByTime(500)
+
+      expect(ptyHarness.spawn).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.not.arrayContaining(['-EncodedCommand']),
+        expect.any(Object)
+      )
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('setup-prompt;echo hello\r')
     } finally {
       restore()
       vi.useRealTimers()

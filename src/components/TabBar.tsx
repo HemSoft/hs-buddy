@@ -81,7 +81,7 @@ export function TabBar({
 
   return (
     <div className="tab-bar">
-      <div className="tab-bar-tabs">
+      <div className="tab-bar-tabs" role="tablist" aria-label="Open tabs">
         {tabs.map(tab => (
           <div
             key={tab.id}

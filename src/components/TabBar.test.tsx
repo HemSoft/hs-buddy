@@ -151,6 +151,16 @@ describe('TabBar', () => {
     expect(closeButton.contains(tab)).toBe(false)
   })
 
+  it('renders the tabs inside a tablist with an accessible name', () => {
+    renderTabBar()
+
+    const tablist = screen.getByRole('tablist', { name: 'Open tabs' })
+    expect(tablist).toBeInTheDocument()
+    for (const tab of screen.getAllByRole('tab')) {
+      expect(tablist.contains(tab)).toBe(true)
+    }
+  })
+
   it('renders a single active tab correctly', () => {
     const singleTab: Tab[] = [{ id: 'only', label: 'Only Tab', viewId: 'view-only' }]
 

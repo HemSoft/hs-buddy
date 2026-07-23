@@ -36,6 +36,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Lint (ESLint)
@@ -81,6 +82,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Type check (TypeScript + Convex)
@@ -108,6 +110,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Run tests with coverage
@@ -188,6 +191,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Run electron tests with coverage
@@ -215,6 +219,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Run IPC contract tests
@@ -242,6 +247,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Run Convex server function tests
@@ -269,6 +275,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Ensure Chrome is available for E2E
@@ -320,6 +327,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Build (vite + electron)
@@ -351,6 +359,7 @@ jobs:
           restore-keys: ${{ runner.os }}-bun-
 
       - name: Install dependencies
+        timeout-minutes: 10
         run: bun install --frozen-lockfile
 
       - name: Run Lighthouse CI

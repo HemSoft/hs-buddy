@@ -200,16 +200,19 @@ const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 // Module-level caches (persist across calls)
 const tokenCache: Map<string, string> = new Map()
 const orgAvatarCache: Map<string, string | null> = new Map() // null = tried and failed
+const orgAvatarRequests: Map<string, Promise<string | null>> = new Map()
 
 /** Test-only: reset the org avatar cache between tests. */
 export function clearOrgAvatarCache(): void {
   orgAvatarCache.clear()
+  orgAvatarRequests.clear()
 }
 
 /** Clear all module-level caches (token, avatar). */
 export function clearAllCaches(): void {
   tokenCache.clear()
   orgAvatarCache.clear()
+  orgAvatarRequests.clear()
 }
 
 /** Test-only: inspect the org avatar cache. */
@@ -401,7 +404,7 @@ export async function withFirstAvailableAccount<T>(
  */
 export async function batchProcess<T>(
   items: T[],
-  fn: (item: T) => Promise<void>,
+  fn: (item: T, index: number) => Promise<void>,
   batchSize?: number
 ): Promise<void> {
   const BATCH_SIZE = 10
@@ -410,7 +413,7 @@ export async function batchProcess<T>(
   for (let i = 0; i < items.length; i += size) {
     const batch = items.slice(i, i + size)
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrency while each batch still runs in parallel.
-    await Promise.all(batch.map(fn))
+    await Promise.all(batch.map((item, batchIndex) => fn(item, i + batchIndex)))
   }
 }
 
@@ -469,6 +472,19 @@ export async function resolveOrgAvatar(octokit: Octokit, org: string): Promise<s
   const cached = orgAvatarCache.get(org)
   if (cached !== undefined) return cached
 
+  const pending = orgAvatarRequests.get(org)
+  if (pending) return pending
+
+  const request = fetchOrgAvatar(octokit, org)
+  orgAvatarRequests.set(org, request)
+  try {
+    return await request
+  } finally {
+    if (orgAvatarRequests.get(org) === request) orgAvatarRequests.delete(org)
+  }
+}
+
+async function fetchOrgAvatar(octokit: Octokit, org: string): Promise<string | null> {
   try {
     const orgData = await octokit.orgs.get({ org })
     orgAvatarCache.set(org, orgData.data.avatar_url)

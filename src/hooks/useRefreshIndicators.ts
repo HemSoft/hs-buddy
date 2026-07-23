@@ -61,18 +61,18 @@ function applyPendingRefreshIndicators(next: RefreshIndicators, pending: string[
   }
 }
 
-function buildRefreshIndicators(
-  running: string[],
-  pending: string[],
-  previous: RefreshIndicators
-): RefreshIndicators {
-  if (running.length === 0 && pending.length === 0) {
-    return Object.keys(previous).length === 0 ? previous : {}
-  }
+function buildRefreshIndicators(running: string[], pending: string[]): RefreshIndicators {
+  if (running.length === 0 && pending.length === 0) return {}
 
   const next = buildActiveRefreshIndicators(running)
   applyPendingRefreshIndicators(next, pending)
   return next
+}
+
+function refreshIndicatorsEqual(left: RefreshIndicators, right: RefreshIndicators): boolean {
+  const leftKeys = Object.keys(left)
+  const rightKeys = Object.keys(right)
+  return leftKeys.length === rightKeys.length && leftKeys.every(key => left[key] === right[key])
 }
 
 /**
@@ -87,7 +87,8 @@ export function useRefreshIndicators(): RefreshIndicators {
       const queue = getTaskQueue('github')
       const running = queue.getRunningTaskNames()
       const pending = queue.getPendingTaskNames()
-      setIndicators(prev => buildRefreshIndicators(running, pending, prev))
+      const next = buildRefreshIndicators(running, pending)
+      setIndicators(prev => (refreshIndicatorsEqual(prev, next) ? prev : next))
     }
 
     compute()

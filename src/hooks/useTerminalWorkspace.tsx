@@ -244,18 +244,16 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
       transform: (prev: TerminalTreeNode[]) => TerminalTreeNode[],
       newActiveNodeId?: string | null
     ) => {
-      setNodes(prev => {
-        const next = transform(prev)
-        nodesRef.current = next
-        const hasNewActiveNodeId = newActiveNodeId !== undefined
-        const activeId = hasNewActiveNodeId ? newActiveNodeId : activeNodeIdRef.current
-        if (hasNewActiveNodeId) {
-          setActiveNodeId(activeId)
-          activeNodeIdRef.current = activeId
-        }
-        persistToConvex({ nodes: next, activeNodeId: activeId })
-        return next
-      })
+      const next = transform(nodesRef.current)
+      nodesRef.current = next
+      const hasNewActiveNodeId = newActiveNodeId !== undefined
+      const activeId = hasNewActiveNodeId ? newActiveNodeId : activeNodeIdRef.current
+      if (hasNewActiveNodeId) {
+        setActiveNodeId(activeId)
+        activeNodeIdRef.current = activeId
+      }
+      persistToConvex({ nodes: next, activeNodeId: activeId })
+      setNodes(next)
     },
     [persistToConvex]
   )

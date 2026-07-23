@@ -423,12 +423,10 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   /** Apply a transform to the tabs array, syncing ref + state in one place. */
   const applyTabsUpdate = useCallback(
     (transform: (tabs: TerminalTab[]) => TerminalTab[] | null) => {
-      setTerminalTabs(prev => {
-        const next = transform(prev)
-        if (!next) return prev
-        terminalTabsRef.current = next
-        return next
-      })
+      const next = transform(terminalTabsRef.current)
+      if (!next) return
+      terminalTabsRef.current = next
+      setTerminalTabs(next)
     },
     []
   )

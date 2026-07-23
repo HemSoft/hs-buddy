@@ -943,6 +943,34 @@ describe('usePRListData', () => {
     expect(result.current.totalPrsFound).toBe(0)
   })
 
+  it('accumulates completed progress events outside React state updaters', async () => {
+    mockFetchMyPRs.mockImplementation(async (progressCb?: (p: unknown) => void) => {
+      progressCb?.({
+        currentAccount: 1,
+        totalAccounts: 2,
+        accountName: 'alice',
+        org: 'first-org',
+        status: 'done',
+        prsFound: 2,
+      })
+      progressCb?.({
+        currentAccount: 2,
+        totalAccounts: 2,
+        accountName: 'alice',
+        org: 'second-org',
+        status: 'done',
+        prsFound: 3,
+      })
+      return [makePR()]
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toHaveLength(1))
+
+    expect(result.current.totalPrsFound).toBe(5)
+    expect(result.current.progress?.totalPrsFound).toBe(5)
+  })
+
   // --- Branch coverage: null/falsy guards ---
 
   it('handles null bookmarks in bookmarkedRepoKeys and handleBookmarkRepo', async () => {

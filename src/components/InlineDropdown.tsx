@@ -388,18 +388,16 @@ export function InlineDropdown(rawProps: InlineDropdownProps) {
     /* v8 ignore start -- button's disabled HTML attr prevents onClick from firing */
     if (disabled) return
     /* v8 ignore stop */
-    setIsOpen(prev => {
-      if (!prev) {
-        setFocusIndex(
-          Math.max(
-            0,
-            enabledOptions.findIndex(o => o.value === value)
-          )
+    if (!isOpen) {
+      setFocusIndex(
+        Math.max(
+          0,
+          enabledOptions.findIndex(o => o.value === value)
         )
-      }
-      return !prev
-    })
-  }, [disabled, enabledOptions, value])
+      )
+    }
+    setIsOpen(prev => !prev)
+  }, [disabled, enabledOptions, isOpen, value])
   const handleSelect = useCallback(
     (optValue: string) => {
       onChange(optValue)

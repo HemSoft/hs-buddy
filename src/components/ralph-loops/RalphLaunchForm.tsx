@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { Play, FolderOpen } from 'lucide-react'
 import { useRalphModels, useRalphAgents, useRalphProviders } from '../../hooks/useRalphConfig'
 import { safeGetItem, safeSetItem } from '../../utils/storage'
@@ -757,6 +757,7 @@ export function RalphLaunchForm({
   const [provider, setProvider] = useState('')
   const [devAgent, setDevAgent] = useState('anvil')
   const [reviewAgents, setReviewAgents] = useState<string[]>([])
+  const reviewAgentsRef = useRef(reviewAgents)
   const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
   const [iterations, setIterations] = useState(3)
   const [repeats, setRepeats] = useState(1)
@@ -795,17 +796,18 @@ export function RalphLaunchForm({
   } = useRalphFormOptions(models, providers, agents, provider)
 
   const toggleReviewAgent = (key: string) => {
-    setReviewAgents(prev => {
-      if (prev.includes(key)) {
-        setReviewerModels(rm => {
-          const next = { ...rm }
-          delete next[key]
-          return next
-        })
-        return prev.filter(a => a !== key)
-      }
-      return [...prev, key]
-    })
+    const current = reviewAgentsRef.current
+    const isSelected = current.includes(key)
+    const next = isSelected ? current.filter(a => a !== key) : [...current, key]
+    reviewAgentsRef.current = next
+    if (isSelected) {
+      setReviewerModels(rm => {
+        const remaining = { ...rm }
+        delete remaining[key]
+        return remaining
+      })
+    }
+    setReviewAgents(next)
   }
 
   const setReviewerModel = (role: string, m: string) => {

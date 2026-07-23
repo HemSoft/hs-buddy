@@ -558,7 +558,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState<LoadingProgress | null>(null)
-  const [totalPrsFound, setTotalPrsFound] = useState(0)
+  const [totalPrsFound, setTotalPrsFoundState] = useState(0)
   const [forceRefresh, setForceRefresh] = useState(0)
   const [updateTimes, setUpdateTimes] = useState<{
     lastUpdated: string
@@ -577,6 +577,12 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const { enqueue, cancelAll } = useTaskQueue('github')
   const fetchIdRef = useRef(0)
   const fetchInProgressRef = useRef(false)
+  const totalPrsFoundRef = useRef(0)
+
+  const setTotalPrsFound = useCallback((value: number) => {
+    totalPrsFoundRef.current = value
+    setTotalPrsFoundState(value)
+  }, [])
 
   const bookmarkedRepoKeys = useMemo(
     () => new Set((bookmarks ?? []).map(b => `${b.owner}/${b.repo}`)),
@@ -626,16 +632,15 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     return () => clearInterval(interval)
   }, [mode, prs, refreshInterval])
 
-  const handleProgress: ProgressCallback = useCallback(p => {
-    setProgress(prev => {
-      let newTotal = prev?.totalPrsFound ?? 0
-      if (p.status === 'done' && p.prsFound !== undefined) {
-        newTotal += p.prsFound
-      }
+  const handleProgress: ProgressCallback = useCallback(
+    p => {
+      const increment = p.status === 'done' && p.prsFound !== undefined ? p.prsFound : 0
+      const newTotal = totalPrsFoundRef.current + increment
       setTotalPrsFound(newTotal)
-      return { ...p, totalPrsFound: newTotal }
-    })
-  }, [])
+      setProgress({ ...p, totalPrsFound: newTotal })
+    },
+    [setTotalPrsFound]
+  )
 
   const handleManualRefresh = useCallback(() => {
     setForceRefresh(prev => prev + 1)
@@ -750,6 +755,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     cancelAllRef,
     prsRef,
     handleProgress,
+    setTotalPrsFound,
   ])
 
   useEffect(() => {

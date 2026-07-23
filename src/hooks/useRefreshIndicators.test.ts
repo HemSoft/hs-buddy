@@ -13,18 +13,18 @@ vi.mock('../services/taskQueue', () => ({
 
 import { useRefreshIndicators } from './useRefreshIndicators'
 
+beforeEach(() => {
+  vi.clearAllMocks()
+  vi.useFakeTimers()
+  mockGetRunning.mockReturnValue([])
+  mockGetPending.mockReturnValue([])
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
 describe('useRefreshIndicators', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.useFakeTimers()
-    mockGetRunning.mockReturnValue([])
-    mockGetPending.mockReturnValue([])
-  })
-
-  afterEach(() => {
-    vi.useRealTimers()
-  })
-
   it('starts with empty indicators', () => {
     const { result } = renderHook(() => useRefreshIndicators())
     expect(result.current).toEqual({})
@@ -87,11 +87,7 @@ describe('useRefreshIndicators', () => {
     mockGetRunning.mockReturnValue(['prefetch-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())
     const initialIndicators = result.current
-
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-
+    act(() => vi.advanceTimersByTime(200))
     expect(result.current).toBe(initialIndicators)
   })
 

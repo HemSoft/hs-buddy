@@ -72,6 +72,9 @@ interface RateLimitSnapshot {
   used: number
 }
 
+const fetchOrgOverview = (client: GitHubClient, org: string) => client.fetchOrgOverview(org)
+const fetchOrgMembers = (client: GitHubClient, org: string) => client.fetchOrgMembers(org)
+
 function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOverviewResult {
   const repos = cachedRepos.repos
   const lastPushAt = repos.reduce<string | null>((latest, repo) => {
@@ -698,7 +701,7 @@ function useOrgOverviewData({
     taskName: overviewTaskName,
     initialData: initialOverview,
     normalize: normalizeOverview,
-    fetchFn: (client, o) => client.fetchOrgOverview(o),
+    fetchFn: fetchOrgOverview,
   })
 
   return {
@@ -729,7 +732,7 @@ function useOrgMembersData({
     enqueue,
     cacheKey: membersCacheKey,
     taskName: membersTaskName,
-    fetchFn: (client, o) => client.fetchOrgMembers(o),
+    fetchFn: fetchOrgMembers,
   })
 
   return {

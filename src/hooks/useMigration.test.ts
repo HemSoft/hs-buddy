@@ -194,6 +194,38 @@ describe('useMigrateToConvex', () => {
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)
   })
 
+  it('waits for the in-flight migration when dependencies change', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    let resolveConfig!: (value: {
+      github: { accounts: Array<{ username: string; org: string }> }
+      pr: { refreshInterval: number; autoRefresh: boolean }
+    }) => void
+    mockInvoke.mockReturnValue(
+      new Promise(resolve => {
+        resolveConfig = resolve
+      })
+    )
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, rerender } = renderHook(() => useMigrateToConvex())
+    mockExistingAccounts = []
+    rerender()
+
+    expect(result.current.isComplete).toBe(false)
+
+    resolveConfig({
+      github: { accounts: [{ username: 'user1', org: 'org1' }] },
+      pr: { refreshInterval: 10, autoRefresh: true },
+    })
+
+    await waitFor(() => {
+      expect(result.current.isComplete).toBe(true)
+    })
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+  })
+
   it('skips import when electron-store has no accounts', async () => {
     mockExistingAccounts = []
     mockExistingSettings = {}

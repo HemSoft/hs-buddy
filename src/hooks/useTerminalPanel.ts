@@ -177,16 +177,26 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   // Sync from Convex when available (fills in on new machines with no local config)
   /* v8 ignore start -- Convex sync only fires on new devices; tested via integration */
   useEffect(() => {
-    if (settings?.terminalPanelHeight != null && loaded) {
-      // Only apply Convex value if local didn't have one (first launch on new device)
-      window.ipcRenderer
-        .invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT)
-        .then((local: unknown) => {
-          if (local == null) {
-            setPanelHeight(clampPanelHeight(settings.terminalPanelHeight!))
-          }
-        })
-        .catch(() => {})
+    const terminalPanelHeight = settings?.terminalPanelHeight
+    if (terminalPanelHeight == null || !loaded) {
+      return
+    }
+
+    let cancelled = false
+    // Only apply Convex value if local didn't have one (first launch on new device)
+    void window.ipcRenderer
+      .invoke(IPC_INVOKE.CONFIG_GET_TERMINAL_PANEL_HEIGHT)
+      .then((local: unknown) => {
+        if (!cancelled && local == null) {
+          setPanelHeight(clampPanelHeight(terminalPanelHeight))
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn('Failed to sync terminal panel height:', error)
+      })
+
+    return () => {
+      cancelled = true
     }
   }, [settings?.terminalPanelHeight, loaded])
   /* v8 ignore stop */
@@ -205,7 +215,7 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
       )
     )
       return
-    restoredRef.current = true
+    let cancelled = false
 
     async function restoreTabs() {
       const restored: TerminalTab[] = await Promise.all(
@@ -217,11 +227,16 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
           color: saved.color,
         }))
       )
+      if (cancelled) return
+      restoredRef.current = true
       terminalTabsRef.current = restored
       setTerminalTabs(restored)
       if (restored.length > 0) setActiveTerminalTabId(restored[0].id)
     }
     void restoreTabs()
+    return () => {
+      cancelled = true
+    }
   }, [settings?.terminalTabs, loaded])
   /* v8 ignore stop */
 

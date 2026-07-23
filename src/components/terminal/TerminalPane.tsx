@@ -164,6 +164,28 @@ function hasResizeChanged(
   return !last || last.cols !== next.cols || last.rows !== next.rows
 }
 
+interface TerminalEventHandlers {
+  onData: (_event: unknown, sid: string, data: string, seq?: number) => void
+  onExit: (_event: unknown, sid: string, exitCode: number) => void
+  onCwdChanged: (_event: unknown, sid: string, newCwd: string) => void
+}
+
+function subscribeToTerminalEvents({
+  onData,
+  onExit,
+  onCwdChanged,
+}: TerminalEventHandlers): () => void {
+  window.ipcRenderer.on(IPC_PUSH.TERMINAL_DATA, onData)
+  window.ipcRenderer.on(IPC_PUSH.TERMINAL_EXIT, onExit)
+  window.ipcRenderer.on(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
+
+  return () => {
+    window.ipcRenderer.off(IPC_PUSH.TERMINAL_DATA, onData)
+    window.ipcRenderer.off(IPC_PUSH.TERMINAL_EXIT, onExit)
+    window.ipcRenderer.off(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
+  }
+}
+
 export function TerminalPane({
   viewKey,
   cwd,
@@ -183,6 +205,7 @@ export function TerminalPane({
     // Per-invocation flag — set to false in cleanup so stale async flows
     // from React StrictMode's double-mount don't register duplicate listeners.
     let active = true
+    let unsubscribeTerminalEvents: (() => void) | null = null
     const container = containerRef.current
     /* v8 ignore start */
     if (!container) return
@@ -331,9 +354,11 @@ export function TerminalPane({
     void (async () => {
       await initSession()
       if (!active) return
-      window.ipcRenderer.on(IPC_PUSH.TERMINAL_DATA, onData)
-      window.ipcRenderer.on(IPC_PUSH.TERMINAL_EXIT, onSessionExit)
-      window.ipcRenderer.on(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
+      unsubscribeTerminalEvents = subscribeToTerminalEvents({
+        onData,
+        onExit: onSessionExit,
+        onCwdChanged,
+      })
     })()
 
     // Debounced resize
@@ -372,9 +397,7 @@ export function TerminalPane({
       cursorMoveDisposable.dispose()
       renderDisposable.dispose()
       inputDisposable.dispose()
-      window.ipcRenderer.off(IPC_PUSH.TERMINAL_DATA, onData)
-      window.ipcRenderer.off(IPC_PUSH.TERMINAL_EXIT, onSessionExit)
-      window.ipcRenderer.off(IPC_PUSH.TERMINAL_CWD_CHANGED, onCwdChanged)
+      unsubscribeTerminalEvents?.()
 
       // Do NOT kill PTY here — session survives tab switches.
       // PTY is killed only via killTerminalSession() on explicit tab close.

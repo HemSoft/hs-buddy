@@ -25,11 +25,14 @@ vi.mock('../config', () => ({
 }))
 
 const mockExecAsync = vi.fn().mockResolvedValue({ stdout: '', stderr: '' })
-const mockExecFileAsync = vi.fn().mockResolvedValue({ stdout: '', stderr: '' })
+const mockExecFileAsync = vi.fn((file: string, args: string[], options: unknown) =>
+  mockExecAsync(`${file} ${args.join(' ')}`, options)
+)
 
 vi.mock('../utils', () => ({
   execAsync: (...args: unknown[]) => mockExecAsync(...args),
-  execFileAsync: (...args: unknown[]) => mockExecFileAsync(...args),
+  execFileAsync: (file: string, args: string[], options: unknown) =>
+    mockExecFileAsync(file, args, options),
 }))
 
 vi.mock('../../src/utils/errorUtils', () => ({
@@ -249,6 +252,56 @@ describe('githubHandlers', () => {
       const result = await handler({}, 'test-org', 'testuser')
       expect(result.success).toBe(true)
       expect(result.data.org).toBe('test-org')
+    })
+
+    it('requests and parses only the current UTC billing period', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-07-01T12:00:00Z'))
+      try {
+        const { parseBillingUsage } = await import('../../src/utils/billingParsers')
+
+        vi.mocked(parseBillingUsage).mockReturnValueOnce({
+          premiumRequests: 7,
+          grossCost: 0.07,
+          discount: 0.02,
+          netCost: 0.05,
+          businessSeats: 2,
+          seatPlan: 'business',
+        })
+
+        const usageItems = [{ product: 'copilot', date: '2026-07-01' }]
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems }),
+          stderr: '',
+        })
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+
+        const handler = handlers.get('github:get-copilot-usage')!
+        const result = await handler({}, 'test-org')
+
+        expect(result.success).toBe(true)
+        expect(result.data).toEqual(
+          expect.objectContaining({
+            premiumRequests: 7,
+            grossCost: 0.07,
+            discount: 0.02,
+            netCost: 0.05,
+            businessSeats: 2,
+            seats: 3,
+            billingMonth: 7,
+            billingYear: 2026,
+          })
+        )
+        expect(mockExecAsync.mock.calls[0]?.[0]).toContain(
+          '/settings/billing/usage?year=2026&month=7'
+        )
+        expect(parseBillingUsage).toHaveBeenCalledWith(usageItems, { year: 2026, month: 7 })
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('returns error on failure', async () => {
@@ -764,25 +817,47 @@ describe('githubHandlers', () => {
         .mockResolvedValueOnce({ stdout: '[]', stderr: '' })
         .mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
 
-      const result = await fetchCopilotMetrics('test-org')
-      const assembleArgs = vi.mocked(assembleCopilotMetrics).mock.calls[0][0]
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-07-15T12:00:00Z'))
 
-      expect(result).toEqual(
-        expect.objectContaining({
-          success: true,
-          data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
+      try {
+        const result = await fetchCopilotMetrics('test-org')
+        const assembleArgs = vi.mocked(assembleCopilotMetrics).mock.calls[0][0]
+
+        expect(result).toEqual(
+          expect.objectContaining({
+            success: true,
+            data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
+          })
+        )
+        expect(parseBillingUsage).toHaveBeenCalledWith([{ product: 'copilot', grossQuantity: 7 }], {
+          year: 2026,
+          month: 7,
         })
-      )
-      expect(parseBillingUsage).toHaveBeenCalledWith([{ product: 'copilot', grossQuantity: 7 }])
-      expect(assembleArgs).toEqual(
-        expect.objectContaining({
-          org: 'test-org',
-          usageOk: true,
-          usage: expect.objectContaining({ premiumRequests: 7, businessSeats: 3 }),
-        })
-      )
-      expect(mockExecAsync.mock.calls[0]?.[0]).toContain('/orgs/test-org/settings/billing/usage')
-      expect(mockExecAsync.mock.calls[1]?.[0]).toContain('/users/test-org/settings/billing/usage')
+        expect(assembleArgs).toEqual(
+          expect.objectContaining({
+            org: 'test-org',
+            usageOk: true,
+            usage: expect.objectContaining({ premiumRequests: 7, businessSeats: 3 }),
+          })
+        )
+        expect(mockExecAsync.mock.calls[0]?.[0]).toContain('/orgs/test-org/settings/billing/usage')
+        expect(mockExecAsync.mock.calls[1]?.[0]).toContain('/users/test-org/settings/billing/usage')
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('rejects invalid GitHub account slugs before invoking gh api', async () => {
+      const { fetchCopilotMetrics } = await import('./githubHandlers')
+
+      const result = await fetchCopilotMetrics('test-org; echo injected')
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'test-org; echo injected'",
+      })
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
     })
 
     it('fetchCopilotMetrics continues after double 404 billing misses', async () => {
@@ -945,6 +1020,33 @@ describe('githubHandlers', () => {
       expect(mockExecAsync.mock.calls[2]?.[0]).toContain(
         '/enterprises/Bertelsmann/settings/billing/budgets?page=1'
       )
+    })
+
+    it('github:get-copilot-budget scopes spend to the current billing month', async () => {
+      const { extractCopilotSpend } = await import('../../src/utils/billingParsers')
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-07-15T12:00:00Z'))
+
+      try {
+        mockExecAsync
+          .mockResolvedValueOnce({ stdout: '[]', stderr: '' })
+          .mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+
+        const handler = handlers.get('github:get-copilot-budget')!
+        await handler({}, 'test-org')
+
+        expect(extractCopilotSpend).toHaveBeenCalledWith(expect.anything(), {
+          year: 2026,
+          month: 7,
+        })
+        expect(mockExecFileAsync).toHaveBeenCalledWith(
+          'gh',
+          ['api', '/orgs/test-org/settings/billing/usage?year=2026&month=7'],
+          expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
+        )
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('github:get-copilot-budget marks spend as unavailable when usage fetch fails', async () => {

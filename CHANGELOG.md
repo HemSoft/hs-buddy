@@ -9,22 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.880] - 2026-07-23
+## [0.1.884] - 2026-07-23
 
 ### Fixed
 
-- Resolve bun audit advisories
+- Close stale hook callback races
+
+## [0.1.882] - 2026-07-23
+
+### Changed
+
+- Merge PR 279 with latest main
+
+## [0.1.880] - 2026-07-22
+
+### Fixed
+
+- Normalize workflow paths before approval
+- Move React ref updates out of render (#273)
 
 ## [0.1.879] - 2026-07-22
 
 ### Changed
 
 - Sync Electron 43 update with main
+- Simplify follow-up approval polling
+
+### Fixed
+
+- Scope Copilot usage to current billing month
+- Address billing period review findings
 
 ## [0.1.878] - 2026-07-22
 
 ### Fixed
 
+- Approve validated Dependabot follow-ups
 - Deduplicate normalized asset rows
 
 ## [0.1.877] - 2026-07-22

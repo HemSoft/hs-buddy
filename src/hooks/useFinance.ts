@@ -220,10 +220,13 @@ export function useFinance() {
 
   const abortRef = useRef(false)
   const watchlistRef = useRef(watchlist)
-  watchlistRef.current = watchlist
   // Tracks whether the user has mutated the watchlist locally. If so, we must
   // NOT overwrite their changes when the async IPC load resolves.
   const mutatedRef = useRef(false)
+
+  useEffect(() => {
+    watchlistRef.current = watchlist
+  }, [watchlist])
 
   const refresh = useCallback((symbols?: string[]) => {
     const list = symbols ?? watchlistRef.current

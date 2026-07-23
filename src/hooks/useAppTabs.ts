@@ -126,9 +126,13 @@ export function useAppTabs({ onViewOpen, onViewClose }: UseAppTabsOptions) {
   const { tabs, activeTabId } = tabState
   const nextTabIdRef = useRef(0)
   const onViewCloseRef = useRef(onViewClose)
-  onViewCloseRef.current = onViewClose
   const onViewOpenRef = useRef(onViewOpen)
-  onViewOpenRef.current = onViewOpen
+  useEffect(() => {
+    onViewCloseRef.current = onViewClose
+  }, [onViewClose])
+  useEffect(() => {
+    onViewOpenRef.current = onViewOpen
+  }, [onViewOpen])
   useEffect(() => {
     onViewOpenRef.current(DASHBOARD_VIEW_ID)
   }, [])

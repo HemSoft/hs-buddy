@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Normalize workflow paths before approval
+- Move React ref updates out of render (#273)
 
 ## [0.1.879] - 2026-07-22
 

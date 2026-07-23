@@ -41,26 +41,15 @@ function formatResetTime(resetTimestamp: number): string {
 
 function useCountdownAnimation(remaining: number, refreshInterval: number): number {
   const [countdown, setCountdown] = useState(1)
-  const [previousRemaining, setPreviousRemaining] = useState(remaining)
   const animFrameRef = useRef<number>(0)
-  const startTimeRef = useRef<number | null>(null)
-
-  if (startTimeRef.current === null) {
-    startTimeRef.current = Date.now()
-  }
-
-  if (remaining !== previousRemaining) {
-    setPreviousRemaining(remaining)
-    startTimeRef.current = Date.now()
-    setCountdown(1)
-  }
+  const startTimeRef = useRef(Date.now())
 
   useEffect(() => {
+    startTimeRef.current = Date.now()
+    setCountdown(1)
     const intervalMs = refreshInterval * 1000
     const tick = () => {
-      /* v8 ignore next -- startTimeRef is always primed during render above */
-      const startedAt = startTimeRef.current ?? Date.now()
-      const elapsed = Date.now() - startedAt
+      const elapsed = Date.now() - startTimeRef.current
       const next = Math.max(0, 1 - elapsed / intervalMs)
       setCountdown(next)
       if (next > 0) animFrameRef.current = requestAnimationFrame(tick)

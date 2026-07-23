@@ -121,7 +121,9 @@ export function useDashboardCards() {
   const toggleVersionRef = useRef(0)
   const mountedRef = useIsMounted()
 
-  visibilityRef.current = visibility
+  useEffect(() => {
+    visibilityRef.current = visibility
+  }, [visibility])
 
   useEffect(() => {
     const raw = safeGetItem(CACHE_KEY)

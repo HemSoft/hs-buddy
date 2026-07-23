@@ -137,14 +137,11 @@ function useResetCopilotReviewMonitorState(
   setCopilotReviewState: (state: CopilotReviewState) => void,
   setCopilotReviewBanner: (banner: { completedAt: number } | null) => void
 ) {
-  const [previousMonitorResetKey, setPreviousMonitorResetKey] = useState(monitorResetKey)
-
   /* v8 ignore start */
-  if (previousMonitorResetKey !== monitorResetKey) {
-    setPreviousMonitorResetKey(monitorResetKey)
+  useEffect(() => {
     setCopilotReviewState('idle')
     setCopilotReviewBanner(null)
-  }
+  }, [monitorResetKey, setCopilotReviewState, setCopilotReviewBanner])
   /* v8 ignore stop */
 }
 

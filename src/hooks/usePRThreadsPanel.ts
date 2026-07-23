@@ -132,9 +132,11 @@ function useResetHeadShaWhenUnavailable(
   setCurrentHeadSha: (headSha: string | null) => void
 ) {
   /* v8 ignore start */
-  if (!canFetchHeadSha && currentHeadSha !== null) {
-    setCurrentHeadSha(null)
-  }
+  useEffect(() => {
+    if (!canFetchHeadSha && currentHeadSha !== null) {
+      setCurrentHeadSha(null)
+    }
+  }, [canFetchHeadSha, currentHeadSha, setCurrentHeadSha])
   /* v8 ignore stop */
 }
 
@@ -199,11 +201,11 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   useResetHeadShaWhenUnavailable(canFetchHeadSha, currentHeadSha, setCurrentHeadSha)
 
   useEffect(() => {
+    const requestId = ++headShaRequestRef.current
+
     if (!canFetchHeadSha || !owner) {
       return
     }
-
-    const requestId = ++headShaRequestRef.current
 
     enqueueRef
       .current(

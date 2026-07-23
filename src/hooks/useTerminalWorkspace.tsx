@@ -172,10 +172,15 @@ function useTerminalWorkspaceInternal(): UseTerminalWorkspaceReturn {
   const [loaded, setLoaded] = useState(false)
 
   const nodesRef = useRef(nodes)
-  nodesRef.current = nodes
   const activeNodeIdRef = useRef(activeNodeId)
-  activeNodeIdRef.current = activeNodeId
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+  useEffect(() => {
+    activeNodeIdRef.current = activeNodeId
+  }, [activeNodeId])
 
   // Convex
   const workspace = useQuery(api.terminalWorkspaces.getWorkspace)

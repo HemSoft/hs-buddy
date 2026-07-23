@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getRepoContextFromViewId, type RepoContext } from '../utils/repoContext'
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
 import { isModKey } from '../utils/platform'
@@ -124,11 +124,18 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const heightSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tabsSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const terminalTabsRef = useRef(terminalTabs)
-  terminalTabsRef.current = terminalTabs
   const terminalOpenRef = useRef(terminalOpen)
-  terminalOpenRef.current = terminalOpen
   const activeViewIdRef = useRef(activeViewId)
-  activeViewIdRef.current = activeViewId
+
+  useLayoutEffect(() => {
+    terminalTabsRef.current = terminalTabs
+  }, [terminalTabs])
+  useLayoutEffect(() => {
+    terminalOpenRef.current = terminalOpen
+  }, [terminalOpen])
+  useLayoutEffect(() => {
+    activeViewIdRef.current = activeViewId
+  }, [activeViewId])
 
   // Convex persistence
   const settings = useSettings()

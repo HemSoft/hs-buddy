@@ -298,6 +298,38 @@ describe('usePRThreadsPanel', () => {
     expect(result.current.loading).toBe(false)
   })
 
+  it('ignores an in-flight branch result when the PR becomes invalid', async () => {
+    let resolveFetchBranches!: (value: { headSha: string }) => void
+    const pendingBranches = new Promise<{ headSha: string }>(resolve => {
+      resolveFetchBranches = resolve
+    })
+
+    mockUseLatestPRReviewRun.mockReturnValue({
+      reviewedHeadSha: 'reviewed-sha',
+      reviewedThreadStats: { unresolved: 2, outdated: 1 },
+      resultId: 'r1',
+    })
+    mockEnqueue
+      .mockReset()
+      .mockReturnValueOnce(pendingBranches)
+      .mockResolvedValueOnce(makeThreadsResult())
+      .mockResolvedValueOnce(makeThreadsResult())
+
+    const { result, rerender } = renderHook(
+      (props: { pr: typeof basePR }) => usePRThreadsPanel(props.pr),
+      { initialProps: { pr: basePR } }
+    )
+
+    rerender({ pr: { ...basePR, id: 0 } })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => {
+      resolveFetchBranches({ headSha: 'stale-sha' })
+    })
+
+    expect(result.current.needsRefresh).toBe(false)
+  })
+
   it('computes activeThreads from unresolved threads', async () => {
     const { result } = renderHook(() => usePRThreadsPanel(basePR))
 

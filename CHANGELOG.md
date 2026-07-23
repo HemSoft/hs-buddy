@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.884] - 2026-07-23
+
+### Fixed
+
+- Close stale hook callback races
+
 ## [0.1.882] - 2026-07-23
 
 ### Changed

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { getRepoContextFromViewId, type RepoContext } from '../utils/repoContext'
 import { killTerminalSession, getSessionId } from '../components/terminal/terminalSessions'
 import { isModKey } from '../utils/platform'
@@ -127,13 +127,13 @@ export function useTerminalPanel(activeViewId?: string | null): UseTerminalPanel
   const terminalOpenRef = useRef(terminalOpen)
   const activeViewIdRef = useRef(activeViewId)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     terminalTabsRef.current = terminalTabs
   }, [terminalTabs])
-  useEffect(() => {
+  useLayoutEffect(() => {
     terminalOpenRef.current = terminalOpen
   }, [terminalOpen])
-  useEffect(() => {
+  useLayoutEffect(() => {
     activeViewIdRef.current = activeViewId
   }, [activeViewId])
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
 import { safeGetItem, safeSetItem, safeGetJson, safeSetJson } from '../utils/storage'
 
@@ -214,7 +214,7 @@ export function useAutoRefresh(
   const pausedRef = useRef(paused)
   // react-doctor-disable-next-line react-doctor/no-ref-current-in-render -- latest callback avoids restarting the refresh interval when callers pass a fresh function
   refreshRef.current = refreshFn
-  useEffect(() => {
+  useLayoutEffect(() => {
     pausedRef.current = paused
   }, [paused])
   const mountedRef = useRef(true)

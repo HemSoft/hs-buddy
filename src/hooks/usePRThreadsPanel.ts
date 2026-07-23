@@ -201,11 +201,11 @@ export function usePRThreadsPanel(pr: PRDetailInfo) {
   useResetHeadShaWhenUnavailable(canFetchHeadSha, currentHeadSha, setCurrentHeadSha)
 
   useEffect(() => {
+    const requestId = ++headShaRequestRef.current
+
     if (!canFetchHeadSha || !owner) {
       return
     }
-
-    const requestId = ++headShaRequestRef.current
 
     enqueueRef
       .current(

@@ -173,6 +173,21 @@ describe('BookmarksSidebar', () => {
     expect(screen.getByText('Example')).toBeInTheDocument()
   })
 
+  it('reflects expanded state via aria-expanded on the category chevron', () => {
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    const chevron = screen
+      .getByText('Dev Tools')
+      .closest('.sidebar-item')!
+      .querySelector('button.sidebar-item-chevron') as HTMLElement
+
+    expect(chevron.getAttribute('aria-expanded')).toBe('false')
+    fireEvent.click(chevron)
+    expect(chevron.getAttribute('aria-expanded')).toBe('true')
+    fireEvent.click(chevron)
+    expect(chevron.getAttribute('aria-expanded')).toBe('false')
+  })
+
   it('applies selected class to a selected bookmark', () => {
     const selectedItem = `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Example')}`
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={selectedItem} />)

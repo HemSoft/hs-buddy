@@ -78,6 +78,11 @@ describe('AccountPicker', () => {
     expect((screen.getByRole('combobox') as HTMLSelectElement).disabled).toBe(true)
   })
 
+  it('keeps an accessible name on the select when title is explicitly undefined', () => {
+    render(<AccountPicker value="" onChange={vi.fn()} variant="select" title={undefined} />)
+    expect(screen.getByRole('combobox', { name: 'GitHub account' })).toBeTruthy()
+  })
+
   it('persists account selection when persist prop is true', () => {
     const onChange = vi.fn()
     render(<AccountPicker value="" onChange={onChange} variant="select" persist />)

@@ -349,6 +349,9 @@ describe('RepoIssueList', () => {
     const row = screen.getByText('Bug report').closest('tr')!
     expect(row).toHaveAttribute('tabindex', '0')
 
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: 'Enter' })
     expect(onOpenIssue).toHaveBeenCalledWith(1)
   })
@@ -364,6 +367,9 @@ describe('RepoIssueList', () => {
     })
 
     const row = screen.getByText('Bug report').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: ' ' })
     expect(onOpenIssue).toHaveBeenCalledWith(1)
   })
@@ -379,6 +385,9 @@ describe('RepoIssueList', () => {
     })
 
     const row = screen.getByText('Bug report').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: 'ArrowDown' })
     expect(onOpenIssue).not.toHaveBeenCalled()
   })

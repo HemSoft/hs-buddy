@@ -222,6 +222,9 @@ describe('PullRequestList — list view', () => {
     const row = screen.getByText(/Fix login bug/).closest('tr')!
     expect(row).toHaveAttribute('tabindex', '0')
 
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: 'Enter' })
     expect(onOpenPR).toHaveBeenCalled()
   })
@@ -235,6 +238,9 @@ describe('PullRequestList — list view', () => {
     render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
     const row = screen.getByText(/Fix login bug/).closest('tr')!
 
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: ' ' })
     expect(onOpenPR).toHaveBeenCalled()
   })
@@ -247,6 +253,9 @@ describe('PullRequestList — list view', () => {
     })
     render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
     const row = screen.getByText(/Fix login bug/).closest('tr')!
+
+    row.focus()
+    expect(row).toHaveFocus()
 
     fireEvent.keyDown(row, { key: 'ArrowDown' })
     expect(onOpenPR).not.toHaveBeenCalled()

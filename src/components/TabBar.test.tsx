@@ -123,6 +123,52 @@ describe('TabBar', () => {
     expect(onTabSelect).toHaveBeenCalledWith('tab-3')
   })
 
+  it('moves focus to the next tab on ArrowRight and wraps from the last to the first', () => {
+    const { onTabSelect } = renderTabBar()
+    const tabs = screen.getAllByRole('tab')
+
+    tabs[0].focus()
+    fireEvent.keyDown(tabs[0], { key: 'ArrowRight' })
+    expect(tabs[1]).toHaveFocus()
+
+    fireEvent.keyDown(tabs[1], { key: 'ArrowRight' })
+    expect(tabs[2]).toHaveFocus()
+
+    // Wraps around from the last tab back to the first
+    fireEvent.keyDown(tabs[2], { key: 'ArrowRight' })
+    expect(tabs[0]).toHaveFocus()
+
+    // Arrow navigation only moves focus; it must not select the tab
+    expect(onTabSelect).not.toHaveBeenCalled()
+  })
+
+  it('moves focus to the previous tab on ArrowLeft and wraps from the first to the last', () => {
+    const { onTabSelect } = renderTabBar()
+    const tabs = screen.getAllByRole('tab')
+
+    tabs[0].focus()
+    // Wraps around from the first tab back to the last
+    fireEvent.keyDown(tabs[0], { key: 'ArrowLeft' })
+    expect(tabs[2]).toHaveFocus()
+
+    fireEvent.keyDown(tabs[2], { key: 'ArrowLeft' })
+    expect(tabs[1]).toHaveFocus()
+
+    expect(onTabSelect).not.toHaveBeenCalled()
+  })
+
+  it('moves focus to the first tab on Home and the last tab on End', () => {
+    renderTabBar()
+    const tabs = screen.getAllByRole('tab')
+
+    tabs[1].focus()
+    fireEvent.keyDown(tabs[1], { key: 'End' })
+    expect(tabs[2]).toHaveFocus()
+
+    fireEvent.keyDown(tabs[2], { key: 'Home' })
+    expect(tabs[0]).toHaveFocus()
+  })
+
   it('gives each close button an accessible label', () => {
     renderTabBar()
 
@@ -131,12 +177,22 @@ describe('TabBar', () => {
     expect(screen.getByRole('button', { name: 'Close Profile' })).toBeInTheDocument()
   })
 
-  it('gives every tab a keyboard-focusable tabIndex of 0', () => {
-    renderTabBar()
+  it('gives only the active tab a tabIndex of 0 (roving tabindex) and inactive tabs -1', () => {
+    renderTabBar({ activeTabId: 'tab-2' })
+    const tabs = screen.getAllByRole('tab')
 
-    for (const tab of screen.getAllByRole('tab')) {
-      expect(tab).toHaveAttribute('tabindex', '0')
-    }
+    expect(tabs[0]).toHaveAttribute('tabindex', '-1')
+    expect(tabs[1]).toHaveAttribute('tabindex', '0')
+    expect(tabs[2]).toHaveAttribute('tabindex', '-1')
+  })
+
+  it('falls back to making the first tab the roving tab stop when there is no active tab', () => {
+    renderTabBar({ activeTabId: null })
+    const tabs = screen.getAllByRole('tab')
+
+    expect(tabs[0]).toHaveAttribute('tabindex', '0')
+    expect(tabs[1]).toHaveAttribute('tabindex', '-1')
+    expect(tabs[2]).toHaveAttribute('tabindex', '-1')
   })
 
   it('renders the tab and its close button as independent, non-nested focus targets', () => {

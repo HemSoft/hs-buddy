@@ -171,18 +171,14 @@ const REPO_PICKER_DEFAULTS = {
 }
 
 export function RepoPicker(rawProps: RepoPickerProps) {
-  const {
-    value,
-    onChange,
-    disabled,
-    title,
-    className,
-    variant,
-    align,
-    placeholder,
-    allowNone,
-    id,
-  } = { ...REPO_PICKER_DEFAULTS, ...rawProps }
+  const { value, onChange, disabled, className, variant, align, placeholder, allowNone, id } = {
+    ...REPO_PICKER_DEFAULTS,
+    ...rawProps,
+  }
+  // Explicitly fall back on `??` (not just the spread above) so an explicit
+  // `title={undefined}` from a caller can't strip the accessible name off the
+  // select variant's <select aria-label>.
+  const title = rawProps.title ?? REPO_PICKER_DEFAULTS.title
   const bookmarks = useRepoBookmarks()
 
   const { options, selectGroups } = useMemo(

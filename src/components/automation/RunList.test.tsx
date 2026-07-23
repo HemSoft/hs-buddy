@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { RunList } from './RunList'
 
 // --- Hoisted configurable mocks ---
@@ -45,6 +46,11 @@ vi.mock('./run-list/RunCard', () => ({
         </button>
       )}
     </div>
+  ),
+  hasRunDetails: (run: { input?: unknown; output?: unknown; error?: string }) =>
+    run.input !== undefined || run.output !== undefined || run.error !== undefined,
+  RunCardDetails: ({ run }: { run: { _id: string; error?: string } }) => (
+    <div data-testid={`run-details-${run._id}`}>{run.error}</div>
   ),
 }))
 
@@ -309,26 +315,48 @@ describe('RunList', () => {
     expect(screen.getByText('—')).toBeTruthy()
   })
 
-  it('toggles expanded row on list view row click', () => {
+  it('toggles expanded row when clicking the toggle button in list view', () => {
     mockUseViewMode.mockReturnValue(['list', vi.fn()])
     render(<RunList />)
-    const rows = screen.getAllByRole('row')
-    // First row is header, click data row
-    fireEvent.click(rows[1])
-    // Re-clicking should toggle (no crash)
-    fireEvent.click(rows[1])
+    const toggle = screen.getByRole('button', { name: 'Expand details for Build Check' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(toggle)
+    expect(
+      screen.getByRole('button', { name: 'Collapse details for Build Check' })
+    ).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('run-details-run-3')).toHaveTextContent('Timeout')
+
+    // Re-clicking should collapse it again
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse details for Build Check' }))
+    expect(screen.getByRole('button', { name: 'Expand details for Build Check' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.queryByTestId('run-details-run-3')).not.toBeInTheDocument()
   })
 
-  it('is keyboard-focusable and toggles the row on Enter in list view', () => {
+  it('is keyboard-focusable and toggles the row on Enter and Space in list view', async () => {
+    const user = userEvent.setup()
     mockUseViewMode.mockReturnValue(['list', vi.fn()])
     render(<RunList />)
-    const rows = screen.getAllByRole('row')
-    const dataRow = rows[1]
-    expect(dataRow).toHaveAttribute('tabindex', '0')
+    const toggle = screen.getByRole('button', { name: 'Expand details for Build Check' })
 
-    // Enter should toggle without crashing, same effect as a click
-    fireEvent.keyDown(dataRow, { key: 'Enter' })
-    fireEvent.keyDown(dataRow, { key: ' ' })
+    toggle.focus()
+    expect(toggle).toHaveFocus()
+
+    await user.keyboard('{Enter}')
+    expect(
+      screen.getByRole('button', { name: 'Collapse details for Build Check' })
+    ).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('run-details-run-3')).toHaveTextContent('Timeout')
+
+    await user.keyboard(' ')
+    expect(screen.getByRole('button', { name: 'Expand details for Build Check' })).toHaveAttribute(
+      'aria-expanded',
+      'false'
+    )
+    expect(screen.queryByTestId('run-details-run-3')).not.toBeInTheDocument()
   })
 
   it('catches errors when cancel fails', async () => {

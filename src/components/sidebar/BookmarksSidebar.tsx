@@ -260,6 +260,7 @@ function CategoryChevron({
       }}
       onKeyDown={e => handleCategoryChevronKeyDown(e, sectionId, toggleSection)}
       aria-label={buildCategoryDisclosureLabel(isExpanded, label)}
+      aria-expanded={isExpanded}
     >
       {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
     </button>

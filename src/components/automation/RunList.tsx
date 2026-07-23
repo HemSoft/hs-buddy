@@ -1,17 +1,16 @@
-import { useState, useMemo } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { History, Trash2 } from 'lucide-react'
 import { useRecentRuns, useRunMutations } from '../../hooks/useConvex'
 import { useConfirm } from '../../hooks/useConfirm'
 import { ConfirmDialog } from '../ConfirmDialog'
 import type { Id } from '../../../convex/_generated/dataModel'
-import { RunCard, type RunWithJob } from './run-list/RunCard'
+import { RunCard, RunCardDetails, type RunWithJob } from './run-list/RunCard'
 import { RunFilterBar, type StatusFilter } from './run-list/RunFilterBar'
 import { ViewModeToggle } from '../shared/ViewModeToggle'
 import { useViewMode } from '../../hooks/useViewMode'
 import { getStatusIcon, getStatusLabel } from '../shared/statusDisplay'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { formatDistanceToNow, formatDuration } from '../../utils/dateUtils'
-import { onKeyboardActivate } from '../../utils/keyboard'
 import './RunList.css'
 import '../shared/ListView.css'
 
@@ -74,11 +73,52 @@ function RunListRowTitle({ run }: { run: RunWithJob }) {
   )
 }
 
+function getRunTitleText(run: RunWithJob): string {
+  return run.job?.name ?? 'Deleted Job'
+}
+
+function hasRunDetails(run: RunWithJob): boolean {
+  return run.output !== undefined || run.error !== undefined || run.input !== undefined
+}
+
+function RunListRowToggle({
+  run,
+  isExpanded,
+  onToggle,
+}: {
+  run: RunWithJob
+  isExpanded: boolean
+  onToggle: (runId: string) => void
+}) {
+  if (!hasRunDetails(run)) {
+    return <RunListRowTitle run={run} />
+  }
+
+  const detailsId = `run-list-details-${run._id}`
+
+  return (
+    <button
+      type="button"
+      className="run-row-toggle"
+      aria-expanded={isExpanded}
+      aria-controls={detailsId}
+      aria-label={`${isExpanded ? 'Collapse' : 'Expand'} details for ${getRunTitleText(run)}`}
+      onClick={() => {
+        onToggle(run._id)
+      }}
+    >
+      <RunListRowTitle run={run} />
+    </button>
+  )
+}
+
 function RunListTable({
   filteredRuns,
+  expandedRows,
   onToggle,
 }: {
   filteredRuns: RunWithJob[]
+  expandedRows: Set<string>
   onToggle: (runId: string) => void
 }) {
   return (
@@ -93,30 +133,35 @@ function RunListTable({
         </tr>
       </thead>
       <tbody>
-        {filteredRuns.map(run => (
-          <tr
-            key={run._id}
-            onClick={() => onToggle(run._id)}
-            tabIndex={0}
-            onKeyDown={onKeyboardActivate(() => {
-              onToggle(run._id)
-            })}
-          >
-            <td className="col-status">{getStatusIcon(run.status)}</td>
-            <td className="col-title">
-              <RunListRowTitle run={run} />
-            </td>
-            <td>
-              <span className={`run-status-badge status-${run.status}`}>
-                {getStatusLabel(run.status)}
-              </span>
-            </td>
-            <td className="col-date">
-              {run.duration !== undefined ? formatDuration(run.duration) : '—'}
-            </td>
-            <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
-          </tr>
-        ))}
+        {filteredRuns.map(run => {
+          const isExpanded = expandedRows.has(run._id)
+          return (
+            <Fragment key={run._id}>
+              <tr>
+                <td className="col-status">{getStatusIcon(run.status)}</td>
+                <td className="col-title">
+                  <RunListRowToggle run={run} isExpanded={isExpanded} onToggle={onToggle} />
+                </td>
+                <td>
+                  <span className={`run-status-badge status-${run.status}`}>
+                    {getStatusLabel(run.status)}
+                  </span>
+                </td>
+                <td className="col-date">
+                  {run.duration !== undefined ? formatDuration(run.duration) : '—'}
+                </td>
+                <td className="col-date">{formatDistanceToNow(run.startedAt)}</td>
+              </tr>
+              {isExpanded && hasRunDetails(run) && (
+                <tr className="run-list-details-row">
+                  <td id={`run-list-details-${run._id}`} colSpan={5}>
+                    <RunCardDetails run={run} />
+                  </td>
+                </tr>
+              )}
+            </Fragment>
+          )
+        })}
       </tbody>
     </table>
   )
@@ -176,7 +221,7 @@ function RunListContent({
     <div className="run-list-content">
       <RunListNoResults statusFilter={statusFilter} />
       {viewMode === 'list' ? (
-        <RunListTable filteredRuns={filteredRuns} onToggle={onToggle} />
+        <RunListTable filteredRuns={filteredRuns} expandedRows={expandedRows} onToggle={onToggle} />
       ) : (
         <RunCardsView
           filteredRuns={filteredRuns}

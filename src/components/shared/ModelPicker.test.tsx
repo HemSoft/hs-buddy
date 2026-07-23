@@ -85,6 +85,16 @@ describe('ModelPicker', () => {
     expect(screen.getByRole('option', { name: 'Gemini 2.5 (disabled)' })).toBeDisabled()
   })
 
+  it('keeps an accessible name on the select when title is explicitly undefined', async () => {
+    mocks.listModels.mockResolvedValueOnce([
+      { id: 'claude-sonnet-4.5', name: 'Claude Sonnet', isDisabled: false, billingMultiplier: 1 },
+    ])
+
+    render(<ModelPicker value="" onChange={vi.fn()} variant="select" title={undefined} />)
+
+    expect(await screen.findByRole('combobox', { name: 'Copilot model' })).toBeInTheDocument()
+  })
+
   it('persists a changed model selection in select mode', async () => {
     const onChange = vi.fn()
     mocks.listModels.mockResolvedValueOnce([

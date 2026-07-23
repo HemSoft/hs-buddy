@@ -232,6 +232,9 @@ describe('RepoPullRequestList', () => {
     const row = screen.getByText('Add feature').closest('tr')!
     expect(row).toHaveAttribute('tabindex', '0')
 
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: 'Enter' })
     expect(onOpenPR).toHaveBeenCalled()
   })
@@ -243,6 +246,9 @@ describe('RepoPullRequestList', () => {
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
 
     const row = screen.getByText('Add feature').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: ' ' })
     expect(onOpenPR).toHaveBeenCalled()
   })
@@ -254,6 +260,9 @@ describe('RepoPullRequestList', () => {
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
 
     const row = screen.getByText('Add feature').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
     fireEvent.keyDown(row, { key: 'ArrowDown' })
     expect(onOpenPR).not.toHaveBeenCalled()
   })

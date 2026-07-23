@@ -113,6 +113,78 @@ const TEST_CONFIG = {
   ],
 }
 
+function makeSearchPRItem(org: string, number: number) {
+  return {
+    number,
+    title: `PR ${number}`,
+    html_url: `https://github.com/${org}/repo/pull/${number}`,
+    user: { login: `author${number}`, avatar_url: '' },
+    state: 'open',
+    assignees: [],
+    created_at: `2026-01-0${number}T00:00:00Z`,
+    updated_at: `2026-01-0${number}T00:00:00Z`,
+    closed_at: null,
+  }
+}
+
+function makeViewerPRNode(org: string, number: number) {
+  return {
+    number,
+    title: `PR ${number}`,
+    url: `https://github.com/${org}/repo/pull/${number}`,
+    state: 'OPEN',
+    createdAt: `2026-01-0${number}T00:00:00Z`,
+    updatedAt: `2026-01-0${number}T00:00:00Z`,
+    closedAt: null,
+    mergedAt: null,
+    author: { login: `author${number}`, avatarUrl: '' },
+    assignees: { totalCount: 0 },
+    repository: { nameWithOwner: `${org}/repo`, owner: { login: org } },
+    headRefName: `feature-${number}`,
+    baseRefName: 'main',
+  }
+}
+
+function handleConcurrentFallbackGraphql(
+  query: string,
+  variables: { after?: string | null; headers?: { authorization?: string } }
+) {
+  const reviewThreads = {
+    totalCount: 0,
+    pageInfo: { hasNextPage: false, endCursor: null },
+    nodes: [],
+  }
+  if (!query.includes('query ViewerPRs')) {
+    return Promise.resolve({
+      pr0: { pullRequest: { reviewThreads } },
+      pr1: { pullRequest: { reviewThreads } },
+    })
+  }
+  if (variables.headers?.authorization === 'token token-user2') {
+    return Promise.reject(new Error('429 secondary rate limit'))
+  }
+  if (variables.after === 'org1-page-2') {
+    return Promise.resolve({
+      viewer: {
+        pullRequests: {
+          totalCount: 2,
+          pageInfo: { hasNextPage: false, endCursor: null },
+          nodes: [makeViewerPRNode('org1', 2)],
+        },
+      },
+    })
+  }
+  return Promise.resolve({
+    viewer: {
+      pullRequests: {
+        totalCount: 2,
+        pageInfo: { hasNextPage: true, endCursor: 'org1-page-2' },
+        nodes: [makeViewerPRNode('org1', 1)],
+      },
+    },
+  })
+}
+
 describe('GitHubClient', () => {
   let client: GitHubClient
 
@@ -2577,23 +2649,7 @@ describe('GitHubClient', () => {
       mockOctokit.search.issuesAndPullRequests.mockImplementation(({ q }: { q: string }) => {
         const org = /org:([^\s]+)/.exec(q)?.[1] ?? 'unknown'
         const number = Number(org.replace('org', ''))
-        return Promise.resolve({
-          data: {
-            items: [
-              {
-                number,
-                title: `PR for ${org}`,
-                html_url: `https://github.com/${org}/repo/pull/${number}`,
-                user: { login: `author${number}`, avatar_url: '' },
-                state: 'open',
-                assignees: [],
-                created_at: `2026-01-0${number}T00:00:00Z`,
-                updated_at: `2026-01-0${number}T00:00:00Z`,
-                closed_at: null,
-              },
-            ],
-          },
-        })
+        return Promise.resolve({ data: { items: [makeSearchPRItem(org, number)] } })
       })
       mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
       mockOctokit.pulls.get.mockResolvedValue({
@@ -2640,93 +2696,17 @@ describe('GitHubClient', () => {
           ],
         }
         const concurrentClient = new GitHubClient(config)
-        const viewerNode = (org: string, number: number) => ({
-          number,
-          title: `PR ${number}`,
-          url: `https://github.com/${org}/repo/pull/${number}`,
-          state: 'OPEN',
-          createdAt: `2026-01-0${number}T00:00:00Z`,
-          updatedAt: `2026-01-0${number}T00:00:00Z`,
-          closedAt: null,
-          mergedAt: null,
-          author: { login: `author${number}`, avatarUrl: '' },
-          assignees: { totalCount: 0 },
-          repository: { nameWithOwner: `${org}/repo`, owner: { login: org } },
-          headRefName: `feature-${number}`,
-          baseRefName: 'main',
-        })
 
         mockOctokit.orgs.get.mockResolvedValue({ data: { avatar_url: null } })
         mockOctokit.search.issuesAndPullRequests.mockImplementation(({ q }: { q: string }) => {
           if (!q.includes('org:org3')) return Promise.resolve({ data: { items: [] } })
-          return Promise.resolve({
-            data: {
-              items: [
-                {
-                  number: 3,
-                  title: 'PR 3',
-                  html_url: 'https://github.com/org3/repo/pull/3',
-                  user: { login: 'author3', avatar_url: '' },
-                  state: 'open',
-                  assignees: [],
-                  created_at: '2026-01-03T00:00:00Z',
-                  updated_at: '2026-01-03T00:00:00Z',
-                  closed_at: null,
-                },
-              ],
-            },
-          })
+          return Promise.resolve({ data: { items: [makeSearchPRItem('org3', 3)] } })
         })
         mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
         mockOctokit.pulls.get.mockResolvedValue({
           data: { head: { ref: 'feature' }, base: { ref: 'main' } },
         })
-        mockGraphql.mockImplementation(
-          (
-            query: string,
-            variables: {
-              after?: string | null
-              headers?: { authorization?: string }
-            }
-          ) => {
-            if (!query.includes('query ViewerPRs')) {
-              const reviewThreads = {
-                totalCount: 0,
-                pageInfo: { hasNextPage: false, endCursor: null },
-                nodes: [],
-              }
-              return Promise.resolve({
-                pr0: { pullRequest: { reviewThreads } },
-                pr1: { pullRequest: { reviewThreads } },
-              })
-            }
-
-            const authorization = variables.headers?.authorization
-            if (authorization === 'token token-user2') {
-              return Promise.reject(new Error('429 secondary rate limit'))
-            }
-            if (variables.after === 'org1-page-2') {
-              return Promise.resolve({
-                viewer: {
-                  pullRequests: {
-                    totalCount: 2,
-                    pageInfo: { hasNextPage: false, endCursor: null },
-                    nodes: [viewerNode('org1', 2)],
-                  },
-                },
-              })
-            }
-            return Promise.resolve({
-              viewer: {
-                pullRequests: {
-                  totalCount: 2,
-                  pageInfo: { hasNextPage: true, endCursor: 'org1-page-2' },
-                  nodes: [viewerNode('org1', 1)],
-                },
-              },
-            })
-          }
-        )
+        mockGraphql.mockImplementation(handleConcurrentFallbackGraphql)
 
         const result = await concurrentClient.fetchMyPRs()
         const org1FallbackCalls = mockGraphql.mock.calls.filter(

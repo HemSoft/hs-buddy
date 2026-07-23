@@ -251,6 +251,56 @@ describe('githubHandlers', () => {
       expect(result.data.org).toBe('test-org')
     })
 
+    it('requests and parses only the current UTC billing period', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-07-01T12:00:00Z'))
+      try {
+        const { parseBillingUsage } = await import('../../src/utils/billingParsers')
+
+        vi.mocked(parseBillingUsage).mockReturnValueOnce({
+          premiumRequests: 7,
+          grossCost: 0.07,
+          discount: 0.02,
+          netCost: 0.05,
+          businessSeats: 2,
+          seatPlan: 'business',
+        })
+
+        const usageItems = [{ product: 'copilot', date: '2026-07-01' }]
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems }),
+          stderr: '',
+        })
+        mockExecAsync.mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+
+        const handler = handlers.get('github:get-copilot-usage')!
+        const result = await handler({}, 'test-org')
+
+        expect(result.success).toBe(true)
+        expect(result.data).toEqual(
+          expect.objectContaining({
+            premiumRequests: 7,
+            grossCost: 0.07,
+            discount: 0.02,
+            netCost: 0.05,
+            businessSeats: 2,
+            seats: 3,
+            billingMonth: 7,
+            billingYear: 2026,
+          })
+        )
+        expect(mockExecAsync.mock.calls[0]?.[0]).toContain(
+          '/settings/billing/usage?year=2026&month=7'
+        )
+        expect(parseBillingUsage).toHaveBeenCalledWith(usageItems, { year: 2026, month: 7 })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('returns error on failure', async () => {
       // tryGetCliToken succeeds
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -773,7 +823,10 @@ describe('githubHandlers', () => {
           data: expect.objectContaining({ org: 'test-org', billingYear: 2026, billingMonth: 1 }),
         })
       )
-      expect(parseBillingUsage).toHaveBeenCalledWith([{ product: 'copilot', grossQuantity: 7 }])
+      expect(parseBillingUsage).toHaveBeenCalledWith([{ product: 'copilot', grossQuantity: 7 }], {
+        year: 2026,
+        month: 7,
+      })
       expect(assembleArgs).toEqual(
         expect.objectContaining({
           org: 'test-org',

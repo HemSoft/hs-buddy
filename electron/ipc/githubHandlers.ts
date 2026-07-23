@@ -87,35 +87,35 @@ async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
  *  Returns ParsedBillingUsage. Throws on non-404 errors. */
 async function fetchBillingUsage(
   org: string,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<ParsedBillingUsage> {
   let stdout: string
   try {
-    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await execAsync(
+      `gh api "/orgs/${org}/settings/billing/usage?year=${year}&month=${month}"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    )
     stdout = result.stdout
   } catch (orgError: unknown) {
     if (!isNotFoundError(orgError)) throw orgError
-    const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await execAsync(
+      `gh api "/users/${org}/settings/billing/usage?year=${year}&month=${month}"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    )
     stdout = result.stdout
   }
 
   const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-  return parseBillingUsage(data.usageItems)
+  return parseBillingUsage(data.usageItems, { year, month })
 }
 
 /** Fetch budget + Copilot usage spend (net, AI Credits billing) for a non-personal org. */
 async function fetchBudgetAndSpend(
   org: string,
-  _year: number,
-  _month: number,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<{ budgetAmount: number | null; spent: number }> {
   const [budgetResult, spendResult] = await Promise.allSettled([
@@ -123,7 +123,7 @@ async function fetchBudgetAndSpend(
       `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
       { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
     ),
-    execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
+    execAsync(`gh api "/orgs/${org}/settings/billing/usage?year=${year}&month=${month}"`, {
       encoding: 'utf8',
       timeout: API_TIMEOUT_MS,
       env: execEnv,
@@ -132,7 +132,7 @@ async function fetchBudgetAndSpend(
 
   return {
     budgetAmount: extractBudgetFromResult(budgetResult).budgetAmount,
-    spent: extractCopilotSpend(spendResult).net,
+    spent: extractCopilotSpend(spendResult, { year, month }).net,
   }
 }
 
@@ -161,7 +161,7 @@ export async function fetchCopilotMetrics(
   let usageOk = false
 
   try {
-    usage = await fetchBillingUsage(org, execEnv)
+    usage = await fetchBillingUsage(org, year, month, execEnv)
     usageOk = true
   } catch (error: unknown) {
     if (!isNotFoundError(error)) {
@@ -201,24 +201,24 @@ export async function fetchCopilotMetrics(
 /** Try org billing endpoint, fall back to user. Throws descriptive error on double-404. */
 async function fetchOrgOrUserBillingUsage(
   org: string,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<string> {
   try {
-    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await execAsync(
+      `gh api "/orgs/${org}/settings/billing/usage?year=${year}&month=${month}"`,
+      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    )
     return result.stdout
   } catch (orgError: unknown) {
     if (!isNotFoundError(orgError)) throw orgError
 
     try {
-      const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-        encoding: 'utf8',
-        timeout: API_TIMEOUT_MS,
-        env: execEnv,
-      })
+      const result = await execAsync(
+        `gh api "/users/${org}/settings/billing/usage?year=${year}&month=${month}"`,
+        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+      )
       return result.stdout
     } catch (userError: unknown) {
       if (isNotFoundError(userError)) {
@@ -665,12 +665,17 @@ function registerCopilotUsageHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
-        const stdout = await fetchOrgOrUserBillingUsage(org, execEnv)
+        const now = new Date()
+        const billingYear = now.getUTCFullYear()
+        const billingMonth = now.getUTCMonth() + 1
+        const stdout = await fetchOrgOrUserBillingUsage(org, billingYear, billingMonth, execEnv)
 
         const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-        const parsed = parseBillingUsage(data.usageItems)
+        const parsed = parseBillingUsage(data.usageItems, {
+          year: billingYear,
+          month: billingMonth,
+        })
         const seatCount = await fetchSeatCount(org, execEnv)
-        const now = new Date()
 
         let userCredits: number | null = null
         if (username) {
@@ -690,8 +695,8 @@ function registerCopilotUsageHandlers(): void {
             org,
             ...parsed,
             seats: seatCount ?? parsed.businessSeats,
-            billingMonth: now.getUTCMonth() + 1,
-            billingYear: now.getUTCFullYear(),
+            billingMonth,
+            billingYear,
             userCredits,
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),

@@ -28,6 +28,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Sync Electron 43 update with main
 - Simplify follow-up approval polling
 
+### Fixed
+
+- Scope Copilot usage to current billing month
+- Address billing period review findings
+
 ## [0.1.878] - 2026-07-22
 
 ### Fixed

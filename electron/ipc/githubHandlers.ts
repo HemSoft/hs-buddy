@@ -49,6 +49,27 @@ export const PERSONAL_BUDGETS: Record<string, number> = {}
 type ExecAsyncSettledResult = PromiseSettledResult<Awaited<ReturnType<typeof execAsync>>>
 type CliStdoutSettledResult = PromiseSettledResult<{ stdout: string }>
 
+const GITHUB_ACCOUNT_SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
+
+function assertValidGitHubAccountSlug(org: string): void {
+  if (!GITHUB_ACCOUNT_SLUG_PATTERN.test(org)) {
+    throw new Error(`Invalid GitHub account slug: '${org}'`)
+  }
+}
+
+async function runGhApi(
+  endpoint: string,
+  execEnv: NodeJS.ProcessEnv,
+  timeout = API_TIMEOUT_MS,
+  headers: string[] = []
+): Promise<{ stdout: string; stderr: string }> {
+  return execFileAsync('gh', ['api', endpoint, ...headers.flatMap(header => ['-H', header])], {
+    encoding: 'utf8',
+    timeout,
+    env: execEnv,
+  })
+}
+
 function asCliStdoutSettledResult(result: ExecAsyncSettledResult): CliStdoutSettledResult {
   return result as CliStdoutSettledResult
 }
@@ -87,52 +108,49 @@ async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
  *  Returns ParsedBillingUsage. Throws on non-404 errors. */
 async function fetchBillingUsage(
   org: string,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<ParsedBillingUsage> {
+  assertValidGitHubAccountSlug(org)
   let stdout: string
   try {
-    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await runGhApi(
+      `/orgs/${org}/settings/billing/usage?year=${year}&month=${month}`,
+      execEnv
+    )
     stdout = result.stdout
   } catch (orgError: unknown) {
     if (!isNotFoundError(orgError)) throw orgError
-    const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await runGhApi(
+      `/users/${org}/settings/billing/usage?year=${year}&month=${month}`,
+      execEnv
+    )
     stdout = result.stdout
   }
 
   const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-  return parseBillingUsage(data.usageItems)
+  return parseBillingUsage(data.usageItems, { year, month })
 }
 
 /** Fetch budget + Copilot usage spend (net, AI Credits billing) for a non-personal org. */
 async function fetchBudgetAndSpend(
   org: string,
-  _year: number,
-  _month: number,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<{ budgetAmount: number | null; spent: number }> {
+  assertValidGitHubAccountSlug(org)
   const [budgetResult, spendResult] = await Promise.allSettled([
-    execAsync(
-      `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-    ),
-    execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    }),
+    runGhApi(`/organizations/${org}/settings/billing/budgets`, execEnv, API_TIMEOUT_MS, [
+      'X-GitHub-Api-Version: 2022-11-28',
+    ]),
+    runGhApi(`/orgs/${org}/settings/billing/usage?year=${year}&month=${month}`, execEnv),
   ])
 
   return {
     budgetAmount: extractBudgetFromResult(budgetResult).budgetAmount,
-    spent: extractCopilotSpend(spendResult).net,
+    spent: extractCopilotSpend(spendResult, { year, month }).net,
   }
 }
 
@@ -161,7 +179,7 @@ export async function fetchCopilotMetrics(
   let usageOk = false
 
   try {
-    usage = await fetchBillingUsage(org, execEnv)
+    usage = await fetchBillingUsage(org, year, month, execEnv)
     usageOk = true
   } catch (error: unknown) {
     if (!isNotFoundError(error)) {
@@ -201,24 +219,25 @@ export async function fetchCopilotMetrics(
 /** Try org billing endpoint, fall back to user. Throws descriptive error on double-404. */
 async function fetchOrgOrUserBillingUsage(
   org: string,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<string> {
+  assertValidGitHubAccountSlug(org)
   try {
-    const result = await execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    })
+    const result = await runGhApi(
+      `/orgs/${org}/settings/billing/usage?year=${year}&month=${month}`,
+      execEnv
+    )
     return result.stdout
   } catch (orgError: unknown) {
     if (!isNotFoundError(orgError)) throw orgError
 
     try {
-      const result = await execAsync(`gh api /users/${org}/settings/billing/usage`, {
-        encoding: 'utf8',
-        timeout: API_TIMEOUT_MS,
-        env: execEnv,
-      })
+      const result = await runGhApi(
+        `/users/${org}/settings/billing/usage?year=${year}&month=${month}`,
+        execEnv
+      )
       return result.stdout
     } catch (userError: unknown) {
       if (isNotFoundError(userError)) {
@@ -298,9 +317,11 @@ async function resolveEnterpriseBudgetFallback(
 
 function resolveSpendState(
   org: string,
-  usageResult: ExecAsyncSettledResult
+  usageResult: ExecAsyncSettledResult,
+  year: number,
+  month: number
 ): { spent: number; gross: number; spentError: string | null } {
-  const { net, gross } = extractCopilotSpend(asCliStdoutSettledResult(usageResult))
+  const { net, gross } = extractCopilotSpend(asCliStdoutSettledResult(usageResult), { year, month })
   return {
     spent: net,
     gross,
@@ -311,8 +332,8 @@ function resolveSpendState(
 /** Fetch budget + spend for an org via billing APIs, with enterprise budget fallback. */
 async function fetchOrgBudgetAndSpend(
   org: string,
-  _year: number,
-  _month: number,
+  year: number,
+  month: number,
   execEnv: NodeJS.ProcessEnv
 ): Promise<{
   budgetAmount: number | null
@@ -322,16 +343,12 @@ async function fetchOrgBudgetAndSpend(
   gross: number
   spentError: string | null
 }> {
+  assertValidGitHubAccountSlug(org)
   const [budgetResult, usageResult] = await Promise.allSettled([
-    execAsync(
-      `gh api /organizations/${org}/settings/billing/budgets -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-    ),
-    execAsync(`gh api /orgs/${org}/settings/billing/usage`, {
-      encoding: 'utf8',
-      timeout: API_TIMEOUT_MS,
-      env: execEnv,
-    }),
+    runGhApi(`/organizations/${org}/settings/billing/budgets`, execEnv, API_TIMEOUT_MS, [
+      'X-GitHub-Api-Version: 2022-11-28',
+    ]),
+    runGhApi(`/orgs/${org}/settings/billing/usage?year=${year}&month=${month}`, execEnv),
   ])
 
   const extractedBudget = extractBudgetFromResult(asCliStdoutSettledResult(budgetResult))
@@ -341,7 +358,7 @@ async function fetchOrgBudgetAndSpend(
     extractedBudget.preventFurtherUsage,
     execEnv
   )
-  const spentState = resolveSpendState(org, usageResult)
+  const spentState = resolveSpendState(org, usageResult, year, month)
 
   return {
     ...budgetState,
@@ -665,12 +682,17 @@ function registerCopilotUsageHandlers(): void {
     async (_event, org: string, username?: string) => {
       try {
         const execEnv = await getTokenEnv(username)
-        const stdout = await fetchOrgOrUserBillingUsage(org, execEnv)
+        const now = new Date()
+        const billingYear = now.getUTCFullYear()
+        const billingMonth = now.getUTCMonth() + 1
+        const stdout = await fetchOrgOrUserBillingUsage(org, billingYear, billingMonth, execEnv)
 
         const data = JSON.parse(stdout.trim()) as { usageItems: BillingUsageItem[] }
-        const parsed = parseBillingUsage(data.usageItems)
+        const parsed = parseBillingUsage(data.usageItems, {
+          year: billingYear,
+          month: billingMonth,
+        })
         const seatCount = await fetchSeatCount(org, execEnv)
-        const now = new Date()
 
         let userCredits: number | null = null
         if (username) {
@@ -690,8 +712,8 @@ function registerCopilotUsageHandlers(): void {
             org,
             ...parsed,
             seats: seatCount ?? parsed.businessSeats,
-            billingMonth: now.getUTCMonth() + 1,
-            billingYear: now.getUTCFullYear(),
+            billingMonth,
+            billingYear,
             userCredits,
             allItems: data.usageItems.filter(item => item.product === 'copilot'),
             fetchedAt: Date.now(),

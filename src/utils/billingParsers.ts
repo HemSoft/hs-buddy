@@ -27,6 +27,11 @@ export interface ParsedBillingUsage {
   seatPlan: string
 }
 
+export interface BillingPeriod {
+  year: number
+  month: number
+}
+
 /** Shape returned by enterprise/org premium request usage APIs. */
 export interface PremiumUsageItem {
   grossQuantity: number
@@ -107,11 +112,25 @@ function inferSeatPlan(items: BillingUsageItem[]): string {
   return ''
 }
 
-export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage {
-  const premiumItems = items.filter(
+function filterBillingPeriod(
+  items: BillingUsageItem[],
+  period?: BillingPeriod
+): BillingUsageItem[] {
+  if (!period) return items
+  const month = String(period.month).padStart(2, '0')
+  const prefix = `${period.year}-${month}-`
+  return items.filter(item => item.date.startsWith(prefix))
+}
+
+export function parseBillingUsage(
+  items: BillingUsageItem[],
+  period?: BillingPeriod
+): ParsedBillingUsage {
+  const periodItems = filterBillingPeriod(items, period)
+  const premiumItems = periodItems.filter(
     item => item.product === 'copilot' && COPILOT_USAGE_SKUS.has(item.sku)
   )
-  const seatItems = items.filter(
+  const seatItems = periodItems.filter(
     item => item.product === 'copilot' && COPILOT_SEAT_SKUS.has(item.sku)
   )
 
@@ -121,7 +140,7 @@ export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage
     discount: roundCents(sumBy(premiumItems, item => item.discountAmount)),
     netCost: roundCents(sumBy(premiumItems, item => item.netAmount)),
     businessSeats: roundCents(sumBy(seatItems, item => item.quantity)),
-    seatPlan: inferSeatPlan(items),
+    seatPlan: inferSeatPlan(periodItems),
   }
 }
 
@@ -130,12 +149,15 @@ export function parseBillingUsage(items: BillingUsageItem[]): ParsedBillingUsage
  * `/orgs/{org}/settings/billing/usage` result. Filters to Copilot *usage* SKUs
  * so per-seat subscription cost is excluded from "spend".
  */
-export function extractCopilotSpend(result: PromiseSettledResult<{ stdout: string }>): {
+export function extractCopilotSpend(
+  result: PromiseSettledResult<{ stdout: string }>,
+  period?: BillingPeriod
+): {
   net: number
   gross: number
 } {
   const data = parseFulfilledStdout<{ usageItems?: BillingUsageItem[] }>(result)
-  const parsed = parseBillingUsage(data?.usageItems ?? [])
+  const parsed = parseBillingUsage(data?.usageItems ?? [], period)
   return { net: parsed.netCost, gross: parsed.grossCost }
 }
 

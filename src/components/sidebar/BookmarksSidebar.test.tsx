@@ -164,10 +164,7 @@ describe('BookmarksSidebar', () => {
   it('toggles a category via keyboard Space on chevron', () => {
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
 
-    const chevron = screen
-      .getByText('Dev Tools')
-      .closest('.sidebar-item')!
-      .querySelector('button.sidebar-item-chevron') as HTMLElement
+    const chevron = screen.getByRole('button', { name: 'Expand Dev Tools' })
 
     fireEvent.keyDown(chevron, { key: ' ' })
     expect(screen.getByText('Example')).toBeInTheDocument()

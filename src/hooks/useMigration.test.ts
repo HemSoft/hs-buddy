@@ -210,15 +210,21 @@ describe('useMigrateToConvex', () => {
     mockInitSettings.mockResolvedValue(undefined)
 
     const { result, rerender } = renderHook(() => useMigrateToConvex())
-    mockExistingAccounts = []
+    mockExistingAccounts = undefined
     rerender()
-
-    expect(result.current.isComplete).toBe(false)
 
     resolveConfig({
       github: { accounts: [{ username: 'user1', org: 'org1' }] },
       pr: { refreshInterval: 10, autoRefresh: true },
     })
+
+    await act(async () => {
+      await Promise.resolve()
+    })
+    expect(result.current.isComplete).toBe(false)
+
+    mockExistingAccounts = []
+    rerender()
 
     await waitFor(() => {
       expect(result.current.isComplete).toBe(true)

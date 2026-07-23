@@ -276,6 +276,7 @@ describe('TerminalPane', () => {
     await vi.waitFor(() => {
       expect(mockOn).toHaveBeenCalledWith('terminal:data', expect.any(Function))
       expect(mockOn).toHaveBeenCalledWith('terminal:exit', expect.any(Function))
+      expect(mockOn).toHaveBeenCalledWith('terminal:cwd-changed', expect.any(Function))
     })
   })
 
@@ -290,6 +291,7 @@ describe('TerminalPane', () => {
 
     expect(mockOff).toHaveBeenCalledWith('terminal:data', expect.any(Function))
     expect(mockOff).toHaveBeenCalledWith('terminal:exit', expect.any(Function))
+    expect(mockOff).toHaveBeenCalledWith('terminal:cwd-changed', expect.any(Function))
   })
 
   it('disposes terminal on unmount', () => {

@@ -50,7 +50,7 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   getOrgCandidates: vi.fn((owner: string) => [owner]),
   processOsc7Buffer: vi.fn(() => ({ cwd: null, remainingBuffer: '' })),
   buildTerminalShellArgs: vi.fn(() => []),
-  buildTerminalStartupCommand: vi.fn(() => undefined),
+  buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
 }))
@@ -73,7 +73,7 @@ describe('terminalHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(accessSync).mockImplementation(() => undefined)
+    vi.mocked(accessSync).mockImplementation((): undefined => {})
     vi.mocked(existsSync).mockImplementation(() => true)
     vi.mocked(statSync).mockImplementation(
       candidate =>

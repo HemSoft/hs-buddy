@@ -84,7 +84,8 @@ function resolveExecutableOnPath(executable: string): string | null {
     return null
   }
 
-  for (const rawDirectory of pathValue.split(path.delimiter)) {
+  const delimiter = process.platform === 'win32' ? path.win32.delimiter : path.posix.delimiter
+  for (const rawDirectory of pathValue.split(delimiter)) {
     const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
     if (!directory) continue
 

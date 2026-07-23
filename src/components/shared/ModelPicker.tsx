@@ -300,6 +300,7 @@ function ModelPickerSelectVariant({
   handleChange,
   className,
   id,
+  title,
 }: {
   value: string
   enabledModels: SdkModel[]
@@ -313,6 +314,7 @@ function ModelPickerSelectVariant({
   handleChange: (v: string) => void
   className: string
   id?: string
+  title?: string
 }) {
   const statusContent = renderSelectVariantState({
     modelsLoading,
@@ -335,6 +337,7 @@ function ModelPickerSelectVariant({
         <div className="select-control" style={{ flex: 1 }}>
           <select
             id={id}
+            aria-label={title}
             value={value}
             onChange={e => handleChange(e.target.value)}
             className="settings-select"
@@ -512,6 +515,7 @@ export function ModelPicker(props: ModelPickerProps) {
         handleChange={handleChange}
         className={className}
         id={id}
+        title={title}
       />
     )
   }

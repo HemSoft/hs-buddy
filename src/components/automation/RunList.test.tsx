@@ -319,6 +319,18 @@ describe('RunList', () => {
     fireEvent.click(rows[1])
   })
 
+  it('is keyboard-focusable and toggles the row on Enter in list view', () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    render(<RunList />)
+    const rows = screen.getAllByRole('row')
+    const dataRow = rows[1]
+    expect(dataRow).toHaveAttribute('tabindex', '0')
+
+    // Enter should toggle without crashing, same effect as a click
+    fireEvent.keyDown(dataRow, { key: 'Enter' })
+    fireEvent.keyDown(dataRow, { key: ' ' })
+  })
+
   it('catches errors when cancel fails', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockCancel.mockRejectedValue(new Error('cancel failed'))

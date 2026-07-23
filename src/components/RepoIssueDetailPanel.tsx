@@ -208,6 +208,7 @@ function IssueCommentItem({ comment }: { comment: RepoIssueDetail['comments'][nu
           type="button"
           className="repo-issue-detail-link-btn"
           onClick={() => window.shell?.openExternal(comment.url)}
+          aria-label="Open comment on GitHub"
         >
           <ExternalLink size={13} />
         </button>

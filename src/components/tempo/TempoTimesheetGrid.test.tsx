@@ -127,6 +127,63 @@ describe('TempoTimesheetGrid', () => {
     expect(screen.getByTitle('Team Holiday')).toBeInTheDocument()
   })
 
+  it('is keyboard-focusable and triggers the same click handler on Enter/Space', () => {
+    const onCellClick = vi.fn()
+    const onWorklogEdit = vi.fn()
+
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={onCellClick}
+        onWorklogEdit={onWorklogEdit}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+      />
+    )
+
+    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    expect(emptyCell).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(emptyCell, { key: 'Enter' })
+    expect(onCellClick).toHaveBeenCalledWith('2026-03-06', 'PE-101')
+
+    const filledCell = screen.getByTitle(
+      title => title.includes('PE-101') && title.includes('2026-03-05')
+    )
+    fireEvent.keyDown(filledCell, { key: ' ' })
+    expect(onWorklogEdit).toHaveBeenCalledWith(worklog)
+  })
+
+  it('does not trigger the cell click handler for other keys', () => {
+    const onCellClick = vi.fn()
+
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={onCellClick}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+      />
+    )
+
+    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    fireEvent.keyDown(emptyCell, { key: 'ArrowRight' })
+    expect(onCellClick).not.toHaveBeenCalled()
+  })
+
   it('renders footer totals with full-day check, partial total, and zero', () => {
     const fullDayWorklog: TempoWorklog = {
       ...worklog,
@@ -529,6 +586,64 @@ describe('TempoTimesheetGrid', () => {
 
     expect(emptyFooterCell).toBeDefined()
     fireEvent.click(emptyFooterCell, { ctrlKey: true })
+    expect(onCopyToToday).not.toHaveBeenCalled()
+  })
+
+  it('is keyboard-focusable and fires onCopyToToday on Enter for a filled footer cell', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
+    const filledFooterCell = Array.from(footerCells).find(
+      cell => (cell as HTMLElement).style.cursor === 'copy'
+    ) as HTMLElement
+
+    expect(filledFooterCell).toHaveAttribute('tabindex', '0')
+    fireEvent.keyDown(filledFooterCell, { key: 'Enter' })
+    expect(onCopyToToday).toHaveBeenCalledWith([worklog])
+  })
+
+  it('does not fire onCopyToToday on Enter for an empty footer cell', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
+    const emptyFooterCell = Array.from(footerCells).find(
+      cell => !(cell as HTMLElement).style.cursor
+    ) as HTMLElement
+
+    expect(emptyFooterCell).not.toHaveAttribute('tabindex')
+    fireEvent.keyDown(emptyFooterCell, { key: 'Enter' })
     expect(onCopyToToday).not.toHaveBeenCalled()
   })
 

@@ -56,13 +56,13 @@ describe('TabBar', () => {
     renderTabBar({ activeTabId: 'tab-2' })
     const tabs = screen.getAllByRole('tab')
 
-    expect(tabs[0]).not.toHaveClass('active')
+    expect(tabs[0].closest('.tab')).not.toHaveClass('active')
     expect(tabs[0]).toHaveAttribute('aria-selected', 'false')
 
-    expect(tabs[1]).toHaveClass('active')
+    expect(tabs[1].closest('.tab')).toHaveClass('active')
     expect(tabs[1]).toHaveAttribute('aria-selected', 'true')
 
-    expect(tabs[2]).not.toHaveClass('active')
+    expect(tabs[2].closest('.tab')).not.toHaveClass('active')
     expect(tabs[2]).toHaveAttribute('aria-selected', 'false')
   })
 
@@ -70,7 +70,7 @@ describe('TabBar', () => {
     renderTabBar({ activeTabId: null })
 
     for (const tab of screen.getAllByRole('tab')) {
-      expect(tab).not.toHaveClass('active')
+      expect(tab.closest('.tab')).not.toHaveClass('active')
       expect(tab).toHaveAttribute('aria-selected', 'false')
     }
   })
@@ -139,6 +139,18 @@ describe('TabBar', () => {
     }
   })
 
+  it('renders the tab and its close button as independent, non-nested focus targets', () => {
+    renderTabBar()
+
+    const tab = screen.getByRole('tab', { name: 'Settings' })
+    const closeButton = screen.getByRole('button', { name: 'Close Settings' })
+
+    expect(tab.tagName).toBe('BUTTON')
+    expect(closeButton.tagName).toBe('BUTTON')
+    expect(tab.contains(closeButton)).toBe(false)
+    expect(closeButton.contains(tab)).toBe(false)
+  })
+
   it('renders a single active tab correctly', () => {
     const singleTab: Tab[] = [{ id: 'only', label: 'Only Tab', viewId: 'view-only' }]
 
@@ -146,7 +158,7 @@ describe('TabBar', () => {
 
     expect(screen.getAllByRole('tab')).toHaveLength(1)
     expect(screen.getByText('Only Tab')).toBeInTheDocument()
-    expect(screen.getByRole('tab')).toHaveClass('active')
+    expect(screen.getByRole('tab').closest('.tab')).toHaveClass('active')
   })
 
   describe('context menu', () => {

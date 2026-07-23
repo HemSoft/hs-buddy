@@ -223,6 +223,41 @@ describe('RepoPullRequestList', () => {
     expect(onOpenPR).toHaveBeenCalled()
   })
 
+  it('is keyboard-focusable and handles PR activation on Enter in list view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenPR = vi.fn()
+    setupHook({ data: [makePR()], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    const row = screen.getByText('Add feature').closest('tr')!
+    expect(row).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('handles PR activation on Space key in list view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenPR = vi.fn()
+    setupHook({ data: [makePR()], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    const row = screen.getByText('Add feature').closest('tr')!
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('does not handle PR activation for other keys in list view', () => {
+    mockViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenPR = vi.fn()
+    setupHook({ data: [makePR()], loading: false })
+    render(<RepoPullRequestList owner="test-org" repo="hs-buddy" onOpenPR={onOpenPR} />)
+
+    const row = screen.getByText('Add feature').closest('tr')!
+    fireEvent.keyDown(row, { key: 'ArrowDown' })
+    expect(onOpenPR).not.toHaveBeenCalled()
+  })
+
   it('shows empty state for closed PRs', () => {
     setupHook({ data: [], loading: false })
     render(<RepoPullRequestList owner="test-org" repo="hs-buddy" prState="closed" />)

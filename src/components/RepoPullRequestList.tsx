@@ -15,6 +15,7 @@ import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
 import { mapRepoPRToPullRequest } from '../utils/prMapper'
 import { getLabelStyle } from '../utils/labelStyle'
+import { onKeyboardActivate } from '../utils/keyboard'
 import { ViewModeToggle } from './shared/ViewModeToggle'
 import {
   PanelLoadingState,
@@ -89,7 +90,12 @@ function PRTableView({
         </thead>
         <tbody>
           {prs.map(pr => (
-            <tr key={pr.number} onClick={() => handlePRClick(pr)}>
+            <tr
+              key={pr.number}
+              onClick={() => handlePRClick(pr)}
+              tabIndex={0}
+              onKeyDown={onKeyboardActivate(() => handlePRClick(pr))}
+            >
               <td className="col-status">
                 <PRStatusCell pr={pr} />
               </td>

@@ -16,6 +16,7 @@ import { PRStateIcon } from './shared/PRStateIcon'
 import { useViewMode, type ViewMode } from '../hooks/useViewMode'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
+import { onKeyboardActivate } from '../utils/keyboard'
 import type { PullRequest } from '../types/pullRequest'
 import type { PRSearchMode } from '../api/github'
 
@@ -103,42 +104,48 @@ function PRListTableView({ prs, onOpenPR, handleContextMenu }: PRListTableViewPr
           </tr>
         </thead>
         <tbody>
-          {prs.map(pr => (
-            <tr
-              key={`${pr.source}-${pr.id}-${pr.repository}`}
-              onClick={() =>
-                onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
-              }
-              onContextMenu={e => handleContextMenu(e, pr)}
-            >
-              <td className="col-status">
-                <PRStateIcon state={pr.state} />
-              </td>
-              <td className="col-title">
-                <span className="col-number">#{pr.id}</span> {pr.title}
-              </td>
-              <td className="col-author">
-                {pr.authorAvatarUrl && (
-                  <img
-                    src={pr.authorAvatarUrl}
-                    alt={pr.author}
-                    className="list-view-avatar"
-                    width={18}
-                    height={18}
-                  />
-                )}
-                {pr.author}
-              </td>
-              <td className="col-number">{pr.repository}</td>
-              <td className="col-date">{pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}</td>
-              <td>
-                <ThreadsStatusCell threadsUnaddressed={pr.threadsUnaddressed} />
-              </td>
-              <td>
-                <ApprovalCell approvalCount={pr.approvalCount} iApproved={pr.iApproved} />
-              </td>
-            </tr>
-          ))}
+          {prs.map(pr => {
+            const openPR = () =>
+              onOpenPR ? onOpenPR(createPRDetailViewId(pr)) : window.shell.openExternal(pr.url)
+            return (
+              <tr
+                key={`${pr.source}-${pr.id}-${pr.repository}`}
+                onClick={openPR}
+                onContextMenu={e => handleContextMenu(e, pr)}
+                tabIndex={0}
+                onKeyDown={onKeyboardActivate(openPR)}
+              >
+                <td className="col-status">
+                  <PRStateIcon state={pr.state} />
+                </td>
+                <td className="col-title">
+                  <span className="col-number">#{pr.id}</span> {pr.title}
+                </td>
+                <td className="col-author">
+                  {pr.authorAvatarUrl && (
+                    <img
+                      src={pr.authorAvatarUrl}
+                      alt={pr.author}
+                      className="list-view-avatar"
+                      width={18}
+                      height={18}
+                    />
+                  )}
+                  {pr.author}
+                </td>
+                <td className="col-number">{pr.repository}</td>
+                <td className="col-date">
+                  {pr.updatedAt ? formatDistanceToNow(pr.updatedAt) : '—'}
+                </td>
+                <td>
+                  <ThreadsStatusCell threadsUnaddressed={pr.threadsUnaddressed} />
+                </td>
+                <td>
+                  <ApprovalCell approvalCount={pr.approvalCount} iApproved={pr.iApproved} />
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

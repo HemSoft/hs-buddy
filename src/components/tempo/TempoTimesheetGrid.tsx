@@ -212,7 +212,7 @@ function TimesheetRow({
   onCopyToToday: (worklogs: TempoWorklog[]) => void
 }) {
   const handleCellClick = (
-    event: React.MouseEvent,
+    event: React.MouseEvent | React.KeyboardEvent,
     col: DayColumn,
     issueKey: string,
     hours: number,
@@ -270,7 +270,7 @@ function TimesheetCell({
   worklogs: TempoWorklog[]
   isCapex: boolean
   onClick: (
-    event: React.MouseEvent,
+    event: React.MouseEvent | React.KeyboardEvent,
     col: DayColumn,
     issueKey: string,
     hours: number,
@@ -287,7 +287,14 @@ function TimesheetCell({
     <td
       className={getCellClassName(col, hours, isCapex)}
       title={buildCellTitle(issue.issueKey, hours, col.date, cellWorklogs.length)}
+      tabIndex={0}
       onClick={e => onClick(e, col, issue.issueKey, hours, cellWorklogs)}
+      onKeyDown={e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick(e, col, issue.issueKey, hours, cellWorklogs)
+        }
+      }}
       onContextMenu={e => handleCellContextMenu(e, cellWorklogs, onWorklogDelete)}
       onMouseEnter={e =>
         showTooltip(e, buildCellTooltip(issue.issueKey, hours, col, cellWorklogs.length))
@@ -343,6 +350,12 @@ function TimesheetFooterRow({
     onCopyToToday(worklogs.filter(w => w.date === col.date))
   }
 
+  const handleTotalKeyDown = (event: React.KeyboardEvent, col: DayColumn, dayTotal: number) => {
+    if (dayTotal <= 0 || (event.key !== 'Enter' && event.key !== ' ')) return
+    event.preventDefault()
+    onCopyToToday(worklogs.filter(w => w.date === col.date))
+  }
+
   const handleTotalMouseEnter = (event: React.MouseEvent, dayTotal: number) => {
     if (dayTotal <= 0) return
     showTooltip(event, `${dayTotal}h total\n${modLabel}+click — copy all worklogs to today`)
@@ -361,7 +374,9 @@ function TimesheetFooterRow({
             key={col.date}
             aria-label={`${col.date} total ${dayTotal} hours`}
             className={buildTotalCellClass(col, isDayComplete, dayTotal)}
+            tabIndex={dayTotal > 0 ? 0 : undefined}
             onClick={e => handleTotalClick(e, col, dayTotal)}
+            onKeyDown={e => handleTotalKeyDown(e, col, dayTotal)}
             onMouseEnter={e => handleTotalMouseEnter(e, dayTotal)}
             onMouseLeave={hideTooltip}
             style={dayTotal > 0 ? { cursor: 'copy' } : undefined}

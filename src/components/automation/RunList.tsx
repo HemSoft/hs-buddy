@@ -11,6 +11,7 @@ import { useViewMode } from '../../hooks/useViewMode'
 import { getStatusIcon, getStatusLabel } from '../shared/statusDisplay'
 import { getWorkerIcon } from './job-list/jobRowUtils'
 import { formatDistanceToNow, formatDuration } from '../../utils/dateUtils'
+import { onKeyboardActivate } from '../../utils/keyboard'
 import './RunList.css'
 import '../shared/ListView.css'
 
@@ -93,7 +94,12 @@ function RunListTable({
       </thead>
       <tbody>
         {filteredRuns.map(run => (
-          <tr key={run._id} onClick={() => onToggle(run._id)}>
+          <tr
+            key={run._id}
+            onClick={() => onToggle(run._id)}
+            tabIndex={0}
+            onKeyDown={onKeyboardActivate(() => onToggle(run._id))}
+          >
             <td className="col-status">{getStatusIcon(run.status)}</td>
             <td className="col-title">
               <RunListRowTitle run={run} />

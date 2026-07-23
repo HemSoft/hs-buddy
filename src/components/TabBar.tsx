@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
+import { onKeyboardActivate } from '../utils/keyboard'
 import './TabBar.css'
 
 export interface Tab {
@@ -85,19 +86,19 @@ export function TabBar({
           <div
             key={tab.id}
             className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
-            onClick={() => onTabSelect(tab.id)}
             onContextMenu={e => handleContextMenu(e, tab.id)}
-            role="tab"
-            tabIndex={0}
-            aria-selected={activeTabId === tab.id}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onTabSelect(tab.id)
-              }
-            }}
           >
-            <span className="tab-label">{tab.label}</span>
+            <button
+              type="button"
+              className="tab-select"
+              role="tab"
+              tabIndex={0}
+              aria-selected={activeTabId === tab.id}
+              onClick={() => onTabSelect(tab.id)}
+              onKeyDown={onKeyboardActivate(() => onTabSelect(tab.id))}
+            >
+              <span className="tab-label">{tab.label}</span>
+            </button>
             <button
               type="button"
               className="tab-close"

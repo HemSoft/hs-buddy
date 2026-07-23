@@ -120,6 +120,7 @@ function SelectVariant({
   selectGroups,
   bookmarks,
   className,
+  title,
 }: {
   id?: string
   value: string
@@ -131,6 +132,7 @@ function SelectVariant({
   selectGroups: { folder: string; repos: RepoBookmarkList }[]
   bookmarks: ReturnType<typeof useRepoBookmarks>
   className: string
+  title?: string
 }) {
   const showHint = shouldShowRepoPickerHint(bookmarks, loading)
 
@@ -138,6 +140,7 @@ function SelectVariant({
     <div className={`select-control ${className}`}>
       <select
         id={id}
+        aria-label={title}
         value={value}
         onChange={e => onChange(e.target.value)}
         className="settings-select"
@@ -202,6 +205,7 @@ export function RepoPicker(rawProps: RepoPickerProps) {
         selectGroups={selectGroups}
         bookmarks={bookmarks}
         className={className}
+        title={title}
       />
     )
   }

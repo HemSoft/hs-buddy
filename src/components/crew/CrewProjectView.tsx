@@ -257,6 +257,7 @@ function MessageComposer({
         onClick={onSendMessage}
         disabled={sendDisabled}
         className="crew-chat-send-btn"
+        aria-label="Send message"
       >
         <Send size={16} />
       </button>

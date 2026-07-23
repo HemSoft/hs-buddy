@@ -83,6 +83,7 @@ export function AccountPicker(props: AccountPickerProps) {
       <div className={`select-control ${className}`}>
         <select
           id={id}
+          aria-label={title}
           value={value}
           onChange={e => handleChange(e.target.value)}
           className="settings-select"

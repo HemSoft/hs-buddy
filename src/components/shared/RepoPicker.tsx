@@ -120,6 +120,7 @@ function SelectVariant({
   selectGroups,
   bookmarks,
   className,
+  title,
 }: {
   id?: string
   value: string
@@ -131,6 +132,7 @@ function SelectVariant({
   selectGroups: { folder: string; repos: RepoBookmarkList }[]
   bookmarks: ReturnType<typeof useRepoBookmarks>
   className: string
+  title?: string
 }) {
   const showHint = shouldShowRepoPickerHint(bookmarks, loading)
 
@@ -138,6 +140,7 @@ function SelectVariant({
     <div className={`select-control ${className}`}>
       <select
         id={id}
+        aria-label={title}
         value={value}
         onChange={e => onChange(e.target.value)}
         className="settings-select"
@@ -168,18 +171,14 @@ const REPO_PICKER_DEFAULTS = {
 }
 
 export function RepoPicker(rawProps: RepoPickerProps) {
-  const {
-    value,
-    onChange,
-    disabled,
-    title,
-    className,
-    variant,
-    align,
-    placeholder,
-    allowNone,
-    id,
-  } = { ...REPO_PICKER_DEFAULTS, ...rawProps }
+  const { value, onChange, disabled, className, variant, align, placeholder, allowNone, id } = {
+    ...REPO_PICKER_DEFAULTS,
+    ...rawProps,
+  }
+  // Explicitly fall back on `??` (not just the spread above) so an explicit
+  // `title={undefined}` from a caller can't strip the accessible name off the
+  // select variant's <select aria-label>.
+  const title = rawProps.title ?? REPO_PICKER_DEFAULTS.title
   const bookmarks = useRepoBookmarks()
 
   const { options, selectGroups } = useMemo(
@@ -202,6 +201,7 @@ export function RepoPicker(rawProps: RepoPickerProps) {
         selectGroups={selectGroups}
         bookmarks={bookmarks}
         className={className}
+        title={title}
       />
     )
   }

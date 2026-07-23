@@ -201,6 +201,29 @@
   cursor: default;
 }
 
+/* List-view row toggle: a labelled native button that fills the title
+   cell, reset to look like the plain text it replaces. */
+.run-row-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.run-list .list-view-table tbody tr {
+  cursor: default;
+}
+
+.run-list-details-row > td {
+  padding: 0 12px 8px;
+}
+
 .run-card-expand {
   display: flex;
   align-items: center;

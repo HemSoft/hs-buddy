@@ -336,6 +336,62 @@ describe('RepoIssueList', () => {
     )
   })
 
+  it('is keyboard-focusable and calls onOpenIssue on Enter in list view', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenIssue = vi.fn()
+    mockEnqueue.mockResolvedValue([makeIssue()])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" onOpenIssue={onOpenIssue} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+
+    const row = screen.getByText('Bug report').closest('tr')!
+    expect(row).toHaveAttribute('tabindex', '0')
+
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onOpenIssue).toHaveBeenCalledWith(1)
+  })
+
+  it('calls onOpenIssue on Space key in list view', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenIssue = vi.fn()
+    mockEnqueue.mockResolvedValue([makeIssue()])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" onOpenIssue={onOpenIssue} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+
+    const row = screen.getByText('Bug report').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onOpenIssue).toHaveBeenCalledWith(1)
+  })
+
+  it('does not call onOpenIssue for other keys in list view', async () => {
+    mockUseViewMode.mockReturnValue(['list', vi.fn()])
+    const onOpenIssue = vi.fn()
+    mockEnqueue.mockResolvedValue([makeIssue()])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" onOpenIssue={onOpenIssue} />)
+
+    await waitFor(() => {
+      expect(screen.getByText('Bug report')).toBeInTheDocument()
+    })
+
+    const row = screen.getByText('Bug report').closest('tr')!
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: 'ArrowDown' })
+    expect(onOpenIssue).not.toHaveBeenCalled()
+  })
+
   it('retries fetch on retry button click', async () => {
     mockEnqueue.mockRejectedValueOnce(new Error('Network error'))
     render(<RepoIssueList owner="test-org" repo="hs-buddy" />)

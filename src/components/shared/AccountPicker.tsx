@@ -41,10 +41,14 @@ const ACCOUNT_PICKER_DEFAULTS = {
 }
 
 export function AccountPicker(props: AccountPickerProps) {
-  const { value, onChange, persist, disabled, title, className, variant, align, id } = {
+  const { value, onChange, persist, disabled, className, variant, align, id } = {
     ...ACCOUNT_PICKER_DEFAULTS,
     ...props,
   }
+  // Explicitly fall back on `??` (not just the spread above) so an explicit
+  // `title={undefined}` from a caller can't strip the accessible name off the
+  // select variant's <select aria-label>.
+  const title = props.title ?? ACCOUNT_PICKER_DEFAULTS.title
   const { setGhAccount } = useCopilotSettings()
   const { uniqueUsernames: uniqueAccounts } = useGitHubAccounts()
   const [activeCliAccount, setActiveCliAccount] = useState<string | null>(null)
@@ -83,6 +87,7 @@ export function AccountPicker(props: AccountPickerProps) {
       <div className={`select-control ${className}`}>
         <select
           id={id}
+          aria-label={title}
           value={value}
           onChange={e => handleChange(e.target.value)}
           className="settings-select"

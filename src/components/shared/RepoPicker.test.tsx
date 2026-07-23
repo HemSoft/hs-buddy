@@ -71,6 +71,14 @@ describe('RepoPicker', () => {
     expect(onChange).toHaveBeenCalledWith('relias-engineering/hs-buddy')
   })
 
+  it('keeps an accessible name on the select when title is explicitly undefined', () => {
+    mocks.useRepoBookmarks.mockReturnValue([])
+
+    render(<RepoPicker value="" onChange={vi.fn()} variant="select" title={undefined} />)
+
+    expect(screen.getByRole('combobox', { name: 'Target repository' })).toBeInTheDocument()
+  })
+
   it('shows the empty state hint when no bookmarks exist', () => {
     mocks.useRepoBookmarks.mockReturnValue([])
 

@@ -127,6 +127,63 @@ describe('TempoTimesheetGrid', () => {
     expect(screen.getByTitle('Team Holiday')).toBeInTheDocument()
   })
 
+  it('is keyboard-focusable and triggers the same click handler on Enter/Space', () => {
+    const onCellClick = vi.fn()
+    const onWorklogEdit = vi.fn()
+
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={onCellClick}
+        onWorklogEdit={onWorklogEdit}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+      />
+    )
+
+    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    expect(emptyCell).toHaveAttribute('tabindex', '0')
+
+    fireEvent.keyDown(emptyCell, { key: 'Enter' })
+    expect(onCellClick).toHaveBeenCalledWith('2026-03-06', 'PE-101')
+
+    const filledCell = screen.getByTitle(
+      title => title.includes('PE-101') && title.includes('2026-03-05')
+    )
+    fireEvent.keyDown(filledCell, { key: ' ' })
+    expect(onWorklogEdit).toHaveBeenCalledWith(worklog)
+  })
+
+  it('does not trigger the cell click handler for other keys', () => {
+    const onCellClick = vi.fn()
+
+    render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={onCellClick}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={vi.fn()}
+      />
+    )
+
+    const emptyCell = screen.getByTitle('Click to log time on 2026-03-06')
+    fireEvent.keyDown(emptyCell, { key: 'ArrowRight' })
+    expect(onCellClick).not.toHaveBeenCalled()
+  })
+
   it('renders footer totals with full-day check, partial total, and zero', () => {
     const fullDayWorklog: TempoWorklog = {
       ...worklog,
@@ -443,7 +500,7 @@ describe('TempoTimesheetGrid', () => {
     expect(document.querySelector('.tempo-cell-tooltip')).not.toBeInTheDocument()
   })
 
-  it('fires onCopyToToday when ctrl+clicking footer cell with hours', () => {
+  it('fires onCopyToToday when ctrl+clicking footer total button with hours', () => {
     const onCopyToToday = vi.fn()
 
     const { container } = render(
@@ -462,18 +519,15 @@ describe('TempoTimesheetGrid', () => {
       />
     )
 
-    // Footer cell for a day with hours (cursor: copy means dayTotal > 0)
-    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
-    const filledFooterCell = Array.from(footerCells).find(
-      cell => (cell as HTMLElement).style.cursor === 'copy'
-    ) as HTMLElement
+    // Footer total button for a day with hours (only rendered when dayTotal > 0)
+    const filledFooterButton = container.querySelector('.tempo-grid-total-btn') as HTMLElement
 
-    expect(filledFooterCell).toBeDefined()
-    fireEvent.click(filledFooterCell, { ctrlKey: true })
+    expect(filledFooterButton).toBeDefined()
+    fireEvent.click(filledFooterButton, { ctrlKey: true })
     expect(onCopyToToday).toHaveBeenCalledWith([worklog])
   })
 
-  it('fires onCopyToToday when ctrl+clicking footer cell with hours', () => {
+  it('does not fire onCopyToToday when clicking footer total button without the modifier', () => {
     const onCopyToToday = vi.fn()
 
     const { container } = render(
@@ -492,14 +546,11 @@ describe('TempoTimesheetGrid', () => {
       />
     )
 
-    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
-    const filledFooterCell = Array.from(footerCells).find(
-      cell => (cell as HTMLElement).style.cursor === 'copy'
-    ) as HTMLElement
+    const filledFooterButton = container.querySelector('.tempo-grid-total-btn') as HTMLElement
 
-    expect(filledFooterCell).toBeDefined()
-    fireEvent.click(filledFooterCell, { ctrlKey: true })
-    expect(onCopyToToday).toHaveBeenCalledWith([worklog])
+    expect(filledFooterButton).toBeDefined()
+    fireEvent.click(filledFooterButton)
+    expect(onCopyToToday).not.toHaveBeenCalled()
   })
 
   it('does not fire onCopyToToday when ctrl+clicking footer cell with zero hours', () => {
@@ -529,6 +580,100 @@ describe('TempoTimesheetGrid', () => {
 
     expect(emptyFooterCell).toBeDefined()
     fireEvent.click(emptyFooterCell, { ctrlKey: true })
+    expect(onCopyToToday).not.toHaveBeenCalled()
+  })
+
+  it('does not fire onCopyToToday on plain Enter for a focused filled footer total button', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const filledFooterButton = container.querySelector('.tempo-grid-total-btn') as HTMLElement
+
+    expect(filledFooterButton).toHaveAttribute('tabindex', '0')
+    filledFooterButton.focus()
+    expect(filledFooterButton).toHaveFocus()
+
+    fireEvent.keyDown(filledFooterButton, { key: 'Enter' })
+    expect(onCopyToToday).not.toHaveBeenCalled()
+
+    fireEvent.keyDown(filledFooterButton, { key: ' ' })
+    expect(onCopyToToday).not.toHaveBeenCalled()
+  })
+
+  it('fires onCopyToToday when the modifier is held with Enter or Space on a focused filled footer total button', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const filledFooterButton = container.querySelector('.tempo-grid-total-btn') as HTMLElement
+    filledFooterButton.focus()
+    expect(filledFooterButton).toHaveFocus()
+
+    fireEvent.keyDown(filledFooterButton, { key: 'Enter', ctrlKey: true })
+    expect(onCopyToToday).toHaveBeenCalledTimes(1)
+    expect(onCopyToToday).toHaveBeenCalledWith([worklog])
+
+    onCopyToToday.mockClear()
+    fireEvent.keyDown(filledFooterButton, { key: ' ', ctrlKey: true })
+    expect(onCopyToToday).toHaveBeenCalledTimes(1)
+    expect(onCopyToToday).toHaveBeenCalledWith([worklog])
+  })
+
+  it('does not fire onCopyToToday on Enter for an empty footer cell', () => {
+    const onCopyToToday = vi.fn()
+
+    const { container } = render(
+      <TempoTimesheetGrid
+        issueSummaries={issueSummaries}
+        worklogs={[worklog]}
+        totalHours={2}
+        monthDate={new Date(2026, 2, 1)}
+        holidays={{}}
+        loading={false}
+        capexMap={{}}
+        onCellClick={vi.fn()}
+        onWorklogEdit={vi.fn()}
+        onWorklogDelete={vi.fn()}
+        onCopyToToday={onCopyToToday}
+      />
+    )
+
+    const footerCells = container.querySelectorAll('.tempo-grid-total-cell')
+    const emptyFooterCell = Array.from(footerCells).find(
+      cell => !(cell as HTMLElement).style.cursor
+    ) as HTMLElement
+
+    expect(emptyFooterCell).not.toHaveAttribute('tabindex')
+    fireEvent.keyDown(emptyFooterCell, { key: 'Enter' })
     expect(onCopyToToday).not.toHaveBeenCalled()
   })
 

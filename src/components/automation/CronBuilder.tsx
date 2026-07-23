@@ -99,7 +99,11 @@ function HourlyCronOptions({ minute, updateCron }: CronOptionsProps) {
   return (
     <div className="cron-option">
       <span className="option-label">At minute</span>
-      <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+      <select
+        aria-label="Minute of hour"
+        value={minute}
+        onChange={e => updateCron({ minute: parseInt(e.target.value) })}
+      >
         {Array.from({ length: 60 }, (_, min) => (
           <option key={min} value={min}>
             {min.toString().padStart(2, '0')}
@@ -151,6 +155,7 @@ function MonthlyCronOptions({
       <div className="cron-option">
         <span className="option-label">On day</span>
         <select
+          aria-label="Day of month"
           value={dayOfMonth}
           onChange={e => updateCron({ dayOfMonth: parseInt(e.target.value) })}
         >
@@ -207,7 +212,11 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
 
   const hourSelect = (
     /* v8 ignore start */
-    <select value={hour} onChange={e => updateCron({ hour: parseInt(e.target.value) })}>
+    <select
+      aria-label="Hour"
+      value={hour}
+      onChange={e => updateCron({ hour: parseInt(e.target.value) })}
+    >
       {Array.from({ length: 24 }, (_, h) => (
         <option key={h} value={h}>
           {formatHour12(h)}
@@ -218,7 +227,11 @@ export function CronBuilder({ value, onChange }: CronBuilderProps) {
   )
   const minuteSelect = (
     /* v8 ignore start */
-    <select value={minute} onChange={e => updateCron({ minute: parseInt(e.target.value) })}>
+    <select
+      aria-label="Minute"
+      value={minute}
+      onChange={e => updateCron({ minute: parseInt(e.target.value) })}
+    >
       {MINUTE_INCREMENTS.map(m => (
         <option key={m} value={m}>
           {m.toString().padStart(2, '0')}

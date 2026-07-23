@@ -29,12 +29,12 @@
 .tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
+  gap: 0;
+  padding: 0;
   background-color: var(--bg-tertiary);
   color: var(--text-secondary);
   border-right: 1px solid var(--border-secondary);
-  cursor: pointer;
+  cursor: default;
   user-select: none;
   white-space: nowrap;
   transition: background-color 0.15s ease;
@@ -60,13 +60,29 @@
   font-size: 13px;
 }
 
+.tab-select {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 6px 8px 6px 12px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .tab-close {
   display: flex;
   align-items: center;
   justify-content: center;
   background: none;
   border: none;
-  padding: 2px;
+  align-self: stretch;
+  padding: 2px 12px 2px 4px;
   cursor: pointer;
   color: var(--text-secondary);
   border-radius: 4px;

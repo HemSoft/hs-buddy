@@ -442,6 +442,28 @@
     inset -2px 0 0 #4fc3f7;
 }
 
+/* Native button filling the actionable day cell, reset to look like the
+   plain cell content it replaces (see finding #3: labelled native control
+   instead of a focusable <td>). */
+.tempo-grid-cell-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 5px 4px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: center;
+  cursor: pointer;
+}
+
+.tempo-grid-row td.tempo-grid-cell {
+  padding: 0;
+}
+
 /* Totals row */
 .tempo-grid-totals td {
   padding: 6px 4px;
@@ -498,6 +520,28 @@
   box-shadow:
     inset 2px 0 0 #4fc3f7,
     inset -2px 0 0 #4fc3f7;
+}
+
+/* Native button filling a copyable footer total cell, reset to look like
+   the plain cell content it replaces. */
+.tempo-grid-total-btn {
+  display: block;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 6px 4px;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: inherit;
+  text-align: center;
+  cursor: copy;
+}
+
+.tempo-grid-totals td.tempo-grid-total-cell.actionable {
+  padding: 0;
 }
 
 /* --- Issue pill and account badge --- */

@@ -83,6 +83,7 @@ export function SettingsPullRequests() {
           </p>
           <div className="select-control">
             <select
+              aria-label="Refresh interval"
               value={refreshInterval}
               onChange={e => handleRefreshIntervalChange(Number(e.target.value))}
               className="settings-select"
@@ -105,6 +106,7 @@ export function SettingsPullRequests() {
           <p className="section-description">How far back to look for recently merged PRs.</p>
           <div className="select-control">
             <select
+              aria-label="Recently merged days range"
               value={recentlyMergedDays}
               onChange={e => handleMergedDaysChange(Number(e.target.value))}
               className="settings-select"

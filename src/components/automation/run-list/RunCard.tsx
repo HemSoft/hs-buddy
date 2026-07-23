@@ -194,7 +194,7 @@ function RunCardHeader({
   )
 }
 
-function RunCardDetails({ run }: { run: RunWithJob }) {
+export function RunCardDetails({ run }: { run: RunWithJob }) {
   return (
     <div className="run-card-details">
       {run.error && (

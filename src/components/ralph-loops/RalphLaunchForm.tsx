@@ -896,7 +896,12 @@ export function RalphLaunchForm({
             onChange={e => setRepoPath(e.target.value)}
             placeholder="D:\github\org\repo"
           />
-          <button type="button" className="ralph-browse-btn" onClick={handleBrowse}>
+          <button
+            type="button"
+            className="ralph-browse-btn"
+            onClick={handleBrowse}
+            aria-label="Browse for folder"
+          >
             <FolderOpen size={14} />
           </button>
         </div>

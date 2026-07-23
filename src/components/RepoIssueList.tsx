@@ -10,6 +10,7 @@ import { ViewModeToggle } from './shared/ViewModeToggle'
 import { PanelLoadingState, PanelErrorState, PanelEmptyState } from './shared/PanelStates'
 import { useViewMode, type ViewMode } from '../hooks/useViewMode'
 import { IssueContextMenu } from './IssueContextMenu'
+import { onKeyboardActivate } from '../utils/keyboard'
 import './RepoIssueList.css'
 import './shared/ListView.css'
 
@@ -42,48 +43,53 @@ function IssueTableView({
           </tr>
         </thead>
         <tbody>
-          {issues.map(issue => (
-            <tr
-              key={issue.number}
-              onClick={() => {
-                if (onOpenIssue) {
-                  onOpenIssue(issue.number)
-                  return
-                }
-                window.shell?.openExternal(issue.url)
-              }}
-              onContextMenu={e => onContextMenu(e, issue)}
-            >
-              <td className="col-status">
-                <CircleDot size={14} className={`list-view-status-${issue.state}`} />
-              </td>
-              <td className="col-title">
-                <span className="col-number">#{issue.number}</span> {issue.title}
-              </td>
-              <td className="col-author">
-                {issue.authorAvatarUrl && (
-                  <img
-                    src={issue.authorAvatarUrl}
-                    alt={issue.author}
-                    className="list-view-avatar"
-                  />
-                )}
-                {issue.author}
-              </td>
-              <td className="col-labels">
-                {issue.labels.map(label => (
-                  <span
-                    key={label.name}
-                    className="list-view-label"
-                    style={getLabelStyle(label.color)}
-                  >
-                    {label.name}
-                  </span>
-                ))}
-              </td>
-              <td className="col-date">{formatDistanceToNow(issue.updatedAt)}</td>
-            </tr>
-          ))}
+          {issues.map(issue => {
+            const openIssue = () => {
+              if (onOpenIssue) {
+                onOpenIssue(issue.number)
+                return
+              }
+              window.shell?.openExternal(issue.url)
+            }
+            return (
+              <tr
+                key={issue.number}
+                onClick={openIssue}
+                onContextMenu={e => onContextMenu(e, issue)}
+                tabIndex={0}
+                onKeyDown={onKeyboardActivate(openIssue)}
+              >
+                <td className="col-status">
+                  <CircleDot size={14} className={`list-view-status-${issue.state}`} />
+                </td>
+                <td className="col-title">
+                  <span className="col-number">#{issue.number}</span> {issue.title}
+                </td>
+                <td className="col-author">
+                  {issue.authorAvatarUrl && (
+                    <img
+                      src={issue.authorAvatarUrl}
+                      alt={issue.author}
+                      className="list-view-avatar"
+                    />
+                  )}
+                  {issue.author}
+                </td>
+                <td className="col-labels">
+                  {issue.labels.map(label => (
+                    <span
+                      key={label.name}
+                      className="list-view-label"
+                      style={getLabelStyle(label.color)}
+                    >
+                      {label.name}
+                    </span>
+                  ))}
+                </td>
+                <td className="col-date">{formatDistanceToNow(issue.updatedAt)}</td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

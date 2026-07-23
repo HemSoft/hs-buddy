@@ -260,6 +260,7 @@ function NewCategoryRow({
   return (
     <div className="bookmark-category-row">
       <select
+        aria-label="Parent category"
         className="bookmark-dialog-select"
         style={{ flex: '0 0 auto', minWidth: 120 }}
         value=""

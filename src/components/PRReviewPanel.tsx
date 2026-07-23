@@ -156,6 +156,7 @@ export function PRReviewPanel({ prInfo, onSubmitted, onClose }: PRReviewPanelPro
           <div className="pr-review-schedule-delay">
             <span>in</span>
             <select
+              aria-label="Schedule delay"
               className="pr-review-delay-select"
               value={scheduleDelay}
               onChange={e => setScheduleDelay(Number(e.target.value))}

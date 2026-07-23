@@ -69,6 +69,7 @@ interface CategoryChevronProps {
   isExpanded: boolean
   sectionId: string
   toggleSection: (sectionId: string) => void
+  label: string
 }
 
 interface BookmarksContextMenuProps {
@@ -109,6 +110,10 @@ function categoryHasContent(node: CategoryNode, directCount: number) {
 function categoryLabel(name: string) {
   if (!name) return 'Uncategorized'
   return name
+}
+
+function buildCategoryDisclosureLabel(isExpanded: boolean, label: string): string {
+  return isExpanded ? `Collapse ${label}` : `Expand ${label}`
 }
 
 function getBookmarkCount(bookmarks: readonly unknown[] | undefined): number {
@@ -239,6 +244,7 @@ function CategoryChevron({
   isExpanded,
   sectionId,
   toggleSection,
+  label,
 }: CategoryChevronProps) {
   if (!hasChildren) {
     return <span className="sidebar-item-chevron" style={{ width: 12 }} />
@@ -253,6 +259,8 @@ function CategoryChevron({
         toggleSection(sectionId)
       }}
       onKeyDown={e => handleCategoryChevronKeyDown(e, sectionId, toggleSection)}
+      aria-label={buildCategoryDisclosureLabel(isExpanded, label)}
+      aria-expanded={isExpanded}
     >
       {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
     </button>
@@ -415,6 +423,7 @@ function CategoryTreeNodeItem({
           isExpanded={isExpanded}
           sectionId={sectionId}
           toggleSection={toggleSection}
+          label={categoryLabel(node.name)}
         />
         <button
           type="button"

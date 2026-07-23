@@ -1,5 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { onKeyboardActivate } from '../utils/keyboard'
 import './TabBar.css'
 
 export interface Tab {
@@ -44,7 +46,33 @@ export function TabBar({
 }: TabBarProps) {
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([])
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
+
+  const focusTabAt = (index: number) => {
+    tabRefs.current[index]?.focus()
+  }
+
+  const handleTabArrowKeyDown = (event: ReactKeyboardEvent<HTMLButtonElement>, index: number) => {
+    switch (event.key) {
+      case 'ArrowRight':
+        event.preventDefault()
+        focusTabAt((index + 1) % tabs.length)
+        break
+      case 'ArrowLeft':
+        event.preventDefault()
+        focusTabAt((index - 1 + tabs.length) % tabs.length)
+        break
+      case 'Home':
+        event.preventDefault()
+        focusTabAt(0)
+        break
+      case 'End':
+        event.preventDefault()
+        focusTabAt(tabs.length - 1)
+        break
+    }
+  }
 
   const handleContextMenu = useCallback((e: React.MouseEvent, tabId: string) => {
     e.preventDefault()
@@ -80,24 +108,32 @@ export function TabBar({
 
   return (
     <div className="tab-bar">
-      <div className="tab-bar-tabs">
-        {tabs.map(tab => (
+      <div className="tab-bar-tabs" role="tablist" aria-label="Open tabs">
+        {tabs.map((tab, index) => (
           <div
             key={tab.id}
             className={`tab ${activeTabId === tab.id ? 'active' : ''}`}
-            onClick={() => onTabSelect(tab.id)}
             onContextMenu={e => handleContextMenu(e, tab.id)}
-            role="tab"
-            tabIndex={0}
-            aria-selected={activeTabId === tab.id}
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault()
-                onTabSelect(tab.id)
-              }
-            }}
           >
-            <span className="tab-label">{tab.label}</span>
+            <button
+              ref={el => {
+                tabRefs.current[index] = el
+              }}
+              type="button"
+              className="tab-select"
+              role="tab"
+              tabIndex={(activeTabId === null ? index === 0 : activeTabId === tab.id) ? 0 : -1}
+              aria-selected={activeTabId === tab.id}
+              onClick={() => onTabSelect(tab.id)}
+              onKeyDown={e => {
+                handleTabArrowKeyDown(e, index)
+                onKeyboardActivate(() => {
+                  onTabSelect(tab.id)
+                })(e)
+              }}
+            >
+              <span className="tab-label">{tab.label}</span>
+            </button>
             <button
               type="button"
               className="tab-close"

@@ -300,6 +300,7 @@ function ModelPickerSelectVariant({
   handleChange,
   className,
   id,
+  title,
 }: {
   value: string
   enabledModels: SdkModel[]
@@ -313,6 +314,7 @@ function ModelPickerSelectVariant({
   handleChange: (v: string) => void
   className: string
   id?: string
+  title?: string
 }) {
   const statusContent = renderSelectVariantState({
     modelsLoading,
@@ -335,6 +337,7 @@ function ModelPickerSelectVariant({
         <div className="select-control" style={{ flex: 1 }}>
           <select
             id={id}
+            aria-label={title}
             value={value}
             onChange={e => handleChange(e.target.value)}
             className="settings-select"
@@ -467,7 +470,6 @@ export function ModelPicker(props: ModelPickerProps) {
     ghAccount,
     persist,
     disabled,
-    title,
     className,
     variant,
     align,
@@ -477,6 +479,10 @@ export function ModelPicker(props: ModelPickerProps) {
     ...MODEL_PICKER_DEFAULTS,
     ...props,
   }
+  // Explicitly fall back on `??` (not just the spread above) so an explicit
+  // `title={undefined}` from a caller can't strip the accessible name off the
+  // select variant's <select aria-label>.
+  const title = props.title ?? MODEL_PICKER_DEFAULTS.title
   const { modelsLoading, modelsError, fetchModels, handleChange, enabledModels, disabledModels } =
     useModelPickerSetup(ghAccount, value, onChange, persist)
 
@@ -512,6 +518,7 @@ export function ModelPicker(props: ModelPickerProps) {
         handleChange={handleChange}
         className={className}
         id={id}
+        title={title}
       />
     )
   }

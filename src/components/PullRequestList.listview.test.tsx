@@ -212,6 +212,55 @@ describe('PullRequestList — list view', () => {
     expect(window.shell.openExternal).toHaveBeenCalledWith('https://github.com/test/repo/pull/1')
   })
 
+  it('is keyboard-focusable and opens the PR on Enter', () => {
+    const onOpenPR = vi.fn()
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [makePr({ id: 99, source: 'gh', repository: 'org/repo' })],
+    })
+    render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
+    const row = screen.getByText(/Fix login bug/).closest('tr')!
+    expect(row).toHaveAttribute('tabindex', '0')
+
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: 'Enter' })
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('opens the PR on Space key', () => {
+    const onOpenPR = vi.fn()
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [makePr({ id: 99, source: 'gh', repository: 'org/repo' })],
+    })
+    render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
+    const row = screen.getByText(/Fix login bug/).closest('tr')!
+
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: ' ' })
+    expect(onOpenPR).toHaveBeenCalled()
+  })
+
+  it('does not open the PR for other keys', () => {
+    const onOpenPR = vi.fn()
+    mockUsePRListData.mockReturnValue({
+      ...defaultData,
+      prs: [makePr({ id: 99, source: 'gh', repository: 'org/repo' })],
+    })
+    render(<PullRequestList mode="my-prs" onOpenPR={onOpenPR} />)
+    const row = screen.getByText(/Fix login bug/).closest('tr')!
+
+    row.focus()
+    expect(row).toHaveFocus()
+
+    fireEvent.keyDown(row, { key: 'ArrowDown' })
+    expect(onOpenPR).not.toHaveBeenCalled()
+  })
+
   it('triggers context menu on right-click', () => {
     mockUsePRListData.mockReturnValue({
       ...defaultData,

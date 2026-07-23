@@ -9,11 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.882] - 2026-07-23
+
+### Changed
+
+- Merge PR 279 with latest main
+
+## [0.1.880] - 2026-07-22
+
+### Fixed
+
+- Normalize workflow paths before approval
+
 ## [0.1.879] - 2026-07-22
 
 ### Changed
 
 - Sync Electron 43 update with main
+- Simplify follow-up approval polling
 
 ### Fixed
 
@@ -24,6 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Approve validated Dependabot follow-ups
 - Deduplicate normalized asset rows
 
 ## [0.1.877] - 2026-07-22

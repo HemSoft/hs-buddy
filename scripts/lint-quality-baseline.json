@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalWarnings": 1225,
+  "totalWarnings": 1222,
   "entries": {
     "convex/__tests__/bookmarks.test.ts::max-lines-per-function": 1,
     "convex/__tests__/buddyStats.test.ts::max-lines-per-function": 1,
@@ -152,7 +152,6 @@
     "src/components/automation/run-list/RunCard.tsx::@typescript-eslint/no-confusing-void-expression": 2,
     "src/components/automation/run-list/RunFilterBar.tsx::@typescript-eslint/no-confusing-void-expression": 1,
     "src/components/automation/RunList.test.tsx::max-lines-per-function": 1,
-    "src/components/automation/RunList.tsx::@typescript-eslint/no-confusing-void-expression": 1,
     "src/components/automation/RunList.tsx::max-lines-per-function": 1,
     "src/components/automation/RunList.tsx::unicorn/no-negated-condition": 1,
     "src/components/automation/ScheduleDetailPanel.test.tsx::max-lines-per-function": 1,
@@ -451,7 +450,7 @@
     "src/components/tempo/TempoTimelineView.tsx::@typescript-eslint/no-confusing-void-expression": 2,
     "src/components/tempo/TempoTimesheetGrid.test.tsx::max-lines": 1,
     "src/components/tempo/TempoTimesheetGrid.test.tsx::max-lines-per-function": 1,
-    "src/components/tempo/TempoTimesheetGrid.tsx::@typescript-eslint/no-confusing-void-expression": 8,
+    "src/components/tempo/TempoTimesheetGrid.tsx::@typescript-eslint/no-confusing-void-expression": 6,
     "src/components/tempo/TempoTimesheetGrid.tsx::max-lines-per-function": 1,
     "src/components/tempo/tempoUtils.ts::unicorn/prefer-number-properties": 2,
     "src/components/tempo/TempoWorklogEditor.test.tsx::max-lines-per-function": 1,

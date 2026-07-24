@@ -23,7 +23,6 @@ $ErrorActionPreference = 'Stop'
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
 $coverageSummaryPath = Join-Path $repoRoot 'coverage/coverage-summary.json'
-$scoreHistoryPath = Join-Path $repoRoot '.agents/skills/scorecard/score-history.log'
 
 function New-GateResult {
     param(
@@ -146,17 +145,19 @@ function Get-Scorecard {
         return New-GateResult `
             -Gate 'Scorecard' `
             -Target '100/100 Gold' `
-            -Command 'gh api repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html' `
+            -Command '.\scripts\get-scorecard-report.ps1 -Json' `
             -Status 'SKIPPED' `
             -Detail 'Skipped by -SkipScorecard'
     }
 
-    $command = 'gh api repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html --jq .content'
-    $run = Invoke-RepoCommand -Display $command -FilePath 'gh' -Arguments @(
-        'api',
-        'repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html',
-        '--jq',
-        '.content'
+    $command = '.\scripts\get-scorecard-report.ps1 -Json'
+    $run = Invoke-RepoCommand -Display $command -FilePath 'powershell' -Arguments @(
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        (Join-Path $PSScriptRoot 'get-scorecard-report.ps1'),
+        '-Json'
     )
 
     if ($run.ExitCode -ne 0) {
@@ -171,47 +172,12 @@ function Get-Scorecard {
     }
 
     try {
-        $content = ($run.Output -join '').Trim()
-        $html = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($content))
-        $match = [regex]::Match(
-            $html,
-            '<script\s+type="application/json"\s+id="scorecard-data">\s*(?<json>.*?)\s*</script>',
-            [System.Text.RegularExpressions.RegexOptions]::Singleline
-        )
-        if (-not $match.Success) {
-            throw 'Could not find scorecard-data JSON script tag.'
-        }
-
-        $data = $match.Groups['json'].Value | ConvertFrom-Json
+        $data = ($run.Output -join "`n") | ConvertFrom-Json
         $classification = $data.classification
         $score = [int]$classification.numericScore
         $max = [int]$classification.maxPoints
         $level = [string]$classification.level
         $failing = @($data.rules | Where-Object { -not $_.passed })
-
-        $tz = [System.TimeZoneInfo]::FindSystemTimeZoneById('Eastern Standard Time')
-        $et = [System.TimeZoneInfo]::ConvertTime((Get-Date).ToUniversalTime(), $tz)
-        $offset = $tz.GetUtcOffset($et)
-        $sign = if ($offset.TotalMinutes -ge 0) { '+' } else { '-' }
-        $timestamp = '{0}{1}{2:00}:{3:00}' -f $et.ToString('yyyy-MM-ddTHH:mm:ss'), $sign, [math]::Abs($offset.Hours), [math]::Abs($offset.Minutes)
-        $line = '{0} | {1}/{2} | {3} | Bronze: {4}/{5} ({6}/{7}) | Silver: {8}/{9} ({10}/{11}) | Gold: {12}/{13} ({14}/{15})' -f `
-            $timestamp,
-            $score,
-            $max,
-            $level,
-            $classification.bronze.points,
-            $classification.bronze.maxPoints,
-            $classification.bronze.passed,
-            $classification.bronze.total,
-            $classification.silver.points,
-            $classification.silver.maxPoints,
-            $classification.silver.passed,
-            $classification.silver.total,
-            $classification.gold.points,
-            $classification.gold.maxPoints,
-            $classification.gold.passed,
-            $classification.gold.total
-        Add-Content -Path $scoreHistoryPath -Value $line
 
         $status = if ($score -eq 100 -and $level -eq 'Gold') { 'PASS' } else { 'FAIL' }
         $detail = '{0}/{1} {2}; Bronze {3}/{4}, Silver {5}/{6}, Gold {7}/{8}; {9} failing rule(s)' -f `

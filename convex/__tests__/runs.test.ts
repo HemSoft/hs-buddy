@@ -123,6 +123,89 @@ describe('runs', () => {
 
     const sched = await t.query(api.schedules.get, { id: schedId })
     expect(sched?.lastRunStatus).toBe('completed')
+    expect(sched?.lastRunAt).toBeGreaterThan(0)
+  })
+
+  test('fail updates schedule lastRunStatus when run has a scheduleId', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const schedId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'my-sched',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    const runId = await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId: schedId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.fail, { id: runId, error: 'worker failed' })
+
+    const sched = await t.query(api.schedules.get, { id: schedId })
+    expect(sched?.lastRunStatus).toBe('failed')
+    expect(sched?.lastRunAt).toBeGreaterThan(0)
+  })
+
+  test('complete finalizes a scheduled run after its job and schedule are deleted', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const scheduleId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'deleted-schedule',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    const runId = await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.markRunning, { id: runId })
+    await t.mutation(api.jobs.remove, { id: jobId })
+
+    await t.mutation(api.runs.complete, { id: runId, output: { result: 'ok' } })
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run).toMatchObject({
+      status: 'completed',
+      output: { result: 'ok' },
+    })
+    expect(run?.completedAt).toBeGreaterThan(0)
+    expect(run?.duration).toBeGreaterThanOrEqual(0)
+    expect((await t.query(api.buddyStats.get)).runsCompleted).toBe(1)
+  })
+
+  test('fail finalizes a scheduled run after its job and schedule are deleted', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const scheduleId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'deleted-schedule',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    const runId = await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId,
+      triggeredBy: 'schedule',
+    })
+    await t.mutation(api.runs.markRunning, { id: runId })
+    await t.mutation(api.jobs.remove, { id: jobId })
+
+    await t.mutation(api.runs.fail, { id: runId, error: 'worker failed' })
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run).toMatchObject({
+      status: 'failed',
+      error: 'worker failed',
+    })
+    expect(run?.completedAt).toBeGreaterThan(0)
+    expect(run?.duration).toBeGreaterThanOrEqual(0)
+    expect((await t.query(api.buddyStats.get)).runsFailed).toBe(1)
   })
 
   test('cancel stops a pending run', async () => {

@@ -152,10 +152,13 @@ async function finalizeRun(
   })
   await incrementStat(db, statKey)
   if (run.scheduleId) {
-    await db.patch(run.scheduleId, {
-      lastRunAt: completedAt,
-      lastRunStatus: status,
-    })
+    const schedule = await db.get('schedules', run.scheduleId)
+    if (schedule) {
+      await db.patch('schedules', schedule._id, {
+        lastRunAt: completedAt,
+        lastRunStatus: status,
+      })
+    }
   }
 }
 

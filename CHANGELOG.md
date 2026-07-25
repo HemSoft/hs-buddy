@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.902] - 2026-07-25
+
+### Fixed
+
+- Stop retrying non-retryable model errors
+
 ## [0.1.898] - 2026-07-25
 
 ### Fixed

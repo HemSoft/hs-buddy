@@ -5,6 +5,15 @@
  * parsing and policy logic is testable without exec calls.
  */
 
+const GITHUB_ACCOUNT_SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
+
+/** Reject values that cannot be GitHub account, organization, or login slugs. */
+export function assertValidGitHubAccountSlug(slug: string): void {
+  if (!GITHUB_ACCOUNT_SLUG_PATTERN.test(slug)) {
+    throw new Error(`Invalid GitHub account slug: '${slug}'`)
+  }
+}
+
 /**
  * Parse `gh auth status` stderr to find the active GitHub account.
  * Returns the account name or null if none is active.
@@ -30,7 +39,10 @@ export function parseActiveGitHubAccount(stderr: string): string | null {
  */
 export function buildGhAuthTokenArgs(username?: string): string[] {
   const args = ['auth', 'token']
-  if (username) args.push('--user', username)
+  if (username) {
+    assertValidGitHubAccountSlug(username)
+    args.push('--user', username)
+  }
   return args
 }
 

@@ -20,7 +20,8 @@ import {
 } from './copilotClient'
 import { CONVEX_URL } from '../config'
 import { getErrorMessage } from '../../src/utils/errorUtils'
-import { execAsync } from '../utils'
+import { assertValidGitHubAccountSlug } from '../../src/utils/githubAuthUtils'
+import { execFileAsync } from '../utils'
 import {
   hasPRReviewMetadata,
   mapModelInfo,
@@ -129,6 +130,8 @@ class CopilotService {
    * effect.  We track the current account to avoid unnecessary restarts.
    */
   private async switchAccount(ghAccount: string): Promise<void> {
+    assertValidGitHubAccountSlug(ghAccount)
+
     // Skip if already on the correct account
     if (this.currentGhAccount === ghAccount) {
       console.log(`[CopilotService] Already on account "${ghAccount}" — skipping switch`)
@@ -137,7 +140,7 @@ class CopilotService {
 
     try {
       console.log(`[CopilotService] Switching to gh CLI account: ${ghAccount}`)
-      await execAsync(`gh auth switch --user ${ghAccount}`, {
+      await execFileAsync('gh', ['auth', 'switch', '--user', ghAccount], {
         encoding: 'utf8',
         timeout: 5000,
       })
@@ -342,6 +345,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
           await restartSharedClient()
           continue
         }
+        break
       }
     }
 

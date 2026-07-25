@@ -33,16 +33,7 @@ interface StalledPrCheckResult {
   output: string
 }
 
-function runStalledPrCheck(draftPrs: unknown[]): StalledPrCheckResult {
-  const directory = mkdtempSync(join(tmpdir(), 'sfl-auditor-'))
-  temporaryDirectories.push(directory)
-
-  const fixturePath = join(directory, 'draft-prs.json')
-  const outputPath = join(directory, 'github-output')
-  const commentsPath = join(directory, 'comments')
-  writeFileSync(fixturePath, JSON.stringify(draftPrs))
-
-  const mockGh = `
+const mockGh = `
 gh() {
   if [ "$1 $2" = "pr list" ]; then
     cat "$DRAFT_PRS_FIXTURE"
@@ -62,6 +53,16 @@ gh() {
   return 1
 }
 `
+
+function runStalledPrCheck(draftPrs: unknown[]): StalledPrCheckResult {
+  const directory = mkdtempSync(join(tmpdir(), 'sfl-auditor-'))
+  temporaryDirectories.push(directory)
+
+  const fixturePath = join(directory, 'draft-prs.json')
+  const outputPath = join(directory, 'github-output')
+  const commentsPath = join(directory, 'comments')
+  writeFileSync(fixturePath, JSON.stringify(draftPrs))
+
   const result = spawnSync(bashExecutable(), ['-s'], {
     input: `${mockGh}\n${stalledPrScript()}`,
     encoding: 'utf8',
@@ -127,7 +128,9 @@ describe('SFL Auditor stalled draft PR counter', () => {
     expect(secondRun.output).toContain('stalled_prs_found=0')
     expect(secondRun.comments).toBe('')
   })
+})
 
+describe('SFL Auditor stalled draft PR warning detection', () => {
   it('recognizes warning text emitted before the stable marker existed', () => {
     const result = runStalledPrCheck([
       {

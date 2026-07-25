@@ -29,6 +29,14 @@ const mockExecFileAsync = vi.fn((file: string, args: string[], options: unknown)
   mockExecAsync(`${file} ${args.join(' ')}`, options)
 )
 
+function expectGhApiCall(expectedEndpoint: unknown, timeout: number): void {
+  expect(mockExecFileAsync).toHaveBeenCalledWith(
+    'gh',
+    ['api', expectedEndpoint, '-H', 'X-GitHub-Api-Version: 2022-11-28'],
+    expect.objectContaining({ encoding: 'utf8', timeout })
+  )
+}
+
 vi.mock('../utils', () => ({
   execAsync: (...args: unknown[]) => mockExecAsync(...args),
   execFileAsync: (file: string, args: string[], options: unknown) =>
@@ -570,11 +578,12 @@ describe('githubHandlers', () => {
     })
   })
 
-  describe('github:get-user-premium-requests', () => {
-    it.each([
-      ['bad-org; echo injected', 'testmember'],
-      ['test-org', 'badmember; echo injected'],
-    ])('rejects invalid org/member %s/%s before invoking gh', async (org, memberLogin) => {
+  it.each([
+    ['bad-org; echo injected', 'testmember'],
+    ['test-org', 'badmember; echo injected'],
+  ])(
+    'github:get-user-premium-requests rejects invalid org/member %s/%s before invoking gh',
+    async (org, memberLogin) => {
       const handler = handlers.get('github:get-user-premium-requests')!
       const result = await handler({}, org, memberLogin, 'testuser')
 
@@ -584,8 +593,10 @@ describe('githubHandlers', () => {
       })
       expect(mockExecAsync).not.toHaveBeenCalled()
       expect(mockExecFileAsync).not.toHaveBeenCalled()
-    })
+    }
+  )
 
+  describe('github:get-user-premium-requests', () => {
     it('returns premium request data on success', async () => {
       // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -593,22 +604,12 @@ describe('githubHandlers', () => {
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
       mockExecAsync.mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
-
       const handler = handlers.get('github:get-user-premium-requests')!
       const result = await handler({}, 'test-org', 'testmember', 'testuser')
       expect(result.success).toBe(true)
       expect(result.data.memberLogin).toBe('testmember')
       expect(result.data.org).toBe('test-org')
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'gh',
-        [
-          'api',
-          expect.stringContaining('user=testmember'),
-          '-H',
-          'X-GitHub-Api-Version: 2022-11-28',
-        ],
-        expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
-      )
+      expectGhApiCall(expect.stringContaining('user=testmember'), 15000)
     })
 
     it('returns premium request data with model breakdown when items have grossQuantity > 0', async () => {
@@ -1334,19 +1335,19 @@ describe('githubHandlers', () => {
     })
   })
 
-  describe('github:get-copilot-seats', () => {
-    it('rejects an invalid org before invoking gh', async () => {
-      const handler = handlers.get('github:get-copilot-seats')!
-      const result = await handler({}, 'bad-org; echo injected')
+  it('github:get-copilot-seats rejects an invalid org before invoking gh', async () => {
+    const handler = handlers.get('github:get-copilot-seats')!
+    const result = await handler({}, 'bad-org; echo injected')
 
-      expect(result).toEqual({
-        success: false,
-        error: "Invalid GitHub account slug: 'bad-org; echo injected'",
-      })
-      expect(mockExecAsync).not.toHaveBeenCalled()
-      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    expect(result).toEqual({
+      success: false,
+      error: "Invalid GitHub account slug: 'bad-org; echo injected'",
     })
+    expect(mockExecAsync).not.toHaveBeenCalled()
+    expect(mockExecFileAsync).not.toHaveBeenCalled()
+  })
 
+  describe('github:get-copilot-seats', () => {
     it('returns paginated seat data', async () => {
       const seatPayload = {
         total_seats: 2,
@@ -1368,24 +1369,13 @@ describe('githubHandlers', () => {
         ],
       }
       mockExecAsync.mockResolvedValueOnce({ stdout: JSON.stringify(seatPayload), stderr: '' })
-
       const handler = handlers.get('github:get-copilot-seats')!
       const result = await handler({}, 'test-org')
-
       expect(result.success).toBe(true)
       expect(result.data.totalSeats).toBe(2)
       expect(result.data.fetchedSeats).toBe(2)
       expect(result.data.seats).toHaveLength(2)
-      expect(mockExecFileAsync).toHaveBeenCalledWith(
-        'gh',
-        [
-          'api',
-          '/orgs/test-org/copilot/billing/seats?per_page=100&page=1',
-          '-H',
-          'X-GitHub-Api-Version: 2022-11-28',
-        ],
-        expect.objectContaining({ encoding: 'utf8', timeout: 20000 })
-      )
+      expectGhApiCall('/orgs/test-org/copilot/billing/seats?per_page=100&page=1', 20000)
     })
 
     it('paginates when first page has 100 seats and more remain', async () => {

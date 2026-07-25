@@ -93,8 +93,21 @@ describe('SFL Auditor summary', () => {
     })
 
     expect(result.summary).toBe(result.log)
-    expect(result.summary).toContain('| Unexplained pauses flagged | 0 |')
-    expect(result.summary).toContain('All checks passed — no discrepancies found.')
+    expect(result.summary).toBe(`## SFL Auditor Summary
+
+| Check | Count |
+|-------|-------|
+| Orphaned in-progress labels fixed | 0 |
+| PR fallback issues closed | 0 |
+| Duplicate action-item issues closed | 0 |
+| Conflicting labels fixed | 0 |
+| Orphaned agent PRs flagged | 0 |
+| Stale unclaimed issues flagged | 0 |
+| Stalled draft PRs flagged | 0 |
+| Unexplained pauses flagged | 0 |
+
+All checks passed — no discrepancies found.
+`)
   })
 
   it('publishes a valid nonzero-discrepancy table while retaining the step log', () => {
@@ -110,9 +123,20 @@ describe('SFL Auditor summary', () => {
     })
 
     expect(result.summary).toBe(result.log)
-    expect(result.summary).toContain('| Orphaned in-progress labels fixed | 1 |')
-    expect(result.summary).toContain('| Duplicate action-item issues closed | 2 |')
-    expect(result.summary).toContain('| Stalled draft PRs flagged | 1 |')
-    expect(result.summary).toContain('Found and addressed 4 discrepancies.')
+    expect(result.summary).toBe(`## SFL Auditor Summary
+
+| Check | Count |
+|-------|-------|
+| Orphaned in-progress labels fixed | 1 |
+| PR fallback issues closed | 0 |
+| Duplicate action-item issues closed | 2 |
+| Conflicting labels fixed | 0 |
+| Orphaned agent PRs flagged | 0 |
+| Stale unclaimed issues flagged | 0 |
+| Stalled draft PRs flagged | 1 |
+| Unexplained pauses flagged | 0 |
+
+Found and addressed 4 discrepancies.
+`)
   })
 })

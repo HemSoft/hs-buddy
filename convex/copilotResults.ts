@@ -1,11 +1,25 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+import { mutation, query, type MutationCtx } from './_generated/server'
 import { MS_PER_DAY } from './lib/constants'
 import { copilotResultStatusValidator, isPendingOrRunning, notFoundError } from './lib/domain'
 
 /**
  * Copilot SDK Results — CRUD operations for captured Copilot prompt results.
  */
+
+async function deleteResultWithReviewRuns(ctx: MutationCtx, resultId: Id<'copilotResults'>) {
+  const reviewRuns = await ctx.db
+    .query('prReviewRuns')
+    .withIndex('by_result', q => q.eq('resultId', resultId))
+    .collect()
+
+  for (const reviewRun of reviewRuns) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Every linked row must be removed before its result.
+    await ctx.db.delete(reviewRun._id)
+  }
+  await ctx.db.delete(resultId)
+}
 
 // List recent results (newest first)
 export const listRecent = query({
@@ -153,7 +167,7 @@ export const fail = mutation({
 export const remove = mutation({
   args: { id: v.id('copilotResults') },
   handler: async (ctx, args) => {
-    await ctx.db.delete(args.id)
+    await deleteResultWithReviewRuns(ctx, args.id)
   },
 })
 
@@ -175,7 +189,7 @@ export const cleanup = mutation({
       if (result.createdAt >= cutoff) break
       if (!isPendingOrRunning(result.status)) {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Cleanup walks sorted rows and stops at the cutoff boundary.
-        await ctx.db.delete(result._id)
+        await deleteResultWithReviewRuns(ctx, result._id)
         deleted++
       }
     }

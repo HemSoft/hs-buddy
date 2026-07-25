@@ -36,6 +36,23 @@ describe('prReviewRuns', () => {
     expect(runs[0].prTitle).toBe('Add feature')
   })
 
+  test('create rejects a deleted Copilot result', async () => {
+    const t = convexTest(schema, modules)
+    const resultId = await createCopilotResult(t)
+    await t.mutation(api.copilotResults.remove, { id: resultId })
+
+    await expect(t.mutation(api.prReviewRuns.create, { ...prRunArgs, resultId })).rejects.toThrow(
+      'CopilotResult'
+    )
+
+    const runs = await t.query(api.prReviewRuns.listByPr, {
+      owner: prRunArgs.owner,
+      repo: prRunArgs.repo,
+      prNumber: prRunArgs.prNumber,
+    })
+    expect(runs).toEqual([])
+  })
+
   test('create stores optional fields (model, ghAccount, headSha, threadStats)', async () => {
     const t = convexTest(schema, modules)
     const resultId = await createCopilotResult(t)

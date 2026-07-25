@@ -5,6 +5,15 @@ import { api } from '../_generated/api'
 
 const modules = import.meta.glob('../**/*.*s')
 
+const prRunArgs = {
+  owner: 'acme',
+  repo: 'frontend',
+  prNumber: 42,
+  prUrl: 'https://github.com/acme/frontend/pull/42',
+  prTitle: 'Add feature',
+  prompt: 'Review this PR',
+}
+
 describe('copilotResults', () => {
   test('listRecent returns empty array when no results exist', async () => {
     const t = convexTest(schema, modules)
@@ -149,6 +158,41 @@ describe('copilotResults', () => {
     expect(result).toBeNull()
   })
 
+  test('remove deletes linked review runs without affecting unrelated history', async () => {
+    const t = convexTest(schema, modules)
+    const deletedResultId = await t.mutation(api.copilotResults.create, {
+      prompt: 'delete linked result',
+    })
+    const retainedResultId = await t.mutation(api.copilotResults.create, {
+      prompt: 'retain linked result',
+    })
+    await t.mutation(api.prReviewRuns.create, {
+      ...prRunArgs,
+      resultId: deletedResultId,
+    })
+    await t.mutation(api.prReviewRuns.create, {
+      ...prRunArgs,
+      prNumber: 99,
+      resultId: retainedResultId,
+    })
+
+    await t.mutation(api.copilotResults.remove, { id: deletedResultId })
+
+    const deletedRuns = await t.query(api.prReviewRuns.listByPr, {
+      owner: prRunArgs.owner,
+      repo: prRunArgs.repo,
+      prNumber: prRunArgs.prNumber,
+    })
+    const retainedRuns = await t.query(api.prReviewRuns.listByPr, {
+      owner: prRunArgs.owner,
+      repo: prRunArgs.repo,
+      prNumber: 99,
+    })
+    expect(deletedRuns).toEqual([])
+    expect(retainedRuns).toHaveLength(1)
+    expect(await t.query(api.copilotResults.get, { id: retainedResultId })).not.toBeNull()
+  })
+
   test('cleanup removes old completed and failed results', async () => {
     const t = convexTest(schema, modules)
     const id1 = await t.mutation(api.copilotResults.create, { prompt: 'old1' })
@@ -159,6 +203,46 @@ describe('copilotResults', () => {
     // Use negative days to make cutoff in the future, ensuring all results are included
     const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: -1 })
     expect(result.deleted).toBe(2)
+  })
+
+  test('cleanup deletes linked review runs without affecting retained results', async () => {
+    const t = convexTest(schema, modules)
+    const deletedResultId = await t.mutation(api.copilotResults.create, {
+      prompt: 'old linked result',
+    })
+    const retainedResultId = await t.mutation(api.copilotResults.create, {
+      prompt: 'pending linked result',
+    })
+    await t.mutation(api.copilotResults.complete, {
+      id: deletedResultId,
+      result: 'done',
+    })
+    await t.mutation(api.prReviewRuns.create, {
+      ...prRunArgs,
+      resultId: deletedResultId,
+    })
+    await t.mutation(api.prReviewRuns.create, {
+      ...prRunArgs,
+      prNumber: 99,
+      resultId: retainedResultId,
+    })
+
+    const result = await t.mutation(api.copilotResults.cleanup, { olderThanDays: -1 })
+
+    const deletedRuns = await t.query(api.prReviewRuns.listByPr, {
+      owner: prRunArgs.owner,
+      repo: prRunArgs.repo,
+      prNumber: prRunArgs.prNumber,
+    })
+    const retainedRuns = await t.query(api.prReviewRuns.listByPr, {
+      owner: prRunArgs.owner,
+      repo: prRunArgs.repo,
+      prNumber: 99,
+    })
+    expect(result.deleted).toBe(1)
+    expect(deletedRuns).toEqual([])
+    expect(retainedRuns).toHaveLength(1)
+    expect(await t.query(api.copilotResults.get, { id: retainedResultId })).not.toBeNull()
   })
 
   test('cleanup stops early when encountering recent results', async () => {

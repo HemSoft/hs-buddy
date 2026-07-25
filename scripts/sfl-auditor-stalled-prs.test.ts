@@ -146,4 +146,42 @@ describe('SFL Auditor stalled draft PR counter', () => {
     expect(result.output).toContain('stalled_prs_found=0')
     expect(result.comments).toBe('')
   })
+
+  it('recognizes the documented legacy warning wording', () => {
+    const result = runStalledPrCheck([
+      {
+        body: '',
+        comments: [
+          {
+            body: '⏰ **SFL Auditor**: Draft PR #42 is missing analyzer markers.',
+          },
+        ],
+        createdAt: '2020-01-01T00:00:00Z',
+        headRefName: 'agent-fix/issue-306',
+        number: 42,
+      },
+    ])
+
+    expect(result.output).toContain('stalled_prs_found=0')
+    expect(result.comments).toBe('')
+  })
+
+  it('does not treat unrelated reviewer text as an auditor warning', () => {
+    const result = runStalledPrCheck([
+      {
+        body: '',
+        comments: [
+          {
+            body: 'Review note: this test discusses missing analyzer markers.',
+          },
+        ],
+        createdAt: '2020-01-01T00:00:00Z',
+        headRefName: 'agent-fix/issue-306',
+        number: 42,
+      },
+    ])
+
+    expect(result.output).toContain('stalled_prs_found=1')
+    expect(result.comments).toContain('<!-- sfl-auditor:stalled-pr-missing-analyzers -->')
+  })
 })

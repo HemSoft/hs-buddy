@@ -321,8 +321,9 @@ jobs:
 
             # Recognize both the stable marker and warnings emitted before the marker existed.
             COMMENTS=$(echo "$ROW" | jq -r '.comments[].body // ""')
+            LEGACY_WARNING_REGEX='⏰ \*\*(SFL Auditor|PR Promoter)\*\*:.*missing (one or more )?analyzer markers'
             ALREADY_FLAGGED=$(echo "$COMMENTS" \
-              | grep -Ec '<!-- sfl-auditor:stalled-pr-missing-analyzers -->|missing (one or more )?analyzer markers' \
+              | grep -Ec "<!-- sfl-auditor:stalled-pr-missing-analyzers -->|$LEGACY_WARNING_REGEX" \
               || true)
             if [ "$ALREADY_FLAGGED" -gt 0 ]; then
               continue

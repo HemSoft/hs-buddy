@@ -28,7 +28,12 @@ function bashExecutable(): string {
   return process.platform === 'win32' && existsSync(gitBash) ? gitBash : 'bash'
 }
 
-function runStalledPrCheck(draftPrs: unknown[]): string {
+interface StalledPrCheckResult {
+  comments: string
+  output: string
+}
+
+function runStalledPrCheck(draftPrs: unknown[]): StalledPrCheckResult {
   const directory = mkdtempSync(join(tmpdir(), 'sfl-auditor-'))
   temporaryDirectories.push(directory)
 
@@ -44,8 +49,15 @@ gh() {
     return
   fi
   if [ "$1 $2" = "pr comment" ]; then
-    echo "$3" >> "$COMMENTS_LOG"
-    return
+    shift 2
+    while [ "$#" -gt 0 ]; do
+      if [ "$1" = "--body" ]; then
+        printf '%s\n' "$2" >> "$COMMENTS_LOG"
+        return
+      fi
+      shift
+    done
+    return 1
   fi
   return 1
 }
@@ -63,7 +75,10 @@ gh() {
   })
 
   expect(result.status).toBe(0)
-  return readFileSync(outputPath, 'utf8')
+  return {
+    comments: existsSync(commentsPath) ? readFileSync(commentsPath, 'utf8') : '',
+    output: readFileSync(outputPath, 'utf8'),
+  }
 }
 
 afterEach(() => {
@@ -74,7 +89,7 @@ afterEach(() => {
 
 describe('SFL Auditor stalled draft PR counter', () => {
   it('writes zero when no draft PR qualifies', () => {
-    expect(runStalledPrCheck([])).toContain('stalled_prs_found=0')
+    expect(runStalledPrCheck([]).output).toContain('stalled_prs_found=0')
   })
 
   it('writes one when a stalled draft PR lacks analyzer markers', () => {
@@ -86,6 +101,49 @@ describe('SFL Auditor stalled draft PR counter', () => {
       number: 42,
     }
 
-    expect(runStalledPrCheck([draftPr])).toContain('stalled_prs_found=1')
+    const result = runStalledPrCheck([draftPr])
+
+    expect(result.output).toContain('stalled_prs_found=1')
+    expect(result.comments).toContain('<!-- sfl-auditor:stalled-pr-missing-analyzers -->')
+  })
+
+  it('does not post the emitted warning twice for the same PR', () => {
+    const draftPr = {
+      body: '',
+      comments: [],
+      createdAt: '2020-01-01T00:00:00Z',
+      headRefName: 'agent-fix/issue-306',
+      number: 42,
+    }
+    const firstRun = runStalledPrCheck([draftPr])
+    const secondRun = runStalledPrCheck([
+      {
+        ...draftPr,
+        comments: [{ body: firstRun.comments }],
+      },
+    ])
+
+    expect(firstRun.output).toContain('stalled_prs_found=1')
+    expect(secondRun.output).toContain('stalled_prs_found=0')
+    expect(secondRun.comments).toBe('')
+  })
+
+  it('recognizes warning text emitted before the stable marker existed', () => {
+    const result = runStalledPrCheck([
+      {
+        body: '',
+        comments: [
+          {
+            body: '⏰ **SFL Auditor**: Draft PR #42 has been open for over 2 hours and is missing one or more analyzer markers.',
+          },
+        ],
+        createdAt: '2020-01-01T00:00:00Z',
+        headRefName: 'agent-fix/issue-306',
+        number: 42,
+      },
+    ])
+
+    expect(result.output).toContain('stalled_prs_found=0')
+    expect(result.comments).toBe('')
   })
 })

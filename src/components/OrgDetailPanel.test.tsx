@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { OrgDetailPanel } from './OrgDetailPanel'
+import { runCopilotFetch } from './orgCopilotFetch'
 
 /* ── hoisted mocks ─────────────────────────────────────────────────── */
 
@@ -502,6 +503,24 @@ describe('OrgDetailPanel', () => {
   })
 
   describe('copilot fetch results', () => {
+    it('skips the fetch for a user namespace', async () => {
+      const enqueue = orgMocks.useTaskQueue().enqueue
+
+      await runCopilotFetch({
+        org: 'test-org',
+        preferredAccount: 'alice',
+        forceRefresh: false,
+        isUserNamespace: true,
+        copilotCacheKey: 'org-copilot:test-org',
+        copilotTaskName: 'org-detail-copilot-test-org',
+        enqueue,
+        hasUsage: false,
+        dispatchCopilot: vi.fn(),
+      })
+
+      expect(enqueue).not.toHaveBeenCalled()
+    })
+
     it('handles a completed response without Copilot usage data', async () => {
       const getCopilotUsage = vi.fn().mockResolvedValue({ success: false })
       window.github = { getCopilotUsage } as unknown as typeof window.github

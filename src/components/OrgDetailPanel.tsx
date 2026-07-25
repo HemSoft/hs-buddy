@@ -1,12 +1,4 @@
-import {
-  startTransition,
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import {
   AlertCircle,
   ArrowUpDown,
@@ -35,10 +27,10 @@ import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { OVERAGE_COST_PER_CREDIT, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
-import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { sumBy } from '../utils/arrayUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import { useOrgCachedFetch } from '../hooks/useOrgCachedFetch'
+import { getCachedCopilotData, runCopilotFetch } from './orgCopilotFetch'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
 
@@ -744,112 +736,6 @@ function useOrgMembersData({
   }
 }
 
-/* v8 ignore start */
-function handleCopilotSuccess(
-  data: {
-    org: string
-    premiumRequests: number
-    grossCost: number
-    discount: number
-    netCost: number
-    businessSeats: number
-    fetchedAt: number
-  },
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>,
-  cacheKey: string
-) {
-  const metrics: OrgCopilotUsageData = {
-    org: data.org,
-    premiumRequests: data.premiumRequests,
-    grossCost: data.grossCost,
-    discount: data.discount,
-    netCost: data.netCost,
-    businessSeats: data.businessSeats,
-    fetchedAt: data.fetchedAt,
-  }
-  startTransition(() => {
-    dispatch({ type: 'success', usage: metrics })
-  })
-  dataCache.set(cacheKey, metrics)
-  /* v8 ignore stop */
-}
-
-function getCachedCopilotData(cacheKey: string): OrgCopilotUsageData | null {
-  return dataCache.get<OrgCopilotUsageData>(cacheKey)?.data ?? null
-}
-
-/** Handle copilot fetch result: dispatch success or error. */
-/* v8 ignore start */
-function handleCopilotFetchResult(
-  result: { success: boolean; data?: Parameters<typeof handleCopilotSuccess>[0] },
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>,
-  cacheKey: string
-) {
-  if (result.success && result.data) {
-    handleCopilotSuccess(result.data, dispatch, cacheKey)
-  } else {
-    dispatch({ type: 'error', error: null })
-  }
-}
-
-/** Handle copilot fetch error: ignore aborts, otherwise dispatch error. */
-function handleCopilotCatchError(
-  error: unknown,
-  dispatch: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
-) {
-  if (isAbortError(error)) return
-  dispatch({ type: 'error', error: getErrorMessage(error) })
-}
-/* v8 ignore stop */
-
-function hydrateCachedCopilot(
-  cacheKey: string,
-  forceRefresh: boolean,
-  dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
-): boolean {
-  const cached = getCachedCopilotData(cacheKey)
-  if (!cached || forceRefresh) return false
-  dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-  return true
-}
-
-async function runCopilotFetch({
-  org,
-  preferredAccount,
-  forceRefresh,
-  copilotCacheKey,
-  copilotTaskName,
-  enqueue,
-  hasUsage,
-  dispatchCopilot,
-}: {
-  org: string
-  preferredAccount?: string
-  forceRefresh: boolean
-  copilotCacheKey: string
-  copilotTaskName: string
-  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
-  hasUsage: boolean
-  dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
-}): Promise<void> {
-  if (hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
-  const queue = getTaskQueue('github')
-  if (queue.hasTaskWithName(copilotTaskName)) return
-  dispatchCopilot({ type: 'start-loading', hasUsage })
-  try {
-    const result = await enqueue(
-      async signal => {
-        throwIfAborted(signal)
-        return await window.github.getCopilotUsage(org, preferredAccount)
-      },
-      { name: copilotTaskName, priority: -1 }
-    )
-    handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
-  } catch (fetchError: unknown) {
-    handleCopilotCatchError(fetchError, dispatchCopilot)
-  }
-}
-
 function useOrgCopilotData({
   org,
   enqueue,
@@ -896,6 +782,7 @@ function useOrgCopilotData({
         org,
         preferredAccount,
         forceRefresh,
+        isUserNamespace,
         copilotCacheKey,
         copilotTaskName,
         enqueue: enqueueRef.current,
@@ -903,7 +790,7 @@ function useOrgCopilotData({
         dispatchCopilot,
       })
     },
-    [copilotCacheKey, copilotTaskName, org, preferredAccount]
+    [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
   )
 
   return {

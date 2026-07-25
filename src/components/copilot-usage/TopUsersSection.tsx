@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { CalendarClock, Search, Users, X } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { CalendarClock, Search, Users } from 'lucide-react'
 import { useCopilotEnterpriseUsers } from '../../hooks/useCopilotEnterpriseUsers'
 import type {
   CopilotEnterpriseUser,
   CopilotEnterpriseUsersSnapshot,
 } from '../../types/copilotEnterpriseUsers'
+import { CopilotUserDetailsModal } from './CopilotUserDetailsModal'
 import { formatCurrency } from './quotaUtils'
 
 function formatCredits(value: number): string {
@@ -57,7 +58,7 @@ function EnterpriseUserRow({
       type="button"
       className="enterprise-users-row"
       onClick={() => onSelect(user)}
-      title={`View source JSON for ${user.login}`}
+      title={`View usage details for ${user.login}`}
     >
       <span className="enterprise-users-rank">{rank}</span>
       <span className="enterprise-users-login" title={user.login}>
@@ -181,144 +182,6 @@ function EnterpriseUsersDataContent({
   return <div className="enterprise-users-message">No Copilot Enterprise users found.</div>
 }
 
-const FOCUSABLE_MODAL_SELECTOR =
-  'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-
-function getFocusableModalElements(container: HTMLElement): HTMLElement[] {
-  return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_MODAL_SELECTOR)).filter(
-    element => !element.hasAttribute('disabled') && element.tabIndex >= 0
-  )
-}
-
-function focusFirstModalElement(container: HTMLElement): void {
-  const firstFocusableElement = getFocusableModalElements(container)[0]!
-  firstFocusableElement.focus()
-}
-
-function shouldWrapFocusBackward(
-  event: Pick<globalThis.KeyboardEvent, 'shiftKey'>,
-  activeElement: Element | null,
-  firstFocusableElement: HTMLElement
-): boolean {
-  return event.shiftKey && activeElement === firstFocusableElement
-}
-
-function shouldWrapFocusForward(
-  event: Pick<globalThis.KeyboardEvent, 'shiftKey'>,
-  activeElement: Element | null,
-  lastFocusableElement: HTMLElement
-): boolean {
-  return !event.shiftKey && activeElement === lastFocusableElement
-}
-
-function handleModalTabKey(
-  event: Pick<globalThis.KeyboardEvent, 'shiftKey' | 'preventDefault'>,
-  container: HTMLElement
-): void {
-  const focusableElements = getFocusableModalElements(container)
-  if (focusableElements.length === 0) {
-    event.preventDefault()
-    container.focus()
-    return
-  }
-
-  const firstFocusableElement = focusableElements[0]
-  const lastFocusableElement = focusableElements[focusableElements.length - 1]
-  const activeElement = document.activeElement
-
-  if (shouldWrapFocusBackward(event, activeElement, firstFocusableElement)) {
-    event.preventDefault()
-    lastFocusableElement.focus()
-    return
-  }
-
-  if (shouldWrapFocusForward(event, activeElement, lastFocusableElement)) {
-    event.preventDefault()
-    firstFocusableElement.focus()
-  }
-}
-
-function handleModalKeyDown(
-  event: globalThis.KeyboardEvent,
-  onClose: () => void,
-  container: HTMLElement
-): void {
-  if (event.key === 'Escape') {
-    event.stopPropagation()
-    event.stopImmediatePropagation()
-    onClose()
-    return
-  }
-
-  if (event.key === 'Tab') handleModalTabKey(event, container)
-}
-
-function SourceJsonModal({
-  user,
-  sourceFile,
-  onClose,
-}: {
-  user: CopilotEnterpriseUser
-  sourceFile: string
-  onClose: () => void
-}) {
-  const dialogRef = useRef<HTMLDialogElement>(null)
-
-  useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null
-    const dialog = dialogRef.current
-    if (dialog) focusFirstModalElement(dialog)
-    const handleDocumentKeyDown = (event: globalThis.KeyboardEvent) => {
-      const activeDialog = dialogRef.current
-      if (activeDialog) handleModalKeyDown(event, onClose, activeDialog)
-    }
-    document.addEventListener('keydown', handleDocumentKeyDown, true)
-
-    return () => {
-      document.removeEventListener('keydown', handleDocumentKeyDown, true)
-      previouslyFocused?.focus()
-    }
-  }, [onClose])
-
-  return (
-    <div className="enterprise-users-json-overlay" role="presentation">
-      <button
-        type="button"
-        className="enterprise-users-json-backdrop"
-        aria-label="Close source JSON"
-        tabIndex={-1}
-        onClick={onClose}
-      />
-      <dialog
-        open
-        ref={dialogRef}
-        className="enterprise-users-json-modal"
-        aria-modal="true"
-        aria-labelledby="enterprise-users-json-title"
-        tabIndex={-1}
-      >
-        <div className="enterprise-users-json-header">
-          <div>
-            <h4 id="enterprise-users-json-title">{user.login}</h4>
-            <p>{sourceFile}</p>
-          </div>
-          <button
-            type="button"
-            className="enterprise-users-json-close"
-            aria-label="Close source JSON dialog"
-            title="Close"
-            onClick={onClose}
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <pre className="enterprise-users-json-block">{user.sourceJson}</pre>
-      </dialog>
-    </div>
-  )
-}
-
 interface TopUsersSectionProps {
   refreshToken?: number
 }
@@ -381,7 +244,7 @@ function EnterpriseUsersFilterPanel({
   )
 }
 
-function SelectedUserSourceModal({
+function SelectedUserDetailsModal({
   data,
   selectedUser,
   onClose,
@@ -392,7 +255,7 @@ function SelectedUserSourceModal({
 }) {
   if (!selectedUser || !data) return null
 
-  return <SourceJsonModal user={selectedUser} sourceFile={data.sourceFile} onClose={onClose} />
+  return <CopilotUserDetailsModal user={selectedUser} snapshot={data} onClose={onClose} />
 }
 
 export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
@@ -421,7 +284,11 @@ export function TopUsersSection({ refreshToken = 0 }: TopUsersSectionProps) {
         filteredUsers={filteredUsers}
         onSelectUser={setSelectedUser}
       />
-      <SelectedUserSourceModal data={data} selectedUser={selectedUser} onClose={closeSourceModal} />
+      <SelectedUserDetailsModal
+        data={data}
+        selectedUser={selectedUser}
+        onClose={closeSourceModal}
+      />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { TopUsersSection } from './TopUsersSection'
 import type { CopilotEnterpriseUsersSnapshot } from '../../types/copilotEnterpriseUsers'
 
@@ -31,7 +31,35 @@ const snapshot: CopilotEnterpriseUsersSnapshot = {
       topModelQuantity: 7000,
       success: true,
       errorMessage: null,
-      sourceJson: '{\n  "User": "fhemmerrelias",\n  "Success": true\n}',
+      sourceJson: JSON.stringify(
+        {
+          User: 'fhemmerrelias',
+          Success: true,
+          Responses: [
+            {
+              Day: 1,
+              Response: {
+                usageItems: [
+                  {
+                    model: 'Claude Opus 4.8',
+                    grossQuantity: 7000,
+                    grossAmount: 70,
+                    netAmount: 0,
+                  },
+                  {
+                    model: 'Code Review model',
+                    grossQuantity: 4540.58,
+                    grossAmount: 45.41,
+                    netAmount: 0,
+                  },
+                ],
+              },
+            },
+          ],
+        },
+        null,
+        2
+      ),
     },
     {
       login: 'vgautamRelias',
@@ -115,7 +143,7 @@ describe('TopUsersSection', () => {
 
   it('renders one table row per enterprise user from the metrics file', () => {
     render(<TopUsersSection />)
-    expect(screen.getAllByTitle(/View source JSON for /)).toHaveLength(3)
+    expect(screen.getAllByTitle(/View usage details for /)).toHaveLength(3)
   })
 
   it('renders high-usage users with credit and dollar totals', () => {
@@ -168,7 +196,7 @@ describe('TopUsersSection', () => {
     })
 
     expect(screen.getByText('No users match this filter.')).toBeInTheDocument()
-    expect(screen.queryByTitle(/View source JSON for /)).not.toBeInTheDocument()
+    expect(screen.queryByTitle(/View usage details for /)).not.toBeInTheDocument()
     expect(screen.getByText('0 of 3 users')).toBeInTheDocument()
   })
 
@@ -213,49 +241,123 @@ describe('TopUsersSection', () => {
     expect(screen.queryByLabelText('Filter Copilot Enterprise users')).not.toBeInTheDocument()
   })
 
-  it('opens the source JSON modal when a user row is clicked', () => {
+  it('opens a polished overview by default when a user row is clicked', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
 
     expect(screen.getByRole('dialog', { name: 'fhemmerrelias' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Close source JSON dialog')).toHaveFocus()
+    expect(screen.getByLabelText('Close user details dialog')).toHaveFocus()
     expect(screen.getByText(snapshot.sourceFile)).toBeInTheDocument()
-    expect(screen.getByText(/"User": "fhemmerrelias"/)).toBeInTheDocument()
+    expect(screen.getByText('AI credit footprint')).toBeInTheDocument()
+    expect(screen.getByText('Model mix')).toBeInTheDocument()
+    expect(screen.getByText('Daily rhythm')).toBeInTheDocument()
+    expect(screen.queryByText(/"User": "fhemmerrelias"/)).not.toBeInTheDocument()
   })
 
-  it('closes the source JSON modal from the close button', () => {
+  it('toggles between the overview and the original source JSON', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
-    fireEvent.click(screen.getByLabelText('Close source JSON dialog'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
+    fireEvent.click(screen.getByRole('tab', { name: 'JSON' }))
+
+    expect(screen.getByText(/"User": "fhemmerrelias"/)).toBeInTheDocument()
+    expect(screen.queryByText('AI credit footprint')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Overview' }))
+    expect(screen.getByText('AI credit footprint')).toBeInTheDocument()
+    expect(screen.queryByText(/"User": "fhemmerrelias"/)).not.toBeInTheDocument()
+  })
+
+  it('shows unavailable average activity when daily source data is absent', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: {
+        ...snapshot,
+        users: [
+          {
+            ...snapshot.users[0],
+            sourceJson: JSON.stringify({
+              User: 'fhemmerrelias',
+              grossQuantity: 11540.58,
+              topModel: 'Claude Opus 4.8',
+            }),
+          },
+        ],
+      },
+      loading: false,
+      error: null,
+    })
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
+
+    const averageCard = screen.getByText('Avg. active day').closest('article')
+    expect(averageCard).not.toBeNull()
+    expect(within(averageCard!).getByText('—')).toBeInTheDocument()
+  })
+
+  it('includes model-less source items in daily activity totals', () => {
+    mockUseCopilotEnterpriseUsers.mockReturnValue({
+      data: {
+        ...snapshot,
+        users: [
+          {
+            ...snapshot.users[0],
+            grossQuantity: 420,
+            grossAmount: 4.2,
+            modelCount: 0,
+            topModel: null,
+            topModelQuantity: 0,
+            sourceJson: JSON.stringify({
+              User: 'fhemmerrelias',
+              Responses: [
+                {
+                  Day: 4,
+                  Response: {
+                    usageItems: [{ grossQuantity: 420, grossAmount: 4.2, netAmount: 0 }],
+                  },
+                },
+              ],
+            }),
+          },
+        ],
+      },
+      loading: false,
+      error: null,
+    })
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
+
+    expect(screen.getByText('D4')).toBeInTheDocument()
+    expect(screen.getAllByText('420').length).toBeGreaterThan(0)
+  })
+
+  it('closes the user details modal from the close button', () => {
+    render(<TopUsersSection />)
+
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
+    fireEvent.click(screen.getByLabelText('Close user details dialog'))
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('closes the source JSON modal with Escape', () => {
+  it('closes the user details modal with Escape', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
     fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' })
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('keeps tab focus inside the source JSON modal', () => {
+  it('keeps tab focus inside the user details modal', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
-    const closeButton = screen.getByLabelText('Close source JSON dialog')
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
+    const closeButton = screen.getByLabelText('Close user details dialog')
+    const jsonTab = screen.getByRole('tab', { name: 'JSON' })
 
-    expect(closeButton).toHaveFocus()
-    const forwardEvent = new KeyboardEvent('keydown', {
-      key: 'Tab',
-      bubbles: true,
-      cancelable: true,
-    })
-    closeButton.dispatchEvent(forwardEvent)
-    expect(forwardEvent.defaultPrevented).toBe(true)
     expect(closeButton).toHaveFocus()
     const backwardEvent = new KeyboardEvent('keydown', {
       key: 'Tab',
@@ -265,17 +367,27 @@ describe('TopUsersSection', () => {
     })
     closeButton.dispatchEvent(backwardEvent)
     expect(backwardEvent.defaultPrevented).toBe(true)
+    expect(jsonTab).toHaveFocus()
+
+    const forwardEvent = new KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    })
+    jsonTab.dispatchEvent(forwardEvent)
+    expect(forwardEvent.defaultPrevented).toBe(true)
     expect(closeButton).toHaveFocus()
   })
 
   it('wraps focus forward when Tab is handled by the dialog', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
     const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
-    const closeButton = screen.getByLabelText('Close source JSON dialog')
+    const closeButton = screen.getByLabelText('Close user details dialog')
+    const jsonTab = screen.getByRole('tab', { name: 'JSON' })
 
-    closeButton.focus()
+    jsonTab.focus()
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
     dialog.dispatchEvent(event)
 
@@ -286,22 +398,23 @@ describe('TopUsersSection', () => {
   it('does not intercept Tab when modal focus is not on a boundary control', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
     const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
+    const overviewTab = screen.getByRole('tab', { name: 'Overview' })
 
-    dialog.focus()
+    overviewTab.focus()
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
     dialog.dispatchEvent(event)
 
     expect(event.defaultPrevented).toBe(false)
   })
 
-  it('keeps focus on the source JSON modal when no focusable elements remain', () => {
+  it('keeps focus on the user details modal when no focusable elements remain', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
     const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
-    screen.getByLabelText('Close source JSON dialog').setAttribute('disabled', '')
+    for (const button of dialog.querySelectorAll('button')) button.setAttribute('disabled', '')
 
     dialog.focus()
     const event = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
@@ -314,7 +427,7 @@ describe('TopUsersSection', () => {
   it('does not trap non-Tab keys in the source JSON modal', () => {
     render(<TopUsersSection />)
 
-    fireEvent.click(screen.getByTitle('View source JSON for fhemmerrelias'))
+    fireEvent.click(screen.getByTitle('View usage details for fhemmerrelias'))
     const dialog = screen.getByRole('dialog', { name: 'fhemmerrelias' })
 
     const event = new KeyboardEvent('keydown', {
@@ -330,11 +443,11 @@ describe('TopUsersSection', () => {
 
   it('restores focus when the source JSON modal closes', () => {
     render(<TopUsersSection />)
-    const row = screen.getByTitle('View source JSON for fhemmerrelias')
+    const row = screen.getByTitle('View usage details for fhemmerrelias')
 
     row.focus()
     fireEvent.click(row)
-    fireEvent.click(screen.getByLabelText('Close source JSON dialog'))
+    fireEvent.click(screen.getByLabelText('Close user details dialog'))
 
     expect(row).toHaveFocus()
   })

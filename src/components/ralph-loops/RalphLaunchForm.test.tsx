@@ -99,6 +99,27 @@ vi.mock('../../utils/storage', () => ({
 // Import hooks after mocking
 import { useRalphModels, useRalphProviders, useRalphAgents } from '../../hooks/useRalphConfig'
 
+function restoreDefaultConfigMocks() {
+  vi.mocked(useRalphModels).mockReturnValue({
+    data: mockModelsConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+  vi.mocked(useRalphProviders).mockReturnValue({
+    data: mockProvidersConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+  vi.mocked(useRalphAgents).mockReturnValue({
+    data: mockAgentsConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+}
+
 describe('RalphLaunchForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1742,6 +1763,126 @@ describe('RalphLaunchForm', () => {
         'ralph-last-repo',
         expect.anything()
       )
+    })
+  })
+
+  describe('Launch validation and error coverage', () => {
+    beforeEach(restoreDefaultConfigMocks)
+
+    it('rejects an invalid optional issue number before launch', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(
+        <RalphLaunchForm
+          initialIssue={{
+            issueNumber: 0,
+            issueTitle: 'Invalid issue number',
+            issueBody: 'Test validation',
+            repository: 'repo',
+            org: 'org',
+            repoPath: '/repo',
+          }}
+          onLaunch={mockOnLaunch}
+        />
+      )
+
+      await waitFor(() => {
+        expect((screen.getByLabelText(/repository/i) as HTMLInputElement).value).toBe('/repo')
+      })
+      fireEvent.submit(screen.getByRole('button', { name: /launch/i }).closest('form')!)
+
+      expect(await screen.findByText('Issue number must be a positive integer')).toBeInTheDocument()
+      expect(mockOnLaunch).not.toHaveBeenCalled()
+    })
+
+    it('shows the message from a rejected launch Error', async () => {
+      const mockOnLaunch = vi.fn().mockRejectedValue(new Error('Launch service unavailable'))
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      expect(await screen.findByText('Launch service unavailable')).toBeInTheDocument()
+    })
+
+    it('shows the fallback message for a non-Error launch rejection', async () => {
+      const mockOnLaunch = vi.fn().mockRejectedValue('launch failed')
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      expect(await screen.findByText('Failed to launch Ralph run')).toBeInTheDocument()
+    })
+  })
+
+  describe('Provider and alias fallback coverage', () => {
+    beforeEach(restoreDefaultConfigMocks)
+
+    it('keeps model options available when provider data disappears', async () => {
+      const { rerender } = render(
+        <RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />
+      )
+      await userEvent.selectOptions(screen.getByLabelText(/provider/i), 'openai')
+
+      vi.mocked(useRalphProviders).mockReturnValue({
+        data: null,
+        loading: true,
+        error: null,
+        refresh: vi.fn(),
+      })
+      rerender(<RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />)
+
+      const modelValues = Array.from(
+        (screen.getByLabelText(/model/i) as HTMLSelectElement).options
+      ).map(option => option.value)
+      expect(modelValues).toContain('gpt-4')
+      expect(modelValues).toContain('claude-3')
+    })
+
+    it('keeps model options available when the selected provider disappears', async () => {
+      const { rerender } = render(
+        <RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />
+      )
+      await userEvent.selectOptions(screen.getByLabelText(/provider/i), 'openai')
+
+      vi.mocked(useRalphProviders).mockReturnValue({
+        data: {
+          version: '1.0.0',
+          default: 'anthropic',
+          providers: {
+            anthropic: {
+              description: 'Anthropic',
+              supportedModelProviders: ['anthropic'],
+            },
+          },
+        } as unknown as RalphProvidersConfig,
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+      })
+      rerender(<RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />)
+
+      const modelValues = Array.from(
+        (screen.getByLabelText(/model/i) as HTMLSelectElement).options
+      ).map(option => option.value)
+      expect(modelValues).toContain('gpt-4')
+      expect(modelValues).toContain('claude-3')
+    })
+
+    it('omits an alias whose target model is missing', () => {
+      vi.mocked(useRalphModels).mockReturnValue({
+        data: { ...mockModelsConfig, aliases: { missing: 'not-a-model' } },
+        loading: false,
+        error: null,
+        refresh: vi.fn(),
+      })
+
+      render(<RalphLaunchForm onLaunch={vi.fn().mockResolvedValue({ success: true })} />)
+
+      const modelValues = Array.from(
+        (screen.getByLabelText(/model/i) as HTMLSelectElement).options
+      ).map(option => option.value)
+      expect(modelValues).not.toContain('missing')
     })
   })
 })

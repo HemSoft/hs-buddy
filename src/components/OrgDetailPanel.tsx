@@ -817,7 +817,6 @@ async function runCopilotFetch({
   org,
   preferredAccount,
   forceRefresh,
-  isUserNamespace,
   copilotCacheKey,
   copilotTaskName,
   enqueue,
@@ -827,14 +826,12 @@ async function runCopilotFetch({
   org: string
   preferredAccount?: string
   forceRefresh: boolean
-  isUserNamespace: boolean
   copilotCacheKey: string
   copilotTaskName: string
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
   hasUsage: boolean
   dispatchCopilot: React.Dispatch<Parameters<typeof orgCopilotReducer>[1]>
 }): Promise<void> {
-  if (isUserNamespace) return
   if (hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
   const queue = getTaskQueue('github')
   if (queue.hasTaskWithName(copilotTaskName)) return
@@ -899,7 +896,6 @@ function useOrgCopilotData({
         org,
         preferredAccount,
         forceRefresh,
-        isUserNamespace,
         copilotCacheKey,
         copilotTaskName,
         enqueue: enqueueRef.current,
@@ -907,7 +903,7 @@ function useOrgCopilotData({
         dispatchCopilot,
       })
     },
-    [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]
+    [copilotCacheKey, copilotTaskName, org, preferredAccount]
   )
 
   return {

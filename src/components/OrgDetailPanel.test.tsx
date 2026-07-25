@@ -448,6 +448,35 @@ describe('OrgDetailPanel', () => {
       expect(screen.getByText('Business Seats')).toBeInTheDocument()
     })
 
+    it('hydrates copilot usage when cache data becomes available before the fetch', async () => {
+      const cachedCopilot = {
+        org: 'test-org',
+        premiumRequests: 1234,
+        grossCost: 88,
+        discount: 8,
+        netCost: 80,
+        businessSeats: 12,
+        fetchedAt: Date.now(),
+      }
+      let copilotCacheReads = 0
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key !== 'org-copilot:test-org') return null
+        copilotCacheReads += 1
+        return copilotCacheReads === 2 ? { data: cachedCopilot, fetchedAt: Date.now() } : null
+      })
+      orgMocks.dataCacheIsFresh.mockReturnValue(false)
+      window.github = {
+        getCopilotUsage: vi.fn(),
+      } as unknown as typeof window.github
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      await waitFor(() => {
+        expect(screen.getByText('1,234')).toBeInTheDocument()
+      })
+      expect(window.github.getCopilotUsage).not.toHaveBeenCalled()
+    })
+
     it('renders budget band for org', async () => {
       render(<OrgDetailPanel org="test-org" />)
       await waitFor(() => {
@@ -719,6 +748,39 @@ describe('OrgDetailPanel', () => {
       expect(names[0]).toContain('alice')
       expect(names[1]).toContain('bob')
       expect(names[2]).toContain('charlie')
+    })
+
+    it('uses login and zero-commit fallbacks when sorting an unnamed member first', async () => {
+      const overview = makeOverview({ topContributorsToday: [] })
+      const members = {
+        members: [
+          { login: 'charlie', name: null, url: 'https://github.com/charlie', type: 'User' },
+          { login: 'alice', name: 'Alice Smith', url: 'https://github.com/alice', type: 'User' },
+          { login: 'bob', name: 'Bob Jones', url: 'https://github.com/bob', type: 'User' },
+        ],
+      }
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: overview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: members, fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(overview)
+      orgMocks.mockClient.fetchOrgMembers.mockResolvedValue(members)
+
+      render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => {
+        expect(screen.getByText('Name')).toBeInTheDocument()
+      })
+
+      fireEvent.click(screen.getByText('Name'))
+      await waitFor(() => {
+        expect(screen.getByTitle('Sort by name')).toBeInTheDocument()
+      })
+
+      const names = [...document.querySelectorAll('.org-detail-roster-name')].map(
+        element => element.textContent
+      )
+      expect(names).toEqual(['charlie', 'Alice Smith (alice)', 'Bob Jones (bob)'])
     })
 
     it('shows "configured" tag for members with configured accounts', async () => {

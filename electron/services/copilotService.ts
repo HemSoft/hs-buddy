@@ -345,6 +345,7 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
           await restartSharedClient()
           continue
         }
+        break
       }
     }
 

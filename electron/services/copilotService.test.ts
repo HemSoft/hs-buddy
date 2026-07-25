@@ -278,6 +278,16 @@ describe('copilotService', () => {
       await expect(service.listModels()).rejects.toThrow('not connected')
     })
 
+    it('does not retry non-retryable errors', async () => {
+      const service = getCopilotService()
+      mockEnsureClientStarted.mockRejectedValue(new Error('permission denied'))
+
+      await expect(service.listModels()).rejects.toThrow('permission denied')
+
+      expect(mockEnsureClientStarted).toHaveBeenCalledTimes(1)
+      expect(mockRestartSharedClient).not.toHaveBeenCalled()
+    })
+
     it('switches account before listing if ghAccount provided', async () => {
       const service = getCopilotService()
       await service.listModels('other-user')

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.914] - 2026-07-25
+
+### Changed
+
+- Cover Ralph launch validation errors
+
 ## [0.1.913] - 2026-07-25
 
 ### Changed

@@ -27,16 +27,17 @@ scorecard.
 
 **Steps:**
 
-1. Fetch the scorecard HTML from the org-metrics repo:
+1. Fetch, validate, and log the scorecard with the repository script:
 
    ```bash
-   gh api repos/relias-engineering/org-metrics/contents/reports/scorecard-hs-buddy.html --jq '.content'
+   powershell -NoProfile -ExecutionPolicy Bypass -File scripts/get-scorecard-report.ps1 -Json
    ```
 
-2. Base64-decode the content and extract the JSON blob from the
-   `<script type="application/json" id="scorecard-data">` tag.
+   The script compares the report's embedded `repository.fullName` with the
+   current repository from `gh repo view`. It refuses to use or log a missing
+   or mismatched identity.
 
-3. **Log the score** to `score-history.log` in this skill's directory
+2. The script **logs the score** to `score-history.log` in this skill's directory
    (`.agents/skills/scorecard/score-history.log`). Append one line per fetch
    using this pipe-delimited format. **Timestamps must be in US Eastern Time
    (America/New_York)** as ISO-8601 with explicit offset, so EST uses `-05:00`
@@ -63,10 +64,11 @@ scorecard.
    ```
 
    Create the file if it does not exist. Always append — never overwrite.
-   Only log after a successful fetch and JSON parse. If the fetch or parse
-   fails, skip logging (do not write partial or error lines).
+   Only log after a successful fetch, JSON parse, and repository identity
+   validation. If any step fails, skip logging (do not write partial or error
+   lines).
 
-4. Present a concise report:
+3. Present a concise report from the validated JSON:
 
    ```markdown
    ## Scorecard Status — hs-buddy
@@ -104,7 +106,7 @@ Analyzes failing rules and recommends the single highest-impact improvement.
 
 **Steps:**
 
-1. Fetch and parse the scorecard (same as `status`).
+1. Fetch and parse the validated scorecard (same as `status`).
 
 2. Collect all rules where `passed` is `false`.
 

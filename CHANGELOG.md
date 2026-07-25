@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.898] - 2026-07-25
+
+### Fixed
+
+- Validate scorecard repository identity
+
 ## [0.1.897] - 2026-07-25
 
 ### Fixed

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.904] - 2026-07-25
+
+### Fixed
+
+- Preserve stalled PR count
+
 ## [0.1.902] - 2026-07-25
 
 ### Fixed

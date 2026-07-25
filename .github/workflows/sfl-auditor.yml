@@ -382,22 +382,24 @@ jobs:
 
           TOTAL=$((ORPHANED_LABELS + PR_FALLBACKS + DUPLICATES + CONFLICTING + ORPHANED_PRS + STALE_UNCLAIMED + STALLED_PRS + PAUSED))
 
-          echo "## SFL Auditor Summary"
-          echo ""
-          echo "| Check | Count |"
-          echo "|-------|-------|"
-          echo "| Orphaned in-progress labels fixed | $ORPHANED_LABELS |"
-          echo "| PR fallback issues closed | $PR_FALLBACKS |"
-          echo "| Duplicate action-item issues closed | $DUPLICATES |"
-          echo "| Conflicting labels fixed | $CONFLICTING |"
-          echo "| Orphaned agent PRs flagged | $ORPHANED_PRS |"
-          echo "| Stale unclaimed issues flagged | $STALE_UNCLAIMED |"
-          echo "| Stalled draft PRs flagged | $STALLED_PRS |"
-          echo "| Unexplained pauses flagged | $PAUSED |"
-          echo ""
+          {
+            echo "## SFL Auditor Summary"
+            echo ""
+            echo "| Check | Count |"
+            echo "|-------|-------|"
+            echo "| Orphaned in-progress labels fixed | $ORPHANED_LABELS |"
+            echo "| PR fallback issues closed | $PR_FALLBACKS |"
+            echo "| Duplicate action-item issues closed | $DUPLICATES |"
+            echo "| Conflicting labels fixed | $CONFLICTING |"
+            echo "| Orphaned agent PRs flagged | $ORPHANED_PRS |"
+            echo "| Stale unclaimed issues flagged | $STALE_UNCLAIMED |"
+            echo "| Stalled draft PRs flagged | $STALLED_PRS |"
+            echo "| Unexplained pauses flagged | $PAUSED |"
+            echo ""
 
-          if [ "$TOTAL" -eq 0 ]; then
-            echo "All checks passed — no discrepancies found."
-          else
-            echo "Found and addressed $TOTAL discrepancies."
-          fi
+            if [ "$TOTAL" -eq 0 ]; then
+              echo "All checks passed — no discrepancies found."
+            else
+              echo "Found and addressed $TOTAL discrepancies."
+            fi
+          } | tee -a "$GITHUB_STEP_SUMMARY"

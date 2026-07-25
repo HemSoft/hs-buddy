@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.909] - 2026-07-25
+
+### Changed
+
+- Assert complete auditor summary
+
+## [0.1.908] - 2026-07-25
+
+### Changed
+
+- Publish SFL auditor summary
+
 ## [0.1.907] - 2026-07-25
 
 ### Changed

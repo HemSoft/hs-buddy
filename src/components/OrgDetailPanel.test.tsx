@@ -127,9 +127,22 @@ function makeMembers() {
   }
 }
 
+function makeMembersWithUnnamedFirst() {
+  return {
+    members: [
+      { login: 'charlie', name: null, url: 'https://github.com/charlie', type: 'User' },
+      { login: 'alice', name: 'Alice Smith', url: 'https://github.com/alice', type: 'User' },
+      { login: 'bob', name: 'Bob Jones', url: 'https://github.com/bob', type: 'User' },
+    ],
+  }
+}
+
 /* ── setup / teardown ─────────────────────────────────────────────── */
 
+let originalGitHub: typeof window.github
+
 beforeEach(() => {
+  originalGitHub = window.github
   vi.clearAllMocks()
   vi.useFakeTimers({ shouldAdvanceTime: true })
 
@@ -188,6 +201,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  window.github = originalGitHub
   vi.useRealTimers()
   vi.restoreAllMocks()
 })
@@ -487,6 +501,19 @@ describe('OrgDetailPanel', () => {
     })
   })
 
+  describe('copilot fetch results', () => {
+    it('handles a completed response without Copilot usage data', async () => {
+      const getCopilotUsage = vi.fn().mockResolvedValue({ success: false })
+      window.github = { getCopilotUsage } as unknown as typeof window.github
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      await waitFor(() => {
+        expect(getCopilotUsage).toHaveBeenCalledWith('test-org', 'alice')
+      })
+    })
+  })
+
   describe('leaders section', () => {
     it('renders top contributors', async () => {
       render(<OrgDetailPanel org="test-org" />)
@@ -750,15 +777,23 @@ describe('OrgDetailPanel', () => {
       expect(names[2]).toContain('charlie')
     })
 
+    it('shows "configured" tag for members with configured accounts', async () => {
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [{ username: 'alice', org: 'test-org', token: 'ghp_test' }],
+        loading: false,
+      })
+
+      render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => {
+        expect(screen.getByText(/configured/)).toBeInTheDocument()
+      })
+    })
+  })
+
+  describe('roster sort fallbacks', () => {
     it('uses login and zero-commit fallbacks when sorting an unnamed member first', async () => {
       const overview = makeOverview({ topContributorsToday: [] })
-      const members = {
-        members: [
-          { login: 'charlie', name: null, url: 'https://github.com/charlie', type: 'User' },
-          { login: 'alice', name: 'Alice Smith', url: 'https://github.com/alice', type: 'User' },
-          { login: 'bob', name: 'Bob Jones', url: 'https://github.com/bob', type: 'User' },
-        ],
-      }
+      const members = makeMembersWithUnnamedFirst()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: overview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: members, fetchedAt: Date.now() }
@@ -781,18 +816,6 @@ describe('OrgDetailPanel', () => {
         element => element.textContent
       )
       expect(names).toEqual(['charlie', 'Alice Smith (alice)', 'Bob Jones (bob)'])
-    })
-
-    it('shows "configured" tag for members with configured accounts', async () => {
-      orgMocks.useGitHubAccounts.mockReturnValue({
-        accounts: [{ username: 'alice', org: 'test-org', token: 'ghp_test' }],
-        loading: false,
-      })
-
-      render(<OrgDetailPanel org="test-org" />)
-      await waitFor(() => {
-        expect(screen.getByText(/configured/)).toBeInTheDocument()
-      })
     })
   })
 

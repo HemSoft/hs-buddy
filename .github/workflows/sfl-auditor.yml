@@ -300,8 +300,7 @@ jobs:
           gh pr list --repo "$REPO" --state open --draft \
             --json number,headRefName,createdAt,body,comments --limit 100 > /tmp/draft_prs.json
 
-          jq -c '[.[] | select(.headRefName | startswith("agent-fix/issue-"))] | .[]' \
-            /tmp/draft_prs.json | while IFS= read -r ROW; do
+          while IFS= read -r ROW; do
             PR_NUM=$(echo "$ROW" | jq '.number')
             CREATED=$(echo "$ROW" | jq -r '.createdAt')
 
@@ -333,7 +332,8 @@ jobs:
               --body "⏰ **SFL Auditor**: Draft PR #$PR_NUM has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."
 
             FOUND=$((FOUND + 1))
-          done
+          done < <(jq -c '[.[] | select(.headRefName | startswith("agent-fix/issue-"))] | .[]' \
+            /tmp/draft_prs.json)
 
           echo "stalled_prs_found=$FOUND" >> "$GITHUB_OUTPUT"
           echo "Found $FOUND stalled draft PRs"

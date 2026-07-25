@@ -16,6 +16,7 @@ const {
   mockUseRepoBookmarks,
   mockUseRepoBookmarkMutations,
   mockUseTaskQueue,
+  mockUseRef,
 } = vi.hoisted(() => ({
   mockGitHubClient: vi.fn(),
   mockFetchMyPRs: vi.fn(),
@@ -28,7 +29,14 @@ const {
   mockUseRepoBookmarks: vi.fn(),
   mockUseRepoBookmarkMutations: vi.fn(),
   mockUseTaskQueue: vi.fn(),
+  mockUseRef: vi.fn(),
 }))
+
+vi.mock('react', async importOriginal => {
+  const actual = await importOriginal<typeof import('react')>()
+  mockUseRef.mockImplementation(actual.useRef)
+  return { ...actual, useRef: mockUseRef }
+})
 
 vi.mock('../../api/github', () => ({
   GitHubClient: mockGitHubClient.mockImplementation(function MockGitHubClient() {
@@ -174,6 +182,88 @@ describe('usePRListData', () => {
     expect(onCountChange).toHaveBeenCalledWith(3)
     expect(mockGitHubClient).toHaveBeenCalledWith({ accounts: [account] }, 14)
     expect(dataCache.get<PullRequest[]>('my-prs')?.data).toHaveLength(3)
+  })
+
+  it('uses data that becomes fresh while the fetch is queued', async () => {
+    const cachedPr = makePR({ id: 11, repository: 'queued-cache' })
+    let runQueuedTask: (() => Promise<void>) | undefined
+
+    mockUseTaskQueue.mockReturnValue({
+      enqueue: vi.fn(
+        (task: (signal: AbortSignal) => Promise<PullRequest[]>) =>
+          new Promise<PullRequest[]>((resolve, reject) => {
+            runQueuedTask = async () => {
+              try {
+                resolve(await task(new AbortController().signal))
+              } catch (error: unknown) {
+                reject(error)
+              }
+            }
+          })
+      ),
+      cancelAll: vi.fn(),
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(runQueuedTask).toBeDefined())
+
+    dataCache.set('my-prs', [cachedPr], Date.now())
+    await act(async () => {
+      await runQueuedTask?.()
+    })
+
+    await waitFor(() => expect(result.current.prs).toEqual([cachedPr]))
+    expect(mockFetchMyPRs).not.toHaveBeenCalled()
+  })
+
+  it('ignores a stale fetch result after the mode changes', async () => {
+    const stalePr = makePR({ id: 12, repository: 'stale-result' })
+    const currentPr = makePR({ id: 13, repository: 'current-result' })
+    let resolveStaleFetch: ((prs: PullRequest[]) => void) | undefined
+
+    mockFetchMyPRs.mockReturnValue(
+      new Promise<PullRequest[]>(resolve => {
+        resolveStaleFetch = resolve
+      })
+    )
+    mockFetchNeedsReview.mockResolvedValue([currentPr])
+
+    const { result, rerender } = renderHook(
+      ({ mode }: { mode: 'my-prs' | 'needs-review' }) => usePRListData(mode),
+      { initialProps: { mode: 'my-prs' } as { mode: 'my-prs' | 'needs-review' } }
+    )
+    await waitFor(() => expect(mockFetchMyPRs).toHaveBeenCalledOnce())
+
+    rerender({ mode: 'needs-review' })
+    await waitFor(() => expect(result.current.prs).toEqual([currentPr]))
+
+    await act(async () => {
+      resolveStaleFetch?.([stalePr])
+    })
+
+    expect(result.current.prs).toEqual([currentPr])
+    expect(dataCache.get<PullRequest[]>('my-prs')).toBeNull()
+  })
+
+  it('does not start a duplicate fetch while one is in progress', () => {
+    const actualUseRef = mockUseRef.getMockImplementation()
+    if (!actualUseRef) throw new Error('React useRef mock is not initialized')
+    let injectedInProgressRef = false
+    mockUseRef.mockImplementation(initialValue => {
+      const ref = actualUseRef(initialValue)
+      if (!injectedInProgressRef && initialValue === false) {
+        injectedInProgressRef = true
+        ref.current = true
+      }
+      return ref
+    })
+
+    try {
+      renderHook(() => usePRListData('my-prs'))
+      expect(mockFetchMyPRs).not.toHaveBeenCalled()
+    } finally {
+      mockUseRef.mockImplementation(actualUseRef)
+    }
   })
 
   it('surfaces an account configuration error before fetching', async () => {

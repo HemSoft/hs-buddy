@@ -99,6 +99,27 @@ vi.mock('../../utils/storage', () => ({
 // Import hooks after mocking
 import { useRalphModels, useRalphProviders, useRalphAgents } from '../../hooks/useRalphConfig'
 
+function restoreDefaultConfigMocks() {
+  vi.mocked(useRalphModels).mockReturnValue({
+    data: mockModelsConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+  vi.mocked(useRalphProviders).mockReturnValue({
+    data: mockProvidersConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+  vi.mocked(useRalphAgents).mockReturnValue({
+    data: mockAgentsConfig,
+    loading: false,
+    error: null,
+    refresh: vi.fn(),
+  })
+}
+
 describe('RalphLaunchForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1746,26 +1767,7 @@ describe('RalphLaunchForm', () => {
   })
 
   describe('Launch validation and error coverage', () => {
-    beforeEach(() => {
-      vi.mocked(useRalphModels).mockReturnValue({
-        data: mockModelsConfig,
-        loading: false,
-        error: null,
-        refresh: vi.fn(),
-      })
-      vi.mocked(useRalphProviders).mockReturnValue({
-        data: mockProvidersConfig,
-        loading: false,
-        error: null,
-        refresh: vi.fn(),
-      })
-      vi.mocked(useRalphAgents).mockReturnValue({
-        data: mockAgentsConfig,
-        loading: false,
-        error: null,
-        refresh: vi.fn(),
-      })
-    })
+    beforeEach(restoreDefaultConfigMocks)
 
     it('rejects an invalid optional issue number before launch', async () => {
       const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
@@ -1811,6 +1813,10 @@ describe('RalphLaunchForm', () => {
 
       expect(await screen.findByText('Failed to launch Ralph run')).toBeInTheDocument()
     })
+  })
+
+  describe('Provider and alias fallback coverage', () => {
+    beforeEach(restoreDefaultConfigMocks)
 
     it('keeps model options available when provider data disappears', async () => {
       const { rerender } = render(

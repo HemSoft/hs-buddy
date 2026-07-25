@@ -40,6 +40,8 @@ vi.mock('../config', () => ({
 const mockSendPrompt = vi.fn()
 const mockEnsureClientStarted = vi.fn()
 const mockRestartSharedClient = vi.fn()
+const mockExecAsync = vi.fn().mockResolvedValue({ stdout: 'user\n' })
+const mockExecFileAsync = vi.fn().mockResolvedValue({ stdout: 'user\n', stderr: '' })
 
 vi.mock('./copilotClient', () => ({
   ensureClientStarted: (...args: unknown[]) => mockEnsureClientStarted(...args),
@@ -49,7 +51,8 @@ vi.mock('./copilotClient', () => ({
 }))
 
 vi.mock('../utils', () => ({
-  execAsync: vi.fn().mockResolvedValue({ stdout: 'user\n' }),
+  execAsync: (...args: unknown[]) => mockExecAsync(...args),
+  execFileAsync: (...args: unknown[]) => mockExecFileAsync(...args),
 }))
 
 vi.mock('../../src/utils/errorUtils', () => ({
@@ -199,10 +202,9 @@ describe('copilotService', () => {
 
   describe('switchAccount skip', () => {
     it('skips switch when already on the correct account', async () => {
-      const { execAsync } = await import('../utils')
       const service = getCopilotService()
 
-      // First call: switches to 'testacct' — execAsync is called for gh auth switch
+      // First call switches to 'testacct'.
       await service.executePrompt({
         prompt: 'Review PR',
         category: 'general',
@@ -211,7 +213,7 @@ describe('copilotService', () => {
 
       // Wait for async runPrompt to settle
       await new Promise(r => setTimeout(r, 20))
-      vi.mocked(execAsync).mockClear()
+      mockExecFileAsync.mockClear()
 
       // Second call: same account — should skip switch (lines 133-135)
       await service.executePrompt({
@@ -222,11 +224,22 @@ describe('copilotService', () => {
 
       await new Promise(r => setTimeout(r, 20))
 
-      // execAsync should NOT have been called for 'gh auth switch' again
-      const switchCalls = vi.mocked(execAsync).mock.calls.filter(
-        ([cmd]) => typeof cmd === 'string' && cmd.includes('gh auth switch')
-      )
-      expect(switchCalls).toHaveLength(0)
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
+    it('rejects a metacharacter-bearing account before invoking gh', async () => {
+      const service = getCopilotService()
+
+      await expect(
+        service.executePrompt({
+          prompt: 'Review PR',
+          category: 'general',
+          metadata: { ghAccount: 'testacct; echo injected' },
+        })
+      ).rejects.toThrow("Invalid GitHub account slug: 'testacct; echo injected'")
+
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
     })
   })
 
@@ -269,10 +282,9 @@ describe('copilotService', () => {
       const service = getCopilotService()
       await service.listModels('other-user')
 
-      // execAsync called with gh auth switch
-      const { execAsync } = await import('../utils')
-      expect(execAsync).toHaveBeenCalledWith(
-        expect.stringContaining('gh auth switch --user other-user'),
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['auth', 'switch', '--user', 'other-user'],
         expect.anything()
       )
     })
@@ -313,7 +325,6 @@ describe('copilotService', () => {
   describe('executePrompt — account auto-resolution', () => {
     it('auto-resolves account from GitHub URLs in prompt', async () => {
       const { findAccountForOrgs } = await import('../../src/utils/copilotPromptUtils')
-      const { execAsync } = await import('../utils')
 
       vi.mocked(findAccountForOrgs).mockReturnValueOnce('auto-user-from-url')
       mockQuery.mockResolvedValueOnce([])
@@ -326,8 +337,9 @@ describe('copilotService', () => {
 
       expect(mockQuery).toHaveBeenCalledWith('githubAccounts:list', {})
       expect(findAccountForOrgs).toHaveBeenCalledWith([], ['myorg'])
-      expect(execAsync).toHaveBeenCalledWith(
-        expect.stringContaining('gh auth switch --user auto-user-from-url'),
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['auth', 'switch', '--user', 'auto-user-from-url'],
         expect.anything()
       )
     })
@@ -400,8 +412,7 @@ describe('copilotService', () => {
     })
 
     it('continues when gh auth switch fails', async () => {
-      const { execAsync } = await import('../utils')
-      vi.mocked(execAsync).mockRejectedValueOnce(new Error('switch failed'))
+      mockExecFileAsync.mockRejectedValueOnce(new Error('switch failed'))
 
       const service = getCopilotService()
       const result = await service.executePrompt({
@@ -411,8 +422,9 @@ describe('copilotService', () => {
       })
 
       expect(result.success).toBe(true)
-      expect(execAsync).toHaveBeenCalledWith(
-        expect.stringContaining('gh auth switch --user failing-user-explicit'),
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['auth', 'switch', '--user', 'failing-user-explicit'],
         expect.anything()
       )
     })

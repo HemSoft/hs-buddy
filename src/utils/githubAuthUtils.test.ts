@@ -1,10 +1,26 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   parseActiveGitHubAccount,
+  assertValidGitHubAccountSlug,
   buildGhAuthTokenArgs,
   isNonFatalGhStderr,
   validateCliToken,
 } from './githubAuthUtils'
+
+describe('assertValidGitHubAccountSlug', () => {
+  it.each(['octocat', 'test-org', 'A1', 'a'.repeat(39)])('accepts valid slug %s', slug => {
+    expect(() => assertValidGitHubAccountSlug(slug)).not.toThrow()
+  })
+
+  it.each(['org; echo injected', 'user$(whoami)', '-leading', 'trailing-', 'a'.repeat(40)])(
+    'rejects invalid slug %s',
+    slug => {
+      expect(() => assertValidGitHubAccountSlug(slug)).toThrow(
+        `Invalid GitHub account slug: '${slug}'`
+      )
+    }
+  )
+})
 
 describe('parseActiveGitHubAccount', () => {
   it('returns the active account from gh auth status output', () => {
@@ -75,6 +91,12 @@ describe('buildGhAuthTokenArgs', () => {
 
   it('appends --user flag when username provided', () => {
     expect(buildGhAuthTokenArgs('octocat')).toEqual(['auth', 'token', '--user', 'octocat'])
+  })
+
+  it('rejects shell metacharacters instead of building arguments', () => {
+    expect(() => buildGhAuthTokenArgs('octocat; echo injected')).toThrow(
+      "Invalid GitHub account slug: 'octocat; echo injected'"
+    )
   })
 })
 

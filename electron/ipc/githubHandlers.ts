@@ -8,6 +8,7 @@ import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   parseActiveGitHubAccount,
+  assertValidGitHubAccountSlug,
   buildGhAuthTokenArgs,
   validateCliToken,
 } from '../../src/utils/githubAuthUtils'
@@ -49,14 +50,6 @@ export const PERSONAL_BUDGETS: Record<string, number> = {}
 type ExecAsyncSettledResult = PromiseSettledResult<Awaited<ReturnType<typeof execAsync>>>
 type CliStdoutSettledResult = PromiseSettledResult<{ stdout: string }>
 
-const GITHUB_ACCOUNT_SLUG_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$/
-
-function assertValidGitHubAccountSlug(org: string): void {
-  if (!GITHUB_ACCOUNT_SLUG_PATTERN.test(org)) {
-    throw new Error(`Invalid GitHub account slug: '${org}'`)
-  }
-}
-
 async function runGhApi(
   endpoint: string,
   execEnv: NodeJS.ProcessEnv,
@@ -79,8 +72,9 @@ async function tryGetCliToken(username?: string): Promise<string | null> {
     return null
   }
 
+  assertValidGitHubAccountSlug(username)
   try {
-    const { stdout } = await execAsync(`gh auth token --user ${username}`, {
+    const { stdout } = await execFileAsync('gh', buildGhAuthTokenArgs(username), {
       encoding: 'utf8',
       timeout: CLI_TIMEOUT_MS,
     })
@@ -161,7 +155,13 @@ export async function fetchCopilotMetrics(
   org: string,
   username?: string
 ): Promise<ReturnType<typeof assembleCopilotMetrics>> {
-  const execEnv = await getTokenEnv(username)
+  let execEnv: NodeJS.ProcessEnv
+  try {
+    assertValidGitHubAccountSlug(org)
+    execEnv = await getTokenEnv(username)
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
 
   const now = new Date()
   const year = now.getUTCFullYear()
@@ -462,9 +462,11 @@ async function fetchMonthlyTotals(
     const settled = await Promise.allSettled(
       batch.map(async login => {
         const encoded = encodeURIComponent(login)
-        const { stdout } = await execAsync(
-          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        const { stdout } = await runGhApi(
+          `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encoded}&product=Copilot`,
+          execEnv,
+          API_TIMEOUT_MS,
+          ['X-GitHub-Api-Version: 2022-11-28']
         )
         const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
         return { login, requests: sumGrossRequests(data.usageItems ?? []) }
@@ -509,9 +511,11 @@ async function probeBatchDayActivity(
   const settled = await Promise.allSettled(
     batch.map(async login => {
       const encoded = encodeURIComponent(login)
-      const { stdout } = await execAsync(
-        `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-        { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+      const { stdout } = await runGhApi(
+        `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
+        execEnv,
+        API_TIMEOUT_MS,
+        ['X-GitHub-Api-Version: 2022-11-28']
       )
       const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
       return { login, dayRequests: sumGrossRequests(data.usageItems ?? []) }
@@ -589,6 +593,7 @@ async function fetchCopilotSeats(
   fetchedSeats: number
   seats: ReturnType<typeof mapCopilotSeatData>[]
 }> {
+  assertValidGitHubAccountSlug(org)
   const seats: ReturnType<typeof mapCopilotSeatData>[] = []
   let page = 1
   const maxPages = 10
@@ -596,9 +601,11 @@ async function fetchCopilotSeats(
 
   while (page <= maxPages) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Copilot seats are paginated until the API reports all seats loaded.
-    const { stdout } = await execAsync(
-      `gh api "/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
+    const { stdout } = await runGhApi(
+      `/orgs/${org}/copilot/billing/seats?per_page=100&page=${page}`,
+      execEnv,
+      API_TIMEOUT_LONG_MS,
+      ['X-GitHub-Api-Version: 2022-11-28']
     )
     const data = JSON.parse(stdout.trim()) as CopilotSeatResponse
 
@@ -614,6 +621,7 @@ async function fetchCopilotSeats(
 
 function registerGitHubAuthHandlers(): void {
   ipcMain.handle(IPC_INVOKE.GITHUB_GET_CLI_TOKEN, async (_event, username?: string) => {
+    if (username) assertValidGitHubAccountSlug(username)
     try {
       const args = buildGhAuthTokenArgs(username)
       const { stdout, stderr } = await execFileAsync('gh', args, {
@@ -644,7 +652,8 @@ function registerGitHubAuthHandlers(): void {
 
   ipcMain.handle(IPC_INVOKE.GITHUB_SWITCH_ACCOUNT, async (_event, username: string) => {
     try {
-      await execAsync(`gh auth switch --user ${username}`, {
+      assertValidGitHubAccountSlug(username)
+      await execFileAsync('gh', ['auth', 'switch', '--user', username], {
         encoding: 'utf8',
         timeout: CLI_TIMEOUT_MS,
       })
@@ -663,11 +672,11 @@ function registerGitHubAuthHandlers(): void {
  * accounts or missing access) so callers can fall back to billing-usage seats.
  */
 async function fetchSeatCount(org: string, execEnv: NodeJS.ProcessEnv): Promise<number | null> {
+  assertValidGitHubAccountSlug(org)
   try {
-    const { stdout } = await execAsync(
-      `gh api /orgs/${org}/copilot/billing -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
-    )
+    const { stdout } = await runGhApi(`/orgs/${org}/copilot/billing`, execEnv, API_TIMEOUT_MS, [
+      'X-GitHub-Api-Version: 2022-11-28',
+    ])
     const data = JSON.parse(stdout.trim()) as { seat_breakdown?: { total?: number } }
     const total = data.seat_breakdown?.total
     return typeof total === 'number' ? total : null
@@ -681,6 +690,7 @@ function registerCopilotUsageHandlers(): void {
     IPC_INVOKE.GITHUB_GET_COPILOT_USAGE,
     async (_event, org: string, username?: string) => {
       try {
+        assertValidGitHubAccountSlug(org)
         const execEnv = await getTokenEnv(username)
         const now = new Date()
         const billingYear = now.getUTCFullYear()
@@ -753,6 +763,7 @@ function registerCopilotUsageHandlers(): void {
     IPC_INVOKE.GITHUB_GET_COPILOT_BUDGET,
     async (_event, org: string, username?: string) => {
       try {
+        assertValidGitHubAccountSlug(org)
         const execEnv = await getTokenEnv(username)
 
         const now = new Date()
@@ -785,12 +796,10 @@ function registerCopilotMemberHandlers(): void {
     IPC_INVOKE.GITHUB_GET_COPILOT_MEMBER_USAGE,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
+        assertValidGitHubAccountSlug(org)
+        assertValidGitHubAccountSlug(memberLogin)
         const execEnv = await getTokenEnv(username)
-        const { stdout } = await execAsync(`gh api "/orgs/${org}/members/${memberLogin}/copilot"`, {
-          encoding: 'utf8',
-          timeout: API_TIMEOUT_MS,
-          env: execEnv,
-        })
+        const { stdout } = await runGhApi(`/orgs/${org}/members/${memberLogin}/copilot`, execEnv)
         const seat = JSON.parse(stdout.trim()) as RawCopilotSeat
         return { success: true, data: mapCopilotSeatData(seat, memberLogin) }
       } catch (error: unknown) {
@@ -825,6 +834,8 @@ function registerCopilotMemberHandlers(): void {
 }
 
 async function fetchUserPremiumRequests(org: string, memberLogin: string, username?: string) {
+  assertValidGitHubAccountSlug(org)
+  assertValidGitHubAccountSlug(memberLogin)
   const execEnv = await getTokenEnv(username)
   const now = new Date()
   const year = now.getUTCFullYear()
@@ -833,17 +844,23 @@ async function fetchUserPremiumRequests(org: string, memberLogin: string, userna
   const encodedLogin = encodeURIComponent(memberLogin)
 
   const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
-    execAsync(
-      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    runGhApi(
+      `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot`,
+      execEnv,
+      API_TIMEOUT_MS,
+      ['X-GitHub-Api-Version: 2022-11-28']
     ),
-    execAsync(
-      `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    runGhApi(
+      `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot`,
+      execEnv,
+      API_TIMEOUT_MS,
+      ['X-GitHub-Api-Version: 2022-11-28']
     ),
-    execAsync(
-      `gh api "/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}" -H "X-GitHub-Api-Version: 2022-11-28"`,
-      { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+    runGhApi(
+      `/organizations/${org}/settings/billing/premium_request/usage?year=${year}&month=${month}`,
+      execEnv,
+      API_TIMEOUT_MS,
+      ['X-GitHub-Api-Version: 2022-11-28']
     ),
   ])
 
@@ -887,6 +904,7 @@ async function fetchUserMonthlyCredits(
   memberLogin: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<number | null> {
+  assertValidGitHubAccountSlug(memberLogin)
   const now = new Date()
   const year = now.getUTCFullYear()
   const month = now.getUTCMonth() + 1
@@ -902,9 +920,11 @@ async function fetchUserMonthlyCredits(
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-day billing calls.
     const settled = await Promise.allSettled(
       batch.map(async day => {
-        const { stdout } = await execAsync(
-          `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot" -H "X-GitHub-Api-Version: 2022-11-28"`,
-          { encoding: 'utf8', timeout: API_TIMEOUT_MS, env: execEnv }
+        const { stdout } = await runGhApi(
+          `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
+          execEnv,
+          API_TIMEOUT_MS,
+          ['X-GitHub-Api-Version: 2022-11-28']
         )
         const data = JSON.parse(stdout.trim()) as { usageItems?: PremiumUsageItem[] }
         return sumGrossRequests(data.usageItems ?? [])
@@ -926,6 +946,7 @@ function registerCopilotSeatHandlers(): void {
     IPC_INVOKE.GITHUB_GET_COPILOT_SEATS,
     async (_event, org: string, username?: string) => {
       try {
+        assertValidGitHubAccountSlug(org)
         const execEnv = await getTokenEnv(username)
         return {
           success: true,
@@ -946,6 +967,7 @@ function registerCopilotSeatHandlers(): void {
     IPC_INVOKE.GITHUB_GET_BATCH_MONTHLY_REQUESTS,
     async (_event, logins: string[], username?: string, skipDayProbing?: boolean) => {
       try {
+        for (const login of logins) assertValidGitHubAccountSlug(login)
         const execEnv = await getTokenEnv(username)
         const now = new Date()
         const year = now.getUTCFullYear()

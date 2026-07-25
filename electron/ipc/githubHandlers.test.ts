@@ -46,11 +46,15 @@ vi.mock('../../src/utils/budgetUtils', () => ({
 const mockParseActiveGitHubAccount = vi.fn().mockReturnValue(null)
 const mockBuildGhAuthTokenArgs = vi.fn().mockReturnValue(['auth', 'token'])
 const mockValidateCliToken = vi.fn().mockReturnValue({ valid: true, token: 'ghp_test' })
+const mockAssertValidGitHubAccountSlug = vi.fn((slug: string) => {
+  if (slug.includes(';')) throw new Error(`Invalid GitHub account slug: '${slug}'`)
+})
 
 vi.mock('../../src/utils/githubAuthUtils', () => ({
   parseActiveGitHubAccount: (...args: unknown[]) => mockParseActiveGitHubAccount(...args),
   buildGhAuthTokenArgs: (...args: unknown[]) => mockBuildGhAuthTokenArgs(...args),
   validateCliToken: (...args: unknown[]) => mockValidateCliToken(...args),
+  assertValidGitHubAccountSlug: (...args: [string]) => mockAssertValidGitHubAccountSlug(...args),
 }))
 
 const mockClassifyCliTokenError = vi.fn().mockReturnValue('unknown')
@@ -156,6 +160,16 @@ describe('githubHandlers', () => {
       const handler = handlers.get('github:get-cli-token')!
       await expect(handler({}, 'testuser')).rejects.toBe('cli-not-installed')
     })
+
+    it('rejects a metacharacter-bearing username before invoking gh', async () => {
+      const handler = handlers.get('github:get-cli-token')!
+
+      await expect(handler({}, 'testuser; echo injected')).rejects.toThrow(
+        "Invalid GitHub account slug: 'testuser; echo injected'"
+      )
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
   })
 
   describe('github:get-active-account', () => {
@@ -194,8 +208,9 @@ describe('githubHandlers', () => {
       const handler = handlers.get('github:switch-account')!
       const result = await handler({}, 'otheruser')
 
-      expect(mockExecAsync).toHaveBeenCalledWith(
-        'gh auth switch --user otheruser',
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['auth', 'switch', '--user', 'otheruser'],
         expect.objectContaining({ encoding: 'utf8', timeout: 5000 })
       )
       expect(result).toEqual({ success: true })
@@ -208,9 +223,33 @@ describe('githubHandlers', () => {
       const result = await handler({}, 'baduser')
       expect(result).toEqual({ success: false, error: 'account not found' })
     })
+
+    it('rejects a metacharacter-bearing username before invoking gh', async () => {
+      const handler = handlers.get('github:switch-account')!
+      const result = await handler({}, 'baduser; echo injected')
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'baduser; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
   })
 
   describe('github:get-copilot-quota', () => {
+    it('rejects a metacharacter-bearing username before invoking gh', async () => {
+      const handler = handlers.get('github:get-copilot-quota')!
+      const result = await handler({}, 'baduser; echo injected')
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'baduser; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns error when no token available', async () => {
       // tryGetCliToken returns null when execAsync fails
       mockExecAsync.mockRejectedValueOnce(new Error('no token'))
@@ -237,6 +276,21 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-copilot-usage', () => {
+    it('rejects invalid org and account slugs before invoking gh', async () => {
+      const handler = handlers.get('github:get-copilot-usage')!
+
+      await expect(handler({}, 'bad-org; echo injected', 'testuser')).resolves.toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'bad-org; echo injected'",
+      })
+      await expect(handler({}, 'test-org', 'baduser; echo injected')).resolves.toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'baduser; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns parsed usage data on success', async () => {
       // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -401,6 +455,18 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-copilot-budget', () => {
+    it('rejects an invalid org before invoking gh', async () => {
+      const handler = handlers.get('github:get-copilot-budget')!
+      const result = await handler({}, 'bad-org; echo injected', 'testuser')
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'bad-org; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns budget data on success', async () => {
       // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -433,6 +499,21 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-copilot-member-usage', () => {
+    it.each([
+      ['bad-org; echo injected', 'testmember'],
+      ['test-org', 'badmember; echo injected'],
+    ])('rejects invalid org/member %s/%s before invoking gh', async (org, memberLogin) => {
+      const handler = handlers.get('github:get-copilot-member-usage')!
+      const result = await handler({}, org, memberLogin, 'testuser')
+
+      expect(result).toEqual({
+        success: false,
+        error: `Invalid GitHub account slug: '${org.includes(';') ? org : memberLogin}'`,
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns member seat data on success', async () => {
       // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -452,6 +533,11 @@ describe('githubHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data.login).toBe('testmember')
       expect(result.data.planType).toBe('business')
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['api', '/orgs/test-org/members/testmember/copilot'],
+        expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
+      )
     })
 
     it('returns null data for 404 (no Copilot seat)', async () => {
@@ -485,6 +571,21 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-user-premium-requests', () => {
+    it.each([
+      ['bad-org; echo injected', 'testmember'],
+      ['test-org', 'badmember; echo injected'],
+    ])('rejects invalid org/member %s/%s before invoking gh', async (org, memberLogin) => {
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, org, memberLogin, 'testuser')
+
+      expect(result).toEqual({
+        success: false,
+        error: `Invalid GitHub account slug: '${org.includes(';') ? org : memberLogin}'`,
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns premium request data on success', async () => {
       // tryGetCliToken
       mockExecAsync.mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
@@ -498,6 +599,16 @@ describe('githubHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data.memberLogin).toBe('testmember')
       expect(result.data.org).toBe('test-org')
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        [
+          'api',
+          expect.stringContaining('user=testmember'),
+          '-H',
+          'X-GitHub-Api-Version: 2022-11-28',
+        ],
+        expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
+      )
     })
 
     it('returns premium request data with model breakdown when items have grossQuantity > 0', async () => {
@@ -578,6 +689,22 @@ describe('githubHandlers', () => {
   })
 
   describe('github:collect-copilot-snapshots', () => {
+    it('rejects an invalid account before invoking gh', async () => {
+      const handler = handlers.get('github:collect-copilot-snapshots')!
+      const result = await handler({}, [{ username: 'baduser; echo injected', org: 'test-org' }])
+
+      expect(result.results).toEqual([
+        {
+          success: false,
+          username: 'baduser; echo injected',
+          org: 'test-org',
+          error: "Invalid GitHub account slug: 'baduser; echo injected'",
+        },
+      ])
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('processes multiple accounts and returns per-account results', async () => {
       const { assembleCopilotMetrics } = await import('../../src/utils/billingParsers')
       vi.mocked(assembleCopilotMetrics).mockReturnValue({
@@ -1208,6 +1335,18 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-copilot-seats', () => {
+    it('rejects an invalid org before invoking gh', async () => {
+      const handler = handlers.get('github:get-copilot-seats')!
+      const result = await handler({}, 'bad-org; echo injected')
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'bad-org; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns paginated seat data', async () => {
       const seatPayload = {
         total_seats: 2,
@@ -1237,6 +1376,16 @@ describe('githubHandlers', () => {
       expect(result.data.totalSeats).toBe(2)
       expect(result.data.fetchedSeats).toBe(2)
       expect(result.data.seats).toHaveLength(2)
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        [
+          'api',
+          '/orgs/test-org/copilot/billing/seats?per_page=100&page=1',
+          '-H',
+          'X-GitHub-Api-Version: 2022-11-28',
+        ],
+        expect.objectContaining({ encoding: 'utf8', timeout: 20000 })
+      )
     })
 
     it('paginates when first page has 100 seats and more remain', async () => {
@@ -1294,6 +1443,18 @@ describe('githubHandlers', () => {
   })
 
   describe('github:get-batch-monthly-requests', () => {
+    it('rejects an invalid member login before invoking gh', async () => {
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, ['baduser; echo injected'], undefined, true)
+
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'baduser; echo injected'",
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
+    })
+
     it('returns monthly totals with skipDayProbing', async () => {
       const { sumGrossRequests } = await import('../../src/utils/billingParsers')
       vi.mocked(sumGrossRequests).mockReturnValue(10)
@@ -1309,6 +1470,11 @@ describe('githubHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data.alice).toEqual({ requests: 10, lastActiveDate: null })
       expect(result.data.bob).toEqual({ requests: 10, lastActiveDate: null })
+      expect(mockExecFileAsync).toHaveBeenCalledWith(
+        'gh',
+        ['api', expect.stringContaining('user=alice'), '-H', 'X-GitHub-Api-Version: 2022-11-28'],
+        expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
+      )
     })
 
     it('probes backwards for last active date when not skipping', async () => {

@@ -1,6 +1,6 @@
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
-import type { TempoIssueSummary, TempoWorklog } from '../../types/tempo'
+import type { DayColumn, TempoIssueSummary, TempoWorklog } from '../../types/tempo'
 import { formatDateKey } from '../../utils/dateUtils'
 import { isModKey, modLabel } from '../../utils/platform'
 import { getHoursClasses } from '../../utils/tempoUtils'
@@ -56,16 +56,6 @@ interface TempoTimesheetGridProps {
   onWorklogDelete: (worklog: TempoWorklog) => void
   onCopyToToday: (worklogs: TempoWorklog[]) => void
   onCopyFromPreviousMonth?: () => void
-}
-
-export interface DayColumn {
-  date: string // YYYY-MM-DD
-  dayNum: number
-  dayLabel: string // MON, TUE, ...
-  isWeekend: boolean
-  isToday: boolean
-  isHoliday: boolean
-  holidayName?: string
 }
 
 function buildDayHeaderClass(col: DayColumn): string {

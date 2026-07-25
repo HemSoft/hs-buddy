@@ -45,6 +45,17 @@ export interface TempoIssueSummary {
   hoursByDate: Record<string, number>
 }
 
+/** Calendar metadata for a column in the Tempo timesheet grid */
+export interface DayColumn {
+  date: string // YYYY-MM-DD
+  dayNum: number
+  dayLabel: string // MON, TUE, ...
+  isWeekend: boolean
+  isToday: boolean
+  isHoliday: boolean
+  holidayName?: string
+}
+
 /** Payload for creating a worklog */
 export interface CreateWorklogPayload {
   issueKey: string

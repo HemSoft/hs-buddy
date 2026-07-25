@@ -5,6 +5,22 @@ function Test-PortOpen([int]$Port, [string]$Address = '127.0.0.1') {
     Test-Connection -TargetName $Address -TcpPort $Port -Quiet
 }
 
+function Test-PortBindable([int]$Port, [string]$Address = '127.0.0.1') {
+    $listener = [System.Net.Sockets.TcpListener]::new(
+        [System.Net.IPAddress]::Parse($Address),
+        $Port
+    )
+
+    try {
+        $listener.Start()
+        return $true
+    } catch [System.Net.Sockets.SocketException] {
+        return $false
+    } finally {
+        $listener.Stop()
+    }
+}
+
 function Get-PortOwner([int]$Port) {
     if ($IsWindows) {
         return Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue |
@@ -22,9 +38,9 @@ function Get-PortOwner([int]$Port) {
 function Stop-PortOwner([int]$Port, [string]$Label = "Port $Port") {
     $pids = Get-PortOwner -Port $Port
     if ($pids) {
-        foreach ($pid in $pids) {
-            Write-Information "Killing process on $Label (PID $pid)..."
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+        foreach ($processId in $pids) {
+            Write-Information "Killing process on $Label (PID $processId)..."
+            Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
         }
         Start-Sleep -Seconds 2
     }

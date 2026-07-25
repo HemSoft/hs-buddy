@@ -1,7 +1,6 @@
 import { Check } from 'lucide-react'
-import type { TempoWorklog } from '../../types/tempo'
+import type { DayColumn, TempoWorklog } from '../../types/tempo'
 import { isModKey, modLabel } from '../../utils/platform'
-import type { DayColumn } from './TempoTimesheetGrid'
 
 function buildTotalCellClass(col: DayColumn, isDayComplete: boolean, dayTotal: number): string {
   return [

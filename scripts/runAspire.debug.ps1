@@ -32,12 +32,12 @@ $Reset = "${esc}[0m"
 Push-Location $repoRoot
 try {
 
-# -- Check if debug port is already in use --
-$portInUse = Test-PortOpen -Port $Port
-if ($portInUse) {
+# -- Check if debug port can be bound --
+if (-not (Test-PortBindable -Port $Port)) {
     Write-Information ""
-    Write-Information "${Yellow}WARNING: Port $Port is already in use.${Reset}"
-    Write-Information "${Yellow}Another debug instance may be running. Kill it first or use -Port to pick another.${Reset}"
+    Write-Information "${Yellow}WARNING: Port $Port cannot be bound.${Reset}"
+    Write-Information "${Yellow}Another debug instance may be running, or Windows may have reserved the port.${Reset}"
+    Write-Information "${Yellow}Stop the owner or use -Port to pick another.${Reset}"
     Write-Information ""
     exit 1
 }
@@ -49,6 +49,46 @@ if (-not $aspireCmd) {
     Write-Information ""
     Write-Information "${Red}ERROR: Aspire CLI not found.${Reset}"
     Write-Information "Install with: ${Yellow}curl -fsSL https://aspire.dev/install.sh | bash${Reset}"
+    Write-Information ""
+    exit 1
+}
+
+# -- Preflight: configured Aspire profile ports --
+$aspireConfig = Get-Content (Join-Path $repoRoot 'aspire.config.json') -Raw |
+    ConvertFrom-Json
+$httpsProfile = $aspireConfig.profiles.https
+$profileUrls = @($httpsProfile.applicationUrl -split ';')
+$profileUrls += @(
+    $httpsProfile.environmentVariables.PSObject.Properties |
+        ForEach-Object { $_.Value }
+)
+$profilePorts = @(
+    $profileUrls |
+        ForEach-Object {
+            $uri = $null
+            if (
+                [System.Uri]::TryCreate(
+                    [string]$_,
+                    [System.UriKind]::Absolute,
+                    [ref]$uri
+                ) -and
+                @('http', 'https') -contains $uri.Scheme
+            ) {
+                $uri.Port
+            }
+        } |
+        Sort-Object -Unique
+)
+$blockedProfilePorts = @(
+    $profilePorts |
+        Where-Object { -not (Test-PortBindable -Port $_) }
+)
+if ($blockedProfilePorts.Count -gt 0) {
+    Write-Information ""
+    Write-Information "${Red}ERROR: Aspire profile port(s) cannot be bound: $($blockedProfilePorts -join ', ')${Reset}"
+    Write-Information "${Yellow}A port may be in use or reserved by Windows.${Reset}"
+    Write-Information "${Yellow}Check listeners with Get-NetTCPConnection and reservations with:${Reset}"
+    Write-Information "${Yellow}netsh interface ipv4 show excludedportrange protocol=tcp${Reset}"
     Write-Information ""
     exit 1
 }

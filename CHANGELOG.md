@@ -9,11 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.894] - 2026-07-24
+## [0.1.898] - 2026-07-25
 
 ### Fixed
 
 - Validate scorecard repository identity
+
+## [0.1.897] - 2026-07-25
+
+### Fixed
+
+- Validate configured ports before launch
+
+## [0.1.896] - 2026-07-25
+
+### Changed
+
+- Break timesheet type cycle
+
+## [0.1.895] - 2026-07-24
+
+### Changed
+
+- Ratchet Electron coverage floors
+
+## [0.1.894] - 2026-07-24
+
+### Changed
+
+- Ratchet lint quality baseline
 
 ## [0.1.893] - 2026-07-23
 

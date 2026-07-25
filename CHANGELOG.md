@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.907] - 2026-07-25
+
+### Changed
+
+- Satisfy quality gate
+
+## [0.1.906] - 2026-07-25
+
+### Fixed
+
+- Scope legacy warning detection
+
+## [0.1.905] - 2026-07-25
+
+### Fixed
+
+- Make stalled PR warnings idempotent
+
 ## [0.1.904] - 2026-07-25
 
 ### Fixed

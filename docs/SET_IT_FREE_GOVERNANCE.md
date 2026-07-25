@@ -152,7 +152,7 @@ human approval (label `agent:human-required` applied immediately if detected):
 | Data migrations | `**/migrations/**`, `**/seeds/**` |
 | CI/CD config | `.github/workflows/**`, `Jenkinsfile`, `*.yml` in repo root |
 | Security config | `**/cors/**`, `**/csp/**`, `**/headers/**` |
-| Dependencies | `package-lock.json`, `yarn.lock`, `bun.lockb` (lock files only) |
+| Dependencies | `package-lock.json`, `yarn.lock`, `bun.lock` (lock files only) |
 
 Dependency version bumps in `package.json` / `*.csproj` are permitted at `risk:low`
 when driven by a repo-audit finding referencing a known CVE.

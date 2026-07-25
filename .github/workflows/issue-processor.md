@@ -27,6 +27,9 @@ safe-outputs:
     title-prefix: "[agent-fix] "
     labels: [agent:pr]
     draft: true
+    excluded-files: [bun.lock]
+    protected-files:
+      exclude: [bun.lockb]
   update-issue:
     target: "*"
     max: 3

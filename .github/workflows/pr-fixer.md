@@ -28,6 +28,9 @@ safe-outputs:
   create-pull-request:
     labels: [agent:pr, type:fix]
     draft: true
+    excluded-files: [bun.lock]
+    protected-files:
+      exclude: [bun.lockb]
   update-issue:
     target: "*"
     max: 5

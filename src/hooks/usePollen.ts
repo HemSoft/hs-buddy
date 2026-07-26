@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   type Dispatch,
@@ -156,6 +157,15 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
   const [state, setState] = useState<PollenState>({ data: null, loading: false, error: null })
   const mountedRef = useRef(true)
   const requestIdRef = useRef(0)
+  const locationKey = location ? `${location.latitude}:${location.longitude}` : null
+  const previousLocationKeyRef = useRef(locationKey)
+
+  useLayoutEffect(() => {
+    if (previousLocationKeyRef.current !== locationKey) {
+      previousLocationKeyRef.current = locationKey
+      requestIdRef.current += 1
+    }
+  }, [locationKey])
 
   useEffect(() => {
     mountedRef.current = true
@@ -190,7 +200,6 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
   // Fetch on mount and when location changes
   useEffect(() => {
-    requestIdRef.current += 1
     if (location) {
       refresh()
     }

@@ -1,4 +1,5 @@
 import { renderHook, act, waitFor } from '@testing-library/react'
+import { useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   usePollen,
@@ -315,6 +316,57 @@ describe('usePollen', () => {
 
     await act(async () => {
       resolveOldRequest({ success: true, data: MOCK_POLLEN })
+    })
+    expect(result.current.data).toEqual(newPollen)
+  })
+
+  it('invalidates the previous location request before passive effects run', async () => {
+    const newLocation = { latitude: 40.7128, longitude: -74.006 }
+    const newPollen: PollenData = {
+      tree: 2,
+      grass: 3,
+      weed: 4,
+      species: [],
+      healthRecommendations: [],
+    }
+    let resolveOldRequest!: (value: unknown) => void
+    let resolveNewRequest!: (value: unknown) => void
+    mockInvoke
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveOldRequest = resolve
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveNewRequest = resolve
+        })
+      )
+
+    const { result, rerender } = renderHook(
+      ({ location }) => {
+        const pollen = usePollen(location)
+        useLayoutEffect(() => {
+          if (location === newLocation) {
+            resolveOldRequest({ success: true, data: MOCK_POLLEN })
+          }
+        }, [location])
+        return pollen
+      },
+      { initialProps: { location: MOCK_LOCATION } }
+    )
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+    })
+
+    rerender({ location: newLocation })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+    })
+
+    expect(result.current.data).toBeNull()
+    await act(async () => {
+      resolveNewRequest({ success: true, data: newPollen })
     })
     expect(result.current.data).toEqual(newPollen)
   })

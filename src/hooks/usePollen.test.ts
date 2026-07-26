@@ -411,12 +411,14 @@ describe('usePollen', () => {
     })
     expect(result.current.data).toEqual(newPollen)
     expect(result.current.error).toBeNull()
+    expect(result.current.loading).toBe(false)
 
     await act(async () => {
       rejectOldRequest(new Error('Previous location failed'))
     })
     expect(result.current.data).toEqual(newPollen)
     expect(result.current.error).toBeNull()
+    expect(result.current.loading).toBe(false)
   })
 
   it('handles IPC unavailable gracefully (test environment)', async () => {

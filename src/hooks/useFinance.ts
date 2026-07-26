@@ -201,6 +201,19 @@ function removeFromWatchlist(
   }))
 }
 
+interface RefreshRequestState {
+  active: number
+  mounted: boolean
+}
+
+function isActiveRefresh(state: RefreshRequestState, requestId: number): boolean {
+  return state.mounted && requestId === state.active
+}
+
+function setRefreshMounted(stateRef: { current: RefreshRequestState }, mounted: boolean): void {
+  stateRef.current.mounted = mounted
+}
+
 export function useFinance() {
   const [watchlist, setWatchlistState] = useState<string[]>(readWatchlist)
 
@@ -218,10 +231,8 @@ export function useFinance() {
       : { quotes: [], loading: true, error: null, lastFetchedAt: null }
   })
 
-  const abortRef = useRef(false)
+  const refreshStateRef = useRef<RefreshRequestState>({ active: 0, mounted: true })
   const watchlistRef = useRef(watchlist)
-  // Tracks whether the user has mutated the watchlist locally. If so, we must
-  // NOT overwrite their changes when the async IPC load resolves.
   const mutatedRef = useRef(false)
 
   useEffect(() => {
@@ -230,20 +241,20 @@ export function useFinance() {
 
   const refresh = useCallback((symbols?: string[]) => {
     const list = symbols ?? watchlistRef.current
-    abortRef.current = false
+    const requestId = ++refreshStateRef.current.active
 
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     return fetchQuotes(list)
       .then(quotes => {
-        if (!abortRef.current) {
+        if (isActiveRefresh(refreshStateRef.current, requestId)) {
           const fetchedAt = Date.now()
           writeCache(quotes, fetchedAt)
           setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
         }
       })
       .catch(err => {
-        if (!abortRef.current) {
+        if (isActiveRefresh(refreshStateRef.current, requestId)) {
           setState(prev => ({
             quotes: prev.quotes,
             loading: false,
@@ -287,16 +298,16 @@ export function useFinance() {
   }, [refresh])
 
   useEffect(() => {
-    const abortState = abortRef
+    setRefreshMounted(refreshStateRef, true)
     if (!readCache()) {
       refresh().catch(() => {
         /* error already handled in state */
       })
     }
     return () => {
-      abortState.current = true
+      setRefreshMounted(refreshStateRef, false)
     }
-  }, [refresh, abortRef])
+  }, [refresh])
 
   return { ...state, watchlist, refresh: () => refresh(), addSymbol, removeSymbol }
 }

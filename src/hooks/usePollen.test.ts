@@ -23,6 +23,7 @@ const mockInvoke = vi.fn()
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
+  mockInvoke.mockReset()
   localStorage.clear()
   clearPollenCache()
   window.ipcRenderer = { invoke: mockInvoke } as never
@@ -270,6 +271,100 @@ describe('usePollen', () => {
     await waitFor(() => {
       expect(result2.current.data).toEqual(newPollen)
     })
+  })
+
+  it('ignores a previous location response that resolves after the active location', async () => {
+    const newLocation = { latitude: 40.7128, longitude: -74.006 }
+    const newPollen: PollenData = {
+      tree: 5,
+      grass: 4,
+      weed: 3,
+      species: [],
+      healthRecommendations: [],
+    }
+    let resolveOldRequest!: (value: unknown) => void
+    let resolveNewRequest!: (value: unknown) => void
+    mockInvoke
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveOldRequest = resolve
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveNewRequest = resolve
+        })
+      )
+
+    const { result, rerender } = renderHook(({ location }) => usePollen(location), {
+      initialProps: { location: MOCK_LOCATION },
+    })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+    })
+
+    rerender({ location: newLocation })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+    })
+
+    await act(async () => {
+      resolveNewRequest({ success: true, data: newPollen })
+    })
+    expect(result.current.data).toEqual(newPollen)
+
+    await act(async () => {
+      resolveOldRequest({ success: true, data: MOCK_POLLEN })
+    })
+    expect(result.current.data).toEqual(newPollen)
+  })
+
+  it('ignores a previous location error after the active location succeeds', async () => {
+    const newLocation = { latitude: 40.7128, longitude: -74.006 }
+    const newPollen: PollenData = {
+      tree: 4,
+      grass: 3,
+      weed: 2,
+      species: [],
+      healthRecommendations: [],
+    }
+    let rejectOldRequest!: (reason: Error) => void
+    let resolveNewRequest!: (value: unknown) => void
+    mockInvoke
+      .mockReturnValueOnce(
+        new Promise((_, reject) => {
+          rejectOldRequest = reject
+        })
+      )
+      .mockReturnValueOnce(
+        new Promise(resolve => {
+          resolveNewRequest = resolve
+        })
+      )
+
+    const { result, rerender } = renderHook(({ location }) => usePollen(location), {
+      initialProps: { location: MOCK_LOCATION },
+    })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(1)
+    })
+
+    rerender({ location: newLocation })
+    await waitFor(() => {
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+    })
+
+    await act(async () => {
+      resolveNewRequest({ success: true, data: newPollen })
+    })
+    expect(result.current.data).toEqual(newPollen)
+    expect(result.current.error).toBeNull()
+
+    await act(async () => {
+      rejectOldRequest(new Error('Previous location failed'))
+    })
+    expect(result.current.data).toEqual(newPollen)
+    expect(result.current.error).toBeNull()
   })
 
   it('handles IPC unavailable gracefully (test environment)', async () => {

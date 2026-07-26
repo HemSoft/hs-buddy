@@ -63,11 +63,14 @@ Report a table of uncovered functions with file path, function name, and priorit
 | `src/utils/billingParsers.bench.ts`                | parseBillingUsage (25/250/1000 items), settled-result billing JSON parsing, overage and assembled metrics helpers                                  |
 | `src/utils/sessionDigest.bench.ts`                 | aggregateResults (10/100/500 requests), countSearchChurn, computeDominantTools, computeSessionDigest                                               |
 | `src/utils/copilotEnterpriseUsers.bench.ts`        | parseCopilotEnterpriseUsersContent with BOM, normalizeCopilotEnterpriseUsersSnapshot for nested and direct aggregate user payloads                 |
+| `src/utils/financeCalc.bench.ts`                   | buildQuoteFromMeta and parseChartResponse over 10/100/1000 quote datasets                                                                          |
 
-## Baseline (2026-06-26, refresh #3)
+## Baseline (2026-06-26, refresh #3; finance added 2026-07-26)
 
-Captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5. Median of 5 runs.
-Vitest packages are pinned to 4.1.5 in `package.json` and `bun.lock`; refresh this baseline after any Bun, Node, or Vitest change.
+Core baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5.
+Finance baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
+Both use the median of 5 runs. Compare a section only when its captured toolchain matches;
+otherwise refresh it or use a same-runner base/candidate comparison.
 
 ### dateUtils
 
@@ -238,13 +241,23 @@ Vitest packages are pinned to 4.1.5 in `package.json` and `bun.lock`; refresh th
 | normalizeCopilotEnterpriseUsersSnapshot — 500 nested users           | 436          | 2.2919    |
 | normalizeCopilotEnterpriseUsersSnapshot — 500 direct aggregate users | 3,651        | 0.2739    |
 
+### financeCalc
+
+| Benchmark                        | ops/sec (hz) | mean (ms) |
+| -------------------------------- | ------------ | --------- |
+| buildQuoteFromMeta — 10 quotes   | 1,170,993    | 0.000854  |
+| buildQuoteFromMeta — 100 quotes  | 123,548      | 0.008094  |
+| buildQuoteFromMeta — 1000 quotes | 11,946       | 0.083708  |
+| parseChartResponse — 10 quotes   | 1,016,640    | 0.000984  |
+| parseChartResponse — 100 quotes  | 108,283      | 0.009235  |
+| parseChartResponse — 1000 quotes | 10,523       | 0.095029  |
+
 ## Known Coverage Gaps
 
 Functions that should have benchmarks but don't yet. Address these when touching the related code.
 
 | File                              | Priority | Notes                                                                                             |
 | --------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `src/utils/financeCalc.ts`        | Medium   | Finance aggregation and projection helpers should get focused benchmarks before broad changes.    |
 | `src/utils/networkSecurity.ts`    | Medium   | URL validation and security classification paths are worth benchmarking before further hardening. |
 | `src/utils/terminalPathUtils.ts`  | Low      | Path parsing helpers are pure and currently lower throughput risk.                                |
 | `src/utils/featureIntakeUtils.ts` | Low      | Intake formatting helpers are pure and lower frequency.                                           |

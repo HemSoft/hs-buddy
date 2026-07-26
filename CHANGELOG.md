@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.925] - 2026-07-26
+
+### Fixed
+
+- Tighten finance benchmark fixtures
+
+## [0.1.924] - 2026-07-26
+
+### Changed
+
+- Benchmark finance calculations
+
 ## [0.1.923] - 2026-07-26
 
 ### Changed

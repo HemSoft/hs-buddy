@@ -51,7 +51,7 @@ workflows when there is work to process.
 2. Run from the SFL repo:
 
    ```powershell
-   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "relias-engineering/hs-buddy"
+   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "HemSoft/hs-buddy"
    ```
 
 3. Review and merge the resulting PR
@@ -63,7 +63,7 @@ workflows when there is work to process.
 Labels are configured by running once:
 
 ```powershell
-.\deployment\governance\setup-labels.ps1 -Owner relias-engineering -Repo hs-buddy
+.\deployment\governance\setup-labels.ps1 -Owner HemSoft -Repo hs-buddy
 ```
 
 See the [full label taxonomy and governance policy](https://github.com/relias-engineering/set-it-free-loop/blob/main/deployment/governance/policy.md).

@@ -1075,6 +1075,49 @@ describe('githubHandlers', () => {
       )
     })
 
+    it('github:get-copilot-usage falls back from org billing to successful user billing', async () => {
+      const { isNotFoundError, parseBillingUsage } = await import('../../src/utils/billingParsers')
+      const usageItems = [{ product: 'copilot', grossQuantity: 7 }]
+
+      vi.mocked(isNotFoundError).mockImplementation(
+        error => error instanceof Error && error.message.includes('404')
+      )
+      vi.mocked(parseBillingUsage).mockReturnValueOnce({
+        premiumRequests: 7,
+        grossCost: 12,
+        discount: 1,
+        netCost: 11,
+        businessSeats: 3,
+        seatPlan: 'Copilot Business',
+      })
+      mockExecAsync
+        .mockRejectedValueOnce(new Error('HTTP 404 org'))
+        .mockResolvedValueOnce({ stdout: JSON.stringify({ usageItems }), stderr: '' })
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org')
+
+      expect(result).toEqual(
+        expect.objectContaining({
+          success: true,
+          data: expect.objectContaining({
+            org: 'test-org',
+            premiumRequests: 7,
+            netCost: 11,
+            seats: 3,
+            allItems: usageItems,
+          }),
+        })
+      )
+      expect(parseBillingUsage).toHaveBeenCalledWith(usageItems, expect.any(Object))
+      expect(mockExecAsync.mock.calls[0]?.[0]).toContain('/orgs/test-org/settings/billing/usage')
+      expect(mockExecAsync.mock.calls[1]?.[0]).toContain('/users/test-org/settings/billing/usage')
+    })
+
     it('github:get-copilot-usage returns a descriptive error after org and user 404s', async () => {
       const { isNotFoundError } = await import('../../src/utils/billingParsers')
 

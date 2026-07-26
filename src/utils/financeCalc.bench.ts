@@ -4,7 +4,13 @@ import {
   parseChartResponse,
   type ChartMeta,
   type ChartResponse,
+  type FinanceQuoteResult,
 } from './financeCalc'
+
+interface FinanceFixture {
+  meta: ChartMeta
+  response: ChartResponse
+}
 
 function makeMeta(index: number): ChartMeta {
   const previousClose = 100 + (index % 250)
@@ -19,23 +25,32 @@ function makeMeta(index: number): ChartMeta {
   }
 }
 
-function makeDataset(count: number): ChartMeta[] {
-  return Array.from({ length: count }, (_, index) => makeMeta(index))
+function makeDataset(count: number): FinanceFixture[] {
+  return Array.from({ length: count }, (_, index) => {
+    const meta = makeMeta(index)
+    return { meta, response: { chart: { result: [{ meta }] } } }
+  })
 }
 
-function buildQuotes(dataset: ChartMeta[]): number {
+function requireChange(result: FinanceQuoteResult): number {
+  if (!result.success || !result.quote) {
+    throw new Error(result.error ?? 'Finance benchmark produced no quote')
+  }
+  return result.quote.change
+}
+
+function buildQuotes(dataset: FinanceFixture[]): number {
   let changeTotal = 0
-  for (const meta of dataset) {
-    changeTotal += buildQuoteFromMeta(meta, meta.symbol).quote?.change ?? 0
+  for (const { meta } of dataset) {
+    changeTotal += requireChange(buildQuoteFromMeta(meta, meta.symbol))
   }
   return changeTotal
 }
 
-function parseResponses(dataset: ChartMeta[]): number {
+function parseResponses(dataset: FinanceFixture[]): number {
   let changeTotal = 0
-  for (const meta of dataset) {
-    const response: ChartResponse = { chart: { result: [{ meta }] } }
-    changeTotal += parseChartResponse(response, meta.symbol).quote?.change ?? 0
+  for (const { meta, response } of dataset) {
+    changeTotal += requireChange(parseChartResponse(response, meta.symbol))
   }
   return changeTotal
 }

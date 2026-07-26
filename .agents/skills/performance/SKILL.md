@@ -245,12 +245,12 @@ otherwise refresh it or use a same-runner base/candidate comparison.
 
 | Benchmark                        | ops/sec (hz) | mean (ms) |
 | -------------------------------- | ------------ | --------- |
-| buildQuoteFromMeta — 10 quotes   | 1,175,916    | 0.000850  |
-| buildQuoteFromMeta — 100 quotes  | 124,221      | 0.008050  |
-| buildQuoteFromMeta — 1000 quotes | 12,170       | 0.082172  |
-| parseChartResponse — 10 quotes   | 1,081,605    | 0.000925  |
-| parseChartResponse — 100 quotes  | 115,022      | 0.008694  |
-| parseChartResponse — 1000 quotes | 12,055       | 0.082954  |
+| buildQuoteFromMeta — 10 quotes   | 1,170,993    | 0.000854  |
+| buildQuoteFromMeta — 100 quotes  | 123,548      | 0.008094  |
+| buildQuoteFromMeta — 1000 quotes | 11,946       | 0.083708  |
+| parseChartResponse — 10 quotes   | 1,016,640    | 0.000984  |
+| parseChartResponse — 100 quotes  | 108,283      | 0.009235  |
+| parseChartResponse — 1000 quotes | 10,523       | 0.095029  |
 
 ## Known Coverage Gaps
 

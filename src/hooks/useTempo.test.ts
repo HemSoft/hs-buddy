@@ -194,6 +194,61 @@ describe('useUserSchedule', () => {
     expect(result.current.error).toBe('Failed to load schedule')
   })
 
+  it('keeps the newer schedule when the previous date range resolves last', async () => {
+    const aprilDays = [{ date: '2026-04-13', requiredSeconds: 28800, type: 'WORKING_DAY' }]
+    const mayDays = [{ date: '2026-05-01', requiredSeconds: 0, type: 'HOLIDAY' }]
+    let resolveApril!: (value: { success: boolean; data: typeof aprilDays }) => void
+    let resolveMay!: (value: { success: boolean; data: typeof mayDays }) => void
+    mockGetSchedule
+      .mockReturnValueOnce(new Promise(resolve => (resolveApril = resolve)))
+      .mockReturnValueOnce(new Promise(resolve => (resolveMay = resolve)))
+
+    const { result, rerender } = renderHook(({ from, to }) => useUserSchedule(from, to), {
+      initialProps: { from: '2026-04-01', to: '2026-04-30' },
+    })
+    rerender({ from: '2026-05-01', to: '2026-05-31' })
+
+    await act(async () => resolveMay({ success: true, data: mayDays }))
+    expect(result.current.schedule).toEqual(mayDays)
+    await act(async () => resolveApril({ success: true, data: aprilDays }))
+    expect(result.current.schedule).toEqual(mayDays)
+    expect(result.current.loading).toBe(false)
+  })
+
+  it('ignores a stale failure after the current date range succeeds', async () => {
+    const mayDays = [{ date: '2026-05-01', requiredSeconds: 0, type: 'HOLIDAY' }]
+    let resolveApril!: (value: { success: boolean; error: string }) => void
+    let resolveMay!: (value: { success: boolean; data: typeof mayDays }) => void
+    mockGetSchedule
+      .mockReturnValueOnce(new Promise(resolve => (resolveApril = resolve)))
+      .mockReturnValueOnce(new Promise(resolve => (resolveMay = resolve)))
+
+    const { result, rerender } = renderHook(({ from, to }) => useUserSchedule(from, to), {
+      initialProps: { from: '2026-04-01', to: '2026-04-30' },
+    })
+    rerender({ from: '2026-05-01', to: '2026-05-31' })
+
+    await act(async () => resolveMay({ success: true, data: mayDays }))
+    await act(async () => resolveApril({ success: false, error: 'April failed' }))
+    expect(result.current.schedule).toEqual(mayDays)
+    expect(result.current.error).toBeNull()
+  })
+
+  it('refreshes the current date range', async () => {
+    const initialDays = [{ date: '2026-04-13', requiredSeconds: 28800, type: 'WORKING_DAY' }]
+    const refreshedDays = [{ date: '2026-04-14', requiredSeconds: 28800, type: 'WORKING_DAY' }]
+    mockGetSchedule
+      .mockResolvedValueOnce({ success: true, data: initialDays })
+      .mockResolvedValueOnce({ success: true, data: refreshedDays })
+    const { result } = renderHook(() => useUserSchedule('2026-04-01', '2026-04-30'))
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    await act(async () => result.current.refresh())
+
+    expect(mockGetSchedule).toHaveBeenLastCalledWith('2026-04-01', '2026-04-30')
+    expect(result.current.schedule).toEqual(refreshedDays)
+  })
+
   it('skips stale schedule result after unmount', async () => {
     let resolveSchedule!: (v: unknown) => void
     mockGetSchedule.mockReturnValue(new Promise(r => (resolveSchedule = r)))

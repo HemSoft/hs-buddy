@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.923] - 2026-07-26
+
+### Changed
+
+- Assert stale requests clear loading
+
+## [0.1.922] - 2026-07-26
+
+### Fixed
+
+- Invalidate stale pollen requests earlier
+
+## [0.1.921] - 2026-07-26
+
+### Fixed
+
+- Ignore stale pollen responses
+
 ## [0.1.920] - 2026-07-26
 
 ### Fixed

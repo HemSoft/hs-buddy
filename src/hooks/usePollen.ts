@@ -1,6 +1,7 @@
 import {
   useState,
   useEffect,
+  useLayoutEffect,
   useCallback,
   useRef,
   type Dispatch,
@@ -155,6 +156,16 @@ function applyPollenFetchError(
 export function usePollen(location: { latitude: number; longitude: number } | null) {
   const [state, setState] = useState<PollenState>({ data: null, loading: false, error: null })
   const mountedRef = useRef(true)
+  const requestIdRef = useRef(0)
+  const locationKey = location ? `${location.latitude}:${location.longitude}` : null
+  const previousLocationKeyRef = useRef(locationKey)
+
+  useLayoutEffect(() => {
+    if (previousLocationKeyRef.current !== locationKey) {
+      previousLocationKeyRef.current = locationKey
+      requestIdRef.current += 1
+    }
+  }, [locationKey])
 
   useEffect(() => {
     mountedRef.current = true
@@ -166,6 +177,7 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
   const refresh = useCallback(async () => {
     if (!location) return
 
+    const requestId = ++requestIdRef.current
     const { latitude, longitude } = location
 
     const cachedState = readCachedPollenState(latitude, longitude)
@@ -178,9 +190,10 @@ export function usePollen(location: { latitude: number; longitude: number } | nu
 
     try {
       const result = await fetchPollen(latitude, longitude)
-      if (!mountedRef.current) return
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
       setState(prev => resolvePollenState(result, prev, latitude, longitude))
     } catch (err: unknown) {
+      if (requestId !== requestIdRef.current) return
       applyPollenFetchError(mountedRef, setState, err)
     }
   }, [location])

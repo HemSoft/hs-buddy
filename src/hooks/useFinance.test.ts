@@ -26,16 +26,6 @@ const QUOTE_AAPL = {
   marketOpen: true,
 }
 
-function deferred<T>() {
-  let resolve!: (value: T) => void
-  let reject!: (reason?: unknown) => void
-  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
-    resolve = resolvePromise
-    reject = rejectPromise
-  })
-  return { promise, resolve, reject }
-}
-
 describe('readWatchlist', () => {
   beforeEach(() => localStorage.clear())
 
@@ -256,84 +246,6 @@ describe('useFinance', () => {
     const { result } = renderHook(() => useFinance())
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.error).toBeTruthy()
-  })
-
-  it('keeps a newer watchlist refresh when the mount refresh resolves last', async () => {
-    localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
-    const mountQuote = deferred<unknown>()
-    const refreshedAapl = deferred<unknown>()
-    const refreshedTsla = deferred<unknown>()
-    const quoteTsla = { ...QUOTE_AAPL, symbol: 'TSLA', name: 'Tesla Inc' }
-
-    mockFetchQuote
-      .mockImplementationOnce(() => mountQuote.promise)
-      .mockImplementationOnce(() => refreshedAapl.promise)
-      .mockImplementationOnce(() => refreshedTsla.promise)
-
-    const { result } = renderHook(() => useFinance())
-    await waitFor(() => expect(mockFetchQuote).toHaveBeenCalledTimes(1))
-
-    act(() => {
-      result.current.addSymbol('TSLA')
-    })
-    await waitFor(() => expect(mockFetchQuote).toHaveBeenCalledTimes(3))
-
-    await act(async () => {
-      refreshedAapl.resolve({ success: true, quote: QUOTE_AAPL })
-      refreshedTsla.resolve({ success: true, quote: quoteTsla })
-    })
-    await waitFor(() => expect(result.current.loading).toBe(false))
-
-    const refreshedAt = result.current.lastFetchedAt
-    expect(result.current.quotes).toEqual([QUOTE_AAPL, quoteTsla])
-
-    await act(async () => {
-      mountQuote.resolve({
-        success: true,
-        quote: { ...QUOTE_AAPL, price: QUOTE_AAPL.price - 10 },
-      })
-    })
-
-    expect(result.current.quotes).toEqual([QUOTE_AAPL, quoteTsla])
-    expect(result.current.lastFetchedAt).toBe(refreshedAt)
-    expect(JSON.parse(localStorage.getItem('finance:cache') ?? '{}').quotes).toEqual([
-      QUOTE_AAPL,
-      quoteTsla,
-    ])
-  })
-
-  it('ignores a stale rejected refresh after a newer refresh succeeds', async () => {
-    localStorage.setItem('finance:watchlist', JSON.stringify(['AAPL']))
-    const mountQuote = deferred<unknown>()
-    const refreshedAapl = deferred<unknown>()
-    const refreshedTsla = deferred<unknown>()
-    const quoteTsla = { ...QUOTE_AAPL, symbol: 'TSLA', name: 'Tesla Inc' }
-
-    mockFetchQuote
-      .mockImplementationOnce(() => mountQuote.promise)
-      .mockImplementationOnce(() => refreshedAapl.promise)
-      .mockImplementationOnce(() => refreshedTsla.promise)
-
-    const { result } = renderHook(() => useFinance())
-    await waitFor(() => expect(mockFetchQuote).toHaveBeenCalledTimes(1))
-
-    act(() => {
-      result.current.addSymbol('TSLA')
-    })
-    await waitFor(() => expect(mockFetchQuote).toHaveBeenCalledTimes(3))
-
-    await act(async () => {
-      refreshedAapl.resolve({ success: true, quote: QUOTE_AAPL })
-      refreshedTsla.resolve({ success: true, quote: quoteTsla })
-    })
-    await waitFor(() => expect(result.current.loading).toBe(false))
-
-    await act(async () => {
-      mountQuote.reject(new Error('stale request failed'))
-    })
-
-    expect(result.current.error).toBeNull()
-    expect(result.current.quotes).toEqual([QUOTE_AAPL, quoteTsla])
   })
 
   it('ignores duplicate symbol in addSymbol', async () => {

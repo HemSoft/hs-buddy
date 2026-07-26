@@ -218,43 +218,44 @@ export function useFinance() {
       : { quotes: [], loading: true, error: null, lastFetchedAt: null }
   })
 
-  const activeRequestRef = useRef(0)
-  const mountedRef = useRef(true)
+  const requestState = useRef({ active: 0, mounted: true }).current
   const watchlistRef = useRef(watchlist)
-  // Tracks whether the user has mutated the watchlist locally. If so, we must
-  // NOT overwrite their changes when the async IPC load resolves.
+  // Prevent an async IPC load from overwriting a local watchlist mutation.
   const mutatedRef = useRef(false)
 
   useEffect(() => {
     watchlistRef.current = watchlist
   }, [watchlist])
 
-  const refresh = useCallback((symbols?: string[]) => {
-    const list = symbols ?? watchlistRef.current
-    const requestId = ++activeRequestRef.current
+  const refresh = useCallback(
+    (symbols?: string[]) => {
+      const list = symbols ?? watchlistRef.current
+      const requestId = ++requestState.active
 
-    setState(prev => ({ ...prev, loading: true, error: null }))
+      setState(prev => ({ ...prev, loading: true, error: null }))
 
-    return fetchQuotes(list)
-      .then(quotes => {
-        if (mountedRef.current && requestId === activeRequestRef.current) {
-          const fetchedAt = Date.now()
-          writeCache(quotes, fetchedAt)
-          setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
-        }
-      })
-      .catch(err => {
-        if (mountedRef.current && requestId === activeRequestRef.current) {
-          setState(prev => ({
-            quotes: prev.quotes,
-            loading: false,
-            error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
-            lastFetchedAt: prev.lastFetchedAt,
-          }))
-        }
-        throw err
-      })
-  }, [])
+      return fetchQuotes(list)
+        .then(quotes => {
+          if (requestState.mounted && requestId === requestState.active) {
+            const fetchedAt = Date.now()
+            writeCache(quotes, fetchedAt)
+            setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
+          }
+        })
+        .catch(err => {
+          if (requestState.mounted && requestId === requestState.active) {
+            setState(prev => ({
+              quotes: prev.quotes,
+              loading: false,
+              error: getErrorMessageWithFallback(err, 'Failed to fetch quotes'),
+              lastFetchedAt: prev.lastFetchedAt,
+            }))
+          }
+          throw err
+        })
+    },
+    [requestState]
+  )
 
   const addSymbol = useCallback(
     (symbol: string) =>
@@ -288,16 +289,16 @@ export function useFinance() {
   }, [refresh])
 
   useEffect(() => {
-    mountedRef.current = true
+    requestState.mounted = true
     if (!readCache()) {
       refresh().catch(() => {
         /* error already handled in state */
       })
     }
     return () => {
-      mountedRef.current = false
+      requestState.mounted = false
     }
-  }, [refresh])
+  }, [refresh, requestState])
 
   return { ...state, watchlist, refresh: () => refresh(), addSymbol, removeSymbol }
 }

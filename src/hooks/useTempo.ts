@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import type {
   TempoDaySummary,
   TempoWorklog,
@@ -113,11 +113,17 @@ export function useUserSchedule(from: string, to: string) {
   const [schedule, setSchedule] = useState<TempoScheduleDay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const requestIdRef = useRef(0)
+  const invalidateRequests = useCallback(() => {
+    requestIdRef.current++
+  }, [])
 
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
     const result = await window.tempo.getSchedule(from, to)
+    if (requestId !== requestIdRef.current) return
     if (result.success && result.data) {
       setSchedule(result.data)
     } else {
@@ -127,14 +133,9 @@ export function useUserSchedule(from: string, to: string) {
   }, [from, to])
 
   useEffect(() => {
-    let stale = false
-    load().then(() => {
-      if (stale) return
-    })
-    return () => {
-      stale = true
-    }
-  }, [load])
+    void load()
+    return invalidateRequests
+  }, [invalidateRequests, load])
 
   return { schedule, loading, error, refresh: load }
 }

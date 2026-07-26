@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.918] - 2026-07-26
+
+### Fixed
+
+- Ignore stale quote refreshes
+
 ## [0.1.917] - 2026-07-25
 
 ### Fixed

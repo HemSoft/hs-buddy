@@ -218,7 +218,8 @@ export function useFinance() {
       : { quotes: [], loading: true, error: null, lastFetchedAt: null }
   })
 
-  const abortRef = useRef(false)
+  const activeRequestRef = useRef(0)
+  const mountedRef = useRef(true)
   const watchlistRef = useRef(watchlist)
   // Tracks whether the user has mutated the watchlist locally. If so, we must
   // NOT overwrite their changes when the async IPC load resolves.
@@ -230,20 +231,20 @@ export function useFinance() {
 
   const refresh = useCallback((symbols?: string[]) => {
     const list = symbols ?? watchlistRef.current
-    abortRef.current = false
+    const requestId = ++activeRequestRef.current
 
     setState(prev => ({ ...prev, loading: true, error: null }))
 
     return fetchQuotes(list)
       .then(quotes => {
-        if (!abortRef.current) {
+        if (mountedRef.current && requestId === activeRequestRef.current) {
           const fetchedAt = Date.now()
           writeCache(quotes, fetchedAt)
           setState({ quotes, loading: false, error: null, lastFetchedAt: fetchedAt })
         }
       })
       .catch(err => {
-        if (!abortRef.current) {
+        if (mountedRef.current && requestId === activeRequestRef.current) {
           setState(prev => ({
             quotes: prev.quotes,
             loading: false,
@@ -287,16 +288,16 @@ export function useFinance() {
   }, [refresh])
 
   useEffect(() => {
-    const abortState = abortRef
+    mountedRef.current = true
     if (!readCache()) {
       refresh().catch(() => {
         /* error already handled in state */
       })
     }
     return () => {
-      abortState.current = true
+      mountedRef.current = false
     }
-  }, [refresh, abortRef])
+  }, [refresh])
 
   return { ...state, watchlist, refresh: () => refresh(), addSymbol, removeSymbol }
 }

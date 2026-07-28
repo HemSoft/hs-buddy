@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
+import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { enumerateCronOccurrences, validateCronExpression } from './cronUtils'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('enumerateCronOccurrences', () => {
   it('enumerates hourly occurrences within a 3-hour window (inclusive start)', () => {
@@ -139,6 +144,83 @@ describe('enumerateCronOccurrences', () => {
     const result = enumerateCronOccurrences('0 0 15 * 1', 'UTC', from, to)
     expect(result).toEqual([])
   })
+
+  it.each([
+    {
+      expression: '30 1 * * *',
+      from: '2026-11-01T04:00:00Z',
+      to: '2026-11-01T08:00:00Z',
+      expected: '2026-11-01T05:30:00.000Z',
+    },
+    {
+      expression: '30 2 * * *',
+      from: '2027-03-14T05:00:00Z',
+      to: '2027-03-14T09:00:00Z',
+      expected: '2027-03-14T07:30:00.000Z',
+    },
+  ])(
+    'agrees with calculateNextRunAt across the US DST transition for $expression',
+    ({ expression, from, to, expected }) => {
+      const timezone = 'America/New_York'
+      const fromTimestamp = Date.parse(from)
+      const occurrences = enumerateCronOccurrences(
+        expression,
+        timezone,
+        fromTimestamp,
+        Date.parse(to),
+        100,
+        false
+      )
+
+      expect(occurrences).toEqual([Date.parse(expected)])
+      expect(calculateNextRunAt(expression, timezone, new Date(fromTimestamp))).toBe(occurrences[0])
+    }
+  )
+
+  it('enumerates a monthly expression over 30 days in under 100 ms', () => {
+    const from = Date.parse('2026-01-01T00:00:00Z')
+    const durations = Array.from({ length: 3 }, () => {
+      const start = performance.now()
+      const occurrences = enumerateCronOccurrences(
+        '0 3 1 * *',
+        'America/New_York',
+        from,
+        from + 30 * 24 * 60 * 60 * 1000,
+        500,
+        false
+      )
+
+      expect(occurrences).toEqual([Date.parse('2026-01-01T08:00:00Z')])
+      return performance.now() - start
+    }).sort((left, right) => left - right)
+
+    expect(durations[1]).toBeLessThan(100)
+  })
+
+  it.each([
+    '@yearly',
+    '@annually',
+    '@monthly',
+    '@weekly',
+    '@daily',
+    '@hourly',
+    '@minutely',
+    '@weekdays',
+    '@weekends',
+  ])('keeps %s consistent with calculateNextRunAt', expression => {
+    const from = Date.parse('2025-01-01T00:01:00Z')
+    const occurrences = enumerateCronOccurrences(
+      expression,
+      'UTC',
+      from,
+      Date.parse('2026-01-02T00:00:00Z'),
+      1,
+      false
+    )
+
+    expect(occurrences).toHaveLength(1)
+    expect(calculateNextRunAt(expression, 'UTC', new Date(from))).toBe(occurrences[0])
+  })
 })
 
 describe('validateCronExpression', () => {
@@ -148,6 +230,10 @@ describe('validateCronExpression', () => {
 
   it('does not throw for a valid cron with timezone', () => {
     expect(() => validateCronExpression('0 0 * * *', 'America/New_York')).not.toThrow()
+  })
+
+  it('throws for an invalid timezone', () => {
+    expect(() => validateCronExpression('0 0 * * *', 'Not/A_Timezone')).toThrow()
   })
 
   it('throws for an invalid cron expression', () => {
@@ -162,8 +248,31 @@ describe('validateCronExpression', () => {
     expect(() => validateCronExpression('@daily')).not.toThrow()
   })
 
+  it('accepts surrounding whitespace on a valid five-field expression', () => {
+    expect(() => validateCronExpression(' 0 * * * * ')).not.toThrow()
+  })
+
+  it('rejects a four-field expression', () => {
+    expect(() => validateCronExpression('* * * *')).toThrow()
+  })
+
+  it.each(['H * * * *', 'H-59 * * * *', '0H * * * *', '0 0 L * *', '0 0 1L * *', '0 0 * * 1#2'])(
+    'rejects unsupported cron-parser extension %s',
+    expression => {
+      expect(() => validateCronExpression(expression)).toThrow()
+    }
+  )
+
+  it('rejects an expression with no calendar occurrence', () => {
+    expect(() => validateCronExpression('0 0 31 2 *')).toThrow()
+  })
+
   it('accepts aliases, question wildcards, ranges, and stepped ranges', () => {
     expect(() => validateCronExpression('*/15 9-17 ? jan mon-fri')).not.toThrow()
+  })
+
+  it('accepts uppercase weekday names containing H', () => {
+    expect(() => validateCronExpression('0 0 * * MON-THU')).not.toThrow()
   })
 
   it.each([
@@ -180,5 +289,15 @@ describe('validateCronExpression', () => {
     '0 0 * nope *',
   ])('throws for malformed parser segment %s', cronExpression => {
     expect(() => validateCronExpression(cronExpression)).toThrow()
+  })
+})
+
+describe('calculateNextRunAt', () => {
+  it('falls back to one hour from now when parsing fails', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_000)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    expect(calculateNextRunAt('INVALID')).toBe(3_601_000)
+    expect(consoleError).toHaveBeenCalledOnce()
   })
 })

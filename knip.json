@@ -23,6 +23,7 @@
     "src/**/*.{ts,tsx}",
     "electron/**/*.ts",
     "convex/**/*.ts",
+    "shared/**/*.ts",
     "scripts/**/*.ts",
     "perf/**/*.ts",
     "*.ts"

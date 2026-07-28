@@ -64,11 +64,13 @@ Report a table of uncovered functions with file path, function name, and priorit
 | `src/utils/sessionDigest.bench.ts`                 | aggregateResults (10/100/500 requests), countSearchChurn, computeDominantTools, computeSessionDigest                                               |
 | `src/utils/copilotEnterpriseUsers.bench.ts`        | parseCopilotEnterpriseUsersContent with BOM, normalizeCopilotEnterpriseUsersSnapshot for nested and direct aggregate user payloads                 |
 | `src/utils/financeCalc.bench.ts`                   | buildQuoteFromMeta and parseChartResponse over 10/100/1000 quote datasets                                                                          |
+| `src/utils/networkSecurity.bench.ts`               | validateUrl public/private/malformed URL paths, isInternalHostname, isPrivateIP IPv4/IPv6 classification                                           |
 
-## Baseline (2026-06-26, refresh #3; finance added 2026-07-26)
+## Baseline (2026-06-26, refresh #3; finance added 2026-07-26; network security added 2026-07-28)
 
 Core baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5.
 Finance baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
+Network security baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
 Both use the median of 5 runs. Compare a section only when its captured toolchain matches;
 otherwise refresh it or use a same-runner base/candidate comparison.
 
@@ -252,13 +254,25 @@ otherwise refresh it or use a same-runner base/candidate comparison.
 | parseChartResponse — 100 quotes  | 108,283      | 0.009235  |
 | parseChartResponse — 1000 quotes | 10,523       | 0.095029  |
 
+### networkSecurity
+
+| Benchmark                                      | ops/sec (hz) | mean (ms) |
+| ---------------------------------------------- | ------------ | --------- |
+| validateUrl — public HTTPS URL                 | 1,772,553    | 0.0005642 |
+| validateUrl — public IPv4 URL                  | 1,827,696    | 0.0005471 |
+| validateUrl — public IPv6 URL                  | 1,402,559    | 0.0007130 |
+| validateUrl — private URL rejection            | 110,801      | 0.0090252 |
+| validateUrl — malformed URL rejection          | 40,245       | 0.0248477 |
+| isInternalHostname — mixed hostnames           | 2,864,022    | 0.0003492 |
+| isPrivateIP — IPv4 batch                       | 2,273,372    | 0.0004399 |
+| isPrivateIP — IPv6 batch                       | 3,627,356    | 0.0002757 |
+
 ## Known Coverage Gaps
 
 Functions that should have benchmarks but don't yet. Address these when touching the related code.
 
 | File                              | Priority | Notes                                                                                             |
 | --------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `src/utils/networkSecurity.ts`    | Medium   | URL validation and security classification paths are worth benchmarking before further hardening. |
 | `src/utils/terminalPathUtils.ts`  | Low      | Path parsing helpers are pure and currently lower throughput risk.                                |
 | `src/utils/featureIntakeUtils.ts` | Low      | Intake formatting helpers are pure and lower frequency.                                           |
 | `src/utils/scheduleUtils.ts`      | Low      | Schedule display helpers are pure and lower frequency.                                            |

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-22T20:08:32.942Z",
+  "updatedAt": "2026-07-28T21:37:00.074Z",
   "bundles": [
     {
       "file": "dist/assets/emacs-lisp.js",
@@ -1508,8 +1508,8 @@
     },
     {
       "file": "dist-electron/rolldown-runtime.js",
-      "sizeBytes": 1261,
-      "sizeHuman": "1.23 kB"
+      "sizeBytes": 1341,
+      "sizeHuman": "1.31 kB"
     },
     {
       "file": "dist/assets/git-commit.js",
@@ -1553,8 +1553,8 @@
     },
     {
       "file": "dist/assets/rolldown-runtime.js",
-      "sizeBytes": 694,
-      "sizeHuman": "694 B"
+      "sizeBytes": 1084,
+      "sizeHuman": "1.06 kB"
     },
     {
       "file": "dist/assets/codeowners.js",

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { enumerateCronOccurrences, validateCronExpression } from './cronUtils'
 
@@ -266,5 +266,17 @@ describe('validateCronExpression', () => {
     '0 0 * nope *',
   ])('throws for malformed parser segment %s', cronExpression => {
     expect(() => validateCronExpression(cronExpression)).toThrow()
+  })
+})
+
+describe('calculateNextRunAt', () => {
+  it('falls back to one hour from now when parsing fails', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(1_000)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+
+    expect(calculateNextRunAt('INVALID')).toBe(3_601_000)
+    expect(consoleError).toHaveBeenCalledOnce()
+
+    vi.restoreAllMocks()
   })
 })

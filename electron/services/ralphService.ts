@@ -5,9 +5,10 @@
  * Follows module-based singleton pattern (see crewService.ts).
  */
 
-import { spawn, execSync, type ChildProcess } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, rm, writeFileSync } from 'node:fs'
+import { spawn, execSync, type ChildProcess, type ChildProcessByStdio } from 'node:child_process'
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve, isAbsolute, dirname, basename } from 'node:path'
+import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -342,10 +343,31 @@ interface ResolvedPromptArg {
   tempFile?: string
 }
 
+function removePromptFile(promptFile: string): Error | undefined {
+  try {
+    rmSync(promptFile, { force: true })
+    return undefined
+  } catch (err: unknown) {
+    return err instanceof Error ? err : new Error(String(err))
+  }
+}
+
 function resolvePromptArg(prompt: string): ResolvedPromptArg {
   if (prompt.includes('\n') || prompt.length > 500) {
     const promptFile = join(tmpdir(), `ralph-prompt-${randomUUID().slice(0, 8)}.md`)
-    writeFileSync(promptFile, prompt, 'utf-8')
+    try {
+      writeFileSync(promptFile, prompt, 'utf-8')
+    } catch (err: unknown) {
+      const cleanupError = removePromptFile(promptFile)
+      if (cleanupError) {
+        throw new AggregateError(
+          [err, cleanupError],
+          `Failed to write and clean up prompt temp file: ${promptFile}`,
+          { cause: err }
+        )
+      }
+      throw err
+    }
     return { arg: promptFile, tempFile: promptFile }
   }
   return { arg: prompt }
@@ -467,19 +489,27 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   }
 
   const { args, tempPromptFile } = buildArgs(config, scriptPath)
+  if (tempPromptFile) promptTempFiles.set(runId, tempPromptFile)
 
-  const proc = spawn(POWERSHELL_CORE_EXECUTABLE, args, {
-    cwd: config.repoPath,
-    shell: false,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env },
-  })
+  let proc: ChildProcessByStdio<null, Readable, Readable>
+  try {
+    proc = spawn(POWERSHELL_CORE_EXECUTABLE, args, {
+      cwd: config.repoPath,
+      shell: false,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env },
+    })
+  } catch (err: unknown) {
+    const cleanupError = cleanupPromptTempFile(runId)
+    const spawnError = err instanceof Error ? err.message : String(err)
+    const cleanupSuffix = cleanupError ? `; cleanup failed: ${cleanupError.message}` : ''
+    return { success: false, error: `${spawnError}${cleanupSuffix}` }
+  }
 
   const run = createRunInfo(runId, config, proc)
 
   activeRuns.set(runId, run)
   activeProcesses.set(runId, proc)
-  if (tempPromptFile) promptTempFiles.set(runId, tempPromptFile)
 
   // Stream stdout
   proc.stdout.on('data', (data: Buffer) => {
@@ -550,14 +580,18 @@ function appendLogLine(runId: string, line: string): void {
   }
 }
 
-function cleanupPromptTempFile(runId: string): void {
+function cleanupPromptTempFile(runId: string): Error | undefined {
   const promptFile = promptTempFiles.get(runId)
-  if (!promptFile) return
+  if (!promptFile) return undefined
+
+  const cleanupError = removePromptFile(promptFile)
+  if (cleanupError) {
+    appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${cleanupError.message}`)
+    return cleanupError
+  }
 
   promptTempFiles.delete(runId)
-  rm(promptFile, { force: true }, err => {
-    if (err) appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${err.message}`)
-  })
+  return undefined
 }
 
 function detectPhase(run: RalphRunInfo, clean: string): void {
@@ -702,8 +736,6 @@ export function stopLoop(runId: string): RalphStopResult {
     const errorMsg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
     markRunStopped(run, 'failed', errorMsg)
     return { success: false, error: errorMsg }
-  } finally {
-    cleanupPromptTempFile(runId)
   }
 }
 

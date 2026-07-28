@@ -30,19 +30,13 @@ const mockExistsSync = vi.fn().mockReturnValue(false)
 const mockReadFileSync = vi.fn().mockReturnValue('{}')
 const mockReaddirSync = vi.fn().mockReturnValue([])
 const mockWriteFileSync = vi.fn()
-const mockRm = vi.fn(
-  (
-    _path: string,
-    _options: { force: boolean },
-    callback: (error: NodeJS.ErrnoException | null) => void
-  ) => callback(null)
-)
+const mockRmSync = vi.fn()
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
-  rm: (...args: Parameters<typeof mockRm>) => mockRm(...args),
+  rmSync: (...args: unknown[]) => mockRmSync(...args),
   writeFileSync: (...args: unknown[]) => mockWriteFileSync(...args),
 }))
 
@@ -743,7 +737,7 @@ describe('ralphService', () => {
       const promptFile = mockWriteFileSync.mock.calls[0][0]
 
       lastMockProc.emit('close', 0)
-      expect(mockRm).toHaveBeenCalledWith(promptFile, { force: true }, expect.any(Function))
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
     })
 
     it('writes multiline prompt to temp file', () => {
@@ -764,8 +758,8 @@ describe('ralphService', () => {
       lastMockProc.emit('error', new Error('spawn ENOENT'))
       lastMockProc.emit('close', 1)
 
-      expect(mockRm).toHaveBeenCalledWith(promptFile, { force: true }, expect.any(Function))
-      expect(mockRm).toHaveBeenCalledTimes(1)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+      expect(mockRmSync).toHaveBeenCalledTimes(1)
     })
 
     it('passes short prompt directly as arg', () => {
@@ -781,7 +775,7 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).not.toHaveBeenCalled()
 
       lastMockProc.emit('close', 0)
-      expect(mockRm).not.toHaveBeenCalled()
+      expect(mockRmSync).not.toHaveBeenCalled()
     })
 
     it('deletes a prompt temp file when the run is cancelled', () => {
@@ -795,7 +789,63 @@ describe('ralphService', () => {
       const result = stopLoop('test-uuid-1234')
 
       expect(result.success).toBe(true)
-      expect(mockRm).toHaveBeenCalledWith(promptFile, { force: true }, expect.any(Function))
+      expect(mockRmSync).not.toHaveBeenCalled()
+
+      lastMockProc.emit('close', null)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+    })
+
+    it('retries prompt cleanup after a transient removal failure', () => {
+      mockRmSync.mockImplementationOnce(() => {
+        throw new Error('file busy')
+      })
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      lastMockProc.emit('error', new Error('spawn ENOENT'))
+      expect(mockRmSync).toHaveBeenCalledTimes(1)
+
+      lastMockProc.emit('close', 1)
+      expect(mockRmSync).toHaveBeenCalledTimes(2)
+      expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+    })
+
+    it('removes a partially written prompt file when writing fails', () => {
+      const writeError = new Error('disk full')
+      mockWriteFileSync.mockImplementationOnce(() => {
+        throw writeError
+      })
+
+      expect(() =>
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+      ).toThrow(writeError)
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+    })
+
+    it('removes the prompt file when spawning throws synchronously', () => {
+      mockSpawn.mockImplementationOnce(() => {
+        throw new Error('invalid spawn options')
+      })
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('invalid spawn options')
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
     })
 
     it('adds -Labels arg when labels are specified', () => {
@@ -998,7 +1048,10 @@ describe('ralphService', () => {
 
       const status = getLoopStatus('test-uuid-1234')
       expect(status?.status).toBe('failed')
-      expect(mockRm).toHaveBeenCalledWith(promptFile, { force: true }, expect.any(Function))
+      expect(mockRmSync).not.toHaveBeenCalled()
+
+      lastMockProc.emit('close', 1)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
       setStatusChangeCallback(null)
     })
   })

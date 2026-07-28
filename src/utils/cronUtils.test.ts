@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { enumerateCronOccurrences, validateCronExpression } from './cronUtils'
 
 describe('enumerateCronOccurrences', () => {
@@ -139,6 +140,79 @@ describe('enumerateCronOccurrences', () => {
     const result = enumerateCronOccurrences('0 0 15 * 1', 'UTC', from, to)
     expect(result).toEqual([])
   })
+
+  it.each([
+    {
+      expression: '30 1 * * *',
+      from: '2026-11-01T04:00:00Z',
+      to: '2026-11-01T08:00:00Z',
+      expected: '2026-11-01T05:30:00.000Z',
+    },
+    {
+      expression: '30 2 * * *',
+      from: '2027-03-14T05:00:00Z',
+      to: '2027-03-14T09:00:00Z',
+      expected: '2027-03-14T07:30:00.000Z',
+    },
+  ])(
+    'agrees with calculateNextRunAt across the US DST transition for $expression',
+    ({ expression, from, to, expected }) => {
+      const timezone = 'America/New_York'
+      const fromTimestamp = Date.parse(from)
+      const occurrences = enumerateCronOccurrences(
+        expression,
+        timezone,
+        fromTimestamp,
+        Date.parse(to),
+        100,
+        false
+      )
+
+      expect(occurrences).toEqual([Date.parse(expected)])
+      expect(calculateNextRunAt(expression, timezone, new Date(fromTimestamp))).toBe(occurrences[0])
+    }
+  )
+
+  it('enumerates a monthly expression over 30 days in under 100 ms', () => {
+    const from = Date.parse('2026-01-01T00:00:00Z')
+    const start = performance.now()
+
+    enumerateCronOccurrences(
+      '0 3 1 * *',
+      'America/New_York',
+      from,
+      from + 30 * 24 * 60 * 60 * 1000,
+      500,
+      false
+    )
+
+    expect(performance.now() - start).toBeLessThan(100)
+  })
+
+  it.each([
+    '@yearly',
+    '@annually',
+    '@monthly',
+    '@weekly',
+    '@daily',
+    '@hourly',
+    '@minutely',
+    '@weekdays',
+    '@weekends',
+  ])('keeps %s consistent with calculateNextRunAt', expression => {
+    const from = Date.parse('2025-01-01T00:01:00Z')
+    const occurrences = enumerateCronOccurrences(
+      expression,
+      'UTC',
+      from,
+      Date.parse('2026-01-02T00:00:00Z'),
+      1,
+      false
+    )
+
+    expect(occurrences).toHaveLength(1)
+    expect(calculateNextRunAt(expression, 'UTC', new Date(from))).toBe(occurrences[0])
+  })
 })
 
 describe('validateCronExpression', () => {
@@ -148,6 +222,10 @@ describe('validateCronExpression', () => {
 
   it('does not throw for a valid cron with timezone', () => {
     expect(() => validateCronExpression('0 0 * * *', 'America/New_York')).not.toThrow()
+  })
+
+  it('throws for an invalid timezone', () => {
+    expect(() => validateCronExpression('0 0 * * *', 'Not/A_Timezone')).toThrow()
   })
 
   it('throws for an invalid cron expression', () => {
@@ -160,6 +238,14 @@ describe('validateCronExpression', () => {
 
   it('accepts common predefined expressions', () => {
     expect(() => validateCronExpression('@daily')).not.toThrow()
+  })
+
+  it('accepts surrounding whitespace on a valid five-field expression', () => {
+    expect(() => validateCronExpression(' 0 * * * * ')).not.toThrow()
+  })
+
+  it('rejects a four-field expression', () => {
+    expect(() => validateCronExpression('* * * *')).toThrow()
   })
 
   it('accepts aliases, question wildcards, ranges, and stepped ranges', () => {

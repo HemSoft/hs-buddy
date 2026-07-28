@@ -732,7 +732,7 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         longPrompt,
-        'utf-8'
+        { encoding: 'utf-8', mode: 0o600 }
       )
       const promptFile = mockWriteFileSync.mock.calls[0][0]
 
@@ -751,7 +751,7 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         multilinePrompt,
-        'utf-8'
+        { encoding: 'utf-8', mode: 0o600 }
       )
       const promptFile = mockWriteFileSync.mock.calls[0][0]
 
@@ -812,6 +812,30 @@ describe('ralphService', () => {
       lastMockProc.emit('close', 1)
       expect(mockRmSync).toHaveBeenCalledTimes(2)
       expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+    })
+
+    it('retries a transient cleanup failure after the final close event', () => {
+      vi.useFakeTimers()
+      try {
+        mockRmSync.mockImplementationOnce(() => {
+          throw new Error('file busy')
+        })
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+        const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+        lastMockProc.emit('close', 0)
+        expect(mockRmSync).toHaveBeenCalledTimes(1)
+
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(2)
+        expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('removes a partially written prompt file when writing fails', () => {

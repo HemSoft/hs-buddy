@@ -30,6 +30,8 @@ const MAX_LOG_BUFFER = 5000
 const VENDORED_SCRIPTS_DIR = 'scripts/ralph-loops'
 const KILL_TIMEOUT_MS = 5_000
 const POWERSHELL_CORE_EXECUTABLE = 'pwsh'
+const PROMPT_CLEANUP_MAX_ATTEMPTS = 3
+const PROMPT_CLEANUP_RETRY_MS = 100
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -51,6 +53,7 @@ function emitStatusChange(run: RalphRunInfo): void {
 const activeRuns = new Map<string, RalphRunInfo>()
 const activeProcesses = new Map<string, ChildProcess>()
 const promptTempFiles = new Map<string, string>()
+const promptCleanupAttempts = new Map<string, number>()
 
 // ── Config ──────────────────────────────────────────────────────
 
@@ -356,7 +359,7 @@ function resolvePromptArg(prompt: string): ResolvedPromptArg {
   if (prompt.includes('\n') || prompt.length > 500) {
     const promptFile = join(tmpdir(), `ralph-prompt-${randomUUID().slice(0, 8)}.md`)
     try {
-      writeFileSync(promptFile, prompt, 'utf-8')
+      writeFileSync(promptFile, prompt, { encoding: 'utf-8', mode: 0o600 })
     } catch (err: unknown) {
       const cleanupError = removePromptFile(promptFile)
       if (cleanupError) {
@@ -584,13 +587,22 @@ function cleanupPromptTempFile(runId: string): Error | undefined {
   const promptFile = promptTempFiles.get(runId)
   if (!promptFile) return undefined
 
+  const attempt = (promptCleanupAttempts.get(runId) ?? 0) + 1
+  if (attempt > PROMPT_CLEANUP_MAX_ATTEMPTS) return undefined
+  promptCleanupAttempts.set(runId, attempt)
+
   const cleanupError = removePromptFile(promptFile)
   if (cleanupError) {
     appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${cleanupError.message}`)
+    if (attempt < PROMPT_CLEANUP_MAX_ATTEMPTS) {
+      const retry = setTimeout(() => cleanupPromptTempFile(runId), PROMPT_CLEANUP_RETRY_MS)
+      retry.unref()
+    }
     return cleanupError
   }
 
   promptTempFiles.delete(runId)
+  promptCleanupAttempts.delete(runId)
   return undefined
 }
 

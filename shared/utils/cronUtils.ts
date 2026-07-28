@@ -37,12 +37,14 @@ function normalizeStandardCronExpression(cronExpression: string): string {
 }
 
 function hasUnsupportedExtension(fields: string[]): boolean {
-  const segments = fields.flatMap(field => field.split(','))
+  const fieldsWithoutWeekdayAliases = fields.map((field, index) =>
+    index === 4 ? field.replaceAll(/THU/gi, '') : field
+  )
   return (
     fields.some(field => field.includes('#')) ||
-    segments.some(segment => /^H(?:$|[(/])/i.test(segment)) ||
-    fields[2].split(',').some(segment => /^L/i.test(segment)) ||
-    fields[4].split(',').some(segment => /L$/i.test(segment))
+    fieldsWithoutWeekdayAliases.some(field => /H/i.test(field)) ||
+    fields[2].includes('L') ||
+    fields[4].includes('L')
   )
 }
 
@@ -76,19 +78,7 @@ export function calculateNextRunAt(
  */
 export function validateCronExpression(cronExpression: string, timezone?: string): void {
   if (timezone) new Intl.DateTimeFormat(undefined, { timeZone: timezone })
-  const normalizedExpression = normalizeStandardCronExpression(cronExpression)
-  const options = parserOptions(timezone)
-
-  try {
-    CronExpressionParser.parse(normalizedExpression, options)
-  } catch (_error: unknown) {
-    const fields = normalizedExpression.split(/\s+/)
-    for (const [index, field] of fields.entries()) {
-      const isolatedFields = ['*', '*', '*', '*', '*']
-      isolatedFields[index] = field
-      CronExpressionParser.parse(isolatedFields.join(' '), options)
-    }
-  }
+  parseCronExpression(cronExpression, parserOptions(timezone))
 }
 
 /**

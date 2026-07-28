@@ -256,19 +256,30 @@ describe('validateCronExpression', () => {
     expect(() => validateCronExpression('* * * *')).toThrow()
   })
 
-  it.each(['H * * * *', '0 0 L * *', '0 0 * * 1#2'])(
+  it.each([
+    'H * * * *',
+    'H-59 * * * *',
+    '0H * * * *',
+    '0 0 L * *',
+    '0 0 1L * *',
+    '0 0 * * 1#2',
+  ])(
     'rejects unsupported cron-parser extension %s',
     expression => {
       expect(() => validateCronExpression(expression)).toThrow()
     }
   )
 
-  it('accepts a syntactically valid expression with no calendar occurrence', () => {
-    expect(() => validateCronExpression('0 0 31 2 *')).not.toThrow()
+  it('rejects an expression with no calendar occurrence', () => {
+    expect(() => validateCronExpression('0 0 31 2 *')).toThrow()
   })
 
   it('accepts aliases, question wildcards, ranges, and stepped ranges', () => {
     expect(() => validateCronExpression('*/15 9-17 ? jan mon-fri')).not.toThrow()
+  })
+
+  it('accepts uppercase weekday names containing H', () => {
+    expect(() => validateCronExpression('0 0 * * MON-THU')).not.toThrow()
   })
 
   it.each([

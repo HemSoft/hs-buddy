@@ -71,7 +71,7 @@ Report a table of uncovered functions with file path, function name, and priorit
 Core baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5.
 Finance baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
 Network security baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
-Both use the median of 5 runs. Compare a section only when its captured toolchain matches;
+All three use the median of 5 runs. Compare a section only when its captured toolchain matches;
 otherwise refresh it or use a same-runner base/candidate comparison.
 
 ### dateUtils

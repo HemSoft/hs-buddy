@@ -22,16 +22,32 @@ function parserOptions(timezone?: string): CronExpressionOptions {
   return timezone ? { tz: timezone } : {}
 }
 
-function parseCronExpression(cronExpression: string, options: CronExpressionOptions) {
+function normalizeStandardCronExpression(cronExpression: string): string {
   const normalizedExpression = normalizeCronExpression(cronExpression).trim()
+  const fields = normalizedExpression.split(/\s+/)
   if (
-    normalizedExpression.split(/\s+/).length !== 5 ||
-    /(?:^|\s|,)[^,\s]*-[^,\s]*-/.test(normalizedExpression)
+    fields.length !== 5 ||
+    /(?:^|\s|,)[^,\s]*-[^,\s]*-/.test(normalizedExpression) ||
+    hasUnsupportedExtension(fields)
   ) {
     throw new Error(`Invalid cron expression: ${cronExpression}`)
   }
 
-  return CronExpressionParser.parse(normalizedExpression, options)
+  return normalizedExpression
+}
+
+function hasUnsupportedExtension(fields: string[]): boolean {
+  const segments = fields.flatMap(field => field.split(','))
+  return (
+    fields.some(field => field.includes('#')) ||
+    segments.some(segment => /^H(?:$|[(/])/i.test(segment)) ||
+    fields[2].split(',').some(segment => /^L/i.test(segment)) ||
+    fields[4].split(',').some(segment => /L$/i.test(segment))
+  )
+}
+
+function parseCronExpression(cronExpression: string, options: CronExpressionOptions) {
+  return CronExpressionParser.parse(normalizeStandardCronExpression(cronExpression), options)
 }
 
 /**
@@ -60,7 +76,19 @@ export function calculateNextRunAt(
  */
 export function validateCronExpression(cronExpression: string, timezone?: string): void {
   if (timezone) new Intl.DateTimeFormat(undefined, { timeZone: timezone })
-  parseCronExpression(cronExpression, parserOptions(timezone))
+  const normalizedExpression = normalizeStandardCronExpression(cronExpression)
+  const options = parserOptions(timezone)
+
+  try {
+    CronExpressionParser.parse(normalizedExpression, options)
+  } catch (_error: unknown) {
+    const fields = normalizedExpression.split(/\s+/)
+    for (const [index, field] of fields.entries()) {
+      const isolatedFields = ['*', '*', '*', '*', '*']
+      isolatedFields[index] = field
+      CronExpressionParser.parse(isolatedFields.join(' '), options)
+    }
+  }
 }
 
 /**

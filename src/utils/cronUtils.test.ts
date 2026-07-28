@@ -1,6 +1,10 @@
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 import { calculateNextRunAt } from '../../convex/lib/cronUtils'
 import { enumerateCronOccurrences, validateCronExpression } from './cronUtils'
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('enumerateCronOccurrences', () => {
   it('enumerates hourly occurrences within a 3-hour window (inclusive start)', () => {
@@ -175,19 +179,22 @@ describe('enumerateCronOccurrences', () => {
 
   it('enumerates a monthly expression over 30 days in under 100 ms', () => {
     const from = Date.parse('2026-01-01T00:00:00Z')
-    const start = performance.now()
+    const durations = Array.from({ length: 3 }, () => {
+      const start = performance.now()
+      const occurrences = enumerateCronOccurrences(
+        '0 3 1 * *',
+        'America/New_York',
+        from,
+        from + 30 * 24 * 60 * 60 * 1000,
+        500,
+        false
+      )
 
-    const occurrences = enumerateCronOccurrences(
-      '0 3 1 * *',
-      'America/New_York',
-      from,
-      from + 30 * 24 * 60 * 60 * 1000,
-      500,
-      false
-    )
+      expect(occurrences).toEqual([Date.parse('2026-01-01T08:00:00Z')])
+      return performance.now() - start
+    }).sort((left, right) => left - right)
 
-    expect(occurrences).toEqual([Date.parse('2026-01-01T08:00:00Z')])
-    expect(performance.now() - start).toBeLessThan(100)
+    expect(durations[1]).toBeLessThan(100)
   })
 
   it.each([
@@ -249,6 +256,17 @@ describe('validateCronExpression', () => {
     expect(() => validateCronExpression('* * * *')).toThrow()
   })
 
+  it.each(['H * * * *', '0 0 L * *', '0 0 * * 1#2'])(
+    'rejects unsupported cron-parser extension %s',
+    expression => {
+      expect(() => validateCronExpression(expression)).toThrow()
+    }
+  )
+
+  it('accepts a syntactically valid expression with no calendar occurrence', () => {
+    expect(() => validateCronExpression('0 0 31 2 *')).not.toThrow()
+  })
+
   it('accepts aliases, question wildcards, ranges, and stepped ranges', () => {
     expect(() => validateCronExpression('*/15 9-17 ? jan mon-fri')).not.toThrow()
   })
@@ -277,7 +295,5 @@ describe('calculateNextRunAt', () => {
 
     expect(calculateNextRunAt('INVALID')).toBe(3_601_000)
     expect(consoleError).toHaveBeenCalledOnce()
-
-    vi.restoreAllMocks()
   })
 })

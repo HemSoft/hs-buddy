@@ -288,6 +288,32 @@ describe('copilotService', () => {
       expect(mockRestartSharedClient).not.toHaveBeenCalled()
     })
 
+    it('times out a stalled model list request without retrying', async () => {
+      vi.useFakeTimers()
+      const listModels = vi.fn(() => new Promise<never>(() => {}))
+      mockEnsureClientStarted.mockResolvedValue({
+        listModels,
+        getState: () => 'connected',
+      })
+
+      try {
+        const service = getCopilotService()
+        const result = service.listModels()
+        const rejection = expect(result).rejects.toThrow(
+          'Timeout: listModels did not respond within 30s'
+        )
+
+        await vi.advanceTimersByTimeAsync(30_000)
+        await rejection
+
+        expect(listModels).toHaveBeenCalledTimes(1)
+        expect(mockEnsureClientStarted).toHaveBeenCalledTimes(1)
+        expect(mockRestartSharedClient).not.toHaveBeenCalled()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('switches account before listing if ghAccount provided', async () => {
       const service = getCopilotService()
       await service.listModels('other-user')

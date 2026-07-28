@@ -30,11 +30,14 @@ const mockExistsSync = vi.fn().mockReturnValue(false)
 const mockReadFileSync = vi.fn().mockReturnValue('{}')
 const mockReaddirSync = vi.fn().mockReturnValue([])
 const mockWriteFileSync = vi.fn()
+const mockRmSync = vi.fn()
+const mockRandomUUID = vi.fn(() => 'test-uuid-1234')
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
+  rmSync: (...args: unknown[]) => mockRmSync(...args),
   writeFileSync: (...args: unknown[]) => mockWriteFileSync(...args),
 }))
 
@@ -43,7 +46,7 @@ vi.mock('url', () => ({
 }))
 
 vi.mock('crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234'),
+  randomUUID: () => mockRandomUUID(),
 }))
 
 vi.mock('os', () => ({
@@ -730,8 +733,12 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         longPrompt,
-        'utf-8'
+        { encoding: 'utf-8', flag: 'wx', mode: 0o600 }
       )
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      lastMockProc.emit('close', 0)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
     })
 
     it('writes multiline prompt to temp file', () => {
@@ -745,8 +752,15 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         multilinePrompt,
-        'utf-8'
+        { encoding: 'utf-8', flag: 'wx', mode: 0o600 }
       )
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      lastMockProc.emit('error', new Error('spawn ENOENT'))
+      lastMockProc.emit('close', 1)
+
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+      expect(mockRmSync).toHaveBeenCalledTimes(1)
     })
 
     it('passes short prompt directly as arg', () => {
@@ -760,6 +774,172 @@ describe('ralphService', () => {
       expect(args).toContain('-Prompt')
       expect(args).toContain('Fix the bug')
       expect(mockWriteFileSync).not.toHaveBeenCalled()
+
+      lastMockProc.emit('close', 0)
+      expect(mockRmSync).not.toHaveBeenCalled()
+    })
+
+    it('deletes a prompt temp file when the run is cancelled', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      const result = stopLoop('test-uuid-1234')
+
+      expect(result.success).toBe(true)
+      expect(mockRmSync).not.toHaveBeenCalled()
+
+      lastMockProc.emit('close', null)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+    })
+
+    it('retries prompt cleanup after a transient removal failure', () => {
+      vi.useFakeTimers()
+      try {
+        mockRmSync
+          .mockImplementationOnce(() => {
+            throw new Error('file busy')
+          })
+          .mockImplementationOnce(() => {
+            throw new Error('file still busy')
+          })
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+        const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+        lastMockProc.emit('error', new Error('spawn ENOENT'))
+        lastMockProc.emit('close', 1)
+        expect(mockRmSync).toHaveBeenCalledTimes(1)
+
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(2)
+
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+        expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('retries a transient cleanup failure after the final close event', () => {
+      vi.useFakeTimers()
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+      try {
+        mockRmSync.mockImplementationOnce(() => {
+          throw new Error('file busy')
+        })
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+        const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+        lastMockProc.emit('close', 0)
+        expect(mockRmSync).toHaveBeenCalledTimes(1)
+        expect(cb).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            logBuffer: expect.arrayContaining([
+              '[cleanup] Failed to remove prompt temp file: file busy',
+            ]),
+          })
+        )
+
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(2)
+        expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+      } finally {
+        setStatusChangeCallback(null)
+        vi.useRealTimers()
+      }
+    })
+
+    it('stops retrying and clears tracking after the attempt limit', () => {
+      vi.useFakeTimers()
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          mockRmSync.mockImplementationOnce(() => {
+            throw new Error('file busy')
+          })
+        }
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+
+        lastMockProc.emit('close', 1)
+        vi.advanceTimersByTime(200)
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+
+        lastMockProc.emit('error', new Error('late error'))
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('retries exclusive prompt creation without deleting a collided path', () => {
+      const collisionError = Object.assign(new Error('already exists'), { code: 'EEXIST' })
+      mockRandomUUID
+        .mockReturnValueOnce('run-id')
+        .mockReturnValueOnce('collision-id')
+        .mockReturnValueOnce('fresh-id')
+      mockWriteFileSync.mockImplementationOnce(() => {
+        throw collisionError
+      })
+
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(mockWriteFileSync.mock.calls[0][0]).toContain('collision-id')
+      expect(mockWriteFileSync.mock.calls[1][0]).toContain('fresh-id')
+      expect(mockRmSync).not.toHaveBeenCalled()
+    })
+
+    it('removes a partially written prompt file when writing fails', () => {
+      const writeError = new Error('disk full')
+      mockWriteFileSync.mockImplementationOnce(() => {
+        throw writeError
+      })
+
+      expect(() =>
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+      ).toThrow(writeError)
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
+    })
+
+    it('removes the prompt file when spawning throws synchronously', () => {
+      mockSpawn.mockImplementationOnce(() => {
+        throw new Error('invalid spawn options')
+      })
+
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('invalid spawn options')
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
     })
 
     it('adds -Labels arg when labels are specified', () => {
@@ -939,8 +1119,10 @@ describe('ralphService', () => {
       const result = launchLoop({
         repoPath: '/valid/path',
         scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
       } as Parameters<typeof launchLoop>[0])
       expect(result.success).toBe(true)
+      const promptFile = mockWriteFileSync.mock.calls[0][0]
 
       // Make kill fail on any platform
       vi.mocked(execSync).mockImplementationOnce(() => {
@@ -960,6 +1142,10 @@ describe('ralphService', () => {
 
       const status = getLoopStatus('test-uuid-1234')
       expect(status?.status).toBe('failed')
+      expect(mockRmSync).not.toHaveBeenCalled()
+
+      lastMockProc.emit('close', 1)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFile, { force: true })
       setStatusChangeCallback(null)
     })
   })

@@ -225,6 +225,7 @@ export default defineSchema({
   })
     .index('by_account_period', ['accountUsername', 'org', 'billingYear', 'billingMonth'])
     .index('by_org', ['org'])
+    .index('by_org_period', ['org', 'billingYear', 'billingMonth'])
     .index('by_snapshot', ['snapshotAt']),
 
   /**

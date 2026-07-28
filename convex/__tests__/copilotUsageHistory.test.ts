@@ -63,6 +63,11 @@ describe('copilotUsageHistory', () => {
       accountUsername: 'user1',
       billingMonth: 4,
     })
+    await t.mutation(api.copilotUsageHistory.store, {
+      ...snapshot,
+      accountUsername: 'user3',
+      org: 'other-org',
+    })
 
     const results = await t.query(api.copilotUsageHistory.listByOrgPeriod, {
       org: 'acme',
@@ -70,6 +75,7 @@ describe('copilotUsageHistory', () => {
       billingMonth: 5,
     })
     expect(results).toHaveLength(2)
+    expect(results.map(({ accountUsername }) => accountUsername).sort()).toEqual(['user1', 'user2'])
   })
 
   test('store allows multiple snapshots for the same account+period', async () => {

@@ -256,14 +256,7 @@ describe('validateCronExpression', () => {
     expect(() => validateCronExpression('* * * *')).toThrow()
   })
 
-  it.each([
-    'H * * * *',
-    'H-59 * * * *',
-    '0H * * * *',
-    '0 0 L * *',
-    '0 0 1L * *',
-    '0 0 * * 1#2',
-  ])(
+  it.each(['H * * * *', 'H-59 * * * *', '0H * * * *', '0 0 L * *', '0 0 1L * *', '0 0 * * 1#2'])(
     'rejects unsupported cron-parser extension %s',
     expression => {
       expect(() => validateCronExpression(expression)).toThrow()

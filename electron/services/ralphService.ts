@@ -6,7 +6,7 @@
  */
 
 import { spawn, execSync, type ChildProcess } from 'node:child_process'
-import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rm, writeFileSync } from 'node:fs'
 import { join, resolve, isAbsolute, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
@@ -49,6 +49,7 @@ function emitStatusChange(run: RalphRunInfo): void {
 
 const activeRuns = new Map<string, RalphRunInfo>()
 const activeProcesses = new Map<string, ChildProcess>()
+const promptTempFiles = new Map<string, string>()
 
 // ── Config ──────────────────────────────────────────────────────
 
@@ -336,13 +337,18 @@ function appendMixedAgentArgs(args: string[], config: RalphLaunchConfig): void {
 // Write multi-line or long prompts to a temp file to avoid Windows
 // command-line encoding issues (quotes, newlines, special chars).
 // ralph.ps1's Resolve-PromptText reads the file when -Prompt is a path.
-function resolvePromptArg(prompt: string): string {
+interface ResolvedPromptArg {
+  arg: string
+  tempFile?: string
+}
+
+function resolvePromptArg(prompt: string): ResolvedPromptArg {
   if (prompt.includes('\n') || prompt.length > 500) {
     const promptFile = join(tmpdir(), `ralph-prompt-${randomUUID().slice(0, 8)}.md`)
     writeFileSync(promptFile, prompt, 'utf-8')
-    return promptFile
+    return { arg: promptFile, tempFile: promptFile }
   }
-  return prompt
+  return { arg: prompt }
 }
 
 function appendExecutionArgs(args: string[], config: RalphLaunchConfig): void {
@@ -353,21 +359,27 @@ function appendExecutionArgs(args: string[], config: RalphLaunchConfig): void {
   if (config.workUntil) args.push('-WorkUntil', config.workUntil)
 }
 
-function appendContentArgs(args: string[], config: RalphLaunchConfig): void {
+function appendContentArgs(args: string[], config: RalphLaunchConfig): string | undefined {
+  let tempPromptFile: string | undefined
   appendStringArg(args, '-Branch', config.branch)
-  if (config.prompt) args.push('-Prompt', resolvePromptArg(config.prompt))
+  if (config.prompt) {
+    const resolvedPrompt = resolvePromptArg(config.prompt)
+    args.push('-Prompt', resolvedPrompt.arg)
+    tempPromptFile = resolvedPrompt.tempFile
+  }
   appendStringArg(args, '-PRNumber', config.prNumber ? String(config.prNumber) : undefined)
   appendStringArg(args, '-Labels', config.labels)
   if (config.dryRun) args.push('-DryRun')
+  return tempPromptFile
 }
 
 function appendStringArg(args: string[], name: string, value: string | undefined): void {
   if (value) args.push(name, value)
 }
 
-function appendOptionalArgs(args: string[], config: RalphLaunchConfig): void {
+function appendOptionalArgs(args: string[], config: RalphLaunchConfig): string | undefined {
   appendExecutionArgs(args, config)
-  appendContentArgs(args, config)
+  return appendContentArgs(args, config)
 }
 
 function appendBooleanFlags(args: string[], config: RalphLaunchConfig): void {
@@ -376,7 +388,12 @@ function appendBooleanFlags(args: string[], config: RalphLaunchConfig): void {
   if (config.autoApprove) args.push('-AutoApprove')
 }
 
-function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
+interface BuiltArgs {
+  args: string[]
+  tempPromptFile?: string
+}
+
+function buildArgs(config: RalphLaunchConfig, scriptPath: string): BuiltArgs {
   const useRepeat = config.repeats && config.repeats > 1
 
   if (useRepeat) {
@@ -387,10 +404,10 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
     args.push('-Times', String(config.repeats))
 
     // Pass common options through to the repeat wrapper (which forwards to base script)
-    appendOptionalArgs(args, config)
+    const tempPromptFile = appendOptionalArgs(args, config)
     appendBooleanFlags(args, config)
 
-    return args
+    return { args, tempPromptFile }
   }
 
   const args: string[] = ['-NoProfile', '-File', scriptPath]
@@ -400,11 +417,11 @@ function buildArgs(config: RalphLaunchConfig, scriptPath: string): string[] {
     args.push('-Autopilot')
   }
 
-  appendOptionalArgs(args, config)
+  const tempPromptFile = appendOptionalArgs(args, config)
   appendBooleanFlags(args, config)
   if (config.noPR) args.push('-NoPR')
 
-  return args
+  return { args, tempPromptFile }
 }
 
 function createRunInfo(runId: string, config: RalphLaunchConfig, proc: ChildProcess): RalphRunInfo {
@@ -449,7 +466,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
     return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 
-  const args = buildArgs(config, scriptPath)
+  const { args, tempPromptFile } = buildArgs(config, scriptPath)
 
   const proc = spawn(POWERSHELL_CORE_EXECUTABLE, args, {
     cwd: config.repoPath,
@@ -462,6 +479,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
 
   activeRuns.set(runId, run)
   activeProcesses.set(runId, proc)
+  if (tempPromptFile) promptTempFiles.set(runId, tempPromptFile)
 
   // Stream stdout
   proc.stdout.on('data', (data: Buffer) => {
@@ -495,6 +513,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
       emitStatusChange(r)
     }
     activeProcesses.delete(runId)
+    cleanupPromptTempFile(runId)
   })
 
   proc.on('error', err => {
@@ -510,6 +529,7 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
       emitStatusChange(r)
     }
     activeProcesses.delete(runId)
+    cleanupPromptTempFile(runId)
   })
 
   return { success: true, runId }
@@ -528,6 +548,16 @@ function appendLogLine(runId: string, line: string): void {
   if (run.logBuffer.length > MAX_LOG_BUFFER) {
     run.logBuffer.shift()
   }
+}
+
+function cleanupPromptTempFile(runId: string): void {
+  const promptFile = promptTempFiles.get(runId)
+  if (!promptFile) return
+
+  promptTempFiles.delete(runId)
+  rm(promptFile, { force: true }, err => {
+    if (err) appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${err.message}`)
+  })
 }
 
 function detectPhase(run: RalphRunInfo, clean: string): void {
@@ -672,6 +702,8 @@ export function stopLoop(runId: string): RalphStopResult {
     const errorMsg = `Failed to stop: ${err instanceof Error ? err.message : String(err)}`
     markRunStopped(run, 'failed', errorMsg)
     return { success: false, error: errorMsg }
+  } finally {
+    cleanupPromptTempFile(runId)
   }
 }
 

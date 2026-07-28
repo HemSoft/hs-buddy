@@ -830,6 +830,8 @@ describe('ralphService', () => {
 
     it('retries a transient cleanup failure after the final close event', () => {
       vi.useFakeTimers()
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
       try {
         mockRmSync.mockImplementationOnce(() => {
           throw new Error('file busy')
@@ -843,11 +845,19 @@ describe('ralphService', () => {
 
         lastMockProc.emit('close', 0)
         expect(mockRmSync).toHaveBeenCalledTimes(1)
+        expect(cb).toHaveBeenLastCalledWith(
+          expect.objectContaining({
+            logBuffer: expect.arrayContaining([
+              '[cleanup] Failed to remove prompt temp file: file busy',
+            ]),
+          })
+        )
 
         vi.advanceTimersByTime(100)
         expect(mockRmSync).toHaveBeenCalledTimes(2)
         expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
       } finally {
+        setStatusChangeCallback(null)
         vi.useRealTimers()
       }
     })

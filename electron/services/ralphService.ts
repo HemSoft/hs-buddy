@@ -611,12 +611,16 @@ function cleanupPromptTempFile(runId: string): Error | undefined {
   if (promptCleanupRetryTimers.has(runId)) return undefined
 
   const attempt = (promptCleanupAttempts.get(runId) ?? 0) + 1
-  if (attempt > PROMPT_CLEANUP_MAX_ATTEMPTS) return undefined
   promptCleanupAttempts.set(runId, attempt)
 
   const cleanupError = removePromptFile(promptFile)
   if (cleanupError) {
     appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${cleanupError.message}`)
+    const run = activeRuns.get(runId)
+    if (run) {
+      run.updatedAt = Date.now()
+      emitStatusChange(run)
+    }
     if (attempt < PROMPT_CLEANUP_MAX_ATTEMPTS) {
       const retry = setTimeout(() => {
         promptCleanupRetryTimers.delete(runId)

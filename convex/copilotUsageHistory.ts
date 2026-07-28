@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { v } from 'convex/values'
+import { query, mutation } from './_generated/server'
 
 /**
  * Copilot Usage History Module
@@ -28,12 +28,12 @@ export const store = mutation({
     spent: v.number(),
   },
   handler: async (ctx, args) => {
-    return await ctx.db.insert("copilotUsageHistory", {
+    return await ctx.db.insert('copilotUsageHistory', {
       ...args,
       snapshotAt: Date.now(),
-    });
+    })
   },
-});
+})
 
 /**
  * Return the daily time-series for a single account within a billing period.
@@ -47,17 +47,17 @@ export const listByAccountPeriod = query({
   },
   handler: async (ctx, { accountUsername, org, billingYear, billingMonth }) => {
     return await ctx.db
-      .query("copilotUsageHistory")
-      .withIndex("by_account_period", (q) =>
+      .query('copilotUsageHistory')
+      .withIndex('by_account_period', q =>
         q
-          .eq("accountUsername", accountUsername)
-          .eq("org", org)
-          .eq("billingYear", billingYear)
-          .eq("billingMonth", billingMonth)
+          .eq('accountUsername', accountUsername)
+          .eq('org', org)
+          .eq('billingYear', billingYear)
+          .eq('billingMonth', billingMonth)
       )
-      .collect();
+      .collect()
   },
-});
+})
 
 /**
  * Return all snapshots for an org within a billing period (across accounts).
@@ -69,15 +69,14 @@ export const listByOrgPeriod = query({
     billingMonth: v.number(),
   },
   handler: async (ctx, { org, billingYear, billingMonth }) => {
-    const rows = await ctx.db
-      .query("copilotUsageHistory")
-      .withIndex("by_org", (q) => q.eq("org", org))
-      .collect();
-    return rows.filter(
-      (r) => r.billingYear === billingYear && r.billingMonth === billingMonth
-    );
+    return await ctx.db
+      .query('copilotUsageHistory')
+      .withIndex('by_org_period', q =>
+        q.eq('org', org).eq('billingYear', billingYear).eq('billingMonth', billingMonth)
+      )
+      .collect()
   },
-});
+})
 
 /**
  * Return snapshots in a time range (all accounts), ordered by snapshot time.
@@ -89,10 +88,8 @@ export const listByTimeRange = query({
   },
   handler: async (ctx, { startMs, endMs }) => {
     return await ctx.db
-      .query("copilotUsageHistory")
-      .withIndex("by_snapshot", (q) =>
-        q.gte("snapshotAt", startMs).lte("snapshotAt", endMs)
-      )
-      .collect();
+      .query('copilotUsageHistory')
+      .withIndex('by_snapshot', q => q.gte('snapshotAt', startMs).lte('snapshotAt', endMs))
+      .collect()
   },
-});
+})

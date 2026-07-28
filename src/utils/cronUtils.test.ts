@@ -177,7 +177,7 @@ describe('enumerateCronOccurrences', () => {
     const from = Date.parse('2026-01-01T00:00:00Z')
     const start = performance.now()
 
-    enumerateCronOccurrences(
+    const occurrences = enumerateCronOccurrences(
       '0 3 1 * *',
       'America/New_York',
       from,
@@ -186,6 +186,7 @@ describe('enumerateCronOccurrences', () => {
       false
     )
 
+    expect(occurrences).toEqual([Date.parse('2026-01-01T08:00:00Z')])
     expect(performance.now() - start).toBeLessThan(100)
   })
 
@@ -272,7 +273,7 @@ describe('validateCronExpression', () => {
 describe('calculateNextRunAt', () => {
   it('falls back to one hour from now when parsing fails', () => {
     vi.spyOn(Date, 'now').mockReturnValue(1_000)
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     expect(calculateNextRunAt('INVALID')).toBe(3_601_000)
     expect(consoleError).toHaveBeenCalledOnce()

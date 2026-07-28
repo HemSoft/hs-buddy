@@ -87,13 +87,13 @@ export function enumerateCronOccurrences(
     while (results.length < maxRuns) {
       try {
         results.push(expression.next().getTime())
-      } catch (_: unknown) {
+      } catch (_error: unknown) {
         break
       }
     }
 
     return results
-  } catch (_: unknown) {
+  } catch (_error: unknown) {
     return []
   }
 }

@@ -31,6 +31,7 @@ const mockReadFileSync = vi.fn().mockReturnValue('{}')
 const mockReaddirSync = vi.fn().mockReturnValue([])
 const mockWriteFileSync = vi.fn()
 const mockRmSync = vi.fn()
+const mockRandomUUID = vi.fn(() => 'test-uuid-1234')
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
@@ -45,7 +46,7 @@ vi.mock('url', () => ({
 }))
 
 vi.mock('crypto', () => ({
-  randomUUID: vi.fn(() => 'test-uuid-1234'),
+  randomUUID: () => mockRandomUUID(),
 }))
 
 vi.mock('os', () => ({
@@ -732,7 +733,7 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         longPrompt,
-        { encoding: 'utf-8', mode: 0o600 }
+        { encoding: 'utf-8', flag: 'wx', mode: 0o600 }
       )
       const promptFile = mockWriteFileSync.mock.calls[0][0]
 
@@ -751,7 +752,7 @@ describe('ralphService', () => {
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringMatching(/ralph-prompt-/),
         multilinePrompt,
-        { encoding: 'utf-8', mode: 0o600 }
+        { encoding: 'utf-8', flag: 'wx', mode: 0o600 }
       )
       const promptFile = mockWriteFileSync.mock.calls[0][0]
 
@@ -796,22 +797,35 @@ describe('ralphService', () => {
     })
 
     it('retries prompt cleanup after a transient removal failure', () => {
-      mockRmSync.mockImplementationOnce(() => {
-        throw new Error('file busy')
-      })
-      launchLoop({
-        repoPath: '/valid/path',
-        scriptType: 'ralph',
-        prompt: 'a'.repeat(600),
-      } as Parameters<typeof launchLoop>[0])
-      const promptFile = mockWriteFileSync.mock.calls[0][0]
+      vi.useFakeTimers()
+      try {
+        mockRmSync
+          .mockImplementationOnce(() => {
+            throw new Error('file busy')
+          })
+          .mockImplementationOnce(() => {
+            throw new Error('file still busy')
+          })
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+        const promptFile = mockWriteFileSync.mock.calls[0][0]
 
-      lastMockProc.emit('error', new Error('spawn ENOENT'))
-      expect(mockRmSync).toHaveBeenCalledTimes(1)
+        lastMockProc.emit('error', new Error('spawn ENOENT'))
+        lastMockProc.emit('close', 1)
+        expect(mockRmSync).toHaveBeenCalledTimes(1)
 
-      lastMockProc.emit('close', 1)
-      expect(mockRmSync).toHaveBeenCalledTimes(2)
-      expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(2)
+
+        vi.advanceTimersByTime(100)
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+        expect(mockRmSync).toHaveBeenLastCalledWith(promptFile, { force: true })
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('retries a transient cleanup failure after the final close event', () => {
@@ -836,6 +850,52 @@ describe('ralphService', () => {
       } finally {
         vi.useRealTimers()
       }
+    })
+
+    it('stops retrying and clears tracking after the attempt limit', () => {
+      vi.useFakeTimers()
+      try {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          mockRmSync.mockImplementationOnce(() => {
+            throw new Error('file busy')
+          })
+        }
+        launchLoop({
+          repoPath: '/valid/path',
+          scriptType: 'ralph',
+          prompt: 'a'.repeat(600),
+        } as Parameters<typeof launchLoop>[0])
+
+        lastMockProc.emit('close', 1)
+        vi.advanceTimersByTime(200)
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+
+        lastMockProc.emit('error', new Error('late error'))
+        expect(mockRmSync).toHaveBeenCalledTimes(3)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('retries exclusive prompt creation without deleting a collided path', () => {
+      const collisionError = Object.assign(new Error('already exists'), { code: 'EEXIST' })
+      mockRandomUUID
+        .mockReturnValueOnce('run-id')
+        .mockReturnValueOnce('collision-id')
+        .mockReturnValueOnce('fresh-id')
+      mockWriteFileSync.mockImplementationOnce(() => {
+        throw collisionError
+      })
+
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(mockWriteFileSync.mock.calls[0][0]).toContain('collision-id')
+      expect(mockWriteFileSync.mock.calls[1][0]).toContain('fresh-id')
+      expect(mockRmSync).not.toHaveBeenCalled()
     })
 
     it('removes a partially written prompt file when writing fails', () => {

@@ -30,6 +30,7 @@ const MAX_LOG_BUFFER = 5000
 const VENDORED_SCRIPTS_DIR = 'scripts/ralph-loops'
 const KILL_TIMEOUT_MS = 5_000
 const POWERSHELL_CORE_EXECUTABLE = 'pwsh'
+const PROMPT_FILE_CREATE_MAX_ATTEMPTS = 3
 const PROMPT_CLEANUP_MAX_ATTEMPTS = 3
 const PROMPT_CLEANUP_RETRY_MS = 100
 
@@ -54,6 +55,7 @@ const activeRuns = new Map<string, RalphRunInfo>()
 const activeProcesses = new Map<string, ChildProcess>()
 const promptTempFiles = new Map<string, string>()
 const promptCleanupAttempts = new Map<string, number>()
+const promptCleanupRetryTimers = new Map<string, NodeJS.Timeout>()
 
 // ── Config ──────────────────────────────────────────────────────
 
@@ -355,12 +357,24 @@ function removePromptFile(promptFile: string): Error | undefined {
   }
 }
 
-function resolvePromptArg(prompt: string): ResolvedPromptArg {
-  if (prompt.includes('\n') || prompt.length > 500) {
-    const promptFile = join(tmpdir(), `ralph-prompt-${randomUUID().slice(0, 8)}.md`)
+function hasErrorCode(error: unknown, code: string): boolean {
+  return typeof error === 'object' && error !== null && 'code' in error && error.code === code
+}
+
+function createPromptFile(prompt: string): string {
+  let collisionError: unknown
+
+  for (let attempt = 0; attempt < PROMPT_FILE_CREATE_MAX_ATTEMPTS; attempt++) {
+    const promptFile = join(tmpdir(), `ralph-prompt-${randomUUID()}.md`)
     try {
-      writeFileSync(promptFile, prompt, { encoding: 'utf-8', mode: 0o600 })
+      writeFileSync(promptFile, prompt, { encoding: 'utf-8', flag: 'wx', mode: 0o600 })
+      return promptFile
     } catch (err: unknown) {
+      if (hasErrorCode(err, 'EEXIST')) {
+        collisionError = err
+        continue
+      }
+
       const cleanupError = removePromptFile(promptFile)
       if (cleanupError) {
         throw new AggregateError(
@@ -371,6 +385,14 @@ function resolvePromptArg(prompt: string): ResolvedPromptArg {
       }
       throw err
     }
+  }
+
+  throw new Error('Failed to create a unique prompt temp file', { cause: collisionError })
+}
+
+function resolvePromptArg(prompt: string): ResolvedPromptArg {
+  if (prompt.includes('\n') || prompt.length > 500) {
+    const promptFile = createPromptFile(prompt)
     return { arg: promptFile, tempFile: promptFile }
   }
   return { arg: prompt }
@@ -586,6 +608,7 @@ function appendLogLine(runId: string, line: string): void {
 function cleanupPromptTempFile(runId: string): Error | undefined {
   const promptFile = promptTempFiles.get(runId)
   if (!promptFile) return undefined
+  if (promptCleanupRetryTimers.has(runId)) return undefined
 
   const attempt = (promptCleanupAttempts.get(runId) ?? 0) + 1
   if (attempt > PROMPT_CLEANUP_MAX_ATTEMPTS) return undefined
@@ -595,8 +618,15 @@ function cleanupPromptTempFile(runId: string): Error | undefined {
   if (cleanupError) {
     appendLogLine(runId, `[cleanup] Failed to remove prompt temp file: ${cleanupError.message}`)
     if (attempt < PROMPT_CLEANUP_MAX_ATTEMPTS) {
-      const retry = setTimeout(() => cleanupPromptTempFile(runId), PROMPT_CLEANUP_RETRY_MS)
+      const retry = setTimeout(() => {
+        promptCleanupRetryTimers.delete(runId)
+        cleanupPromptTempFile(runId)
+      }, PROMPT_CLEANUP_RETRY_MS)
+      promptCleanupRetryTimers.set(runId, retry)
       retry.unref()
+    } else {
+      promptTempFiles.delete(runId)
+      promptCleanupAttempts.delete(runId)
     }
     return cleanupError
   }

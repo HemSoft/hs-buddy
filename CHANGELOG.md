@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Correct execWorker timeout mechanism description
+- Sync bun.lock after merging origin/main
 
 ## [0.1.933] - 2026-07-28
 

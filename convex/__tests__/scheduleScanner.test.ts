@@ -2,6 +2,7 @@ import { convexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api, internal } from '../_generated/api'
+import { STALE_RUN_TIMEOUT_MS } from '../lib/constants'
 
 const modules = import.meta.glob('../**/*.*s')
 
@@ -148,6 +149,106 @@ describe('scheduleScanner.scanAndDispatch', () => {
 
     const stats = await t.query(api.buddyStats.get)
     expect(stats.runsTriggered).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('scheduleScanner.scanAndDispatch — stuck-run reaper', () => {
+  test('reaps a manual run stuck in pending past the threshold', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+
+    // Simulate a run abandoned well past the stuck-run threshold
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, { startedAt: Date.now() - STALE_RUN_TIMEOUT_MS - 60_000 })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(1)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('failed')
+    expect(run?.error).toMatch(/stuck-run threshold/i)
+    expect(run?.completedAt).toBeGreaterThan(0)
+    expect(run?.duration).toBeGreaterThan(0)
+  })
+
+  test('reaps a run stuck in running past the threshold', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.markRunning, { id: runId })
+
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, { startedAt: Date.now() - STALE_RUN_TIMEOUT_MS - 60_000 })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(1)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('failed')
+  })
+
+  test('does NOT reap a pending/running run that is still within the threshold', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+
+    // Well within the threshold — e.g. a legitimately long-running job
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, { startedAt: Date.now() - (STALE_RUN_TIMEOUT_MS - 60_000) })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(0)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('pending')
+    expect(run?.error).toBeUndefined()
+  })
+
+  test('a schedule dispatches again once its stuck run is reaped', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+
+    const schedId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'wedged-sched',
+      cron: '* * * * *',
+      enabled: true,
+      missedPolicy: 'skip',
+    })
+
+    // Schedule is due
+    const pastMs = Date.now() - 60_000
+    await t.mutation(api.schedules.advanceNextRun, { id: schedId, nextRunAt: pastMs })
+
+    // A stuck run from a previous, long-dead scan is blocking dispatch
+    const stuckRunId = await t.mutation(api.runs.create, {
+      jobId,
+      scheduleId: schedId,
+      triggeredBy: 'schedule',
+    })
+    await t.run(async ctx => {
+      await ctx.db.patch(stuckRunId, { startedAt: Date.now() - STALE_RUN_TIMEOUT_MS - 60_000 })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+
+    // The stuck run is reaped AND a fresh run is dispatched in the same scan
+    expect(result.runsReaped).toBe(1)
+    expect(result.runsCreated).toBe(1)
+
+    const stuckRun = await t.query(api.runs.get, { id: stuckRunId })
+    expect(stuckRun?.status).toBe('failed')
+
+    const schedule = await t.query(api.schedules.get, { id: schedId })
+    expect(schedule?.lastRunStatus).toBe('failed') // reflects the reaped run
+    expect(schedule?.nextRunAt).toBeGreaterThan(pastMs)
+
+    const scheduleRuns = await t.query(api.runs.listBySchedule, { scheduleId: schedId })
+    expect(scheduleRuns.some(r => r.status === 'pending')).toBe(true)
   })
 })
 

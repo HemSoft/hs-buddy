@@ -1,5 +1,6 @@
 import { internalMutation } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
+import { STALE_RUN_TIMEOUT_MS } from './lib/constants'
 import { isPendingOrRunning } from './lib/domain'
 import { incrementStat } from './lib/stats'
 
@@ -92,20 +93,103 @@ function hasScanChanges(runsCreated: number, schedulesUpdated: number): boolean 
   return runsCreated > 0 || schedulesUpdated > 0
 }
 
+/** Bounded number of stale candidates inspected per status, per scan. */
+const STALE_RUN_REAP_BATCH_SIZE = 50
+
+interface StaleRunRecord {
+  _id: Id<'runs'>
+  scheduleId?: Id<'schedules'>
+  startedAt: number
+}
+
+/**
+ * Fail a single stuck run and, if it belongs to a schedule, mirror the
+ * failure onto the schedule's `lastRunAt`/`lastRunStatus` — the same
+ * bookkeeping `runs.fail` performs — so the reaper is indistinguishable
+ * from a normal failure everywhere else in the app.
+ */
+async function reapRun(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  run: StaleRunRecord,
+  now: number
+): Promise<void> {
+  await ctx.db.patch('runs', run._id, {
+    status: 'failed',
+    error: `Run exceeded the stuck-run threshold (${STALE_RUN_TIMEOUT_MS}ms) without completing and was reaped automatically`,
+    completedAt: now,
+    duration: now - run.startedAt,
+  })
+  await incrementStat(ctx.db, 'runsFailed')
+
+  if (run.scheduleId) {
+    const schedule = await ctx.db.get('schedules', run.scheduleId)
+    if (schedule) {
+      await ctx.db.patch('schedules', schedule._id, {
+        lastRunAt: now,
+        lastRunStatus: 'failed',
+      })
+    }
+  }
+}
+
+/**
+ * Reap runs stuck in `pending` or `running` past STALE_RUN_TIMEOUT_MS.
+ *
+ * Nothing else can clear a run out of `pending`/`running` — `markRunning`,
+ * `complete`, `fail`, and `cancel` all require the worker (the Electron IPC
+ * layer) to still be alive to call them. If the app is killed or crashes
+ * mid-run, the run is stuck forever, and `processSchedule` treats any
+ * in-flight run as a reason to skip creating a new one — permanently
+ * disabling the schedule (see issue #339). This reaper fails those runs so
+ * schedules can dispatch again.
+ */
+async function reapStaleRuns(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  now: number
+): Promise<number> {
+  const cutoff = now - STALE_RUN_TIMEOUT_MS
+  let reaped = 0
+
+  for (const status of ['pending', 'running'] as const) {
+    const candidates = await ctx.db
+      .query('runs')
+      .withIndex('by_status', q => q.eq('status', status))
+      .order('asc')
+      .take(STALE_RUN_REAP_BATCH_SIZE)
+
+    for (const run of candidates) {
+      if (run.startedAt >= cutoff) continue
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Reaper walks a bounded batch of candidate rows sequentially per scan.
+      await reapRun(ctx, run, now)
+      reaped++
+    }
+  }
+
+  return reaped
+}
+
 /**
  * Main scan and dispatch function.
  *
  * Called every minute by the cron job. This function:
- * 1. Queries for due schedules
- * 2. Creates pending runs for each due schedule
- * 3. Updates schedule timing (lastRunAt, nextRunAt)
- * 4. Handles edge cases like missed schedules
+ * 1. Reaps runs stuck in `pending`/`running` past `STALE_RUN_TIMEOUT_MS`, so a
+ *    dead worker can never permanently block a schedule (see issue #339)
+ * 2. Queries for due schedules
+ * 3. Creates pending runs for each due schedule
+ * 4. Updates schedule timing (lastRunAt, nextRunAt)
+ *
+ * Missed occurrences are not caught up: `advanceSchedule` always computes the
+ * next run from the current time rather than from the schedule's stored
+ * `nextRunAt`, so a schedule that was disabled or unreachable simply resumes
+ * from the next occurrence instead of replaying the gap.
  */
 export const scanAndDispatch = internalMutation({
   args: {},
   handler: async ctx => {
     const now = Date.now()
     const totals = { runsCreated: 0, schedulesUpdated: 0 }
+
+    const runsReaped = await reapStaleRuns(ctx, now)
 
     // Get all enabled schedules
     const enabledSchedules = await ctx.db
@@ -120,15 +204,16 @@ export const scanAndDispatch = internalMutation({
     }
 
     // Log summary for debugging
-    if (hasScanChanges(totals.runsCreated, totals.schedulesUpdated)) {
+    if (hasScanChanges(totals.runsCreated, totals.schedulesUpdated) || runsReaped > 0) {
       console.log(
-        `Schedule scan complete: ${totals.runsCreated} runs created, ${totals.schedulesUpdated} schedules updated`
+        `Schedule scan complete: ${totals.runsCreated} runs created, ${totals.schedulesUpdated} schedules updated, ${runsReaped} stale runs reaped`
       )
     }
 
     return {
       runsCreated: totals.runsCreated,
       schedulesUpdated: totals.schedulesUpdated,
+      runsReaped,
       scannedAt: now,
     }
   },

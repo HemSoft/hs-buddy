@@ -83,6 +83,8 @@ export const execWorker: Worker = {
 
       // Handle errors (e.g. command not found)
       child.on('error', err => {
+        if (child.pid !== undefined) return
+
         childExited = true
         clearKillTimers()
         signal?.removeEventListener('abort', onAbort)

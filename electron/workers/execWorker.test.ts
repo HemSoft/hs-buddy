@@ -60,6 +60,7 @@ function createMockProcess() {
     stderr: Readable
     kill: ReturnType<typeof vi.fn>
     killed: boolean
+    pid: number | undefined
   }
   proc.stdout = new Readable({ read() {} })
   proc.stderr = new Readable({ read() {} })
@@ -68,6 +69,7 @@ function createMockProcess() {
     return true
   })
   proc.killed = false
+  proc.pid = 1234
   return proc
 }
 
@@ -124,11 +126,13 @@ describe('execWorker', () => {
 
   it('returns error when process spawn fails', async () => {
     const proc = createMockProcess()
+    proc.pid = undefined
     vi.mocked(spawn).mockReturnValue(proc as never)
 
     const promise = execWorker.execute({ command: 'nonexistent' })
 
     proc.emit('error', new Error('ENOENT'))
+    expect(vi.getTimerCount()).toBe(0)
 
     vi.useRealTimers()
     const result = await promise
@@ -236,7 +240,7 @@ describe('execWorker', () => {
     expect(result.success).toBe(false)
   })
 
-  it('cancels the force-kill when the process errors after SIGTERM', async () => {
+  it('force-kills when SIGTERM emits an error and the process remains alive', async () => {
     const proc = createMockProcess()
     vi.mocked(spawn).mockReturnValue(proc as never)
 
@@ -245,15 +249,17 @@ describe('execWorker', () => {
     vi.advanceTimersByTime(3000)
     expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
 
-    proc.emit('error', new Error('process error'))
-    expect(vi.getTimerCount()).toBe(0)
+    proc.emit('error', new Error('kill EPERM'))
+    expect(vi.getTimerCount()).toBe(1)
 
     vi.advanceTimersByTime(5000)
-    expect(proc.kill).not.toHaveBeenCalledWith('SIGKILL')
+    expect(proc.kill).toHaveBeenCalledWith('SIGKILL')
+
+    proc.emit('close', null)
 
     vi.useRealTimers()
     const result = await promise
-    expect(result.error).toContain('Spawn error: process error')
+    expect(result.error).toContain('Timeout')
   })
 
   it('caps stdout at MAX_OUTPUT_SIZE', async () => {

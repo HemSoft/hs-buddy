@@ -20,6 +20,7 @@ param(
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $appHostSdk = Join-Path $repoRoot 'aspire-apphost/.aspire/modules/aspire.mts'
+$appHostNodeModules = Join-Path $repoRoot 'aspire-apphost/node_modules'
 $exitCode = 0
 
 $InformationPreference = 'Continue'
@@ -95,17 +96,17 @@ if ($blockedProfilePorts.Count -gt 0) {
 }
 
 # -- Preflight: Aspire SDK --
-if (-not (Test-Path $appHostSdk)) {
+if (-not (Test-Path $appHostSdk) -or -not (Test-Path $appHostNodeModules)) {
     if (-not $FullBuild) {
         Write-Information ""
-        Write-Information "${Red}ERROR: Aspire AppHost SDK not found.${Reset}"
+        Write-Information "${Red}ERROR: Aspire AppHost SDK or dependencies not found.${Reset}"
         Write-Information "Bootstrap with: ${Yellow}aspire restore${Reset}"
         Write-Information "Or run: ${Yellow}./scripts/runAspire.debug.ps1 -FullBuild${Reset}"
         Write-Information ""
         exit 1
     }
 
-    Write-Information "${Cyan}Aspire AppHost SDK not found. Restoring...${Reset}"
+    Write-Information "${Cyan}Aspire AppHost restore required. Restoring...${Reset}"
     & $aspireCmd restore --non-interactive
     if ($LASTEXITCODE -ne 0) {
         Write-Information "${Red}ERROR: aspire restore failed.${Reset}"

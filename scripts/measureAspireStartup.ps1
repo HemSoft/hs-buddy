@@ -14,19 +14,35 @@ param(
 
 . "$PSScriptRoot/lib/PortUtils.ps1"
 
-function Wait-StartupPort(
+function Wait-StartupPorts(
     [System.Diagnostics.Stopwatch]$Stopwatch,
-    [int]$TargetPort,
+    [hashtable]$Ports,
     [int]$Timeout
 ) {
+    $readySeconds = @{}
     while ($Stopwatch.Elapsed.TotalSeconds -lt $Timeout) {
-        if (Test-PortOpen -Port $TargetPort) {
-            return [math]::Round($Stopwatch.Elapsed.TotalSeconds, 2)
+        foreach ($name in $Ports.Keys) {
+            if (-not $readySeconds.ContainsKey($name) -and
+                (Test-PortOpen -Port $Ports[$name])) {
+                $readySeconds[$name] = [math]::Round(
+                    $Stopwatch.Elapsed.TotalSeconds,
+                    2
+                )
+            }
+        }
+
+        if ($readySeconds.Count -eq $Ports.Count) {
+            return $readySeconds
         }
         Start-Sleep -Milliseconds 100
     }
 
-    throw "Port $TargetPort did not open within $Timeout seconds."
+    $pendingPorts = @(
+        $Ports.Keys |
+            Where-Object { -not $readySeconds.ContainsKey($_) } |
+            ForEach-Object { "$_ ($($Ports[$_]))" }
+    )
+    throw "Ports $($pendingPorts -join ', ') did not open within $Timeout seconds."
 }
 
 function Get-Median([double[]]$Values) {
@@ -73,17 +89,22 @@ try {
                 throw "aspire start failed with exit code $LASTEXITCODE."
             }
 
-            $dashboardSeconds = Wait-StartupPort $timer $dashboardPort $TimeoutSeconds
-            $convexSeconds = Wait-StartupPort $timer 3210 $TimeoutSeconds
-            $cdpSeconds = Wait-StartupPort $timer $Port $TimeoutSeconds
+            $readySeconds = Wait-StartupPorts `
+                -Stopwatch $timer `
+                -Ports @{
+                    Dashboard = $dashboardPort
+                    Convex = 3210
+                    ElectronCdp = $Port
+                } `
+                -Timeout $TimeoutSeconds
             $description = & $aspireCmd describe --format Json --non-interactive |
                 ConvertFrom-Json
 
             $results += [pscustomobject]@{
                 Run = $run
-                DashboardSeconds = $dashboardSeconds
-                ConvexSeconds = $convexSeconds
-                ElectronCdpSeconds = $cdpSeconds
+                DashboardSeconds = $readySeconds.Dashboard
+                ConvexSeconds = $readySeconds.Convex
+                ElectronCdpSeconds = $readySeconds.ElectronCdp
                 Resources = $description.resources
             }
         } finally {

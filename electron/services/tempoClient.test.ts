@@ -61,6 +61,18 @@ function mockPendingFetchUntilAbort(): void {
   )
 }
 
+function mockPendingJsonUntilAbort(): void {
+  mockFetch.mockImplementationOnce((_url: string, init: RequestInit) =>
+    Promise.resolve({
+      ok: true,
+      json: () =>
+        new Promise((_resolve, reject) => {
+          init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+        }),
+    })
+  )
+}
+
 describe('tempoClient', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -126,7 +138,7 @@ describe('tempoClient', () => {
       vi.useFakeTimers()
       try {
         const { getAccounts } = await import('./tempoClient')
-        mockPendingFetchUntilAbort()
+        mockPendingJsonUntilAbort()
 
         const pendingResult = getAccounts()
         const requestInit = mockFetch.mock.calls[0][1] as RequestInit

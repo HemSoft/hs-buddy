@@ -74,11 +74,12 @@ function getTempoHeaders(): Record<string, string> {
   }
 }
 
-async function fetchResponse(
+async function fetchWithTimeout<T>(
   url: string,
   headers: Record<string, string>,
-  init?: RequestInit
-): Promise<Response> {
+  init: RequestInit | undefined,
+  consumeResponse: (response: Response) => Promise<T>
+): Promise<T> {
   const timeoutController = new AbortController()
   const timeout = setTimeout(
     () =>
@@ -101,7 +102,7 @@ async function fetchResponse(
       const body = await res.text().catch(() => '')
       throw new Error(`HTTP ${res.status}: ${body || res.statusText}`)
     }
-    return res
+    return await consumeResponse(res)
   } finally {
     clearTimeout(timeout)
   }
@@ -112,8 +113,7 @@ async function fetchJson<T>(
   headers: Record<string, string>,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetchResponse(url, headers, init)
-  return res.json() as Promise<T>
+  return fetchWithTimeout(url, headers, init, response => response.json() as Promise<T>)
 }
 
 async function fetchAccountIdFromJira(): Promise<string | null> {
@@ -394,9 +394,12 @@ export async function updateWorklog(
 
 export async function deleteWorklog(worklogId: number): Promise<TempoResult<void>> {
   try {
-    await fetchResponse(`${TEMPO_BASE}/worklogs/${worklogId}`, getTempoHeaders(), {
-      method: 'DELETE',
-    })
+    await fetchWithTimeout(
+      `${TEMPO_BASE}/worklogs/${worklogId}`,
+      getTempoHeaders(),
+      { method: 'DELETE' },
+      async () => undefined
+    )
 
     return { success: true }
   } catch (err: unknown) {

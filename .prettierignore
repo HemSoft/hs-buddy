@@ -2,6 +2,7 @@ dist
 dist-electron
 node_modules
 release
+convex/_generated/
 *.local
 .env
 .env.local

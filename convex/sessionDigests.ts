@@ -1,5 +1,5 @@
-import { v } from "convex/values";
-import { query, mutation } from "./_generated/server";
+import { v } from 'convex/values'
+import { query, mutation } from './_generated/server'
 
 /**
  * Session Digests — efficiency metrics for Copilot sessions.
@@ -27,23 +27,23 @@ export const upsert = mutation({
   },
   handler: async (ctx, args) => {
     const existing = await ctx.db
-      .query("sessionDigests")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .first();
+      .query('sessionDigests')
+      .withIndex('by_session', q => q.eq('sessionId', args.sessionId))
+      .first()
 
-    const now = Date.now();
+    const now = Date.now()
 
     if (existing) {
-      await ctx.db.patch(existing._id, { ...args, digestedAt: now });
-      return existing._id;
+      await ctx.db.patch(existing._id, { ...args, digestedAt: now })
+      return existing._id
     }
 
-    return await ctx.db.insert("sessionDigests", {
+    return await ctx.db.insert('sessionDigests', {
       ...args,
       digestedAt: now,
-    });
+    })
   },
-});
+})
 
 export const listByWorkspace = query({
   args: {
@@ -52,12 +52,12 @@ export const listByWorkspace = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("sessionDigests")
-      .withIndex("by_workspace", (q) => q.eq("workspaceName", args.workspaceName))
-      .order("desc")
-      .take(args.limit ?? 50);
+      .query('sessionDigests')
+      .withIndex('by_workspace', q => q.eq('workspaceName', args.workspaceName))
+      .order('desc')
+      .take(args.limit ?? 50)
   },
-});
+})
 
 export const listRecent = query({
   args: {
@@ -65,19 +65,19 @@ export const listRecent = query({
   },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("sessionDigests")
-      .withIndex("by_date")
-      .order("desc")
-      .take(args.limit ?? 50);
+      .query('sessionDigests')
+      .withIndex('by_date')
+      .order('desc')
+      .take(args.limit ?? 50)
   },
-});
+})
 
 export const getBySessionId = query({
   args: { sessionId: v.string() },
   handler: async (ctx, args) => {
     return await ctx.db
-      .query("sessionDigests")
-      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
-      .first();
+      .query('sessionDigests')
+      .withIndex('by_session', q => q.eq('sessionId', args.sessionId))
+      .first()
   },
-});
+})

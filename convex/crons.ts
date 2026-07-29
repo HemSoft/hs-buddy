@@ -1,5 +1,5 @@
-import { cronJobs } from "convex/server";
-import { internal } from "./_generated/api";
+import { cronJobs } from 'convex/server'
+import { internal } from './_generated/api'
 
 /**
  * Convex Cron Jobs for Buddy Workflows
@@ -7,7 +7,7 @@ import { internal } from "./_generated/api";
  * Schedules periodic tasks that run in the Convex cloud.
  */
 
-const crons = cronJobs();
+const crons = cronJobs()
 
 /**
  * Schedule Scanner
@@ -17,11 +17,7 @@ const crons = cronJobs();
  * - Creates pending runs for due schedules
  * - Updates schedule timing (lastRunAt, nextRunAt)
  */
-crons.interval(
-  "scan due schedules",
-  { minutes: 1 },
-  internal.scheduleScanner.scanAndDispatch
-);
+crons.interval('scan due schedules', { minutes: 1 }, internal.scheduleScanner.scanAndDispatch)
 
 /**
  * Copilot Usage Snapshot
@@ -31,9 +27,9 @@ crons.interval(
  * when it sees the pending marker; this cron only coordinates timing.
  */
 crons.daily(
-  "collect copilot usage snapshots",
+  'collect copilot usage snapshots',
   { hourUTC: 6, minuteUTC: 0 },
   internal.scheduleScanner.markSnapshotsDue
-);
+)
 
-export default crons;
+export default crons

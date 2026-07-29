@@ -31,7 +31,9 @@ function matchesShift(shortcut: ShortcutDefinition, input: ShortcutInput) {
 }
 
 function matchesShortcutInput(shortcut: ShortcutDefinition, input: ShortcutInput) {
-  return matchesCtrlOrCmd(shortcut, input) && matchesShift(shortcut, input) && input.key === shortcut.key
+  return (
+    matchesCtrlOrCmd(shortcut, input) && matchesShift(shortcut, input) && input.key === shortcut.key
+  )
 }
 
 describe('menu', () => {

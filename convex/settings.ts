@@ -45,8 +45,7 @@ export const get = query({
         viewModes: {} as Record<string, 'card' | 'list'>,
         terminalPanelHeight: undefined as number | undefined,
         terminalTabs: undefined as
-          | Array<{ title: string; cwd: string; repoSlug?: string; color?: string }>
-          | undefined,
+          Array<{ title: string; cwd: string; repoSlug?: string; color?: string }> | undefined,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       }

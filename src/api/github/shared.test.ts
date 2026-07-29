@@ -358,6 +358,57 @@ describe('resolveOrgAvatar', () => {
     expect(failingClient.users.getByUsername).not.toHaveBeenCalled()
     expect(getOrgAvatarCacheEntry('shared-org')).toBe('https://avatars/shared-org')
   })
+
+  it('durably caches null only when both org and user lookups are definitive 404s', async () => {
+    clearOrgAvatarCache()
+    const notFoundClient = {
+      orgs: { get: vi.fn(() => Promise.reject({ status: 404 })) },
+      users: { getByUsername: vi.fn(() => Promise.reject({ status: 404 })) },
+    } as unknown as Octokit
+
+    await expect(resolveOrgAvatar(notFoundClient, 'missing-org')).resolves.toBeNull()
+    expect(getOrgAvatarCacheEntry('missing-org')).toBeNull()
+
+    // A later call must not re-hit the network: the negative result is cached.
+    await expect(resolveOrgAvatar(notFoundClient, 'missing-org')).resolves.toBeNull()
+    expect(notFoundClient.orgs.get).toHaveBeenCalledTimes(1)
+    expect(notFoundClient.users.getByUsername).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not durably cache a transient failure and retries successfully later', async () => {
+    clearOrgAvatarCache()
+    const orgsGet = vi
+      .fn()
+      .mockRejectedValueOnce({ status: 429 })
+      .mockResolvedValueOnce({ data: { avatar_url: 'https://avatars/retried-org' } })
+    const usersGetByUsername = vi.fn().mockRejectedValueOnce({ status: 503 })
+    const flakyClient = {
+      orgs: { get: orgsGet },
+      users: { getByUsername: usersGetByUsername },
+    } as unknown as Octokit
+
+    // First call: rate-limited org lookup, then a server error on user lookup.
+    await expect(resolveOrgAvatar(flakyClient, 'flaky-org')).resolves.toBeNull()
+    expect(getOrgAvatarCacheEntry('flaky-org')).toBeUndefined()
+
+    // Second call: no cached negative result, so it retries and succeeds.
+    await expect(resolveOrgAvatar(flakyClient, 'flaky-org')).resolves.toBe(
+      'https://avatars/retried-org'
+    )
+    expect(getOrgAvatarCacheEntry('flaky-org')).toBe('https://avatars/retried-org')
+    expect(orgsGet).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not durably cache when the org lookup fails definitively but the user lookup is transient', async () => {
+    clearOrgAvatarCache()
+    const mixedClient = {
+      orgs: { get: vi.fn(() => Promise.reject({ status: 404 })) },
+      users: { getByUsername: vi.fn(() => Promise.reject({ status: 500 })) },
+    } as unknown as Octokit
+
+    await expect(resolveOrgAvatar(mixedClient, 'mixed-org')).resolves.toBeNull()
+    expect(getOrgAvatarCacheEntry('mixed-org')).toBeUndefined()
+  })
 })
 
 describe('mapCommitFileToDiffFile', () => {

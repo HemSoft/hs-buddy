@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Validate enterprise config at IPC boundary
 - Bound Tempo API requests
 - Keep timeout through response body
+- Only durably negative-cache definitive org avatar 404s
 
 ### Changed
 

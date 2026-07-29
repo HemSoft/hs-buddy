@@ -484,19 +484,30 @@ export async function resolveOrgAvatar(octokit: Octokit, org: string): Promise<s
   }
 }
 
+/** True only for a definitive "does not exist" response, never for rate-limit/auth/server/network errors. */
+function isDefinitiveNotFound(error: unknown): boolean {
+  return (error as { status?: number } | undefined)?.status === 404
+}
+
 async function fetchOrgAvatar(octokit: Octokit, org: string): Promise<string | null> {
   try {
     const orgData = await octokit.orgs.get({ org })
     orgAvatarCache.set(org, orgData.data.avatar_url)
     return orgData.data.avatar_url
-  } catch (_: unknown) {
+  } catch (orgError: unknown) {
+    const orgDefinitelyNotFound = isDefinitiveNotFound(orgError)
     try {
       const userData = await octokit.users.getByUsername({ username: org })
       orgAvatarCache.set(org, userData.data.avatar_url)
       return userData.data.avatar_url
-    } catch (_: unknown) {
+    } catch (userError: unknown) {
       console.debug(`Could not fetch avatar for ${org}`)
-      orgAvatarCache.set(org, null)
+      // Only durably negative-cache when both the org and user lookups are
+      // definitive 404s. Transient failures (rate limit, auth, server error,
+      // network) must remain retryable on a later call.
+      if (orgDefinitelyNotFound && isDefinitiveNotFound(userError)) {
+        orgAvatarCache.set(org, null)
+      }
       return null
     }
   }

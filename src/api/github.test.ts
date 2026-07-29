@@ -2355,9 +2355,11 @@ describe('GitHubClient', () => {
       expect(mockOctokit.users.getByUsername).toHaveBeenCalled()
     })
 
-    it('caches null when both org and user lookups fail', async () => {
-      mockOctokit.orgs.get.mockRejectedValue(new Error('Not Found'))
-      mockOctokit.users.getByUsername.mockRejectedValue(new Error('Not Found'))
+    it('caches null when both org and user lookups are definitive 404s', async () => {
+      mockOctokit.orgs.get.mockRejectedValue(Object.assign(new Error('Not Found'), { status: 404 }))
+      mockOctokit.users.getByUsername.mockRejectedValue(
+        Object.assign(new Error('Not Found'), { status: 404 })
+      )
       mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
         data: { total_count: 0, items: [] },
       })
@@ -3583,7 +3585,9 @@ describe('GitHubClient', () => {
       it('falls back to user endpoint when org lookup fails', async () => {
         clearOrgAvatarCache()
         // First call (org.get) fails, second call (users.getByUsername) succeeds
-        mockOctokit.orgs.get.mockRejectedValueOnce(new Error('404 Not Found'))
+        mockOctokit.orgs.get.mockRejectedValueOnce(
+          Object.assign(new Error('404 Not Found'), { status: 404 })
+        )
         mockOctokit.users.getByUsername.mockResolvedValueOnce({
           data: { avatar_url: 'https://user-avatar' },
         })
@@ -3594,17 +3598,23 @@ describe('GitHubClient', () => {
 
       it('returns null when both org and user lookup fail', async () => {
         clearOrgAvatarCache()
-        mockOctokit.orgs.get.mockRejectedValueOnce(new Error('404 Not Found'))
-        mockOctokit.users.getByUsername.mockRejectedValueOnce(new Error('404 Not Found'))
+        mockOctokit.orgs.get.mockRejectedValueOnce(
+          Object.assign(new Error('404 Not Found'), { status: 404 })
+        )
+        mockOctokit.users.getByUsername.mockRejectedValueOnce(
+          Object.assign(new Error('404 Not Found'), { status: 404 })
+        )
 
         const result = await resolveOrgAvatar(mockOctokit as any, 'missing')
         expect(result).toBeNull()
       })
 
-      it('caches null avatar for missing org/user', async () => {
+      it('caches null avatar for a definitive 404 on both org and user lookups', async () => {
         clearOrgAvatarCache()
-        mockOctokit.orgs.get.mockRejectedValue(new Error('404'))
-        mockOctokit.users.getByUsername.mockRejectedValue(new Error('404'))
+        mockOctokit.orgs.get.mockRejectedValue(Object.assign(new Error('404'), { status: 404 }))
+        mockOctokit.users.getByUsername.mockRejectedValue(
+          Object.assign(new Error('404'), { status: 404 })
+        )
 
         const result1 = await resolveOrgAvatar(mockOctokit as any, 'missing')
         expect(result1).toBeNull()

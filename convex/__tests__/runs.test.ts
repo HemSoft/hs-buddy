@@ -104,6 +104,26 @@ describe('runs', () => {
     expect(stats.runsFailed).toBe(1)
   })
 
+  test('complete is a no-op on a run already failed (e.g. reaped) so it cannot overwrite the result or double-count stats', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.fail, { id, error: 'reaped as stuck' })
+
+    // Simulate the original worker finishing late, after the run was
+    // already reaped/failed by scheduleScanner's stuck-run reaper.
+    await t.mutation(api.runs.complete, { id, output: { result: 'late' } })
+
+    const run = await t.query(api.runs.get, { id })
+    expect(run?.status).toBe('failed')
+    expect(run?.error).toBe('reaped as stuck')
+    expect(run?.output).toBeUndefined()
+
+    const stats = await t.query(api.buddyStats.get)
+    expect(stats.runsFailed).toBe(1)
+    expect(stats.runsCompleted).toBe(0)
+  })
+
   test('complete updates schedule lastRunStatus when run has a scheduleId', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)

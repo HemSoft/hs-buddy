@@ -35,6 +35,8 @@ export const execWorker: Worker = {
       let stdout = ''
       let stderr = ''
       let killed = false
+      let childExited = false
+      let forceKillTimer: ReturnType<typeof setTimeout> | undefined
 
       const child = spawn(shellCmd, [...shellArgs, finalCommand], {
         cwd: config.cwd || undefined,
@@ -46,12 +48,17 @@ export const execWorker: Worker = {
       // Timeout handling
       const timer = setTimeout(() => {
         killed = true
-        child.kill('SIGTERM')
         // Force kill after 5s if still alive
-        setTimeout(() => {
-          if (!child.killed) child.kill('SIGKILL')
+        forceKillTimer = setTimeout(() => {
+          if (!childExited) child.kill('SIGKILL')
         }, 5_000)
+        child.kill('SIGTERM')
       }, timeout)
+
+      const clearKillTimers = () => {
+        clearTimeout(timer)
+        if (forceKillTimer) clearTimeout(forceKillTimer)
+      }
 
       // AbortSignal handling
       const onAbort = () => {
@@ -76,7 +83,10 @@ export const execWorker: Worker = {
 
       // Handle errors (e.g. command not found)
       child.on('error', err => {
-        clearTimeout(timer)
+        if (child.pid !== undefined) return
+
+        childExited = true
+        clearKillTimers()
         signal?.removeEventListener('abort', onAbort)
         resolve({
           success: false,
@@ -87,7 +97,8 @@ export const execWorker: Worker = {
 
       // Process exit
       child.on('close', exitCode => {
-        clearTimeout(timer)
+        childExited = true
+        clearKillTimers()
         signal?.removeEventListener('abort', onAbort)
         resolve(
           buildWorkerResult({

@@ -46,6 +46,10 @@ jobs:
       - name: Verify frozen install
         run: bun install --frozen-lockfile
 
+      - name: Restore Aspire SDK
+        timeout-minutes: 15
+        uses: ./.github/actions/restore-aspire
+
       - name: Lint (ESLint)
         run: bun run lint
 

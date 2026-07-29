@@ -41,6 +41,10 @@ jobs:
         timeout-minutes: 10
         run: bun install --frozen-lockfile
 
+      - name: Restore Aspire SDK
+        timeout-minutes: 15
+        uses: ./.github/actions/restore-aspire
+
       - name: Lint (ESLint)
         run: bun run lint
 
@@ -88,6 +92,10 @@ jobs:
       - name: Install dependencies
         timeout-minutes: 10
         run: bun install --frozen-lockfile
+
+      - name: Restore Aspire SDK
+        timeout-minutes: 15
+        uses: ./.github/actions/restore-aspire
 
       - name: Type check (TypeScript + Convex)
         run: bun run typecheck

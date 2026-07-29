@@ -6,6 +6,7 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 
 - [Bun](https://bun.sh/) (package manager & script runner)
 - [Node.js](https://nodejs.org/) 20+
+- [.NET Aspire CLI](https://aspire.dev/get-started/install-cli/) (AppHost orchestration)
 - [Convex CLI](https://docs.convex.dev/getting-started) (`npm i -g convex`)
 
 ## Getting Started
@@ -15,6 +16,7 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
 bun install
+aspire restore
 
 # Start Convex dev server (separate terminal)
 bun run convex:dev
@@ -22,6 +24,8 @@ bun run convex:dev
 # Start Electron dev mode
 bun run dev
 ```
+
+`aspire restore` regenerates the ignored `.modules/` SDK used by `apphost.ts`.
 
 ### Environment Variables
 

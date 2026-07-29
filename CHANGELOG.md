@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split reaper describe block to satisfy lint quality gate
 - Guard finalizeRun against double-finalization; cap out-of-range job timeouts
 - Make enterprise slug configurable
+- Scope premium cache by enterprise
 
 ### Changed
 

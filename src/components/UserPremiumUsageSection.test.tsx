@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 /* ── hoisted mocks ── */
+let mockEnterpriseSlug = 'enterprise-a'
+
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
     accounts: [
@@ -9,6 +11,9 @@ vi.mock('../hooks/useConfig', () => ({
       { username: 'bob', org: 'other-org' },
     ],
     loading: false,
+  }),
+  useConfig: () => ({
+    config: { ui: { enterpriseSlug: mockEnterpriseSlug } },
   }),
 }))
 
@@ -43,6 +48,7 @@ import { computeProjection } from './copilot-usage/quotaUtils'
 
 beforeEach(() => {
   _resetCaches()
+  mockEnterpriseSlug = 'enterprise-a'
 })
 
 describe('UserPremiumUsageSection', () => {
@@ -499,6 +505,29 @@ describe('UserPremiumUsageSection', () => {
       })
       // Premium data should come from cache
       expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
+    })
+
+    it('does not reuse premium data after the enterprise slug changes', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: { entitlement: 1000, remaining: 600, overage_count: 0 },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      const { unmount } = render(<UserPremiumUsageSection username="alice" org="test-org" />)
+      await waitFor(() => expect(mockGetUserPremiumRequests).toHaveBeenCalledTimes(1))
+
+      unmount()
+      mockEnterpriseSlug = 'enterprise-b'
+      mockGetUserPremiumRequests.mockClear()
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => expect(mockGetUserPremiumRequests).toHaveBeenCalledTimes(1))
     })
 
     it('model pct is 0 when userMonthlyRequests is 0 with models present', async () => {

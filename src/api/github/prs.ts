@@ -530,9 +530,9 @@ async function executeSearchQueries(
   _config: PRConfig['github'],
   octokit: Octokit,
   queries: string[],
-  org: string
+  org: string,
+  orgAvatarUrl: string | null
 ): Promise<PullRequest[]> {
-  const orgAvatarUrl = await resolveOrgAvatar(octokit, org)
   const seenUrls = new Set<string>()
   const allPrs: PullRequest[] = []
 
@@ -633,7 +633,10 @@ async function fetchPRsForAccount(
 
   const mergedAfter = resolveMergedAfter(recentlyMergedDays, mode)
   const queries = buildPRSearchQueries(username, org, mode, mergedAfter)
-  const allPrs = await executeSearchQueries(config, octokit, queries, org)
+  // Reuse the avatar already resolved above instead of calling resolveOrgAvatar
+  // again: a transient failure isn't durably cached (see shared.ts), so a
+  // second in-process lookup here would immediately repeat the failed request.
+  const allPrs = await executeSearchQueries(config, octokit, queries, org, orgAvatarUrl)
 
   await appendGraphQLFallbackPRs(allPrs, config, username, org, orgAvatarUrl, mode)
   await hydrateSearchPRMetadata(config, octokit, allPrs, username)

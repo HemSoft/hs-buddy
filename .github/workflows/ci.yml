@@ -41,6 +41,10 @@ jobs:
         timeout-minutes: 10
         run: bun install --frozen-lockfile
 
+      - name: Restore Aspire SDK
+        timeout-minutes: 10
+        uses: ./.github/actions/restore-aspire
+
       - name: Lint (ESLint)
         run: bun run lint
 
@@ -91,16 +95,7 @@ jobs:
 
       - name: Restore Aspire SDK
         timeout-minutes: 10
-        env:
-          ASPIRE_INSTALLER_SHA256: df1247d87f6e5ca83e71abf55f78bca1bd9a421a3f2f0fd5481f153fc958632a
-        run: |
-          aspire_version="$(jq -r '.sdk.version' aspire.config.json)"
-          installer="$RUNNER_TEMP/get-aspire-cli.sh"
-          curl -fsSL --output "$installer" \
-            https://raw.githubusercontent.com/microsoft/aspire/06ca9c07c250a95df8ce4772ea469f85369eb07d/eng/scripts/get-aspire-cli.sh
-          echo "$ASPIRE_INSTALLER_SHA256  $installer" | sha256sum --check --strict
-          bash "$installer" --version "$aspire_version" --skip-path
-          "$HOME/.aspire/bin/aspire" restore
+        uses: ./.github/actions/restore-aspire
 
       - name: Type check (TypeScript + Convex)
         run: bun run typecheck

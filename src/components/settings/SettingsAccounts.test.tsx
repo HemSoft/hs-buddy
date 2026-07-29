@@ -5,9 +5,13 @@ import { SettingsAccounts, addAccountFormReducer } from './SettingsAccounts'
 const mockAddAccount = vi.fn()
 const mockRemoveAccount = vi.fn()
 const mockUpdateAccount = vi.fn()
+const mockSetEnterpriseSlug = vi.fn()
+const mockRefreshConfig = vi.fn()
 
 let mockAccounts: Array<{ username: string; org: string; repoRoot?: string }> = []
 let mockLoading = false
+let mockConfigLoading = false
+let mockEnterpriseSlug = 'example-enterprise'
 
 vi.mock('../../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
@@ -17,6 +21,12 @@ vi.mock('../../hooks/useConfig', () => ({
     removeAccount: mockRemoveAccount,
     updateAccount: mockUpdateAccount,
   }),
+  useConfig: () => ({
+    config: { ui: { enterpriseSlug: mockEnterpriseSlug } },
+    loading: mockConfigLoading,
+    refresh: mockRefreshConfig,
+    api: { setEnterpriseSlug: mockSetEnterpriseSlug },
+  }),
 }))
 
 describe('SettingsAccounts', () => {
@@ -24,6 +34,10 @@ describe('SettingsAccounts', () => {
     vi.clearAllMocks()
     mockAccounts = [{ username: 'existing-user', org: 'existing-org' }]
     mockLoading = false
+    mockConfigLoading = false
+    mockEnterpriseSlug = 'example-enterprise'
+    mockSetEnterpriseSlug.mockResolvedValue({ success: true })
+    mockRefreshConfig.mockResolvedValue(undefined)
   })
 
   it('shows a validation error when required fields are missing', async () => {
@@ -193,6 +207,42 @@ describe('SettingsAccounts', () => {
 
     expect(await screen.findByText('Failed to add account')).toBeTruthy()
     expect(screen.getByLabelText('Username')).toHaveValue('new-user')
+  })
+
+  it('loads and saves the configured enterprise slug', async () => {
+    render(<SettingsAccounts />)
+
+    const input = screen.getByLabelText('GitHub Enterprise Slug')
+    expect(input).toHaveValue('example-enterprise')
+    fireEvent.change(input, { target: { value: '  updated-enterprise  ' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => {
+      expect(mockSetEnterpriseSlug).toHaveBeenCalledWith('updated-enterprise')
+      expect(mockRefreshConfig).toHaveBeenCalled()
+      expect(screen.getByText('Saved')).toBeInTheDocument()
+    })
+  })
+
+  it('allows clearing the enterprise slug to disable enterprise requests', async () => {
+    render(<SettingsAccounts />)
+
+    fireEvent.change(screen.getByLabelText('GitHub Enterprise Slug'), { target: { value: '   ' } })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    await waitFor(() => expect(mockSetEnterpriseSlug).toHaveBeenCalledWith(''))
+  })
+
+  it('rejects an invalid enterprise slug before saving', async () => {
+    render(<SettingsAccounts />)
+
+    fireEvent.change(screen.getByLabelText('GitHub Enterprise Slug'), {
+      target: { value: 'bad;slug' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /^save$/i }))
+
+    expect(await screen.findByText("Invalid GitHub account slug: 'bad;slug'")).toBeInTheDocument()
+    expect(mockSetEnterpriseSlug).not.toHaveBeenCalled()
   })
 })
 

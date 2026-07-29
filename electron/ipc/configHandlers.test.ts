@@ -47,7 +47,7 @@ vi.mock('../../src/ipc/contracts', async importOriginal => {
   const actual = await importOriginal<typeof import('../../src/ipc/contracts')>()
   return {
     ...actual,
-    CONFIG_UI_KEYS: ['theme', 'accent-color', 'zoom-level'] as const,
+    CONFIG_UI_KEYS: ['theme', 'accent-color', 'zoom-level', 'enterprise-slug'] as const,
   }
 })
 
@@ -442,6 +442,15 @@ describe('configHandlers', () => {
     it('config:set-zoom-level sets zoom level', () => {
       const result = handlers.get('config:set-zoom-level')!({}, 1.5)
       expect(mockConfigManager.setUiValue).toHaveBeenCalledWith('zoomLevel', 1.5)
+      expect(result).toEqual({ success: true })
+    })
+
+    it('config:set-enterprise-slug sets enterprise slug', () => {
+      const result = handlers.get('config:set-enterprise-slug')!({}, 'example-enterprise')
+      expect(mockConfigManager.setUiValue).toHaveBeenCalledWith(
+        'enterpriseSlug',
+        'example-enterprise'
+      )
       expect(result).toEqual({ success: true })
     })
   })

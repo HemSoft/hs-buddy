@@ -33,6 +33,7 @@ export const CONFIG_UI_KEYS = [
   'dashboard-cards',
   'weather-location',
   'pollen-api-key',
+  'enterprise-slug',
 ] as const
 
 type ConfigUiKey = (typeof CONFIG_UI_KEYS)[number]
@@ -116,6 +117,8 @@ export const IPC_INVOKE = {
   CONFIG_SET_WEATHER_LOCATION: 'config:set-weather-location',
   CONFIG_GET_POLLEN_API_KEY: 'config:get-pollen-api-key',
   CONFIG_SET_POLLEN_API_KEY: 'config:set-pollen-api-key',
+  CONFIG_GET_ENTERPRISE_SLUG: 'config:get-enterprise-slug',
+  CONFIG_SET_ENTERPRISE_SLUG: 'config:set-enterprise-slug',
 
   // ── Cache ──────────────────────────────────────────────────────────────
   CACHE_READ_ALL: 'cache:read-all',

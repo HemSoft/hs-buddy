@@ -33,6 +33,7 @@ const CHANNEL_TO_CONFIG_KEY: Record<ConfigUiChannelKey, UiConfigKey> = {
   'dashboard-cards': 'dashboardCards',
   'weather-location': 'weatherLocation',
   'pollen-api-key': 'pollenApiKey',
+  'enterprise-slug': 'enterpriseSlug',
 }
 
 // Derived from CONFIG_UI_KEYS — guaranteed to stay in sync with contracts.ts

@@ -47,7 +47,7 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Restore Aspire SDK
-        timeout-minutes: 10
+        timeout-minutes: 15
         uses: ./.github/actions/restore-aspire
 
       - name: Lint (ESLint)

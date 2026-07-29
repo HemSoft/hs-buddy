@@ -63,7 +63,10 @@ function createMockProcess() {
   }
   proc.stdout = new Readable({ read() {} })
   proc.stderr = new Readable({ read() {} })
-  proc.kill = vi.fn()
+  proc.kill = vi.fn(() => {
+    proc.killed = true
+    return true
+  })
   proc.killed = false
   return proc
 }
@@ -197,9 +200,7 @@ describe('execWorker', () => {
     // Advance past timeout — triggers SIGTERM
     vi.advanceTimersByTime(3000)
     expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
-
-    // Process is still alive (not killed flag)
-    proc.killed = false
+    expect(proc.killed).toBe(true)
 
     // Advance 5 more seconds — triggers SIGKILL
     vi.advanceTimersByTime(5000)
@@ -213,7 +214,7 @@ describe('execWorker', () => {
     expect(result.success).toBe(false)
   })
 
-  it('skips SIGKILL when process is already killed after SIGTERM', async () => {
+  it('cancels the force-kill when the process exits after SIGTERM', async () => {
     const proc = createMockProcess()
     vi.mocked(spawn).mockReturnValue(proc as never)
 
@@ -223,20 +224,36 @@ describe('execWorker', () => {
     vi.advanceTimersByTime(3000)
     expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
 
-    // Process IS already killed
-    proc.killed = true
+    proc.emit('close', null)
+    expect(vi.getTimerCount()).toBe(0)
 
     // Advance 5 more seconds — SIGKILL should NOT be sent
     vi.advanceTimersByTime(5000)
-    // kill was called once with SIGTERM, but should NOT have been called with SIGKILL
     expect(proc.kill).not.toHaveBeenCalledWith('SIGKILL')
-
-    // Process exits
-    proc.emit('close', null)
 
     vi.useRealTimers()
     const result = await promise
     expect(result.success).toBe(false)
+  })
+
+  it('cancels the force-kill when the process errors after SIGTERM', async () => {
+    const proc = createMockProcess()
+    vi.mocked(spawn).mockReturnValue(proc as never)
+
+    const promise = execWorker.execute({ command: 'broken', timeout: 3000 })
+
+    vi.advanceTimersByTime(3000)
+    expect(proc.kill).toHaveBeenCalledWith('SIGTERM')
+
+    proc.emit('error', new Error('process error'))
+    expect(vi.getTimerCount()).toBe(0)
+
+    vi.advanceTimersByTime(5000)
+    expect(proc.kill).not.toHaveBeenCalledWith('SIGKILL')
+
+    vi.useRealTimers()
+    const result = await promise
+    expect(result.error).toContain('Spawn error: process error')
   })
 
   it('caps stdout at MAX_OUTPUT_SIZE', async () => {

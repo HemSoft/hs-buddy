@@ -448,8 +448,11 @@ describe('githubHandlers', () => {
       }
     })
 
-    it('skips per-user enterprise calls when the enterprise slug is not configured', async () => {
-      mockGetUiValue.mockReturnValue('')
+    it.each([
+      ['not configured', ''],
+      ['invalid', 'bad;slug'],
+    ])('skips per-user enterprise calls when the enterprise slug is %s', async (_label, slug) => {
+      mockGetUiValue.mockReturnValue(slug)
       mockExecAsync
         .mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
         .mockResolvedValueOnce({
@@ -1237,29 +1240,35 @@ describe('githubHandlers', () => {
       )
     })
 
-    it('github:get-copilot-budget skips enterprise fallback when the slug is not configured', async () => {
-      const { extractBudgetFromResult } = await import('../../src/utils/billingParsers')
-      const { findBudgetAcrossPages } = await import('../../src/utils/budgetUtils')
+    it.each([
+      ['not configured', ''],
+      ['invalid', 'bad;slug'],
+    ])(
+      'github:get-copilot-budget skips enterprise fallback when the slug is %s',
+      async (_label, slug) => {
+        const { extractBudgetFromResult } = await import('../../src/utils/billingParsers')
+        const { findBudgetAcrossPages } = await import('../../src/utils/budgetUtils')
 
-      mockGetUiValue.mockReturnValue('')
-      vi.mocked(extractBudgetFromResult).mockReturnValueOnce({
-        budgetAmount: null,
-        preventFurtherUsage: false,
-      })
-      mockExecAsync
-        .mockResolvedValueOnce({ stdout: '[]', stderr: '' })
-        .mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+        mockGetUiValue.mockReturnValue(slug)
+        vi.mocked(extractBudgetFromResult).mockReturnValueOnce({
+          budgetAmount: null,
+          preventFurtherUsage: false,
+        })
+        mockExecAsync
+          .mockResolvedValueOnce({ stdout: '[]', stderr: '' })
+          .mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
 
-      const handler = handlers.get('github:get-copilot-budget')!
-      const result = await handler({}, 'test-org')
+        const handler = handlers.get('github:get-copilot-budget')!
+        const result = await handler({}, 'test-org')
 
-      expect(result.success).toBe(true)
-      expect(result.data.budgetAmount).toBeNull()
-      expect(findBudgetAcrossPages).not.toHaveBeenCalled()
-      expect(mockExecAsync.mock.calls.some(([command]) => command.includes('/enterprises/'))).toBe(
-        false
-      )
-    })
+        expect(result.success).toBe(true)
+        expect(result.data.budgetAmount).toBeNull()
+        expect(findBudgetAcrossPages).not.toHaveBeenCalled()
+        expect(
+          mockExecAsync.mock.calls.some(([command]) => command.includes('/enterprises/'))
+        ).toBe(false)
+      }
+    )
 
     it('github:get-copilot-budget scopes spend to the current billing month', async () => {
       const { extractCopilotSpend } = await import('../../src/utils/billingParsers')

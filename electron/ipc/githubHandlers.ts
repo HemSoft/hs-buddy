@@ -304,12 +304,12 @@ async function resolveEnterpriseBudgetFallback(
     return { budgetAmount, preventFurtherUsage }
   }
 
-  const enterpriseSlug = getConfiguredEnterpriseSlug()
-  if (!enterpriseSlug) {
-    return { budgetAmount, preventFurtherUsage }
-  }
-
   try {
+    const enterpriseSlug = getConfiguredEnterpriseSlug()
+    if (!enterpriseSlug) {
+      return { budgetAmount, preventFurtherUsage }
+    }
+
     const match = await findBudgetAcrossPages(async page => {
       const entResult = await execAsync(
         `gh api "/enterprises/${enterpriseSlug}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
@@ -734,16 +734,16 @@ function registerCopilotUsageHandlers(): void {
 
         let userCredits: number | null = null
         if (username) {
-          const enterpriseSlug = getConfiguredEnterpriseSlug()
-          if (enterpriseSlug) {
-            try {
+          try {
+            const enterpriseSlug = getConfiguredEnterpriseSlug()
+            if (enterpriseSlug) {
               userCredits = await fetchUserMonthlyCredits(username, enterpriseSlug, execEnv)
-            } catch (error: unknown) {
-              console.error(
-                `Failed to get AI Credit usage for user '${username}':`,
-                getErrorMessage(error)
-              )
             }
+          } catch (error: unknown) {
+            console.error(
+              `Failed to get AI Credit usage for user '${username}':`,
+              getErrorMessage(error)
+            )
           }
         }
 

@@ -208,7 +208,8 @@ describe('scheduleScanner.scanAndDispatch — stuck-run reaper', () => {
     expect(run?.error).toBeUndefined()
   })
 
-  test('a schedule dispatches again once its stuck run is reaped', async () => {    const t = convexTest(schema, modules)
+  test('a schedule dispatches again once its stuck run is reaped', async () => {
+    const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
 
     const schedId = await t.mutation(api.schedules.create, {
@@ -249,7 +250,9 @@ describe('scheduleScanner.scanAndDispatch — stuck-run reaper', () => {
     const scheduleRuns = await t.query(api.runs.listBySchedule, { scheduleId: schedId })
     expect(scheduleRuns.some(r => r.status === 'pending')).toBe(true)
   })
+})
 
+describe('scheduleScanner.scanAndDispatch — stuck-run reaper (job timeout override)', () => {
   test('does NOT reap a running run before its own longer job.config.timeout elapses', async () => {
     const t = convexTest(schema, modules)
     const longTimeoutMs = STALE_RUN_TIMEOUT_MS * 2

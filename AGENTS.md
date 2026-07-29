@@ -26,7 +26,7 @@ identity.
 ### 2. Risk Acknowledgment for Agent Fixes
 
 Medium or high risk is **not** a reason to mark a finding as non-agent-fixable.
-Agents should still attempt the fix. When the resulting PR reaches human review
+Agents should still attempt the fix. When the resulting PR reaches human review,
 the risk level and a brief justification must be visible in the linked issue
 body so the reviewer knows what to scrutinize.
 

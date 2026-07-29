@@ -1,5 +1,10 @@
 src/**/* text=auto eol=lf
 shared/**/* text=auto eol=lf
+electron/**/* text=auto eol=lf
+convex/**/* text=auto eol=lf
+scripts/**/* text=auto eol=lf
+e2e/**/* text=auto eol=lf
+perf/**/* text=auto eol=lf
 
 .github/workflows/*.lock.yml linguist-generated=true merge=ours
 .husky/* text eol=lf

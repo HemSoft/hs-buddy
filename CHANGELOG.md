@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bound org period usage query
 - Reap stuck pending/running runs so schedules can resume
 - Split reaper describe block to satisfy lint quality gate
+- Guard finalizeRun against double-finalization; cap out-of-range job timeouts
 
 ## [0.1.933] - 2026-07-28
 

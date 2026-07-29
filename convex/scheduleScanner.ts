@@ -1,6 +1,10 @@
 import { internalMutation } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
-import { RUNNING_TIMEOUT_HEADROOM_MS, STALE_RUN_TIMEOUT_MS } from './lib/constants'
+import {
+  MAX_SETTIMEOUT_DELAY_MS,
+  RUNNING_TIMEOUT_HEADROOM_MS,
+  STALE_RUN_TIMEOUT_MS,
+} from './lib/constants'
 import { isPendingOrRunning } from './lib/domain'
 import { incrementStat } from './lib/stats'
 
@@ -136,10 +140,12 @@ async function reapRun(
 
 /**
  * The stale-run threshold for a `running` run honors the job's own
- * `config.timeout` (exec-worker only; unbounded, see
- * `electron/workers/execWorker.ts`) plus headroom, when set, since it can
- * legitimately exceed `STALE_RUN_TIMEOUT_MS`. `pending` runs have not
- * started executing yet, so they always use the flat default.
+ * `config.timeout` plus headroom, when set to a valid positive value, since
+ * it can legitimately exceed `STALE_RUN_TIMEOUT_MS`. A configured timeout
+ * above `MAX_SETTIMEOUT_DELAY_MS` is ignored (falls back to the flat
+ * default) since Node's `exec` cannot actually honor a delay that large.
+ * `pending` runs have not started executing yet, so they always use the
+ * flat default.
  */
 async function staleRunThresholdMs(
   ctx: { db: GenericDatabaseWriter<DataModel> },
@@ -150,7 +156,11 @@ async function staleRunThresholdMs(
 
   const job = await ctx.db.get('jobs', run.jobId)
   const configuredTimeout = job?.config.timeout
-  if (configuredTimeout != null && configuredTimeout > 0) {
+  if (
+    configuredTimeout != null &&
+    configuredTimeout > 0 &&
+    configuredTimeout <= MAX_SETTIMEOUT_DELAY_MS
+  ) {
     return Math.max(STALE_RUN_TIMEOUT_MS, configuredTimeout + RUNNING_TIMEOUT_HEADROOM_MS)
   }
   return STALE_RUN_TIMEOUT_MS

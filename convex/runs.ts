@@ -143,6 +143,13 @@ async function finalizeRun(
   if (!run) {
     throw notFoundError('Run', runId)
   }
+  // A run already in a terminal state was finalized elsewhere first (e.g.
+  // the stuck-run reaper in `scheduleScanner.ts` failed it after the
+  // Electron app went unresponsive). Silently no-op instead of overwriting
+  // that result and double-incrementing stats for the same run.
+  if (!isPendingOrRunning(run.status)) {
+    return
+  }
   const completedAt = Date.now()
   await db.patch(runId, {
     status,

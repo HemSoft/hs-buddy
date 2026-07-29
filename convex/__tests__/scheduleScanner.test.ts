@@ -2,7 +2,11 @@ import { convexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api, internal } from '../_generated/api'
-import { RUNNING_TIMEOUT_HEADROOM_MS, STALE_RUN_TIMEOUT_MS } from '../lib/constants'
+import {
+  MAX_SETTIMEOUT_DELAY_MS,
+  RUNNING_TIMEOUT_HEADROOM_MS,
+  STALE_RUN_TIMEOUT_MS,
+} from '../lib/constants'
 
 const modules = import.meta.glob('../**/*.*s')
 
@@ -290,6 +294,28 @@ describe('scheduleScanner.scanAndDispatch — stuck-run reaper (job timeout over
       await ctx.db.patch(runId, {
         startedAt: Date.now() - (longTimeoutMs + RUNNING_TIMEOUT_HEADROOM_MS + 60_000),
       })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(1)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('failed')
+  })
+
+  test('ignores an out-of-range job.config.timeout and falls back to the flat default', async () => {
+    const t = convexTest(schema, modules)
+    // Above Node's max setTimeout delay (2^31 - 1 ms) — execWorker's exec()
+    // can't actually honor this, so the reaper must not treat it as valid.
+    const jobId = await t.mutation(api.jobs.create, {
+      ...baseJob,
+      config: { command: 'run', timeout: MAX_SETTIMEOUT_DELAY_MS + 1 },
+    })
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.markRunning, { id: runId })
+
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, { startedAt: Date.now() - (STALE_RUN_TIMEOUT_MS + 60_000) })
     })
 
     const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)

@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bound Tempo API requests
 - Keep timeout through response body
 - Only durably negative-cache definitive org avatar 404s
+- Reuse resolved org avatar instead of re-resolving in search orchestration
 
 ### Changed
 

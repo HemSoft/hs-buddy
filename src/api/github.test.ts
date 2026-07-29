@@ -2384,6 +2384,32 @@ describe('GitHubClient', () => {
       expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(orgCallCount)
       expect(mockOctokit.users.getByUsername).toHaveBeenCalledTimes(userCallCount)
     })
+
+    it('does not immediately repeat a transient avatar failure within a single refresh', async () => {
+      // A transient failure (503) is never durably cached, so any code path
+      // that independently re-resolves the avatar during the same refresh
+      // would double the failed network traffic per account.
+      mockOctokit.orgs.get.mockRejectedValue(
+        Object.assign(new Error('Service Unavailable'), { status: 503 })
+      )
+      mockOctokit.users.getByUsername.mockRejectedValue(
+        Object.assign(new Error('Service Unavailable'), { status: 503 })
+      )
+      mockOctokit.search.issuesAndPullRequests.mockResolvedValue({
+        data: { total_count: 0, items: [] },
+      })
+      mockOctokit.paginate.mockResolvedValue([])
+
+      await client.fetchMyPRs()
+
+      // One org.get + one users.getByUsername attempt per account (myorg, otherorg),
+      // not two, proving the resolved avatar is reused rather than re-resolved
+      // inside executeSearchQueries.
+      expect(mockOctokit.orgs.get).toHaveBeenCalledTimes(2)
+      expect(mockOctokit.users.getByUsername).toHaveBeenCalledTimes(2)
+      expect(getOrgAvatarCacheEntry('myorg')).toBeUndefined()
+      expect(getOrgAvatarCacheEntry('otherorg')).toBeUndefined()
+    })
   })
 
   describe('listPRReviews', () => {

@@ -52,6 +52,15 @@ vi.mock('../../src/utils/tempoUtils', () => ({
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
+function mockPendingFetchUntilAbort(): void {
+  mockFetch.mockImplementationOnce(
+    (_url: string, init: RequestInit) =>
+      new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => reject(init.signal?.reason), { once: true })
+      })
+  )
+}
+
 describe('tempoClient', () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -111,6 +120,27 @@ describe('tempoClient', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toBeDefined()
+    })
+
+    it('returns an error when the read request reaches the 15-second timeout', async () => {
+      vi.useFakeTimers()
+      try {
+        const { getAccounts } = await import('./tempoClient')
+        mockPendingFetchUntilAbort()
+
+        const pendingResult = getAccounts()
+        const requestInit = mockFetch.mock.calls[0][1] as RequestInit
+        expect(requestInit.signal).toBeInstanceOf(AbortSignal)
+
+        await vi.advanceTimersByTimeAsync(15_000)
+
+        await expect(pendingResult).resolves.toEqual({
+          success: false,
+          error: 'Request timed out after 15000ms',
+        })
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 
@@ -192,6 +222,27 @@ describe('tempoClient', () => {
 
       expect(result.success).toBe(false)
       expect(result.error).toContain('404')
+    })
+
+    it('returns an error when the delete request reaches the 15-second timeout', async () => {
+      vi.useFakeTimers()
+      try {
+        const { deleteWorklog } = await import('./tempoClient')
+        mockPendingFetchUntilAbort()
+
+        const pendingResult = deleteWorklog(999)
+        const requestInit = mockFetch.mock.calls[0][1] as RequestInit
+        expect(requestInit.signal).toBeInstanceOf(AbortSignal)
+
+        await vi.advanceTimersByTimeAsync(15_000)
+
+        await expect(pendingResult).resolves.toEqual({
+          success: false,
+          error: 'Request timed out after 15000ms',
+        })
+      } finally {
+        vi.useRealTimers()
+      }
     })
   })
 

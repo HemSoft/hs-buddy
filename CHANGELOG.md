@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scope premium cache by enterprise
 - Tolerate invalid optional enterprise config
 - Validate enterprise config at IPC boundary
+- Bound Tempo API requests
 
 ### Changed
 

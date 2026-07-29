@@ -25,6 +25,7 @@ import type {
 
 const TEMPO_BASE = 'https://api.tempo.io/4'
 const JIRA_BASE = 'https://relias.atlassian.net'
+const API_REQUEST_TIMEOUT_MS = 15_000
 
 // --- In-memory caches ---
 let cachedAccountId: string | null = null
@@ -73,16 +74,45 @@ function getTempoHeaders(): Record<string, string> {
   }
 }
 
+async function fetchResponse(
+  url: string,
+  headers: Record<string, string>,
+  init?: RequestInit
+): Promise<Response> {
+  const timeoutController = new AbortController()
+  const timeout = setTimeout(
+    () =>
+      timeoutController.abort(
+        new DOMException(`Request timed out after ${API_REQUEST_TIMEOUT_MS}ms`, 'TimeoutError')
+      ),
+    API_REQUEST_TIMEOUT_MS
+  )
+
+  try {
+    const signal = init?.signal
+      ? AbortSignal.any([init.signal, timeoutController.signal])
+      : timeoutController.signal
+    const res = await fetch(url, {
+      ...init,
+      headers: { ...headers, ...init?.headers },
+      signal,
+    })
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      throw new Error(`HTTP ${res.status}: ${body || res.statusText}`)
+    }
+    return res
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function fetchJson<T>(
   url: string,
   headers: Record<string, string>,
   init?: RequestInit
 ): Promise<T> {
-  const res = await fetch(url, { ...init, headers: { ...headers, ...init?.headers } })
-  if (!res.ok) {
-    const body = await res.text().catch(() => '')
-    throw new Error(`HTTP ${res.status}: ${body || res.statusText}`)
-  }
+  const res = await fetchResponse(url, headers, init)
   return res.json() as Promise<T>
 }
 
@@ -364,14 +394,9 @@ export async function updateWorklog(
 
 export async function deleteWorklog(worklogId: number): Promise<TempoResult<void>> {
   try {
-    const res = await fetch(`${TEMPO_BASE}/worklogs/${worklogId}`, {
+    await fetchResponse(`${TEMPO_BASE}/worklogs/${worklogId}`, getTempoHeaders(), {
       method: 'DELETE',
-      headers: getTempoHeaders(),
     })
-    if (!res.ok) {
-      const body = await res.text().catch(() => '')
-      throw new Error(`HTTP ${res.status}: ${body || res.statusText}`)
-    }
 
     return { success: true }
   } catch (err: unknown) {

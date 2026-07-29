@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Correct execWorker timeout mechanism description
 - Sync bun.lock after merging origin/main
 - Quote the resolved timeout variable, not config.timeout
+- Pin installer used for sdk restore
 
 ## [0.1.933] - 2026-07-28
 

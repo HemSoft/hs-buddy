@@ -143,7 +143,8 @@ async function reapRun(
  * `config.timeout` plus headroom, when set to a valid positive value, since
  * it can legitimately exceed `STALE_RUN_TIMEOUT_MS`. A configured timeout
  * above `MAX_SETTIMEOUT_DELAY_MS` is ignored (falls back to the flat
- * default) since Node's `exec` cannot actually honor a delay that large.
+ * default) since Node's `setTimeout` cannot actually honor a delay that
+ * large.
  * `pending` runs have not started executing yet, so they always use the
  * flat default.
  */

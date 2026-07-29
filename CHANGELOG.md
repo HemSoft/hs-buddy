@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Split reaper describe block to satisfy lint quality gate
 - Guard finalizeRun against double-finalization; cap out-of-range job timeouts
 
+### Changed
+
+- Correct execWorker timeout mechanism description
+
 ## [0.1.933] - 2026-07-28
 
 ### Changed

@@ -27,13 +27,13 @@ export const STALE_RUN_TIMEOUT_MS = 60 * 60 * 1000 // 1 hour
 export const RUNNING_TIMEOUT_HEADROOM_MS = 5 * 60 * 1000 // 5 minutes
 
 /**
- * Node's `setTimeout`/`exec` delay is a signed 32-bit integer internally; a
- * value above this overflows and fires almost immediately instead of
- * waiting, so `execWorker.ts`'s underlying `child_process.exec({ timeout })`
- * would not actually honor a `job.config.timeout` configured above this. The
- * reaper excludes such out-of-range values when deriving the stale-run
- * threshold (falling back to `STALE_RUN_TIMEOUT_MS`) so a misconfigured job
- * timeout can't accidentally suppress reaping for a run that is, in
- * practice, no longer running.
+ * Node's `setTimeout` delay is a signed 32-bit integer internally; a value
+ * above this overflows and fires almost immediately instead of waiting, so
+ * `execWorker.ts`'s `setTimeout(() => ..., config.timeout)` call would not
+ * actually honor a `job.config.timeout` configured above this. The reaper
+ * excludes such out-of-range values when deriving the stale-run threshold
+ * (falling back to `STALE_RUN_TIMEOUT_MS`) so a misconfigured job timeout
+ * can't accidentally suppress reaping for a run that is, in practice, no
+ * longer running.
  */
 export const MAX_SETTIMEOUT_DELAY_MS = 2_147_483_647 // 2^31 - 1

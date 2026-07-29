@@ -51,6 +51,7 @@ export interface AppConfig {
     dashboardCards: Record<string, boolean> // Dashboard card visibility (cardId → visible)
     weatherLocation: { latitude: number; longitude: number; name: string } | null // Saved weather city
     pollenApiKey: string // Tomorrow.io API key for pollen data (user-provided, stored locally)
+    enterpriseSlug: string // GitHub Enterprise slug for enterprise billing APIs
   }
   pr: {
     refreshInterval: number // minutes
@@ -224,6 +225,10 @@ export const configSchema: Schema<AppConfig> = {
         type: 'string',
         default: '',
       },
+      enterpriseSlug: {
+        type: 'string',
+        default: '',
+      },
     },
     required: [
       'theme',
@@ -247,6 +252,7 @@ export const configSchema: Schema<AppConfig> = {
       'dashboardCards',
       'weatherLocation',
       'pollenApiKey',
+      'enterpriseSlug',
     ],
   },
   pr: {
@@ -363,6 +369,7 @@ export const defaultConfig: AppConfig = {
     dashboardCards: {},
     weatherLocation: null,
     pollenApiKey: '',
+    enterpriseSlug: '',
   },
   pr: {
     refreshInterval: 15,

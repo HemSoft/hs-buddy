@@ -158,6 +158,7 @@ interface Window {
       username?: string
     ) => Promise<{
       success: boolean
+      code?: 'enterprise-not-configured'
       error?: string
       data?: {
         memberLogin: string
@@ -197,6 +198,7 @@ interface Window {
       skipDayProbing?: boolean
     ) => Promise<{
       success: boolean
+      code?: 'enterprise-not-configured'
       error?: string
       data?: Record<string, { requests: number; lastActiveDate: string | null }>
     }>

@@ -2,10 +2,10 @@ import { ipcMain } from 'electron'
 import { ConvexHttpClient } from 'convex/browser'
 import { api } from '../../convex/_generated/api'
 import { getErrorMessage } from '../../src/utils/errorUtils'
-import { CONVEX_URL } from '../config'
+import { configManager, CONVEX_URL } from '../config'
 import { execAsync, execFileAsync } from '../utils'
 import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
-import { IPC_INVOKE } from '../../src/ipc/contracts'
+import { ENTERPRISE_NOT_CONFIGURED_CODE, IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   parseActiveGitHubAccount,
   assertValidGitHubAccountSlug,
@@ -38,9 +38,8 @@ const API_TIMEOUT_MS = 15000
 /** Timeout for paginated / enterprise-wide API calls. */
 const API_TIMEOUT_LONG_MS = 20000
 
-/** Enterprise slug for billing API calls.
- *  TODO: make configurable instead of hardcoding (see original TODO at the call sites). */
-const ENTERPRISE_SLUG = 'Bertelsmann'
+const ENTERPRISE_NOT_CONFIGURED_ERROR =
+  'GitHub enterprise slug is not configured. Set it in Settings > Accounts.'
 
 /** Personal GitHub accounts that lack org-level billing API access.
  *  Maps org name (lowercase) to a known monthly budget limit.
@@ -49,6 +48,17 @@ export const PERSONAL_BUDGETS: Record<string, number> = {}
 
 type ExecAsyncSettledResult = PromiseSettledResult<Awaited<ReturnType<typeof execAsync>>>
 type CliStdoutSettledResult = PromiseSettledResult<{ stdout: string }>
+
+function getConfiguredEnterpriseSlug(): string | null {
+  const configuredValue = configManager.getUiValue('enterpriseSlug')
+  if (typeof configuredValue !== 'string') return null
+
+  const enterpriseSlug = configuredValue.trim()
+  if (!enterpriseSlug) return null
+
+  assertValidGitHubAccountSlug(enterpriseSlug)
+  return enterpriseSlug
+}
 
 async function runGhApi(
   endpoint: string,
@@ -295,9 +305,14 @@ async function resolveEnterpriseBudgetFallback(
   }
 
   try {
+    const enterpriseSlug = getConfiguredEnterpriseSlug()
+    if (!enterpriseSlug) {
+      return { budgetAmount, preventFurtherUsage }
+    }
+
     const match = await findBudgetAcrossPages(async page => {
       const entResult = await execAsync(
-        `gh api "/enterprises/${ENTERPRISE_SLUG}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
+        `gh api "/enterprises/${enterpriseSlug}/settings/billing/budgets?page=${page}" -H "X-GitHub-Api-Version: 2022-11-28"`,
         { encoding: 'utf8', timeout: API_TIMEOUT_LONG_MS, env: execEnv }
       )
       return JSON.parse(entResult.stdout.trim())
@@ -453,6 +468,7 @@ async function fetchMonthlyTotals(
   logins: string[],
   year: number,
   month: number,
+  enterpriseSlug: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<BatchResult> {
   const results: BatchResult = {}
@@ -463,7 +479,7 @@ async function fetchMonthlyTotals(
       batch.map(async login => {
         const encoded = encodeURIComponent(login)
         const { stdout } = await runGhApi(
-          `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encoded}&product=Copilot`,
+          `/enterprises/${enterpriseSlug}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encoded}&product=Copilot`,
           execEnv,
           API_TIMEOUT_MS,
           ['X-GitHub-Api-Version: 2022-11-28']
@@ -506,13 +522,14 @@ async function probeBatchDayActivity(
   year: number,
   month: number,
   day: number,
+  enterpriseSlug: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<string[]> {
   const settled = await Promise.allSettled(
     batch.map(async login => {
       const encoded = encodeURIComponent(login)
       const { stdout } = await runGhApi(
-        `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
+        `/enterprises/${enterpriseSlug}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
         execEnv,
         API_TIMEOUT_MS,
         ['X-GitHub-Api-Version: 2022-11-28']
@@ -530,6 +547,7 @@ async function probeDateActivity(
   year: number,
   month: number,
   day: number,
+  enterpriseSlug: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<string[]> {
   const foundThisDay: string[] = []
@@ -537,7 +555,9 @@ async function probeDateActivity(
   for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
     const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-user day probes.
-    foundThisDay.push(...(await probeBatchDayActivity(batch, year, month, day, execEnv)))
+    foundThisDay.push(
+      ...(await probeBatchDayActivity(batch, year, month, day, enterpriseSlug, execEnv))
+    )
   }
 
   return foundThisDay
@@ -548,6 +568,7 @@ async function probeDayActivity(
   year: number,
   month: number,
   today: number,
+  enterpriseSlug: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<void> {
   let remaining = getRemainingActiveLogins(results)
@@ -557,7 +578,14 @@ async function probeDayActivity(
     const day = today - offset
     const dateStr = buildUsageDateString(year, month, day)
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Day probes are sequential because each day removes found users from the remaining set.
-    const foundThisDay = await probeDateActivity(remaining, year, month, day, execEnv)
+    const foundThisDay = await probeDateActivity(
+      remaining,
+      year,
+      month,
+      day,
+      enterpriseSlug,
+      execEnv
+    )
     assignLastActiveDate(results, foundThisDay, dateStr)
     const foundLogins = new Set(foundThisDay)
     remaining = remaining.filter(login => !foundLogins.has(login))
@@ -707,7 +735,10 @@ function registerCopilotUsageHandlers(): void {
         let userCredits: number | null = null
         if (username) {
           try {
-            userCredits = await fetchUserMonthlyCredits(username, execEnv)
+            const enterpriseSlug = getConfiguredEnterpriseSlug()
+            if (enterpriseSlug) {
+              userCredits = await fetchUserMonthlyCredits(username, enterpriseSlug, execEnv)
+            }
           } catch (error: unknown) {
             console.error(
               `Failed to get AI Credit usage for user '${username}':`,
@@ -818,7 +849,20 @@ function registerCopilotMemberHandlers(): void {
     IPC_INVOKE.GITHUB_GET_USER_PREMIUM_REQUESTS,
     async (_event, org: string, memberLogin: string, username?: string) => {
       try {
-        return { success: true, data: await fetchUserPremiumRequests(org, memberLogin, username) }
+        assertValidGitHubAccountSlug(org)
+        assertValidGitHubAccountSlug(memberLogin)
+        const enterpriseSlug = getConfiguredEnterpriseSlug()
+        if (!enterpriseSlug) {
+          return {
+            success: false,
+            code: ENTERPRISE_NOT_CONFIGURED_CODE,
+            error: ENTERPRISE_NOT_CONFIGURED_ERROR,
+          }
+        }
+        return {
+          success: true,
+          data: await fetchUserPremiumRequests(org, memberLogin, enterpriseSlug, username),
+        }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)
         console.error(
@@ -833,7 +877,12 @@ function registerCopilotMemberHandlers(): void {
   registerCopilotSeatHandlers()
 }
 
-async function fetchUserPremiumRequests(org: string, memberLogin: string, username?: string) {
+async function fetchUserPremiumRequests(
+  org: string,
+  memberLogin: string,
+  enterpriseSlug: string,
+  username?: string
+) {
   assertValidGitHubAccountSlug(org)
   assertValidGitHubAccountSlug(memberLogin)
   const execEnv = await getTokenEnv(username)
@@ -845,13 +894,13 @@ async function fetchUserPremiumRequests(org: string, memberLogin: string, userna
 
   const [userMonthResult, userTodayResult, orgMonthResult] = await Promise.allSettled([
     runGhApi(
-      `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot`,
+      `/enterprises/${enterpriseSlug}/settings/billing/premium_request/usage?year=${year}&month=${month}&user=${encodedLogin}&product=Copilot`,
       execEnv,
       API_TIMEOUT_MS,
       ['X-GitHub-Api-Version: 2022-11-28']
     ),
     runGhApi(
-      `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot`,
+      `/enterprises/${enterpriseSlug}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encodedLogin}&product=Copilot`,
       execEnv,
       API_TIMEOUT_MS,
       ['X-GitHub-Api-Version: 2022-11-28']
@@ -902,6 +951,7 @@ async function fetchUserPremiumRequests(org: string, memberLogin: string, userna
  */
 async function fetchUserMonthlyCredits(
   memberLogin: string,
+  enterpriseSlug: string,
   execEnv: NodeJS.ProcessEnv
 ): Promise<number | null> {
   assertValidGitHubAccountSlug(memberLogin)
@@ -921,7 +971,7 @@ async function fetchUserMonthlyCredits(
     const settled = await Promise.allSettled(
       batch.map(async day => {
         const { stdout } = await runGhApi(
-          `/enterprises/${ENTERPRISE_SLUG}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
+          `/enterprises/${enterpriseSlug}/settings/billing/premium_request/usage?year=${year}&month=${month}&day=${day}&user=${encoded}&product=Copilot`,
           execEnv,
           API_TIMEOUT_MS,
           ['X-GitHub-Api-Version: 2022-11-28']
@@ -968,19 +1018,30 @@ function registerCopilotSeatHandlers(): void {
     async (_event, logins: string[], username?: string, skipDayProbing?: boolean) => {
       try {
         for (const login of logins) assertValidGitHubAccountSlug(login)
+        if (logins.length === 0) return { success: true, data: {} }
+
+        const enterpriseSlug = getConfiguredEnterpriseSlug()
+        if (!enterpriseSlug) {
+          return {
+            success: false,
+            code: ENTERPRISE_NOT_CONFIGURED_CODE,
+            error: ENTERPRISE_NOT_CONFIGURED_ERROR,
+          }
+        }
+
         const execEnv = await getTokenEnv(username)
         const now = new Date()
         const year = now.getUTCFullYear()
         const month = now.getUTCMonth() + 1
         const today = now.getUTCDate()
 
-        const results = await fetchMonthlyTotals(logins, year, month, execEnv)
+        const results = await fetchMonthlyTotals(logins, year, month, enterpriseSlug, execEnv)
 
         if (skipDayProbing) {
           return { success: true, data: results }
         }
 
-        await probeDayActivity(results, year, month, today, execEnv)
+        await probeDayActivity(results, year, month, today, enterpriseSlug, execEnv)
         return { success: true, data: results }
       } catch (error: unknown) {
         const errorMessage = getErrorMessage(error)

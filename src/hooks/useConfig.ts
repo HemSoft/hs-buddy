@@ -44,7 +44,10 @@ function useElectronStoreFallback<T>(
  */
 function ipcConfigSetter(channel: string) {
   return (value: string) =>
-    window.ipcRenderer.invoke(`config:${channel}`, value) as Promise<{ success: boolean }>
+    window.ipcRenderer.invoke(`config:${channel}`, value) as Promise<{
+      success: boolean
+      error?: string
+    }>
 }
 
 const configAPI = {
@@ -58,6 +61,7 @@ const configAPI = {
   setMonoFontFamily: ipcConfigSetter('set-mono-font-family'),
   setStatusBarBg: ipcConfigSetter('set-statusbar-bg'),
   setStatusBarFg: ipcConfigSetter('set-statusbar-fg'),
+  setEnterpriseSlug: ipcConfigSetter('set-enterprise-slug'),
   getSystemFonts: () => window.ipcRenderer.invoke(IPC_INVOKE.SYSTEM_GET_FONTS) as Promise<string[]>,
   getStorePath: () =>
     window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_STORE_PATH) as Promise<string>,

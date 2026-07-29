@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { getErrorMessage } from '../utils/errorUtils'
+import { ENTERPRISE_NOT_CONFIGURED_CODE } from '../ipc/contracts'
 
 interface CopilotSeatInfo {
   login: string
@@ -87,6 +88,11 @@ function collectSeatResults(settled: PromiseSettledResult<OrgSeatsResult>[]) {
 
 type PremiumUsageData = Record<string, { requests: number; lastActiveDate: string | null }>
 
+interface PremiumUsageLookupResult {
+  data: PremiumUsageData | null
+  error: string | null
+}
+
 function hasPremiumUsageData(data: PremiumUsageData | undefined): data is PremiumUsageData {
   return Boolean(data && Object.keys(data).length > 0)
 }
@@ -98,16 +104,23 @@ function hasLookupInputs(allLogins: string[], usernames: string[]): boolean {
 async function fetchFirstPremiumUsage(
   allLogins: string[],
   usernames: string[]
-): Promise<PremiumUsageData | null> {
-  if (!hasLookupInputs(allLogins, usernames)) return null
+): Promise<PremiumUsageLookupResult> {
+  if (!hasLookupInputs(allLogins, usernames)) return { data: null, error: null }
 
+  let lastError: string | null = null
   for (const username of usernames) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Accounts are tried in order and stop at the first premium usage response.
     const usageResult = await window.github.getBatchMonthlyRequests(allLogins, username, true)
-    if (usageResult.success && hasPremiumUsageData(usageResult.data)) return usageResult.data
+    if (usageResult.success && hasPremiumUsageData(usageResult.data)) {
+      return { data: usageResult.data, error: null }
+    }
+    if (usageResult.code === ENTERPRISE_NOT_CONFIGURED_CODE) {
+      return { data: null, error: usageResult.error ?? 'Enterprise billing is not configured' }
+    }
+    if (!usageResult.success && usageResult.error) lastError = usageResult.error
   }
 
-  return null
+  return { data: null, error: lastError }
 }
 
 function applyUsageDataToSeats(seats: CopilotSeatInfo[], usageData: PremiumUsageData): void {
@@ -118,12 +131,12 @@ function applyUsageDataToSeats(seats: CopilotSeatInfo[], usageData: PremiumUsage
 }
 
 async function applyPremiumRequestCounts(seats: CopilotSeatInfo[], usernames: string[]) {
-  const usageData = await fetchFirstPremiumUsage(
+  const { data, error } = await fetchFirstPremiumUsage(
     seats.map(seat => seat.login),
     usernames
   )
-  if (!usageData) return
-  applyUsageDataToSeats(seats, usageData)
+  if (data) applyUsageDataToSeats(seats, data)
+  return error
 }
 
 function resolveTopSeats(seats: CopilotSeatInfo[]) {
@@ -152,7 +165,8 @@ export function useCopilotSeats(uniqueOrgs: Map<string, string>) {
       )
       const { seats, orgErrors, truncated } = collectSeatResults(settled)
       const uniqueUsernames = [...new Set(orgEntries.map(([, u]) => u))]
-      await applyPremiumRequestCounts(seats, uniqueUsernames)
+      const premiumError = await applyPremiumRequestCounts(seats, uniqueUsernames)
+      if (premiumError) orgErrors.push({ org: 'enterprise', error: premiumError })
 
       setState({
         seats: resolveTopSeats(seats),

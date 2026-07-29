@@ -5,6 +5,7 @@ vi.mock('electron', () => ({
 }))
 
 const mockConvexMutation = vi.fn()
+const mockGetUiValue = vi.fn().mockReturnValue('test-enterprise')
 
 vi.mock('convex/browser', () => ({
   ConvexHttpClient: class {
@@ -22,6 +23,9 @@ vi.mock('../../convex/_generated/api', () => ({
 
 vi.mock('../config', () => ({
   CONVEX_URL: 'https://mock.convex.cloud',
+  configManager: {
+    getUiValue: (...args: unknown[]) => mockGetUiValue(...args),
+  },
 }))
 
 const mockExecAsync = vi.fn().mockResolvedValue({ stdout: '', stderr: '' })
@@ -124,6 +128,7 @@ describe('githubHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetUiValue.mockReturnValue('test-enterprise')
     handlers = new Map()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
@@ -443,6 +448,34 @@ describe('githubHandlers', () => {
       }
     })
 
+    it.each([
+      ['not configured', ''],
+      ['invalid', 'bad;slug'],
+    ])('skips per-user enterprise calls when the enterprise slug is %s', async (_label, slug) => {
+      mockGetUiValue.mockReturnValue(slug)
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ usageItems: [{ product: 'copilot' }] }),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify({ seat_breakdown: { total: 3 } }),
+          stderr: '',
+        })
+
+      const handler = handlers.get('github:get-copilot-usage')!
+      const result = await handler({}, 'test-org', 'testuser')
+
+      expect(result.success).toBe(true)
+      expect(result.data.userCredits).toBeNull()
+      expect(
+        mockExecFileAsync.mock.calls.some(([, args]) =>
+          args.some(argument => argument.includes('/enterprises/'))
+        )
+      ).toBe(false)
+    })
+
     it('leaves userCredits null when no username is provided', async () => {
       // No username → no token exec; billing usage is the first call.
       mockExecAsync.mockResolvedValueOnce({
@@ -609,7 +642,22 @@ describe('githubHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data.memberLogin).toBe('testmember')
       expect(result.data.org).toBe('test-org')
-      expectGhApiCall(expect.stringContaining('user=testmember'), 15000)
+      expectGhApiCall(expect.stringContaining('/enterprises/test-enterprise/'), 15000)
+    })
+
+    it('returns a not-configured state without making enterprise requests', async () => {
+      mockGetUiValue.mockReturnValue('')
+
+      const handler = handlers.get('github:get-user-premium-requests')!
+      const result = await handler({}, 'test-org', 'testmember', 'testuser')
+
+      expect(result).toEqual({
+        success: false,
+        code: 'enterprise-not-configured',
+        error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
     })
 
     it('returns premium request data with model breakdown when items have grossQuantity > 0', async () => {
@@ -1189,9 +1237,39 @@ describe('githubHandlers', () => {
         })
       )
       expect(mockExecAsync.mock.calls[2]?.[0]).toContain(
-        '/enterprises/Bertelsmann/settings/billing/budgets?page=1'
+        '/enterprises/test-enterprise/settings/billing/budgets?page=1'
       )
     })
+
+    it.each([
+      ['not configured', ''],
+      ['invalid', 'bad;slug'],
+    ])(
+      'github:get-copilot-budget skips enterprise fallback when the slug is %s',
+      async (_label, slug) => {
+        const { extractBudgetFromResult } = await import('../../src/utils/billingParsers')
+        const { findBudgetAcrossPages } = await import('../../src/utils/budgetUtils')
+
+        mockGetUiValue.mockReturnValue(slug)
+        vi.mocked(extractBudgetFromResult).mockReturnValueOnce({
+          budgetAmount: null,
+          preventFurtherUsage: false,
+        })
+        mockExecAsync
+          .mockResolvedValueOnce({ stdout: '[]', stderr: '' })
+          .mockResolvedValueOnce({ stdout: '{"usageItems":[]}', stderr: '' })
+
+        const handler = handlers.get('github:get-copilot-budget')!
+        const result = await handler({}, 'test-org')
+
+        expect(result.success).toBe(true)
+        expect(result.data.budgetAmount).toBeNull()
+        expect(findBudgetAcrossPages).not.toHaveBeenCalled()
+        expect(
+          mockExecAsync.mock.calls.some(([command]) => command.includes('/enterprises/'))
+        ).toBe(false)
+      }
+    )
 
     it('github:get-copilot-budget scopes spend to the current billing month', async () => {
       const { extractCopilotSpend } = await import('../../src/utils/billingParsers')
@@ -1505,9 +1583,29 @@ describe('githubHandlers', () => {
       expect(result.data.bob).toEqual({ requests: 10, lastActiveDate: null })
       expect(mockExecFileAsync).toHaveBeenCalledWith(
         'gh',
-        ['api', expect.stringContaining('user=alice'), '-H', 'X-GitHub-Api-Version: 2022-11-28'],
+        [
+          'api',
+          expect.stringContaining('/enterprises/test-enterprise/'),
+          '-H',
+          'X-GitHub-Api-Version: 2022-11-28',
+        ],
         expect.objectContaining({ encoding: 'utf8', timeout: 15000 })
       )
+    })
+
+    it('returns a not-configured state without starting a batch', async () => {
+      mockGetUiValue.mockReturnValue('   ')
+
+      const handler = handlers.get('github:get-batch-monthly-requests')!
+      const result = await handler({}, ['alice'], undefined, true)
+
+      expect(result).toEqual({
+        success: false,
+        code: 'enterprise-not-configured',
+        error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
+      })
+      expect(mockExecAsync).not.toHaveBeenCalled()
+      expect(mockExecFileAsync).not.toHaveBeenCalled()
     })
 
     it('probes backwards for last active date when not skipping', async () => {

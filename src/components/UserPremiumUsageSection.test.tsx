@@ -2,12 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 
 /* ── hoisted mocks ── */
+let mockEnterpriseSlug = 'enterprise-a'
+
 vi.mock('../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
     accounts: [
       { username: 'alice', org: 'test-org' },
       { username: 'bob', org: 'other-org' },
     ],
+    loading: false,
+  }),
+  useConfig: () => ({
+    config: { ui: { enterpriseSlug: mockEnterpriseSlug } },
     loading: false,
   }),
 }))
@@ -43,6 +49,7 @@ import { computeProjection } from './copilot-usage/quotaUtils'
 
 beforeEach(() => {
   _resetCaches()
+  mockEnterpriseSlug = 'enterprise-a'
 })
 
 describe('UserPremiumUsageSection', () => {
@@ -80,6 +87,19 @@ describe('UserPremiumUsageSection', () => {
   })
 
   describe('when user is a configured account (QuotaView)', () => {
+    it('shows a clear state and skips enterprise requests when billing is not configured', async () => {
+      mockEnterpriseSlug = '   '
+      mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      expect(
+        screen.getByText(/Enterprise billing not configured.*Settings > Accounts/)
+      ).toBeInTheDocument()
+      await waitFor(() => expect(mockGetCopilotQuota).toHaveBeenCalled())
+      expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
+    })
+
     it('shows loading state initially', () => {
       mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
       render(<UserPremiumUsageSection username="alice" org="test-org" />)
@@ -501,6 +521,29 @@ describe('UserPremiumUsageSection', () => {
       expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
     })
 
+    it('does not reuse premium data after the enterprise slug changes', async () => {
+      mockGetCopilotQuota.mockResolvedValue({
+        success: true,
+        data: {
+          quota_snapshots: {
+            premium_interactions: { entitlement: 1000, remaining: 600, overage_count: 0 },
+          },
+          quota_reset_date_utc: '2025-01-30T00:00:00Z',
+        },
+      })
+
+      const { unmount } = render(<UserPremiumUsageSection username="alice" org="test-org" />)
+      await waitFor(() => expect(mockGetUserPremiumRequests).toHaveBeenCalledTimes(1))
+
+      unmount()
+      mockEnterpriseSlug = 'enterprise-b'
+      mockGetUserPremiumRequests.mockClear()
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      await waitFor(() => expect(mockGetUserPremiumRequests).toHaveBeenCalledTimes(1))
+    })
+
     it('model pct is 0 when userMonthlyRequests is 0 with models present', async () => {
       mockGetUserPremiumRequests.mockResolvedValue({
         success: true,
@@ -534,6 +577,17 @@ describe('UserPremiumUsageSection', () => {
   })
 
   describe('when user is not configured (SeatView)', () => {
+    it('skips seat premium requests when enterprise billing is not configured', async () => {
+      mockEnterpriseSlug = '   '
+      mockGetCopilotMemberUsage.mockReturnValue(new Promise(() => {}))
+
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      expect(screen.getByText(/Enterprise billing not configured/)).toBeInTheDocument()
+      await waitFor(() => expect(mockGetCopilotMemberUsage).toHaveBeenCalled())
+      expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
+    })
+
     it('shows loading state for seat info', () => {
       mockGetCopilotMemberUsage.mockReturnValue(new Promise(() => {}))
       render(<UserPremiumUsageSection username="charlie" org="test-org" />)

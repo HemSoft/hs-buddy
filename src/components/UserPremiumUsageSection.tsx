@@ -9,7 +9,7 @@ import {
 } from './copilot-usage/quotaUtils'
 import { daysUntilReset, formatCopilotPlan, formatResetDate } from '../utils/copilotFormatUtils'
 import { formatDistanceToNow } from '../utils/dateUtils'
-import { useGitHubAccounts } from '../hooks/useConfig'
+import { useConfig, useGitHubAccounts } from '../hooks/useConfig'
 import { getErrorMessage } from '../utils/errorUtils'
 import './UserPremiumUsageSection.css'
 
@@ -527,20 +527,31 @@ function SeatLoadedContent({
 
 // ── Full quota view (configured accounts) ──
 
-function QuotaView({ username, org }: { username: string; org: string }) {
+function QuotaView({
+  username,
+  org,
+  enterpriseSlug,
+}: {
+  username: string
+  org: string
+  enterpriseSlug: string
+}) {
   const fetchRef = useRef(0)
   const [state, dispatch] = useReducer(quotaReducer, initQuotaState(username))
 
   // Premium model data (shared with SeatView)
-  const premCacheKey = `${org}/${username}`
+  const premCacheKey = `${enterpriseSlug}/${org}/${username}`
   const [premium, setPremium] = useState<UserPremiumData | null>(() =>
     initPremiumFromCache(premCacheKey)
   )
 
-  const fetchPremium = useCallback(
-    () => fetchPremiumData(org, username, username, premCacheKey, setPremium),
-    [org, username, premCacheKey]
-  )
+  const fetchPremium = useCallback(() => {
+    if (!enterpriseSlug) {
+      setPremium(null)
+      return
+    }
+    fetchPremiumData(org, username, username, premCacheKey, setPremium)
+  }, [enterpriseSlug, org, username, premCacheKey])
 
   const fetchQuota = useCallback(() => {
     const id = ++fetchRef.current
@@ -607,18 +618,21 @@ function SeatView({
   org,
   memberLogin,
   authUsername,
+  enterpriseSlug,
 }: {
   org: string
   memberLogin: string
   authUsername?: string
+  enterpriseSlug: string
 }) {
   const fetchRef = useRef(0)
-  const cacheKey = `${org}/${memberLogin}`
-  const [state, dispatch] = useReducer(seatReducer, initSeatState(cacheKey))
+  const seatCacheKey = `${org}/${memberLogin}`
+  const premiumCacheKey = `${enterpriseSlug}/${org}/${memberLogin}`
+  const [state, dispatch] = useReducer(seatReducer, initSeatState(seatCacheKey))
 
   // Per-user premium request data
   const [premium, setPremium] = useState<UserPremiumData | null>(() =>
-    initPremiumFromCache(cacheKey)
+    initPremiumFromCache(premiumCacheKey)
   )
 
   const fetchSeat = useCallback(() => {
@@ -630,7 +644,7 @@ function SeatView({
         /* v8 ignore start */
         if (id !== fetchRef.current) return
         /* v8 ignore stop */
-        applySeatFetchResult(cacheKey, result, dispatch)
+        applySeatFetchResult(seatCacheKey, result, dispatch)
       })
       .catch(err => {
         /* v8 ignore start */
@@ -639,15 +653,18 @@ function SeatView({
           dispatch({ type: 'FETCH_ERROR', payload: getErrorMessage(err) })
         }
       })
-  }, [org, memberLogin, authUsername, cacheKey])
+  }, [org, memberLogin, authUsername, seatCacheKey])
 
-  const fetchPremium = useCallback(
-    () => fetchPremiumData(org, memberLogin, authUsername, cacheKey, setPremium),
-    [org, memberLogin, authUsername, cacheKey]
-  )
+  const fetchPremium = useCallback(() => {
+    if (!enterpriseSlug) {
+      setPremium(null)
+      return
+    }
+    fetchPremiumData(org, memberLogin, authUsername, premiumCacheKey, setPremium)
+  }, [enterpriseSlug, org, memberLogin, authUsername, premiumCacheKey])
 
   useEffect(() => {
-    const c = seatCache.get(cacheKey)
+    const c = seatCache.get(seatCacheKey)
     /* v8 ignore start */
     if (c && Date.now() - c.fetchedAt < CACHE_TTL) {
       dispatch({ type: 'FETCH_SUCCESS', payload: c.data })
@@ -656,13 +673,13 @@ function SeatView({
       fetchSeat()
     }
     fetchPremium()
-  }, [cacheKey, fetchSeat, fetchPremium])
+  }, [seatCacheKey, fetchSeat, fetchPremium])
 
   const refreshAll = useCallback(() => {
     fetchSeat()
-    premiumCache.delete(cacheKey)
+    premiumCache.delete(premiumCacheKey)
     fetchPremium()
-  }, [fetchSeat, fetchPremium, cacheKey])
+  }, [fetchSeat, fetchPremium, premiumCacheKey])
 
   const { data, loading, error } = state
   const pendingContent = renderSeatPendingState(data, loading, error)
@@ -748,6 +765,8 @@ function SeatMetaPills({ data }: { data: SeatData }) {
 
 export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSectionProps) {
   const { accounts } = useGitHubAccounts()
+  const { config, loading: configLoading } = useConfig()
+  const enterpriseSlug = (config?.ui.enterpriseSlug ?? '').trim()
 
   const isConfigured = useMemo(
     () => accounts.some(a => a.username === username),
@@ -759,10 +778,21 @@ export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSecti
 
   return (
     <div className="ud-premium-section">
+      {!configLoading && !enterpriseSlug && (
+        <div className="ud-premium-seat-none">
+          Enterprise billing not configured. Add an enterprise slug in Settings &gt; Accounts to
+          load premium request details.
+        </div>
+      )}
       {isConfigured ? (
-        <QuotaView username={username} org={org} />
+        <QuotaView username={username} org={org} enterpriseSlug={enterpriseSlug} />
       ) : (
-        <SeatView org={org} memberLogin={username} authUsername={authAccount} />
+        <SeatView
+          org={org}
+          memberLogin={username}
+          authUsername={authAccount}
+          enterpriseSlug={enterpriseSlug}
+        />
       )}
     </div>
   )

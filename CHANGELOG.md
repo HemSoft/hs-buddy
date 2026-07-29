@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Pin installer used for sdk restore
 - Restore sdk for all quality gates
 - Allow restore download headroom
+- Cover unconfigured seat premium state
 
 ## [0.1.933] - 2026-07-28
 

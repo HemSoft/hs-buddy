@@ -577,6 +577,17 @@ describe('UserPremiumUsageSection', () => {
   })
 
   describe('when user is not configured (SeatView)', () => {
+    it('skips seat premium requests when enterprise billing is not configured', async () => {
+      mockEnterpriseSlug = '   '
+      mockGetCopilotMemberUsage.mockReturnValue(new Promise(() => {}))
+
+      render(<UserPremiumUsageSection username="charlie" org="test-org" />)
+
+      expect(screen.getByText(/Enterprise billing not configured/)).toBeInTheDocument()
+      await waitFor(() => expect(mockGetCopilotMemberUsage).toHaveBeenCalled())
+      expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
+    })
+
     it('shows loading state for seat info', () => {
       mockGetCopilotMemberUsage.mockReturnValue(new Promise(() => {}))
       render(<UserPremiumUsageSection username="charlie" org="test-org" />)

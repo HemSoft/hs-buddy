@@ -9,19 +9,6 @@
 > nothing else belongs here. Do not add entries that duplicate what the
 > workflows already enforce.
 
-## Code Index — Primary Code Discovery Tool
-
-**Use the `codeindex` skill for ALL code discovery and code searching tasks.**
-This repository has a local Code Index install that provides fast, indexed
-code retrieval with significantly lower token usage than brute-force grep.
-
-- **Before** reaching for `grep`, `glob`, or filesystem walks to find symbols,
-  references, implementations, or usages — invoke `codeindex` first.
-- The skill supports: `Init`, `Index`, `Query`, `Status`, `Watch`, and `UI`
-  commands.
-- Typical workflow: `Query` with the symbol, pattern, or concept you need.
-  Fall back to grep/glob only if Code Index returns no results or is offline.
-
 ## Agentic Loop — Standing Orders
 
 The agentic loop lives in `.github/workflows/`. Its mission:

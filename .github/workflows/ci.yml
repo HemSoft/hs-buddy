@@ -89,6 +89,13 @@ jobs:
         timeout-minutes: 10
         run: bun install --frozen-lockfile
 
+      - name: Restore Aspire SDK
+        run: |
+          aspire_version="$(jq -r '.sdk.version' aspire.config.json)"
+          curl -fsSL https://aspire.dev/install.sh |
+            bash -s -- --version "$aspire_version" --skip-path
+          "$HOME/.aspire/bin/aspire" restore
+
       - name: Type check (TypeScript + Convex)
         run: bun run typecheck
 

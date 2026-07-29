@@ -79,7 +79,7 @@ describe('filesystemHandlers', () => {
       const { shouldIncludeDirEntry } = await import('../../src/utils/dirEntryUtils')
       vi.mocked(shouldIncludeDirEntry)
         .mockReturnValueOnce(false) // skip first
-        .mockReturnValueOnce(true)  // include second
+        .mockReturnValueOnce(true) // include second
 
       vi.mocked(readdir).mockResolvedValue([
         { name: 'node_modules', isDirectory: () => true },

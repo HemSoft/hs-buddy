@@ -41,13 +41,7 @@ test.describe('Activity Bar Navigation', () => {
     const activityBar = page.locator('.activity-bar')
 
     // Verify key sections are present via their aria-labels or titles
-    const expectedSections = [
-      'GitHub',
-      'Settings',
-      'Automation',
-      'Bookmarks',
-      'Copilot',
-    ]
+    const expectedSections = ['GitHub', 'Settings', 'Automation', 'Bookmarks', 'Copilot']
 
     for (const section of expectedSections) {
       const button = activityBar.locator(`[aria-label="${section}"]`)

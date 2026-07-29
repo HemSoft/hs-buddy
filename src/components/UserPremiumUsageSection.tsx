@@ -545,10 +545,13 @@ function QuotaView({
     initPremiumFromCache(premCacheKey)
   )
 
-  const fetchPremium = useCallback(
-    () => fetchPremiumData(org, username, username, premCacheKey, setPremium),
-    [org, username, premCacheKey]
-  )
+  const fetchPremium = useCallback(() => {
+    if (!enterpriseSlug) {
+      setPremium(null)
+      return
+    }
+    fetchPremiumData(org, username, username, premCacheKey, setPremium)
+  }, [enterpriseSlug, org, username, premCacheKey])
 
   const fetchQuota = useCallback(() => {
     const id = ++fetchRef.current
@@ -652,10 +655,13 @@ function SeatView({
       })
   }, [org, memberLogin, authUsername, seatCacheKey])
 
-  const fetchPremium = useCallback(
-    () => fetchPremiumData(org, memberLogin, authUsername, premiumCacheKey, setPremium),
-    [org, memberLogin, authUsername, premiumCacheKey]
-  )
+  const fetchPremium = useCallback(() => {
+    if (!enterpriseSlug) {
+      setPremium(null)
+      return
+    }
+    fetchPremiumData(org, memberLogin, authUsername, premiumCacheKey, setPremium)
+  }, [enterpriseSlug, org, memberLogin, authUsername, premiumCacheKey])
 
   useEffect(() => {
     const c = seatCache.get(seatCacheKey)
@@ -759,8 +765,8 @@ function SeatMetaPills({ data }: { data: SeatData }) {
 
 export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSectionProps) {
   const { accounts } = useGitHubAccounts()
-  const { config } = useConfig()
-  const enterpriseSlug = config?.ui.enterpriseSlug ?? ''
+  const { config, loading: configLoading } = useConfig()
+  const enterpriseSlug = (config?.ui.enterpriseSlug ?? '').trim()
 
   const isConfigured = useMemo(
     () => accounts.some(a => a.username === username),
@@ -772,6 +778,12 @@ export function UserPremiumUsageSection({ username, org }: UserPremiumUsageSecti
 
   return (
     <div className="ud-premium-section">
+      {!configLoading && !enterpriseSlug && (
+        <div className="ud-premium-seat-none">
+          Enterprise billing not configured. Add an enterprise slug in Settings &gt; Accounts to
+          load premium request details.
+        </div>
+      )}
       {isConfigured ? (
         <QuotaView username={username} org={org} enterpriseSlug={enterpriseSlug} />
       ) : (

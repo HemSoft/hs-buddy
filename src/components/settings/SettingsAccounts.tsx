@@ -693,7 +693,7 @@ export function SettingsAccounts() {
       setEnterpriseSaveStatus('saving')
       setEnterpriseSaveError(null)
       const result = await persistEnterpriseSlug(normalizedSlug)
-      if (!result.success) throw new Error('Failed to save enterprise slug')
+      if (!result.success) throw new Error(result.error ?? 'Failed to save enterprise slug')
       setEnterpriseSlug(normalizedSlug)
       await refresh()
       setEnterpriseSaveStatus('saved')

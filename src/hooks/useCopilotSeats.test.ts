@@ -376,6 +376,36 @@ describe('useCopilotSeats', () => {
     expect(result.current.orgErrors).toEqual([{ org: 'all', error: 'Usage API unavailable' }])
   })
 
+  it('surfaces the enterprise not-configured state without retrying other accounts', async () => {
+    mockGetCopilotSeats.mockResolvedValue({
+      success: true,
+      data: {
+        totalSeats: 1,
+        fetchedSeats: 1,
+        seats: [makeSeat('alice', '2026-05-16T12:00:00Z')],
+      },
+    })
+    mockGetBatchMonthlyRequests.mockResolvedValue({
+      success: false,
+      code: 'enterprise-not-configured',
+      error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
+    })
+
+    const orgs = new Map([
+      ['org1', 'user1'],
+      ['org2', 'user2'],
+    ])
+    const { result } = renderHook(() => useCopilotSeats(orgs))
+
+    await waitFor(() => expect(result.current.loading).toBe(false))
+
+    expect(result.current.orgErrors).toContainEqual({
+      org: 'enterprise',
+      error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
+    })
+    expect(mockGetBatchMonthlyRequests).toHaveBeenCalledTimes(1)
+  })
+
   it('falls back to next username when first returns empty billing data', async () => {
     mockGetCopilotSeats
       .mockResolvedValueOnce({ success: true, data: { totalSeats: 0, fetchedSeats: 0, seats: [] } })

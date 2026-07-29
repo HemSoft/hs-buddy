@@ -6,6 +6,8 @@ import {
   isSupportedNotificationSoundPath,
   MAX_NOTIFICATION_SOUND_BYTES,
 } from '../../src/utils/notificationSound'
+import { getErrorMessage } from '../../src/utils/errorUtils'
+import { assertValidGitHubAccountSlug } from '../../src/utils/githubAuthUtils'
 import { CONFIG_UI_KEYS, IPC_INVOKE } from '../../src/ipc/contracts'
 import { configManager } from '../config'
 
@@ -49,6 +51,22 @@ function registerUiValueHandler<K extends UiConfigKey>(channel: string, key: K):
   ipcMain.handle(
     `config:set-${channel}`,
     (_event: IpcMainInvokeEvent, value: AppConfig['ui'][K]) => {
+      if (key === 'enterpriseSlug') {
+        if (typeof value !== 'string') {
+          return { success: false, error: 'Enterprise slug must be a string' }
+        }
+
+        const enterpriseSlug = value.trim()
+        try {
+          if (enterpriseSlug) assertValidGitHubAccountSlug(enterpriseSlug)
+        } catch (error: unknown) {
+          return { success: false, error: getErrorMessage(error) }
+        }
+
+        configManager.setUiValue('enterpriseSlug', enterpriseSlug)
+        return { success: true }
+      }
+
       configManager.setUiValue(key, value)
       return { success: true }
     }

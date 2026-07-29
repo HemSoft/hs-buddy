@@ -5,7 +5,7 @@ import { getErrorMessage } from '../../src/utils/errorUtils'
 import { configManager, CONVEX_URL } from '../config'
 import { execAsync, execFileAsync } from '../utils'
 import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
-import { IPC_INVOKE } from '../../src/ipc/contracts'
+import { ENTERPRISE_NOT_CONFIGURED_CODE, IPC_INVOKE } from '../../src/ipc/contracts'
 import {
   parseActiveGitHubAccount,
   assertValidGitHubAccountSlug,
@@ -853,7 +853,11 @@ function registerCopilotMemberHandlers(): void {
         assertValidGitHubAccountSlug(memberLogin)
         const enterpriseSlug = getConfiguredEnterpriseSlug()
         if (!enterpriseSlug) {
-          return { success: false, error: ENTERPRISE_NOT_CONFIGURED_ERROR }
+          return {
+            success: false,
+            code: ENTERPRISE_NOT_CONFIGURED_CODE,
+            error: ENTERPRISE_NOT_CONFIGURED_ERROR,
+          }
         }
         return {
           success: true,
@@ -1018,7 +1022,11 @@ function registerCopilotSeatHandlers(): void {
 
         const enterpriseSlug = getConfiguredEnterpriseSlug()
         if (!enterpriseSlug) {
-          return { success: false, error: ENTERPRISE_NOT_CONFIGURED_ERROR }
+          return {
+            success: false,
+            code: ENTERPRISE_NOT_CONFIGURED_CODE,
+            error: ENTERPRISE_NOT_CONFIGURED_ERROR,
+          }
         }
 
         const execEnv = await getTokenEnv(username)

@@ -653,6 +653,7 @@ describe('githubHandlers', () => {
 
       expect(result).toEqual({
         success: false,
+        code: 'enterprise-not-configured',
         error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
       })
       expect(mockExecAsync).not.toHaveBeenCalled()
@@ -1600,6 +1601,7 @@ describe('githubHandlers', () => {
 
       expect(result).toEqual({
         success: false,
+        code: 'enterprise-not-configured',
         error: 'GitHub enterprise slug is not configured. Set it in Settings > Accounts.',
       })
       expect(mockExecAsync).not.toHaveBeenCalled()

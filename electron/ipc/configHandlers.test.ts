@@ -445,13 +445,35 @@ describe('configHandlers', () => {
       expect(result).toEqual({ success: true })
     })
 
-    it('config:set-enterprise-slug sets enterprise slug', () => {
-      const result = handlers.get('config:set-enterprise-slug')!({}, 'example-enterprise')
+    it('config:get-enterprise-slug returns enterprise slug', () => {
+      mockConfigManager.getUiValue.mockReturnValue('example-enterprise')
+      const result = handlers.get('config:get-enterprise-slug')!()
+      expect(mockConfigManager.getUiValue).toHaveBeenCalledWith('enterpriseSlug')
+      expect(result).toBe('example-enterprise')
+    })
+
+    it('config:set-enterprise-slug validates, trims, and sets the enterprise slug', () => {
+      const result = handlers.get('config:set-enterprise-slug')!({}, ' example-enterprise ')
       expect(mockConfigManager.setUiValue).toHaveBeenCalledWith(
         'enterpriseSlug',
         'example-enterprise'
       )
       expect(result).toEqual({ success: true })
+    })
+
+    it('config:set-enterprise-slug rejects invalid slugs', () => {
+      const result = handlers.get('config:set-enterprise-slug')!({}, 'bad;slug')
+      expect(result).toEqual({
+        success: false,
+        error: "Invalid GitHub account slug: 'bad;slug'",
+      })
+      expect(mockConfigManager.setUiValue).not.toHaveBeenCalled()
+    })
+
+    it('config:set-enterprise-slug rejects non-string values', () => {
+      const result = handlers.get('config:set-enterprise-slug')!({}, 42)
+      expect(result).toEqual({ success: false, error: 'Enterprise slug must be a string' })
+      expect(mockConfigManager.setUiValue).not.toHaveBeenCalled()
     })
   })
 

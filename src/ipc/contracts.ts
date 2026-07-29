@@ -36,6 +36,8 @@ export const CONFIG_UI_KEYS = [
   'enterprise-slug',
 ] as const
 
+export const ENTERPRISE_NOT_CONFIGURED_CODE = 'enterprise-not-configured' as const
+
 type ConfigUiKey = (typeof CONFIG_UI_KEYS)[number]
 
 // ─── Invoke Channels (renderer → main, request/response) ──────────────────

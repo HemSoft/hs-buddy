@@ -14,6 +14,7 @@ vi.mock('../hooks/useConfig', () => ({
   }),
   useConfig: () => ({
     config: { ui: { enterpriseSlug: mockEnterpriseSlug } },
+    loading: false,
   }),
 }))
 
@@ -86,6 +87,19 @@ describe('UserPremiumUsageSection', () => {
   })
 
   describe('when user is a configured account (QuotaView)', () => {
+    it('shows a clear state and skips enterprise requests when billing is not configured', async () => {
+      mockEnterpriseSlug = '   '
+      mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
+
+      render(<UserPremiumUsageSection username="alice" org="test-org" />)
+
+      expect(
+        screen.getByText(/Enterprise billing not configured.*Settings > Accounts/)
+      ).toBeInTheDocument()
+      await waitFor(() => expect(mockGetCopilotQuota).toHaveBeenCalled())
+      expect(mockGetUserPremiumRequests).not.toHaveBeenCalled()
+    })
+
     it('shows loading state initially', () => {
       mockGetCopilotQuota.mockReturnValue(new Promise(() => {}))
       render(<UserPremiumUsageSection username="alice" org="test-org" />)

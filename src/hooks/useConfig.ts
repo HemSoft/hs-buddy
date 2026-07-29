@@ -44,7 +44,10 @@ function useElectronStoreFallback<T>(
  */
 function ipcConfigSetter(channel: string) {
   return (value: string) =>
-    window.ipcRenderer.invoke(`config:${channel}`, value) as Promise<{ success: boolean }>
+    window.ipcRenderer.invoke(`config:${channel}`, value) as Promise<{
+      success: boolean
+      error?: string
+    }>
 }
 
 const configAPI = {

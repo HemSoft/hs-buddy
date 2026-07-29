@@ -1,6 +1,6 @@
 import { internalMutation } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
-import { STALE_RUN_TIMEOUT_MS } from './lib/constants'
+import { RUNNING_TIMEOUT_HEADROOM_MS, STALE_RUN_TIMEOUT_MS } from './lib/constants'
 import { isPendingOrRunning } from './lib/domain'
 import { incrementStat } from './lib/stats'
 
@@ -98,6 +98,7 @@ const STALE_RUN_REAP_BATCH_SIZE = 50
 
 interface StaleRunRecord {
   _id: Id<'runs'>
+  jobId: Id<'jobs'>
   scheduleId?: Id<'schedules'>
   startedAt: number
 }
@@ -111,11 +112,12 @@ interface StaleRunRecord {
 async function reapRun(
   ctx: { db: GenericDatabaseWriter<DataModel> },
   run: StaleRunRecord,
+  thresholdMs: number,
   now: number
 ): Promise<void> {
   await ctx.db.patch('runs', run._id, {
     status: 'failed',
-    error: `Run exceeded the stuck-run threshold (${STALE_RUN_TIMEOUT_MS}ms) without completing and was reaped automatically`,
+    error: `Run exceeded the stuck-run threshold (${thresholdMs}ms) without completing and was reaped automatically`,
     completedAt: now,
     duration: now - run.startedAt,
   })
@@ -133,7 +135,29 @@ async function reapRun(
 }
 
 /**
- * Reap runs stuck in `pending` or `running` past STALE_RUN_TIMEOUT_MS.
+ * The stale-run threshold for a `running` run honors the job's own
+ * `config.timeout` (exec-worker only; unbounded, see
+ * `electron/workers/execWorker.ts`) plus headroom, when set, since it can
+ * legitimately exceed `STALE_RUN_TIMEOUT_MS`. `pending` runs have not
+ * started executing yet, so they always use the flat default.
+ */
+async function staleRunThresholdMs(
+  ctx: { db: GenericDatabaseWriter<DataModel> },
+  run: StaleRunRecord,
+  status: 'pending' | 'running'
+): Promise<number> {
+  if (status !== 'running') return STALE_RUN_TIMEOUT_MS
+
+  const job = await ctx.db.get('jobs', run.jobId)
+  const configuredTimeout = job?.config.timeout
+  if (configuredTimeout != null && configuredTimeout > 0) {
+    return Math.max(STALE_RUN_TIMEOUT_MS, configuredTimeout + RUNNING_TIMEOUT_HEADROOM_MS)
+  }
+  return STALE_RUN_TIMEOUT_MS
+}
+
+/**
+ * Reap runs stuck in `pending` or `running` past their stale-run threshold.
  *
  * Nothing else can clear a run out of `pending`/`running` — `markRunning`,
  * `complete`, `fail`, and `cancel` all require the worker (the Electron IPC
@@ -147,7 +171,6 @@ async function reapStaleRuns(
   ctx: { db: GenericDatabaseWriter<DataModel> },
   now: number
 ): Promise<number> {
-  const cutoff = now - STALE_RUN_TIMEOUT_MS
   let reaped = 0
 
   for (const status of ['pending', 'running'] as const) {
@@ -158,9 +181,11 @@ async function reapStaleRuns(
       .take(STALE_RUN_REAP_BATCH_SIZE)
 
     for (const run of candidates) {
-      if (run.startedAt >= cutoff) continue
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Reaper walks a bounded batch of candidate rows sequentially per scan.
-      await reapRun(ctx, run, now)
+      const thresholdMs = await staleRunThresholdMs(ctx, run, status)
+      if (run.startedAt >= now - thresholdMs) continue
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Reaper walks a bounded batch of candidate rows sequentially per scan.
+      await reapRun(ctx, run, thresholdMs, now)
       reaped++
     }
   }
@@ -172,8 +197,10 @@ async function reapStaleRuns(
  * Main scan and dispatch function.
  *
  * Called every minute by the cron job. This function:
- * 1. Reaps runs stuck in `pending`/`running` past `STALE_RUN_TIMEOUT_MS`, so a
- *    dead worker can never permanently block a schedule (see issue #339)
+ * 1. Reaps runs stuck in `pending`/`running` past their stale-run threshold
+ *    (`STALE_RUN_TIMEOUT_MS`, extended for `running` runs whose job sets a
+ *    longer `config.timeout`), so a dead worker can never permanently block
+ *    a schedule (see issue #339)
  * 2. Queries for due schedules
  * 3. Creates pending runs for each due schedule
  * 4. Updates schedule timing (lastRunAt, nextRunAt)

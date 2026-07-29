@@ -2,7 +2,7 @@ import { convexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api, internal } from '../_generated/api'
-import { STALE_RUN_TIMEOUT_MS } from '../lib/constants'
+import { RUNNING_TIMEOUT_HEADROOM_MS, STALE_RUN_TIMEOUT_MS } from '../lib/constants'
 
 const modules = import.meta.glob('../**/*.*s')
 
@@ -208,8 +208,7 @@ describe('scheduleScanner.scanAndDispatch — stuck-run reaper', () => {
     expect(run?.error).toBeUndefined()
   })
 
-  test('a schedule dispatches again once its stuck run is reaped', async () => {
-    const t = convexTest(schema, modules)
+  test('a schedule dispatches again once its stuck run is reaped', async () => {    const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
 
     const schedId = await t.mutation(api.schedules.create, {
@@ -249,6 +248,52 @@ describe('scheduleScanner.scanAndDispatch — stuck-run reaper', () => {
 
     const scheduleRuns = await t.query(api.runs.listBySchedule, { scheduleId: schedId })
     expect(scheduleRuns.some(r => r.status === 'pending')).toBe(true)
+  })
+
+  test('does NOT reap a running run before its own longer job.config.timeout elapses', async () => {
+    const t = convexTest(schema, modules)
+    const longTimeoutMs = STALE_RUN_TIMEOUT_MS * 2
+    const jobId = await t.mutation(api.jobs.create, {
+      ...baseJob,
+      config: { command: 'run', timeout: longTimeoutMs },
+    })
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.markRunning, { id: runId })
+
+    // Past the flat STALE_RUN_TIMEOUT_MS default, but well within this job's
+    // own configured timeout + headroom — must not be reaped.
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, { startedAt: Date.now() - (STALE_RUN_TIMEOUT_MS + 60_000) })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(0)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('running')
+  })
+
+  test('reaps a running run once its own longer job.config.timeout (plus headroom) elapses', async () => {
+    const t = convexTest(schema, modules)
+    const longTimeoutMs = STALE_RUN_TIMEOUT_MS * 2
+    const jobId = await t.mutation(api.jobs.create, {
+      ...baseJob,
+      config: { command: 'run', timeout: longTimeoutMs },
+    })
+    const runId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.markRunning, { id: runId })
+
+    await t.run(async ctx => {
+      await ctx.db.patch(runId, {
+        startedAt: Date.now() - (longTimeoutMs + RUNNING_TIMEOUT_HEADROOM_MS + 60_000),
+      })
+    })
+
+    const result = await t.mutation(internal.scheduleScanner.scanAndDispatch)
+    expect(result.runsReaped).toBe(1)
+
+    const run = await t.query(api.runs.get, { id: runId })
+    expect(run?.status).toBe('failed')
   })
 })
 

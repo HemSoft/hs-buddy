@@ -1,31 +1,38 @@
 {
   "$schema": "https://unpkg.com/knip@6/schema.json",
-  "entry": [
-    "electron/main.ts",
-    "electron/preload.ts",
-    "scripts/*.ts",
-    "perf/*.ts",
-    "generate-icons.ts",
-    "convex/*.ts",
-    "src/**/*.bench.ts",
-    "src/features/*.steps.ts",
-    "convex/**/*.bench.ts",
-    "convex/__tests__/**/*.test.ts",
-    "electron/**/*.bench.ts",
-    "electron/**/*.test.ts",
-    "perf/**/*.bench.ts",
-    "perf/**/*.test.ts",
-    "apphost.ts",
-    "e2e/*.ts"
-  ],
   "ignore": [],
-  "project": [
-    "src/**/*.{ts,tsx}",
-    "electron/**/*.ts",
-    "convex/**/*.ts",
-    "shared/**/*.ts",
-    "scripts/**/*.ts",
-    "perf/**/*.ts",
-    "*.ts"
-  ]
+  "workspaces": {
+    ".": {
+      "entry": [
+        "electron/main.ts",
+        "electron/preload.ts",
+        "scripts/*.ts",
+        "perf/*.ts",
+        "generate-icons.ts",
+        "convex/*.ts",
+        "src/**/*.bench.ts",
+        "src/features/*.steps.ts",
+        "convex/**/*.bench.ts",
+        "convex/__tests__/**/*.test.ts",
+        "electron/**/*.bench.ts",
+        "electron/**/*.test.ts",
+        "perf/**/*.bench.ts",
+        "perf/**/*.test.ts",
+        "e2e/*.ts"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "electron/**/*.ts",
+        "convex/**/*.ts",
+        "shared/**/*.ts",
+        "scripts/**/*.ts",
+        "perf/**/*.ts",
+        "*.ts"
+      ]
+    },
+    "aspire-apphost": {
+      "entry": ["apphost.mts"],
+      "project": ["**/*.mts"]
+    }
+  }
 }

@@ -36,7 +36,7 @@
     "bench:update": "bun run bench:json && bun scripts/bench-compare.ts --update",
     "perf:memory": "bun perf/memory-monitor.ts",
     "perf:startup": "bun perf/run-startup.ts",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json && tsc --noEmit -p tsconfig.apphost.json",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json && bun run --cwd aspire-apphost typecheck",
     "knip": "knip",
     "e18e": "bun scripts/run-e18e.ts",
     "e18e:migrate": "npx --yes @e18e/cli migrate --all",
@@ -144,8 +144,7 @@
     "vite-plugin-electron": "^1.1.0",
     "vite-plugin-electron-renderer": "^1.0.0",
     "vitest": "4.1.10",
-    "vitest-axe": "^0.1.0",
-    "vscode-jsonrpc": "^9.0.1"
+    "vitest-axe": "^0.1.0"
   },
   "optionalDependencies": {
     "@github/copilot-darwin-arm64": "^1.0.68",

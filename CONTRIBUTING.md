@@ -25,7 +25,10 @@ bun run convex:dev
 bun run dev
 ```
 
-`aspire restore` regenerates the ignored `.modules/` SDK used by `apphost.ts`.
+`aspire restore` installs the isolated `aspire-apphost/` dependencies and
+regenerates its ignored `.aspire/modules/` SDK. The AppHost package is separate
+from the application dependency graph so warm debug launches do not reinstall
+the root workspace.
 
 ### Environment Variables
 

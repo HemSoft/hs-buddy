@@ -4,7 +4,7 @@ package-lock.json
 yarn.lock
 
 # Aspire generated SDK (regenerate with: aspire restore)
-.modules/
+aspire-apphost/.aspire/
 .aspire/packages/
 .aspire/integrations/
 

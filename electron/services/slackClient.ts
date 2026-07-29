@@ -2,6 +2,7 @@ import { execSync } from 'child_process'
 import { createEnvResolver } from '../../src/utils/envLookup'
 
 const SLACK_API_BASE = 'https://slack.com/api'
+const SLACK_REQUEST_TIMEOUT_MS = 15_000
 
 const ALLOWED_SLACK_ENV_NAMES = new Set([
   'SLACK_BOT_TOKEN',
@@ -59,6 +60,7 @@ async function lookupSlackUserByEmail(email: string): Promise<string | null> {
     {
       method: 'GET',
       headers: headers(),
+      signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
     }
   )
   const data = (await res.json()) as { ok: boolean; user?: { id: string }; error?: string }
@@ -75,6 +77,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     method: 'POST',
     headers: headers(),
     body: JSON.stringify({ users: slackUserId }),
+    signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
   })
   const openData = (await openRes.json()) as {
     ok: boolean
@@ -94,6 +97,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
       text: message,
       unfurl_links: true,
     }),
+    signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
   })
   const msgData = (await msgRes.json()) as { ok: boolean; error?: string }
   if (!msgData.ok) {
@@ -165,18 +169,22 @@ export async function nudgePRAuthor(
     }
   }
 
-  const slackUserId = await resolveGitHubToSlack(githubLogin)
-  if (!slackUserId) {
-    return {
-      success: false,
-      error: `Could not find Slack user for GitHub login "${githubLogin}". Their GitHub email may not match their Slack email.`,
+  try {
+    const slackUserId = await resolveGitHubToSlack(githubLogin)
+    if (!slackUserId) {
+      return {
+        success: false,
+        error: `Could not find Slack user for GitHub login "${githubLogin}". Their GitHub email may not match their Slack email.`,
+      }
     }
+
+    const message =
+      '👋 Hey! Friendly reminder - you have a PR waiting for attention:\n\n' +
+      `*<${prUrl}|${prTitle}>*` +
+      "\n\nWhen you get a moment, it'd be great to take a look! 🙏"
+
+    return await sendSlackDM(slackUserId, message)
+  } catch (error: unknown) {
+    return slackError('Slack request failed', error instanceof Error ? error.message : undefined)
   }
-
-  const message =
-    '👋 Hey! Friendly reminder - you have a PR waiting for attention:\n\n' +
-    `*<${prUrl}|${prTitle}>*` +
-    "\n\nWhen you get a moment, it'd be great to take a look! 🙏"
-
-  return sendSlackDM(slackUserId, message)
 }

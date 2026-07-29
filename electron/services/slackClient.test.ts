@@ -71,6 +71,91 @@ describe('slackClient', () => {
     expect(result).toEqual({ success: true })
   })
 
+  it('supplies a bounded timeout signal to every Slack request', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout')
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'UTIMEOUT' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, channel: { id: 'DTIMEOUT' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      })
+
+    try {
+      const result = await nudgePRAuthor(
+        'timeoutsignals',
+        'Fix: timeout signals',
+        'https://github.com/pr/2'
+      )
+
+      expect(result).toEqual({ success: true })
+      expect(timeoutSpy).toHaveBeenCalledTimes(3)
+      expect(timeoutSpy).toHaveBeenNthCalledWith(1, 15_000)
+      expect(timeoutSpy).toHaveBeenNthCalledWith(2, 15_000)
+      expect(timeoutSpy).toHaveBeenNthCalledWith(3, 15_000)
+      for (const [, init] of mockFetch.mock.calls) {
+        expect((init as RequestInit).signal).toBeInstanceOf(AbortSignal)
+      }
+    } finally {
+      timeoutSpy.mockRestore()
+    }
+  })
+
+  it('returns a failure result when Slack user lookup times out', async () => {
+    mockFetch.mockRejectedValueOnce(
+      new DOMException('Request timed out after 15000ms', 'TimeoutError')
+    )
+
+    await expect(
+      nudgePRAuthor('lookuptimeout', 'Fix: lookup timeout', 'https://github.com/pr/3')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Request timed out after 15000ms',
+    })
+  })
+
+  it('returns a failure result when sending the Slack message times out', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'USENDTIMEOUT' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, channel: { id: 'DSENDTIMEOUT' } }),
+      })
+      .mockRejectedValueOnce(new DOMException('Request timed out after 15000ms', 'TimeoutError'))
+
+    await expect(
+      nudgePRAuthor('sendtimeout', 'Fix: send timeout', 'https://github.com/pr/4')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Request timed out after 15000ms',
+    })
+  })
+
+  it('returns a failure result when opening the Slack conversation times out', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'UOPENTIMEOUT' } }),
+      })
+      .mockRejectedValueOnce(new DOMException('Request timed out after 15000ms', 'TimeoutError'))
+
+    await expect(
+      nudgePRAuthor('opentimeout', 'Fix: open timeout', 'https://github.com/pr/5')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Request timed out after 15000ms',
+    })
+  })
+
   it('nudgePRAuthor returns error when user lookup fails', async () => {
     // lookupByEmail → not found
     mockFetch.mockResolvedValueOnce({

@@ -675,10 +675,11 @@ export function SettingsAccounts() {
     'idle'
   )
   const [enterpriseSaveError, setEnterpriseSaveError] = useState<string | null>(null)
+  const configuredEnterpriseSlug = config?.ui.enterpriseSlug
 
   useEffect(() => {
-    if (config) setEnterpriseSlug(config.ui.enterpriseSlug ?? '')
-  }, [config?.ui.enterpriseSlug])
+    if (configuredEnterpriseSlug !== undefined) setEnterpriseSlug(configuredEnterpriseSlug)
+  }, [configuredEnterpriseSlug])
 
   const handleEnterpriseSlugChange = (value: string) => {
     setEnterpriseSlug(value)

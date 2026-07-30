@@ -38,7 +38,7 @@
         "shiki": "^4.3.1",
       },
       "devDependencies": {
-        "@amiceli/vitest-cucumber": "^6.5.0",
+        "@amiceli/vitest-cucumber": "^7.0.0",
         "@commitlint/cli": "^21.2.0",
         "@commitlint/config-conventional": "^21.2.0",
         "@edge-runtime/vm": "^5.0.0",
@@ -113,7 +113,7 @@
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
 
-    "@amiceli/vitest-cucumber": ["@amiceli/vitest-cucumber@6.5.0", "", { "dependencies": { "callsites": "4.2.0", "minimist": "1.2.8", "parsecurrency": "1.1.1", "ts-morph": "28.0.0" }, "peerDependencies": { "vitest": "^4.0.4" }, "bin": { "vitest-cucumber": "dist/cli-generate.js" } }, "sha512-1883MTz+PsfTcR5C2wYlHh8rQzOEYOogdDhAikGWsx5UfTzIusP4HLH32kpcAPOBvHUpguYcA8Zmw5JxEydbzg=="],
+    "@amiceli/vitest-cucumber": ["@amiceli/vitest-cucumber@7.0.0", "", { "dependencies": { "callsites": "4.2.0", "minimist": "1.2.8", "parsecurrency": "1.1.1", "ts-morph": "28.0.0" }, "peerDependencies": { "vitest": "^4.0.4" }, "bin": { "vitest-cucumber": "dist/cli-generate.js" } }, "sha512-RjadvOolQ/g0uu4ntoZ4iBaTHy2NBxllxcco/apY1o42C5Y8g5OqCTstzmiX0PGa2izb/DskAwocBzsuRtLmLg=="],
 
     "@apm-js-collab/code-transformer": ["@apm-js-collab/code-transformer@0.15.0", "", { "dependencies": { "@types/estree": "^1.0.8", "astring": "^1.9.0", "esquery": "^1.7.0", "meriyah": "^6.1.4", "semifies": "^1.0.0", "source-map": "^0.6.0" }, "bin": { "code-transformer": "cli.js" } }, "sha512-XmXYVs8CzJ1Aj79noVbn2weUO/XWtRyURpGqx7aU7DOXlUQhR0WKOQNF0okh7PCeY37vxf7kU3v57OAkEPm3ww=="],
 

@@ -698,7 +698,9 @@ describe('githubHandlers', () => {
         { model: 'claude-sonnet', requests: 30 },
       ])
     })
+  })
 
+  describe('github:get-user-premium-requests failures', () => {
     it('returns error when extractPremiumUsageItems throws', async () => {
       const { extractPremiumUsageItems } = await import('../../src/utils/billingParsers')
       // tryGetCliToken
@@ -1607,7 +1609,9 @@ describe('githubHandlers', () => {
       expect(mockExecAsync).not.toHaveBeenCalled()
       expect(mockExecFileAsync).not.toHaveBeenCalled()
     })
+  })
 
+  describe('github:get-batch-monthly-requests probing', () => {
     it('probes backwards for last active date when not skipping', async () => {
       const { sumGrossRequests } = await import('../../src/utils/billingParsers')
 

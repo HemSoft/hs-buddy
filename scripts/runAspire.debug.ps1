@@ -19,6 +19,8 @@ param(
 . "$PSScriptRoot/lib/PortUtils.ps1"
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$appHostSdk = Join-Path $repoRoot 'aspire-apphost/.aspire/modules/aspire.mts'
+$appHostDependency = Join-Path $repoRoot 'aspire-apphost/node_modules/vscode-jsonrpc/package.json'
 $exitCode = 0
 
 $InformationPreference = 'Continue'
@@ -94,8 +96,17 @@ if ($blockedProfilePorts.Count -gt 0) {
 }
 
 # -- Preflight: Aspire SDK --
-if (-not (Test-Path ".modules/aspire.ts")) {
-    Write-Information "${Cyan}Aspire SDK not found. Restoring...${Reset}"
+if (-not (Test-Path $appHostSdk) -or -not (Test-Path $appHostDependency)) {
+    if (-not $FullBuild) {
+        Write-Information ""
+        Write-Information "${Red}ERROR: Aspire AppHost SDK or dependencies not found.${Reset}"
+        Write-Information "Bootstrap with: ${Yellow}aspire restore${Reset}"
+        Write-Information "Or run: ${Yellow}./scripts/runAspire.debug.ps1 -FullBuild${Reset}"
+        Write-Information ""
+        exit 1
+    }
+
+    Write-Information "${Cyan}Aspire AppHost restore required. Restoring...${Reset}"
     & $aspireCmd restore --non-interactive
     if ($LASTEXITCODE -ne 0) {
         Write-Information "${Red}ERROR: aspire restore failed.${Reset}"
@@ -103,8 +114,8 @@ if (-not (Test-Path ".modules/aspire.ts")) {
     }
 }
 
-# -- Preflight: AppHost dependencies for the fast path --
-if (-not $FullBuild -and -not (Test-Path "node_modules")) {
+# -- Preflight: application dependencies --
+if (-not (Test-Path "node_modules")) {
     $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
     if (-not $bunCmd) {
         Write-Information ""
@@ -114,7 +125,16 @@ if (-not $FullBuild -and -not (Test-Path "node_modules")) {
         exit 1
     }
 
-    Write-Information "${Cyan}node_modules not found. Installing dependencies...${Reset}"
+    if (-not $FullBuild) {
+        Write-Information ""
+        Write-Information "${Red}ERROR: Application dependencies not found.${Reset}"
+        Write-Information "Bootstrap with: ${Yellow}bun install --frozen-lockfile${Reset}"
+        Write-Information "Or run: ${Yellow}./scripts/runAspire.debug.ps1 -FullBuild${Reset}"
+        Write-Information ""
+        exit 1
+    }
+
+    Write-Information "${Cyan}Application dependencies not found. Installing for full build...${Reset}"
     & $bunCmd.Source install --frozen-lockfile
     if ($LASTEXITCODE -ne 0) {
         Write-Information "${Red}ERROR: bun install --frozen-lockfile failed.${Reset}"

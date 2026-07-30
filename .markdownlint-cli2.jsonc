@@ -6,8 +6,16 @@
     "fenced-code-language": false,
     "table-column-style": false,
     "no-duplicate-heading": {
-      "siblings_only": true
-    }
+      "siblings_only": true,
+    },
   },
-  "ignores": ["node_modules/**", "dist/**", "dist-electron/**", ".github/agents/**", "test-results/**", "release/**", ".github/aw/logs/**"]
+  "ignores": [
+    "**/node_modules/**",
+    "dist/**",
+    "dist-electron/**",
+    ".github/agents/**",
+    "test-results/**",
+    "release/**",
+    ".github/aw/logs/**",
+  ],
 }

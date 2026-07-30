@@ -47,7 +47,7 @@ export default tseslint.config(
       'dist/**',
       'dist-electron/**',
       'convex/_generated/**',
-      '.modules/**',
+      'aspire-apphost/.aspire/**',
       '.dependency-cruiser.cjs',
       'lighthouserc.cjs',
       'eslint.config.js',

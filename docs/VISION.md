@@ -150,7 +150,7 @@ stored in electron-store with Convex sync for view modes.
 
 ### Aspire Orchestration
 
-TypeScript AppHost (`apphost.ts`) orchestrates Convex dev server and
+The isolated TypeScript AppHost (`aspire-apphost/apphost.mts`) orchestrates Convex dev server and
 Buddy with full OpenTelemetry instrumentation (traces, metrics,
 structured logs) flowing to the Aspire dashboard when
 `OTEL_EXPORTER_OTLP_ENDPOINT` is set.

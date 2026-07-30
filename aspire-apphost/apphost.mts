@@ -3,22 +3,22 @@
 // Run with: aspire run (or: bun run aspire)
 // Docs: https://aspire.dev
 
-import { createBuilder } from './.modules/aspire.js'
+import { createBuilder } from './.aspire/modules/aspire.mjs'
 
-// Aspire SDK transport layer depends on this (loaded by .modules/transport.ts)
+// Aspire SDK transport layer depends on this.
 import 'vscode-jsonrpc'
 
 const builder = await createBuilder()
 
 // Convex local dev server (backend on port 3210, dashboard on 6790)
 const convex = await builder
-  .addJavaScriptApp('convex', '.')
+  .addJavaScriptApp('convex', '..')
   .withBun({ install: false })
   .withRunScript('convex:dev')
 
 // Vite dev server + Electron (vite-plugin-electron handles Electron launch)
 await builder
-  .addViteApp('buddy', '.')
+  .addViteApp('buddy', '..')
   .withBun({ install: false })
   .withReference(convex)
   .waitFor(convex)

@@ -63,6 +63,22 @@ $dashboardUri = @(
         Where-Object { $_ -like 'http://*' }
 )[0]
 $dashboardPort = ([System.Uri]$dashboardUri).Port
+$milestonePorts = [ordered]@{
+    Dashboard = $dashboardPort
+    Convex = 3210
+    ElectronCdp = $Port
+}
+$duplicatePorts = @(
+    $milestonePorts.GetEnumerator() |
+        Group-Object Value |
+        Where-Object Count -gt 1 |
+        ForEach-Object {
+            "$($_.Name) ($($_.Group.Name -join ', '))"
+        }
+)
+if ($duplicatePorts.Count -gt 0) {
+    throw "Startup milestones must use distinct ports: $($duplicatePorts -join '; ')."
+}
 
 Initialize-DotnetRoot
 $aspireCmd = Resolve-Aspire
@@ -74,7 +90,7 @@ $results = @()
 Push-Location $repoRoot
 try {
     for ($run = 1; $run -le $Runs; $run++) {
-        foreach ($targetPort in @($dashboardPort, 3210, $Port)) {
+        foreach ($targetPort in $milestonePorts.Values) {
             if (-not (Test-PortBindable -Port $targetPort)) {
                 throw "Port $targetPort must be free before measurement."
             }
@@ -91,11 +107,7 @@ try {
 
             $readySeconds = Wait-StartupPorts `
                 -Stopwatch $timer `
-                -Ports @{
-                    Dashboard = $dashboardPort
-                    Convex = 3210
-                    ElectronCdp = $Port
-                } `
+                -Ports $milestonePorts `
                 -Timeout $TimeoutSeconds
             $description = & $aspireCmd describe --format Json --non-interactive |
                 ConvertFrom-Json

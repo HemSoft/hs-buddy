@@ -20,7 +20,7 @@ param(
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $appHostSdk = Join-Path $repoRoot 'aspire-apphost/.aspire/modules/aspire.mts'
-$appHostNodeModules = Join-Path $repoRoot 'aspire-apphost/node_modules'
+$appHostDependency = Join-Path $repoRoot 'aspire-apphost/node_modules/vscode-jsonrpc/package.json'
 $exitCode = 0
 
 $InformationPreference = 'Continue'
@@ -96,7 +96,7 @@ if ($blockedProfilePorts.Count -gt 0) {
 }
 
 # -- Preflight: Aspire SDK --
-if (-not (Test-Path $appHostSdk) -or -not (Test-Path $appHostNodeModules)) {
+if (-not (Test-Path $appHostSdk) -or -not (Test-Path $appHostDependency)) {
     if (-not $FullBuild) {
         Write-Information ""
         Write-Information "${Red}ERROR: Aspire AppHost SDK or dependencies not found.${Reset}"

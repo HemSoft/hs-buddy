@@ -22,7 +22,9 @@ describe('Aspire AppHost isolation', () => {
     expect(appHostPackage).toMatchObject({
       private: true,
       packageManager: 'bun@1.3.7',
+      engines: { node: '>=22.0.0' },
       dependencies: { 'vscode-jsonrpc': '^9.0.1' },
+      devDependencies: { '@types/node': '^22.0.0' },
     })
   })
 
@@ -38,11 +40,22 @@ describe('Aspire AppHost isolation', () => {
     const launcher = await readFile(resolve(repoRoot, 'scripts/runAspire.debug.ps1'), 'utf8')
 
     expect(launcher).toContain('aspire-apphost/.aspire/modules/aspire.mts')
-    expect(launcher).toContain('aspire-apphost/node_modules')
+    expect(launcher).toContain('aspire-apphost/node_modules/vscode-jsonrpc/package.json')
     expect(launcher).toContain("$aspireArgs += '--no-build'")
     expect(launcher).toContain('if (-not $FullBuild)')
     expect(launcher).toContain('Bootstrap with:')
     expect(launcher).toContain('ERROR: Application dependencies not found.')
+  })
+
+  it('requires distinct ports for every measured startup milestone', async () => {
+    const measurement = await readFile(
+      resolve(repoRoot, 'scripts/measureAspireStartup.ps1'),
+      'utf8'
+    )
+
+    expect(measurement).toContain('Group-Object Value')
+    expect(measurement).toContain('Startup milestones must use distinct ports:')
+    expect(measurement).toContain('-Ports $milestonePorts')
   })
 
   it('excludes generated SDK code from linting', async () => {

@@ -623,7 +623,9 @@ function EnterpriseBillingSection({
             id="enterprise-slug"
             type="text"
             value={enterpriseSlug}
-            onChange={event => setEnterpriseSlug(event.target.value)}
+            onChange={event => {
+              setEnterpriseSlug(event.target.value)
+            }}
             placeholder="your-enterprise"
             disabled={saveStatus === 'saving'}
           />
@@ -658,55 +660,15 @@ function EnterpriseBillingSection({
   )
 }
 
-export function SettingsAccounts() {
-  const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
-  const {
-    config,
-    loading: configLoading,
-    refresh,
-    api: { setEnterpriseSlug: persistEnterpriseSlug },
-  } = useConfig()
+function useAddAccountForm(
+  accounts: GitHubAccount[],
+  addAccount: ReturnType<typeof useGitHubAccounts>['addAccount']
+) {
   const [formState, dispatch] = useReducer(addAccountFormReducer, INITIAL_FORM_STATE)
-  const { showAddForm, newUsername, newOrg, addError, isAdding } = formState
-  const [editingKey, setEditingKey] = useState<string | null>(null)
-  const [editRepoRoot, setEditRepoRoot] = useState('')
-  const [enterpriseSlug, setEnterpriseSlug] = useState('')
-  const [enterpriseSaveStatus, setEnterpriseSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
-    'idle'
-  )
-  const [enterpriseSaveError, setEnterpriseSaveError] = useState<string | null>(null)
-  const configuredEnterpriseSlug = config?.ui.enterpriseSlug
-
-  useEffect(() => {
-    if (configuredEnterpriseSlug !== undefined) setEnterpriseSlug(configuredEnterpriseSlug)
-  }, [configuredEnterpriseSlug])
-
-  const handleEnterpriseSlugChange = (value: string) => {
-    setEnterpriseSlug(value)
-    setEnterpriseSaveStatus('idle')
-    setEnterpriseSaveError(null)
-  }
-
-  const handleEnterpriseSlugSave = async () => {
-    const normalizedSlug = enterpriseSlug.trim()
-    try {
-      if (normalizedSlug) assertValidGitHubAccountSlug(normalizedSlug)
-      setEnterpriseSaveStatus('saving')
-      setEnterpriseSaveError(null)
-      const result = await persistEnterpriseSlug(normalizedSlug)
-      if (!result.success) throw new Error(result.error ?? 'Failed to save enterprise slug')
-      setEnterpriseSlug(normalizedSlug)
-      await refresh()
-      setEnterpriseSaveStatus('saved')
-    } catch (error: unknown) {
-      setEnterpriseSaveStatus('idle')
-      setEnterpriseSaveError(getUserFacingErrorMessage(error, 'Failed to save enterprise slug'))
-    }
-  }
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault()
-    const { username, org } = trimAccountInput(newUsername, newOrg)
+    const { username, org } = trimAccountInput(formState.newUsername, formState.newOrg)
     const validationError = validateNewAccount(username, org, accounts)
     if (validationError) {
       dispatch({ type: 'SET_ERROR', value: validationError })
@@ -723,6 +685,65 @@ export function SettingsAccounts() {
       })
     }
   }
+
+  return { ...formState, dispatch, handleAdd }
+}
+
+function useEnterpriseBilling() {
+  const {
+    config,
+    loading,
+    refresh,
+    api: { setEnterpriseSlug: persistEnterpriseSlug },
+  } = useConfig()
+  const [enterpriseSlug, setEnterpriseSlug] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveError, setSaveError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setEnterpriseSlug(config?.ui.enterpriseSlug ?? '')
+  }, [config?.ui.enterpriseSlug])
+
+  const handleChange = (value: string) => {
+    setEnterpriseSlug(value)
+    setSaveStatus('idle')
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    const normalizedSlug = enterpriseSlug.trim()
+    try {
+      if (normalizedSlug) assertValidGitHubAccountSlug(normalizedSlug)
+      setSaveStatus('saving')
+      setSaveError(null)
+      const result = await persistEnterpriseSlug(normalizedSlug)
+      if (!result.success) throw new Error(result.error ?? 'Failed to save enterprise slug')
+      setEnterpriseSlug(normalizedSlug)
+      await refresh()
+      setSaveStatus('saved')
+    } catch (error: unknown) {
+      setSaveStatus('idle')
+      setSaveError(getUserFacingErrorMessage(error, 'Failed to save enterprise slug'))
+    }
+  }
+
+  return { enterpriseSlug, saveStatus, saveError, loading, handleChange, handleSave }
+}
+
+export function SettingsAccounts() {
+  const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
+  const { showAddForm, newUsername, newOrg, addError, isAdding, dispatch, handleAdd } =
+    useAddAccountForm(accounts, addAccount)
+  const {
+    enterpriseSlug,
+    saveStatus: enterpriseSaveStatus,
+    saveError: enterpriseSaveError,
+    loading: configLoading,
+    handleChange: handleEnterpriseSlugChange,
+    handleSave: handleEnterpriseSlugSave,
+  } = useEnterpriseBilling()
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+  const [editRepoRoot, setEditRepoRoot] = useState('')
 
   const { confirm, confirmDialog } = useConfirm()
 

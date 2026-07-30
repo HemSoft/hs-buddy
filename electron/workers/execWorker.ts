@@ -12,17 +12,19 @@ import { resolveExecConfig, buildWorkerResult } from '../../src/utils/shellUtils
 const DEFAULT_TIMEOUT = 30_000 // 30 seconds
 const MAX_OUTPUT_SIZE = 512_000 // 512KB per stream
 
+function missingCommandResult(start: number): WorkerResult {
+  return {
+    success: false,
+    error: 'No command specified in job config',
+    duration: Date.now() - start,
+  }
+}
+
 export const execWorker: Worker = {
   async execute(config: JobConfig, signal?: AbortSignal): Promise<WorkerResult> {
     const start = Date.now()
 
-    if (!config.command) {
-      return {
-        success: false,
-        error: 'No command specified in job config',
-        duration: Date.now() - start,
-      }
-    }
+    if (!config.command) return missingCommandResult(start)
 
     const { timeout, shellCmd, shellArgs, finalCommand } = resolveExecConfig(
       config.command,

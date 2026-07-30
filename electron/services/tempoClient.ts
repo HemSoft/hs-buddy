@@ -81,13 +81,11 @@ async function fetchWithTimeout<T>(
   consumeResponse: (response: Response) => Promise<T>
 ): Promise<T> {
   const timeoutController = new AbortController()
-  const timeout = setTimeout(
-    () =>
-      timeoutController.abort(
-        new DOMException(`Request timed out after ${API_REQUEST_TIMEOUT_MS}ms`, 'TimeoutError')
-      ),
-    API_REQUEST_TIMEOUT_MS
-  )
+  const timeout = setTimeout(() => {
+    timeoutController.abort(
+      new DOMException(`Request timed out after ${API_REQUEST_TIMEOUT_MS}ms`, 'TimeoutError')
+    )
+  }, API_REQUEST_TIMEOUT_MS)
 
   try {
     const signal = init?.signal
@@ -398,7 +396,7 @@ export async function deleteWorklog(worklogId: number): Promise<TempoResult<void
       `${TEMPO_BASE}/worklogs/${worklogId}`,
       getTempoHeaders(),
       { method: 'DELETE' },
-      async () => undefined
+      async () => {}
     )
 
     return { success: true }

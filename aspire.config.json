@@ -9,9 +9,9 @@
   "channel": "daily",
   "profiles": {
     "https": {
-      "applicationUrl": "https://localhost:61211;http://localhost:48889",
+      "applicationUrl": "https://localhost:41211;http://localhost:48889",
       "environmentVariables": {
-        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:53973",
+        "ASPIRE_DASHBOARD_OTLP_ENDPOINT_URL": "https://localhost:43973",
         "ASPIRE_RESOURCE_SERVICE_ENDPOINT_URL": "https://localhost:47874"
       }
     }

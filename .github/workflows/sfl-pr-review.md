@@ -539,7 +539,6 @@ safe-outputs:
       script: |
         return { success: true };
   create-pull-request-review-comment:
-    side: RIGHT
     max: 20
     commit-id: ${{ github.event.pull_request.head.sha }}
   submit-pull-request-review:
@@ -553,7 +552,7 @@ safe-outputs:
   noop:
     report-as-issue: false
 ---
-# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@7bbfc5d90ba01cfce504b0643a8edd7002ad2b05
+# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@46772cb58be14182ef911069865ba6fece9876df
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 
 <!-- sfl:
@@ -627,7 +626,8 @@ Do not report style preferences, speculative concerns, or findings without
 specific evidence from the changed code.
 
 For each finding, call `create-pull-request-review-comment` on the most precise
-changed line. The comment body must begin with one of these exact prefixes:
+changed line. Set `side` to `LEFT` for a deleted line and `RIGHT` for an added
+or context line. The comment body must begin with one of these exact prefixes:
 
 - `**CRITICAL Finding**`
 - `**HIGH Finding**`

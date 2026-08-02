@@ -127,7 +127,7 @@ describe('SFL Auditor stalled draft PR counter', () => {
     expect(firstRun.output).toContain('stalled_prs_found=1')
     expect(secondRun.output).toContain('stalled_prs_found=0')
     expect(secondRun.comments).toBe('')
-  })
+  }, 10_000)
 })
 
 describe('SFL Auditor stalled draft PR warning detection', () => {

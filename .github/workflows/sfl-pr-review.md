@@ -224,6 +224,25 @@ safe-outputs:
             fail('noop is forbidden while the pull request head is unchanged');
           }
 
+          const allowedTypes = new Set([
+            'sfl_review_inventory',
+            'create_pull_request_review_comment',
+            'submit_pull_request_review',
+            'create_check_run',
+          ]);
+          const unexpectedTypes = [
+            ...new Set(
+              items
+                .map((item) => item.type)
+                .filter((type) => !allowedTypes.has(type))
+            ),
+          ];
+          if (unexpectedTypes.length > 0) {
+            fail(
+              `unexpected safe output types: ${unexpectedTypes.join(', ')}`
+            );
+          }
+
           const inventories = items.filter(
             (item) => item.type === 'sfl_review_inventory'
           );
@@ -529,7 +548,7 @@ safe-outputs:
   noop:
     report-as-issue: false
 ---
-# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@eec46bb3c9b9cb99e6768d01cc76a3690b70f946
+# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@83fc7e30591cb6fbb00fd646af5b6025a5c7ff74
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 
 <!-- sfl:

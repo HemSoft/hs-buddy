@@ -3,7 +3,7 @@
   "deployedAt": "2026-08-02T03:32:44Z",
   "tier": "full",
   "source": "HemSoft/set-it-free-loop",
-  "sourceSha": "83fc7e30591cb6fbb00fd646af5b6025a5c7ff74",
+  "sourceSha": "7bbfc5d90ba01cfce504b0643a8edd7002ad2b05",
   "components": [
     "daily-repo-status",
     "governance",

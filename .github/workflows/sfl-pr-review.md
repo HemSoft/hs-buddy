@@ -401,6 +401,11 @@ safe-outputs:
                 `${actualConclusion || 'empty'}`
             );
           }
+          if (checks[0].title !== 'SFL full-spectrum review complete') {
+            fail(
+              'check title must be SFL full-spectrum review complete'
+            );
+          }
 
           const totals = Object.fromEntries(
             severityOrder.map((severity) => [
@@ -548,7 +553,7 @@ safe-outputs:
   noop:
     report-as-issue: false
 ---
-# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@83fc7e30591cb6fbb00fd646af5b6025a5c7ff74
+# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@7bbfc5d90ba01cfce504b0643a8edd7002ad2b05
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 
 <!-- sfl:

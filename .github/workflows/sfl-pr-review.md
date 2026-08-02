@@ -61,8 +61,10 @@ safe-outputs:
   create-check-run:
     max: 1
     name: "SFL Reviewer Approval"
+  noop:
+    report-as-issue: false
 ---
-# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@4951b46810b7dd48a3615c0ff47cae21fd474e12
+# Deployed from: HemSoft/set-it-free-loop/deployment/workflows/sfl-pr-review.md@59df3c947c2e3ff28fb4ee316c678a89a70b9e5f
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 
 <!-- sfl:
@@ -163,8 +165,9 @@ review thread is resolved.
 - If any Critical or High finding remains unresolved, or the complete finding
   inventory exceeded 20 comments, submit `REQUEST_CHANGES` and create the
   `SFL Reviewer Approval` check with conclusion `failure`.
-- If only Medium or Low findings exist, submit `APPROVE` and create the check
-  with conclusion `success`.
+- If only Medium or Low findings exist and the complete finding inventory did
+  not exceed 20 comments, submit `APPROVE` and create the check with conclusion
+  `success`.
 - If no findings exist, submit `APPROVE` and create the check with conclusion
   `success`.
 
@@ -196,7 +199,8 @@ Concise evidence-based summary of the review result.
 ```
 
 Replace the verdict and counts with the actual result. Use
-`Verdict: CHANGES_REQUESTED` when Critical or High findings exist.
+`Verdict: CHANGES_REQUESTED` when Critical or High findings exist or the
+complete finding inventory exceeded 20 comments.
 
 Create exactly one check run named `SFL Reviewer Approval` with:
 

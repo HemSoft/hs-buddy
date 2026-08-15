@@ -3,10 +3,9 @@
 module.exports = {
   ci: {
     collect: {
-      startServerCommand:
-        'node ./node_modules/vite/bin/vite.js --mode e2e --host 127.0.0.1 --port 9222 --strictPort',
-      startServerReadyPattern: 'ready in',
-      url: ['http://127.0.0.1:9222/'],
+      staticDistDir: './dist',
+      isSinglePageApplication: true,
+      url: ['http://localhost/'],
       numberOfRuns: 3,
       settings: {
         chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage',
@@ -28,4 +27,4 @@ module.exports = {
       outputDir: '.lighthouseci',
     },
   },
-};
+}

@@ -1,6 +1,6 @@
 # SFL Auditor — standard workflow (not gh-aw)
 #
-# Runs manually. Audits the relationship
+# Runs every 30 minutes (offset from dispatcher). Audits the relationship
 # between issue labels and open pull requests. Detects and repairs state
 # discrepancies to keep the agentic pipeline self-consistent.
 # Never modifies PR content — only updates issues.
@@ -10,6 +10,8 @@
 name: "SFL Auditor"
 
 on:
+  schedule:
+    - cron: "15,45 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,19 +26,60 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
       REPO: ${{ github.repository }}
     steps:
+      - name: Verify SFL App configuration
+        env:
+          SFL_APP_ID: ${{ vars.SFL_APP_ID }}
+          SFL_APP_CLIENT_ID: ${{ vars.SFL_APP_CLIENT_ID }}
+          SFL_APP_PRIVATE_KEY: ${{ secrets.SFL_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          for name in SFL_APP_ID SFL_APP_CLIENT_ID SFL_APP_PRIVATE_KEY; do
+            if [ -z "${!name:-}" ]; then
+              echo "::error::Missing required SFL App credential: $name"
+              exit 1
+            fi
+          done
+
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.SFL_APP_ID }}
+          private-key: ${{ secrets.SFL_APP_PRIVATE_KEY }}
+          permission-actions: write
+          permission-checks: write
+          permission-contents: read
+          permission-issues: write
+          permission-pull-requests: write
+
       - name: Verify authentication
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
           if ! gh auth status 2>&1; then
-            echo "::error::GitHub token is not valid"
+            echo "::error::SFL GitHub App token is not valid"
+            exit 1
+          fi
+
+          APP_LOGIN=$(gh api graphql -f query='{ viewer { login } }' --jq '.data.viewer.login')
+          if [ "$APP_LOGIN" != "sfl-app[bot]" ]; then
+            echo "::error::Expected sfl-app[bot], authenticated as $APP_LOGIN"
+            exit 1
+          fi
+
+          if ! gh api installation/repositories --paginate --jq '.repositories[].full_name' |
+            grep -qxF "$REPO"; then
+            echo "::error::The SFL App installation cannot access $REPO"
             exit 1
           fi
 
       - name: Gather current state
         id: gather
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -50,127 +93,24 @@ jobs:
             --json number,headRefName,labels,title --limit 100 > /tmp/all_prs.json
 
           jq '[.[] | select(.headRefName | startswith("agent-fix/issue-")) |
-            . + {linkedIssue: (.headRefName | capture("agent-fix/issue-(?<num>[0-9]+)(?:-|$)") | .num | tonumber)}]' \
+            . + {linkedIssue: (.headRefName | capture("agent-fix/issue-(?<num>[0-9]+)-") | .num | tonumber)}]' \
             /tmp/all_prs.json > /tmp/agent_prs.json
 
           PR_COUNT=$(jq 'length' /tmp/agent_prs.json)
           echo "Found $PR_COUNT open agent PRs"
 
-          gh issue list --repo "$REPO" --state open --label "agent:pr" \
-            --json number,title,body,labels,url --limit 100 > /tmp/agent_pr_issues.json
-
-          jq '[.[] | select((.body // "") | contains("This was originally intended as a pull request"))]' \
-            /tmp/agent_pr_issues.json > /tmp/pr_fallback_issues.json
-
-          FALLBACK_COUNT=$(jq 'length' /tmp/pr_fallback_issues.json)
-          echo "Found $FALLBACK_COUNT create_pull_request fallback issues"
-
           echo "discrepancies=0" >> "$GITHUB_OUTPUT"
-
-      - name: "Check: create_pull_request fallback issues"
-        id: pr-fallbacks
-        run: |
-          set -euo pipefail
-
-          FIXED=0
-          touch /tmp/fallback_source_issues.txt
-
-          while IFS= read -r ROW; do
-            FALLBACK_NUM=$(echo "$ROW" | jq '.number')
-            BODY=$(echo "$ROW" | jq -r '.body // ""')
-            SOURCE_NUM=$(printf '%s\n' "$BODY" \
-              | grep -oE 'Closes[[:space:]]+\\?#[0-9]+' \
-              | head -n1 \
-              | grep -oE '[0-9]+' || true)
-
-            if [ -n "$SOURCE_NUM" ]; then
-              echo "$SOURCE_NUM" >> /tmp/fallback_source_issues.txt
-
-              if gh issue view "$SOURCE_NUM" --repo "$REPO" --json number,state >/tmp/source_issue.json 2>/dev/null; then
-                ALREADY_FLAGGED=$(gh issue view "$SOURCE_NUM" --repo "$REPO" --json comments \
-                  --jq '.comments[].body' | grep -c 'create_pull_request fallback' || true)
-
-                if [ "$ALREADY_FLAGGED" -eq 0 ]; then
-                  gh issue comment "$SOURCE_NUM" --repo "$REPO" \
-                    --body "🛑 **SFL Auditor**: Issue Processor produced fallback issue #$FALLBACK_NUM instead of a pull request. Blocking this source issue because the automation cannot continue until repository workflow permissions or the Issue Processor guardrail are fixed."
-                fi
-
-                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:in-progress" 2>/dev/null || true
-                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:fixable" 2>/dev/null || true
-                gh issue edit "$SOURCE_NUM" --repo "$REPO" --remove-label "agent:pause" 2>/dev/null || true
-                gh issue edit "$SOURCE_NUM" --repo "$REPO" --add-label "agent:blocked"
-              else
-                echo "Fallback issue #$FALLBACK_NUM references source issue #$SOURCE_NUM, but that issue could not be read."
-              fi
-            else
-              echo "Fallback issue #$FALLBACK_NUM did not contain a parseable source issue."
-            fi
-
-            ALREADY_CLOSED=$(gh issue view "$FALLBACK_NUM" --repo "$REPO" --json comments \
-              --jq '.comments[].body' | grep -c 'Closing this issue because it is a create_pull_request fallback' || true)
-
-            if [ "$ALREADY_CLOSED" -eq 0 ]; then
-              if [ -n "$SOURCE_NUM" ]; then
-                gh issue comment "$FALLBACK_NUM" --repo "$REPO" \
-                  --body "🛑 **SFL Auditor**: Closing this issue because it is a create_pull_request fallback, not an SFL-managed pull request. Source issue: #$SOURCE_NUM."
-              else
-                gh issue comment "$FALLBACK_NUM" --repo "$REPO" \
-                  --body "🛑 **SFL Auditor**: Closing this issue because it is a create_pull_request fallback, not an SFL-managed pull request. No source issue could be parsed from the body."
-              fi
-            fi
-
-            gh issue close "$FALLBACK_NUM" --repo "$REPO" --reason "not planned"
-            FIXED=$((FIXED + 1))
-          done < <(jq -c '.[]' /tmp/pr_fallback_issues.json)
-
-          echo "pr_fallbacks_fixed=$FIXED" >> "$GITHUB_OUTPUT"
-          echo "Fixed $FIXED create_pull_request fallback issues"
-
-      - name: "Check: duplicate action-item issues"
-        id: duplicate-issues
-        run: |
-          set -euo pipefail
-
-          CLOSED=0
-
-          gh issue list --repo "$REPO" --state open --label "action-item" \
-            --json number,title,createdAt,labels --limit 100 > /tmp/action_item_issues.json
-
-          while IFS=$'\t' read -r KEEP_NUM DUP_NUM TITLE; do
-            echo "Issue #$DUP_NUM duplicates #$KEEP_NUM: $TITLE"
-
-            gh issue comment "$DUP_NUM" --repo "$REPO" \
-              --body "🛑 **SFL Auditor**: Closing this action item as a duplicate of #$KEEP_NUM. Future audit workflows should update the existing issue instead of creating another issue for the same finding."
-
-            gh issue close "$DUP_NUM" --repo "$REPO" --reason "duplicate" --duplicate-of "$KEEP_NUM"
-            CLOSED=$((CLOSED + 1))
-          done < <(jq -r '
-            group_by(.title)[]
-            | select(length > 1)
-            | sort_by(.createdAt, .number)
-            | .[0].number as $keep
-            | .[0].title as $title
-            | .[1:][]
-            | [$keep, .number, $title]
-            | @tsv
-          ' /tmp/action_item_issues.json)
-
-          echo "duplicate_issues_closed=$CLOSED" >> "$GITHUB_OUTPUT"
-          echo "Closed $CLOSED duplicate action-item issues"
 
       - name: "Check: orphaned agent:in-progress labels"
         id: orphaned-labels
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
           FIXED=0
 
           for ISSUE_NUM in $(jq -r '.[].number' /tmp/in_progress_issues.json); do
-            if grep -qxF "$ISSUE_NUM" /tmp/fallback_source_issues.txt 2>/dev/null; then
-              echo "Skipping issue #$ISSUE_NUM — create_pull_request fallback handling already blocked it"
-              continue
-            fi
-
             HAS_PR=$(jq --argjson n "$ISSUE_NUM" '[.[] | select(.linkedIssue == $n)] | length' /tmp/agent_prs.json)
 
             if [ "$HAS_PR" -eq 0 ]; then
@@ -193,6 +133,8 @@ jobs:
 
       - name: "Check: conflicting labels"
         id: conflicting
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -213,6 +155,8 @@ jobs:
 
       - name: "Check: orphaned agent PRs"
         id: orphaned-prs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -245,6 +189,8 @@ jobs:
 
       - name: "Check: stale unclaimed issues"
         id: stale-unclaimed
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -265,7 +211,7 @@ jobs:
             fi
 
             # Skip if issue has blocking labels
-            HAS_BLOCKING=$(echo "$ROW" | jq '[.labels[].name] | any(. == "agent:in-progress" or . == "agent:pause" or . == "agent:human-required" or . == "agent:blocked" or . == "agent:escalated" or . == "no-agent")')
+            HAS_BLOCKING=$(echo "$ROW" | jq '[.labels[].name] | any(. == "agent:in-progress" or . == "agent:pause" or . == "agent:human-required" or . == "agent:escalated")')
             if [ "$HAS_BLOCKING" = "true" ]; then
               continue
             fi
@@ -290,6 +236,8 @@ jobs:
 
       - name: "Check: stalled draft PRs without analyzer reviews"
         id: stalled-prs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -298,9 +246,10 @@ jobs:
 
           # Get open draft agent PRs
           gh pr list --repo "$REPO" --state open --draft \
-            --json number,headRefName,createdAt,body,comments --limit 100 > /tmp/draft_prs.json
+            --json number,headRefName,createdAt,body,comments,labels --limit 100 > /tmp/draft_prs.json
 
-          while IFS= read -r ROW; do
+          jq -c '[.[] | select(.headRefName | startswith("agent-fix/issue-"))] | .[]' \
+            /tmp/draft_prs.json | while IFS= read -r ROW; do
             PR_NUM=$(echo "$ROW" | jq '.number')
             CREATED=$(echo "$ROW" | jq -r '.createdAt')
 
@@ -309,41 +258,52 @@ jobs:
               continue
             fi
 
-            # Check for analyzer markers in PR body
+            # Check for required analyzer markers in PR body.
             BODY=$(echo "$ROW" | jq -r '.body // ""')
-            HAS_A=$(echo "$BODY" | grep -c '\[MARKER:pr-analyzer-a cycle:' || echo 0)
-            HAS_B=$(echo "$BODY" | grep -c '\[MARKER:pr-analyzer-b cycle:' || echo 0)
-            HAS_C=$(echo "$BODY" | grep -c '\[MARKER:pr-analyzer-c cycle:' || echo 0)
+            LABELS=$(echo "$ROW" | jq -c '[.labels[].name]')
+            REQUIRED_ANALYZERS='["pr-analyzer-general"]'
+            if echo "$LABELS" | jq -e 'index("pr-analyzer-quality")' > /dev/null 2>&1; then
+              REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-quality"]')
+            fi
+            if echo "$LABELS" | jq -e 'index("pr-analyzer-security")' > /dev/null 2>&1; then
+              REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-security"]')
+            fi
+            if echo "$LABELS" | jq -e 'index("pr-analyzer-testing")' > /dev/null 2>&1; then
+              REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-testing"]')
+            fi
 
-            if [ "$HAS_A" -gt 0 ] && [ "$HAS_B" -gt 0 ] && [ "$HAS_C" -gt 0 ]; then
+            MISSING_MARKERS=$(echo "$REQUIRED_ANALYZERS" | jq -r '.[]' | while read -r ANALYZER; do
+              if ! echo "$BODY" | grep -qF "[MARKER:$ANALYZER cycle:"; then
+                echo "$ANALYZER"
+              fi
+            done | paste -sd ',' -)
+
+            if [ -z "$MISSING_MARKERS" ]; then
               continue
             fi
 
-            # Recognize both the stable marker and warnings emitted before the marker existed.
+            # Check if already flagged (in comments)
             COMMENTS=$(echo "$ROW" | jq -r '.comments[].body // ""')
-            LEGACY_WARNING_REGEX='⏰ \*\*(SFL Auditor|PR Promoter)\*\*:.*missing (one or more )?analyzer markers'
-            ALREADY_FLAGGED=$(echo "$COMMENTS" \
-              | grep -Ec "<!-- sfl-auditor:stalled-pr-missing-analyzers -->|$LEGACY_WARNING_REGEX" \
-              || true)
+            ALREADY_FLAGGED=$(echo "$COMMENTS" | grep -c 'missing required analyzer markers' || echo 0)
             if [ "$ALREADY_FLAGGED" -gt 0 ]; then
               continue
             fi
 
-            echo "Draft PR #$PR_NUM is older than 2 hours and missing analyzer markers"
+            echo "Draft PR #$PR_NUM is older than 2 hours and missing required analyzer markers: $MISSING_MARKERS"
 
             gh pr comment "$PR_NUM" --repo "$REPO" \
-              --body "<!-- sfl-auditor:stalled-pr-missing-analyzers -->
-            ⏰ **SFL Auditor**: Draft PR #$PR_NUM has been open for over 2 hours and is missing one or more analyzer markers. The PR Analyzers may not be dispatching for this PR. A human should investigate."
+              --body "⏰ **SFL Auditor**: Draft PR #$PR_NUM has been open for over 2 hours and is missing one or more required analyzer markers ($MISSING_MARKERS). The PR Analyzers may not be dispatching for this PR. A human should investigate."
 
             FOUND=$((FOUND + 1))
-          done < <(jq -c '[.[] | select(.headRefName | startswith("agent-fix/issue-"))] | .[]' \
-            /tmp/draft_prs.json)
+          done
 
           echo "stalled_prs_found=$FOUND" >> "$GITHUB_OUTPUT"
           echo "Found $FOUND stalled draft PRs"
 
       - name: "Check: unexplained agent:pause"
         id: paused
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -369,37 +329,119 @@ jobs:
           echo "unexplained_pause_found=$FOUND" >> "$GITHUB_OUTPUT"
           echo "Found $FOUND unexplained pauses"
 
+      - name: "Check: SFL review prerequisites"
+        id: sfl-review-prerequisites
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          set -euo pipefail
+
+          EXPECTED=0
+          if MANIFEST=$(gh api "repos/$REPO/contents/sfl.json" --jq '.content' 2>/dev/null); then
+            if echo "$MANIFEST" | base64 --decode | jq -e \
+              '.components | index("sfl-pr-review") != null' >/dev/null; then
+              EXPECTED=1
+            fi
+          fi
+
+          if [ "$EXPECTED" -eq 0 ]; then
+            echo "sfl_review_prerequisites_missing=0" >> "$GITHUB_OUTPUT"
+            echo "Standalone SFL review is not declared in sfl.json — skipping prerequisite check"
+            exit 0
+          fi
+
+          MISSING=0
+          MISSING_ITEMS=""
+          if ! gh api "repos/$REPO/actions/workflows/sfl-pr-review.lock.yml" >/dev/null 2>&1; then
+            echo "::warning::Missing active workflow .github/workflows/sfl-pr-review.lock.yml"
+            MISSING=$((MISSING + 1))
+            MISSING_ITEMS="${MISSING_ITEMS}- [ ] Deploy \`.github/workflows/sfl-pr-review.lock.yml\`"$'\n'
+          fi
+
+          REVIEW_LOCK=""
+          if REVIEW_LOCK_B64=$(gh api "repos/$REPO/contents/.github/workflows/sfl-pr-review.lock.yml" --jq '.content' 2>/dev/null); then
+            REVIEW_LOCK=$(echo "$REVIEW_LOCK_B64" | base64 --decode)
+          fi
+          if [ -n "$REVIEW_LOCK" ] && { \
+            ! grep -q '"allow-only"' <<< "$REVIEW_LOCK" || \
+            ! grep -q '"write-sink"' <<< "$REVIEW_LOCK"; \
+          }; then
+            echo "::warning::Malformed SFL review guard policies in .github/workflows/sfl-pr-review.lock.yml"
+            MISSING=$((MISSING + 1))
+            MISSING_ITEMS="${MISSING_ITEMS}- [ ] Redeploy \`.github/workflows/sfl-pr-review.lock.yml\` with generated \`allow-only\` and \`write-sink\` guard policies"$'\n'
+          fi
+
+          if ! gh api "repos/$REPO/labels/sfl-review" >/dev/null 2>&1; then
+            echo "::warning::Missing required label sfl-review"
+            MISSING=$((MISSING + 1))
+            MISSING_ITEMS="${MISSING_ITEMS}- [ ] Create the \`sfl-review\` label"$'\n'
+          fi
+
+          REVIEW_SOURCE=""
+          if REVIEW_SOURCE_B64=$(gh api "repos/$REPO/contents/.github/workflows/sfl-pr-review.md" --jq '.content' 2>/dev/null); then
+            REVIEW_SOURCE=$(echo "$REVIEW_SOURCE_B64" | base64 --decode)
+          fi
+          if [ -z "$REVIEW_SOURCE" ]; then
+            echo "::warning::Missing source workflow .github/workflows/sfl-pr-review.md"
+            MISSING=$((MISSING + 1))
+            MISSING_ITEMS="${MISSING_ITEMS}- [ ] Deploy \`.github/workflows/sfl-pr-review.md\`"$'\n'
+          elif ! grep -q '^Deployed from: HemSoft/set-it-free-loop/' <<< "$REVIEW_SOURCE" || \
+            grep -Eq '^# (Deployed from|To upgrade):' <<< "$REVIEW_SOURCE"; then
+            echo "::warning::Malformed SFL source provenance in .github/workflows/sfl-pr-review.md"
+            MISSING=$((MISSING + 1))
+            MISSING_ITEMS="${MISSING_ITEMS}- [ ] Redeploy \`.github/workflows/sfl-pr-review.md\` with non-heading source provenance"$'\n'
+          fi
+
+          ISSUE_TITLE="[SFL Auditor] Missing SFL review prerequisites"
+          EXISTING_ISSUE=$(gh issue list --repo "$REPO" --state open \
+            --search "\"$ISSUE_TITLE\" in:title" --json number,title \
+            --jq ".[] | select(.title == \"$ISSUE_TITLE\") | .number" |
+            head -n 1)
+
+          if [ "$MISSING" -gt 0 ] && [ -z "$EXISTING_ISSUE" ]; then
+            ISSUE_BODY=$(printf '%s\n\n## Missing prerequisites\n\n%s## Recovery\n\n%s' \
+              "The repository declares \`sfl-pr-review\` in \`sfl.json\`, but the standalone reviewer is missing or malformed." \
+              "$MISSING_ITEMS" \
+              "Run \`deployment/scripts/deploy-workflow.ps1 -Tier review\` and \`deployment/governance/setup-labels.ps1\` from \`HemSoft/set-it-free-loop\`.")
+            gh issue create --repo "$REPO" \
+              --title "$ISSUE_TITLE" \
+              --label report \
+              --body "$ISSUE_BODY"
+          elif [ "$MISSING" -eq 0 ] && [ -n "$EXISTING_ISSUE" ]; then
+            gh issue close "$EXISTING_ISSUE" --repo "$REPO" \
+              --comment "✅ **SFL Auditor**: The standalone SFL review workflow, guard policies, source provenance, and trigger label are valid again."
+          fi
+
+          echo "sfl_review_prerequisites_missing=$MISSING" >> "$GITHUB_OUTPUT"
+          echo "Found $MISSING missing SFL review prerequisite(s)"
+
       - name: Summary
         run: |
           ORPHANED_LABELS="${{ steps.orphaned-labels.outputs.orphaned_labels_fixed }}"
-          PR_FALLBACKS="${{ steps.pr-fallbacks.outputs.pr_fallbacks_fixed }}"
-          DUPLICATES="${{ steps.duplicate-issues.outputs.duplicate_issues_closed }}"
           CONFLICTING="${{ steps.conflicting.outputs.conflicting_fixed }}"
           ORPHANED_PRS="${{ steps.orphaned-prs.outputs.orphaned_prs_found }}"
           STALE_UNCLAIMED="${{ steps.stale-unclaimed.outputs.stale_unclaimed_found }}"
           STALLED_PRS="${{ steps.stalled-prs.outputs.stalled_prs_found }}"
           PAUSED="${{ steps.paused.outputs.unexplained_pause_found }}"
+          SFL_REVIEW_PREREQUISITES="${{ steps.sfl-review-prerequisites.outputs.sfl_review_prerequisites_missing }}"
 
-          TOTAL=$((ORPHANED_LABELS + PR_FALLBACKS + DUPLICATES + CONFLICTING + ORPHANED_PRS + STALE_UNCLAIMED + STALLED_PRS + PAUSED))
+          TOTAL=$((ORPHANED_LABELS + CONFLICTING + ORPHANED_PRS + STALE_UNCLAIMED + STALLED_PRS + PAUSED + SFL_REVIEW_PREREQUISITES))
 
-          {
-            echo "## SFL Auditor Summary"
-            echo ""
-            echo "| Check | Count |"
-            echo "|-------|-------|"
-            echo "| Orphaned in-progress labels fixed | $ORPHANED_LABELS |"
-            echo "| PR fallback issues closed | $PR_FALLBACKS |"
-            echo "| Duplicate action-item issues closed | $DUPLICATES |"
-            echo "| Conflicting labels fixed | $CONFLICTING |"
-            echo "| Orphaned agent PRs flagged | $ORPHANED_PRS |"
-            echo "| Stale unclaimed issues flagged | $STALE_UNCLAIMED |"
-            echo "| Stalled draft PRs flagged | $STALLED_PRS |"
-            echo "| Unexplained pauses flagged | $PAUSED |"
-            echo ""
+          echo "## SFL Auditor Summary"
+          echo ""
+          echo "| Check | Count |"
+          echo "|-------|-------|"
+          echo "| Orphaned in-progress labels fixed | $ORPHANED_LABELS |"
+          echo "| Conflicting labels fixed | $CONFLICTING |"
+          echo "| Orphaned agent PRs flagged | $ORPHANED_PRS |"
+          echo "| Stale unclaimed issues flagged | $STALE_UNCLAIMED |"
+          echo "| Stalled draft PRs flagged | $STALLED_PRS |"
+          echo "| Unexplained pauses flagged | $PAUSED |"
+          echo "| Missing SFL review prerequisites | $SFL_REVIEW_PREREQUISITES |"
+          echo ""
 
-            if [ "$TOTAL" -eq 0 ]; then
-              echo "All checks passed — no discrepancies found."
-            else
-              echo "Found and addressed $TOTAL discrepancies."
-            fi
-          } | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "All checks passed — no discrepancies found."
+          else
+            echo "Found or addressed $TOTAL discrepancies."
+          fi

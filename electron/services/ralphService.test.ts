@@ -29,12 +29,14 @@ vi.mock('child_process', () => ({
 const mockExistsSync = vi.fn().mockReturnValue(false)
 const mockReadFileSync = vi.fn().mockReturnValue('{}')
 const mockReaddirSync = vi.fn().mockReturnValue([])
+const mockRmSync = vi.fn()
 const mockWriteFileSync = vi.fn()
 
 vi.mock('fs', () => ({
   existsSync: (...args: unknown[]) => mockExistsSync(...args),
   readFileSync: (...args: unknown[]) => mockReadFileSync(...args),
   readdirSync: (...args: unknown[]) => mockReaddirSync(...args),
+  rmSync: (...args: unknown[]) => mockRmSync(...args),
   writeFileSync: (...args: unknown[]) => mockWriteFileSync(...args),
 }))
 
@@ -719,7 +721,7 @@ describe('ralphService', () => {
       expect(args).toContain('5')
     })
 
-    it('writes long prompt to temp file', () => {
+    it('removes a long prompt temp file after process close', () => {
       const longPrompt = 'a'.repeat(600)
       launchLoop({
         repoPath: '/valid/path',
@@ -732,9 +734,12 @@ describe('ralphService', () => {
         longPrompt,
         'utf-8'
       )
+      const promptFilePath = mockWriteFileSync.mock.calls[0][0] as string
+      lastMockProc.emit('close', 0)
+      expect(mockRmSync).toHaveBeenCalledWith(promptFilePath, { force: true })
     })
 
-    it('writes multiline prompt to temp file', () => {
+    it('removes a multiline prompt temp file after process error', () => {
       const multilinePrompt = 'line 1\nline 2\nline 3'
       launchLoop({
         repoPath: '/valid/path',
@@ -747,6 +752,50 @@ describe('ralphService', () => {
         multilinePrompt,
         'utf-8'
       )
+      const promptFilePath = mockWriteFileSync.mock.calls[0][0] as string
+      lastMockProc.emit('error', new Error('spawn failed'))
+      expect(mockRmSync).toHaveBeenCalledWith(promptFilePath, { force: true })
+    })
+
+    it('removes a prompt temp file when process launch throws', () => {
+      mockSpawn.mockImplementationOnce(() => {
+        throw new Error('spawn failed')
+      })
+      const result = launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+
+      const promptFilePath = mockWriteFileSync.mock.calls[0][0] as string
+      expect(result).toEqual({ success: false, error: 'spawn failed' })
+      expect(mockRmSync).toHaveBeenCalledWith(promptFilePath, { force: true })
+    })
+
+    it('removes a prompt temp file when the run is cancelled', () => {
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+
+      const promptFilePath = mockWriteFileSync.mock.calls[0][0] as string
+      expect(stopLoop('test-uuid-1234')).toEqual({ success: true })
+      expect(mockRmSync).toHaveBeenCalledWith(promptFilePath, { force: true })
+    })
+
+    it('tolerates a prompt temp file that is already missing', () => {
+      const missingError = Object.assign(new Error('missing'), { code: 'ENOENT' })
+      mockRmSync.mockImplementationOnce(() => {
+        throw missingError
+      })
+      launchLoop({
+        repoPath: '/valid/path',
+        scriptType: 'ralph',
+        prompt: 'a'.repeat(600),
+      } as Parameters<typeof launchLoop>[0])
+
+      expect(() => lastMockProc.emit('close', 0)).not.toThrow()
     })
 
     it('passes short prompt directly as arg', () => {
@@ -760,6 +809,8 @@ describe('ralphService', () => {
       expect(args).toContain('-Prompt')
       expect(args).toContain('Fix the bug')
       expect(mockWriteFileSync).not.toHaveBeenCalled()
+      lastMockProc.emit('close', 0)
+      expect(mockRmSync).not.toHaveBeenCalled()
     })
 
     it('adds -Labels arg when labels are specified', () => {

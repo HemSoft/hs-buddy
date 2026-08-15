@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.935] - 2026-07-31
+
+### Fixed
+
+- Deduplicate vite resolution
+
+### Changed
+
+- Update SFL Auditor contracts
+
 ## [0.1.934] - 2026-07-28
 
 ### Fixed

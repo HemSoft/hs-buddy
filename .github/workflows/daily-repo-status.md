@@ -6,16 +6,18 @@ description: |
   and project recommendations.
 
 on:
+  schedule: daily
   workflow_dispatch:
-
-engine:
-  id: codex
-  model: gpt-5.5
 
 permissions:
   contents: read
   issues: read
   pull-requests: read
+
+engine:
+  id: codex
+
+model: gpt-5.5?effort=high
 
 network: defaults
 

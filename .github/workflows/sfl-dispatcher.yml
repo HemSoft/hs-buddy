@@ -1,13 +1,14 @@
 # SFL Dispatcher — lightweight gate that prevents wasteful gh-aw runs
 #
-# Runs manually and checks GitHub state with simple gh CLI calls.
+# Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
-#   - Issue Processor: when claimable agent:fixable issues exist and PR creation is allowed
-#   - PR Analyzers A/B/C: when draft PRs with agent:pr exist
-#   - PR Fixer: when draft PRs with agent:pr AND all 3 analyzer markers exist
+#   - Issue Processor: when agent:fixable issues exist
+#   - PR Analyzer General: when draft PRs with agent:pr exist
+#   - Specialty PR Analyzers: when matching pr-analyzer-* labels exist
+#   - PR Fixer: when draft PRs have all required analyzer markers
 #   - PR Promoter: when draft PRs are ready for promotion OR approved PRs await merge
 #
-# Keep this workflow manually dispatchable for targeted pipeline checks.
+# This eliminates ~240 no-op Copilot inference calls/day.
 #
 # DEPLOYMENT: Copy this file to the consumer repo's .github/workflows/ directory.
 # Adjust workflow filenames in the Dispatch steps if your consumer uses different names.
@@ -15,6 +16,8 @@
 name: "SFL Dispatcher"
 
 on:
+  schedule:
+    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
@@ -30,83 +33,35 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     env:
-      GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || github.token }}
       REPO: ${{ github.repository }}
     steps:
-      - name: Check pull request creation permission
-        id: pr-permission
-        run: |
-          set -euo pipefail
+      - name: Mint GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ vars.SFL_APP_ID }}
+          private-key: ${{ secrets.SFL_APP_PRIVATE_KEY }}
 
-          CAN_CREATE_PRS=false
-          REASON="Unable to verify repository workflow permissions."
-
-          if PERMISSIONS=$(gh api "repos/$REPO/actions/permissions/workflow" \
-            --jq '[.default_workflow_permissions, (.can_approve_pull_request_reviews | tostring)] | @tsv' \
-            2>/tmp/pr_permission_error); then
-            DEFAULT_PERMISSION=$(echo "$PERMISSIONS" | cut -f1)
-            CAN_APPROVE=$(echo "$PERMISSIONS" | cut -f2)
-
-            if [ "$DEFAULT_PERMISSION" = "write" ] && [ "$CAN_APPROVE" = "true" ]; then
-              CAN_CREATE_PRS=true
-              REASON="Repository Actions workflow permissions allow PR creation."
-            else
-              REASON="Repository Actions workflow permissions block PR creation: default=$DEFAULT_PERMISSION allow_prs=$CAN_APPROVE."
-            fi
-          else
-            REASON="Unable to verify repository workflow permissions. See the preflight log."
-            tr '\n' ' ' < /tmp/pr_permission_error | head -c 240 || true
-            echo ""
-          fi
-
-          echo "can_create_prs=$CAN_CREATE_PRS" >> "$GITHUB_OUTPUT"
-          echo "reason=$REASON" >> "$GITHUB_OUTPUT"
-          echo "$REASON"
-
-      - name: Check for PR fallback issues
-        id: pr-fallbacks
-        run: |
-          set -euo pipefail
-
-          COUNT=$(gh issue list --repo "$REPO" --state open --label "agent:pr" \
-            --json number,body --limit 100 \
-            --jq '[.[] | select(
-              ((.body // "") | contains("gh-aw-workflow-id: issue-processor")) and
-              ((.body // "") | contains("This was originally intended as a pull request")) and
-              ((.body // "") | test("Closes[[:space:]]+\\\\?#[0-9]+"))
-            )] | length')
-          echo "pr_fallback_count=$COUNT" >> "$GITHUB_OUTPUT"
-
-          if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT create_pull_request fallback issue(s) — blocking Issue Processor dispatch."
-          else
-            echo "No create_pull_request fallback issues found."
-          fi
-
-      - name: Check for claimable fixable issues
+      - name: Check for fixable issues
         id: issues
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
-          COUNT=$(gh issue list --repo "$REPO" --label "agent:fixable" --label "action-item" \
-            --state open --json number,labels --limit 100 \
-            --jq '[.[] | select([.labels[].name] | (
-              index("agent:in-progress") == null and
-              index("agent:pause") == null and
-              index("agent:human-required") == null and
-              index("agent:blocked") == null and
-              index("no-agent") == null
-            ))] | length')
+          COUNT=$(gh issue list --repo "$REPO" --label "agent:fixable" --state open --json number --jq 'length')
           echo "fixable_count=$COUNT" >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT claimable fixable issue(s)."
+            echo "Found $COUNT fixable issue(s) — will dispatch Issue Processor."
           else
-            echo "No claimable fixable issues — skipping Issue Processor."
+            echo "No fixable issues — skipping Issue Processor."
           fi
 
       - name: Check for draft PRs with agent:pr
         id: prs
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -115,7 +70,16 @@ jobs:
             --jq '[.[] | select(.labels | map(.name) | index("agent:human-required") | not)]')
 
           COUNT=$(echo "$PRS" | jq 'length')
-          echo "draft_pr_count=$COUNT" >> "$GITHUB_OUTPUT"
+          QUALITY_COUNT=$(echo "$PRS" | jq '[.[] | select([.labels[].name] | index("pr-analyzer-quality"))] | length')
+          SECURITY_COUNT=$(echo "$PRS" | jq '[.[] | select([.labels[].name] | index("pr-analyzer-security"))] | length')
+          TESTING_COUNT=$(echo "$PRS" | jq '[.[] | select([.labels[].name] | index("pr-analyzer-testing"))] | length')
+
+          {
+            echo "draft_pr_count=$COUNT"
+            echo "quality_pr_count=$QUALITY_COUNT"
+            echo "security_pr_count=$SECURITY_COUNT"
+            echo "testing_pr_count=$TESTING_COUNT"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$COUNT" -eq 0 ]; then
             echo "No eligible draft PRs — skipping analyzers and fixer."
@@ -123,7 +87,8 @@ jobs:
             exit 0
           fi
 
-          echo "Found $COUNT eligible draft PR(s) — will dispatch analyzers."
+          echo "Found $COUNT eligible draft PR(s) — will dispatch General analyzer."
+          echo "Specialty requests: quality=$QUALITY_COUNT security=$SECURITY_COUNT testing=$TESTING_COUNT"
 
           OLDEST=$(echo "$PRS" | jq -r 'sort_by(.createdAt) | .[0]')
           PR_NUMBER=$(echo "$OLDEST" | jq '.number')
@@ -137,49 +102,74 @@ jobs:
             fi
           done
 
-          ALL_MARKERS=true
-          for ANALYZER in a b c; do
-            if ! echo "$PR_BODY" | grep -qF "[MARKER:pr-analyzer-$ANALYZER cycle:$CYCLE]"; then
-              ALL_MARKERS=false
-              break
+          REQUIRED_ANALYZERS='["pr-analyzer-general"]'
+          if echo "$PR_LABELS" | jq -e 'index("pr-analyzer-quality")' > /dev/null 2>&1; then
+            REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-quality"]')
+          fi
+          if echo "$PR_LABELS" | jq -e 'index("pr-analyzer-security")' > /dev/null 2>&1; then
+            REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-security"]')
+          fi
+          if echo "$PR_LABELS" | jq -e 'index("pr-analyzer-testing")' > /dev/null 2>&1; then
+            REQUIRED_ANALYZERS=$(echo "$REQUIRED_ANALYZERS" | jq -c '. + ["pr-analyzer-testing"]')
+          fi
+
+          MISSING_MARKERS=$(echo "$REQUIRED_ANALYZERS" | jq -r '.[]' | while read -r ANALYZER; do
+            if ! echo "$PR_BODY" | grep -qF "[MARKER:$ANALYZER cycle:$CYCLE]"; then
+              echo "$ANALYZER"
             fi
-          done
+          done | paste -sd ',' -)
 
           if echo "$PR_BODY" | grep -qF "[MARKER:pr-fixer cycle:$CYCLE]"; then
             echo "PR #$PR_NUMBER already fixed in cycle $CYCLE — fixer not needed."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
-          elif [ "$ALL_MARKERS" = "true" ]; then
-            echo "PR #$PR_NUMBER has all 3 analyzer markers for cycle $CYCLE — will dispatch fixer."
+          elif [ -z "$MISSING_MARKERS" ]; then
+            echo "PR #$PR_NUMBER has all required analyzer markers for cycle $CYCLE — will dispatch fixer."
             echo "fixer_ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "PR #$PR_NUMBER missing analyzer markers for cycle $CYCLE — fixer not ready."
+            echo "PR #$PR_NUMBER missing required analyzer markers for cycle $CYCLE ($MISSING_MARKERS) — fixer not ready."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Dispatch Issue Processor
-        if: steps.issues.outputs.fixable_count != '0' && steps.pr-permission.outputs.can_create_prs == 'true' && steps.pr-fallbacks.outputs.pr_fallback_count == '0'
+        if: steps.issues.outputs.fixable_count != '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "Dispatching Issue Processor..."
           gh workflow run issue-processor.lock.yml --repo "$REPO"
 
       - name: Dispatch PR Analyzers
         if: steps.prs.outputs.draft_pr_count != '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          echo "Dispatching PR Analyzer A..."
-          gh workflow run pr-analyzer-a.lock.yml --repo "$REPO"
-          echo "Dispatching PR Analyzer B..."
-          gh workflow run pr-analyzer-b.lock.yml --repo "$REPO"
-          echo "Dispatching PR Analyzer C..."
-          gh workflow run pr-analyzer-c.lock.yml --repo "$REPO"
+          echo "Dispatching PR Analyzer General..."
+          gh workflow run pr-analyzer-general.lock.yml --repo "$REPO"
+          if [ "${{ steps.prs.outputs.quality_pr_count }}" != "0" ]; then
+            echo "Dispatching PR Analyzer Quality..."
+            gh workflow run pr-analyzer-quality.lock.yml --repo "$REPO"
+          fi
+          if [ "${{ steps.prs.outputs.security_pr_count }}" != "0" ]; then
+            echo "Dispatching PR Analyzer Security..."
+            gh workflow run pr-analyzer-security.lock.yml --repo "$REPO"
+          fi
+          if [ "${{ steps.prs.outputs.testing_pr_count }}" != "0" ]; then
+            echo "Dispatching PR Analyzer Testing..."
+            gh workflow run pr-analyzer-testing.lock.yml --repo "$REPO"
+          fi
 
       - name: Dispatch PR Fixer
         if: steps.prs.outputs.fixer_ready == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "Dispatching PR Fixer..."
           gh workflow run pr-fixer.lock.yml --repo "$REPO"
 
       - name: Check for approved PRs awaiting merge
         id: approved
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
 
@@ -205,40 +195,14 @@ jobs:
 
       - name: Dispatch PR Promoter
         if: steps.prs.outputs.draft_pr_count != '0' || steps.approved.outputs.approved_count != '0'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           echo "Dispatching PR Promoter..."
           gh workflow run pr-promoter.lock.yml --repo "$REPO"
 
       - name: Summary
         run: |
-          # shellcheck disable=SC2129
-          echo "## SFL Dispatcher Summary" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Workflow | Dispatched |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|----------|------------|" >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "${{ steps.issues.outputs.fixable_count }}" = "0" ]; then
-            echo "| Issue Processor | No (0 claimable fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.pr-permission.outputs.can_create_prs }}" != "true" ]; then
-            echo "| Issue Processor | No (${{ steps.pr-permission.outputs.reason }}) |" >> "$GITHUB_STEP_SUMMARY"
-          elif [ "${{ steps.pr-fallbacks.outputs.pr_fallback_count }}" != "0" ]; then
-            echo "| Issue Processor | No (${{ steps.pr-fallbacks.outputs.pr_fallback_count }} PR fallback issues need audit repair) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} claimable fixable issues) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
-            echo "| PR Analyzer A/B/C | Yes (${{ steps.prs.outputs.draft_pr_count }} draft PRs) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| PR Analyzer A/B/C | No (0 draft PRs) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-          if [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ]; then
-            echo "| PR Fixer | Yes (markers complete) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| PR Fixer | No (markers incomplete) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
-
           PROMOTER_DISPATCHED="No"
           PROMOTER_REASON=""
           if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
@@ -253,8 +217,38 @@ jobs:
               PROMOTER_REASON="${{ steps.approved.outputs.approved_count }} approved PRs"
             fi
           fi
-          if [ "$PROMOTER_DISPATCHED" = "Yes" ]; then
-            echo "| PR Promoter | Yes ($PROMOTER_REASON) |" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "| PR Promoter | No (no draft or approved PRs) |" >> "$GITHUB_STEP_SUMMARY"
-          fi
+
+          {
+            echo "## SFL Dispatcher Summary"
+            echo ""
+            echo "| Workflow | Dispatched |"
+            echo "|----------|------------|"
+
+            if [ "${{ steps.issues.outputs.fixable_count }}" != "0" ]; then
+              echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |"
+            else
+              echo "| Issue Processor | No (0 fixable issues) |"
+            fi
+
+            if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
+              echo "| PR Analyzer General | Yes (${{ steps.prs.outputs.draft_pr_count }} draft PRs) |"
+            else
+              echo "| PR Analyzer General | No (0 draft PRs) |"
+            fi
+
+            echo "| PR Analyzer Quality | $([ "${{ steps.prs.outputs.quality_pr_count }}" != "0" ] && echo "Yes (${{ steps.prs.outputs.quality_pr_count }} requested)" || echo "No") |"
+            echo "| PR Analyzer Security | $([ "${{ steps.prs.outputs.security_pr_count }}" != "0" ] && echo "Yes (${{ steps.prs.outputs.security_pr_count }} requested)" || echo "No") |"
+            echo "| PR Analyzer Testing | $([ "${{ steps.prs.outputs.testing_pr_count }}" != "0" ] && echo "Yes (${{ steps.prs.outputs.testing_pr_count }} requested)" || echo "No") |"
+
+            if [ "${{ steps.prs.outputs.fixer_ready }}" = "true" ]; then
+              echo "| PR Fixer | Yes (markers complete) |"
+            else
+              echo "| PR Fixer | No (markers incomplete) |"
+            fi
+
+            if [ "$PROMOTER_DISPATCHED" = "Yes" ]; then
+              echo "| PR Promoter | Yes ($PROMOTER_REASON) |"
+            else
+              echo "| PR Promoter | No (no draft or approved PRs) |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

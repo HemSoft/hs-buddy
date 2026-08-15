@@ -14,9 +14,16 @@ let whenReadyCb: (() => void) | null = null
 let browserSessionPermissionHandler:
   | ((webContents: unknown, permission: string, callback: (allowed: boolean) => void) => void)
   | null = null
+const mainWebContentsListeners = new Map<string, (...args: unknown[]) => void>()
 
 const mockWin = {
-  webContents: { on: vi.fn(), send: vi.fn() },
+  webContents: {
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      mainWebContentsListeners.set(event, handler)
+    }),
+    send: vi.fn(),
+    getURL: vi.fn(() => 'file:///mock/dist/index.html'),
+  },
   on: vi.fn(),
   loadURL: vi.fn(),
   loadFile: vi.fn(),
@@ -143,6 +150,26 @@ describe('main process lifecycle', () => {
     expect(Menu.setApplicationMenu).toHaveBeenCalled()
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()
+  })
+
+  it('blocks renderer-initiated navigation from replacing the main app UI', async () => {
+    await import('./main')
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+
+    const navigationHandler = mainWebContentsListeners.get('will-navigate')
+    expect(navigationHandler).toBeDefined()
+
+    const event = { preventDefault: vi.fn() }
+    navigationHandler!(event, 'https://example.com/unexpected')
+
+    expect(event.preventDefault).toHaveBeenCalledOnce()
+
+    const reloadEvent = { preventDefault: vi.fn() }
+    navigationHandler!(reloadEvent, mockWin.webContents.getURL())
+
+    expect(reloadEvent.preventDefault).not.toHaveBeenCalled()
   })
 
   it('registers webview attach and popup guardrails', async () => {

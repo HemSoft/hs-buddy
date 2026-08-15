@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.937] - 2026-08-15
+
+### Fixed
+
+- Block main-window navigation
+
 ## [0.1.936] - 2026-08-02
 
 ### Fixed

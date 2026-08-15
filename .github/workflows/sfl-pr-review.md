@@ -101,6 +101,7 @@ pre-steps:
       fi
 
 # HemSoft runs the reviewer through Kimi K3 on its private OpenRouter route.
+
 models:
   providers:
     github-copilot:
@@ -109,6 +110,7 @@ models:
           cost:
             input: "3e-06"
             output: "1.5e-05"
+
 engine:
   id: copilot
   env:

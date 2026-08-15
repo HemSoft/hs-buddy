@@ -1,10 +1,10 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0-rc.8",
   "tier": "full",
-  "motherRepo": "HemSoft/set-it-free-loop",
-  "deployedAt": "2026-06-07T02:56:38.9460941Z",
+  "source": "HemSoft/set-it-free-loop",
+  "deployedAt": "2026-08-15T04:07:56.7653229Z",
   "deployedBy": "HemSoft",
-  "sourceSHA": "63c5545f9df0ce4806203de6e731e2024e31225e",
+  "sourceSha": "02f274fcccb172a868b0bf05237246dd6e8465e7",
   "components": [
     "labels",
     "governance",
@@ -19,5 +19,147 @@
     "pr-analyzer-c",
     "pr-fixer",
     "pr-promoter"
-  ]
+  ],
+  "enginePolicy": {
+    "defaultProfile": "codex-gpt-55-high",
+    "workflows": [
+      {
+        "name": "daily-repo-status",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "issue-processor",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-analyzer-general",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-analyzer-quality",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-analyzer-security",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-analyzer-testing",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-fixer",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "pr-promoter",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "repo-audit",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "sfl-pr-review",
+        "profile": "openrouter-kimi-k3-high",
+        "provider": "copilot",
+        "model": "moonshotai/kimi-k3",
+        "renderedModel": "moonshotai/kimi-k3",
+        "requiredSecretsAnyOf": [
+          "OPENROUTER_API_KEY"
+        ],
+        "environment": {
+          "COPILOT_MODEL": "moonshotai/kimi-k3",
+          "COPILOT_PROVIDER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
+          "COPILOT_PROVIDER_BASE_URL": "https://openrouter.ai/api/v1",
+          "COPILOT_PROVIDER_TYPE": "openai",
+          "COPILOT_PROVIDER_WIRE_API": "responses"
+        }
+      },
+      {
+        "name": "simplisticate",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      }
+    ]
+  }
 }

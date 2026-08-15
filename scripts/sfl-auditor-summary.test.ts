@@ -9,22 +9,21 @@ const temporaryDirectories: string[] = []
 
 interface AuditorCounts {
   conflicting: number
-  duplicates: number
   orphanedLabels: number
   orphanedPrs: number
   paused: number
-  prFallbacks: number
+  sflReviewPrerequisites: number
   staleUnclaimed: number
   stalledPrs: number
 }
 
 const outputExpressions: Record<keyof AuditorCounts, string> = {
   conflicting: '${{ steps.conflicting.outputs.conflicting_fixed }}',
-  duplicates: '${{ steps.duplicate-issues.outputs.duplicate_issues_closed }}',
   orphanedLabels: '${{ steps.orphaned-labels.outputs.orphaned_labels_fixed }}',
   orphanedPrs: '${{ steps.orphaned-prs.outputs.orphaned_prs_found }}',
   paused: '${{ steps.paused.outputs.unexplained_pause_found }}',
-  prFallbacks: '${{ steps.pr-fallbacks.outputs.pr_fallbacks_fixed }}',
+  sflReviewPrerequisites:
+    '${{ steps.sfl-review-prerequisites.outputs.sfl_review_prerequisites_missing }}',
   staleUnclaimed: '${{ steps.stale-unclaimed.outputs.stale_unclaimed_found }}',
   stalledPrs: '${{ steps.stalled-prs.outputs.stalled_prs_found }}',
 }
@@ -83,11 +82,10 @@ describe('SFL Auditor summary', () => {
   it('publishes a valid zero-discrepancy table while retaining the step log', () => {
     const result = runSummary({
       conflicting: 0,
-      duplicates: 0,
       orphanedLabels: 0,
       orphanedPrs: 0,
       paused: 0,
-      prFallbacks: 0,
+      sflReviewPrerequisites: 0,
       staleUnclaimed: 0,
       stalledPrs: 0,
     })
@@ -98,13 +96,12 @@ describe('SFL Auditor summary', () => {
 | Check | Count |
 |-------|-------|
 | Orphaned in-progress labels fixed | 0 |
-| PR fallback issues closed | 0 |
-| Duplicate action-item issues closed | 0 |
 | Conflicting labels fixed | 0 |
 | Orphaned agent PRs flagged | 0 |
 | Stale unclaimed issues flagged | 0 |
 | Stalled draft PRs flagged | 0 |
 | Unexplained pauses flagged | 0 |
+| Missing SFL review prerequisites | 0 |
 
 All checks passed — no discrepancies found.
 `)
@@ -113,11 +110,10 @@ All checks passed — no discrepancies found.
   it('publishes a valid nonzero-discrepancy table while retaining the step log', () => {
     const result = runSummary({
       conflicting: 0,
-      duplicates: 2,
       orphanedLabels: 1,
       orphanedPrs: 0,
       paused: 0,
-      prFallbacks: 0,
+      sflReviewPrerequisites: 2,
       staleUnclaimed: 0,
       stalledPrs: 1,
     })
@@ -128,15 +124,14 @@ All checks passed — no discrepancies found.
 | Check | Count |
 |-------|-------|
 | Orphaned in-progress labels fixed | 1 |
-| PR fallback issues closed | 0 |
-| Duplicate action-item issues closed | 2 |
 | Conflicting labels fixed | 0 |
 | Orphaned agent PRs flagged | 0 |
 | Stale unclaimed issues flagged | 0 |
 | Stalled draft PRs flagged | 1 |
 | Unexplained pauses flagged | 0 |
+| Missing SFL review prerequisites | 2 |
 
-Found and addressed 4 discrepancies.
+Found or addressed 4 discrepancies.
 `)
   })
 })

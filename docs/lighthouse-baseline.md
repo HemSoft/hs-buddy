@@ -1,31 +1,31 @@
 # Lighthouse CI Baseline
 
-This baseline captures the Electron renderer route that Lighthouse CI audits
-through the browser-safe Vite entry point.
+This baseline captures the production Electron renderer bundle through its
+browser-safe entry point.
 
 ## Configuration
 
+- Build: `npx vite build --mode e2e`
 - Command: `bun run lhci`
-- Server: `node ./node_modules/vite/bin/vite.js --mode e2e --host 127.0.0.1 --port 9222 --strictPort`
-- Readiness pattern: `ready in`
-- URL: `http://127.0.0.1:9222/`
+- Static directory: `dist/`
+- URL: `http://localhost/` (served on an ephemeral port by Lighthouse CI)
 - Reports: `.lighthouseci/` filesystem upload target
 
-`127.0.0.1` and `--strictPort` keep the audited URL deterministic. The
-`ready in` pattern avoids matching Vite's ANSI-styled `Local:` label, which can
-split the text that LHCI receives on Windows.
+The renderer build preserves source execution order across its custom split
+chunks. This keeps CommonJS interop initialization deterministic while retaining
+the repository's bundle-size strategy.
 
 ## Baseline Run
 
-Captured on 2026-06-08 on Windows with `VITE_CONVEX_URL` set to the LHCI
+Captured on 2026-08-02 on Windows with `VITE_CONVEX_URL` set to the LHCI
 placeholder Convex URL.
 
-| Run | URL | Performance | Accessibility | Best Practices |
-| --- | --- | ---: | ---: | ---: |
-| 1 | `http://127.0.0.1:9222/` | 48 | 85 | 100 |
-| 2 | `http://127.0.0.1:9222/` | 49 | 85 | 100 |
-| 3 | `http://127.0.0.1:9222/` | 49 | 85 | 100 |
-| Average | `http://127.0.0.1:9222/` | 49 | 85 | 100 |
+| Run     | URL                 | Performance | Accessibility | Best Practices |
+| ------- | ------------------- | ----------: | ------------: | -------------: |
+| 1       | `http://localhost/` |          64 |            94 |            100 |
+| 2       | `http://localhost/` |          61 |            94 |            100 |
+| 3       | `http://localhost/` |          63 |            94 |            100 |
+| Average | `http://localhost/` |          63 |            94 |            100 |
 
 ## Threshold Policy
 

@@ -215,14 +215,16 @@ function createWindow() {
   // The main window hosts the Buddy UI, not arbitrary web content. Embedded browser
   // tabs use separate <webview> contents and are intentionally unaffected by this guard.
   const mainWebContents = win.webContents
-  mainWebContents.on('will-navigate', (event, navigationUrl) => {
+  const blockMainWindowNavigation = (event: Electron.Event, navigationUrl: string) => {
     if (navigationUrl === mainWebContents.getURL()) return
 
     event.preventDefault()
     emitLog('WARN', 'Blocked navigation that would replace the main app UI', {
       'navigation.url': navigationUrl,
     })
-  })
+  }
+  mainWebContents.on('will-navigate', blockMainWindowNavigation)
+  mainWebContents.on('will-redirect', blockMainWindowNavigation)
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())

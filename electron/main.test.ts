@@ -152,24 +152,26 @@ describe('main process lifecycle', () => {
     expect(initRalphService).toHaveBeenCalled()
   })
 
-  it('blocks renderer-initiated navigation from replacing the main app UI', async () => {
+  it('blocks renderer navigation and redirects from replacing the main app UI', async () => {
     await import('./main')
 
     expect(whenReadyCb).not.toBeNull()
     whenReadyCb!()
 
-    const navigationHandler = mainWebContentsListeners.get('will-navigate')
-    expect(navigationHandler).toBeDefined()
+    for (const eventName of ['will-navigate', 'will-redirect']) {
+      const navigationHandler = mainWebContentsListeners.get(eventName)
+      expect(navigationHandler).toBeDefined()
 
-    const event = { preventDefault: vi.fn() }
-    navigationHandler!(event, 'https://example.com/unexpected')
+      const event = { preventDefault: vi.fn() }
+      navigationHandler!(event, 'https://example.com/unexpected')
 
-    expect(event.preventDefault).toHaveBeenCalledOnce()
+      expect(event.preventDefault).toHaveBeenCalledOnce()
 
-    const reloadEvent = { preventDefault: vi.fn() }
-    navigationHandler!(reloadEvent, mockWin.webContents.getURL())
+      const reloadEvent = { preventDefault: vi.fn() }
+      navigationHandler!(reloadEvent, mockWin.webContents.getURL())
 
-    expect(reloadEvent.preventDefault).not.toHaveBeenCalled()
+      expect(reloadEvent.preventDefault).not.toHaveBeenCalled()
+    }
   })
 
   it('registers webview attach and popup guardrails', async () => {

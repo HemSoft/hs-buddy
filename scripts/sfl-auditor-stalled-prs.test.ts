@@ -9,15 +9,18 @@ const temporaryDirectories: string[] = []
 
 function stalledPrScript(): string {
   const workflow = readFileSync(workflowPath, 'utf8').replaceAll('\r\n', '\n')
-  const marker = '        id: stalled-prs\n        run: |\n'
-  const start = workflow.indexOf(marker)
-  const nextStep = workflow.indexOf('\n      - name:', start + marker.length)
+  const stepMarker = '      - name: "Check: stalled draft PRs without analyzer reviews"\n'
+  const runMarker = '        run: |\n'
+  const stepStart = workflow.indexOf(stepMarker)
+  const runStart = workflow.indexOf(runMarker, stepStart + stepMarker.length)
+  const nextStep = workflow.indexOf('\n      - name:', runStart + runMarker.length)
 
-  expect(start).toBeGreaterThanOrEqual(0)
-  expect(nextStep).toBeGreaterThan(start)
+  expect(stepStart).toBeGreaterThanOrEqual(0)
+  expect(runStart).toBeGreaterThan(stepStart)
+  expect(nextStep).toBeGreaterThan(runStart)
 
   return workflow
-    .slice(start + marker.length, nextStep)
+    .slice(runStart + runMarker.length, nextStep)
     .split('\n')
     .map(line => line.slice(10))
     .join('\n')
@@ -61,7 +64,15 @@ function runStalledPrCheck(draftPrs: unknown[]): StalledPrCheckResult {
   const fixturePath = join(directory, 'draft-prs.json')
   const outputPath = join(directory, 'github-output')
   const commentsPath = join(directory, 'comments')
-  writeFileSync(fixturePath, JSON.stringify(draftPrs))
+  writeFileSync(
+    fixturePath,
+    JSON.stringify(
+      draftPrs.map(draftPr => ({
+        ...(draftPr as Record<string, unknown>),
+        labels: (draftPr as { labels?: unknown[] }).labels ?? [],
+      }))
+    )
+  )
 
   const result = spawnSync(bashExecutable(), ['-s'], {
     input: `${mockGh}\n${stalledPrScript()}`,
@@ -131,13 +142,13 @@ describe('SFL Auditor stalled draft PR counter', () => {
 })
 
 describe('SFL Auditor stalled draft PR warning detection', () => {
-  it('recognizes warning text emitted before the stable marker existed', () => {
+  it('recognizes the current warning text without relying on a marker', () => {
     const result = runStalledPrCheck([
       {
         body: '',
         comments: [
           {
-            body: '⏰ **SFL Auditor**: Draft PR #42 has been open for over 2 hours and is missing one or more analyzer markers.',
+            body: '⏰ **SFL Auditor**: Draft PR #42 has been open for over 2 hours and is missing one or more required analyzer markers (pr-analyzer-general).',
           },
         ],
         createdAt: '2020-01-01T00:00:00Z',

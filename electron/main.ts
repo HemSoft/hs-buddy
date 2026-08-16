@@ -220,7 +220,7 @@ function createWindow() {
 
     event.preventDefault()
     emitLog('WARN', 'Blocked navigation that would replace the main app UI', {
-      'navigation.url': navigationUrl,
+      'navigation.origin': new URL(navigationUrl).origin,
     })
   }
   mainWebContents.on('will-navigate', blockMainWindowNavigation)

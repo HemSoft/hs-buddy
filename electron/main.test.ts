@@ -154,6 +154,7 @@ describe('main process lifecycle', () => {
 
   it('blocks renderer navigation and redirects from replacing the main app UI', async () => {
     await import('./main')
+    const { emitLog } = await import('./telemetry')
 
     expect(whenReadyCb).not.toBeNull()
     whenReadyCb!()
@@ -163,9 +164,14 @@ describe('main process lifecycle', () => {
       expect(navigationHandler).toBeDefined()
 
       const event = { preventDefault: vi.fn() }
-      navigationHandler!(event, 'https://example.com/unexpected')
+      navigationHandler!(event, 'https://example.com/unexpected?token=secret')
 
       expect(event.preventDefault).toHaveBeenCalledOnce()
+      expect(emitLog).toHaveBeenLastCalledWith(
+        'WARN',
+        'Blocked navigation that would replace the main app UI',
+        { 'navigation.origin': 'https://example.com' }
+      )
 
       const reloadEvent = { preventDefault: vi.fn() }
       navigationHandler!(reloadEvent, mockWin.webContents.getURL())

@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-02T20:34:14.264Z",
+  "updatedAt": "2026-08-16T20:06:14.644Z",
   "bundles": [
     {
       "file": "dist/assets/emacs-lisp.js",
@@ -1563,8 +1563,8 @@
     },
     {
       "file": "dist-electron/main.js",
-      "sizeBytes": 109,
-      "sizeHuman": "109 B"
+      "sizeBytes": 141,
+      "sizeHuman": "141 B"
     }
   ]
 }

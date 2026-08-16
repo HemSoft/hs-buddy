@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.942] - 2026-08-16
+## [0.1.943] - 2026-08-16
 
 ### Fixed
 
@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Redact blocked navigation URL
 - Allow initial main-window redirect
 - Restrict initial redirect origin
+- Parse navigation origins safely
 
 ## [0.1.937] - 2026-08-15
 

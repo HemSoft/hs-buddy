@@ -128,6 +128,16 @@ vi.mock('../src/utils/windowGeometry', () => ({
 }))
 
 describe('main process lifecycle', () => {
+  it('parses URL origins without exposing credentials or throwing on malformed input', async () => {
+    const { parseUrlOrigin } = await import('./main')
+
+    expect(parseUrlOrigin('https://user:secret@example.com/path?token=secret')).toBe(
+      'https://example.com'
+    )
+    expect(parseUrlOrigin('://not-a-url')).toBeNull()
+    expect(parseUrlOrigin(undefined)).toBeNull()
+  })
+
   it('registers expected lifecycle hooks when imported', async () => {
     // Importing the module triggers top-level code
     await import('./main')

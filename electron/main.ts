@@ -55,8 +55,18 @@ if (process.platform === 'win32') {
 // │
 process.env.APP_ROOT = path.join(__dirname, '..')
 
+export function parseUrlOrigin(value: string | undefined): string | null {
+  if (!value) return null
+
+  try {
+    return new URL(value).origin
+  } catch (_error: unknown) {
+    return null
+  }
+}
+
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
-const VITE_DEV_SERVER_ORIGIN = VITE_DEV_SERVER_URL ? new URL(VITE_DEV_SERVER_URL).origin : null
+const VITE_DEV_SERVER_ORIGIN = parseUrlOrigin(VITE_DEV_SERVER_URL)
 const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
@@ -221,12 +231,12 @@ function createWindow() {
     const isTrustedInitialRedirect =
       currentUrl === '' &&
       VITE_DEV_SERVER_ORIGIN !== null &&
-      new URL(navigationUrl).origin === VITE_DEV_SERVER_ORIGIN
+      parseUrlOrigin(navigationUrl) === VITE_DEV_SERVER_ORIGIN
     if (isTrustedInitialRedirect || navigationUrl === currentUrl) return
 
     event.preventDefault()
     emitLog('WARN', 'Blocked navigation that would replace the main app UI', {
-      'navigation.origin': new URL(navigationUrl).origin,
+      'navigation.origin': parseUrlOrigin(navigationUrl) ?? 'invalid',
     })
   }
   mainWebContents.on('will-navigate', blockMainWindowNavigation)

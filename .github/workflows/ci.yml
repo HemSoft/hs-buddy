@@ -388,10 +388,14 @@ jobs:
         timeout-minutes: 10
         run: bun install --frozen-lockfile
 
+      - name: Build renderer for Lighthouse
+        run: npx vite build --mode e2e
+        env:
+          VITE_CONVEX_URL: https://placeholder-lhci.convex.cloud
+
       - name: Run Lighthouse CI
         run: bun run lhci
         env:
-          VITE_CONVEX_URL: https://placeholder-lhci.convex.cloud
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 
       - name: Report Lighthouse scores

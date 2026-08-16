@@ -93,6 +93,7 @@ export default defineConfig(({ mode }) => {
       rolldownOptions: {
         output: {
           codeSplitting: codeSplittingGroups(/[\\/]src[\\/]/, true),
+          strictExecutionOrder: true,
         },
       },
     },

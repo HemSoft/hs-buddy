@@ -6,7 +6,10 @@
  * This test validates the module structure and lifecycle registration through
  * mocking of Electron APIs.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { afterAll, describe, it, expect, vi } from 'vitest'
+
+vi.stubEnv('VITE_DEV_SERVER_URL', 'https://localhost:5173/')
+afterAll(() => vi.unstubAllEnvs())
 
 // Track lifecycle callbacks registered with app.on / app.whenReady
 const appOnCalls: [string, (...args: unknown[]) => unknown][] = []
@@ -182,9 +185,15 @@ describe('main process lifecycle', () => {
     const initialRedirectHandler = mainWebContentsListeners.get('will-redirect')
     const initialRedirectEvent = { preventDefault: vi.fn() }
     mockWin.webContents.getURL.mockReturnValueOnce('')
-    initialRedirectHandler!(initialRedirectEvent, 'https://localhost/redirected')
+    initialRedirectHandler!(initialRedirectEvent, 'https://localhost:5173/redirected')
 
     expect(initialRedirectEvent.preventDefault).not.toHaveBeenCalled()
+
+    const crossOriginRedirectEvent = { preventDefault: vi.fn() }
+    mockWin.webContents.getURL.mockReturnValueOnce('')
+    initialRedirectHandler!(crossOriginRedirectEvent, 'https://example.com/redirected')
+
+    expect(crossOriginRedirectEvent.preventDefault).toHaveBeenCalledOnce()
   })
 
   it('registers webview attach and popup guardrails', async () => {

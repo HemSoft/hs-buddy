@@ -56,6 +56,7 @@ if (process.platform === 'win32') {
 process.env.APP_ROOT = path.join(__dirname, '..')
 
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+const VITE_DEV_SERVER_ORIGIN = VITE_DEV_SERVER_URL ? new URL(VITE_DEV_SERVER_URL).origin : null
 const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
@@ -217,7 +218,11 @@ function createWindow() {
   const mainWebContents = win.webContents
   const blockMainWindowNavigation = (event: Electron.Event, navigationUrl: string) => {
     const currentUrl = mainWebContents.getURL()
-    if (currentUrl === '' || navigationUrl === currentUrl) return
+    const isTrustedInitialRedirect =
+      currentUrl === '' &&
+      VITE_DEV_SERVER_ORIGIN !== null &&
+      new URL(navigationUrl).origin === VITE_DEV_SERVER_ORIGIN
+    if (isTrustedInitialRedirect || navigationUrl === currentUrl) return
 
     event.preventDefault()
     emitLog('WARN', 'Blocked navigation that would replace the main app UI', {

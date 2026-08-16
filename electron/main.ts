@@ -216,7 +216,8 @@ function createWindow() {
   // tabs use separate <webview> contents and are intentionally unaffected by this guard.
   const mainWebContents = win.webContents
   const blockMainWindowNavigation = (event: Electron.Event, navigationUrl: string) => {
-    if (navigationUrl === mainWebContents.getURL()) return
+    const currentUrl = mainWebContents.getURL()
+    if (currentUrl === '' || navigationUrl === currentUrl) return
 
     event.preventDefault()
     emitLog('WARN', 'Blocked navigation that would replace the main app UI', {

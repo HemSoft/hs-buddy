@@ -178,6 +178,13 @@ describe('main process lifecycle', () => {
 
       expect(reloadEvent.preventDefault).not.toHaveBeenCalled()
     }
+
+    const initialRedirectHandler = mainWebContentsListeners.get('will-redirect')
+    const initialRedirectEvent = { preventDefault: vi.fn() }
+    mockWin.webContents.getURL.mockReturnValueOnce('')
+    initialRedirectHandler!(initialRedirectEvent, 'https://localhost/redirected')
+
+    expect(initialRedirectEvent.preventDefault).not.toHaveBeenCalled()
   })
 
   it('registers webview attach and popup guardrails', async () => {

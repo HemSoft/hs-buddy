@@ -1,8 +1,8 @@
-# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@731f532de468a36f0fcaa911af5fc8a776ab5988
+# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@530e8efe383431e20c5d821e1b6d76f7c2a68a3c
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 # Deployed from HemSoft/set-it-free-loop. The deployment command replaces this
 # source pin with the immutable source SHA.
-# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@731f532de468a36f0fcaa911af5fc8a776ab5988
+# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@530e8efe383431e20c5d821e1b6d76f7c2a68a3c
 name: SFL Codex Review Observer
 
 on:

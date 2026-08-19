@@ -4,19 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-    paths:
-      - ".github/actions/setup-bun/**"
-      - ".github/workflows/benchmarks.yml"
-      - "bun.lock"
-      - "convex/**"
-      - "electron/**"
-      - "package.json"
-      - "perf/**"
-      - "scripts/bench-*.ts"
-      - "src/**"
-      - "vitest*.config.ts"
 
 permissions:
   contents: read

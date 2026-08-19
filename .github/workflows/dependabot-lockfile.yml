@@ -12,7 +12,6 @@ permissions:
   actions: write
   contents: write
   pull-requests: read
-  statuses: write
 
 jobs:
   fix-lockfile:
@@ -46,67 +45,6 @@ jobs:
       - name: Verify frozen install
         run: bun install --frozen-lockfile
 
-      - name: Restore Aspire SDK
-        timeout-minutes: 15
-        uses: ./.github/actions/restore-aspire
-
-      - name: Lint (ESLint)
-        run: bun run lint
-
-      - name: Check for unused code and dependencies
-        run: bun run knip
-
-      - name: Format check (Prettier)
-        run: bun run format:check
-
-      - name: Analyze dependency health
-        run: bun run e18e
-
-      - name: Check architecture boundaries (dependency-cruiser)
-        run: bun run deps:check
-
-      - name: Quality gate lint (reported; enforced by CI)
-        run: bun run lint:quality
-        continue-on-error: true
-
-      - name: Electron security check
-        run: bun scripts/check-electron-security.ts
-
-      - name: Type check (TypeScript + Convex)
-        run: bun run typecheck
-
-      - name: Run tests with coverage
-        run: bun run test:coverage
-
-      - name: Run electron tests with coverage
-        run: bun run test:electron:coverage
-
-      - name: Run IPC contract tests
-        run: bun run test:ipc-contracts
-
-      - name: Run Convex server function tests
-        run: bun run test:convex
-
-      - name: Ensure Chrome is available for E2E
-        run: |
-          if command -v google-chrome >/dev/null 2>&1; then
-            google-chrome --version
-          else
-            npx playwright install chrome
-          fi
-
-      - name: Run E2E tests
-        run: bun run test:e2e
-        env:
-          CI: true
-          VITE_CONVEX_URL: https://placeholder-e2e.convex.cloud
-
-      - name: Build (vite + electron)
-        run: npx vite build
-
-      - name: Check bundle sizes
-        run: bun run bundle-size
-
       - name: Commit updated lockfile
         id: commit-lockfile
         env:
@@ -128,19 +66,7 @@ jobs:
             echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Mark pushed lockfile commit as validated
-        if: steps.commit-lockfile.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATED_SHA: ${{ steps.commit-lockfile.outputs.sha }}
-        run: |
-          gh api "repos/${{ github.repository }}/statuses/$VALIDATED_SHA" \
-            -f state=success \
-            -f context="Dependabot Lockfile Fix / validated" \
-            -f description="Required CI checks passed before this lockfile commit was pushed" \
-            -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
-      - name: Approve validated follow-up runs
+      - name: Approve follow-up runs
         if: steps.commit-lockfile.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

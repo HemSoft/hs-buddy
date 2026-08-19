@@ -1,8 +1,8 @@
-# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@f7a44ba6b74940721df751fd5220e85bb503bc65
+# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@577755cf85893dbdcde1a240cd41ead45dcd5afc
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 # Deployed from HemSoft/set-it-free-loop. The deployment command replaces this
 # source pin with the immutable source SHA.
-# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@f7a44ba6b74940721df751fd5220e85bb503bc65
+# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@577755cf85893dbdcde1a240cd41ead45dcd5afc
 name: SFL Codex Review Observer
 
 on:
@@ -533,12 +533,13 @@ jobs:
               core.info("This Codex review request already has a terminal SFL gate");
               return;
             }
+            const publishedCompletedAt = new Date().toISOString();
             const common = {
               owner,
               repo,
               status: "completed",
               conclusion,
-              completed_at: new Date().toISOString(),
+              completed_at: publishedCompletedAt,
               details_url: artifact.html_url || pull.data.html_url,
               external_id: externalId,
               output: {title, summary: result.reason},
@@ -587,7 +588,7 @@ jobs:
                   check_run_id: published.data.id,
                   status: "completed",
                   conclusion: "failure",
-                  completed_at: new Date().toISOString(),
+                  completed_at: publishedCompletedAt,
                   details_url: artifact.html_url || pull.data.html_url,
                   external_id: externalId,
                   output: {title: "SFL Codex review invalidated", summary: changedReason},

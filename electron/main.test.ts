@@ -6,7 +6,10 @@
  * This test validates the module structure and lifecycle registration through
  * mocking of Electron APIs.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { afterAll, describe, it, expect, vi } from 'vitest'
+
+vi.stubEnv('VITE_DEV_SERVER_URL', 'https://localhost:5173/')
+afterAll(() => vi.unstubAllEnvs())
 
 // Track lifecycle callbacks registered with app.on / app.whenReady
 const appOnCalls: [string, (...args: unknown[]) => unknown][] = []
@@ -14,9 +17,16 @@ let whenReadyCb: (() => void) | null = null
 let browserSessionPermissionHandler:
   | ((webContents: unknown, permission: string, callback: (allowed: boolean) => void) => void)
   | null = null
+const mainWebContentsListeners = new Map<string, (...args: unknown[]) => void>()
 
 const mockWin = {
-  webContents: { on: vi.fn(), send: vi.fn() },
+  webContents: {
+    on: vi.fn((event: string, handler: (...args: unknown[]) => void) => {
+      mainWebContentsListeners.set(event, handler)
+    }),
+    send: vi.fn(),
+    getURL: vi.fn(() => 'file:///mock/dist/index.html'),
+  },
   on: vi.fn(),
   loadURL: vi.fn(),
   loadFile: vi.fn(),
@@ -118,6 +128,16 @@ vi.mock('../src/utils/windowGeometry', () => ({
 }))
 
 describe('main process lifecycle', () => {
+  it('parses URL origins without exposing credentials or throwing on malformed input', async () => {
+    const { parseUrlOrigin } = await import('./main')
+
+    expect(parseUrlOrigin('https://user:secret@example.com/path?token=secret')).toBe(
+      'https://example.com'
+    )
+    expect(parseUrlOrigin('://not-a-url')).toBeNull()
+    expect(parseUrlOrigin(undefined)).toBeNull()
+  })
+
   it('registers expected lifecycle hooks when imported', async () => {
     // Importing the module triggers top-level code
     await import('./main')
@@ -143,6 +163,47 @@ describe('main process lifecycle', () => {
     expect(Menu.setApplicationMenu).toHaveBeenCalled()
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()
+  })
+
+  it('blocks renderer navigation and redirects from replacing the main app UI', async () => {
+    await import('./main')
+    const { emitLog } = await import('./telemetry')
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+
+    for (const eventName of ['will-navigate', 'will-redirect']) {
+      const navigationHandler = mainWebContentsListeners.get(eventName)
+      expect(navigationHandler).toBeDefined()
+
+      const event = { preventDefault: vi.fn() }
+      navigationHandler!(event, 'https://example.com/unexpected?token=secret')
+
+      expect(event.preventDefault).toHaveBeenCalledOnce()
+      expect(emitLog).toHaveBeenLastCalledWith(
+        'WARN',
+        'Blocked navigation that would replace the main app UI',
+        { 'navigation.origin': 'https://example.com' }
+      )
+
+      const reloadEvent = { preventDefault: vi.fn() }
+      navigationHandler!(reloadEvent, mockWin.webContents.getURL())
+
+      expect(reloadEvent.preventDefault).not.toHaveBeenCalled()
+    }
+
+    const initialRedirectHandler = mainWebContentsListeners.get('will-redirect')
+    const initialRedirectEvent = { preventDefault: vi.fn() }
+    mockWin.webContents.getURL.mockReturnValueOnce('')
+    initialRedirectHandler!(initialRedirectEvent, 'https://localhost:5173/redirected')
+
+    expect(initialRedirectEvent.preventDefault).not.toHaveBeenCalled()
+
+    const crossOriginRedirectEvent = { preventDefault: vi.fn() }
+    mockWin.webContents.getURL.mockReturnValueOnce('')
+    initialRedirectHandler!(crossOriginRedirectEvent, 'https://example.com/redirected')
+
+    expect(crossOriginRedirectEvent.preventDefault).toHaveBeenCalledOnce()
   })
 
   it('registers webview attach and popup guardrails', async () => {

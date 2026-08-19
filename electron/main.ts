@@ -55,7 +55,18 @@ if (process.platform === 'win32') {
 // │
 process.env.APP_ROOT = path.join(__dirname, '..')
 
+export function parseUrlOrigin(value: string | undefined): string | null {
+  if (!value) return null
+
+  try {
+    return new URL(value).origin
+  } catch (_error: unknown) {
+    return null
+  }
+}
+
 const VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL']
+const VITE_DEV_SERVER_ORIGIN = parseUrlOrigin(VITE_DEV_SERVER_URL)
 const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
@@ -211,6 +222,25 @@ function createWindow() {
   // to avoid cementing a bad placement as the new source of truth)
   win.on('moved', saveCurrentDisplay)
   win.on('resize', saveCurrentDisplay)
+
+  // The main window hosts the Buddy UI, not arbitrary web content. Embedded browser
+  // tabs use separate <webview> contents and are intentionally unaffected by this guard.
+  const mainWebContents = win.webContents
+  const blockMainWindowNavigation = (event: Electron.Event, navigationUrl: string) => {
+    const currentUrl = mainWebContents.getURL()
+    const isTrustedInitialRedirect =
+      currentUrl === '' &&
+      VITE_DEV_SERVER_ORIGIN !== null &&
+      parseUrlOrigin(navigationUrl) === VITE_DEV_SERVER_ORIGIN
+    if (isTrustedInitialRedirect || navigationUrl === currentUrl) return
+
+    event.preventDefault()
+    emitLog('WARN', 'Blocked navigation that would replace the main app UI', {
+      'navigation.origin': parseUrlOrigin(navigationUrl) ?? 'invalid',
+    })
+  }
+  mainWebContents.on('will-navigate', blockMainWindowNavigation)
+  mainWebContents.on('will-redirect', blockMainWindowNavigation)
 
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())

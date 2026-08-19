@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.944] - 2026-08-16
+
+### Fixed
+
+- Block main-window navigation
+- Block main-window redirects
+- Redact blocked navigation URL
+- Allow initial main-window redirect
+- Restrict initial redirect origin
+- Parse navigation origins safely
+
+### Changed
+
+- Accept navigation guard bundle growth
+
 ## [0.1.937] - 2026-08-15
 
 ### Fixed

@@ -13,6 +13,12 @@ function pushBlock(): string {
   return match[0]
 }
 
+function ignoredPushPaths(): string[] {
+  const match = pushBlock().match(/^ {4}paths-ignore:\r?\n((?: {6}- ['"][^'"\r\n]+['"]\r?\n?)+)/m)
+  if (!match) throw new Error('Missing push paths-ignore list')
+  return Array.from(match[1].matchAll(/^ {6}- ['"]([^'"]+)['"]$/gm), ([, path]) => path)
+}
+
 const deploymentOnlyPaths = [
   '.github/workflows/sfl-pr-review-auto.yml',
   '.sfl/sfl.json',
@@ -21,9 +27,7 @@ const deploymentOnlyPaths = [
 
 describe('Benchmarks workflow', () => {
   it('skips SFL deployment-only pushes', () => {
-    const trigger = pushBlock()
-    expect(trigger).toContain('paths-ignore:')
-    for (const path of deploymentOnlyPaths) expect(trigger).toContain(`- '${path}'`)
+    expect(ignoredPushPaths()).toEqual(deploymentOnlyPaths)
   })
 
   it('keeps manual benchmark dispatch available', () => {

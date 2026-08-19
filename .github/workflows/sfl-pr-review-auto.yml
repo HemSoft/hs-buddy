@@ -1,8 +1,8 @@
-# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@0287df9567fe0ddbe86d36411a10e8869717a586
+# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@df7df5643a9dbaa7e0a28dd43042c86f93cbcba9
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 # Deployed from HemSoft/set-it-free-loop. The deployment command replaces this
 # source pin with the immutable source SHA.
-# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@0287df9567fe0ddbe86d36411a10e8869717a586
+# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@df7df5643a9dbaa7e0a28dd43042c86f93cbcba9
 name: SFL Codex Review Observer
 run-name: >-
   ${{ github.event_name == 'issue_comment' &&
@@ -429,7 +429,7 @@ jobs:
               latestPotentialRequestRegistered = Boolean(latestPotentialRequest) &&
                 visibleRegistrations.has(latestPotentialRequest.comment.id);
               if (latestPotentialRequestRegistered) break;
-              if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 500));
+              if (attempt < 11) await new Promise(resolve => setTimeout(resolve, 5000));
             }
             if (!latestPotentialRequestRegistered) {
               core.info("No registered Codex review request materialized for this artifact");

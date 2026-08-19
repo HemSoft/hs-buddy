@@ -1,8 +1,8 @@
-# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@0014cb3289ffd71078ea49ebe01f8be0247aa9a9
+# Deployed from: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@f2b772309281fa899d255ba197d780f6b8ce0cd0
 # To upgrade: re-run deploy-workflow.ps1 at the desired SHA
 # Deployed from HemSoft/set-it-free-loop. The deployment command replaces this
 # source pin with the immutable source SHA.
-# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@0014cb3289ffd71078ea49ebe01f8be0247aa9a9
+# Source: HemSoft/set-it-free-loop/deployment/infrastructure/sfl-pr-review-auto.yml@f2b772309281fa899d255ba197d780f6b8ce0cd0
 name: SFL Codex Review Observer
 
 on:
@@ -28,6 +28,9 @@ jobs:
       github.event.sender.id == 199175422 &&
       ((github.event_name == 'issue_comment' && github.event.issue.pull_request) ||
       github.event_name == 'pull_request_review')
+    concurrency:
+      group: sfl-codex-review-observe-${{ github.repository }}-${{ github.event.issue.number || github.event.pull_request.number }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -295,6 +298,25 @@ jobs:
                 .sort((left, right) => -requestOrder(left, right))
               : [];
             const pendingRequest = candidateRequests[0];
+            if (pendingRequest) {
+              const pendingRequestPrefix = requestGateExternalIdPrefix(
+                pullNumber,
+                currentBase,
+                pendingRequest.contextToken,
+                pendingRequest.comment.id,
+                pendingRequest.requestTime,
+              );
+              const pendingRequestAlreadyTerminal = artifactChecks.some(
+                check => check.app && check.app.id === 15368 &&
+                  check.status === "completed" &&
+                  (check.external_id === pendingRequestPrefix ||
+                   (check.external_id || "").startsWith(`${pendingRequestPrefix}:artifact:`)),
+              );
+              if (pendingRequestAlreadyTerminal) {
+                core.info("This Codex review request already has a terminal SFL gate");
+                return;
+              }
+            }
             const activeInvalidationRuns = async () => {
               const activeStatuses = ["requested", "queued", "in_progress", "waiting", "pending"];
               const events = ["pull_request_target", "push"];
@@ -490,15 +512,20 @@ jobs:
               core.info("A newer Codex review request superseded this artifact before publication");
               return;
             }
+            const externalIdPrefix = requestGateExternalIdPrefix(
+              pullNumber, currentBase, contextToken, request.comment.id, requestTime,
+            );
             const externalId = requestGateExternalId(
               pullNumber, currentBase, contextToken, request.comment.id, requestTime, artifactIdentity,
             );
             const existing = latestRequestChecks.find(
               check => check.app && check.app.id === 15368 &&
-                check.external_id === externalId,
+                check.status === "completed" &&
+                (check.external_id === externalIdPrefix ||
+                 (check.external_id || "").startsWith(`${externalIdPrefix}:artifact:`)),
             );
             if (existing) {
-              core.info("This exact Codex request already has a terminal SFL gate");
+              core.info("This Codex review request already has a terminal SFL gate");
               return;
             }
             const common = {

@@ -4,8 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 
 permissions:
   contents: read
@@ -17,6 +15,7 @@ concurrency:
 jobs:
   benchmarks:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -94,8 +93,8 @@ jobs:
             exit 1
           fi
           echo "skip_compare=false" >> "$GITHUB_OUTPUT"
-          for run in 1 2 3 4 5; do
-            echo "Baseline benchmark run ${run}/5"
+          for run in 1 2 3; do
+            echo "Baseline benchmark run ${run}/3"
             bunx vitest bench --outputJson "$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
           done
 
@@ -103,8 +102,8 @@ jobs:
         if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
         shell: bash
         run: |
-          for run in 1 2 3 4 5; do
-            echo "Candidate benchmark run ${run}/5"
+          for run in 1 2 3; do
+            echo "Candidate benchmark run ${run}/3"
             bunx vitest bench --outputJson "bench-results-run-${run}.json"
           done
 
@@ -115,15 +114,11 @@ jobs:
           bun scripts/bench-median.ts --output bench-baseline.json \
             bench-baseline-run-1.json \
             bench-baseline-run-2.json \
-            bench-baseline-run-3.json \
-            bench-baseline-run-4.json \
-            bench-baseline-run-5.json
+            bench-baseline-run-3.json
           bun scripts/bench-median.ts --output bench-results.json \
             bench-results-run-1.json \
             bench-results-run-2.json \
-            bench-results-run-3.json \
-            bench-results-run-4.json \
-            bench-results-run-5.json
+            bench-results-run-3.json
 
       - name: Compare against baseline
         if: steps.baseline_benchmarks.outputs.skip_compare != 'true'

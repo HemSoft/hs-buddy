@@ -1,9 +1,9 @@
 {
-  "version": "2.0.0",
-  "deployedAt": "2026-08-02T03:32:44Z",
+  "version": "2.1.0-rc.13",
+  "deployedAt": "2026-08-19T17:32:09Z",
   "tier": "full",
   "source": "HemSoft/set-it-free-loop",
-  "sourceSha": "46772cb58be14182ef911069865ba6fece9876df",
+  "sourceSha": "927f9f7382ca3c922460b4bc1fb8c03db1b238c8",
   "components": [
     "daily-repo-status",
     "governance",
@@ -17,31 +17,11 @@
     "repo-audit",
     "sfl-auditor",
     "sfl-dispatcher",
-    "sfl-pr-review",
+    "sfl-pr-review-auto",
     "simplisticate"
   ],
   "enginePolicy": {
     "defaultProfile": "codex-gpt-55-high",
-    "workflows": [
-      {
-        "name": "sfl-pr-review",
-        "profile": "openrouter-kimi-k3-high",
-        "provider": "copilot",
-        "model": "moonshotai/kimi-k3",
-        "effort": null,
-        "renderedModel": "moonshotai/kimi-k3",
-        "requiredSecretsAnyOf": [
-          "OPENROUTER_API_KEY"
-        ],
-        "arguments": [],
-        "environment": {
-          "COPILOT_PROVIDER_BASE_URL": "https://openrouter.ai/api/v1",
-          "COPILOT_PROVIDER_API_KEY": "${{ secrets.OPENROUTER_API_KEY }}",
-          "COPILOT_PROVIDER_TYPE": "openai",
-          "COPILOT_PROVIDER_WIRE_API": "responses",
-          "COPILOT_MODEL": "moonshotai/kimi-k3"
-        }
-      }
-    ]
+    "workflows": []
   }
 }

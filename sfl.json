@@ -1,9 +1,9 @@
 {
   "version": "2.1.0-rc.13",
-  "deployedAt": "2026-08-19T11:06:20Z",
+  "deployedAt": "2026-08-19T11:09:51Z",
   "tier": "full",
   "source": "HemSoft/set-it-free-loop",
-  "sourceSha": "a4d4ca6293f73c11f86dd60b114edb538a07aa5a",
+  "sourceSha": "2bf7b634734a1a1b322f6e9fda20cb32560d90a1",
   "components": [
     "daily-repo-status",
     "governance",

@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.946] - 2026-08-19
+
+### Changed
+
+- Pin benchmark deployment ignore list
+
+## [0.1.945] - 2026-08-19
+
+### Changed
+
+- Skip benchmarks for SFL-only deployments
+
 ## [0.1.944] - 2026-08-16
 
 ### Fixed

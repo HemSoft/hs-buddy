@@ -8,6 +8,8 @@ let windowOpenHandler: (({ url }: { url: string }) => { action: string }) | null
 let mockSetTitle: ReturnType<typeof vi.fn>
 let mockLoadURL: ReturnType<typeof vi.fn>
 let mockIsDestroyed: ReturnType<typeof vi.fn>
+let mockDestroy: ReturnType<typeof vi.fn>
+let liveBrowserWindowCount = 0
 
 // Module-level loadURL response override — set before calling invoke to control
 // the behavior of BrowserWindow.loadURL() in the handler under test.
@@ -15,6 +17,12 @@ let loadURLResponse: Promise<void> = Promise.resolve()
 
 vi.mock('electron', () => ({
   BrowserWindow: class MockBrowserWindow {
+    private destroyed = false
+
+    constructor() {
+      liveBrowserWindowCount++
+    }
+
     webContents = {
       on: vi.fn((event: string, cb: EventCallback) => {
         webContentsListeners.set(event, cb)
@@ -36,8 +44,18 @@ vi.mock('electron', () => ({
       return fn
     })()
     isDestroyed = (() => {
-      const fn = vi.fn(() => false)
+      const fn = vi.fn(() => this.destroyed)
       mockIsDestroyed = fn
+      return fn
+    })()
+    destroy = (() => {
+      const fn = vi.fn(() => {
+        if (!this.destroyed) {
+          this.destroyed = true
+          liveBrowserWindowCount--
+        }
+      })
+      mockDestroy = fn
       return fn
     })()
   },
@@ -104,6 +122,7 @@ describe('shellHandlers', () => {
     handlers = new Map()
     webContentsListeners = new Map()
     windowOpenHandler = null
+    liveBrowserWindowCount = 0
     loadURLResponse = Promise.resolve()
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
@@ -176,6 +195,8 @@ describe('shellHandlers', () => {
     it('opens valid URL in browser window', async () => {
       const result = await invoke('https://example.com', 'Example')
       expect(result).toEqual({ success: true })
+      expect(mockDestroy).not.toHaveBeenCalled()
+      expect(liveBrowserWindowCount).toBe(1)
     })
 
     it('rejects URLs that resolve to private IPs (SSRF protection)', async () => {
@@ -370,9 +391,11 @@ describe('shellHandlers', () => {
       const result = await invoke('https://example.com')
       // ERR_ABORTED is expected and swallowed — handler returns success
       expect(result).toEqual({ success: true })
+      expect(mockDestroy).not.toHaveBeenCalled()
+      expect(liveBrowserWindowCount).toBe(1)
     })
 
-    it('propagates non-ERR_ABORTED loadURL errors', async () => {
+    it('destroys the window before propagating non-ERR_ABORTED loadURL errors', async () => {
       const { lookup } = await import('node:dns/promises')
       vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
 
@@ -380,6 +403,20 @@ describe('shellHandlers', () => {
 
       const result = await invoke('https://example.com')
       expect(result).toEqual({ success: false, error: 'net::ERR_CONNECTION_REFUSED' })
+      expect(mockDestroy).toHaveBeenCalledOnce()
+      expect(liveBrowserWindowCount).toBe(0)
+    })
+
+    it('does not retain windows across repeated initial load failures', async () => {
+      const { lookup } = await import('node:dns/promises')
+      vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+      vi.mocked(lookup).mockResolvedValueOnce([{ address: '93.184.216.34' }] as never)
+      loadURLResponse = Promise.reject(new Error('net::ERR_CONNECTION_REFUSED'))
+
+      await invoke('https://example.com/first')
+      await invoke('https://example.com/second')
+
+      expect(liveBrowserWindowCount).toBe(0)
     })
 
     it('guardedNavigate does not loadURL when window is destroyed', async () => {

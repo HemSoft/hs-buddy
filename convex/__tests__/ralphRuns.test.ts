@@ -36,6 +36,51 @@ describe('ralphRuns', () => {
     expect(runs[0].status).toBe('running')
   })
 
+  test('create is idempotent for sequential and concurrent retries', async () => {
+    const t = convexTest(schema, modules)
+
+    const firstId = await t.mutation(api.ralphRuns.create, baseRun)
+    const secondId = await t.mutation(api.ralphRuns.create, baseRun)
+    const [concurrentFirstId, concurrentSecondId] = await Promise.all([
+      t.mutation(api.ralphRuns.create, { ...baseRun, runId: 'run-uuid-002' }),
+      t.mutation(api.ralphRuns.create, { ...baseRun, runId: 'run-uuid-002' }),
+    ])
+
+    expect(secondId).toBe(firstId)
+    expect(concurrentSecondId).toBe(concurrentFirstId)
+    expect(await t.query(api.ralphRuns.list)).toHaveLength(2)
+  })
+
+  test('legacy duplicates use the oldest row as the canonical run', async () => {
+    const t = convexTest(schema, modules)
+    const olderId = await t.run(async ctx => {
+      return await ctx.db.insert('ralphRuns', {
+        ...baseRun,
+        createdAt: 100,
+        updatedAt: 100,
+      })
+    })
+    await t.run(async ctx => {
+      await ctx.db.insert('ralphRuns', {
+        ...baseRun,
+        createdAt: 200,
+        updatedAt: 200,
+      })
+    })
+
+    const run = await t.query(api.ralphRuns.get, { runId: baseRun.runId })
+    const retriedId = await t.mutation(api.ralphRuns.create, baseRun)
+    const updatedId = await t.mutation(api.ralphRuns.updateStatus, {
+      runId: baseRun.runId,
+      status: 'completed',
+    })
+
+    expect(run?._id).toBe(olderId)
+    expect(retriedId).toBe(olderId)
+    expect(updatedId).toBe(olderId)
+    expect((await t.query(api.ralphRuns.get, { runId: baseRun.runId }))?.status).toBe('completed')
+  })
+
   test('create stores optional fields', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.ralphRuns.create, {

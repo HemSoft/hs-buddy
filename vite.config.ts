@@ -77,6 +77,10 @@ export default defineConfig(({ mode }) => {
   const isE2E = mode === 'e2e' || process.env.VITE_E2E === '1'
 
   return {
+    // The renderer loads via file:// in production (win.loadFile), so asset
+    // URLs must be relative. (vite-plugin-electron-renderer set this before
+    // it was removed — see the electron() plugin options below.)
+    base: './',
     // In E2E mode, alias convex/react to a mock module that provides no-op hooks.
     // This prevents the real Convex client from trying WebSocket connections.
     ...(isE2E
@@ -122,7 +126,6 @@ export default defineConfig(({ mode }) => {
               preload: {
                 input: path.join(__dirname, 'electron/preload.ts'),
               },
-              renderer: process.env.NODE_ENV === 'test' ? undefined : {},
             }),
           ]
         : []),

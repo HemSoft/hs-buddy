@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.947] - 2026-08-20
+
+### Fixed
+
+- Prevent Node shim startup crash
+
 ## [0.1.946] - 2026-08-19
 
 ### Changed

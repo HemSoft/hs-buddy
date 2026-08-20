@@ -169,6 +169,7 @@ Diagnose runtime issues in the running app.
 | Infinite "Loading..." spinner | Convex dev server not running | Check Aspire dashboard |
 | `window.electronAPI` undefined | Playwright not using CDP mode | Add `--cdp-endpoint` to config |
 | Blank white screen | Unhandled exception in render | Check console for React errors |
+| Blank screen with `ReferenceError: require is not defined` at `.vite-electron-renderer/fs+promises.mjs` | A renderer dep (e.g. `cron-parser`) statically imports a Node builtin; `vite-plugin-electron-renderer` shims it with a `require()` wrapper, but the renderer runs `nodeIntegration: false` | Remove the `renderer: {}` option from `electron()` in `vite.config.ts`; Vite then applies the dep's own `browser` field to stub the builtin. Keep `base: './'` for `loadFile` in production |
 | WebSocket refused on 3210 | Convex offline or wrong port | Restart via Aspire |
 | "Something went wrong" | Error boundary caught crash | Check console for stack trace |
 | `X.map is not a function` | IPC returned `{success:false}` instead of array | Guard with `Array.isArray()` |

@@ -148,6 +148,58 @@ describe('copilotResults', () => {
     expect(counts.running).toBe(1)
   })
 
+  test('countActive counts every active result beyond one page', async () => {
+    const t = convexTest(schema, modules)
+    const statuses = ['pending', 'running'] as const
+
+    await t.run(async ctx => {
+      await Promise.all(
+        statuses.flatMap(status =>
+          Array.from({ length: 101 }, (_, index) =>
+            ctx.db.insert('copilotResults', {
+              prompt: `${status}-${index}`,
+              status,
+              createdAt: Date.now(),
+            })
+          )
+        )
+      )
+      await ctx.db.insert('copilotResultCounts', {
+        key: 'default',
+        pending: 101,
+        running: 101,
+      })
+    })
+
+    await expect(t.query(api.copilotResults.countActive)).resolves.toEqual({
+      pending: 101,
+      running: 101,
+    })
+  })
+
+  test('countActive stays consistent across the result lifecycle', async () => {
+    const t = convexTest(schema, modules)
+    const pendingId = await t.mutation(api.copilotResults.create, { prompt: 'pending' })
+    const runningId = await t.mutation(api.copilotResults.create, { prompt: 'running' })
+
+    await t.mutation(api.copilotResults.markRunning, { id: runningId })
+    await t.mutation(api.copilotResults.markRunning, { id: runningId })
+    await expect(t.query(api.copilotResults.countActive)).resolves.toEqual({
+      pending: 1,
+      running: 1,
+    })
+
+    await t.mutation(api.copilotResults.complete, { id: runningId, result: 'done' })
+    await t.mutation(api.copilotResults.fail, { id: pendingId, error: 'failed' })
+    const removableId = await t.mutation(api.copilotResults.create, { prompt: 'remove me' })
+    await t.mutation(api.copilotResults.remove, { id: removableId })
+
+    await expect(t.query(api.copilotResults.countActive)).resolves.toEqual({
+      pending: 0,
+      running: 0,
+    })
+  })
+
   test('remove deletes a result', async () => {
     const t = convexTest(schema, modules)
     const id = await t.mutation(api.copilotResults.create, { prompt: 'delete me' })

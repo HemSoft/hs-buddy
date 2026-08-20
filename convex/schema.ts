@@ -254,6 +254,16 @@ export default defineSchema({
     .index('by_created', ['createdAt']),
 
   /**
+   * Exact active Copilot result counts used by activity badges.
+   * Kept separate from copilotResults so count queries stay bounded.
+   */
+  copilotResultCounts: defineTable({
+    key: v.literal('default'),
+    pending: v.number(),
+    running: v.number(),
+  }).index('by_key', ['key']),
+
+  /**
    * PR review runs - links Copilot review executions to a specific PR snapshot.
    */
   prReviewRuns: defineTable({

@@ -109,9 +109,12 @@ function resolveInAppBrowserIconPath(): string {
   )
 }
 
-function throwIfUnexpectedLoadError(loadError: unknown): void {
+function throwIfUnexpectedLoadError(browserWin: BrowserWindow, loadError: unknown): void {
   const msg = getErrorMessage(loadError)
   if (!msg.includes('ERR_ABORTED')) {
+    if (!browserWin.isDestroyed()) {
+      browserWin.destroy()
+    }
     throw loadError
   }
 }
@@ -246,7 +249,7 @@ export function registerShellHandlers(): void {
         try {
           await browserWin.loadURL(url)
         } catch (loadError: unknown) {
-          throwIfUnexpectedLoadError(loadError)
+          throwIfUnexpectedLoadError(browserWin, loadError)
         }
         recordWindowOpen(parsed.hostname)
         return { success: true }

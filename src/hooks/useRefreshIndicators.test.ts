@@ -54,6 +54,12 @@ describe('useRefreshIndicators', () => {
     expect(result.current['my-prs']).toBe('active')
   })
 
+  it('maps account-scoped PR task names back to their mode', () => {
+    mockGetRunning.mockReturnValue(['prefetch-my-prs:%5Bscope%5D'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['my-prs']).toBe('active')
+  })
+
   it('strips prefetch- prefix from task names', () => {
     mockGetRunning.mockReturnValue(['prefetch-org-repos:hemsoft'])
     const { result } = renderHook(() => useRefreshIndicators())

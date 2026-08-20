@@ -17,6 +17,7 @@ const prDetailMocks = vi.hoisted(() => ({
   throwIfAborted: vi.fn(),
   mockClient: {
     fetchPRBranches: vi.fn(),
+    fetchPRHistory: vi.fn(),
     listPRReviews: vi.fn(),
     requestCopilotReview: vi.fn(),
     approvePullRequest: vi.fn(),
@@ -57,6 +58,7 @@ vi.mock('../utils/errorUtils', () => ({
 vi.mock('../api/github', () => ({
   GitHubClient: class MockGitHubClient {
     fetchPRBranches = prDetailMocks.mockClient.fetchPRBranches
+    fetchPRHistory = prDetailMocks.mockClient.fetchPRHistory
     listPRReviews = prDetailMocks.mockClient.listPRReviews
     requestCopilotReview = prDetailMocks.mockClient.requestCopilotReview
     approvePullRequest = prDetailMocks.mockClient.approvePullRequest
@@ -167,6 +169,16 @@ const makePR = (overrides: Partial<PRDetailInfo> = {}): PRDetailInfo => ({
   ...overrides,
 })
 
+function mockTransientHistoryFailure() {
+  prDetailMocks.mockClient.fetchPRHistory
+    .mockRejectedValueOnce(new Error('transient failure'))
+    .mockResolvedValueOnce({
+      updatedAt: null,
+      linkedIssues: [],
+      reviewers: [{ login: 'octocat', status: 'approved' }],
+    })
+}
+
 /* ── setup / teardown ───────────────────────────────────────────────── */
 
 beforeEach(() => {
@@ -200,6 +212,11 @@ beforeEach(() => {
   prDetailMocks.mockClient.fetchPRBranches.mockResolvedValue({
     headBranch: 'fix/critical-bug',
     baseBranch: 'main',
+  })
+  prDetailMocks.mockClient.fetchPRHistory.mockResolvedValue({
+    updatedAt: null,
+    linkedIssues: [],
+    reviewers: [],
   })
   prDetailMocks.mockClient.listPRReviews.mockResolvedValue([])
   prDetailMocks.mockClient.requestCopilotReview.mockResolvedValue(undefined)
@@ -391,6 +408,33 @@ describe('PullRequestDetailPanel', () => {
       expect(screen.getByText('Tree section: Checks')).toBeInTheDocument()
       expect(screen.getByTestId('checks-panel')).toBeInTheDocument()
       expect(screen.getByText('Open Checks')).toBeInTheDocument()
+    })
+
+    it('hydrates unknown review state in a focused section', async () => {
+      prDetailMocks.mockClient.fetchPRHistory.mockResolvedValue({
+        updatedAt: null,
+        linkedIssues: [],
+        reviewers: [{ login: 'octocat', status: 'approved' }],
+      })
+
+      render(<PullRequestDetailPanel pr={makePR({ reviewStateKnown: false })} section="checks" />)
+
+      expect(screen.getByTitle('Approval status unknown')).toBeDisabled()
+      await waitFor(() => expect(screen.getByTitle('You approved this PR')).toBeDisabled())
+      expect(prDetailMocks.mockClient.fetchPRHistory).toHaveBeenCalledWith(
+        'octo-org',
+        'test-repo',
+        42
+      )
+    })
+
+    it('retries focused review-state hydration when refreshed', async () => {
+      mockTransientHistoryFailure()
+      render(<PullRequestDetailPanel pr={makePR({ reviewStateKnown: false })} section="checks" />)
+      await waitFor(() => expect(prDetailMocks.mockClient.fetchPRHistory).toHaveBeenCalledOnce())
+      fireEvent.click(screen.getByTitle('Refresh PR data'))
+      await waitFor(() => expect(prDetailMocks.mockClient.fetchPRHistory).toHaveBeenCalledTimes(2))
+      await waitFor(() => expect(screen.getByTitle('You approved this PR')).toBeDisabled())
     })
 
     it('renders files-changed section with Open Files Changed button', () => {
@@ -1481,6 +1525,24 @@ describe('context menu interactions (lines 133-134, 225-232)', () => {
 })
 
 describe('approve PR functionality (lines 649-664)', () => {
+  it('does not approve until unknown review state is loaded', async () => {
+    render(<PullRequestDetailPanel pr={makePR({ reviewStateKnown: false })} />)
+
+    expect(screen.getByTitle('Approval status unknown')).toBeDisabled()
+    expect(screen.getAllByText('Unknown')).toHaveLength(2)
+    expect(prDetailMocks.mockClient.approvePullRequest).not.toHaveBeenCalled()
+
+    await act(async () => {
+      prDetailMocks.capturedOnLoaded.current?.({
+        updatedAt: null,
+        linkedIssues: [],
+        reviewers: [],
+      })
+    })
+
+    expect(screen.getByTitle('Approve PR')).not.toBeDisabled()
+  })
+
   it('approves PR when Approve button clicked', async () => {
     prDetailMocks.mockClient.approvePullRequest.mockResolvedValue(undefined)
     render(<PullRequestDetailPanel pr={makePR()} />)

@@ -10,6 +10,7 @@ export interface PullRequest {
   approvalCount: number
   assigneeCount: number
   iApproved: boolean
+  reviewStateKnown?: boolean
   created: Date | null
   updatedAt?: string | null
   headBranch?: string

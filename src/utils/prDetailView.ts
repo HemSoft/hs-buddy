@@ -27,6 +27,7 @@ export interface PRDetailInfo {
   approvalCount: number
   assigneeCount: number
   iApproved: boolean
+  reviewStateKnown?: boolean
   created: string | null
   updatedAt?: string | null
   headBranch?: string
@@ -58,6 +59,7 @@ function buildPRDetailInfo(pr: PullRequest): PRDetailInfo {
     approvalCount: pr.approvalCount,
     assigneeCount: pr.assigneeCount,
     iApproved: pr.iApproved,
+    reviewStateKnown: pr.reviewStateKnown,
     created: toIsoOrNull(pr.created),
     updatedAt: pr.updatedAt || null,
     headBranch: orEmpty(pr.headBranch),

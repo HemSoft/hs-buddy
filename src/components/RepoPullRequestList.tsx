@@ -58,6 +58,7 @@ function PRThreadsCell({ pr }: { pr: RepoPullRequest }) {
 }
 
 function PRApprovalsCell({ pr }: { pr: RepoPullRequest }) {
+  if (pr.reviewStateKnown === false) return null
   const count = pr.approvalCount ?? 0
   if (count === 0) return null
   return (
@@ -137,6 +138,7 @@ function PRTableView({
 }
 
 function PRApprovalBadge({ pr }: { pr: RepoPullRequest }) {
+  if (pr.reviewStateKnown === false) return null
   const count = pr.approvalCount ?? 0
   if (count === 0) return null
   return (

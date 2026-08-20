@@ -116,10 +116,12 @@ function CopilotReviewButtonIcon({ state }: { state: string }) {
 function ApproveButton({
   youApproved,
   isApproving,
+  reviewStateKnown,
   onApprove,
 }: {
   youApproved: boolean
   isApproving: boolean
+  reviewStateKnown: boolean
   onApprove: () => void
 }) {
   return (
@@ -127,8 +129,14 @@ function ApproveButton({
       type="button"
       className={`pr-detail-refresh-btn${youApproved ? ' pr-detail-approved' : ''}`}
       onClick={onApprove}
-      title={youApproved ? 'You approved this PR' : 'Approve PR'}
-      disabled={youApproved || isApproving}
+      title={
+        reviewStateKnown
+          ? youApproved
+            ? 'You approved this PR'
+            : 'Approve PR'
+          : 'Approval status unknown'
+      }
+      disabled={!reviewStateKnown || youApproved || isApproving}
     >
       {isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />}
     </button>
@@ -190,6 +198,7 @@ interface PRDetailHeaderProps {
   onRefresh: () => void
   youApproved: boolean
   isApproving: boolean
+  reviewStateKnown: boolean
   onApprove: () => void
   nudgeState: 'idle' | 'sending' | 'sent' | 'error'
   nudgeError: string | null
@@ -231,6 +240,7 @@ function buildMenuReviewProviders(
 interface PRDetailHeaderContextMenuProps {
   contextMenu: { x: number; y: number } | null
   youApproved: boolean
+  reviewStateKnown: boolean
   copilotReviewState: string
   nudgeState: PRDetailHeaderProps['nudgeState']
   aiReviewProviders: AIReviewProviderEntry[]
@@ -246,6 +256,7 @@ interface PRDetailHeaderContextMenuProps {
 function PRDetailHeaderContextMenu({
   contextMenu,
   youApproved,
+  reviewStateKnown,
   copilotReviewState,
   nudgeState,
   aiReviewProviders,
@@ -263,6 +274,7 @@ function PRDetailHeaderContextMenu({
       x={contextMenu.x}
       y={contextMenu.y}
       youApproved={youApproved}
+      reviewStateKnown={reviewStateKnown}
       copilotReviewState={copilotReviewState}
       nudgeState={nudgeState}
       aiReviewProviders={buildMenuReviewProviders(aiReviewProviders, onClose)}
@@ -287,6 +299,7 @@ function PRDetailHeader({
   onRefresh,
   youApproved,
   isApproving,
+  reviewStateKnown,
   onApprove,
   nudgeState,
   nudgeError,
@@ -344,7 +357,12 @@ function PRDetailHeader({
         >
           <RefreshCw size={14} />
         </button>
-        <ApproveButton youApproved={youApproved} isApproving={isApproving} onApprove={onApprove} />
+        <ApproveButton
+          youApproved={youApproved}
+          isApproving={isApproving}
+          reviewStateKnown={reviewStateKnown}
+          onApprove={onApprove}
+        />
         <NudgeButton nudgeState={nudgeState} nudgeError={nudgeError} onNudge={onNudge} />
         <button
           aria-label="More actions"
@@ -367,6 +385,7 @@ function PRDetailHeader({
       <PRDetailHeaderContextMenu
         contextMenu={contextMenu}
         youApproved={youApproved}
+        reviewStateKnown={reviewStateKnown}
         copilotReviewState={copilotReviewState}
         nudgeState={nudgeState}
         aiReviewProviders={aiReviewProviders}
@@ -481,7 +500,9 @@ function NudgeBanner({ state, error, author, onDismiss }: NudgeBannerProps) {
 
 interface PROverviewSectionProps {
   pr: PRDetailInfo
+  approvalCount: number
   youApproved: boolean
+  reviewStateKnown: boolean
   effectiveIssue: { number: number; url: string } | null
   createdRelative: string
   activityRelative: string
@@ -572,7 +593,9 @@ function RelativeMetaItem({
 
 function PROverviewSection({
   pr,
+  approvalCount,
   youApproved,
+  reviewStateKnown,
   effectiveIssue,
   createdRelative,
   activityRelative,
@@ -584,9 +607,16 @@ function PROverviewSection({
         <PRMetricCard title="Status" value={<span className="pr-detail-state">{pr.state}</span>} />
         <PRMetricCard
           title="Approvals"
-          value={`${pr.approvalCount}/${pr.assigneeCount > 0 ? pr.assigneeCount : '?'}`}
+          value={
+            reviewStateKnown
+              ? `${approvalCount}/${pr.assigneeCount > 0 ? pr.assigneeCount : '?'}`
+              : 'Unknown'
+          }
         />
-        <PRMetricCard title="You Approved" value={youApproved ? 'Yes' : 'No'} />
+        <PRMetricCard
+          title="You Approved"
+          value={reviewStateKnown ? (youApproved ? 'Yes' : 'No') : 'Unknown'}
+        />
         <LinkedIssueMetricCard issue={effectiveIssue} />
       </div>
 
@@ -871,6 +901,29 @@ async function fetchPRBranchesFromGitHub({
   )
 }
 
+async function fetchPRHistoryFromGitHub({
+  enqueue,
+  accounts,
+  ownerRepo,
+  prId,
+  repository,
+}: {
+  enqueue: ReturnType<typeof useTaskQueue>['enqueue']
+  accounts: ReturnType<typeof useGitHubAccounts>['accounts']
+  ownerRepo: OwnerRepo
+  prId: number
+  repository: string
+}): Promise<PRHistorySummary> {
+  return enqueue(
+    async signal => {
+      throwIfAborted(signal)
+      const client = new GitHubClient({ accounts }, 7)
+      return await client.fetchPRHistory(ownerRepo.owner, ownerRepo.repo, prId)
+    },
+    { name: `pr-review-state-${repository}-${prId}` }
+  )
+}
+
 function isNudgeBusy(state: 'idle' | 'sending' | 'sent' | 'error'): boolean {
   return state === 'sending' || state === 'sent'
 }
@@ -937,6 +990,8 @@ function syncPRDetailIdentity({
   setPreviousPrIdentityKey,
   setPreviousApprovalKey,
   setYouApproved,
+  setApprovalCount,
+  setReviewStateKnown,
   setHistoryUpdatedAt,
   setLinkedIssues,
   setBranches,
@@ -952,6 +1007,8 @@ function syncPRDetailIdentity({
   setPreviousPrIdentityKey: (value: string) => void
   setPreviousApprovalKey: (value: string) => void
   setYouApproved: (value: boolean) => void
+  setApprovalCount: (value: number) => void
+  setReviewStateKnown: (value: boolean) => void
   setHistoryUpdatedAt: (value: string | null) => void
   setLinkedIssues: (value: PRLinkedIssue[]) => void
   setBranches: (value: { headBranch: string; baseBranch: string } | null) => void
@@ -964,6 +1021,8 @@ function syncPRDetailIdentity({
     setPreviousPrIdentityKey(prIdentityKey)
     setPreviousApprovalKey(approvalKey)
     setYouApproved(pr.iApproved)
+    setApprovalCount(pr.approvalCount)
+    setReviewStateKnown(pr.reviewStateKnown !== false)
     setHistoryUpdatedAt(null)
     setLinkedIssues([])
     setBranches(initialBranches(pr))
@@ -974,6 +1033,8 @@ function syncPRDetailIdentity({
   if (previousApprovalKey !== approvalKey) {
     setPreviousApprovalKey(approvalKey)
     setYouApproved(pr.iApproved)
+    setApprovalCount(pr.approvalCount)
+    setReviewStateKnown(pr.reviewStateKnown !== false)
   }
 }
 
@@ -1027,13 +1088,15 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
   )
   const [historyUpdatedAt, setHistoryUpdatedAt] = useState<string | null>(null)
   const [youApproved, setYouApproved] = useState(pr.iApproved)
+  const [approvalCount, setApprovalCount] = useState(pr.approvalCount)
+  const [reviewStateKnown, setReviewStateKnown] = useState(pr.reviewStateKnown !== false)
   const [isApproving, setIsApproving] = useState(false)
   const [linkedIssues, setLinkedIssues] = useState<PRLinkedIssue[]>([])
   const [nudgeState, setNudgeState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [nudgeError, setNudgeError] = useState<string | null>(null)
   const prIdentityKey = `${pr.id}:${pr.repository}:${pr.url}`
   const branchFetchKeyRef = useRef(prIdentityKey)
-  const approvalKey = `${prIdentityKey}:${pr.iApproved}`
+  const approvalKey = `${prIdentityKey}:${pr.iApproved}:${pr.approvalCount}:${pr.reviewStateKnown !== false}`
   const [previousPrIdentityKey, setPreviousPrIdentityKey] = useState(prIdentityKey)
   const [previousApprovalKey, setPreviousApprovalKey] = useState(approvalKey)
 
@@ -1046,6 +1109,8 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     setPreviousPrIdentityKey,
     setPreviousApprovalKey,
     setYouApproved,
+    setApprovalCount,
+    setReviewStateKnown,
     setHistoryUpdatedAt,
     setLinkedIssues,
     setBranches,
@@ -1109,14 +1174,47 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     (history: PRHistorySummary) => {
       setHistoryUpdatedAt(history.updatedAt || null)
       setLinkedIssues(history.linkedIssues)
+      setApprovalCount(history.reviewers.filter(reviewer => reviewer.status === 'approved').length)
+      setReviewStateKnown(true)
       const namespace = pr.org || ownerRepo?.owner || ''
       setYouApproved(resolveUserApproval(history, accounts, namespace))
     },
     [accounts, ownerRepo, pr.org]
   )
 
+  useEffect(() => {
+    if (reviewStateKnown || section === null || section === 'commits' || !ownerRepo) return
+    let active = true
+    void fetchPRHistoryFromGitHub({
+      enqueue: enqueueRef.current,
+      accounts,
+      ownerRepo,
+      prId: pr.id,
+      repository: pr.repository,
+    })
+      .then(history => {
+        if (active) handleHistoryLoaded(history)
+      })
+      .catch(error => {
+        console.debug(`Failed to hydrate review state for ${pr.url}:`, error)
+      })
+    return () => {
+      active = false
+    }
+  }, [
+    accounts,
+    handleHistoryLoaded,
+    ownerRepo,
+    pr.id,
+    pr.repository,
+    pr.url,
+    refreshKey,
+    reviewStateKnown,
+    section,
+  ])
+
   const handleApprovePR = useCallback(async () => {
-    if (!ownerRepo || youApproved || isApproving) return
+    if (!ownerRepo || !reviewStateKnown || youApproved || isApproving) return
     setIsApproving(true)
     try {
       await enqueueRef.current(
@@ -1131,7 +1229,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
     } finally {
       setIsApproving(false)
     }
-  }, [accounts, ownerRepo, pr.id, pr.repository, youApproved, isApproving])
+  }, [accounts, ownerRepo, pr.id, pr.repository, reviewStateKnown, youApproved, isApproving])
 
   const handleNudgeAuthor = useCallback(async () => {
     if (isNudgeBusy(nudgeState)) return
@@ -1161,6 +1259,7 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
         onRefresh={() => setRefreshKey(k => k + 1)}
         youApproved={youApproved}
         isApproving={isApproving}
+        reviewStateKnown={reviewStateKnown}
         onApprove={handleApprovePR}
         nudgeState={nudgeState}
         nudgeError={nudgeError}
@@ -1205,7 +1304,9 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
           <>
             <PROverviewSection
               pr={pr}
+              approvalCount={approvalCount}
               youApproved={youApproved}
+              reviewStateKnown={reviewStateKnown}
               effectiveIssue={effectiveIssue}
               createdRelative={createdRelative}
               activityRelative={activityRelative}

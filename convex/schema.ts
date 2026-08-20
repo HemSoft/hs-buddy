@@ -368,11 +368,15 @@ export default defineSchema({
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
     duration: v.optional(v.number()), // milliseconds
+    // Set atomically with the run-count aggregate. Missing means the historical
+    // backfill has not processed this run yet.
+    runCountVersion: v.optional(v.literal(1)),
   })
     .index('by_job', ['jobId'])
     .index('by_schedule', ['scheduleId'])
     .index('by_status', ['status'])
-    .index('by_started', ['startedAt']),
+    .index('by_started', ['startedAt'])
+    .index('by_run_count_version', ['runCountVersion']),
 
   /**
    * Session digests — efficiency metrics computed from Copilot session JSONL files.

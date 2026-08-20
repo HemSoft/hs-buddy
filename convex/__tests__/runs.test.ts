@@ -1,9 +1,18 @@
-import { convexTest } from 'convex-test'
-import { describe, test, expect } from 'vitest'
+import aggregateComponent from '@convex-dev/aggregate/test'
+import migrationsComponent from '@convex-dev/migrations/test'
+import { convexTest as createConvexTest } from 'convex-test'
+import { describe, test, expect, vi } from 'vitest'
 import schema from '../schema'
-import { api } from '../_generated/api'
+import { api, internal } from '../_generated/api'
 
 const modules = import.meta.glob('../**/*.*s')
+
+function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
+  const t = createConvexTest(schemaDefinition, moduleFiles)
+  aggregateComponent.register(t, 'runCounts')
+  migrationsComponent.register(t)
+  return t
+}
 
 const baseJob = {
   name: 'run-job',
@@ -100,6 +109,15 @@ describe('runs', () => {
 
     const run = await t.query(api.runs.get, { id })
     expect(run?.status).toBe('running')
+  })
+
+  test('markRunning throws when run does not exist', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.run(async ctx => ctx.db.delete(id))
+
+    await expect(t.mutation(api.runs.markRunning, { id })).rejects.toThrow(/not found/)
   })
 
   test('complete marks run as completed with output', async () => {
@@ -468,9 +486,103 @@ describe('runs', () => {
     await t.mutation(api.runs.complete, { id: id1 })
     await t.mutation(api.runs.fail, { id: id2, error: 'err' })
 
-    const counts = await t.query(api.runs.countsByJob)
+    const counts = await t.query(api.runs.countsByJob, { jobIds: [jobId] })
     expect(counts[jobId]?.total).toBe(2)
     expect(counts[jobId]?.completed).toBe(1)
     expect(counts[jobId]?.failed).toBe(1)
+  })
+
+  test('countsByJob bounds the requested job set', async () => {
+    const t = convexTest(schema, modules)
+    expect(await t.query(api.runs.countsByJob, { jobIds: [] })).toEqual({})
+
+    const jobIds = []
+    for (let index = 0; index <= 100; index++) {
+      jobIds.push(
+        await t.mutation(api.jobs.create, {
+          ...baseJob,
+          name: `bounded-count-job-${index}`,
+        })
+      )
+    }
+
+    await expect(t.query(api.runs.countsByJob, { jobIds })).rejects.toThrow(/at most 100/)
+  })
+
+  test('countsByJob stays exact across terminal transitions and cleanup', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const completedId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    const failedId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    const cancelledId = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+    await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
+
+    await t.mutation(api.runs.complete, { id: completedId })
+    await t.mutation(api.runs.fail, { id: failedId, error: 'err' })
+    await t.mutation(api.runs.cancel, { id: cancelledId })
+
+    expect((await t.query(api.runs.countsByJob, { jobIds: [jobId] }))[jobId]).toEqual({
+      total: 4,
+      completed: 1,
+      failed: 1,
+    })
+
+    const cleanup = await t.mutation(api.runs.cleanup, { olderThanDays: -1 })
+    expect(cleanup.deleted).toBe(3)
+    expect((await t.query(api.runs.countsByJob, { jobIds: [jobId] }))[jobId]).toEqual({
+      total: 1,
+      completed: 0,
+      failed: 0,
+    })
+  })
+
+  test('bounded backfill returns exact counts beyond 1,000 runs including an older job', async () => {
+    const t = convexTest(schema, modules)
+    const olderJobId = await t.mutation(api.jobs.create, baseJob)
+    const newerJobId = await t.mutation(api.jobs.create, {
+      ...baseJob,
+      name: 'newer-run-job',
+    })
+
+    await t.run(async ctx => {
+      await ctx.db.insert('runs', {
+        jobId: olderJobId,
+        status: 'completed',
+        triggeredBy: 'manual',
+        startedAt: 1,
+      })
+      await ctx.db.insert('runs', {
+        jobId: olderJobId,
+        status: 'failed',
+        triggeredBy: 'manual',
+        startedAt: 2,
+      })
+      for (let index = 0; index < 1001; index++) {
+        await ctx.db.insert('runs', {
+          jobId: newerJobId,
+          status: index % 2 === 0 ? 'completed' : 'failed',
+          triggeredBy: 'manual',
+          startedAt: index + 3,
+        })
+      }
+    })
+
+    await expect(
+      t.query(api.runs.countsByJob, { jobIds: [olderJobId, newerJobId] })
+    ).rejects.toThrow(/still being backfilled/)
+
+    vi.useFakeTimers()
+    try {
+      await t.mutation(internal.migrations.runBackfillRunCounts, {})
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+    } finally {
+      vi.useRealTimers()
+    }
+
+    const counts = await t.query(api.runs.countsByJob, {
+      jobIds: [olderJobId, newerJobId],
+    })
+    expect(counts[olderJobId]).toEqual({ total: 2, completed: 1, failed: 1 })
+    expect(counts[newerJobId]).toEqual({ total: 1001, completed: 501, failed: 500 })
   })
 })

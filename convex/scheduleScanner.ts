@@ -7,6 +7,7 @@ import {
 } from './lib/constants'
 import { isPendingOrRunning } from './lib/domain'
 import { incrementStat } from './lib/stats'
+import { insertRun, patchRun, type RunWriteCtx } from './lib/runStore'
 
 import type { GenericDatabaseWriter } from 'convex/server'
 import type { DataModel, Id } from './_generated/dataModel'
@@ -46,7 +47,7 @@ async function advanceSchedule(
 }
 
 async function processSchedule(
-  ctx: { db: GenericDatabaseWriter<DataModel> },
+  ctx: RunWriteCtx,
   schedule: ScheduleRecord,
   now: number
 ): Promise<{ runCreated: boolean; scheduleUpdated: boolean }> {
@@ -71,7 +72,7 @@ async function processSchedule(
     return { runCreated: false, scheduleUpdated: true }
   }
 
-  await ctx.db.insert('runs', {
+  await insertRun(ctx, {
     jobId: schedule.jobId,
     scheduleId: schedule._id,
     status: 'pending',
@@ -114,12 +115,12 @@ interface StaleRunRecord {
  * from a normal failure everywhere else in the app.
  */
 async function reapRun(
-  ctx: { db: GenericDatabaseWriter<DataModel> },
+  ctx: RunWriteCtx,
   run: StaleRunRecord,
   thresholdMs: number,
   now: number
 ): Promise<void> {
-  await ctx.db.patch('runs', run._id, {
+  await patchRun(ctx, run._id, {
     status: 'failed',
     error: `Run exceeded the stuck-run threshold (${thresholdMs}ms) without completing and was reaped automatically`,
     completedAt: now,
@@ -178,10 +179,7 @@ async function staleRunThresholdMs(
  * disabling the schedule (see issue #339). This reaper fails those runs so
  * schedules can dispatch again.
  */
-async function reapStaleRuns(
-  ctx: { db: GenericDatabaseWriter<DataModel> },
-  now: number
-): Promise<number> {
+async function reapStaleRuns(ctx: RunWriteCtx, now: number): Promise<number> {
   let reaped = 0
 
   for (const status of ['pending', 'running'] as const) {
@@ -315,7 +313,7 @@ export const markSnapshotsDue = internalMutation({
     }
 
     // Create one pending run (input carries the account list for the IPC layer)
-    await ctx.db.insert('runs', {
+    await insertRun(ctx, {
       jobId: snapshotJob._id,
       status: 'pending',
       triggeredBy: 'schedule',

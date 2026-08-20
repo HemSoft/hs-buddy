@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.949] - 2026-08-20
+
+### Fixed
+
+- Return exact per-job counts
+
 ## [0.1.948] - 2026-08-20
 
 ### Changed

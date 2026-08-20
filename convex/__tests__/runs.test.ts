@@ -46,6 +46,51 @@ describe('runs', () => {
     await expect(t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })).rejects.toThrow()
   })
 
+  test('create rejects a missing schedule before inserting a run or incrementing stats', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const scheduleId = await t.mutation(api.schedules.create, {
+      jobId,
+      name: 'deleted-schedule',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+    await t.run(async ctx => {
+      await ctx.db.delete(scheduleId)
+    })
+
+    await expect(
+      t.mutation(api.runs.create, { jobId, scheduleId, triggeredBy: 'schedule' })
+    ).rejects.toThrow(/Schedule .* not found/)
+
+    expect(await t.query(api.runs.listRecent, {})).toHaveLength(0)
+    expect((await t.query(api.buddyStats.get)).runsTriggered).toBe(0)
+  })
+
+  test('create rejects a schedule for another job before inserting a run or incrementing stats', async () => {
+    const t = convexTest(schema, modules)
+    const jobId = await t.mutation(api.jobs.create, baseJob)
+    const otherJobId = await t.mutation(api.jobs.create, {
+      ...baseJob,
+      name: 'other-job',
+    })
+    const scheduleId = await t.mutation(api.schedules.create, {
+      jobId: otherJobId,
+      name: 'other-job-schedule',
+      cron: '* * * * *',
+      enabled: false,
+      missedPolicy: 'skip',
+    })
+
+    await expect(
+      t.mutation(api.runs.create, { jobId, scheduleId, triggeredBy: 'schedule' })
+    ).rejects.toThrow(/does not belong to job/)
+
+    expect(await t.query(api.runs.listRecent, {})).toHaveLength(0)
+    expect((await t.query(api.buddyStats.get)).runsTriggered).toBe(0)
+  })
+
   test('markRunning changes status to running', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)

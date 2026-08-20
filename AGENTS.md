@@ -9,19 +9,12 @@
 
 ## Standing Orders
 
-### 1. Credential Attribution Requirement
+### 1. HemSoft Identity Requirement
 
-Default all CLI and workflow token usage to the **`fhemmerrelias`** identity
-unless explicitly overridden by a human.
-
-For GitHub CLI work against **`HemSoft/hs-buddy`**, first run `gh auth status`
-and verify the active account. Repository write operations such as creating
-pull requests, dispatching workflows, or other collaborator-required actions
-must temporarily use the **`HemSoft`** GitHub account because `fhemmerrelias`
-can read the repository but is not a collaborator. After completing the GitHub
-CLI operation, switch back to the previous active account before continuing;
-multiple local processes may be using `gh` concurrently and expect the default
-identity.
+All work against **`HemSoft/hs-buddy`** belongs to the **`HemSoft`** identity.
+Use `HemSoft` exclusively for GitHub CLI and Git operations. Before any GitHub
+CLI operation, run `gh auth status` and verify that `HemSoft` is active. Do not
+switch to or attribute repository work to `fhemmerrelias` or any other account.
 
 ### 2. Risk Acknowledgment for Agent Fixes
 

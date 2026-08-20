@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove SFL review gates
 
+### Fixed
+
+- Validate run schedule ownership (#387)
+
 ## [0.1.947] - 2026-08-20
 
 ### Fixed

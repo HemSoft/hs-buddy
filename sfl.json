@@ -17,7 +17,6 @@
     "repo-audit",
     "sfl-auditor",
     "sfl-dispatcher",
-    "sfl-pr-review-auto",
     "simplisticate"
   ],
   "enginePolicy": {
@@ -30,10 +29,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "issue-processor",
@@ -42,10 +38,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-analyzer-general",
@@ -54,10 +47,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-analyzer-quality",
@@ -66,10 +56,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-analyzer-security",
@@ -78,10 +65,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-analyzer-testing",
@@ -90,10 +74,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-fixer",
@@ -102,10 +83,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "pr-promoter",
@@ -114,10 +92,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "repo-audit",
@@ -126,10 +101,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       },
       {
         "name": "simplisticate",
@@ -138,10 +110,7 @@
         "model": "gpt-5.5",
         "effort": "high",
         "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
+        "requiredSecretsAnyOf": ["CODEX_API_KEY", "OPENAI_API_KEY"]
       }
     ]
   }

@@ -19,11 +19,7 @@ function ignoredPushPaths(): string[] {
   return Array.from(match[1].matchAll(/^ {6}- ['"]([^'"]+)['"]$/gm), ([, path]) => path)
 }
 
-const deploymentOnlyPaths = [
-  '.github/workflows/sfl-pr-review-auto.yml',
-  '.sfl/sfl.json',
-  'sfl.json',
-]
+const deploymentOnlyPaths = ['.sfl/sfl.json', 'sfl.json']
 
 describe('Benchmarks workflow', () => {
   it('skips SFL deployment-only pushes', () => {

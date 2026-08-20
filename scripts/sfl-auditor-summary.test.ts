@@ -12,7 +12,6 @@ interface AuditorCounts {
   orphanedLabels: number
   orphanedPrs: number
   paused: number
-  sflReviewPrerequisites: number
   staleUnclaimed: number
   stalledPrs: number
 }
@@ -22,8 +21,6 @@ const outputExpressions: Record<keyof AuditorCounts, string> = {
   orphanedLabels: '${{ steps.orphaned-labels.outputs.orphaned_labels_fixed }}',
   orphanedPrs: '${{ steps.orphaned-prs.outputs.orphaned_prs_found }}',
   paused: '${{ steps.paused.outputs.unexplained_pause_found }}',
-  sflReviewPrerequisites:
-    '${{ steps.sfl-review-prerequisites.outputs.sfl_review_prerequisites_missing }}',
   staleUnclaimed: '${{ steps.stale-unclaimed.outputs.stale_unclaimed_found }}',
   stalledPrs: '${{ steps.stalled-prs.outputs.stalled_prs_found }}',
 }
@@ -85,7 +82,6 @@ describe('SFL Auditor summary', () => {
       orphanedLabels: 0,
       orphanedPrs: 0,
       paused: 0,
-      sflReviewPrerequisites: 0,
       staleUnclaimed: 0,
       stalledPrs: 0,
     })
@@ -101,7 +97,6 @@ describe('SFL Auditor summary', () => {
 | Stale unclaimed issues flagged | 0 |
 | Stalled draft PRs flagged | 0 |
 | Unexplained pauses flagged | 0 |
-| Missing SFL review prerequisites | 0 |
 
 All checks passed — no discrepancies found.
 `)
@@ -113,7 +108,6 @@ All checks passed — no discrepancies found.
       orphanedLabels: 1,
       orphanedPrs: 0,
       paused: 0,
-      sflReviewPrerequisites: 2,
       staleUnclaimed: 0,
       stalledPrs: 1,
     })
@@ -129,9 +123,8 @@ All checks passed — no discrepancies found.
 | Stale unclaimed issues flagged | 0 |
 | Stalled draft PRs flagged | 1 |
 | Unexplained pauses flagged | 0 |
-| Missing SFL review prerequisites | 2 |
 
-Found or addressed 4 discrepancies.
+Found or addressed 2 discrepancies.
 `)
   })
 })

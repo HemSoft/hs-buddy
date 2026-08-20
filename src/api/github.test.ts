@@ -248,6 +248,69 @@ describe('GitHubClient', () => {
   })
 
   describe('fetchRepoPRs (exercises countApprovals)', () => {
+    it('paginates, deduplicates, and bounds review hydration', async () => {
+      const makeRawPR = (number: number) => ({
+        number,
+        title: `PR ${number}`,
+        state: 'open',
+        user: { login: `author${number}` },
+        html_url: `https://github.com/myorg/repo/pull/${number}`,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-02T00:00:00Z',
+        labels: [],
+        draft: false,
+        head: { ref: `feature-${number}` },
+        base: { ref: 'main' },
+        assignees: [],
+      })
+      const firstPage = Array.from({ length: 100 }, (_, index) => makeRawPR(index + 1))
+      const secondPage = [makeRawPR(100), makeRawPR(101)]
+
+      mockOctokit.pulls.list
+        .mockResolvedValueOnce({ data: firstPage })
+        .mockResolvedValueOnce({ data: secondPage })
+      mockOctokit.paginate.mockImplementation(async (method, params) => {
+        const first = await method({ ...params, page: 1 })
+        const second = await method({ ...params, page: 2 })
+        return [...first.data, ...second.data]
+      })
+      mockOctokit.users.getAuthenticated.mockResolvedValue({ data: { login: 'viewer' } })
+      mockOctokit.pulls.listReviews.mockResolvedValue({ data: [] })
+      mockGraphql.mockResolvedValue({})
+
+      const result = await client.fetchRepoPRs('myorg', 'repo')
+
+      expect(result).toHaveLength(101)
+      expect(result.map(pr => pr.number)).toEqual(
+        Array.from({ length: 101 }, (_, index) => index + 1)
+      )
+      expect(mockOctokit.paginate).toHaveBeenCalledWith(
+        mockOctokit.pulls.list,
+        expect.objectContaining({
+          owner: 'myorg',
+          repo: 'repo',
+          state: 'open',
+          per_page: 100,
+          sort: 'updated',
+          direction: 'desc',
+        })
+      )
+      expect(mockOctokit.pulls.listReviews).toHaveBeenCalledTimes(100)
+      expect(mockGraphql).toHaveBeenCalledTimes(5)
+      expect(mockGraphql.mock.calls.map(([query]) => query).join('\n')).not.toContain(
+        'pullRequest(number: 101)'
+      )
+      expect(result[100]).toMatchObject({
+        number: 101,
+        approvalCount: 0,
+        changesRequestedCount: 0,
+        threadsUnaddressed: null,
+        iApproved: false,
+        reviewStateKnown: false,
+      })
+      expect(result[0].reviewStateKnown).toBe(true)
+    })
+
     it('returns mapped PRs with approval counts', async () => {
       mockOctokit.pulls.list.mockResolvedValue({
         data: [

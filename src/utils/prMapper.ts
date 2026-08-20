@@ -25,6 +25,7 @@ export function mapRepoPRToPullRequest(pr: RepoPullRequest, org: string): PullRe
     approvalCount,
     assigneeCount,
     iApproved,
+    reviewStateKnown: pr.reviewStateKnown,
     created,
     updatedAt: pr.updatedAt,
     headBranch: pr.headBranch,

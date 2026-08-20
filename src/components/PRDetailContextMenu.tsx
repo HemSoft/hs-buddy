@@ -21,6 +21,7 @@ interface PRDetailContextMenuProps {
   x: number
   y: number
   youApproved: boolean
+  reviewStateKnown?: boolean
   copilotReviewState: string
   nudgeState: 'idle' | 'sending' | 'sent' | 'error'
   aiReviewProviders?: AIReviewProviderEntry[]
@@ -41,10 +42,52 @@ function providerIcon(id: string) {
   return <Sparkles size={14} />
 }
 
+function ApprovalMenuItem({
+  youApproved,
+  reviewStateKnown,
+  onApprove,
+}: Pick<PRDetailContextMenuProps, 'youApproved' | 'reviewStateKnown' | 'onApprove'>) {
+  const label =
+    reviewStateKnown === false
+      ? 'Approval Status Unknown'
+      : youApproved
+        ? 'Already Approved'
+        : 'Approve'
+  return (
+    <button type="button" onClick={onApprove} disabled={reviewStateKnown === false || youApproved}>
+      <ThumbsUp size={14} />
+      {label}
+    </button>
+  )
+}
+
+function AIReviewProviderItems({ providers }: { providers: AIReviewProviderEntry[] }) {
+  return providers.flatMap(provider =>
+    provider.id === 'copilot'
+      ? []
+      : [
+          <button
+            type="button"
+            key={provider.id}
+            onClick={provider.onRequest}
+            disabled={provider.state !== 'idle'}
+          >
+            {providerIcon(provider.id)}
+            {provider.state === 'monitoring'
+              ? `Waiting for ${provider.name}…`
+              : provider.state === 'done'
+                ? `${provider.name} review complete!`
+                : `Request ${provider.name} Review`}
+          </button>,
+        ]
+  )
+}
+
 export function PRDetailContextMenu({
   x,
   y,
   youApproved,
+  reviewStateKnown,
   copilotReviewState,
   nudgeState,
   aiReviewProviders = EMPTY_AI_REVIEW_PROVIDERS,
@@ -69,33 +112,16 @@ export function PRDetailContextMenu({
           <Sparkles size={14} />
           Request Copilot Review
         </button>
-        {aiReviewProviders.flatMap(p =>
-          p.id === 'copilot'
-            ? []
-            : [
-                <button
-                  type="button"
-                  key={p.id}
-                  onClick={p.onRequest}
-                  disabled={p.state !== 'idle'}
-                >
-                  {providerIcon(p.id)}
-                  {p.state === 'monitoring'
-                    ? `Waiting for ${p.name}…`
-                    : p.state === 'done'
-                      ? `${p.name} review complete!`
-                      : `Request ${p.name} Review`}
-                </button>,
-              ]
-        )}
+        <AIReviewProviderItems providers={aiReviewProviders} />
         <button type="button" onClick={onStartRalphReview}>
           <RotateCw size={14} />
           Start Ralph PR Review
         </button>
-        <button type="button" onClick={onApprove} disabled={youApproved}>
-          <ThumbsUp size={14} />
-          {youApproved ? 'Already Approved' : 'Approve'}
-        </button>
+        <ApprovalMenuItem
+          youApproved={youApproved}
+          reviewStateKnown={reviewStateKnown}
+          onApprove={onApprove}
+        />
         <button
           type="button"
           onClick={onNudge}

@@ -472,6 +472,7 @@ function mapRawPRToRepoPR(pr: any): RepoPullRequest {
     changesRequestedCount: 0,
     threadsUnaddressed: null,
     iApproved: false,
+    reviewStateKnown: false,
   }
 }
 /* v8 ignore stop */
@@ -963,35 +964,45 @@ export async function fetchRepoPRs(
   state: 'open' | 'closed' = 'open'
 ): Promise<RepoPullRequest[]> {
   const octokit = await getOctokitForOwner(config, owner)
-  const { response, viewerLogin } = await fetchRepoPRPage(octokit, owner, repo, state)
-  const prs: RepoPullRequest[] = response.data.map(mapRawPRToRepoPR)
+  const { rawPRs, viewerLogin } = await fetchAllRepoPRs(octokit, owner, repo, state)
+  const prs = deduplicateRepoPRs(rawPRs.map(mapRawPRToRepoPR))
+  const prsToHydrate = prs.slice(0, REPO_PR_HYDRATION_LIMIT)
 
-  await batchProcess(prs, pr => hydrateRepoPRReviewState(octokit, owner, repo, pr, viewerLogin))
-  await fetchRepoThreadStats(config, owner, repo, prs)
+  await batchProcess(prsToHydrate, pr =>
+    hydrateRepoPRReviewState(octokit, owner, repo, pr, viewerLogin)
+  )
+  await fetchRepoThreadStats(config, owner, repo, prsToHydrate)
 
   return prs
 }
 /* v8 ignore stop */
 
-async function fetchRepoPRPage(
+const REPO_PR_PAGE_SIZE = 100
+const REPO_PR_HYDRATION_LIMIT = 100
+
+async function fetchAllRepoPRs(
   octokit: Octokit,
   owner: string,
   repo: string,
   state: 'open' | 'closed'
 ) {
-  const [response, viewer] = await Promise.all([
-    octokit.pulls.list({
+  const [rawPRs, viewer] = await Promise.all([
+    octokit.paginate(octokit.pulls.list, {
       owner,
       repo,
       state,
-      per_page: 100,
+      per_page: REPO_PR_PAGE_SIZE,
       sort: 'updated',
       direction: 'desc',
     }),
     octokit.users.getAuthenticated().catch(() => null),
   ])
 
-  return { response, viewerLogin: resolveViewerLogin(viewer) }
+  return { rawPRs, viewerLogin: resolveViewerLogin(viewer) }
+}
+
+function deduplicateRepoPRs(prs: RepoPullRequest[]): RepoPullRequest[] {
+  return [...new Map(prs.map(pr => [pr.number, pr])).values()]
 }
 
 function resolveViewerLogin(
@@ -1042,6 +1053,7 @@ function applyRepoPRReviewState(
   pr.approvalCount = approvalCount
   pr.iApproved = iApproved
   pr.changesRequestedCount = countChangesRequestedReviews(reviews)
+  pr.reviewStateKnown = true
 }
 
 function countChangesRequestedReviews(

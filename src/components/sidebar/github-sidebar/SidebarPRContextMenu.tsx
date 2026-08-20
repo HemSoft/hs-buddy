@@ -15,7 +15,12 @@ interface SidebarPRContextMenuProps {
   onClose: () => void
 }
 
-function getApproveLabel(iApproved: boolean, isApproving: boolean): string {
+function getApproveLabel(
+  iApproved: boolean,
+  isApproving: boolean,
+  reviewStateKnown: boolean | undefined
+): string {
+  if (reviewStateKnown === false) return 'Approval Status Unknown'
   if (iApproved) return 'Already Approved'
   return isApproving ? 'Approving…' : 'Approve'
 }
@@ -24,8 +29,12 @@ function getApproveIcon(isApproving: boolean) {
   return isApproving ? <Loader2 size={14} className="spin" /> : <ThumbsUp size={14} />
 }
 
-function isApproveDisabled(iApproved: boolean, isApproving: boolean): boolean {
-  return iApproved || isApproving
+function isApproveDisabled(
+  iApproved: boolean,
+  isApproving: boolean,
+  reviewStateKnown: boolean | undefined
+): boolean {
+  return reviewStateKnown === false || iApproved || isApproving
 }
 
 function getBookmarkKey(pr: PullRequest): string {
@@ -52,7 +61,7 @@ export function SidebarPRContextMenu({
   const prKey = `${pr.source}-${pr.repository}-${pr.id}`
   const isApproving = approvingPrKeys.has(prKey)
   const isBookmarked = bookmarkedRepoKeys.has(getBookmarkKey(pr))
-  const approveDisabled = isApproveDisabled(pr.iApproved, isApproving)
+  const approveDisabled = isApproveDisabled(pr.iApproved, isApproving, pr.reviewStateKnown)
 
   return (
     <>
@@ -78,7 +87,7 @@ export function SidebarPRContextMenu({
           disabled={approveDisabled}
         >
           {getApproveIcon(isApproving)}
-          {getApproveLabel(pr.iApproved, isApproving)}
+          {getApproveLabel(pr.iApproved, isApproving, pr.reviewStateKnown)}
         </button>
         <button type="button" onClick={onBookmark}>
           <Star size={14} fill={isBookmarked ? 'currentColor' : 'none'} />

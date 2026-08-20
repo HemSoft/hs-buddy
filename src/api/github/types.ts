@@ -16,4 +16,5 @@ export interface RepoPullRequest {
   changesRequestedCount: number
   threadsUnaddressed: number | null
   iApproved: boolean
+  reviewStateKnown?: boolean
 }

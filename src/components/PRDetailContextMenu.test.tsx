@@ -71,6 +71,11 @@ describe('PRDetailContextMenu', () => {
     expect(screen.getByText('Already Approved').closest('button')).toBeDisabled()
   })
 
+  it('disables approval when review state is unknown', () => {
+    renderMenu({ reviewStateKnown: false })
+    expect(screen.getByText('Approval Status Unknown').closest('button')).toBeDisabled()
+  })
+
   it('disables nudge when sending', () => {
     renderMenu({ nudgeState: 'sending' })
     expect(screen.getByText('Nudge Author via Slack').closest('button')).toBeDisabled()

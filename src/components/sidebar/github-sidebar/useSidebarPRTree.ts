@@ -169,7 +169,7 @@ export function useSidebarPRTree({ accounts, enqueueRef }: UseSidebarPRTreeOptio
 
   const handleApprovePR = useCallback(
     async (pr: PullRequest) => {
-      if (pr.iApproved) return
+      if (pr.iApproved || pr.reviewStateKnown === false) return
       const resolved = resolvePROwnerRepo(pr)
       /* v8 ignore start */
       if (!resolved) return

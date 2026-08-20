@@ -101,6 +101,26 @@ describe('SidebarPRContextMenu', () => {
     expect(screen.getByRole('button', { name: /already approved/i })).toBeDisabled()
   })
 
+  it('disables approval when review state was not hydrated', () => {
+    render(
+      <SidebarPRContextMenu
+        pr={{ ...basePr, reviewStateKnown: false }}
+        x={0}
+        y={0}
+        approvingPrKeys={new Set<string>()}
+        bookmarkedRepoKeys={new Set()}
+        onOpen={vi.fn()}
+        onCopyLink={vi.fn()}
+        onAIReview={vi.fn()}
+        onApprove={vi.fn().mockResolvedValue(undefined)}
+        onBookmark={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+
+    expect(screen.getByRole('button', { name: /approval status unknown/i })).toBeDisabled()
+  })
+
   it('handles pr.org being undefined by using empty string in bookmark key', () => {
     const prNoOrg = { ...basePr, org: undefined } as unknown as typeof basePr
     render(

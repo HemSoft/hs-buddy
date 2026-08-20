@@ -3,6 +3,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { usePRListData } from './usePRListData'
 import { dataCache } from '../../services/dataCache'
 import type { PullRequest } from '../../types/pullRequest'
+import { getPRCacheKey } from '../../utils/prCacheKey'
 
 const {
   mockGitHubClient,
@@ -71,6 +72,7 @@ vi.mock('../../hooks/useTaskQueue', () => ({
 }))
 
 const account = { username: 'alice', org: 'relias-engineering' }
+const cacheKey = (mode: 'my-prs' | 'needs-review') => getPRCacheKey(mode, [account])
 
 const makePR = (overrides: Partial<PullRequest> = {}): PullRequest => ({
   source: 'GitHub',
@@ -144,7 +146,7 @@ describe('usePRListData', () => {
   it('uses fresh cached data and reacts to cache subscription updates', async () => {
     const onCountChange = vi.fn()
     const cachedPr = makePR({ id: 1, repository: 'alpha' })
-    dataCache.set('my-prs', [cachedPr], Date.now())
+    dataCache.set(cacheKey('my-prs'), [cachedPr], Date.now())
 
     const { result } = renderHook(() => usePRListData('my-prs', onCountChange))
 
@@ -154,11 +156,48 @@ describe('usePRListData', () => {
 
     const updatedPr = makePR({ id: 2, repository: 'beta' })
     act(() => {
-      dataCache.set('my-prs', [updatedPr], Date.now())
+      dataCache.set(cacheKey('my-prs'), [updatedPr], Date.now())
     })
 
     await waitFor(() => expect(result.current.prs).toEqual([updatedPr]))
     expect(onCountChange).toHaveBeenCalledWith(1)
+    expect(mockFetchMyPRs).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['add', [account, { username: 'bob', org: 'other-org' }]],
+    ['remove', [{ username: 'bob', org: 'other-org' }]],
+    ['replace', [{ username: 'carol', org: 'replacement-org' }]],
+  ] as const)('fetches a new cache scope when accounts %s', async (_transition, nextAccounts) => {
+    const oldPr = makePR({ repository: 'old-account-data' })
+    const newPr = makePR({ repository: 'new-account-data' })
+    dataCache.set(getPRCacheKey('my-prs', [account]), [oldPr], Date.now())
+    mockFetchMyPRs.mockResolvedValue([newPr])
+
+    const { result, rerender } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toEqual([oldPr]))
+
+    mockUseGitHubAccounts.mockReturnValue({ accounts: nextAccounts, loading: false })
+    rerender()
+
+    await waitFor(() => expect(result.current.prs).toEqual([newPr]))
+    expect(mockFetchMyPRs).toHaveBeenCalled()
+  })
+
+  it('reuses a cache when the account set order changes', async () => {
+    const first = { username: 'alice', org: 'relias-engineering' }
+    const second = { username: 'bob', org: 'other-org' }
+    const cachedPr = makePR({ repository: 'stable-account-set' })
+    mockUseGitHubAccounts.mockReturnValue({ accounts: [first, second], loading: false })
+    dataCache.set(getPRCacheKey('my-prs', [first, second]), [cachedPr], Date.now())
+
+    const { result, rerender } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(result.current.prs).toEqual([cachedPr]))
+
+    mockUseGitHubAccounts.mockReturnValue({ accounts: [second, first], loading: false })
+    rerender()
+
+    expect(result.current.prs).toEqual([cachedPr])
     expect(mockFetchMyPRs).not.toHaveBeenCalled()
   })
 
@@ -181,7 +220,7 @@ describe('usePRListData', () => {
     ])
     expect(onCountChange).toHaveBeenCalledWith(3)
     expect(mockGitHubClient).toHaveBeenCalledWith({ accounts: [account] }, 14)
-    expect(dataCache.get<PullRequest[]>('my-prs')?.data).toHaveLength(3)
+    expect(dataCache.get<PullRequest[]>(cacheKey('my-prs'))?.data).toHaveLength(3)
   })
 
   it('uses data that becomes fresh while the fetch is queued', async () => {
@@ -207,7 +246,7 @@ describe('usePRListData', () => {
     const { result } = renderHook(() => usePRListData('my-prs'))
     await waitFor(() => expect(runQueuedTask).toBeDefined())
 
-    dataCache.set('my-prs', [cachedPr], Date.now())
+    dataCache.set(cacheKey('my-prs'), [cachedPr], Date.now())
     await act(async () => {
       await runQueuedTask?.()
     })
@@ -242,7 +281,7 @@ describe('usePRListData', () => {
     })
 
     expect(result.current.prs).toEqual([currentPr])
-    expect(dataCache.get<PullRequest[]>('my-prs')).toBeNull()
+    expect(dataCache.get<PullRequest[]>(cacheKey('my-prs'))).toBeNull()
   })
 
   it('does not start a duplicate fetch while one is in progress', () => {
@@ -284,7 +323,7 @@ describe('usePRListData', () => {
   })
 
   it('handles manual refresh and mode-specific fetchers', async () => {
-    dataCache.set('needs-review', [makePR({ id: 1 })], Date.now())
+    dataCache.set(cacheKey('needs-review'), [makePR({ id: 1 })], Date.now())
     mockFetchNeedsReview.mockResolvedValue([makePR({ id: 2, repository: 'review-repo' })])
 
     const { result } = renderHook(() => usePRListData('needs-review'))
@@ -435,7 +474,7 @@ describe('usePRListData', () => {
 
   it('approves a PR, updates cache, and closes the context menu when approving from the menu', async () => {
     const cachedPr = makePR()
-    dataCache.set('my-prs', [cachedPr], Date.now() - 16 * 60_000)
+    dataCache.set(cacheKey('my-prs'), [cachedPr], Date.now() - 16 * 60_000)
     mockFetchMyPRs.mockResolvedValue([cachedPr])
 
     const { result } = renderHook(() => usePRListData('my-prs'))
@@ -453,7 +492,7 @@ describe('usePRListData', () => {
         approvalCount: 2,
       })
     )
-    expect(dataCache.get<PullRequest[]>('my-prs')?.data[0]).toEqual(
+    expect(dataCache.get<PullRequest[]>(cacheKey('my-prs'))?.data[0]).toEqual(
       expect.objectContaining({
         iApproved: true,
         approvalCount: 2,
@@ -587,7 +626,7 @@ describe('usePRListData', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockApprovePullRequest.mockRejectedValueOnce(new Error('forbidden'))
     const pr = makePR()
-    dataCache.set('my-prs', [pr], Date.now() - 16 * 60_000)
+    dataCache.set(cacheKey('my-prs'), [pr], Date.now() - 16 * 60_000)
     mockFetchMyPRs.mockResolvedValue([pr])
 
     const { result } = renderHook(() => usePRListData('my-prs'))
@@ -635,7 +674,7 @@ describe('usePRListData', () => {
     })
 
     const pr = makePR()
-    dataCache.set('my-prs', [pr], Date.now())
+    dataCache.set(cacheKey('my-prs'), [pr], Date.now())
     const { result } = renderHook(() => usePRListData('my-prs'))
 
     act(() => {
@@ -697,7 +736,7 @@ describe('usePRListData', () => {
 
   it('shows refreshing state for existing data on stale cache', async () => {
     const cachedPr = makePR({ id: 1 })
-    dataCache.set('my-prs', [cachedPr], Date.now() - 16 * 60_000)
+    dataCache.set(cacheKey('my-prs'), [cachedPr], Date.now() - 16 * 60_000)
     mockFetchMyPRs.mockResolvedValue([cachedPr])
 
     const { result } = renderHook(() => usePRListData('my-prs'))
@@ -1234,13 +1273,13 @@ describe('usePRListData', () => {
 
   it('ignores cache subscription updates for different modes', async () => {
     const onCountChange = vi.fn()
-    dataCache.set('my-prs', [makePR({ id: 1 })], Date.now())
+    dataCache.set(cacheKey('my-prs'), [makePR({ id: 1 })], Date.now())
 
     const { result } = renderHook(() => usePRListData('my-prs', onCountChange))
     onCountChange.mockClear()
 
     act(() => {
-      dataCache.set('needs-review', [makePR({ id: 99 })], Date.now())
+      dataCache.set(cacheKey('needs-review'), [makePR({ id: 99 })], Date.now())
     })
 
     expect(result.current.prs).toEqual([makePR({ id: 1 })])
@@ -1268,7 +1307,7 @@ describe('usePRListData', () => {
 
   it('markApproved skips item already approved in state', async () => {
     const pr = makePR({ iApproved: true, approvalCount: 2 })
-    dataCache.set('my-prs', [pr], Date.now())
+    dataCache.set(cacheKey('my-prs'), [pr], Date.now())
 
     const { result } = renderHook(() => usePRListData('my-prs'))
     expect(result.current.prs[0].iApproved).toBe(true)
@@ -1327,7 +1366,7 @@ describe('usePRListData', () => {
     })
 
     const pr = makePR()
-    dataCache.set('my-prs', [pr], Date.now())
+    dataCache.set(cacheKey('my-prs'), [pr], Date.now())
     const { result } = renderHook(() => usePRListData('my-prs'))
 
     act(() => {

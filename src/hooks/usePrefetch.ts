@@ -21,6 +21,7 @@ import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError } from '../utils/errorUtils'
+import { getAccountSetFingerprint, getPRCacheKey, getPRTaskName } from '../utils/prCacheKey'
 
 async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
   switch (mode) {
@@ -55,14 +56,19 @@ type EnqueueIfStaleFn = (
   fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
 ) => void
 
-function enqueuePRModes(enqueueIfStale: EnqueueIfStaleFn, label: string): void {
+function enqueuePRModes(
+  enqueueIfStale: EnqueueIfStaleFn,
+  label: string,
+  accounts: { username: string; org: string }[]
+): void {
   for (const mode of PR_MODES) {
-    const taskName = `${label.toLowerCase()}-${mode}`
-    enqueueIfStale(mode, taskName, async (_signal, client) => {
+    const cacheKey = getPRCacheKey(mode, accounts)
+    const taskName = getPRTaskName(label, mode, accounts)
+    enqueueIfStale(cacheKey, taskName, async (_signal, client) => {
       const prs = await fetchPrefetchPRs(client, mode)
       sortPrefetchPRs(mode, prs)
-      dataCache.set(mode, prs)
-      console.log(`[${label}] ${mode}: fetched ${prs.length} PRs`)
+      dataCache.set(cacheKey, prs)
+      console.log(`[${label}] ${cacheKey}: fetched ${prs.length} PRs`)
     })
   }
 }
@@ -91,7 +97,7 @@ export function usePrefetch(): void {
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { refreshInterval, recentlyMergedDays, loading: settingsLoading } = usePRSettings()
   const { enqueue } = useTaskQueue('github')
-  const prefetchedRef = useRef(false)
+  const prefetchedAccountSetRef = useRef<string | null>(null)
 
   // Stable refs to avoid re-triggering effects
   const enqueueRef = useRef(enqueue)
@@ -139,7 +145,7 @@ export function usePrefetch(): void {
           })
       }
 
-      enqueuePRModes(enqueueIfStale, label)
+      enqueuePRModes(enqueueIfStale, label, accounts)
       enqueueOrgRepos(enqueueIfStale, label, accounts)
     },
     [accounts, recentlyMergedDays]
@@ -148,10 +154,11 @@ export function usePrefetch(): void {
   // --- Initial prefetch (runs once on startup) ---
   useEffect(() => {
     if (accountsLoading || settingsLoading || accounts.length === 0) return
+    const accountSetFingerprint = getAccountSetFingerprint(accounts)
     /* v8 ignore start */
-    if (prefetchedRef.current) return
+    if (prefetchedAccountSetRef.current === accountSetFingerprint) return
     /* v8 ignore stop */
-    prefetchedRef.current = true
+    prefetchedAccountSetRef.current = accountSetFingerprint
 
     const intervalMs = refreshInterval * MS_PER_MINUTE
 
@@ -173,7 +180,9 @@ export function usePrefetch(): void {
     // Check every 30 seconds if any data has gone stale
     const timer = setInterval(() => {
       // Quick check: is any PR data stale?
-      const anyStale = PR_MODES.some(mode => !dataCache.isFresh(mode, intervalMs))
+      const anyStale = PR_MODES.some(
+        mode => !dataCache.isFresh(getPRCacheKey(mode, accounts), intervalMs)
+      )
       if (anyStale) {
         console.log(`[AutoRefresh] Stale data detected, refreshing (interval: ${refreshInterval}m)`)
         refreshStaleData(intervalMs, 'AutoRefresh')

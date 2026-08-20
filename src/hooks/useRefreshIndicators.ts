@@ -35,7 +35,8 @@ function extractDataSourceKey(taskName: string): string {
   // which become 'prefetch-' and 'autorefresh-' via .toLowerCase())
   for (const prefix of ['prefetch-', 'autorefresh-']) {
     if (taskName.startsWith(prefix)) {
-      return taskName.slice(prefix.length)
+      const key = taskName.slice(prefix.length)
+      return key.replace(/^(my-prs|needs-review|recently-merged|need-a-nudge):.*$/, '$1')
     }
   }
   return taskName

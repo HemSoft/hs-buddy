@@ -15,6 +15,7 @@ import { formatTime } from '../../utils/dateUtils'
 import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
+import { getPRCacheKey } from '../../utils/prCacheKey'
 
 function applyCachedPRs(
   data: PullRequest[],
@@ -89,9 +90,9 @@ function markApproved(items: PullRequest[], pr: PullRequest): PullRequest[] {
   )
 }
 
-function getFreshCachedData(mode: string, refreshInterval: number): PullRequest[] | null {
+function getFreshCachedData(cacheKey: string, refreshInterval: number): PullRequest[] | null {
   /* v8 ignore start */
-  const cached = dataCache.get<PullRequest[]>(mode)
+  const cached = dataCache.get<PullRequest[]>(cacheKey)
   if (!cached) return null
   const intervalMs = refreshInterval * MS_PER_MINUTE
   return Date.now() - cached.fetchedAt < intervalMs ? cached.data : null
@@ -138,6 +139,7 @@ interface FetchStateSetters {
 
 interface FetchLifecycleParams extends FetchStateSetters {
   mode: PRSearchMode
+  cacheKey: string
   accounts: ReturnType<typeof useGitHubAccounts>['accounts']
   recentlyMergedDays: number
   refreshInterval: number
@@ -191,6 +193,7 @@ function resetPRFetchState(
 
 async function enqueuePRListFetch({
   mode,
+  cacheKey,
   refreshInterval,
   forceRefresh,
   enqueueTask,
@@ -200,6 +203,7 @@ async function enqueuePRListFetch({
 }: Pick<
   FetchLifecycleParams,
   | 'mode'
+  | 'cacheKey'
   | 'refreshInterval'
   | 'forceRefresh'
   | 'enqueueTask'
@@ -219,7 +223,7 @@ async function enqueuePRListFetch({
   )
   return enqueueTask(
     async signal => {
-      const freshData = forceRefresh > 0 ? null : getFreshCachedData(mode, refreshInterval)
+      const freshData = forceRefresh > 0 ? null : getFreshCachedData(cacheKey, refreshInterval)
       if (freshData) {
         console.log(`[PullRequestList] Skipping fetch for ${mode} — data became fresh while queued`)
         return freshData
@@ -234,7 +238,10 @@ async function enqueuePRListFetch({
 function applyPRFetchSuccess(
   results: PullRequest[],
   currentFetchId: number,
-  params: Pick<FetchLifecycleParams, 'fetchIdRef' | 'mode' | 'setPrs' | 'onCountChangeRef'>
+  params: Pick<
+    FetchLifecycleParams,
+    'fetchIdRef' | 'mode' | 'cacheKey' | 'setPrs' | 'onCountChangeRef'
+  >
 ): void {
   if (currentFetchId !== params.fetchIdRef.current) {
     console.log('Ignoring stale fetch result for', params.mode)
@@ -243,7 +250,7 @@ function applyPRFetchSuccess(
   console.log('Found PRs:', results.length)
   sortPRResults(results, params.mode)
   applyFetchResults(results, params.setPrs, params.onCountChangeRef)
-  dataCache.set(params.mode, results)
+  dataCache.set(params.cacheKey, results)
 }
 
 function finishPRFetch(
@@ -295,7 +302,7 @@ interface PRContextMenuDeps {
   premiumModel: string
   setPrs: React.Dispatch<React.SetStateAction<PullRequest[]>>
   setApproving: (v: string | null) => void
-  mode: PRSearchMode
+  cacheKey: string
 }
 
 type RepoBookmark = NonNullable<ReturnType<typeof useRepoBookmarks>>[number]
@@ -386,7 +393,7 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
     premiumModel,
     setPrs,
     setApproving,
-    mode,
+    cacheKey,
   } = deps
 
   const handleBookmarkRepo = useCallback(async () => {
@@ -474,13 +481,13 @@ function usePRContextMenuActions(deps: PRContextMenuDeps) {
         pr,
         accounts,
         recentlyMergedDays,
-        mode,
+        cacheKey,
         enqueueRef,
         setPrs,
         setApproving
       )
     },
-    [accounts, mode, recentlyMergedDays, enqueueRef, setPrs, setApproving]
+    [accounts, recentlyMergedDays, cacheKey, enqueueRef, setPrs, setApproving]
   )
 
   const handleApproveFromMenu = useCallback(async () => {
@@ -504,7 +511,7 @@ async function approveListPullRequest(
   pr: PullRequest,
   accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
   recentlyMergedDays: number,
-  mode: PRSearchMode,
+  cacheKey: string,
   enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
   setPrs: Dispatch<SetStateAction<PullRequest[]>>,
   setApproving: (value: string | null) => void
@@ -516,7 +523,7 @@ async function approveListPullRequest(
   setApproving(`${pr.repository}-${pr.id}`)
   try {
     await enqueueApprovalTask(pr, ownerRepo, accounts, recentlyMergedDays, enqueueRef)
-    markPRApprovedInState(pr, mode, setPrs)
+    markPRApprovedInState(pr, cacheKey, setPrs)
   } catch (error: unknown) {
     console.error('Failed to approve PR:', error)
   } finally {
@@ -543,16 +550,18 @@ async function enqueueApprovalTask(
 
 function markPRApprovedInState(
   pr: PullRequest,
-  mode: PRSearchMode,
+  cacheKey: string,
   setPrs: Dispatch<SetStateAction<PullRequest[]>>
 ): void {
   setPrs(prev => markApproved(prev, pr))
-  const cached = dataCache.get<PullRequest[]>(mode)
-  if (cached?.data) dataCache.set(mode, markApproved(cached.data, pr))
+  const cached = dataCache.get<PullRequest[]>(cacheKey)
+  if (cached?.data) dataCache.set(cacheKey, markApproved(cached.data, pr))
 }
 
 export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number) => void) {
-  const cachedEntry = dataCache.get<PullRequest[]>(mode)
+  const { accounts, loading: accountsLoading } = useGitHubAccounts()
+  const cacheKey = getPRCacheKey(mode, accounts)
+  const cachedEntry = dataCache.get<PullRequest[]>(cacheKey)
   const [prs, setPrs] = useState<PullRequest[]>(cachedEntry?.data || [])
   const [loading, setLoading] = useState(!cachedEntry?.data)
   const [refreshing, setRefreshing] = useState(false)
@@ -569,7 +578,6 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     null
   )
   const [approving, setApproving] = useState<string | null>(null)
-  const { accounts, loading: accountsLoading } = useGitHubAccounts()
   const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
   const { premiumModel } = useCopilotSettings()
   const bookmarks = useRepoBookmarks()
@@ -578,6 +586,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   const fetchIdRef = useRef(0)
   const fetchInProgressRef = useRef(false)
   const totalPrsFoundRef = useRef(0)
+  const previousCacheKeyRef = useRef(cacheKey)
 
   const setTotalPrsFound = useCallback((value: number) => {
     totalPrsFoundRef.current = value
@@ -596,8 +605,8 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
 
   useEffect(() => {
     const unsubscribe = dataCache.subscribe(key => {
-      if (key === mode) {
-        const updated = dataCache.get<PullRequest[]>(mode)
+      if (key === cacheKey) {
+        const updated = dataCache.get<PullRequest[]>(cacheKey)
         /* v8 ignore start */
         if (updated?.data) {
           /* v8 ignore stop */
@@ -609,11 +618,11 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       }
     })
     return unsubscribe
-  }, [mode, onCountChangeRef])
+  }, [cacheKey, onCountChangeRef])
 
   useEffect(() => {
     const updateTimesDisplay = () => {
-      const cached = dataCache.get<PullRequest[]>(mode)
+      const cached = dataCache.get<PullRequest[]>(cacheKey)
       if (cached && refreshInterval) {
         const now = Date.now()
         const lastUpdated = formatTime(cached.fetchedAt, { hour12: true, numeric: true })
@@ -630,7 +639,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     updateTimesDisplay()
     const interval = setInterval(updateTimesDisplay, 5000)
     return () => clearInterval(interval)
-  }, [mode, prs, refreshInterval])
+  }, [cacheKey, prs, refreshInterval])
 
   const handleProgress: ProgressCallback = useCallback(
     p => {
@@ -676,7 +685,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     premiumModel,
     setPrs,
     setApproving,
-    mode,
+    cacheKey,
   })
 
   useEffect(() => {
@@ -698,8 +707,18 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
       console.log(`Skipping duplicate fetch for ${mode} - fetch already in progress`)
       return
     }
-    const cached = dataCache.get<PullRequest[]>(mode)
-    const currentPrs = prsRef.current
+    const cacheScopeChanged = previousCacheKeyRef.current !== cacheKey
+    if (cacheScopeChanged) {
+      previousCacheKeyRef.current = cacheKey
+      const scopedCache = dataCache.get<PullRequest[]>(cacheKey)
+      setPrs(scopedCache?.data ?? [])
+      setLoading(!scopedCache?.data)
+      setRefreshing(false)
+      setError(null)
+      setTotalPrsFound(0)
+    }
+    const cached = dataCache.get<PullRequest[]>(cacheKey)
+    const currentPrs = cacheScopeChanged ? [] : prsRef.current
     const enqueueTask = enqueueRef.current
     const cancelQueuedTasks = cancelAllRef.current
     if (
@@ -718,6 +737,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     void runPRListFetch(
       {
         mode,
+        cacheKey,
         accounts,
         recentlyMergedDays,
         refreshInterval,
@@ -744,6 +764,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     }
   }, [
     mode,
+    cacheKey,
     accounts,
     accountsLoading,
     recentlyMergedDays,

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { usePrefetch } from './usePrefetch'
+import { getPRCacheKey } from '../utils/prCacheKey'
 
 const {
   mockUseGitHubAccounts,
@@ -158,13 +159,27 @@ describe('usePrefetch', () => {
     expect(mockEnqueue).not.toHaveBeenCalled()
   })
 
-  it('only prefetches once on startup (prefetchedRef guard)', () => {
+  it('only prefetches once for the same account set', () => {
     const { rerender } = renderHook(() => usePrefetch())
     const firstCallCount = mockEnqueue.mock.calls.length
 
     // Rerender should not trigger another prefetch
     rerender()
     expect(mockEnqueue.mock.calls.length).toBe(firstCallCount)
+  })
+
+  it('prefetches immediately after the account set changes', () => {
+    const { rerender } = renderHook(() => usePrefetch())
+    mockEnqueue.mockClear()
+
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [account, { username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    rerender()
+
+    // 4 PR modes + 2 unique orgs = 6
+    expect(mockEnqueue).toHaveBeenCalledTimes(6)
   })
 
   it('enqueues fetch with low priority options', () => {
@@ -235,7 +250,9 @@ describe('usePrefetch', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     // Check that dataCache.set was called with sorted PRs for my-prs
-    const myPrsCall = mockDataCacheSet.mock.calls.find((call: unknown[]) => call[0] === 'my-prs')
+    const myPrsCall = mockDataCacheSet.mock.calls.find(
+      (call: unknown[]) => call[0] === getPRCacheKey('my-prs', [account])
+    )
     if (myPrsCall) {
       const prs = myPrsCall[1] as Array<{ repository: string; id: number }>
       expect(prs[0].repository).toBe('a-repo')
@@ -354,7 +371,7 @@ describe('usePrefetch', () => {
 
     // Verify needs-review PRs are sorted by repository then id
     const needsReviewCall = mockDataCacheSet.mock.calls.find(
-      (call: unknown[]) => call[0] === 'needs-review'
+      (call: unknown[]) => call[0] === getPRCacheKey('needs-review', [account])
     )
     expect(needsReviewCall).toBeTruthy()
     const prs = needsReviewCall![1] as Array<{ repository: string; id: number }>
@@ -382,7 +399,7 @@ describe('usePrefetch', () => {
 
     // recently-merged should NOT be sorted — original order preserved
     const recentlyMergedCall = mockDataCacheSet.mock.calls.find(
-      (call: unknown[]) => call[0] === 'recently-merged'
+      (call: unknown[]) => call[0] === getPRCacheKey('recently-merged', [account])
     )
     expect(recentlyMergedCall).toBeTruthy()
     const prs = recentlyMergedCall![1] as Array<{ repository: string; id: number }>
@@ -410,7 +427,7 @@ describe('usePrefetch', () => {
 
     // Same repo — should sort by id
     const nudgeCall = mockDataCacheSet.mock.calls.find(
-      (call: unknown[]) => call[0] === 'need-a-nudge'
+      (call: unknown[]) => call[0] === getPRCacheKey('need-a-nudge', [account])
     )
     expect(nudgeCall).toBeTruthy()
     const prs = nudgeCall![1] as Array<{ repository: string; id: number }>

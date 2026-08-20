@@ -119,6 +119,7 @@ describe('usePRListData', () => {
     mockUsePRSettings.mockReturnValue({
       recentlyMergedDays: 14,
       refreshInterval: 15,
+      autoRefresh: true,
       loading: false,
     })
     mockUseRepoBookmarks.mockReturnValue([])
@@ -768,6 +769,7 @@ describe('usePRListData', () => {
     mockUsePRSettings.mockReturnValue({
       recentlyMergedDays: 14,
       refreshInterval: 15,
+      autoRefresh: true,
       loading: true,
     })
 
@@ -1248,6 +1250,7 @@ describe('usePRListData', () => {
     mockUsePRSettings.mockReturnValue({
       recentlyMergedDays: 14,
       refreshInterval: 0,
+      autoRefresh: true,
       loading: false,
     })
     mockFetchMyPRs.mockResolvedValue([])
@@ -1261,12 +1264,48 @@ describe('usePRListData', () => {
     mockUsePRSettings.mockReturnValue({
       recentlyMergedDays: 14,
       refreshInterval: -1,
+      autoRefresh: true,
       loading: false,
     })
     mockFetchMyPRs.mockResolvedValue([])
 
     const { result } = renderHook(() => usePRListData('my-prs'))
     await waitFor(() => expect(result.current.loading).toBe(false))
+  })
+
+  it('toggles the recurring refresh timer without affecting the initial fetch', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: 15,
+      autoRefresh: false,
+      loading: false,
+    })
+    mockFetchMyPRs.mockResolvedValue([])
+
+    const { result, rerender } = renderHook(() => usePRListData('my-prs'))
+    await waitFor(() => expect(mockFetchMyPRs).toHaveBeenCalled())
+    expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 15 * 60_000)).toBe(false)
+
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: 15,
+      autoRefresh: true,
+      loading: false,
+    })
+    rerender()
+    expect(setIntervalSpy.mock.calls.some(([, delay]) => delay === 15 * 60_000)).toBe(true)
+
+    mockUsePRSettings.mockReturnValue({
+      recentlyMergedDays: 14,
+      refreshInterval: 15,
+      autoRefresh: false,
+      loading: false,
+    })
+    rerender()
+    expect(clearIntervalSpy).toHaveBeenCalled()
+    expect(result.current.error).toBeNull()
   })
 
   // --- Branch coverage: cache subscription key mismatch ---

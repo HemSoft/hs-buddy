@@ -95,7 +95,12 @@ function enqueueOrgRepos(
  */
 export function usePrefetch(): void {
   const { accounts, loading: accountsLoading } = useGitHubAccounts()
-  const { refreshInterval, recentlyMergedDays, loading: settingsLoading } = usePRSettings()
+  const {
+    refreshInterval,
+    autoRefresh,
+    recentlyMergedDays,
+    loading: settingsLoading,
+  } = usePRSettings()
   const { enqueue } = useTaskQueue('github')
   const prefetchedAccountSetRef = useRef<string | null>(null)
 
@@ -173,7 +178,7 @@ export function usePrefetch(): void {
 
   // --- Auto-refresh timer (checks every 30s for stale data) ---
   useEffect(() => {
-    if (accountsLoading || settingsLoading || accounts.length === 0) return
+    if (!autoRefresh || accountsLoading || settingsLoading || accounts.length === 0) return
 
     const intervalMs = refreshInterval * MS_PER_MINUTE
 
@@ -190,5 +195,5 @@ export function usePrefetch(): void {
     }, 30_000) // Poll every 30 seconds
 
     return () => clearInterval(timer)
-  }, [accounts, accountsLoading, settingsLoading, refreshInterval, refreshStaleData])
+  }, [accounts, accountsLoading, settingsLoading, autoRefresh, refreshInterval, refreshStaleData])
 }

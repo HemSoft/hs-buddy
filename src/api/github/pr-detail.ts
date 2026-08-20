@@ -95,6 +95,7 @@ interface PRStatusContextSummary {
   createdAt: string | null
   updatedAt: string | null
 }
+type CombinedStatusPage = { data: { state: string; statuses: Array<{ state: string }> } }
 export interface PRChecksSummary {
   headSha: string
   overallState: 'passing' | 'failing' | 'pending' | 'neutral' | 'none'
@@ -766,16 +767,27 @@ export async function fetchPRChecks(
   if (!headSha) {
     throw new Error(`PR #${pullNumber} in ${owner}/${repo} is missing a head SHA`)
   }
-  const [checkRunsResponse, combinedStatusResponse] = await Promise.all([
-    octokit.checks.listForRef({ owner, repo, ref: headSha, per_page: 100 }),
-    octokit.repos.getCombinedStatusForRef({ owner, repo, ref: headSha, per_page: 100 }),
+  let combinedState = 'pending'
+  const [checkRuns, statusContexts] = await Promise.all([
+    octokit.paginate(octokit.checks.listForRef, {
+      owner,
+      repo,
+      ref: headSha,
+      per_page: 100,
+    }),
+    octokit.paginate(
+      octokit.repos.getCombinedStatusForRef,
+      { owner, repo, ref: headSha, per_page: 100 },
+      response => {
+        const page = response as unknown as CombinedStatusPage
+        combinedState = page.data.state
+        return page.data.statuses
+      }
+    ),
   ])
-  const checkRuns: PRCheckRunSummary[] = safeNodes(checkRunsResponse.data.check_runs).map(
-    mapCheckRunToSummary
-  )
-  const statusContexts: PRStatusContextSummary[] = safeNodes(
-    combinedStatusResponse.data.statuses
-  ).map(mapStatusContextToSummary)
+  const checkRunSummaries: PRCheckRunSummary[] = safeNodes(checkRuns).map(mapCheckRunToSummary)
+  const statusContextSummaries: PRStatusContextSummary[] =
+    safeNodes(statusContexts).map(mapStatusContextToSummary)
 
   const {
     total: totalCount,
@@ -789,7 +801,7 @@ export async function fetchPRChecks(
     failed: failedCount,
     pending: pendingCount,
     successful: successfulCount,
-    combinedState: combinedStatusResponse.data.state,
+    combinedState,
   })
   return {
     headSha,
@@ -799,8 +811,8 @@ export async function fetchPRChecks(
     failedCount,
     pendingCount,
     neutralCount,
-    checkRuns,
-    statusContexts,
+    checkRuns: checkRunSummaries,
+    statusContexts: statusContextSummaries,
   }
 }
 /* v8 ignore stop */

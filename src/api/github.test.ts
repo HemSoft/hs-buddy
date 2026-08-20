@@ -191,6 +191,11 @@ describe('GitHubClient', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     clearAllCaches()
+    mockOctokit.paginate.mockImplementation(async (method, params, map) => {
+      const response = await method(params)
+      if (map) return map(response)
+      return response.data.check_runs ?? response.data.statuses ?? response.data
+    })
     // Return token for any account
     mockInvoke.mockImplementation((_channel: string, username: string) => {
       if (_channel === 'github:get-cli-token') return Promise.resolve(`token-${username}`)
@@ -644,6 +649,57 @@ describe('GitHubClient', () => {
       expect(result.totalCount).toBe(2)
       expect(result.successfulCount).toBe(2)
       expect(result.failedCount).toBe(0)
+    })
+
+    it('paginates check runs and status contexts beyond the first page', async () => {
+      mockOctokit.pulls.get.mockResolvedValue({ data: { head: { sha: 'sha1' } } })
+      const firstCheckRuns = Array.from({ length: 100 }, (_, id) => ({
+        id,
+        name: `CI-${id}`,
+        status: 'completed',
+        conclusion: 'success',
+        app: null,
+      }))
+      const secondCheckRuns = [
+        { id: 100, name: 'Late failure', status: 'completed', conclusion: 'failure', app: null },
+      ]
+      const firstStatuses = Array.from({ length: 100 }, (_, id) => ({
+        id,
+        context: `status-${id}`,
+        state: 'success',
+      }))
+      const secondStatuses = [{ id: 100, context: 'late-status-failure', state: 'failure' }]
+
+      mockOctokit.checks.listForRef
+        .mockResolvedValueOnce({ data: { check_runs: firstCheckRuns } })
+        .mockResolvedValueOnce({ data: { check_runs: secondCheckRuns } })
+      mockOctokit.repos.getCombinedStatusForRef
+        .mockResolvedValueOnce({
+          data: { state: 'failure', statuses: firstStatuses },
+        })
+        .mockResolvedValueOnce({
+          data: { state: 'failure', statuses: secondStatuses },
+        })
+      mockOctokit.paginate.mockImplementation(async (method, params, map) => {
+        const first = await method({ ...params, page: 1 })
+        const second = await method({ ...params, page: 2 })
+        return [first, second].flatMap(response =>
+          map
+            ? map(response)
+            : (response.data.check_runs ?? response.data.statuses ?? response.data)
+        )
+      })
+
+      const result = await client.fetchPRChecks('myorg', 'repo', 1)
+
+      expect(result.overallState).toBe('failing')
+      expect(result.totalCount).toBe(202)
+      expect(result.successfulCount).toBe(200)
+      expect(result.failedCount).toBe(2)
+      expect(result.checkRuns).toHaveLength(101)
+      expect(result.statusContexts).toHaveLength(101)
+      expect(mockOctokit.checks.listForRef).toHaveBeenCalledTimes(2)
+      expect(mockOctokit.repos.getCombinedStatusForRef).toHaveBeenCalledTimes(2)
     })
 
     it('returns failing state when any check fails', async () => {

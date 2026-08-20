@@ -163,6 +163,10 @@ describe('main process lifecycle', () => {
     expect(Menu.setApplicationMenu).toHaveBeenCalled()
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()
+
+    await vi.waitFor(() => {
+      expect(mockDispatcher.start).toHaveBeenCalledOnce()
+    })
   })
 
   it('blocks renderer navigation and redirects from replacing the main app UI', async () => {
@@ -364,16 +368,40 @@ describe('main process lifecycle', () => {
     Object.defineProperty(process, 'platform', { value: originalPlatform })
   })
 
-  it('before-quit handler stops dispatcher, shared client, ralph, and races telemetry shutdown', async () => {
+  it('before-quit stops services and blocks delayed offline sync dispatcher restarts', async () => {
     await import('./main')
 
     const { app } = await import('electron')
     const { stopSharedClient } = await import('./services/copilotClient')
     const { shutdownRalphService } = await import('./services/ralphService')
     const { shutdownTelemetry } = await import('./telemetry')
+    const { runOfflineSync } = await import('./workers/offlineSync')
+    const mockRunOfflineSync = vi.mocked(runOfflineSync)
+    const syncResult = {
+      runsCreated: 0,
+      schedulesProcessed: 0,
+      skipped: 0,
+      errors: [],
+    }
+    let resolveSuccess!: (value: typeof syncResult) => void
+    let rejectFailure!: (reason: Error) => void
+    const delayedSuccess = new Promise<typeof syncResult>(resolve => {
+      resolveSuccess = resolve
+    })
+    const delayedFailure = new Promise<typeof syncResult>((_, reject) => {
+      rejectFailure = reject
+    })
+    mockRunOfflineSync
+      .mockImplementationOnce(() => delayedSuccess)
+      .mockImplementationOnce(() => delayedFailure)
+    mockDispatcher.start.mockClear()
 
     const beforeQuitCb = appOnCalls.find(([e]) => e === 'before-quit')?.[1]
     expect(beforeQuitCb).toBeDefined()
+
+    expect(whenReadyCb).not.toBeNull()
+    whenReadyCb!()
+    whenReadyCb!()
 
     // Simulate the event object with preventDefault
     const event = { preventDefault: vi.fn() }
@@ -392,5 +420,12 @@ describe('main process lifecycle', () => {
     await vi.waitFor(() => {
       expect(app.quit).toHaveBeenCalled()
     })
+
+    resolveSuccess(syncResult)
+    rejectFailure(new Error('offline sync failed during shutdown'))
+    await Promise.allSettled([delayedSuccess, delayedFailure])
+    await Promise.resolve()
+
+    expect(mockDispatcher.start).not.toHaveBeenCalled()
   })
 })

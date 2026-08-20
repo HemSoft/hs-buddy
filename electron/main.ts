@@ -308,7 +308,9 @@ app.whenReady().then(() => {
     })
     .finally(() => {
       // Start the task dispatcher (polls Convex for pending runs)
-      getDispatcher().start()
+      if (!isQuitting) {
+        getDispatcher().start()
+      }
     })
 })
 

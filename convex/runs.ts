@@ -106,6 +106,16 @@ export const create = mutation({
       throw notFoundError('Job', args.jobId)
     }
 
+    if (args.scheduleId) {
+      const schedule = await ctx.db.get('schedules', args.scheduleId)
+      if (!schedule) {
+        throw notFoundError('Schedule', args.scheduleId)
+      }
+      if (schedule.jobId !== args.jobId) {
+        throw new Error(`Schedule ${args.scheduleId} does not belong to job ${args.jobId}`)
+      }
+    }
+
     const id = await ctx.db.insert('runs', {
       jobId: args.jobId,
       scheduleId: args.scheduleId,

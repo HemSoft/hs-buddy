@@ -173,6 +173,31 @@ describe('copilotClient', () => {
         'Cancelled'
       )
     })
+
+    it('interrupts a pending send when the abort signal fires', async () => {
+      const { sendPrompt, ensureClientStarted } = await import('./copilotClient')
+      mockGetStatus.mockRejectedValue(new Error('not connected'))
+      mockStart.mockResolvedValue(undefined)
+
+      const mockDisconnect = vi.fn().mockResolvedValue(undefined)
+      const mockSendAndWait = vi.fn(() => new Promise<never>(() => {}))
+      mockCreateSession.mockResolvedValue({
+        sendAndWait: mockSendAndWait,
+        disconnect: mockDisconnect,
+      })
+
+      await ensureClientStarted()
+      mockGetStatus.mockResolvedValue({})
+
+      const controller = new AbortController()
+      const request = sendPrompt({ prompt: 'pending prompt', signal: controller.signal })
+
+      await vi.waitFor(() => expect(mockSendAndWait).toHaveBeenCalledOnce())
+      controller.abort()
+
+      await expect(request).rejects.toThrow('Cancelled during send')
+      expect(mockDisconnect).toHaveBeenCalledOnce()
+    })
   })
 
   describe('sendChatMessage', () => {

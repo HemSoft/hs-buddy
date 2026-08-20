@@ -191,6 +191,37 @@ describe('copilotService', () => {
       const cancelled = service.cancelPrompt(resultId)
       expect(cancelled).toBe(true)
     })
+
+    it('does not persist a completed result after cancellation during send', async () => {
+      mockSendPrompt.mockImplementation(({ signal }: { signal: AbortSignal }) => {
+        return new Promise<string>(resolve => {
+          signal.addEventListener('abort', () => resolve('late response'), {
+            once: true,
+          })
+        })
+      })
+
+      const service = getCopilotService()
+      const { resultId } = await service.executePrompt({
+        prompt: 'cancel this task',
+        category: 'general',
+      })
+
+      await vi.waitFor(() => expect(mockSendPrompt).toHaveBeenCalledOnce())
+      expect(service.cancelPrompt(resultId)).toBe(true)
+
+      await vi.waitFor(() =>
+        expect(mockMutation).toHaveBeenCalledWith(
+          'copilotResults:fail',
+          expect.objectContaining({ id: 'result-id-123' })
+        )
+      )
+      expect(mockMutation).not.toHaveBeenCalledWith('copilotResults:complete', expect.anything())
+      expect(mockMutation).not.toHaveBeenCalledWith(
+        'prReviewRuns:completeByResult',
+        expect.anything()
+      )
+    })
   })
 
   describe('getActiveCount', () => {

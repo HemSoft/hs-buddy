@@ -56,6 +56,10 @@ function toError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err))
 }
 
+function assertNotAborted(signal: AbortSignal, message: string): void {
+  if (signal.aborted) throw new Error(message)
+}
+
 function shouldRetryListModels(error: Error, attempt: number, maxRetries: number): boolean {
   return error.message.includes('not connected') && attempt < maxRetries
 }
@@ -254,6 +258,8 @@ IMPORTANT: Format your entire response as clean, well-structured Markdown. Use h
           timeout: HARD_TIMEOUT,
           signal,
         })) || '*No response received from Copilot SDK.*'
+
+      assertNotAborted(signal, 'Cancelled before completion')
 
       // Store completed result in Convex
       await this.convex.mutation(api.copilotResults.complete, {

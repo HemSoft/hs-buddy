@@ -191,6 +191,39 @@ function assertNotAborted(signal: AbortSignal | undefined, msg: string): void {
 }
 
 /**
+ * Reject an in-flight SDK operation when its request is cancelled.
+ *
+ * The SDK's sendAndWait API does not accept an AbortSignal. The session is
+ * disconnected by the caller's finally block after this race rejects, which
+ * stops the underlying session while allowing the request to return promptly.
+ */
+function raceWithAbort<T>(
+  operation: Promise<T>,
+  signal: AbortSignal | undefined,
+  message: string
+): Promise<T> {
+  if (!signal) return operation
+  if (signal.aborted) return Promise.reject(new Error(message))
+
+  let abortHandler: (() => void) | undefined
+  const abortPromise = new Promise<never>((_, reject) => {
+    abortHandler = () => {
+      reject(new Error(message))
+    }
+    signal.addEventListener('abort', abortHandler, { once: true })
+    if (signal.aborted) {
+      abortHandler()
+    }
+  })
+
+  return Promise.race([operation, abortPromise]).finally(() => {
+    if (abortHandler) {
+      signal.removeEventListener('abort', abortHandler)
+    }
+  })
+}
+
+/**
  * Send a prompt via the shared CopilotClient and return the response text.
  *
  * Creates a session, sends the prompt, and disconnects the session. The client itself persists.
@@ -232,7 +265,11 @@ export async function sendPrompt(options: SendPromptOptions): Promise<string> {
     try {
       assertNotAborted(signal, 'Cancelled after session creation')
 
-      const response = await session.sendAndWait({ prompt }, timeout)
+      const response = await raceWithAbort(
+        session.sendAndWait({ prompt }, timeout),
+        signal,
+        'Cancelled during send'
+      )
       return extractAssistantContent(response)
     } finally {
       await session.disconnect().catch(() => {})

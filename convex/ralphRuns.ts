@@ -1,5 +1,5 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import { mutation, query, type MutationCtx, type QueryCtx } from './_generated/server'
 
 /**
  * Ralph Loops run CRUD — mirrors the runs table pattern.
@@ -21,6 +21,24 @@ const scriptTypeValidator = v.union(
   v.literal('template')
 )
 
+type RalphRunsCtx = QueryCtx | MutationCtx
+
+/**
+ * Return the canonical row for a run ID. Existing duplicate rows are legacy data;
+ * the oldest row wins so reads, updates, and retries address the same record.
+ */
+async function findCanonicalRun(ctx: RalphRunsCtx, runId: string) {
+  const matches = await ctx.db
+    .query('ralphRuns')
+    .withIndex('by_run_id', q => q.eq('runId', runId))
+    .collect()
+
+  return matches.sort((left, right) => {
+    const createdAtOrder = left.createdAt - right.createdAt
+    return createdAtOrder || left._creationTime - right._creationTime
+  })[0]
+}
+
 // ── Queries ─────────────────────────────────────────────────────
 
 export const list = query({
@@ -33,10 +51,7 @@ export const list = query({
 export const get = query({
   args: { runId: v.string() },
   handler: async (ctx, args) => {
-    return await ctx.db
-      .query('ralphRuns')
-      .withIndex('by_run_id', q => q.eq('runId', args.runId))
-      .first()
+    return await findCanonicalRun(ctx, args.runId)
   },
 })
 
@@ -80,6 +95,11 @@ export const create = mutation({
     startedAt: v.number(),
   },
   handler: async (ctx, args) => {
+    const existing = await findCanonicalRun(ctx, args.runId)
+    if (existing) {
+      return existing._id
+    }
+
     const now = Date.now()
     return await ctx.db.insert('ralphRuns', {
       ...args,
@@ -104,10 +124,7 @@ export const updateStatus = mutation({
     duration: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query('ralphRuns')
-      .withIndex('by_run_id', q => q.eq('runId', args.runId))
-      .first()
+    const existing = await findCanonicalRun(ctx, args.runId)
 
     if (!existing) {
       throw new Error(`Ralph run not found: ${args.runId}`)

@@ -578,7 +578,12 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     null
   )
   const [approving, setApproving] = useState<string | null>(null)
-  const { recentlyMergedDays, refreshInterval, loading: prSettingsLoading } = usePRSettings()
+  const {
+    recentlyMergedDays,
+    refreshInterval,
+    autoRefresh,
+    loading: prSettingsLoading,
+  } = usePRSettings()
   const { premiumModel } = useCopilotSettings()
   const bookmarks = useRepoBookmarks()
   const { create: createBookmark, remove: removeBookmark } = useRepoBookmarkMutations()
@@ -780,7 +785,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
   ])
 
   useEffect(() => {
-    if (!refreshInterval || refreshInterval <= 0) {
+    if (!autoRefresh || !refreshInterval || refreshInterval <= 0) {
       return
     }
     const intervalMs = refreshInterval * MS_PER_MINUTE
@@ -795,7 +800,7 @@ export function usePRListData(mode: PRSearchMode, onCountChange?: (count: number
     return () => {
       clearInterval(intervalId)
     }
-  }, [mode, refreshInterval])
+  }, [mode, autoRefresh, refreshInterval])
 
   const PR_MODE_TITLES: Record<PRSearchMode, string> = {
     'my-prs': 'My Pull Requests',

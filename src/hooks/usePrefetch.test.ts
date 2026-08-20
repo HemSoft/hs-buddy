@@ -73,6 +73,7 @@ describe('usePrefetch', () => {
     })
     mockUsePRSettings.mockReturnValue({
       refreshInterval: 5,
+      autoRefresh: true,
       recentlyMergedDays: 7,
       loading: false,
     })
@@ -109,6 +110,7 @@ describe('usePrefetch', () => {
   it('does not prefetch while settings are loading', () => {
     mockUsePRSettings.mockReturnValue({
       refreshInterval: 5,
+      autoRefresh: true,
       recentlyMergedDays: 7,
       loading: true,
     })
@@ -219,6 +221,32 @@ describe('usePrefetch', () => {
 
     // No enqueues since everything is fresh
     expect(mockEnqueue).not.toHaveBeenCalled()
+  })
+
+  it('stops and restarts the auto-refresh timer when toggled', () => {
+    mockDataCacheIsFresh.mockReturnValue(false)
+    const { rerender } = renderHook(() => usePrefetch())
+    mockEnqueue.mockClear()
+
+    mockUsePRSettings.mockReturnValue({
+      refreshInterval: 5,
+      autoRefresh: false,
+      recentlyMergedDays: 7,
+      loading: false,
+    })
+    rerender()
+    vi.advanceTimersByTime(30_000)
+    expect(mockEnqueue).not.toHaveBeenCalled()
+
+    mockUsePRSettings.mockReturnValue({
+      refreshInterval: 5,
+      autoRefresh: true,
+      recentlyMergedDays: 7,
+      loading: false,
+    })
+    rerender()
+    vi.advanceTimersByTime(30_000)
+    expect(mockEnqueue).toHaveBeenCalled()
   })
 
   it('cleans up auto-refresh timer on unmount', () => {

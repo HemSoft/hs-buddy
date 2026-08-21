@@ -122,6 +122,17 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
   })
 }
 
+/**
+ * Explicit application menu installed at boot so Electron's default menu
+ * never appears. macOS still needs the app and Edit roles: they supply the
+ * standard ⌘Q/Hide/Quit accelerators and clipboard actions (⌘C/⌘V/⌘X/⌘A)
+ * that the before-input-event shortcut list does not cover. Other platforms
+ * get an empty menu; the frameless window hides the bar anyway.
+ */
+export function applicationMenuTemplate(platform: NodeJS.Platform): MenuItemConstructorOptions[] {
+  return platform === 'darwin' ? [{ role: 'appMenu' }, { role: 'editMenu' }] : []
+}
+
 export function bindWindowBehavior(win: BrowserWindow): void {
   registerKeyboardShortcuts(win)
 }

@@ -2,7 +2,6 @@
 #
 # Runs every 30 minutes and checks GitHub state with simple gh CLI calls.
 # Only dispatches gh-aw workflows when there's actual work to do:
-#   - Issue Processor: when agent:fixable issues exist
 #   - PR Analyzer General: when draft PRs with agent:pr exist
 #   - Specialty PR Analyzers: when matching pr-analyzer-* labels exist
 #   - PR Fixer: when draft PRs have all required analyzer markers
@@ -41,22 +40,6 @@ jobs:
         with:
           app-id: ${{ vars.SFL_APP_ID }}
           private-key: ${{ secrets.SFL_APP_PRIVATE_KEY }}
-
-      - name: Check for fixable issues
-        id: issues
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          set -euo pipefail
-
-          COUNT=$(gh issue list --repo "$REPO" --label "agent:fixable" --state open --json number --jq 'length')
-          echo "fixable_count=$COUNT" >> "$GITHUB_OUTPUT"
-
-          if [ "$COUNT" -gt 0 ]; then
-            echo "Found $COUNT fixable issue(s) — will dispatch Issue Processor."
-          else
-            echo "No fixable issues — skipping Issue Processor."
-          fi
 
       - name: Check for draft PRs with agent:pr
         id: prs
@@ -129,14 +112,6 @@ jobs:
             echo "PR #$PR_NUMBER missing required analyzer markers for cycle $CYCLE ($MISSING_MARKERS) — fixer not ready."
             echo "fixer_ready=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - name: Dispatch Issue Processor
-        if: steps.issues.outputs.fixable_count != '0'
-        env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: |
-          echo "Dispatching Issue Processor..."
-          gh workflow run issue-processor.lock.yml --repo "$REPO"
 
       - name: Dispatch PR Analyzers
         if: steps.prs.outputs.draft_pr_count != '0'
@@ -223,12 +198,6 @@ jobs:
             echo ""
             echo "| Workflow | Dispatched |"
             echo "|----------|------------|"
-
-            if [ "${{ steps.issues.outputs.fixable_count }}" != "0" ]; then
-              echo "| Issue Processor | Yes (${{ steps.issues.outputs.fixable_count }} fixable issues) |"
-            else
-              echo "| Issue Processor | No (0 fixable issues) |"
-            fi
 
             if [ "${{ steps.prs.outputs.draft_pr_count }}" != "0" ]; then
               echo "| PR Analyzer General | Yes (${{ steps.prs.outputs.draft_pr_count }} draft PRs) |"

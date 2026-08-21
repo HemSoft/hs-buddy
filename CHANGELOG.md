@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.978] - 2026-08-21
+
+### Changed
+
+- Remove SFL issue processor workflow and dispatcher wiring
+
 ## [0.1.977] - 2026-08-21
 
 ### Changed

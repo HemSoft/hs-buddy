@@ -184,17 +184,39 @@ describe('main process lifecycle', () => {
     expect(whenReadyCb).not.toBeNull()
     expect(activateCb).toBeDefined()
     whenReadyCb!()
+    const getWindow = vi.mocked(registerAllHandlers).mock.calls.at(-1)?.[0]
     const createCount = vi.mocked(BrowserWindow).mock.calls.length
     const bindCount = vi.mocked(bindWindowBehavior).mock.calls.length
     const registrationCount = vi.mocked(registerAllHandlers).mock.calls.length
+    const recreatedWindow = {
+      ...mockWin,
+      webContents: {
+        ...mockWin.webContents,
+        on: vi.fn(),
+        send: vi.fn(),
+      },
+      on: vi.fn(),
+      once: vi.fn(),
+    }
+
+    expect(getWindow).toBeTypeOf('function')
+    expect(getWindow!()).toBe(mockWin)
+    vi.mocked(BrowserWindow).mockImplementationOnce(
+      class {
+        constructor() {
+          return recreatedWindow
+        }
+      } as unknown as typeof BrowserWindow
+    )
 
     expect(closedWindowCallback).not.toBeNull()
     closedWindowCallback!()
     activateCb!()
 
     expect(BrowserWindow).toHaveBeenCalledTimes(createCount + 1)
-    expect(bindWindowBehavior).toHaveBeenCalledTimes(bindCount + 1)
+    expect(bindWindowBehavior).toHaveBeenNthCalledWith(bindCount + 1, recreatedWindow)
     expect(registerAllHandlers).toHaveBeenCalledTimes(registrationCount)
+    expect(getWindow!()).toBe(recreatedWindow)
   })
 
   it('blocks renderer navigation and redirects from replacing the main app UI', async () => {

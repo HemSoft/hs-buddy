@@ -70,12 +70,10 @@ describe('menu', () => {
     expect(mockWin.webContents.on).toHaveBeenCalledWith('before-input-event', expect.any(Function))
   })
 
-  it('binds the application menu and keyboard shortcuts to a created window', () => {
+  it('binds keyboard shortcuts without exposing a native application menu', () => {
     bindWindowBehavior(mockWin)
 
-    expect(Menu.setApplicationMenu).toHaveBeenCalledWith(
-      expect.objectContaining({ items: expect.any(Array) })
-    )
+    expect(Menu.setApplicationMenu).not.toHaveBeenCalled()
     expect(mockWin.webContents.on).toHaveBeenCalledWith('before-input-event', expect.any(Function))
   })
 

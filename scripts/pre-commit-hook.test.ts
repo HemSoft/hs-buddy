@@ -66,7 +66,12 @@ function createFixture() {
     join(fakeBin, 'bun'),
     `#!/usr/bin/env sh
 printf 'bun %s\\n' "$*" >> "$HOOK_TEST_LOG"
-if [ "$*" = "$HOOK_FAIL_COMMAND" ]; then exit 17; fi
+if [ "$*" = "$HOOK_FAIL_COMMAND" ]; then
+  # Simulate a crash mid-write: mutate the file before reporting failure so
+  # rollback assertions can tell a real restore from a no-op.
+  printf '{\\n  "version": "0.0.2-crashed"\\n}\\n' > "$HOOK_PACKAGE_JSON"
+  exit 17
+fi
 `
   )
   executable(
@@ -160,8 +165,9 @@ describe('pre-commit hook ordering', () => {
     expect(readFileSync(fixture.source, 'utf8')).toBe('const value = 1\n')
     expect(git(fixture.root, 'show', ':src.ts')).toBe('const value = 1\n')
 
-    // The failed bump must not strand its own mutation: package.json keeps the
-    // pre-bump (formatted) content in both the worktree and the index.
+    // The fake bun half-wrote a bumped version before crashing; the restore
+    // must roll that mutation back to the pre-bump (formatted) content in
+    // both the worktree and the index.
     const formattedPackageJson = '{\n  "version": "0.0.1"\n}\n'
     expect(readFileSync(fixture.packageJson, 'utf8')).toBe(formattedPackageJson)
     expect(git(fixture.root, 'show', ':package.json')).toBe(formattedPackageJson)

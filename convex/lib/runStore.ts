@@ -4,6 +4,7 @@ import type { DataModel, Doc, Id } from '../_generated/dataModel'
 import type { MutationCtx, QueryCtx } from '../_generated/server'
 
 type RunStatus = Doc<'runs'>['status']
+type RunCountSummary = { total: number; completed: number; failed: number }
 type RunInsert = Omit<Doc<'runs'>, '_creationTime' | '_id' | 'runCountVersion'>
 type RunPatch = Partial<RunInsert>
 export type RunWriteCtx = Pick<MutationCtx, 'db' | 'runMutation' | 'runQuery'>
@@ -52,7 +53,7 @@ export async function backfillRunCount(ctx: RunWriteCtx, run: Doc<'runs'>): Prom
 export async function getRunCountsByJob(
   ctx: Pick<QueryCtx, 'db' | 'runQuery'>,
   jobIds: Id<'jobs'>[]
-): Promise<Record<string, { total: number; completed: number; failed: number }>> {
+): Promise<Record<string, RunCountSummary>> {
   // Readiness is scoped to the requested jobs. A job whose runs are all
   // migrated gets exact aggregate counts even while other jobs' historical
   // runs are still backfilling. A requested job with any unmigrated run gets
@@ -77,21 +78,32 @@ export async function getRunCountsByJob(
     lower: { key: status, inclusive: true as const },
     upper: { key: status, inclusive: true as const },
   })
-  const queries = jobIds.flatMap(jobId => [
-    { namespace: jobId },
-    { namespace: jobId, bounds: exactStatusBounds('completed') },
-    { namespace: jobId, bounds: exactStatusBounds('failed') },
-  ])
+  // One shared spec drives both the query layout and result mapping, so the
+  // flat countBatch array can never silently swap total/completed/failed.
+  const COUNT_SPECS: readonly {
+    key: keyof RunCountSummary
+    status?: RunStatus
+  }[] = [
+    { key: 'total' },
+    { key: 'completed', status: 'completed' },
+    { key: 'failed', status: 'failed' },
+  ]
+
+  const queries = jobIds.flatMap(jobId =>
+    COUNT_SPECS.map(spec => ({
+      namespace: jobId,
+      ...(spec.status ? { bounds: exactStatusBounds(spec.status) } : {}),
+    }))
+  )
   const values = queries.length > 0 ? await runCounts.countBatch(ctx, queries) : []
 
   return Object.fromEntries(
-    jobIds.map((jobId, index) => [
-      jobId,
-      {
-        total: values[index * 3],
-        completed: values[index * 3 + 1],
-        failed: values[index * 3 + 2],
-      },
-    ])
+    jobIds.map((jobId, jobIndex) => {
+      const summary: RunCountSummary = { total: 0, completed: 0, failed: 0 }
+      for (const [specIndex, spec] of COUNT_SPECS.entries()) {
+        summary[spec.key] = values[jobIndex * COUNT_SPECS.length + specIndex]
+      }
+      return [jobId, summary]
+    })
   )
 }

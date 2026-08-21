@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.977] - 2026-08-21
+
+### Changed
+
+- Drop stale align mention from ModelPicker test name
+
+## [0.1.976] - 2026-08-21
+
+### Changed
+
+- Apply 2026-08-21 audit nits without behavior changes
+
 ## [0.1.975] - 2026-08-21
 
 ### Changed

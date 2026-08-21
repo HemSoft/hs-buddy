@@ -110,7 +110,6 @@ describe('ModelPicker', () => {
         title={undefined}
         className={undefined}
         variant={undefined}
-        align={undefined}
         showRefresh={undefined}
       />
     )
@@ -122,7 +121,6 @@ describe('ModelPicker', () => {
         disabled: false,
         title: 'Copilot model',
         className: 'copilot-model-dropdown ',
-        align: 'left',
       })
     )
     expect(mocks.listModels).toHaveBeenCalledWith(undefined)
@@ -420,7 +418,7 @@ describe('ModelPicker', () => {
     expect(screen.queryByText(/Stale error/)).not.toBeInTheDocument()
   })
 
-  it('passes disabled, title, className, and align props to inline dropdown', async () => {
+  it('passes disabled, title, and className props to inline dropdown', async () => {
     mocks.listModels.mockResolvedValueOnce([
       { id: 'claude-sonnet-4.5', name: 'Claude Sonnet', isDisabled: false, billingMultiplier: 1 },
     ])
@@ -432,7 +430,6 @@ describe('ModelPicker', () => {
         disabled
         title="Pick a model"
         className="custom-cls"
-        align="right"
       />
     )
 
@@ -443,7 +440,6 @@ describe('ModelPicker', () => {
         disabled: true,
         title: 'Pick a model',
         className: 'copilot-model-dropdown custom-cls',
-        align: 'right',
       })
     )
   })

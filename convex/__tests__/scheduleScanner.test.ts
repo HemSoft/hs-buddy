@@ -1,4 +1,5 @@
-import { convexTest } from 'convex-test'
+import aggregateComponent from '@convex-dev/aggregate/test'
+import { convexTest as createConvexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api, internal } from '../_generated/api'
@@ -9,6 +10,12 @@ import {
 } from '../lib/constants'
 
 const modules = import.meta.glob('../**/*.*s')
+
+function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
+  const t = createConvexTest(schemaDefinition, moduleFiles)
+  aggregateComponent.register(t, 'runCounts')
+  return t
+}
 
 const baseJob = {
   name: 'scan-job',

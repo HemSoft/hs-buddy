@@ -1,10 +1,11 @@
 import { v } from 'convex/values'
-import { mutation, query, type DatabaseWriter } from './_generated/server'
+import { mutation, query, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 import { MS_PER_DAY } from './lib/constants'
 import { isPendingOrRunning, notFoundError, runStatusValidator } from './lib/domain'
 import { projectJob } from './lib/projections'
 import { incrementStat } from './lib/stats'
+import { deleteRun, getRunCountsByJob, insertRun, patchRun } from './lib/runStore'
 
 // List recent runs (last N runs)
 export const listRecent = query({
@@ -116,7 +117,7 @@ export const create = mutation({
       }
     }
 
-    const id = await ctx.db.insert('runs', {
+    const id = await insertRun(ctx, {
       jobId: args.jobId,
       scheduleId: args.scheduleId,
       status: 'pending',
@@ -136,20 +137,20 @@ export const create = mutation({
 export const markRunning = mutation({
   args: { id: v.id('runs') },
   handler: async (ctx, args) => {
-    await ctx.db.patch('runs', args.id, {
+    await patchRun(ctx, args.id, {
       status: 'running',
     })
   },
 })
 
 async function finalizeRun(
-  db: DatabaseWriter,
+  ctx: MutationCtx,
   runId: Id<'runs'>,
   status: 'completed' | 'failed',
   statKey: 'runsCompleted' | 'runsFailed',
   extraPatch: Record<string, unknown>
 ) {
-  const run = await db.get(runId)
+  const run = await ctx.db.get(runId)
   if (!run) {
     throw notFoundError('Run', runId)
   }
@@ -161,17 +162,17 @@ async function finalizeRun(
     return
   }
   const completedAt = Date.now()
-  await db.patch(runId, {
+  await patchRun(ctx, runId, {
     status,
     ...extraPatch,
     completedAt,
     duration: completedAt - run.startedAt,
   })
-  await incrementStat(db, statKey)
+  await incrementStat(ctx.db, statKey)
   if (run.scheduleId) {
-    const schedule = await db.get('schedules', run.scheduleId)
+    const schedule = await ctx.db.get('schedules', run.scheduleId)
     if (schedule) {
-      await db.patch('schedules', schedule._id, {
+      await ctx.db.patch('schedules', schedule._id, {
         lastRunAt: completedAt,
         lastRunStatus: status,
       })
@@ -187,7 +188,7 @@ export const complete = mutation({
     outputFileId: v.optional(v.id('_storage')),
   },
   handler: async (ctx, args) => {
-    await finalizeRun(ctx.db, args.id, 'completed', 'runsCompleted', {
+    await finalizeRun(ctx, args.id, 'completed', 'runsCompleted', {
       output: args.output,
       outputFileId: args.outputFileId,
     })
@@ -201,7 +202,7 @@ export const fail = mutation({
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    await finalizeRun(ctx.db, args.id, 'failed', 'runsFailed', {
+    await finalizeRun(ctx, args.id, 'failed', 'runsFailed', {
       error: args.error,
     })
   },
@@ -221,7 +222,7 @@ export const cancel = mutation({
     }
 
     const completedAt = Date.now()
-    await ctx.db.patch('runs', args.id, {
+    await patchRun(ctx, args.id, {
       status: 'cancelled',
       completedAt,
       duration: completedAt - run.startedAt,
@@ -262,7 +263,7 @@ export const claimPending = mutation({
     }
 
     // Mark as running atomically
-    await ctx.db.patch('runs', pendingRun._id, {
+    await patchRun(ctx, pendingRun._id, {
       status: 'running',
     })
 
@@ -271,7 +272,7 @@ export const claimPending = mutation({
     if (!job) {
       // Job was deleted — fail the run
       const completedAt = Date.now()
-      await ctx.db.patch('runs', pendingRun._id, {
+      await patchRun(ctx, pendingRun._id, {
         status: 'failed',
         error: `Job ${pendingRun.jobId} not found`,
         completedAt,
@@ -305,7 +306,7 @@ export const cleanup = mutation({
       if (run.startedAt >= cutoff) break
       if (!isPendingOrRunning(run.status)) {
         // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Cleanup walks sorted rows and stops at the cutoff boundary.
-        await ctx.db.delete('runs', run._id)
+        await deleteRun(ctx, run)
         deleted++
       }
     }
@@ -315,22 +316,15 @@ export const cleanup = mutation({
 })
 
 // Count runs per job (for job list badges)
+const MAX_JOBS_PER_COUNT_QUERY = 100
+
 export const countsByJob = query({
-  args: {},
-  handler: async ctx => {
-    const runs = await ctx.db.query('runs').withIndex('by_started').order('desc').take(1000)
-
-    const counts: Record<string, { total: number; completed: number; failed: number }> = {}
-    for (const run of runs) {
-      const jobId = run.jobId
-      if (!counts[jobId]) {
-        counts[jobId] = { total: 0, completed: 0, failed: 0 }
-      }
-      counts[jobId].total++
-      if (run.status === 'completed') counts[jobId].completed++
-      if (run.status === 'failed') counts[jobId].failed++
+  args: { jobIds: v.array(v.id('jobs')) },
+  handler: async (ctx, args) => {
+    const jobIds = [...new Set(args.jobIds)]
+    if (jobIds.length > MAX_JOBS_PER_COUNT_QUERY) {
+      throw new Error(`Run counts can be requested for at most ${MAX_JOBS_PER_COUNT_QUERY} jobs`)
     }
-
-    return counts
+    return getRunCountsByJob(ctx, jobIds)
   },
 })

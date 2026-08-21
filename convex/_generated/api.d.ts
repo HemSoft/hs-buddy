@@ -20,7 +20,9 @@ import type * as lib_constants from "../lib/constants.js";
 import type * as lib_cronUtils from "../lib/cronUtils.js";
 import type * as lib_domain from "../lib/domain.js";
 import type * as lib_projections from "../lib/projections.js";
+import type * as lib_runStore from "../lib/runStore.js";
 import type * as lib_stats from "../lib/stats.js";
+import type * as migrations from "../migrations.js";
 import type * as prReviewRuns from "../prReviewRuns.js";
 import type * as ralphRuns from "../ralphRuns.js";
 import type * as repoBookmarks from "../repoBookmarks.js";
@@ -51,7 +53,9 @@ declare const fullApi: ApiFromModules<{
   "lib/cronUtils": typeof lib_cronUtils;
   "lib/domain": typeof lib_domain;
   "lib/projections": typeof lib_projections;
+  "lib/runStore": typeof lib_runStore;
   "lib/stats": typeof lib_stats;
+  migrations: typeof migrations;
   prReviewRuns: typeof prReviewRuns;
   ralphRuns: typeof ralphRuns;
   repoBookmarks: typeof repoBookmarks;
@@ -90,4 +94,7 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  runCounts: import("@convex-dev/aggregate/_generated/component.js").ComponentApi<"runCounts">;
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

@@ -19,6 +19,15 @@ const crons = cronJobs()
  */
 crons.interval('scan due schedules', { minutes: 1 }, internal.scheduleScanner.scanAndDispatch)
 
+// Resumable and idempotent. It becomes a cheap no-op after every historical
+// run has been added to the exact run-count aggregate.
+crons.interval(
+  'backfill exact run counts',
+  { minutes: 1 },
+  internal.migrations.runBackfillRunCounts,
+  {}
+)
+
 /**
  * Copilot Usage Snapshot
  *

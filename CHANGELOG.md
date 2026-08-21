@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.971] - 2026-08-21
+
+### Changed
+
+- Remove dead buildMenu export and its template tests
+
 ## [0.1.970] - 2026-08-21
 
 ### Changed

@@ -505,6 +505,52 @@ describe('ralphService', () => {
       expect(listLoops()[0].logBuffer).toEqual(['café'])
     })
 
+    it('flushes spinner output at a bare carriage return without waiting for a newline', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('working frame 1\r'))
+      expect(listLoops()[0].logBuffer).toEqual(['working frame 1'])
+
+      lastMockProc.stdout.emit('data', Buffer.from('working frame 2\r'))
+      expect(listLoops()[0].logBuffer).toEqual(['working frame 1', 'working frame 2'])
+    })
+
+    it('keeps CRLF output as single lines without empty-line spam', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('line one\r\nline two\r\n'))
+
+      expect(listLoops()[0].logBuffer).toEqual(['line one', 'line two'])
+    })
+
+    it('handles interleaved CR, CRLF, and LF boundaries in one chunk', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('a\rb\nc\r\nd\n'))
+
+      expect(listLoops()[0].logBuffer).toEqual(['a', 'b', 'c', 'd'])
+    })
+
+    it('stays bounded on a carriage-return-only stream', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('\r'.repeat(70_000)))
+      lastMockProc.stdout.emit('data', Buffer.from('final frame\r'))
+
+      expect(listLoops()[0].logBuffer).toEqual(['final frame'])
+    })
+
+    it('handles a single chunk containing many carriage-return boundaries', () => {
+      launchValid()
+
+      const frames = Array.from({ length: 5_000 }, (_, index) => `frame ${index}\r`).join('')
+      lastMockProc.stdout.emit('data', Buffer.from(frames))
+
+      expect(listLoops()[0].logBuffer).toHaveLength(5_000)
+      expect(listLoops()[0].logBuffer[0]).toBe('frame 0')
+      expect(listLoops()[0].logBuffer.at(-1)).toBe('frame 4999')
+    })
+
     it('fragments oversized complete lines without splitting surrogate pairs', () => {
       launchValid()
       const prefix = 'a'.repeat(65_535)

@@ -9,11 +9,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.971] - 2026-08-21
+## [0.1.974] - 2026-08-21
 
 ### Changed
 
-- Remove dead buildMenu export and its template tests
+- Resolve conflicts against origin/main after menu template merge
+
+## [0.1.973] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
+## [0.1.972] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
+## [0.1.971] - 2026-08-21
+
+### Fixed
+
+- Reject select-directory failures instead of resolving error objects
 
 ## [0.1.970] - 2026-08-21
 

@@ -19,7 +19,7 @@ vi.mock('../src/utils/shortcutMatching', () => ({
 
 import { Menu } from 'electron'
 import { saveZoomLevel } from './zoom'
-import { bindWindowBehavior, registerKeyboardShortcuts } from './menu'
+import { applicationMenuTemplate, bindWindowBehavior, registerKeyboardShortcuts } from './menu'
 
 type ShortcutDefinition = { key: string; ctrlOrCmd?: boolean; shift?: boolean }
 type ShortcutInput = { key: string; control?: boolean; meta?: boolean; shift?: boolean }
@@ -259,19 +259,67 @@ describe('menu', () => {
       expect(mockWin.setFullScreen).toHaveBeenCalledWith(true)
       expect(event.preventDefault).toHaveBeenCalled()
     })
+  })
 
-    it('Ctrl++ clamps at max zoom', () => {
-      vi.mocked(mockWin.webContents.getZoomFactor).mockReturnValue(3.0)
-      const event = { preventDefault: vi.fn() }
-      handler(event, { type: 'keyDown', key: '+', control: true, meta: false, shift: false })
-      expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(3.0)
+  describe('applicationMenuTemplate', () => {
+    it('keeps app and Edit roles on macOS for standard accelerators', () => {
+      const template = applicationMenuTemplate('darwin')
+
+      expect(template).toEqual([{ role: 'appMenu' }, { role: 'editMenu' }])
     })
 
-    it('Ctrl+- clamps at min zoom', () => {
-      vi.mocked(mockWin.webContents.getZoomFactor).mockReturnValue(0.5)
-      const event = { preventDefault: vi.fn() }
-      handler(event, { type: 'keyDown', key: '-', control: true, meta: false, shift: false })
-      expect(mockWin.webContents.setZoomFactor).toHaveBeenCalledWith(0.5)
+    it('installs an empty menu on Windows and Linux where the frame hides the bar', () => {
+      expect(applicationMenuTemplate('win32')).toEqual([])
+      expect(applicationMenuTemplate('linux')).toEqual([])
     })
+  })
+})
+
+describe('menu zoom clamping via keyboard shortcuts', () => {
+  beforeEach(() => {
+    mockMatchesShortcut.mockImplementation((...args: unknown[]) => {
+      const shortcut = args[0] as ShortcutDefinition
+      const input = args[1] as ShortcutInput
+      return matchesShortcutInput(shortcut, input)
+    })
+  })
+
+  function clampHarness() {
+    const clampWin = {
+      webContents: {
+        getZoomFactor: vi.fn(() => 1.0),
+        setZoomFactor: vi.fn(),
+        on: vi.fn(),
+        send: vi.fn(),
+      },
+      setFullScreen: vi.fn(),
+      isFullScreen: vi.fn(() => false),
+    } as unknown as Electron.BrowserWindow
+    registerKeyboardShortcuts(clampWin)
+    const calls = vi.mocked(clampWin.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1] as (
+      event: { preventDefault: ReturnType<typeof vi.fn> },
+      input: { type?: string; key: string; control?: boolean; meta?: boolean; shift?: boolean }
+    ) => void
+    return { clampWin, handler }
+  }
+
+  it('Ctrl++ clamps at max zoom', () => {
+    const { clampWin, handler } = clampHarness()
+    vi.mocked(clampWin.webContents.getZoomFactor).mockReturnValue(3.0)
+    const event = { preventDefault: vi.fn() }
+    handler(event, { type: 'keyDown', key: '+', control: true, meta: false, shift: false })
+    expect(clampWin.webContents.setZoomFactor).toHaveBeenCalledWith(3.0)
+  })
+
+  it('Ctrl+- clamps at min zoom', () => {
+    const { clampWin, handler } = clampHarness()
+    vi.mocked(clampWin.webContents.getZoomFactor).mockReturnValue(0.5)
+    const event = { preventDefault: vi.fn() }
+    handler(event, { type: 'keyDown', key: '-', control: true, meta: false, shift: false })
+    expect(clampWin.webContents.setZoomFactor).toHaveBeenCalledWith(0.5)
   })
 })

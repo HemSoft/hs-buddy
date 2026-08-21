@@ -233,6 +233,20 @@ describe('TitleBar', () => {
     expect(screen.queryByText('Your Universal Productivity Companion')).toBeFalsy()
   })
 
+  it('returns focus to the Help button when the About modal closes', () => {
+    render(<TitleBar />)
+    const helpButton = screen.getByRole('button', { name: 'Help' })
+    fireEvent.click(helpButton)
+    const aboutItem = screen.getByRole('button', { name: 'About Buddy' })
+    aboutItem.focus()
+    fireEvent.click(aboutItem)
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(helpButton).toHaveFocus()
+  })
+
   it('renders Mac-specific accelerators when isMac is true', () => {
     mockIsMac = true
     render(<TitleBar />)

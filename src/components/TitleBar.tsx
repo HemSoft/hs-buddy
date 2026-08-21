@@ -140,6 +140,7 @@ export function TitleBar({
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [showAbout, setShowAbout] = useState(false)
   const menuBarRef = useRef<HTMLDivElement>(null)
+  const aboutReturnFocusRef = useRef<HTMLButtonElement>(null)
   const menus = buildMenus(setShowAbout)
 
   useEffect(() => {
@@ -176,6 +177,7 @@ export function TitleBar({
         {menus.map(menu => (
           <div key={menu.label} className="menu-container">
             <button
+              ref={menu.label === 'Help' ? aboutReturnFocusRef : undefined}
               type="button"
               className={`menu-button ${openMenu === menu.label ? 'active' : ''}`}
               onClick={() => handleMenuClick(menu.label)}
@@ -269,7 +271,9 @@ export function TitleBar({
           </svg>
         </button>
       </div>
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showAbout && (
+        <AboutModal onClose={() => setShowAbout(false)} returnFocusRef={aboutReturnFocusRef} />
+      )}
     </div>
   )
 }

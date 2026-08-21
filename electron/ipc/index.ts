@@ -1,4 +1,3 @@
-import type { BrowserWindow } from 'electron'
 import { instrumentIpcHandlers } from './instrumentIpc'
 import { registerConfigHandlers } from './configHandlers'
 import { registerCacheHandlers } from './cacheHandlers'
@@ -17,8 +16,9 @@ import { registerRalphHandlers } from './ralphHandlers'
 import { registerSlackHandlers } from './slackHandlers'
 import { registerPollenHandlers } from './pollenHandlers'
 import { registerCopilotMetricsHandlers } from './copilotMetricsHandlers'
+import type { WindowProvider } from './windowProvider'
 
-export function registerAllHandlers(win: BrowserWindow): void {
+export function registerAllHandlers(getWindow: WindowProvider): void {
   // Patch ipcMain.handle before any handlers register — gives every
   // handler automatic OTel spans and metrics for free.
   instrumentIpcHandlers()
@@ -26,17 +26,17 @@ export function registerAllHandlers(win: BrowserWindow): void {
   registerConfigHandlers()
   registerCacheHandlers()
   registerGitHubHandlers()
-  registerWindowHandlers(win)
+  registerWindowHandlers()
   registerShellHandlers()
   registerCopilotHandlers()
-  registerCrewHandlers(win)
+  registerCrewHandlers()
   registerTempoHandlers()
   registerCopilotSessionHandlers()
   registerTodoistHandlers()
   registerFinanceHandlers()
   registerTerminalHandlers()
   registerFilesystemHandlers()
-  registerRalphHandlers(win)
+  registerRalphHandlers(getWindow)
   registerSlackHandlers()
   registerPollenHandlers()
   registerCopilotMetricsHandlers()

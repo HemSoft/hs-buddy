@@ -121,3 +121,7 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
     }
   })
 }
+
+export function bindWindowBehavior(win: BrowserWindow): void {
+  registerKeyboardShortcuts(win)
+}

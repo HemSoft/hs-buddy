@@ -33,19 +33,21 @@ import { instrumentIpcHandlers } from './instrumentIpc'
 import { registerConfigHandlers } from './configHandlers'
 import { registerWindowHandlers } from './windowHandlers'
 import { registerCrewHandlers } from './crewHandlers'
+import { registerRalphHandlers } from './ralphHandlers'
 
 describe('ipc/index', () => {
   it('registerAllHandlers calls instrumentIpcHandlers first', () => {
-    const mockWin = {} as Electron.BrowserWindow
-    registerAllHandlers(mockWin)
+    const getWindow = () => null
+    registerAllHandlers(getWindow)
     expect(instrumentIpcHandlers).toHaveBeenCalled()
   })
 
   it('registerAllHandlers registers all handler groups', () => {
-    const mockWin = {} as Electron.BrowserWindow
-    registerAllHandlers(mockWin)
+    const getWindow = () => null
+    registerAllHandlers(getWindow)
     expect(registerConfigHandlers).toHaveBeenCalled()
-    expect(registerWindowHandlers).toHaveBeenCalledWith(mockWin)
-    expect(registerCrewHandlers).toHaveBeenCalledWith(mockWin)
+    expect(registerWindowHandlers).toHaveBeenCalledWith()
+    expect(registerCrewHandlers).toHaveBeenCalledWith()
+    expect(registerRalphHandlers).toHaveBeenCalledWith(getWindow)
   })
 })

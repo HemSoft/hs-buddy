@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('electron', () => ({
+  BrowserWindow: { fromWebContents: vi.fn() },
   ipcMain: { handle: vi.fn() },
 }))
 
@@ -17,13 +18,14 @@ vi.mock('../services/crewService', () => ({
   undoFile: vi.fn(),
 }))
 
-import { ipcMain } from 'electron'
+import { BrowserWindow, ipcMain } from 'electron'
 import { registerCrewHandlers } from './crewHandlers'
 
 describe('crewHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let handlers: Map<string, (...args: any[]) => any>
   const mockWin = { isDestroyed: vi.fn(() => false) } as unknown as Electron.BrowserWindow
+  const sender = {} as Electron.WebContents
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -31,7 +33,8 @@ describe('crewHandlers', () => {
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
     })
-    registerCrewHandlers(mockWin)
+    vi.mocked(BrowserWindow.fromWebContents).mockReturnValue(mockWin)
+    registerCrewHandlers()
   })
 
   it('registers expected channels', () => {
@@ -49,7 +52,7 @@ describe('crewHandlers', () => {
 
   it('crew:list-projects returns project list', async () => {
     const handler = handlers.get('crew:list-projects')!
-    const result = await handler({})
+    const result = await handler({ sender })
     expect(result).toEqual([{ id: 'p1', path: '/project' }])
   })
 
@@ -76,9 +79,19 @@ describe('crewHandlers', () => {
   it('crew:add-project delegates to addProjectFromPicker', async () => {
     const { addProjectFromPicker } = await import('../services/crewService')
     const handler = handlers.get('crew:add-project')!
-    const result = await handler({})
+    const result = await handler({ sender })
     expect(addProjectFromPicker).toHaveBeenCalledWith(mockWin)
     expect(result).toEqual({ id: 'p1', path: '/project' })
+  })
+
+  it('crew:add-project resolves the window from each IPC sender', async () => {
+    const recreatedWindow = {} as Electron.BrowserWindow
+    vi.mocked(BrowserWindow.fromWebContents).mockReturnValue(recreatedWindow)
+
+    await handlers.get('crew:add-project')!({ sender })
+
+    const { addProjectFromPicker } = await import('../services/crewService')
+    expect(addProjectFromPicker).toHaveBeenCalledWith(recreatedWindow)
   })
 
   it('crew:create-session creates or gets a session', async () => {

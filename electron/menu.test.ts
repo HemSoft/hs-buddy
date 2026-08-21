@@ -2,7 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('electron', () => ({
   dialog: { showMessageBox: vi.fn() },
-  Menu: { buildFromTemplate: vi.fn(template => ({ items: template })) },
+  Menu: {
+    buildFromTemplate: vi.fn(template => ({ items: template })),
+    setApplicationMenu: vi.fn(),
+  },
 }))
 
 vi.mock('./zoom', () => ({
@@ -15,9 +18,9 @@ vi.mock('../src/utils/shortcutMatching', () => ({
   matchesShortcut: (...args: unknown[]) => mockMatchesShortcut(...args),
 }))
 
-import { dialog } from 'electron'
+import { dialog, Menu } from 'electron'
 import { saveZoomLevel } from './zoom'
-import { buildMenu, registerKeyboardShortcuts } from './menu'
+import { bindWindowBehavior, buildMenu, registerKeyboardShortcuts } from './menu'
 
 type ShortcutDefinition = { key: string; ctrlOrCmd?: boolean; shift?: boolean }
 type ShortcutInput = { key: string; control?: boolean; meta?: boolean; shift?: boolean }
@@ -64,6 +67,13 @@ describe('menu', () => {
 
   it('registerKeyboardShortcuts attaches before-input-event listener', () => {
     registerKeyboardShortcuts(mockWin)
+    expect(mockWin.webContents.on).toHaveBeenCalledWith('before-input-event', expect.any(Function))
+  })
+
+  it('binds keyboard shortcuts without exposing a native application menu', () => {
+    bindWindowBehavior(mockWin)
+
+    expect(Menu.setApplicationMenu).not.toHaveBeenCalled()
     expect(mockWin.webContents.on).toHaveBeenCalledWith('before-input-event', expect.any(Function))
   })
 

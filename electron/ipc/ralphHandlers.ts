@@ -1,9 +1,9 @@
 /**
  * Ralph Loops IPC Handlers — exposes ralph service to the renderer.
- * Follows crewHandlers.ts pattern with win param for push events.
+ * Uses sender-scoped windows for dialogs and a live provider for push events.
  */
 
-import { dialog, ipcMain, type BrowserWindow } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import { ipcHandler } from './ipcHandler'
 import {
   launchLoop,
@@ -17,11 +17,13 @@ import {
 } from '../services/ralphService'
 import type { RalphLaunchConfig, RalphConfigType } from '../../src/types/ralph'
 import { IPC_INVOKE, IPC_PUSH } from '../../src/ipc/contracts'
+import { requireSenderWindow, type WindowProvider } from './windowProvider'
 
-export function registerRalphHandlers(win: BrowserWindow): void {
+export function registerRalphHandlers(getWindow: WindowProvider): void {
   // Wire real-time status push to renderer
   setStatusChangeCallback(run => {
-    if (!win.isDestroyed()) {
+    const win = getWindow()
+    if (win && !win.isDestroyed()) {
       win.webContents.send(IPC_PUSH.RALPH_STATUS_UPDATE, run)
     }
   })
@@ -76,8 +78,8 @@ export function registerRalphHandlers(win: BrowserWindow): void {
 
   ipcMain.handle(
     IPC_INVOKE.RALPH_SELECT_DIRECTORY,
-    ipcHandler(async (_event: Electron.IpcMainInvokeEvent, defaultPath?: string) => {
-      const result = await dialog.showOpenDialog(win, {
+    ipcHandler(async (event: Electron.IpcMainInvokeEvent, defaultPath?: string) => {
+      const result = await dialog.showOpenDialog(requireSenderWindow(event.sender), {
         properties: ['openDirectory'],
         title: 'Select Repository',
         ...(defaultPath && { defaultPath }),

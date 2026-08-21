@@ -1,7 +1,6 @@
 import {
   app,
   BrowserWindow,
-  Menu,
   screen,
   session,
   type WebContents,
@@ -13,8 +12,9 @@ import windowStateKeeper from 'electron-window-state'
 import { initTelemetry, shutdownTelemetry, emitLog } from './telemetry'
 import { configManager } from './config'
 import { loadZoomLevel } from './zoom'
-import { buildMenu, registerKeyboardShortcuts } from './menu'
+import { bindWindowBehavior } from './menu'
 import { registerAllHandlers } from './ipc'
+import { MainWindowLifecycle } from './windowLifecycle'
 import { getDispatcher } from './workers/dispatcher'
 import { runOfflineSync } from './workers/offlineSync'
 import { stopSharedClient } from './services/copilotClient'
@@ -72,8 +72,6 @@ const RENDERER_DIST = path.join(process.env.APP_ROOT, 'dist')
 process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   ? path.join(process.env.APP_ROOT, 'public')
   : RENDERER_DIST
-
-let win: BrowserWindow | null
 
 const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
 
@@ -164,7 +162,7 @@ function resolveWindowBounds(state: { x?: number; y?: number; width: number; hei
   })
 }
 
-function createWindow() {
+function createBrowserWindow(): BrowserWindow {
   // Load window state (position, size, etc.)
   const mainWindowState = windowStateKeeper({
     defaultWidth: 1400,
@@ -178,7 +176,7 @@ function createWindow() {
     height: windowHeight,
   } = resolveWindowBounds(mainWindowState)
 
-  win = new BrowserWindow({
+  const createdWindow = new BrowserWindow({
     x: windowX,
     y: windowY,
     width: windowWidth,
@@ -206,12 +204,11 @@ function createWindow() {
   })
 
   // Let window state manager track window state
-  mainWindowState.manage(win)
+  mainWindowState.manage(createdWindow)
 
   // Track which display the window is on when it moves or the user stops resizing
   const saveCurrentDisplay = () => {
-    if (!win) return
-    const bounds = win.getBounds()
+    const bounds = createdWindow.getBounds()
     const currentDisplay = screen.getDisplayMatching(bounds)
     configManager.setUiValue('displayId', currentDisplay.id)
     configManager.setUiValue('displayBounds', currentDisplay.bounds)
@@ -220,12 +217,12 @@ function createWindow() {
 
   // Save display on user-initiated moves/resizes (not immediately at startup
   // to avoid cementing a bad placement as the new source of truth)
-  win.on('moved', saveCurrentDisplay)
-  win.on('resize', saveCurrentDisplay)
+  createdWindow.on('moved', saveCurrentDisplay)
+  createdWindow.on('resize', saveCurrentDisplay)
 
   // The main window hosts the Buddy UI, not arbitrary web content. Embedded browser
   // tabs use separate <webview> contents and are intentionally unaffected by this guard.
-  const mainWebContents = win.webContents
+  const mainWebContents = createdWindow.webContents
   const blockMainWindowNavigation = (event: Electron.Event, navigationUrl: string) => {
     const currentUrl = mainWebContents.getURL()
     const isTrustedInitialRedirect =
@@ -242,33 +239,34 @@ function createWindow() {
   mainWebContents.on('will-navigate', blockMainWindowNavigation)
   mainWebContents.on('will-redirect', blockMainWindowNavigation)
 
-  win.webContents.on('did-finish-load', () => {
-    win?.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())
+  createdWindow.webContents.on('did-finish-load', () => {
+    createdWindow.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())
     startupTimer.mark('content-loaded')
     startupTimer.report()
   })
 
   if (VITE_DEV_SERVER_URL) {
-    win.loadURL(VITE_DEV_SERVER_URL)
+    createdWindow.loadURL(VITE_DEV_SERVER_URL)
   } else {
-    win.loadFile(path.join(RENDERER_DIST, 'index.html'))
+    createdWindow.loadFile(path.join(RENDERER_DIST, 'index.html'))
   }
+
+  return createdWindow
 }
+
+const windowLifecycle = new MainWindowLifecycle(createBrowserWindow, bindWindowBehavior)
 
 // Quit when all windows are closed, except on macOS.
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
-    win = null
   }
 })
 
 app.on('activate', () => {
   // On OS X it's common to re-create a window in the app when the
   // dock icon is clicked and there are no other windows open.
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow()
-  }
+  windowLifecycle.activate()
 })
 
 app.whenReady().then(() => {
@@ -279,15 +277,12 @@ app.whenReady().then(() => {
   // Initialize config manager and attempt migration from env vars
   configManager.migrateFromEnv()
 
-  createWindow()
+  // Register process-wide IPC exactly once. Window-scoped handlers resolve the
+  // live sender/current window instead of capturing the first BrowserWindow.
+  registerAllHandlers(() => windowLifecycle.currentWindow)
+
+  windowLifecycle.openWindow()
   startupTimer.mark('window-created')
-
-  // Set up application menu and keyboard shortcuts
-  Menu.setApplicationMenu(buildMenu(win!))
-  registerKeyboardShortcuts(win!)
-
-  // Register all IPC handlers
-  registerAllHandlers(win!)
 
   // Recover orphaned ralph loops from a previous session
   initRalphService()

@@ -18,6 +18,7 @@ let browserSessionPermissionHandler:
   | ((webContents: unknown, permission: string, callback: (allowed: boolean) => void) => void)
   | null = null
 const mainWebContentsListeners = new Map<string, (...args: unknown[]) => void>()
+let closedWindowCallback: (() => void) | null = null
 
 const mockWin = {
   webContents: {
@@ -28,6 +29,10 @@ const mockWin = {
     getURL: vi.fn(() => 'file:///mock/dist/index.html'),
   },
   on: vi.fn(),
+  once: vi.fn((event: string, callback: () => void) => {
+    if (event === 'closed') closedWindowCallback = callback
+  }),
+  isDestroyed: vi.fn(() => false),
   loadURL: vi.fn(),
   loadFile: vi.fn(),
   getBounds: vi.fn(() => ({ x: 100, y: 100, width: 1400, height: 900 })),
@@ -101,7 +106,7 @@ vi.mock('./config', () => ({
 }))
 
 vi.mock('./zoom', () => ({ loadZoomLevel: vi.fn(() => 1.0) }))
-vi.mock('./menu', () => ({ buildMenu: vi.fn(() => ({})), registerKeyboardShortcuts: vi.fn() }))
+vi.mock('./menu', () => ({ bindWindowBehavior: vi.fn() }))
 vi.mock('./ipc', () => ({ registerAllHandlers: vi.fn() }))
 const mockDispatcher = { start: vi.fn(), stop: vi.fn() }
 vi.mock('./workers/dispatcher', () => ({
@@ -149,24 +154,47 @@ describe('main process lifecycle', () => {
 
   it('whenReady callback executes the boot sequence', async () => {
     await import('./main')
-    const { Menu } = await import('electron')
     const { registerAllHandlers } = await import('./ipc')
     const { configManager } = await import('./config')
+    const { bindWindowBehavior } = await import('./menu')
     const { initRalphService } = await import('./services/ralphService')
 
     // Invoke the whenReady callback to exercise the boot path
     expect(whenReadyCb).not.toBeNull()
     whenReadyCb!()
 
-    // Verify the boot sequence ran: config migration, menu, IPC, ralph
+    // Verify the boot sequence ran: config migration, window behavior, IPC, ralph
     expect(configManager.migrateFromEnv).toHaveBeenCalled()
-    expect(Menu.setApplicationMenu).toHaveBeenCalled()
+    expect(bindWindowBehavior).toHaveBeenCalledWith(mockWin)
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()
 
     await vi.waitFor(() => {
       expect(mockDispatcher.start).toHaveBeenCalledOnce()
     })
+  })
+
+  it('rebinds window behavior without re-registering IPC after close and activate', async () => {
+    await import('./main')
+    const { BrowserWindow } = await import('electron')
+    const { registerAllHandlers } = await import('./ipc')
+    const { bindWindowBehavior } = await import('./menu')
+    const activateCb = appOnCalls.find(([event]) => event === 'activate')?.[1]
+
+    expect(whenReadyCb).not.toBeNull()
+    expect(activateCb).toBeDefined()
+    whenReadyCb!()
+    const createCount = vi.mocked(BrowserWindow).mock.calls.length
+    const bindCount = vi.mocked(bindWindowBehavior).mock.calls.length
+    const registrationCount = vi.mocked(registerAllHandlers).mock.calls.length
+
+    expect(closedWindowCallback).not.toBeNull()
+    closedWindowCallback!()
+    activateCb!()
+
+    expect(BrowserWindow).toHaveBeenCalledTimes(createCount + 1)
+    expect(bindWindowBehavior).toHaveBeenCalledTimes(bindCount + 1)
+    expect(registerAllHandlers).toHaveBeenCalledTimes(registrationCount)
   })
 
   it('blocks renderer navigation and redirects from replacing the main app UI', async () => {

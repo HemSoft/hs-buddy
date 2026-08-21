@@ -1,12 +1,15 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain } from 'electron'
 import { IPC_SEND } from '../../src/ipc/contracts'
+import { getSenderWindow } from './windowProvider'
 
-export function registerWindowHandlers(win: BrowserWindow): void {
-  ipcMain.on(IPC_SEND.WINDOW_MINIMIZE, () => {
-    win.minimize()
+export function registerWindowHandlers(): void {
+  ipcMain.on(IPC_SEND.WINDOW_MINIMIZE, event => {
+    getSenderWindow(event.sender)?.minimize()
   })
 
-  ipcMain.on(IPC_SEND.WINDOW_MAXIMIZE, () => {
+  ipcMain.on(IPC_SEND.WINDOW_MAXIMIZE, event => {
+    const win = getSenderWindow(event.sender)
+    if (!win) return
     if (win.isMaximized()) {
       win.unmaximize()
     } else {
@@ -14,11 +17,11 @@ export function registerWindowHandlers(win: BrowserWindow): void {
     }
   })
 
-  ipcMain.on(IPC_SEND.WINDOW_CLOSE, () => {
-    win.close()
+  ipcMain.on(IPC_SEND.WINDOW_CLOSE, event => {
+    getSenderWindow(event.sender)?.close()
   })
 
-  ipcMain.on(IPC_SEND.TOGGLE_DEVTOOLS, () => {
-    win.webContents.toggleDevTools()
+  ipcMain.on(IPC_SEND.TOGGLE_DEVTOOLS, event => {
+    getSenderWindow(event.sender)?.webContents.toggleDevTools()
   })
 }

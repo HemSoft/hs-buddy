@@ -1,4 +1,4 @@
-import { ipcMain, type BrowserWindow } from 'electron'
+import { ipcMain } from 'electron'
 import {
   addProjectFromPicker,
   listProjects,
@@ -12,10 +12,11 @@ import {
   undoFile,
 } from '../services/crewService'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
+import { requireSenderWindow } from './windowProvider'
 
-export function registerCrewHandlers(win: BrowserWindow): void {
-  ipcMain.handle(IPC_INVOKE.CREW_ADD_PROJECT, async () => {
-    return addProjectFromPicker(win)
+export function registerCrewHandlers(): void {
+  ipcMain.handle(IPC_INVOKE.CREW_ADD_PROJECT, async event => {
+    return addProjectFromPicker(requireSenderWindow(event.sender))
   })
 
   ipcMain.handle(IPC_INVOKE.CREW_LIST_PROJECTS, () => {

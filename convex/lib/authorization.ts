@@ -4,12 +4,22 @@ import { env, type QueryCtx, type MutationCtx } from '../_generated/server'
 type AuthContext = Pick<QueryCtx | MutationCtx, 'auth'>
 
 function configuredIdentities(): Set<string> {
-  return new Set(
-    (env.CONVEX_AUTHORIZED_IDENTITIES ?? '')
-      .split(',')
-      .map(value => value.trim())
-      .filter(Boolean)
-  )
+  const raw = env.CONVEX_AUTHORIZED_IDENTITIES
+  const entries =
+    raw === undefined
+      ? []
+      : raw
+          .split(',')
+          .map(value => value.trim())
+          .filter(Boolean)
+  if (entries.length === 0) {
+    throw new ConvexError({
+      code: 'MISCONFIGURED',
+      message:
+        'CONVEX_AUTHORIZED_IDENTITIES is not configured; refusing all access to protected APIs.',
+    })
+  }
+  return new Set(entries)
 }
 
 function assertAuthorizedTokenIdentifier(tokenIdentifier: string): void {
@@ -26,7 +36,7 @@ export async function requireAuthorizedIdentity(ctx: AuthContext) {
   if (!identity) {
     throw new ConvexError({
       code: 'UNAUTHENTICATED',
-      message: 'Authentication is required to access executable jobs and runs.',
+      message: 'Authentication is required to access executable jobs, runs, and schedules.',
     })
   }
 

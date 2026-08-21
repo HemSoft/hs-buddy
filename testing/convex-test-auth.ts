@@ -14,3 +14,7 @@ export function withAuthorizedIdentity(test: ReturnType<typeof convexTest>) {
   vi.stubEnv(AUTHORIZED_CONVEX_IDENTITIES_ENV, AUTHORIZED_TOKEN_IDENTIFIER)
   return test.withIdentity(AUTHORIZED_IDENTITY)
 }
+
+export function restoreAuthorizedIdentityEnv() {
+  vi.unstubAllEnvs()
+}

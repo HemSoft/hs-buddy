@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.967] - 2026-08-21
+
+### Fixed
+
+- Fail fast on unset identity allowlist and restore test env stubs
+
 ## [0.1.966] - 2026-08-21
 
 ### Fixed

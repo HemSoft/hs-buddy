@@ -1,11 +1,14 @@
 import aggregateComponent from '@convex-dev/aggregate/test'
 import migrationsComponent from '@convex-dev/migrations/test'
 import { convexTest } from 'convex-test'
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test } from 'vitest'
 import { api } from '../_generated/api'
 import type { Id } from '../_generated/dataModel'
 import schema from '../schema'
-import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
+import {
+  restoreAuthorizedIdentityEnv,
+  withAuthorizedIdentity,
+} from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
 
@@ -124,6 +127,8 @@ async function expectEveryCallRejected(
 }
 
 describe('executable work authorization contract', () => {
+  afterEach(restoreAuthorizedIdentityEnv)
+
   test('rejects anonymous access to every public job, run, and schedule API', async () => {
     const t = testHarness()
     const ids = await seedExecutableWork(t)
@@ -140,5 +145,20 @@ describe('executable work authorization contract', () => {
     })
 
     await expectEveryCallRejected(protectedCalls(unauthorized, ids), /not authorized/)
+  })
+
+  test('fails fast with a configuration error when the allowlist is unset', async () => {
+    const t = testHarness()
+    const ids = await seedExecutableWork(t)
+    restoreAuthorizedIdentityEnv()
+
+    const anyAuthenticatedCaller = t.withIdentity({
+      subject: 'anyone',
+      issuer: 'https://auth.test.hs-buddy',
+    })
+
+    await expect(anyAuthenticatedCaller.query(api.jobs.get, { id: ids.jobId })).rejects.toThrow(
+      /CONVEX_AUTHORIZED_IDENTITIES is not configured/
+    )
   })
 })

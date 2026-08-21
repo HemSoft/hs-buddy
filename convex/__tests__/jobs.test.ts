@@ -1,9 +1,14 @@
-import { convexTest } from 'convex-test'
+import { convexTest as createConvexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api } from '../_generated/api'
+import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
+
+function convexTest(..._args: [] | [typeof schema, typeof modules]) {
+  return withAuthorizedIdentity(createConvexTest(schema, modules))
+}
 
 describe('jobs', () => {
   const baseJob = {
@@ -12,8 +17,27 @@ describe('jobs', () => {
     config: { command: 'echo hello', cwd: '/tmp', timeout: 5000, shell: 'bash' as const },
   }
 
+  test('rejects unauthenticated reads and mutations', async () => {
+    const t = createConvexTest(schema, modules)
+
+    await expect(t.query(api.jobs.list)).rejects.toThrow(/Authentication is required/)
+    await expect(t.mutation(api.jobs.create, baseJob)).rejects.toThrow(/Authentication is required/)
+  })
+
+  test('rejects authenticated identities outside the allowlist', async () => {
+    const t = createConvexTest(schema, modules)
+    withAuthorizedIdentity(t)
+    const unauthorized = t.withIdentity({
+      subject: 'unapproved-user',
+      issuer: 'https://auth.test.hs-buddy',
+    })
+
+    await expect(unauthorized.query(api.jobs.list)).rejects.toThrow(/not authorized/)
+    await expect(unauthorized.mutation(api.jobs.create, baseJob)).rejects.toThrow(/not authorized/)
+  })
+
   test('list returns empty array when no jobs exist', async () => {
-    const t = convexTest(schema, modules)
+    const t = convexTest()
     const jobs = await t.query(api.jobs.list)
     expect(jobs).toEqual([])
   })

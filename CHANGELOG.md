@@ -13,13 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Verify CI coverage before degrading and supersession before accepting cancels
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.968] - 2026-08-21
 
 ### Changed
 
-- Tolerate cancels and queue delay in dependabot lockfile dispatch
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.967] - 2026-08-21
 

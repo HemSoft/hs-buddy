@@ -1,4 +1,4 @@
-import { dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
+import type { BrowserWindow, MenuItemConstructorOptions } from 'electron'
 import { saveZoomLevel } from './zoom'
 import { matchesShortcut } from '../src/utils/shortcutMatching'
 import { IPC_PUSH } from '../src/ipc/contracts'
@@ -25,62 +25,6 @@ function zoomOut(win: BrowserWindow): void {
 function resetZoom(win: BrowserWindow): void {
   win.webContents.setZoomFactor(DEFAULT_ZOOM)
   saveZoomLevel(DEFAULT_ZOOM)
-}
-
-export function buildMenu(win: BrowserWindow): Electron.Menu {
-  const menuTemplate: MenuItemConstructorOptions[] = [
-    {
-      label: 'File',
-      submenu: [{ role: 'quit' }],
-    },
-    {
-      label: 'View',
-      submenu: [
-        {
-          label: 'Zoom In',
-          accelerator: 'CmdOrCtrl+numadd',
-          click: () => zoomIn(win),
-        },
-        {
-          label: 'Zoom Out',
-          accelerator: 'CmdOrCtrl+numsub',
-          click: () => zoomOut(win),
-        },
-        {
-          label: 'Reset Zoom',
-          accelerator: 'CmdOrCtrl+num0',
-          click: () => resetZoom(win),
-        },
-        { type: 'separator' },
-        {
-          label: 'Toggle Full Screen',
-          accelerator: 'F11',
-          click: () => win.setFullScreen(!win.isFullScreen()),
-        },
-        { type: 'separator' },
-        { role: 'toggleDevTools' },
-      ],
-    },
-    {
-      label: 'Help',
-      submenu: [
-        {
-          label: 'About Buddy',
-          click: () => {
-            dialog.showMessageBox(win, {
-              type: 'info',
-              title: 'About Buddy',
-              message: 'Buddy',
-              detail:
-                'Your universal productivity companion\n\nVersion 0.1.0\n\n© HemSoft Developments',
-            })
-          },
-        },
-      ],
-    },
-  ]
-
-  return Menu.buildFromTemplate(menuTemplate)
 }
 
 type ShortcutEntry = {
@@ -120,6 +64,17 @@ export function registerKeyboardShortcuts(win: BrowserWindow): void {
       event.preventDefault()
     }
   })
+}
+
+/**
+ * Explicit application menu installed at boot so Electron's default menu
+ * never appears. macOS still needs the app and Edit roles: they supply the
+ * standard ⌘Q/Hide/Quit accelerators and clipboard actions (⌘C/⌘V/⌘X/⌘A)
+ * that the before-input-event shortcut list does not cover. Other platforms
+ * get an empty menu; the frameless window hides the bar anyway.
+ */
+export function applicationMenuTemplate(platform: NodeJS.Platform): MenuItemConstructorOptions[] {
+  return platform === 'darwin' ? [{ role: 'appMenu' }, { role: 'editMenu' }] : []
 }
 
 export function bindWindowBehavior(win: BrowserWindow): void {

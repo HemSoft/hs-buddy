@@ -9,17 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.975] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
+## [0.1.974] - 2026-08-21
+
+### Changed
+
+- Resolve conflicts against origin/main after menu template merge
+
+## [0.1.973] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
 ## [0.1.972] - 2026-08-21
 
-### Fixed
+### Changed
 
-- Scope shell spawn to aspire, verify version equality, guard config read
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.971] - 2026-08-21
 
 ### Fixed
 
-- Pin-report Aspire CLI version and spawn through shell on Windows
+- Reject select-directory failures instead of resolving error objects
 
 ## [0.1.970] - 2026-08-21
 

@@ -65,4 +65,19 @@ describe('Dependabot Lockfile Fix workflow', () => {
       expect(convexConfig).toContain(`${metric}: 90`)
     }
   })
+
+  it('tolerates queueing delays when waiting for the dispatched run to appear', () => {
+    expect(workflow).toContain('for attempt in $(seq 1 60); do')
+    expect(workflow).toContain('($attempt/60)')
+    // A missing dispatched run degrades to a warning instead of failing the job.
+    expect(workflow).not.toContain('exit 1\n\n      - name: Wait for generated-commit CI')
+    expect(workflow).toMatch(/::warning::No workflow_dispatch CI run appeared for \$TARGET_SHA/)
+    expect(workflow).toContain("steps.dispatch-ci.outputs.run_id != ''")
+  })
+
+  it('treats a cancelled dispatched run as superseded rather than failed', () => {
+    expect(workflow).toContain('--exit-status\n          watch_exit=$?')
+    expect(workflow).toContain('"$conclusion" = "cancelled"')
+    expect(workflow).toMatch(/::warning::Dispatched CI run \$RUN_ID was cancelled/)
+  })
 })

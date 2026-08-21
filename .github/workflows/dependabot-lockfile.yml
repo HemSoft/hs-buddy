@@ -75,7 +75,11 @@ jobs:
           TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
         run: |
           gh workflow run ci.yml --ref "$TARGET_REF"
-          for attempt in $(seq 1 12); do
+          # GitHub-side queueing can delay the dispatched run's appearance well
+          # past a minute, so poll for up to five minutes. If it never shows up,
+          # degrade to a warning: the pushed commit is still gated by the PR's
+          # own pull_request CI.
+          for attempt in $(seq 1 60); do
             run_id="$(gh run list \
               --workflow ci.yml \
               --event workflow_dispatch \
@@ -88,14 +92,26 @@ jobs:
               echo "Dispatched CI run $run_id for $TARGET_SHA"
               exit 0
             fi
-            echo "Waiting for dispatched CI run ($attempt/12)"
+            echo "Waiting for dispatched CI run ($attempt/60)"
             sleep 5
           done
-          echo "::error::No workflow_dispatch CI run appeared for $TARGET_SHA"
-          exit 1
+          echo "::warning::No workflow_dispatch CI run appeared for $TARGET_SHA within five minutes; it may still be queued, so it will not be watched."
 
       - name: Wait for generated-commit CI
-        if: steps.commit-lockfile.outputs.pushed == 'true'
+        if: steps.commit-lockfile.outputs.pushed == 'true' && steps.dispatch-ci.outputs.run_id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status
+          RUN_ID: ${{ steps.dispatch-ci.outputs.run_id }}
+        run: |
+          set +e
+          gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status
+          watch_exit=$?
+          set -e
+          conclusion="$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion // ""')"
+          if [ "$conclusion" = "cancelled" ]; then
+            # A second lockfile push supersedes this dispatched run through CI's
+            # branch concurrency group; the newer run gates the PR instead.
+            echo "::warning::Dispatched CI run $RUN_ID was cancelled, most likely superseded by a newer lockfile commit whose own CI gates this PR."
+            exit 0
+          fi
+          exit $watch_exit

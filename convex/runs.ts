@@ -137,6 +137,18 @@ export const create = mutation({
 export const markRunning = mutation({
   args: { id: v.id('runs') },
   handler: async (ctx, args) => {
+    const run = await ctx.db.get('runs', args.id)
+    if (!run) {
+      throw notFoundError('Run', args.id)
+    }
+
+    // Only the pending -> running transition is valid. Returning for running
+    // keeps dispatcher retries idempotent, while returning for terminal states
+    // prevents delayed work from resurrecting an already finalized run.
+    if (run.status !== 'pending') {
+      return
+    }
+
     await patchRun(ctx, args.id, {
       status: 'running',
     })

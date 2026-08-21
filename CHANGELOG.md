@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.951] - 2026-08-21
+
+### Fixed
+
+- Guard markRunning state transitions
+
 ## [0.1.950] - 2026-08-21
 
 ### Changed

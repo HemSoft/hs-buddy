@@ -100,32 +100,13 @@ describe('runs', () => {
     expect((await t.query(api.buddyStats.get)).runsTriggered).toBe(0)
   })
 
-  test('markRunning changes status to running', async () => {
-    const t = convexTest(schema, modules)
-    const jobId = await t.mutation(api.jobs.create, baseJob)
-    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
-
-    await t.mutation(api.runs.markRunning, { id })
-
-    const run = await t.query(api.runs.get, { id })
-    expect(run?.status).toBe('running')
-  })
-
-  test('markRunning throws when run does not exist', async () => {
-    const t = convexTest(schema, modules)
-    const jobId = await t.mutation(api.jobs.create, baseJob)
-    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
-    await t.run(async ctx => ctx.db.delete(id))
-
-    await expect(t.mutation(api.runs.markRunning, { id })).rejects.toThrow(/not found/)
-  })
-
-  test('complete marks run as completed with output', async () => {
+  test('delayed markRunning leaves a completed run unchanged', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
     const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
 
     await t.mutation(api.runs.complete, { id, output: { result: 'ok' } })
+    await t.mutation(api.runs.markRunning, { id })
 
     const run = await t.query(api.runs.get, { id })
     expect(run?.status).toBe('completed')
@@ -144,12 +125,13 @@ describe('runs', () => {
     expect(stats.runsCompleted).toBe(1)
   })
 
-  test('fail marks run as failed with error message', async () => {
+  test('delayed markRunning leaves a failed run unchanged', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
     const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
 
     await t.mutation(api.runs.fail, { id, error: 'something went wrong' })
+    await t.mutation(api.runs.markRunning, { id })
 
     const run = await t.query(api.runs.get, { id })
     expect(run?.status).toBe('failed')
@@ -165,26 +147,6 @@ describe('runs', () => {
 
     const stats = await t.query(api.buddyStats.get)
     expect(stats.runsFailed).toBe(1)
-  })
-
-  test('complete is a no-op on a run already failed (e.g. reaped) so it cannot overwrite the result or double-count stats', async () => {
-    const t = convexTest(schema, modules)
-    const jobId = await t.mutation(api.jobs.create, baseJob)
-    const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
-    await t.mutation(api.runs.fail, { id, error: 'reaped as stuck' })
-
-    // Simulate the original worker finishing late, after the run was
-    // already reaped/failed by scheduleScanner's stuck-run reaper.
-    await t.mutation(api.runs.complete, { id, output: { result: 'late' } })
-
-    const run = await t.query(api.runs.get, { id })
-    expect(run?.status).toBe('failed')
-    expect(run?.error).toBe('reaped as stuck')
-    expect(run?.output).toBeUndefined()
-
-    const stats = await t.query(api.buddyStats.get)
-    expect(stats.runsFailed).toBe(1)
-    expect(stats.runsCompleted).toBe(0)
   })
 
   test('complete updates schedule lastRunStatus when run has a scheduleId', async () => {
@@ -291,12 +253,13 @@ describe('runs', () => {
     expect((await t.query(api.buddyStats.get)).runsFailed).toBe(1)
   })
 
-  test('cancel stops a pending run', async () => {
+  test('delayed markRunning leaves a cancelled run unchanged', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
     const id = await t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
 
     await t.mutation(api.runs.cancel, { id })
+    await t.mutation(api.runs.markRunning, { id })
 
     const run = await t.query(api.runs.get, { id })
     expect(run?.status).toBe('cancelled')

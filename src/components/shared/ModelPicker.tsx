@@ -452,15 +452,32 @@ function useModelPickerSetup(
   }
 }
 
-const MODEL_PICKER_DEFAULTS = {
-  ghAccount: '',
-  persist: false,
-  disabled: false,
-  title: 'Copilot model',
-  className: '',
-  variant: 'inline' as const,
-  align: 'left' as const,
-  showRefresh: false,
+function resolveModelPickerProps({
+  value,
+  onChange,
+  ghAccount = '',
+  persist = false,
+  disabled = false,
+  title = 'Copilot model',
+  className = '',
+  variant = 'inline',
+  align = 'left',
+  showRefresh = false,
+  id,
+}: ModelPickerProps) {
+  return {
+    value,
+    onChange,
+    ghAccount,
+    persist,
+    disabled,
+    title,
+    className,
+    variant,
+    align,
+    showRefresh,
+    id,
+  }
 }
 
 export function ModelPicker(props: ModelPickerProps) {
@@ -470,19 +487,13 @@ export function ModelPicker(props: ModelPickerProps) {
     ghAccount,
     persist,
     disabled,
+    title,
     className,
     variant,
     align,
     showRefresh,
     id,
-  } = {
-    ...MODEL_PICKER_DEFAULTS,
-    ...props,
-  }
-  // Explicitly fall back on `??` (not just the spread above) so an explicit
-  // `title={undefined}` from a caller can't strip the accessible name off the
-  // select variant's <select aria-label>.
-  const title = props.title ?? MODEL_PICKER_DEFAULTS.title
+  } = resolveModelPickerProps(props)
   const { modelsLoading, modelsError, fetchModels, handleChange, enabledModels, disabledModels } =
     useModelPickerSetup(ghAccount, value, onChange, persist)
 

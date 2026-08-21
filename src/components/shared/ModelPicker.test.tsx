@@ -95,6 +95,42 @@ describe('ModelPicker', () => {
     expect(await screen.findByRole('combobox', { name: 'Copilot model' })).toBeInTheDocument()
   })
 
+  it('uses every inline default when optional props are explicitly undefined', async () => {
+    mocks.listModels.mockResolvedValueOnce([
+      { id: 'claude-sonnet-4.5', name: 'Claude Sonnet', isDisabled: false, billingMultiplier: 1 },
+    ])
+
+    render(
+      <ModelPicker
+        value="claude-sonnet-4.5"
+        onChange={vi.fn()}
+        ghAccount={undefined}
+        persist={undefined}
+        disabled={undefined}
+        title={undefined}
+        className={undefined}
+        variant={undefined}
+        align={undefined}
+        showRefresh={undefined}
+      />
+    )
+
+    await waitFor(() => expect(mocks.inlineDropdown).toHaveBeenCalled())
+    const [lastProps] = mocks.inlineDropdown.mock.lastCall ?? []
+    expect(lastProps).toEqual(
+      expect.objectContaining({
+        disabled: false,
+        title: 'Copilot model',
+        className: 'copilot-model-dropdown ',
+        align: 'left',
+      })
+    )
+    expect(mocks.listModels).toHaveBeenCalledWith(undefined)
+
+    fireEvent.click(screen.getByTestId('inline-dropdown'))
+    expect(mocks.setModel).not.toHaveBeenCalled()
+  })
+
   it('persists a changed model selection in select mode', async () => {
     const onChange = vi.fn()
     mocks.listModels.mockResolvedValueOnce([

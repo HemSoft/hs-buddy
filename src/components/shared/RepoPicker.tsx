@@ -160,25 +160,18 @@ function SelectVariant({
   )
 }
 
-const REPO_PICKER_DEFAULTS = {
-  disabled: false,
-  title: 'Target repository',
-  className: '',
-  variant: 'inline' as const,
-  align: 'left' as const,
-  placeholder: 'No repo',
-  allowNone: true,
-}
-
-export function RepoPicker(rawProps: RepoPickerProps) {
-  const { value, onChange, disabled, className, variant, align, placeholder, allowNone, id } = {
-    ...REPO_PICKER_DEFAULTS,
-    ...rawProps,
-  }
-  // Explicitly fall back on `??` (not just the spread above) so an explicit
-  // `title={undefined}` from a caller can't strip the accessible name off the
-  // select variant's <select aria-label>.
-  const title = rawProps.title ?? REPO_PICKER_DEFAULTS.title
+export function RepoPicker({
+  value,
+  onChange,
+  disabled = false,
+  title = 'Target repository',
+  className = '',
+  variant = 'inline',
+  align = 'left',
+  placeholder = 'No repo',
+  allowNone = true,
+  id,
+}: RepoPickerProps) {
   const bookmarks = useRepoBookmarks()
 
   const { options, selectGroups } = useMemo(

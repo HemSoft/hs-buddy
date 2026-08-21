@@ -78,7 +78,65 @@ describe('RepoPicker', () => {
 
     expect(screen.getByRole('combobox', { name: 'Target repository' })).toBeInTheDocument()
   })
+})
 
+describe('RepoPicker inline defaults', () => {
+  it('uses every inline default when optional props are explicitly undefined', async () => {
+    mocks.useRepoBookmarks.mockReturnValue([
+      { owner: 'hemsoft', repo: 'hs-buddy', folder: 'Personal' },
+    ])
+
+    render(
+      <RepoPicker
+        value=""
+        onChange={vi.fn()}
+        disabled={undefined}
+        title={undefined}
+        className={undefined}
+        variant={undefined}
+        align={undefined}
+        placeholder={undefined}
+        allowNone={undefined}
+      />
+    )
+
+    await waitFor(() => expect(mocks.inlineDropdown).toHaveBeenCalled())
+    const [lastProps] = mocks.inlineDropdown.mock.lastCall ?? []
+    expect(lastProps).toEqual(
+      expect.objectContaining({
+        disabled: false,
+        title: 'Target repository',
+        className: '',
+        align: 'left',
+        placeholder: 'No repo',
+        options: [
+          { value: '', label: 'No repo' },
+          { value: 'hemsoft/hs-buddy', label: 'hemsoft/hs-buddy', hint: 'Personal' },
+        ],
+      })
+    )
+  })
+
+  it('preserves intentional false and empty-string values', async () => {
+    mocks.useRepoBookmarks.mockReturnValue([
+      { owner: 'hemsoft', repo: 'hs-buddy', folder: 'Personal' },
+    ])
+
+    render(<RepoPicker value="" onChange={vi.fn()} allowNone={false} placeholder="" className="" />)
+
+    await waitFor(() => expect(mocks.inlineDropdown).toHaveBeenCalled())
+    const [lastProps] = mocks.inlineDropdown.mock.lastCall ?? []
+    expect(lastProps).toEqual(
+      expect.objectContaining({
+        placeholder: '',
+        className: '',
+        options: [{ value: 'hemsoft/hs-buddy', label: 'hemsoft/hs-buddy', hint: 'Personal' }],
+      })
+    )
+  })
+})
+
+describe('RepoPicker inline options', () => {
   it('shows the empty state hint when no bookmarks exist', () => {
     mocks.useRepoBookmarks.mockReturnValue([])
 

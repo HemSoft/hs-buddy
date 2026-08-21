@@ -1,4 +1,4 @@
-import { dialog, Menu, type BrowserWindow, type MenuItemConstructorOptions } from 'electron'
+import type { BrowserWindow, MenuItemConstructorOptions } from 'electron'
 import { saveZoomLevel } from './zoom'
 import { matchesShortcut } from '../src/utils/shortcutMatching'
 import { IPC_PUSH } from '../src/ipc/contracts'
@@ -25,62 +25,6 @@ function zoomOut(win: BrowserWindow): void {
 function resetZoom(win: BrowserWindow): void {
   win.webContents.setZoomFactor(DEFAULT_ZOOM)
   saveZoomLevel(DEFAULT_ZOOM)
-}
-
-export function buildMenu(win: BrowserWindow): Electron.Menu {
-  const menuTemplate: MenuItemConstructorOptions[] = [
-    {
-      label: 'File',
-      submenu: [{ role: 'quit' }],
-    },
-    {
-      label: 'View',
-      submenu: [
-        {
-          label: 'Zoom In',
-          accelerator: 'CmdOrCtrl+numadd',
-          click: () => zoomIn(win),
-        },
-        {
-          label: 'Zoom Out',
-          accelerator: 'CmdOrCtrl+numsub',
-          click: () => zoomOut(win),
-        },
-        {
-          label: 'Reset Zoom',
-          accelerator: 'CmdOrCtrl+num0',
-          click: () => resetZoom(win),
-        },
-        { type: 'separator' },
-        {
-          label: 'Toggle Full Screen',
-          accelerator: 'F11',
-          click: () => win.setFullScreen(!win.isFullScreen()),
-        },
-        { type: 'separator' },
-        { role: 'toggleDevTools' },
-      ],
-    },
-    {
-      label: 'Help',
-      submenu: [
-        {
-          label: 'About Buddy',
-          click: () => {
-            dialog.showMessageBox(win, {
-              type: 'info',
-              title: 'About Buddy',
-              message: 'Buddy',
-              detail:
-                'Your universal productivity companion\n\nVersion 0.1.0\n\n© HemSoft Developments',
-            })
-          },
-        },
-      ],
-    },
-  ]
-
-  return Menu.buildFromTemplate(menuTemplate)
 }
 
 type ShortcutEntry = {

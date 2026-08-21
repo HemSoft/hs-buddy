@@ -1766,6 +1766,108 @@ describe('RalphLaunchForm', () => {
     })
   })
 
+  describe('Loop count validation', () => {
+    beforeEach(restoreDefaultConfigMocks)
+
+    it.each([
+      ['empty', '', 'Iterations must be a whole number from 1 through 100'],
+      ['non-integer', '1.5', 'Iterations must be a whole number from 1 through 100'],
+      [
+        'precision-rounded fraction',
+        '100.000000000000001',
+        'Iterations must be a whole number from 1 through 100',
+      ],
+      ['below-minimum', '0', 'Iterations must be a whole number from 1 through 100'],
+      ['above-maximum', '101', 'Iterations must be a whole number from 1 through 100'],
+    ])('rejects an %s iterations value before launch', async (_case, value, message) => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      fireEvent.change(screen.getByLabelText(/iterations/i), { target: { value } })
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      expect(await screen.findByText(message)).toBeInTheDocument()
+      expect(mockOnLaunch).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['empty', '', 'Repeat cycles must be a whole number from 1 through 50'],
+      ['non-integer', '1.5', 'Repeat cycles must be a whole number from 1 through 50'],
+      [
+        'precision-rounded fraction',
+        '50.000000000000001',
+        'Repeat cycles must be a whole number from 1 through 50',
+      ],
+      ['below-minimum', '0', 'Repeat cycles must be a whole number from 1 through 50'],
+      ['above-maximum', '51', 'Repeat cycles must be a whole number from 1 through 50'],
+    ])('rejects an %s repeat cycles value before launch', async (_case, value, message) => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      fireEvent.change(screen.getByLabelText(/repeat/i), { target: { value } })
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      expect(await screen.findByText(message)).toBeInTheDocument()
+      expect(mockOnLaunch).not.toHaveBeenCalled()
+    })
+
+    it('launches with valid boundary values for iterations and repeat cycles', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      fireEvent.change(screen.getByLabelText(/iterations/i), { target: { value: '100' } })
+      fireEvent.change(screen.getByLabelText(/repeat/i), { target: { value: '50' } })
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      await waitFor(() => {
+        expect(mockOnLaunch).toHaveBeenCalledWith(
+          expect.objectContaining({ iterations: 100, repeats: 50 })
+        )
+      })
+    })
+  })
+
+  describe('Disabled loop count fallbacks', () => {
+    beforeEach(restoreDefaultConfigMocks)
+
+    it('uses the repeat default when a non-default count becomes disabled', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      fireEvent.change(screen.getByLabelText(/repeat/i), { target: { value: '5' } })
+      await userEvent.selectOptions(screen.getByLabelText(/script/i), 'ralph-issues')
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      await waitFor(() => {
+        expect(mockOnLaunch).toHaveBeenCalledWith(expect.objectContaining({ iterations: 3 }))
+      })
+      expect(mockOnLaunch.mock.calls[0][0]).not.toHaveProperty('repeats')
+    })
+
+    it('uses both loop-count defaults when non-default counts become disabled', async () => {
+      const mockOnLaunch = vi.fn().mockResolvedValue({ success: true })
+      render(<RalphLaunchForm onLaunch={mockOnLaunch} />)
+
+      await userEvent.type(screen.getByLabelText(/repository/i), '/repo')
+      fireEvent.change(screen.getByLabelText(/iterations/i), { target: { value: '5' } })
+      fireEvent.change(screen.getByLabelText(/repeat/i), { target: { value: '5' } })
+      await userEvent.selectOptions(screen.getByLabelText(/script/i), 'ralph-pr')
+      await userEvent.type(screen.getByLabelText(/PR Number/i), '12')
+      await userEvent.click(screen.getByRole('button', { name: /launch/i }))
+
+      await waitFor(() => {
+        expect(mockOnLaunch).toHaveBeenCalledWith(
+          expect.objectContaining({ iterations: 3, prNumber: 12 })
+        )
+      })
+      expect(mockOnLaunch.mock.calls[0][0]).not.toHaveProperty('repeats')
+    })
+  })
+
   describe('Launch validation and error coverage', () => {
     beforeEach(restoreDefaultConfigMocks)
 

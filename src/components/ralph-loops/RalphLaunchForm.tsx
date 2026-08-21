@@ -118,6 +118,11 @@ interface LaunchFormValues {
   autoApprove: boolean
 }
 
+const DEFAULT_ITERATIONS = 3
+const DEFAULT_REPEATS = 1
+const MAX_ITERATIONS = 100
+const MAX_REPEATS = 50
+
 function resolveScriptType(choice: ScriptChoice): {
   scriptType: RalphLaunchConfig['scriptType']
   templateScript?: string
@@ -160,6 +165,42 @@ function parsePositiveInteger(value: string): number | undefined {
   if (!trimmedValue) return undefined
   const parsedValue = Number(trimmedValue)
   return Number.isInteger(parsedValue) && parsedValue > 0 ? parsedValue : undefined
+}
+
+function parseBoundedInteger(value: string, maximum: number): number | undefined {
+  const trimmedValue = value.trim()
+  if (!/^\d+$/.test(trimmedValue)) return undefined
+  const parsedValue = Number(trimmedValue)
+  return Number.isInteger(parsedValue) && parsedValue >= 1 && parsedValue <= maximum
+    ? parsedValue
+    : undefined
+}
+
+type LoopCountValidation =
+  { valid: true; iterations: number; repeats: number } | { valid: false; error: string }
+
+function validateLoopCounts(
+  scriptChoice: ScriptChoice,
+  iterations: string,
+  repeats: string
+): LoopCountValidation {
+  const parsedIterations = parseBoundedInteger(iterations, MAX_ITERATIONS)
+  const iterationsDisabled = scriptChoice === 'ralph-pr'
+  if (!iterationsDisabled && parsedIterations === undefined) {
+    return { valid: false, error: 'Iterations must be a whole number from 1 through 100' }
+  }
+
+  const parsedRepeats = parseBoundedInteger(repeats, MAX_REPEATS)
+  const repeatsDisabled = scriptChoice === 'ralph-pr' || scriptChoice === 'ralph-issues'
+  if (!repeatsDisabled && parsedRepeats === undefined) {
+    return { valid: false, error: 'Repeat cycles must be a whole number from 1 through 50' }
+  }
+
+  return {
+    valid: true,
+    iterations: iterationsDisabled ? DEFAULT_ITERATIONS : (parsedIterations ?? DEFAULT_ITERATIONS),
+    repeats: repeatsDisabled ? DEFAULT_REPEATS : (parsedRepeats ?? DEFAULT_REPEATS),
+  }
 }
 
 function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {
@@ -268,10 +309,10 @@ function IterationsRow({
   onRepeatsChange,
 }: {
   scriptChoice: ScriptChoice
-  iterations: number
-  onIterationsChange: (v: number) => void
-  repeats: number
-  onRepeatsChange: (v: number) => void
+  iterations: string
+  onIterationsChange: (v: string) => void
+  repeats: string
+  onRepeatsChange: (v: string) => void
 }) {
   const isIssues = scriptChoice === 'ralph-issues'
   return (
@@ -288,8 +329,9 @@ function IterationsRow({
           type="number"
           min={1}
           max={100}
+          step={1}
           value={iterations}
-          onChange={e => onIterationsChange(Number(e.target.value))}
+          onChange={e => onIterationsChange(e.target.value)}
           disabled={scriptChoice === 'ralph-pr'}
         />
       </div>
@@ -304,8 +346,9 @@ function IterationsRow({
           type="number"
           min={1}
           max={50}
+          step={1}
           value={repeats}
-          onChange={e => onRepeatsChange(Number(e.target.value))}
+          onChange={e => onRepeatsChange(e.target.value)}
           disabled={scriptChoice === 'ralph-pr' || scriptChoice === 'ralph-issues'}
         />
       </div>
@@ -759,8 +802,8 @@ export function RalphLaunchForm({
   const [reviewAgents, setReviewAgents] = useState<string[]>([])
   const reviewAgentsRef = useRef(reviewAgents)
   const [reviewerModels, setReviewerModels] = useState<Record<string, string>>({})
-  const [iterations, setIterations] = useState(3)
-  const [repeats, setRepeats] = useState(1)
+  const [iterations, setIterations] = useState(String(DEFAULT_ITERATIONS))
+  const [repeats, setRepeats] = useState(String(DEFAULT_REPEATS))
   const [branch, setBranch] = useState('')
   const [prompt, setPrompt] = useState('')
   const [prNumber, setPrNumber] = useState('')
@@ -845,6 +888,12 @@ export function RalphLaunchForm({
       return
     }
 
+    const loopCounts = validateLoopCounts(scriptChoice, iterations, repeats)
+    if (!loopCounts.valid) {
+      setError(loopCounts.error)
+      return
+    }
+
     setLaunching(true)
     setError(null)
     safeSetItem('ralph-last-repo', repoPath)
@@ -857,8 +906,8 @@ export function RalphLaunchForm({
       devAgent,
       reviewAgents,
       reviewerModels,
-      iterations,
-      repeats,
+      iterations: loopCounts.iterations,
+      repeats: loopCounts.repeats,
       branch,
       prompt,
       prNumber,
@@ -881,7 +930,7 @@ export function RalphLaunchForm({
   const canSubmit = !launching && Boolean(repoPath)
 
   return (
-    <form className="ralph-launch-form" onSubmit={handleSubmit}>
+    <form className="ralph-launch-form" onSubmit={handleSubmit} noValidate>
       <h3 className="ralph-form-title">Launch Loop</h3>
 
       {error ? <div className="ralph-form-error">{error}</div> : null}

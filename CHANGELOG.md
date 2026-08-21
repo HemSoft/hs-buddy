@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.962] - 2026-08-21
+
+### Fixed
+
+- Validate launch loop counts
+
 ## [0.1.961] - 2026-08-21
 
 ### Fixed

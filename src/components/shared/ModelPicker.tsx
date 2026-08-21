@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, type ReactNode } from 'react'
 import { Cpu, Loader2, RefreshCw } from 'lucide-react'
 import { useCopilotSettings } from '../../hooks/useConfig'
 import { InlineDropdown, type DropdownOption } from '../InlineDropdown'
@@ -83,8 +83,6 @@ interface ModelPickerProps {
   className?: string
   /** Render variant */
   variant?: 'inline' | 'select'
-  /** Menu alignment for inline variant */
-  align?: 'left' | 'right'
   /** Show refresh button (only for select variant) */
   showRefresh?: boolean
   /** id for the select element (select variant only) */
@@ -452,7 +450,29 @@ function useModelPickerSetup(
   }
 }
 
-function resolveModelPickerProps({
+function modelPickerInlineLoading(
+  modelsLoading: boolean,
+  variant: ModelPickerProps['variant'],
+  className: string
+): ReactNode {
+  if (!modelsLoading || variant !== 'inline') return null
+  return (
+    <div
+      className={`copilot-model-loading ${className}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        fontSize: '12px',
+        color: 'var(--text-secondary)',
+      }}
+    >
+      <Loader2 size={11} className="spin" /> Loading…
+    </div>
+  )
+}
+
+export function ModelPicker({
   value,
   onChange,
   ghAccount = '',
@@ -461,58 +481,14 @@ function resolveModelPickerProps({
   title = 'Copilot model',
   className = '',
   variant = 'inline',
-  align = 'left',
   showRefresh = false,
   id,
 }: ModelPickerProps) {
-  return {
-    value,
-    onChange,
-    ghAccount,
-    persist,
-    disabled,
-    title,
-    className,
-    variant,
-    align,
-    showRefresh,
-    id,
-  }
-}
-
-export function ModelPicker(props: ModelPickerProps) {
-  const {
-    value,
-    onChange,
-    ghAccount,
-    persist,
-    disabled,
-    title,
-    className,
-    variant,
-    align,
-    showRefresh,
-    id,
-  } = resolveModelPickerProps(props)
   const { modelsLoading, modelsError, fetchModels, handleChange, enabledModels, disabledModels } =
     useModelPickerSetup(ghAccount, value, onChange, persist)
 
-  if (modelsLoading && variant === 'inline') {
-    return (
-      <div
-        className={`copilot-model-loading ${className}`}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontSize: '12px',
-          color: 'var(--text-secondary)',
-        }}
-      >
-        <Loader2 size={11} className="spin" /> Loading…
-      </div>
-    )
-  }
+  const loadingIndicator = modelPickerInlineLoading(modelsLoading, variant, className)
+  if (loadingIndicator) return loadingIndicator
 
   if (variant === 'select') {
     return (
@@ -544,7 +520,6 @@ export function ModelPicker(props: ModelPickerProps) {
       disabled={disabled}
       title={title}
       className={`copilot-model-dropdown ${className}`}
-      align={align}
     />
   )
 }

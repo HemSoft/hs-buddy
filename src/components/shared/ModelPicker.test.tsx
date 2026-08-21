@@ -110,7 +110,6 @@ describe('ModelPicker', () => {
         title={undefined}
         className={undefined}
         variant={undefined}
-        align={undefined}
         showRefresh={undefined}
       />
     )
@@ -122,7 +121,6 @@ describe('ModelPicker', () => {
         disabled: false,
         title: 'Copilot model',
         className: 'copilot-model-dropdown ',
-        align: 'left',
       })
     )
     expect(mocks.listModels).toHaveBeenCalledWith(undefined)
@@ -432,7 +430,6 @@ describe('ModelPicker', () => {
         disabled
         title="Pick a model"
         className="custom-cls"
-        align="right"
       />
     )
 
@@ -443,7 +440,6 @@ describe('ModelPicker', () => {
         disabled: true,
         title: 'Pick a model',
         className: 'copilot-model-dropdown custom-cls',
-        align: 'right',
       })
     )
   })

@@ -171,9 +171,7 @@ function parseBoundedInteger(value: string, maximum: number): number | undefined
   const trimmedValue = value.trim()
   if (!/^\d+$/.test(trimmedValue)) return undefined
   const parsedValue = Number(trimmedValue)
-  return Number.isInteger(parsedValue) && parsedValue >= 1 && parsedValue <= maximum
-    ? parsedValue
-    : undefined
+  return parsedValue >= 1 && parsedValue <= maximum ? parsedValue : undefined
 }
 
 type LoopCountValidation =
@@ -184,23 +182,24 @@ function validateLoopCounts(
   iterations: string,
   repeats: string
 ): LoopCountValidation {
-  const parsedIterations = parseBoundedInteger(iterations, MAX_ITERATIONS)
   const iterationsDisabled = scriptChoice === 'ralph-pr'
-  if (!iterationsDisabled && parsedIterations === undefined) {
+  const repeatsDisabled = scriptChoice === 'ralph-pr' || scriptChoice === 'ralph-issues'
+
+  const parsedIterations = iterationsDisabled
+    ? DEFAULT_ITERATIONS
+    : parseBoundedInteger(iterations, MAX_ITERATIONS)
+  if (parsedIterations === undefined) {
     return { valid: false, error: 'Iterations must be a whole number from 1 through 100' }
   }
 
-  const parsedRepeats = parseBoundedInteger(repeats, MAX_REPEATS)
-  const repeatsDisabled = scriptChoice === 'ralph-pr' || scriptChoice === 'ralph-issues'
-  if (!repeatsDisabled && parsedRepeats === undefined) {
+  const parsedRepeats = repeatsDisabled
+    ? DEFAULT_REPEATS
+    : parseBoundedInteger(repeats, MAX_REPEATS)
+  if (parsedRepeats === undefined) {
     return { valid: false, error: 'Repeat cycles must be a whole number from 1 through 50' }
   }
 
-  return {
-    valid: true,
-    iterations: iterationsDisabled ? DEFAULT_ITERATIONS : (parsedIterations ?? DEFAULT_ITERATIONS),
-    repeats: repeatsDisabled ? DEFAULT_REPEATS : (parsedRepeats ?? DEFAULT_REPEATS),
-  }
+  return { valid: true, iterations: parsedIterations, repeats: parsedRepeats }
 }
 
 function buildOptionalFields(opts: LaunchFormValues): Partial<RalphLaunchConfig> {

@@ -112,6 +112,13 @@ describe('TaskPlannerView', () => {
     expect(mocks.refresh).toHaveBeenCalledTimes(1)
   })
 
+  it('uses upcoming mode when mode is explicitly undefined', () => {
+    render(<TaskPlannerView mode={undefined} />)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Upcoming' })).toBeInTheDocument()
+    expect(mocks.useTodoistUpcoming).toHaveBeenCalledWith(7)
+  })
+
   it('refreshes on mount, on demand, and on the 60 second interval', () => {
     render(<TaskPlannerView />)
 

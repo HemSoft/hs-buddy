@@ -2,8 +2,9 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AccountPicker } from './AccountPicker'
 
-const { mockSetGhAccount } = vi.hoisted(() => ({
+const { mockSetGhAccount, mockInlineDropdown } = vi.hoisted(() => ({
   mockSetGhAccount: vi.fn(),
+  mockInlineDropdown: vi.fn(),
 }))
 
 vi.mock('../../hooks/useConfig', () => ({
@@ -17,19 +18,22 @@ vi.mock('../../hooks/useConfig', () => ({
 }))
 
 vi.mock('../InlineDropdown', () => ({
-  InlineDropdown: ({
-    value,
-    onChange,
-    placeholder,
-  }: {
+  InlineDropdown: (props: {
     value: string
     onChange: (v: string) => void
     placeholder?: string
-  }) => (
-    <button type="button" data-testid="inline-dropdown" onClick={() => onChange('alice')}>
-      {value || placeholder}
-    </button>
-  ),
+    disabled?: boolean
+    title?: string
+    className?: string
+    align?: 'left' | 'right'
+  }) => {
+    mockInlineDropdown(props)
+    return (
+      <button type="button" data-testid="inline-dropdown" onClick={() => props.onChange('alice')}>
+        {props.value || props.placeholder}
+      </button>
+    )
+  },
 }))
 
 beforeEach(() => {
@@ -81,6 +85,33 @@ describe('AccountPicker', () => {
   it('keeps an accessible name on the select when title is explicitly undefined', () => {
     render(<AccountPicker value="" onChange={vi.fn()} variant="select" title={undefined} />)
     expect(screen.getByRole('combobox', { name: 'GitHub account' })).toBeTruthy()
+  })
+
+  it('uses every inline default when optional props are explicitly undefined', () => {
+    render(
+      <AccountPicker
+        value=""
+        onChange={vi.fn()}
+        persist={undefined}
+        disabled={undefined}
+        title={undefined}
+        className={undefined}
+        variant={undefined}
+        align={undefined}
+      />
+    )
+
+    expect(screen.getByTestId('inline-dropdown')).toBeTruthy()
+    expect(mockInlineDropdown).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        disabled: false,
+        title: 'GitHub account',
+        className: '',
+        align: 'left',
+      })
+    )
+    fireEvent.click(screen.getByTestId('inline-dropdown'))
+    expect(mockSetGhAccount).not.toHaveBeenCalled()
   })
 
   it('persists account selection when persist prop is true', () => {

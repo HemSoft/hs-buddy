@@ -146,6 +146,7 @@ function fetchGitHubEmail(githubLogin: string): string | null {
 
 async function tryOrgEmailPatterns(githubLogin: string): Promise<string | null> {
   const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
+  let transientError: unknown
   for (const candidate of patterns) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Email guesses are tried in priority order and stop at the first Slack match.
     try {
@@ -155,11 +156,15 @@ async function tryOrgEmailPatterns(githubLogin: string): Promise<string | null> 
       // Transient Slack failures (rate limits, server errors) should not abort the
       // remaining candidate patterns; anything permanent still surfaces.
       if (error instanceof SlackHttpError && (error.status === 429 || error.status >= 500)) {
+        transientError = error
         continue
       }
       throw error
     }
   }
+  // Every pattern failed transiently: surface the outage instead of masking it
+  // as a lookup miss.
+  if (transientError) throw transientError
   return null
 }
 

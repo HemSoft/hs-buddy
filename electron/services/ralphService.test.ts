@@ -540,6 +540,17 @@ describe('ralphService', () => {
       expect(listLoops()[0].logBuffer).toEqual(['final frame'])
     })
 
+    it('handles a single chunk containing many carriage-return boundaries', () => {
+      launchValid()
+
+      const frames = Array.from({ length: 5_000 }, (_, index) => `frame ${index}\r`).join('')
+      lastMockProc.stdout.emit('data', Buffer.from(frames))
+
+      expect(listLoops()[0].logBuffer).toHaveLength(5_000)
+      expect(listLoops()[0].logBuffer[0]).toBe('frame 0')
+      expect(listLoops()[0].logBuffer.at(-1)).toBe('frame 4999')
+    })
+
     it('fragments oversized complete lines without splitting surrogate pairs', () => {
       launchValid()
       const prefix = 'a'.repeat(65_535)

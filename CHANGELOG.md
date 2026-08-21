@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.971] - 2026-08-21
+
+### Fixed
+
+- Reject select-directory failures instead of resolving error objects
+
 ## [0.1.970] - 2026-08-21
 
 ### Changed

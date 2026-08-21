@@ -11,10 +11,6 @@ vi.mock('electron', () => ({
   ipcMain: { handle: vi.fn() },
 }))
 
-vi.mock('./ipcHandler', () => ({
-  ipcHandler: (fn: (...args: unknown[]) => unknown) => fn,
-}))
-
 vi.mock('../services/ralphService', () => ({
   launchLoop: vi.fn().mockResolvedValue({ runId: 'run-1', status: 'running' }),
   stopLoop: vi.fn().mockResolvedValue({ success: true }),

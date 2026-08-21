@@ -76,15 +76,17 @@ export function registerRalphHandlers(getWindow: WindowProvider): void {
     })
   )
 
+  // No ipcHandler wrapper: this channel must keep its Promise<string | null>
+  // contract, so failures reject instead of resolving an error object.
   ipcMain.handle(
     IPC_INVOKE.RALPH_SELECT_DIRECTORY,
-    ipcHandler(async (event: Electron.IpcMainInvokeEvent, defaultPath?: string) => {
+    async (event: Electron.IpcMainInvokeEvent, defaultPath?: string) => {
       const result = await dialog.showOpenDialog(requireSenderWindow(event.sender), {
         properties: ['openDirectory'],
         title: 'Select Repository',
         ...(defaultPath && { defaultPath }),
       })
       return result.canceled ? null : result.filePaths[0]
-    })
+    }
   )
 }

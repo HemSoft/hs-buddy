@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.970] - 2026-08-21
+
+### Changed
+
+- Extract backfill scoping test to keep runs.test.ts under max-lines
+
 ## [0.1.969] - 2026-08-21
 
 ### Changed

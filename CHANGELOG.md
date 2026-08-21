@@ -9,17 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.968] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
 ## [0.1.967] - 2026-08-21
 
 ### Fixed
 
-- Fail fast on unset identity allowlist and restore test env stubs
+- Surface transient lookup failures after org-email patterns are exhausted
 
 ## [0.1.966] - 2026-08-21
 
 ### Fixed
 
-- Require authorized identity for job, run, and schedule APIs (#396)
+- Fall through to next org-email pattern on transient lookup failures (#551)
 
 ## [0.1.965] - 2026-08-21
 

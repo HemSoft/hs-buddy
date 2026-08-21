@@ -506,6 +506,10 @@ describe('runs', () => {
       )
     }
 
+    const atLimit = await t.query(api.runs.countsByJob, { jobIds: jobIds.slice(0, 100) })
+    expect(Object.keys(atLimit)).toHaveLength(100)
+    expect(atLimit[jobIds[99]]).toEqual({ total: 0, completed: 0, failed: 0 })
+
     await expect(t.query(api.runs.countsByJob, { jobIds })).rejects.toThrow(/at most 100/)
   })
 

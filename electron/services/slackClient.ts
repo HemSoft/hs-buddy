@@ -50,9 +50,19 @@ function slackError(prefix: string, error: string | undefined): SlackNudgeResult
   return { success: false, error: `${prefix}: ${error || 'unknown'}` }
 }
 
+class SlackHttpError extends Error {
+  readonly status: number
+
+  constructor(operation: string, status: number) {
+    super(`Slack ${operation} failed with HTTP ${status}`)
+    this.name = 'SlackHttpError'
+    this.status = status
+  }
+}
+
 function assertSlackHttpSuccess(response: Response, operation: string): void {
   if (!response.ok) {
-    throw new Error(`Slack ${operation} failed with HTTP ${response.status}`)
+    throw new SlackHttpError(operation, response.status)
   }
 }
 
@@ -136,11 +146,25 @@ function fetchGitHubEmail(githubLogin: string): string | null {
 
 async function tryOrgEmailPatterns(githubLogin: string): Promise<string | null> {
   const patterns = [`${githubLogin}@relias.com`, `${githubLogin}@reliaslearning.com`]
+  let transientError: unknown
   for (const candidate of patterns) {
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Email guesses are tried in priority order and stop at the first Slack match.
-    const slackId = await lookupSlackUserByEmail(candidate)
-    if (slackId) return slackId
+    try {
+      const slackId = await lookupSlackUserByEmail(candidate)
+      if (slackId) return slackId
+    } catch (error: unknown) {
+      // Transient Slack failures (rate limits, server errors) should not abort the
+      // remaining candidate patterns; anything permanent still surfaces.
+      if (error instanceof SlackHttpError && (error.status === 429 || error.status >= 500)) {
+        transientError = error
+        continue
+      }
+      throw error
+    }
   }
+  // Every pattern failed transiently: surface the outage instead of masking it
+  // as a lookup miss.
+  if (transientError) throw transientError
   return null
 }
 

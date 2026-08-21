@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.967] - 2026-08-21
+
+### Fixed
+
+- Surface transient lookup failures after org-email patterns are exhausted
+
+## [0.1.966] - 2026-08-21
+
+### Fixed
+
+- Fall through to next org-email pattern on transient lookup failures (#551)
+
 ## [0.1.965] - 2026-08-21
 
 ### Fixed

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
+import { StrictMode } from 'react'
 import { useNewPRIndicator } from './useNewPRIndicator'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
@@ -126,6 +127,28 @@ describe('useNewPRIndicator', () => {
     expect(result.current.newUrls).toEqual(
       new Set(['https://github.com/org/repo/pull/2', 'https://github.com/org/repo/pull/3'])
     )
+  })
+
+  it('keeps its lazy initial snapshot stable across StrictMode replay and rerenders', () => {
+    const seenUrls = ['https://github.com/org/repo/pull/1']
+    let currentPrs = [makePR(1), makePR(2)]
+
+    getSpy.mockImplementation((key: string) => {
+      if (key === 'my-prs') return { data: currentPrs, fetchedAt: Date.now() }
+      if (key === 'needs-review') return { data: [], fetchedAt: Date.now() }
+      if (key === 'seen-prs:my-prs') return { data: seenUrls, fetchedAt: Date.now() }
+      if (key === 'seen-prs:needs-review') return { data: [], fetchedAt: Date.now() }
+      return null
+    })
+
+    const { result, rerender } = renderHook(() => useNewPRIndicator(), { wrapper: StrictMode })
+    expect(result.current.newCounts['pr-my-prs']).toBe(1)
+
+    currentPrs = [makePR(1), makePR(2), makePR(3)]
+    rerender()
+
+    expect(result.current.newCounts['pr-my-prs']).toBe(1)
+    expect(setSpy).not.toHaveBeenCalled()
   })
 
   it('markAsSeen clears new count for a view', () => {

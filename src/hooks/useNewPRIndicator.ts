@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
 
@@ -57,13 +57,7 @@ function computeNewState(): { counts: Record<string, number>; urls: Set<string> 
  * Calling `markAsSeen(viewId)` stores the current PR URLs as the seen set.
  */
 export function useNewPRIndicator() {
-  const initialStateRef = useRef<{ counts: Record<string, number>; urls: Set<string> } | null>(null)
-  if (initialStateRef.current === null) {
-    initialStateRef.current = computeNewState()
-  }
-
-  const [newCounts, setNewCounts] = useState<Record<string, number>>(initialStateRef.current.counts)
-  const [newUrls, setNewUrls] = useState<Set<string>>(initialStateRef.current.urls)
+  const [{ counts: newCounts, urls: newUrls }, setNewState] = useState(computeNewState)
   const pendingMarks = useMemo(() => new Set<TrackedMode>(), [])
 
   // Seed the seen sets on first mount if they don't exist
@@ -107,8 +101,7 @@ export function useNewPRIndicator() {
           }
         }
         const state = computeNewState()
-        setNewCounts(state.counts)
-        setNewUrls(state.urls)
+        setNewState(state)
       }
     })
     return unsubscribe
@@ -121,8 +114,7 @@ export function useNewPRIndicator() {
           if (dataCache.get(mode) !== null) {
             dataCache.set(`${SEEN_PREFIX}${mode}`, [...prUrlsFromCache(mode)])
             const state = computeNewState()
-            setNewCounts(state.counts)
-            setNewUrls(state.urls)
+            setNewState(state)
           } else {
             // Data hasn't loaded yet — record the intent so it's applied
             // when the subscribe callback sees the first data arrival.

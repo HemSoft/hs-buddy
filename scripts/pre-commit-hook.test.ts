@@ -66,7 +66,12 @@ function createFixture() {
     join(fakeBin, 'bun'),
     `#!/usr/bin/env sh
 printf 'bun %s\\n' "$*" >> "$HOOK_TEST_LOG"
-if [ "$*" = "$HOOK_FAIL_COMMAND" ]; then exit 17; fi
+if [ "$*" = "$HOOK_FAIL_COMMAND" ]; then
+  # Simulate a crash mid-write: mutate the file before reporting failure so
+  # rollback assertions can tell a real restore from a no-op.
+  printf '{\\n  "version": "0.0.2-crashed"\\n}\\n' > "$HOOK_PACKAGE_JSON"
+  exit 17
+fi
 `
   )
   executable(
@@ -74,7 +79,8 @@ if [ "$*" = "$HOOK_FAIL_COMMAND" ]; then exit 17; fi
     `#!/usr/bin/env sh
 printf 'npx %s\\n' "$*" >> "$HOOK_TEST_LOG"
 printf 'const value = 1\\n' > "$HOOK_FORMAT_FILE"
-git add "$HOOK_FORMAT_FILE"
+printf '{\\n  "version": "0.0.1"\\n}\\n' > "$HOOK_PACKAGE_JSON"
+git add "$HOOK_FORMAT_FILE" "$HOOK_PACKAGE_JSON"
 `
   )
   executable(
@@ -89,6 +95,7 @@ printf 'pwsh %s\\n' "$*" >> "$HOOK_TEST_LOG"
     fakeBin,
     log: join(root, 'hook.log'),
     source: join(root, 'src.ts'),
+    packageJson: join(root, 'package.json'),
   }
 }
 
@@ -99,6 +106,7 @@ function runHook(fixture: ReturnType<typeof createFixture>, failCommand = '') {
     env: isolatedEnvironment({
       HOOK_FAIL_COMMAND: failCommand,
       HOOK_FORMAT_FILE: shellPath(fixture.source),
+      HOOK_PACKAGE_JSON: shellPath(fixture.packageJson),
       HOOK_TEST_BIN: shellPath(fixture.fakeBin),
       HOOK_TEST_LOG: shellPath(fixture.log),
     }),
@@ -142,5 +150,26 @@ describe('pre-commit hook ordering', () => {
     ])
     expect(readFileSync(fixture.source, 'utf8')).toBe('const value = 1\n')
     expect(git(fixture.root, 'show', ':src.ts')).toBe('const value = 1\n')
+  })
+
+  it('restores package.json when the revision bump fails after formatting', () => {
+    const fixture = createFixture()
+
+    const result = runHook(fixture, 'scripts/bump-revision.ts')
+
+    expect(result.status).toBe(17)
+    expect(result.stderr).toContain('package.json restored')
+
+    // Formatting (a completed earlier phase-2 step) stays applied and staged;
+    // the documented recovery is `git restore --staged --worktree .`.
+    expect(readFileSync(fixture.source, 'utf8')).toBe('const value = 1\n')
+    expect(git(fixture.root, 'show', ':src.ts')).toBe('const value = 1\n')
+
+    // The fake bun half-wrote a bumped version before crashing; the restore
+    // must roll that mutation back to the pre-bump (formatted) content in
+    // both the worktree and the index.
+    const formattedPackageJson = '{\n  "version": "0.0.1"\n}\n'
+    expect(readFileSync(fixture.packageJson, 'utf8')).toBe(formattedPackageJson)
+    expect(git(fixture.root, 'show', ':package.json')).toBe(formattedPackageJson)
   })
 })

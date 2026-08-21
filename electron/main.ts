@@ -13,7 +13,7 @@ import windowStateKeeper from 'electron-window-state'
 import { initTelemetry, shutdownTelemetry, emitLog } from './telemetry'
 import { configManager } from './config'
 import { loadZoomLevel } from './zoom'
-import { bindWindowBehavior } from './menu'
+import { applicationMenuTemplate, bindWindowBehavior } from './menu'
 import { registerAllHandlers } from './ipc'
 import { MainWindowLifecycle } from './windowLifecycle'
 import { getDispatcher } from './workers/dispatcher'
@@ -275,10 +275,11 @@ app.whenReady().then(() => {
 
   // The frameless window hides the menu bar on Windows/Linux, but macOS would
   // otherwise install Electron's default application menu. Set an explicit
-  // empty menu so no native menu appears on any platform; all in-app menus
-  // live in the custom TitleBar component and shortcuts bind through
-  // before-input-event (bindWindowBehavior).
-  Menu.setApplicationMenu(Menu.buildFromTemplate([]))
+  // menu so no defaults appear on any platform: macOS keeps the app and Edit
+  // roles for standard accelerators, everything else gets an empty menu. All
+  // in-app menus live in the custom TitleBar component and shortcuts bind
+  // through before-input-event (bindWindowBehavior).
+  Menu.setApplicationMenu(Menu.buildFromTemplate(applicationMenuTemplate(process.platform)))
 
   registerWebviewSecurityGuards()
 

@@ -20,7 +20,12 @@ vi.mock('../src/utils/shortcutMatching', () => ({
 
 import { dialog, Menu } from 'electron'
 import { saveZoomLevel } from './zoom'
-import { bindWindowBehavior, buildMenu, registerKeyboardShortcuts } from './menu'
+import {
+  applicationMenuTemplate,
+  bindWindowBehavior,
+  buildMenu,
+  registerKeyboardShortcuts,
+} from './menu'
 
 type ShortcutDefinition = { key: string; ctrlOrCmd?: boolean; shift?: boolean }
 type ShortcutInput = { key: string; control?: boolean; meta?: boolean; shift?: boolean }
@@ -343,6 +348,19 @@ describe('menu', () => {
       handler(event, { type: 'keyDown', key: 'F11', control: false, meta: false, shift: false })
       expect(mockWin.setFullScreen).toHaveBeenCalledWith(true)
       expect(event.preventDefault).toHaveBeenCalled()
+    })
+  })
+
+  describe('applicationMenuTemplate', () => {
+    it('keeps app and Edit roles on macOS for standard accelerators', () => {
+      const template = applicationMenuTemplate('darwin')
+
+      expect(template).toEqual([{ role: 'appMenu' }, { role: 'editMenu' }])
+    })
+
+    it('installs an empty menu on Windows and Linux where the frame hides the bar', () => {
+      expect(applicationMenuTemplate('win32')).toEqual([])
+      expect(applicationMenuTemplate('linux')).toEqual([])
     })
   })
 })

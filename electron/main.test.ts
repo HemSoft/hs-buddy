@@ -106,7 +106,12 @@ vi.mock('./config', () => ({
 }))
 
 vi.mock('./zoom', () => ({ loadZoomLevel: vi.fn(() => 1.0) }))
-vi.mock('./menu', () => ({ bindWindowBehavior: vi.fn() }))
+vi.mock('./menu', () => ({
+  bindWindowBehavior: vi.fn(),
+  applicationMenuTemplate: vi.fn((platform: NodeJS.Platform) =>
+    platform === 'darwin' ? [{ role: 'appMenu' }, { role: 'editMenu' }] : []
+  ),
+}))
 vi.mock('./ipc', () => ({ registerAllHandlers: vi.fn() }))
 const mockDispatcher = { start: vi.fn(), stop: vi.fn() }
 vi.mock('./workers/dispatcher', () => ({
@@ -174,16 +179,22 @@ describe('main process lifecycle', () => {
     })
   })
 
-  it('sets an explicit empty application menu so macOS never installs defaults', async () => {
+  it('sets an explicit application menu so macOS never installs defaults', async () => {
     await import('./main')
     const { Menu } = await import('electron')
-    const emptyMenu = { items: [] }
-    vi.mocked(Menu.buildFromTemplate).mockReturnValue(emptyMenu as unknown as Electron.Menu)
+    const { applicationMenuTemplate } = await import('./menu')
+    const builtMenu = { items: [] }
+    const buildFromTemplate = vi.mocked(Menu.buildFromTemplate)
+    buildFromTemplate.mockReturnValue(builtMenu as unknown as Electron.Menu)
 
-    whenReadyCb!()
+    try {
+      whenReadyCb!()
 
-    expect(Menu.buildFromTemplate).toHaveBeenCalledWith([])
-    expect(Menu.setApplicationMenu).toHaveBeenCalledWith(emptyMenu)
+      expect(buildFromTemplate).toHaveBeenCalledWith(applicationMenuTemplate(process.platform))
+      expect(Menu.setApplicationMenu).toHaveBeenCalledWith(builtMenu)
+    } finally {
+      buildFromTemplate.mockRestore()
+    }
   })
 
   it('rebinds window behavior without re-registering IPC across repeated activations', async () => {

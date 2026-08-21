@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.972] - 2026-08-21
+
+### Fixed
+
+- Keep macOS app and Edit roles in the explicit boot menu
+
 ## [0.1.971] - 2026-08-21
 
 ### Fixed

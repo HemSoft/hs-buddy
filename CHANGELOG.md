@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.979] - 2026-08-21
+
+### Changed
+
+- Remove cron schedules from SFL dispatcher and auditor
+
 ## [0.1.978] - 2026-08-21
 
 ### Changed

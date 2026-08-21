@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.966] - 2026-08-21
+
+### Fixed
+
+- Scope run-count backfill guard to requested jobs
+
 ## [0.1.965] - 2026-08-21
 
 ### Fixed

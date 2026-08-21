@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  Menu,
   screen,
   session,
   type WebContents,
@@ -271,6 +272,13 @@ app.on('activate', () => {
 
 app.whenReady().then(() => {
   startupTimer.mark('app-ready')
+
+  // The frameless window hides the menu bar on Windows/Linux, but macOS would
+  // otherwise install Electron's default application menu. Set an explicit
+  // empty menu so no native menu appears on any platform; all in-app menus
+  // live in the custom TitleBar component and shortcuts bind through
+  // before-input-event (bindWindowBehavior).
+  Menu.setApplicationMenu(Menu.buildFromTemplate([]))
 
   registerWebviewSecurityGuards()
 

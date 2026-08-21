@@ -174,6 +174,18 @@ describe('main process lifecycle', () => {
     })
   })
 
+  it('sets an explicit empty application menu so macOS never installs defaults', async () => {
+    await import('./main')
+    const { Menu } = await import('electron')
+    const emptyMenu = { items: [] }
+    vi.mocked(Menu.buildFromTemplate).mockReturnValue(emptyMenu as unknown as Electron.Menu)
+
+    whenReadyCb!()
+
+    expect(Menu.buildFromTemplate).toHaveBeenCalledWith([])
+    expect(Menu.setApplicationMenu).toHaveBeenCalledWith(emptyMenu)
+  })
+
   it('rebinds window behavior without re-registering IPC across repeated activations', async () => {
     await import('./main')
     const { BrowserWindow } = await import('electron')

@@ -1,9 +1,14 @@
-import { convexTest } from 'convex-test'
+import { convexTest as createConvexTest } from 'convex-test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
 import { api } from '../_generated/api'
+import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
+
+function convexTest(..._args: [] | [typeof schema, typeof modules]) {
+  return withAuthorizedIdentity(createConvexTest(schema, modules))
+}
 
 const baseJob = {
   name: 'sched-job',
@@ -12,6 +17,44 @@ const baseJob = {
 }
 
 describe('schedules', () => {
+  test('rejects unauthenticated reads and mutations', async () => {
+    const t = createConvexTest(schema, modules)
+    const authorized = withAuthorizedIdentity(t)
+    const jobId = await authorized.mutation(api.jobs.create, baseJob)
+
+    await expect(t.query(api.schedules.list)).rejects.toThrow(/Authentication is required/)
+    await expect(
+      t.mutation(api.schedules.create, {
+        jobId,
+        name: 'unauthenticated',
+        cron: '0 9 * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+      })
+    ).rejects.toThrow(/Authentication is required/)
+  })
+
+  test('rejects authenticated identities outside the allowlist', async () => {
+    const t = createConvexTest(schema, modules)
+    const authorized = withAuthorizedIdentity(t)
+    const jobId = await authorized.mutation(api.jobs.create, baseJob)
+    const unauthorized = t.withIdentity({
+      subject: 'unapproved-user',
+      issuer: 'https://auth.test.hs-buddy',
+    })
+
+    await expect(unauthorized.query(api.schedules.list)).rejects.toThrow(/not authorized/)
+    await expect(
+      unauthorized.mutation(api.schedules.create, {
+        jobId,
+        name: 'unauthorized',
+        cron: '0 9 * * *',
+        enabled: true,
+        missedPolicy: 'skip',
+      })
+    ).rejects.toThrow(/not authorized/)
+  })
+
   test('list returns empty array when no schedules exist', async () => {
     const t = convexTest(schema, modules)
     const schedules = await t.query(api.schedules.list)

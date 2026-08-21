@@ -15,6 +15,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Resolve version-bump conflicts against origin/main
 
+## [0.1.968] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
 ## [0.1.967] - 2026-08-21
 
 ### Fixed

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.958] - 2026-08-21
+
+### Changed
+
+- Cover repeated window recreation
+
 ## [0.1.957] - 2026-08-21
 
 ### Fixed

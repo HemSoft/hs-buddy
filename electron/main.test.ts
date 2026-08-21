@@ -174,7 +174,7 @@ describe('main process lifecycle', () => {
     })
   })
 
-  it('rebinds window behavior without re-registering IPC after close and activate', async () => {
+  it('rebinds window behavior without re-registering IPC across repeated activations', async () => {
     await import('./main')
     const { BrowserWindow } = await import('electron')
     const { registerAllHandlers } = await import('./ipc')
@@ -188,26 +188,28 @@ describe('main process lifecycle', () => {
     const createCount = vi.mocked(BrowserWindow).mock.calls.length
     const bindCount = vi.mocked(bindWindowBehavior).mock.calls.length
     const registrationCount = vi.mocked(registerAllHandlers).mock.calls.length
-    const recreatedWindow = {
+    const createRecreatedWindow = () => ({
       ...mockWin,
-      webContents: {
-        ...mockWin.webContents,
-        on: vi.fn(),
-        send: vi.fn(),
-      },
+      webContents: { ...mockWin.webContents, on: vi.fn(), send: vi.fn() },
       on: vi.fn(),
-      once: vi.fn(),
+      once: vi.fn((event: string, callback: () => void) => {
+        if (event === 'closed') closedWindowCallback = callback
+      }),
+    })
+    const useNextWindow = (window: ReturnType<typeof createRecreatedWindow>) => {
+      vi.mocked(BrowserWindow).mockImplementationOnce(
+        class {
+          constructor() {
+            return window
+          }
+        } as unknown as typeof BrowserWindow
+      )
     }
+    const recreatedWindow = createRecreatedWindow()
 
     expect(getWindow).toBeTypeOf('function')
     expect(getWindow!()).toBe(mockWin)
-    vi.mocked(BrowserWindow).mockImplementationOnce(
-      class {
-        constructor() {
-          return recreatedWindow
-        }
-      } as unknown as typeof BrowserWindow
-    )
+    useNextWindow(recreatedWindow)
 
     expect(closedWindowCallback).not.toBeNull()
     closedWindowCallback!()
@@ -217,6 +219,17 @@ describe('main process lifecycle', () => {
     expect(bindWindowBehavior).toHaveBeenNthCalledWith(bindCount + 1, recreatedWindow)
     expect(registerAllHandlers).toHaveBeenCalledTimes(registrationCount)
     expect(getWindow!()).toBe(recreatedWindow)
+
+    const nextRecreatedWindow = createRecreatedWindow()
+    useNextWindow(nextRecreatedWindow)
+    expect(closedWindowCallback).not.toBeNull()
+    closedWindowCallback!()
+    activateCb!()
+
+    expect(BrowserWindow).toHaveBeenCalledTimes(createCount + 2)
+    expect(bindWindowBehavior).toHaveBeenNthCalledWith(bindCount + 2, nextRecreatedWindow)
+    expect(registerAllHandlers).toHaveBeenCalledTimes(registrationCount)
+    expect(getWindow!()).toBe(nextRecreatedWindow)
   })
 
   it('blocks renderer navigation and redirects from replacing the main app UI', async () => {

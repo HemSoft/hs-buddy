@@ -77,8 +77,8 @@ jobs:
           gh workflow run ci.yml --ref "$TARGET_REF"
           # GitHub-side queueing can delay the dispatched run's appearance well
           # past a minute, so poll for up to five minutes. If it never shows up,
-          # degrade to a warning: the pushed commit is still gated by the PR's
-          # own pull_request CI.
+          # degrade to a warning only once some other ci.yml run is confirmed
+          # for the generated SHA; otherwise fail so the gap is visible.
           for attempt in $(seq 1 60); do
             run_id="$(gh run list \
               --workflow ci.yml \
@@ -95,13 +95,26 @@ jobs:
             echo "Waiting for dispatched CI run ($attempt/60)"
             sleep 5
           done
-          echo "::warning::No workflow_dispatch CI run appeared for $TARGET_SHA within five minutes; it may still be queued, so it will not be watched."
+          fallback_run="$(gh run list \
+            --workflow ci.yml \
+            --commit "$TARGET_SHA" \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId // empty')"
+          if [ -n "$fallback_run" ]; then
+            echo "::warning::No workflow_dispatch CI run appeared for $TARGET_SHA within five minutes; ci.yml run $fallback_run covers the commit instead, so it will not be watched here."
+            exit 0
+          fi
+          echo "::error::No ci.yml run of any kind appeared for $TARGET_SHA; refusing to skip generated-commit validation."
+          exit 1
 
       - name: Wait for generated-commit CI
         if: steps.commit-lockfile.outputs.pushed == 'true' && steps.dispatch-ci.outputs.run_id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ steps.dispatch-ci.outputs.run_id }}
+          TARGET_REF: ${{ github.head_ref }}
+          TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
         run: |
           set +e
           gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status
@@ -109,9 +122,15 @@ jobs:
           set -e
           conclusion="$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion // ""')"
           if [ "$conclusion" = "cancelled" ]; then
-            # A second lockfile push supersedes this dispatched run through CI's
-            # branch concurrency group; the newer run gates the PR instead.
-            echo "::warning::Dispatched CI run $RUN_ID was cancelled, most likely superseded by a newer lockfile commit whose own CI gates this PR."
-            exit 0
+            # Only treat cancellation as neutral when a newer lockfile commit
+            # actually superseded this one through CI's branch concurrency
+            # group; an operator cancel with no successor must stay red.
+            current_head="$(git ls-remote origin "refs/heads/$TARGET_REF" | cut -f1)"
+            if [ -n "$current_head" ] && [ "$current_head" != "$TARGET_SHA" ]; then
+              echo "::warning::Dispatched CI run $RUN_ID was cancelled; lockfile branch moved to $current_head whose own CI gates this PR."
+              exit 0
+            fi
+            echo "::error::Dispatched CI run $RUN_ID was cancelled and no newer commit supersedes $TARGET_SHA."
+            exit 1
           fi
           exit $watch_exit

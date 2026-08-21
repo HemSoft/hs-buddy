@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.952] - 2026-08-21
+
+### Changed
+
+- Enforce Convex coverage thresholds in required CI and explicitly validate Dependabot-generated lockfile commits
+- Enforce coverage thresholds
+
 ## [0.1.951] - 2026-08-21
 
 ### Fixed

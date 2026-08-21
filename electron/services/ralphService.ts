@@ -645,11 +645,24 @@ function createLineBuffer(onLine: (line: string) => void): LineBuffer {
 
   const consume = (text: string) => {
     remainder += text
-    let newlineIndex = remainder.indexOf('\n')
-    while (newlineIndex >= 0) {
-      emitBoundedLine(remainder.slice(0, newlineIndex))
-      remainder = remainder.slice(newlineIndex + 1)
-      newlineIndex = remainder.indexOf('\n')
+    // Both \n and a bare \r end a line. Spinner-style progress output relies
+    // on carriage returns without newlines, so waiting for \n would leave UI
+    // logs stale until the 64 KiB fragment bound forces a flush. An
+    // immediately following \n (CRLF) is consumed together with its \r so
+    // Windows-style output still produces exactly one line.
+    for (;;) {
+      const newlineIndex = remainder.indexOf('\n')
+      const carriageIndex = remainder.indexOf('\r')
+      if (newlineIndex < 0 && carriageIndex < 0) break
+
+      if (carriageIndex >= 0 && (newlineIndex < 0 || carriageIndex < newlineIndex)) {
+        const endsWithCrLf = remainder.startsWith('\n', carriageIndex + 1)
+        emitBoundedLine(remainder.slice(0, carriageIndex))
+        remainder = remainder.slice(carriageIndex + (endsWithCrLf ? 2 : 1))
+      } else {
+        emitBoundedLine(remainder.slice(0, newlineIndex))
+        remainder = remainder.slice(newlineIndex + 1)
+      }
     }
 
     while (remainder.length > MAX_PENDING_LINE_LENGTH) {

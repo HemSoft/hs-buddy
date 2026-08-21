@@ -16,6 +16,7 @@ import type * as crons from "../crons.js";
 import type * as featureIntakes from "../featureIntakes.js";
 import type * as githubAccounts from "../githubAccounts.js";
 import type * as jobs from "../jobs.js";
+import type * as lib_authorization from "../lib/authorization.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_cronUtils from "../lib/cronUtils.js";
 import type * as lib_domain from "../lib/domain.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   featureIntakes: typeof featureIntakes;
   githubAccounts: typeof githubAccounts;
   jobs: typeof jobs;
+  "lib/authorization": typeof lib_authorization;
   "lib/constants": typeof lib_constants;
   "lib/cronUtils": typeof lib_cronUtils;
   "lib/domain": typeof lib_domain;

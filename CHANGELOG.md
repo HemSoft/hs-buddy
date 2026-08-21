@@ -11,15 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.969] - 2026-08-21
 
-### Fixed
+### Changed
 
-- Restore package.json on interrupt during the revision bump
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.968] - 2026-08-21
 
-### Fixed
+### Changed
 
-- Restore package.json when the pre-commit revision bump fails
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.967] - 2026-08-21
 

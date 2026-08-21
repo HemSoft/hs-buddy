@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.968] - 2026-08-21
+
+### Fixed
+
+- Restore package.json when the pre-commit revision bump fails
+
 ## [0.1.967] - 2026-08-21
 
 ### Fixed

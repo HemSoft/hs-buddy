@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.965] - 2026-08-21
+
+### Fixed
+
+- Regenerate issue processor lock
+
 ## [0.1.964] - 2026-08-21
 
 ### Fixed

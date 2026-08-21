@@ -66,12 +66,36 @@ jobs:
             echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Approve follow-up runs
+      - name: Dispatch generated-commit CI
+        id: dispatch-ci
         if: steps.commit-lockfile.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_REPOSITORY: ${{ github.repository }}
+          TARGET_REF: ${{ github.head_ref }}
           TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
-          TARGET_PR_NUMBER: ${{ github.event.pull_request.number }}
-          EXCLUDED_WORKFLOW_PATH: .github/workflows/dependabot-lockfile.yml
-        run: bun scripts/approve-dependabot-followup-runs.ts
+        run: |
+          gh workflow run ci.yml --ref "$TARGET_REF"
+          for attempt in $(seq 1 12); do
+            run_id="$(gh run list \
+              --workflow ci.yml \
+              --event workflow_dispatch \
+              --commit "$TARGET_SHA" \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty')"
+            if [ -n "$run_id" ]; then
+              echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+              echo "Dispatched CI run $run_id for $TARGET_SHA"
+              exit 0
+            fi
+            echo "Waiting for dispatched CI run ($attempt/12)"
+            sleep 5
+          done
+          echo "::error::No workflow_dispatch CI run appeared for $TARGET_SHA"
+          exit 1
+
+      - name: Wait for generated-commit CI
+        if: steps.commit-lockfile.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status

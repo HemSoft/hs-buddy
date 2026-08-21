@@ -11,15 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.1.972] - 2026-08-21
 
-### Fixed
+### Changed
 
-- Scan line buffer once for CR and LF boundaries
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.971] - 2026-08-21
 
 ### Fixed
 
-- Flush line buffer on bare carriage returns for spinner output
+- Reject select-directory failures instead of resolving error objects
 
 ## [0.1.970] - 2026-08-21
 

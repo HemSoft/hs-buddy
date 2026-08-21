@@ -418,7 +418,7 @@ describe('ModelPicker', () => {
     expect(screen.queryByText(/Stale error/)).not.toBeInTheDocument()
   })
 
-  it('passes disabled, title, className, and align props to inline dropdown', async () => {
+  it('passes disabled, title, and className props to inline dropdown', async () => {
     mocks.listModels.mockResolvedValueOnce([
       { id: 'claude-sonnet-4.5', name: 'Claude Sonnet', isDisabled: false, billingMultiplier: 1 },
     ])

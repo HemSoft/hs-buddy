@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.963] - 2026-08-21
+
+### Fixed
+
+- Handle HTTP errors before parsing
+
 ## [0.1.962] - 2026-08-21
 
 ### Fixed

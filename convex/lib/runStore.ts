@@ -53,12 +53,24 @@ export async function getRunCountsByJob(
   ctx: Pick<QueryCtx, 'db' | 'runQuery'>,
   jobIds: Id<'jobs'>[]
 ): Promise<Record<string, { total: number; completed: number; failed: number }>> {
-  const unbackfilledRun = await ctx.db
-    .query('runs')
-    .withIndex('by_run_count_version', query => query.eq('runCountVersion', undefined))
-    .first()
-  if (unbackfilledRun) {
-    throw new Error('Run counts are still being backfilled; retry after the migration completes')
+  // Readiness is scoped to the requested jobs. A job whose runs are all
+  // migrated gets exact aggregate counts even while other jobs' historical
+  // runs are still backfilling. A requested job with any unmigrated run gets
+  // an explicit unready signal (the throw below) rather than partially
+  // counted aggregates, because the aggregate component only contains
+  // migrated runs.
+  for (const jobId of jobIds) {
+    const unbackfilledRun = await ctx.db
+      .query('runs')
+      .withIndex('by_job_count_version', query =>
+        query.eq('jobId', jobId).eq('runCountVersion', undefined)
+      )
+      .first()
+    if (unbackfilledRun) {
+      throw new Error(
+        `Run counts are still being backfilled for job ${jobId}; retry after the migration completes`
+      )
+    }
   }
 
   const exactStatusBounds = (status: RunStatus) => ({

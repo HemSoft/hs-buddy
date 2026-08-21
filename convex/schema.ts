@@ -373,6 +373,7 @@ export default defineSchema({
     runCountVersion: v.optional(v.literal(1)),
   })
     .index('by_job', ['jobId'])
+    .index('by_job_count_version', ['jobId', 'runCountVersion'])
     .index('by_schedule', ['scheduleId'])
     .index('by_status', ['status'])
     .index('by_started', ['startedAt'])

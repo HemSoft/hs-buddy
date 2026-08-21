@@ -9,17 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.973] - 2026-08-21
+
+### Changed
+
+- Resolve version-bump conflicts against origin/main
+
 ## [0.1.972] - 2026-08-21
 
-### Fixed
+### Changed
 
-- Keep macOS app and Edit roles in the explicit boot menu
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.971] - 2026-08-21
 
 ### Fixed
 
-- Set explicit empty application menu so macOS never installs defaults
+- Reject select-directory failures instead of resolving error objects
 
 ## [0.1.970] - 2026-08-21
 

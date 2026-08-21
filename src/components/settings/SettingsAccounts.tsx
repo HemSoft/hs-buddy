@@ -346,10 +346,14 @@ function AccountEditPanel({
             className="settings-btn settings-btn-icon"
             title="Browse for folder"
             onClick={async () => {
-              const selected = await window.ralph.selectDirectory(
-                resolveRepoRootUpdate(editRepoRoot)
-              )
-              if (selected) setEditRepoRoot(selected)
+              try {
+                const selected = await window.ralph.selectDirectory(
+                  resolveRepoRootUpdate(editRepoRoot)
+                )
+                if (selected) setEditRepoRoot(selected)
+              } catch (_: unknown) {
+                // picker failed or sender window detached; keep current value
+              }
             }}
           >
             <FolderOpen size={14} />

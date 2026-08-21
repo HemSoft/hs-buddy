@@ -50,6 +50,12 @@ function slackError(prefix: string, error: string | undefined): SlackNudgeResult
   return { success: false, error: `${prefix}: ${error || 'unknown'}` }
 }
 
+function assertSlackHttpSuccess(response: Response, operation: string): void {
+  if (!response.ok) {
+    throw new Error(`Slack ${operation} failed with HTTP ${response.status}`)
+  }
+}
+
 /**
  * Look up a Slack user by their email address.
  * Returns the Slack user ID or null if not found.
@@ -63,8 +69,15 @@ async function lookupSlackUserByEmail(email: string): Promise<string | null> {
       signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
     }
   )
+  assertSlackHttpSuccess(res, 'users.lookupByEmail')
   const data = (await res.json()) as { ok: boolean; user?: { id: string }; error?: string }
-  if (!data.ok || !data.user) return null
+  if (!data.ok) {
+    if (data.error === 'users_not_found') return null
+    throw new Error(`Slack users.lookupByEmail failed: ${data.error || 'unknown'}`)
+  }
+  if (!data.user) {
+    throw new Error('Slack users.lookupByEmail failed: missing user')
+  }
   return data.user.id
 }
 
@@ -79,6 +92,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     body: JSON.stringify({ users: slackUserId }),
     signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
   })
+  assertSlackHttpSuccess(openRes, 'conversations.open')
   const openData = (await openRes.json()) as {
     ok: boolean
     channel?: { id: string }
@@ -99,6 +113,7 @@ async function sendSlackDM(slackUserId: string, message: string): Promise<SlackN
     }),
     signal: AbortSignal.timeout(SLACK_REQUEST_TIMEOUT_MS),
   })
+  assertSlackHttpSuccess(msgRes, 'chat.postMessage')
   const msgData = (await msgRes.json()) as { ok: boolean; error?: string }
   if (!msgData.ok) {
     return slackError('Failed to send message', msgData.error)

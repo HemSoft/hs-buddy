@@ -120,6 +120,61 @@ describe('slackClient', () => {
     })
   })
 
+  it('reports lookup HTTP failures without parsing a JSON error body', async () => {
+    const json = vi.fn(async () => ({ ok: false, error: 'upstream_failure' }))
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 502, json })
+
+    await expect(
+      nudgePRAuthor('lookuphttp', 'Fix: lookup HTTP failure', 'https://github.com/pr/3')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Slack users.lookupByEmail failed with HTTP 502',
+    })
+    expect(json).not.toHaveBeenCalled()
+  })
+
+  it('reports conversation HTTP failures without parsing a non-JSON body', async () => {
+    const json = vi.fn(async () => {
+      throw new SyntaxError('Unexpected token <')
+    })
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'UOPENHTTP' } }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 503, json })
+
+    await expect(
+      nudgePRAuthor('openhttp', 'Fix: open HTTP failure', 'https://github.com/pr/3')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Slack conversations.open failed with HTTP 503',
+    })
+    expect(json).not.toHaveBeenCalled()
+  })
+
+  it('reports message HTTP failures before parsing the response body', async () => {
+    const json = vi.fn(async () => ({ ok: false, error: 'ratelimited' }))
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'UMSGHTTP' } }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, channel: { id: 'DMSGHTTP' } }),
+      })
+      .mockResolvedValueOnce({ ok: false, status: 429, json })
+
+    await expect(
+      nudgePRAuthor('messagehttp', 'Fix: message HTTP failure', 'https://github.com/pr/3')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Slack chat.postMessage failed with HTTP 429',
+    })
+    expect(json).not.toHaveBeenCalled()
+  })
+
   it('returns a failure result when sending the Slack message times out', async () => {
     mockFetch
       .mockResolvedValueOnce({
@@ -166,6 +221,20 @@ describe('slackClient', () => {
     const result = await nudgePRAuthor('unknown', 'Fix', 'https://github.com/pr/1')
     expect(result.success).toBe(false)
     expect(result.error).toContain('Could not find Slack user')
+  })
+
+  it('preserves useful Slack application errors from user lookup', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ok: false, error: 'invalid_auth' }),
+    })
+
+    await expect(nudgePRAuthor('lookupappfail', 'Fix', 'https://github.com/pr/1')).resolves.toEqual(
+      {
+        success: false,
+        error: 'Slack request failed: Slack users.lookupByEmail failed: invalid_auth',
+      }
+    )
   })
 
   it('nudgePRAuthor returns error when DM conversation.open fails', async () => {

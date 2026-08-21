@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Extract backfill scoping test to keep runs.test.ts under max-lines
+- Resolve version-bump conflicts against origin/main
 
 ## [0.1.969] - 2026-08-21
 

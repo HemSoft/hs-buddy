@@ -65,4 +65,38 @@ describe('Dependabot Lockfile Fix workflow', () => {
       expect(convexConfig).toContain(`${metric}: 90`)
     }
   })
+
+  it('tolerates queueing delays when waiting for the dispatched run to appear', () => {
+    expect(workflow).toContain('for attempt in $(seq 1 60); do')
+    expect(workflow).toContain('($attempt/60)')
+
+    // The queue-timeout path degrades to a warning only when another ci.yml
+    // run covers the SHA (warning immediately followed by exit 0); with no
+    // coverage anywhere it must fail loudly instead.
+    const dispatchStep = workflow.slice(
+      workflow.indexOf('- name: Dispatch generated-commit CI'),
+      workflow.indexOf('- name: Wait for generated-commit CI')
+    )
+    const scriptLines = dispatchStep
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line !== '' && !line.startsWith('#'))
+    const warningIndex = scriptLines.findIndex(line =>
+      line.includes('::warning::No workflow_dispatch CI run appeared')
+    )
+    expect(warningIndex).toBeGreaterThan(-1)
+    expect(scriptLines[warningIndex + 1]).toBe('exit 0')
+    expect(scriptLines.at(-2)).toContain('refusing to skip generated-commit validation')
+    expect(scriptLines.at(-1)).toBe('exit 1')
+    expect(workflow).toContain("steps.dispatch-ci.outputs.run_id != ''")
+    expect(dispatchStep).toContain('--commit "$TARGET_SHA"')
+  })
+
+  it('treats a cancelled dispatched run as superseded only by a newer commit', () => {
+    expect(workflow).toContain('--exit-status\n          watch_exit=$?')
+    expect(workflow).toContain('"$conclusion" = "cancelled"')
+    expect(workflow).toContain('git ls-remote origin "refs/heads/$TARGET_REF"')
+    expect(workflow).toContain('no newer commit supersedes $TARGET_SHA')
+    expect(workflow).toMatch(/::warning::Dispatched CI run \$RUN_ID was cancelled/)
+  })
 })

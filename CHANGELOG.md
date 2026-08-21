@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.960] - 2026-08-21
+
+### Fixed
+
+- Bootstrap Aspire before typecheck
+
 ## [0.1.959] - 2026-08-21
 
 ### Fixed

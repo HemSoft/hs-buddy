@@ -9,6 +9,7 @@ import { spawn, execSync, type ChildProcess, type ChildProcessByStdio } from 'no
 import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, resolve, isAbsolute, dirname, basename } from 'node:path'
 import type { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
 import { fileURLToPath } from 'node:url'
 import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
@@ -27,6 +28,7 @@ import type {
 // ── Constants ───────────────────────────────────────────────────
 
 const MAX_LOG_BUFFER = 5000
+const MAX_PENDING_LINE_LENGTH = 64 * 1024
 const VENDORED_SCRIPTS_DIR = 'scripts/ralph-loops'
 const KILL_TIMEOUT_MS = 5_000
 const POWERSHELL_CORE_EXECUTABLE = 'pwsh'
@@ -536,25 +538,42 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
   activeRuns.set(runId, run)
   activeProcesses.set(runId, proc)
 
-  // Stream stdout
-  proc.stdout.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n').filter(Boolean)
-    for (const line of lines) {
-      appendLogLine(runId, line)
-      parseOutputLine(runId, line)
-    }
+  attachProcessOutput(runId, proc)
+
+  return { success: true, runId }
+}
+
+function attachProcessOutput(
+  runId: string,
+  proc: ChildProcessByStdio<null, Readable, Readable>
+): void {
+  const stdoutLines = createLineBuffer(line => {
+    appendLogLine(runId, line)
+    parseOutputLine(runId, line)
+  })
+  const stderrLines = createLineBuffer(line => {
+    appendLogLine(runId, `[stderr] ${line}`)
   })
 
-  // Stream stderr
-  proc.stderr.on('data', (data: Buffer) => {
-    const lines = data.toString().split('\n').filter(Boolean)
-    for (const line of lines) {
-      appendLogLine(runId, `[stderr] ${line}`)
-    }
+  proc.stdout.on('data', (data: Buffer) => {
+    stdoutLines.write(data)
   })
+
+  proc.stderr.on('data', (data: Buffer) => {
+    stderrLines.write(data)
+  })
+
+  proc.stdout.once('end', stdoutLines.flush)
+  proc.stderr.once('end', stderrLines.flush)
+
+  const flushOutput = () => {
+    stdoutLines.flush()
+    stderrLines.flush()
+  }
 
   // Handle exit — respects manually-set terminal status (e.g. 'cancelled' from stopLoop)
   proc.on('close', code => {
+    flushOutput()
     const r = activeRuns.get(runId)
     if (r && r.status !== 'cancelled') {
       const terminal = code === 0 ? 'completed' : ('failed' as const)
@@ -586,8 +605,72 @@ export function launchLoop(config: RalphLaunchConfig): RalphLaunchResult {
     activeProcesses.delete(runId)
     cleanupPromptTempFile(runId)
   })
+}
 
-  return { success: true, runId }
+type LineBuffer = {
+  write: (data: Buffer) => void
+  flush: () => void
+}
+
+function createLineBuffer(onLine: (line: string) => void): LineBuffer {
+  const decoder = new StringDecoder('utf8')
+  let remainder = ''
+  let flushed = false
+
+  const emitLine = (line: string) => {
+    const normalized = line.endsWith('\r') ? line.slice(0, -1) : line
+    if (normalized) onLine(normalized)
+  }
+
+  const takeBoundedFragment = (text: string): number => {
+    const previousCodeUnit = text.charCodeAt(MAX_PENDING_LINE_LENGTH - 1)
+    const nextCodeUnit = text.charCodeAt(MAX_PENDING_LINE_LENGTH)
+    const boundarySplitsSurrogatePair =
+      previousCodeUnit >= 0xd800 &&
+      previousCodeUnit <= 0xdbff &&
+      nextCodeUnit >= 0xdc00 &&
+      nextCodeUnit <= 0xdfff
+    return boundarySplitsSurrogatePair ? MAX_PENDING_LINE_LENGTH - 1 : MAX_PENDING_LINE_LENGTH
+  }
+
+  const emitBoundedLine = (line: string) => {
+    let remaining = line
+    while (remaining.length > MAX_PENDING_LINE_LENGTH) {
+      const splitIndex = takeBoundedFragment(remaining)
+      emitLine(remaining.slice(0, splitIndex))
+      remaining = remaining.slice(splitIndex)
+    }
+    emitLine(remaining)
+  }
+
+  const consume = (text: string) => {
+    remainder += text
+    let newlineIndex = remainder.indexOf('\n')
+    while (newlineIndex >= 0) {
+      emitBoundedLine(remainder.slice(0, newlineIndex))
+      remainder = remainder.slice(newlineIndex + 1)
+      newlineIndex = remainder.indexOf('\n')
+    }
+
+    while (remainder.length > MAX_PENDING_LINE_LENGTH) {
+      const splitIndex = takeBoundedFragment(remainder)
+      emitLine(remainder.slice(0, splitIndex))
+      remainder = remainder.slice(splitIndex)
+    }
+  }
+
+  return {
+    write(data) {
+      if (!flushed) consume(decoder.write(data))
+    },
+    flush() {
+      if (flushed) return
+      flushed = true
+      consume(decoder.end())
+      emitLine(remainder)
+      remainder = ''
+    },
+  }
 }
 
 // ── Output Parsing ──────────────────────────────────────────────

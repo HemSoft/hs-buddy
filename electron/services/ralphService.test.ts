@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { RalphRunInfo } from '../../src/types/ralph'
 import { EventEmitter } from 'events'
 
 function createMockProcess() {
@@ -424,7 +425,12 @@ describe('ralphService', () => {
       setStatusChangeCallback(cb)
 
       launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('partial before error'))
       lastMockProc.emit('error', new Error('spawn ENOENT'))
+      lastMockProc.stdout.emit('data', Buffer.from(' continued\n=== ITERATION 4 ===\nfinal tail'))
+      lastMockProc.stdout.emit('end')
+      lastMockProc.stdout.emit('data', Buffer.from('ignored after end\n'))
+      lastMockProc.emit('close', 1)
 
       expect(cb).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -432,6 +438,12 @@ describe('ralphService', () => {
           error: 'spawn ENOENT',
         })
       )
+      expect(listLoops()[0].currentIteration).toBe(4)
+      expect(listLoops()[0].logBuffer).toEqual([
+        'partial before error continued',
+        '=== ITERATION 4 ===',
+        'final tail',
+      ])
       setStatusChangeCallback(null)
     })
 
@@ -449,6 +461,85 @@ describe('ralphService', () => {
         })
       )
       setStatusChangeCallback(null)
+    })
+
+    it('reconstructs and parses a marker split across stdout chunks exactly once', () => {
+      const cb = vi.fn()
+      setStatusChangeCallback(cb)
+
+      launchValid()
+      lastMockProc.stdout.emit('data', Buffer.from('=== ITER'))
+      expect(listLoops()[0].currentIteration).toBe(0)
+
+      lastMockProc.stdout.emit('data', Buffer.from('ATION 3 ===\n'))
+
+      expect(listLoops()[0].logBuffer).toEqual(['=== ITERATION 3 ==='])
+      expect(
+        cb.mock.calls.filter(([run]) => (run as RalphRunInfo).currentIteration === 3)
+      ).toHaveLength(1)
+      setStatusChangeCallback(null)
+    })
+
+    it('buffers stdout and stderr independently while preserving completed-line order', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('stdout partial'))
+      lastMockProc.stderr.emit('data', Buffer.from('stderr one\nstderr partial'))
+      lastMockProc.stdout.emit('data', Buffer.from(' complete\n'))
+      lastMockProc.stderr.emit('data', Buffer.from(' complete\n'))
+
+      expect(listLoops()[0].logBuffer).toEqual([
+        '[stderr] stderr one',
+        'stdout partial complete',
+        '[stderr] stderr partial complete',
+      ])
+    })
+
+    it('preserves UTF-8 characters split across byte chunks', () => {
+      launchValid()
+      const output = Buffer.from('café\n')
+
+      lastMockProc.stdout.emit('data', output.subarray(0, 4))
+      lastMockProc.stdout.emit('data', output.subarray(4))
+
+      expect(listLoops()[0].logBuffer).toEqual(['café'])
+    })
+
+    it('fragments oversized complete lines without splitting surrogate pairs', () => {
+      launchValid()
+      const prefix = 'a'.repeat(65_535)
+
+      lastMockProc.stdout.emit('data', Buffer.from(`${prefix}😀tail\n`))
+
+      expect(listLoops()[0].logBuffer).toEqual([prefix, '😀tail'])
+    })
+
+    it('bounds oversized unterminated remainders before stream end', () => {
+      launchValid()
+      const output = 'b'.repeat(65_537)
+
+      lastMockProc.stdout.emit('data', Buffer.from(output))
+      expect(listLoops()[0].logBuffer).toEqual([output.slice(0, 65_536)])
+
+      lastMockProc.stdout.emit('end')
+      expect(listLoops()[0].logBuffer).toEqual([output.slice(0, 65_536), 'b'])
+    })
+
+    it('handles multiple lines per chunk and flushes final unterminated output on close', () => {
+      launchValid()
+
+      lastMockProc.stdout.emit('data', Buffer.from('first\r\n\nsecond\nstdout tail'))
+      lastMockProc.stderr.emit('data', Buffer.from('stderr tail'))
+      expect(listLoops()[0].logBuffer).toEqual(['first', 'second'])
+
+      lastMockProc.emit('close', 0)
+
+      expect(listLoops()[0].logBuffer).toEqual([
+        'first',
+        'second',
+        'stdout tail',
+        '[stderr] stderr tail',
+      ])
     })
 
     it('parses stdout stderr data', () => {

@@ -324,6 +324,79 @@ describe('slackClient', () => {
     expect(result.success).toBe(true)
   })
 
+  it('tries the next corporate pattern after a transient rate limit on the first', async () => {
+    const { execSync } = await import('child_process')
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    // First corporate pattern is rate limited; second resolves the user.
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 429, json: vi.fn(async () => ({})) })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, user: { id: 'URATELIMIT' } }),
+      })
+      // conversations.open
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true, channel: { id: 'DRATELIMIT' } }),
+      })
+      // chat.postMessage
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      })
+
+    const result = await nudgePRAuthor('ratelimited', 'Fix', 'https://github.com/pr/1')
+    expect(result).toEqual({ success: true })
+    expect(mockFetch).toHaveBeenCalledTimes(4)
+  })
+
+  it('reports a lookup miss when every corporate pattern hits transient server errors', async () => {
+    const { execSync } = await import('child_process')
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 502, json: vi.fn(async () => ({})) })
+      .mockResolvedValueOnce({ ok: false, status: 503, json: vi.fn(async () => ({})) })
+
+    await expect(nudgePRAuthor('servererrors', 'Fix', 'https://github.com/pr/1')).resolves.toEqual({
+      success: false,
+      error:
+        'Could not find Slack user for GitHub login "servererrors". Their GitHub email may not match their Slack email.',
+    })
+    expect(mockFetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('surfaces permanent HTTP failures from corporate pattern lookups without retrying', async () => {
+    const { execSync } = await import('child_process')
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    mockFetch.mockResolvedValueOnce({ ok: false, status: 401, json: vi.fn(async () => ({})) })
+
+    await expect(nudgePRAuthor('permafail', 'Fix', 'https://github.com/pr/1')).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Slack users.lookupByEmail failed with HTTP 401',
+    })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('surfaces network timeouts during corporate pattern lookups without retrying', async () => {
+    const { execSync } = await import('child_process')
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    mockFetch.mockRejectedValueOnce(
+      new DOMException('Request timed out after 15000ms', 'TimeoutError')
+    )
+
+    await expect(
+      nudgePRAuthor('patterntimeout', 'Fix', 'https://github.com/pr/1')
+    ).resolves.toEqual({
+      success: false,
+      error: 'Slack request failed: Request timed out after 15000ms',
+    })
+    expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+
   it('nudgePRAuthor caches resolved slack IDs', async () => {
     // First call: lookup succeeds
     mockFetch

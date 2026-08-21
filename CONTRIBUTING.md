@@ -15,8 +15,7 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 # Clone and install
 git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
-bun install
-aspire restore
+bun run setup
 
 # Start Convex dev server (separate terminal)
 bun run convex:dev
@@ -25,10 +24,11 @@ bun run convex:dev
 bun run dev
 ```
 
-`aspire restore` installs the isolated `aspire-apphost/` dependencies and
-regenerates its ignored `.aspire/modules/` SDK. The AppHost package is separate
-from the application dependency graph so warm debug launches do not reinstall
-the root workspace.
+`bun run setup` installs the frozen root dependencies, installs the isolated
+`aspire-apphost/` dependencies, and regenerates its ignored `.aspire/modules/`
+SDK. The AppHost package is separate from the application dependency graph, and
+warm `bun run typecheck` calls only perform a fast bootstrap preflight instead
+of rerunning Aspire restore.
 
 ### Environment Variables
 
@@ -42,6 +42,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 | Command | Purpose |
 |---------|---------|
+| `bun run setup` | Install root dependencies and restore the Aspire AppHost |
 | `bun run dev` | Start Electron in dev mode |
 | `bun run test` | Run all unit tests |
 | `bun run test:watch` | Run tests in watch mode |

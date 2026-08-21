@@ -47,6 +47,18 @@ describe('Aspire AppHost isolation', () => {
     expect(launcher).toContain('ERROR: Application dependencies not found.')
   })
 
+  it('provides one-time setup with a fast typecheck preflight', async () => {
+    const rootPackage = await readJson('package.json')
+    const scripts = rootPackage.scripts as Record<string, string>
+    const setup = await readFile(resolve(repoRoot, 'scripts/setup.ts'), 'utf8')
+
+    expect(scripts.setup).toBe('bun scripts/setup.ts')
+    expect(scripts.pretypecheck).toBe('bun scripts/checkAspireBootstrap.ts')
+    expect(scripts.typecheck).not.toContain('aspire restore')
+    expect(setup).toContain("['install', '--frozen-lockfile']")
+    expect(setup).toContain("['restore', '--non-interactive']")
+  })
+
   it('requires distinct ports for every measured startup milestone', async () => {
     const measurement = await readFile(
       resolve(repoRoot, 'scripts/measureAspireStartup.ps1'),

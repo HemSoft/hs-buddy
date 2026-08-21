@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.959",
+  "version": "0.1.960",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -11,6 +11,7 @@
   ],
   "scripts": {
     "dev": "vite",
+    "setup": "bun scripts/setup.ts",
     "build": "bun run bump && tsc && vite build && electron-builder",
     "bump": "bun scripts/bump-revision.ts",
     "lint": "eslint . --max-warnings 0",
@@ -36,6 +37,7 @@
     "bench:update": "bun run bench:json && bun scripts/bench-compare.ts --update",
     "perf:memory": "bun perf/memory-monitor.ts",
     "perf:startup": "bun perf/run-startup.ts",
+    "pretypecheck": "bun scripts/checkAspireBootstrap.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.scripts.json && tsc --noEmit -p tsconfig.convex.json && bun run --cwd aspire-apphost typecheck",
     "knip": "knip",
     "e18e": "bun scripts/run-e18e.ts",

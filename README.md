@@ -49,6 +49,7 @@
 
 - **Node.js 22+** - [Download](https://nodejs.org/)
 - **Bun** - [Install](https://bun.sh/)
+- **Aspire CLI** - [Install](https://aspire.dev/get-started/install-cli/)
 
 ### Setup
 
@@ -57,8 +58,8 @@
 git clone https://github.com/HemSoft/hs-buddy.git
 cd hs-buddy
 
-# Install dependencies
-bun install
+# Install dependencies and restore the Aspire AppHost
+bun run setup
 
 # Optional: copy .env.example to .env for first-launch account auto-migration
 cp .env.example .env

@@ -27,12 +27,15 @@ describe('readPinnedSdkVersion', () => {
 })
 
 describe('describeVersionAlignment', () => {
-  it('matches when the installed version contains the pinned version', () => {
-    expect(describeVersionAlignment('13.5.0-preview', '13.5.0-preview.1.26310.3')).toBe('match')
+  it('matches only when the installed version equals the pin', () => {
+    expect(describeVersionAlignment('13.5.0-preview.1.26310.3', '13.5.0-preview.1.26310.3')).toBe(
+      'match'
+    )
   })
 
-  it('reports drift when the installed version differs from the pin', () => {
+  it('reports drift when the installed version differs from or merely contains the pin', () => {
     expect(describeVersionAlignment('13.5.0-preview.1.26310.3', '13.6.0-other')).toBe('mismatch')
+    expect(describeVersionAlignment('13.5', '13.5.9-preview')).toBe('mismatch')
   })
 
   it('reports unknown when the CLI version cannot be determined and unpinned without a pin', () => {

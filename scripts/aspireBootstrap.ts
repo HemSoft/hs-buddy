@@ -22,7 +22,7 @@ export function describeVersionAlignment(
 ): VersionAlignment {
   if (expected === undefined) return 'unpinned'
   if (actual === undefined) return 'unknown'
-  return actual.includes(expected) ? 'match' : 'mismatch'
+  return actual === expected ? 'match' : 'mismatch'
 }
 
 /**

@@ -12,7 +12,17 @@
   justify-content: center;
   z-index: 2000;
   backdrop-filter: blur(4px);
+  overscroll-behavior: contain;
   -webkit-app-region: no-drag;
+}
+
+.about-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
 }
 
 .about-modal {
@@ -23,6 +33,7 @@
   width: 100%;
   max-width: 420px;
   position: relative;
+  z-index: 1;
   overflow: hidden;
 }
 
@@ -39,13 +50,21 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
   z-index: 1;
 }
 
 .about-close-button:hover {
   background-color: var(--bg-hover);
   color: var(--text-primary);
+}
+
+.about-close-button:focus-visible,
+.about-github-link:focus-visible {
+  outline: 2px solid var(--accent-blue);
+  outline-offset: 2px;
 }
 
 .about-content {
@@ -170,7 +189,9 @@
   cursor: pointer;
   padding: 8px 16px;
   border-radius: 6px;
-  transition: all 0.15s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .about-github-link:hover {

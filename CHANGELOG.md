@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.954] - 2026-08-21
+
+### Fixed
+
+- Defer staged file mutation
+
 ## [0.1.952] - 2026-08-21
 
 ### Changed

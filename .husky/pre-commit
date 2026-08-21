@@ -7,12 +7,6 @@ set -e
 
 # --- PHASE 1: Validation (read-only, no file modifications) ---
 
-# Lint staged files
-npx lint-staged
-
-# Verify entire src/ passes formatting (CI parity)
-bun run format:check
-
 # copilot-hooks:begin markdown gate
 # Block commits on markdownlint violations for staged .md files
 MARKDOWN_HOOK="$(git rev-parse --git-common-dir)/hooks/pre-commit-markdown.ps1"
@@ -31,6 +25,11 @@ bun run test:coverage
 bun run typecheck
 
 # --- PHASE 2: File modifications (only reached if ALL validation passed) ---
+
+# Format and lint staged files. lint-staged restores its own changes if one of
+# these tasks fails, and it is intentionally deferred until tests and
+# typechecking have passed.
+npx lint-staged
 
 # Ratchet coverage thresholds up (never down)
 bun run coverage:ratchet

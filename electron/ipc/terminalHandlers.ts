@@ -124,6 +124,11 @@ interface PtyDisposable {
   dispose(): void
 }
 
+interface StartupOutputFilter {
+  marker: string
+  bufferedSuffix: string
+}
+
 interface TerminalSession {
   id: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -140,6 +145,8 @@ interface TerminalSession {
   sender: WebContents
   /** Timer for delayed startup command — cleared on kill to prevent writing to a dead PTY */
   startupTimer?: ReturnType<typeof setTimeout>
+  /** Suppresses the echoed PowerShell bootstrap until its private completion marker arrives. */
+  startupOutputFilter?: StartupOutputFilter
   /** Buffer for partial OSC 7 sequences split across data chunks */
   oscBuffer: string
 }
@@ -217,6 +224,35 @@ function processOsc7(session: TerminalSession, data: string): void {
   }
 }
 
+function forwardTerminalData(session: TerminalSession, data: string): void {
+  if (!data) return
+  session.outputBuffer += data
+  if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
+    session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
+  }
+  session.outputSeq++
+  safeSend(session.sender, IPC_PUSH.TERMINAL_DATA, session.id, data, session.outputSeq)
+  processOsc7(session, data)
+}
+
+function handleTerminalData(session: TerminalSession, data: string): void {
+  const filter = session.startupOutputFilter
+  if (!filter) {
+    forwardTerminalData(session, data)
+    return
+  }
+
+  const buffered = filter.bufferedSuffix + data
+  const markerIndex = buffered.indexOf(filter.marker)
+  if (markerIndex < 0) {
+    filter.bufferedSuffix = buffered.slice(-(filter.marker.length - 1))
+    return
+  }
+
+  session.startupOutputFilter = undefined
+  forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
+}
+
 function createTerminalSession(
   sessionId: string,
   ptyProcess: ReturnType<ReturnType<typeof getPty>['spawn']>,
@@ -237,13 +273,7 @@ function createTerminalSession(
   sessions.set(sessionId, session)
 
   const dataDisposable = ptyProcess.onData((data: string) => {
-    session.outputBuffer += data
-    if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
-      session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
-    }
-    session.outputSeq++
-    safeSend(session.sender, IPC_PUSH.TERMINAL_DATA, sessionId, data, session.outputSeq)
-    processOsc7(session, data)
+    handleTerminalData(session, data)
   })
 
   const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
@@ -256,15 +286,38 @@ function createTerminalSession(
   return session
 }
 
-function scheduleStartupCommand(sessionId: string, startupCommand: string): void {
+function buildStartupMarker(sessionId: string): string {
+  return `\x1b]9;hsb-startup-${sessionId}\x07`
+}
+
+function buildStartupMarkerCommand(sessionId: string): string {
+  return `[Console]::Write(([char]27)+']9;hsb-startup-${sessionId}'+[char]7)`
+}
+
+function scheduleStartupCommands(
+  sessionId: string,
+  shellStartupCommand: string | undefined,
+  startupCommand: string | undefined
+): void {
   const session = sessions.get(sessionId)
   if (!session) return
   session.startupTimer = setTimeout(() => {
     const s = sessions.get(sessionId)
     if (!s?.alive) return
     try {
-      s.pty.write(startupCommand + '\r')
+      if (shellStartupCommand) {
+        const marker = buildStartupMarker(sessionId)
+        s.startupOutputFilter = { marker, bufferedSuffix: '' }
+        forwardTerminalData(s, '\r\x1b[2K')
+        const nextCommand = startupCommand ? `;${startupCommand}` : ''
+        s.pty.write(
+          `try{${shellStartupCommand}}finally{${buildStartupMarkerCommand(sessionId)}}${nextCommand}\r`
+        )
+      } else if (startupCommand) {
+        s.pty.write(startupCommand + '\r')
+      }
     } catch (_: unknown) {
+      s.startupOutputFilter = undefined
       // PTY died between alive check and write — ignore
     }
   }, 500)
@@ -296,6 +349,7 @@ function buildSpawnOptions(
 /** Idempotent cleanup: clear timer → dispose listeners → kill PTY. */
 function cleanupTerminalSession(session: TerminalSession): void {
   if (session.startupTimer) clearTimeout(session.startupTimer)
+  session.startupOutputFilter = undefined
   for (const d of session.disposables) {
     try {
       d.dispose()
@@ -387,11 +441,8 @@ async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  const startupCommands = [shellStartupCommand, startupCommand].filter(
-    (command): command is string => command !== undefined
-  )
-  if (startupCommands.length > 0) {
-    scheduleStartupCommand(sessionId, startupCommands.join(';'))
+  if (shellStartupCommand || startupCommand) {
+    scheduleStartupCommands(sessionId, shellStartupCommand, startupCommand)
   }
 
   return { success: true, sessionId, cwd }

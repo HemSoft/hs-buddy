@@ -696,7 +696,61 @@ describe('terminalHandlers', () => {
         expect.not.arrayContaining(['-EncodedCommand']),
         expect.any(Object)
       )
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('setup-prompt;echo hello\r')
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith(
+        expect.stringMatching(/^try\{setup-prompt\}finally\{.*\};echo hello\r$/)
+      )
+    } finally {
+      restore()
+      vi.useRealTimers()
+    }
+  })
+
+  it('filters PowerShell setup echo from renderer output and reconnect scrollback', async () => {
+    vi.useFakeTimers()
+    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
+    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const { IPC_PUSH } = await import('../../src/ipc/contracts')
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const attachHandler = freshHandlers.get('terminal:attach')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler(
+        { sender: mockSender },
+        { cols: 80, rows: 24, startupCommand: 'echo hello' }
+      )
+
+      vi.advanceTimersByTime(500)
+
+      const writtenCommand = ptyHarness.ptyProcesses[0].write.mock.calls[0][0] as string
+      const marker = `\u001b]9;hsb-startup-${spawnResult.sessionId}\u0007`
+      expect(mockSender.send).toHaveBeenCalledWith(
+        IPC_PUSH.TERMINAL_DATA,
+        spawnResult.sessionId,
+        '\r\u001b[2K',
+        1
+      )
+
+      ptyHarness.ptyProcesses[0].emitData(`PS> ${writtenCommand}`)
+      ptyHarness.ptyProcesses[0].emitData(marker.slice(0, 12))
+      expect(mockSender.send).toHaveBeenCalledTimes(1)
+
+      ptyHarness.ptyProcesses[0].emitData(marker.slice(12) + 'startup output')
+
+      expect(mockSender.send).toHaveBeenLastCalledWith(
+        IPC_PUSH.TERMINAL_DATA,
+        spawnResult.sessionId,
+        'startup output',
+        2
+      )
+      const attachResult = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
+      expect(attachResult.buffer).toBe('\r\u001b[2Kstartup output')
+      expect(attachResult.buffer).not.toContain('setup-prompt')
+      expect(attachResult.buffer).not.toContain('echo hello')
     } finally {
       restore()
       vi.useRealTimers()

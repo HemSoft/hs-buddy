@@ -7,7 +7,7 @@ const mockGet = vi.fn()
 const mockSet = vi.fn()
 const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
-const mockIsFresh = vi.fn((_key: string) => false)
+const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
 
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
@@ -15,7 +15,7 @@ vi.mock('../../../services/dataCache', () => ({
     set: (...args: unknown[]) => mockSet(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
     subscribe: (listener: (key: string) => void) => mockSubscribe(listener),
-    isFresh: (key: string) => mockIsFresh(key),
+    isFresh: (key: string, maxAgeMs: number) => mockIsFresh(key, maxAgeMs),
   },
 }))
 
@@ -161,6 +161,7 @@ function getPRTreeSubscribeCb(): (key: string) => void {
 beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(null)
+  mockIsFresh.mockReturnValue(false)
   mockRefreshInterval = 0
   mockCreateBookmarkResult = undefined
   mockCreateBookmarkShouldReject = false
@@ -1221,17 +1222,40 @@ describe('useGitHubSidebarData', () => {
 
   // ── Cache hit tests ──
 
-  it('fetchRepoCountsForRepo uses cached data without network fetch', async () => {
+  it('fetchRepoCountsForRepo reuses fresh cached data', async () => {
+    mockRefreshInterval = 15
     mockGet.mockImplementation((key: string) => {
       if (key === 'repo-counts:acme/my-repo') return { data: { issues: 5, prs: 3 } }
       return null
     })
+    mockIsFresh.mockReturnValue(true)
     const { result } = renderHook(() => useGitHubSidebarData())
     await act(async () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
     expect(result.current.repoCounts['acme/my-repo']).toEqual({ issues: 5, prs: 3 })
+    expect(mockIsFresh).toHaveBeenCalledWith('repo-counts:acme/my-repo', 15 * 60_000)
     expect(mockFetchRepoCounts).not.toHaveBeenCalled()
+  })
+
+  it('fetchRepoCountsForRepo refetches stale cached data', async () => {
+    mockRefreshInterval = 15
+    mockGet.mockImplementation((key: string) => {
+      if (key === 'repo-counts:acme/my-repo') return { data: { issues: 5, prs: 3 } }
+      return null
+    })
+    mockIsFresh.mockReturnValue(false)
+    mockFetchRepoCounts.mockResolvedValue({ issues: 1, prs: 2 })
+
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => {
+      result.current.toggleRepo('acme', 'my-repo')
+    })
+
+    expect(mockIsFresh).toHaveBeenCalledWith('repo-counts:acme/my-repo', 15 * 60_000)
+    expect(mockFetchRepoCounts).toHaveBeenCalledWith('acme', 'my-repo')
+    expect(result.current.repoCounts['acme/my-repo']).toEqual({ issues: 1, prs: 2 })
+    expect(mockSet).toHaveBeenCalledWith('repo-counts:acme/my-repo', { issues: 1, prs: 2 })
   })
 
   it('fetchSFLStatusForRepo uses cached data without network fetch', async () => {

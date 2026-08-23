@@ -211,9 +211,10 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         apiFn: () => new GitHubClient({ accounts }, 7).fetchRepoCounts(org, repoName),
         onData: result => setRepoCounts(prev => ({ ...prev, [key]: result })),
         forceRefresh,
+        maxAgeMs: getMaxAgeMs(refreshInterval),
       })
     },
-    [accounts, enqueueRef]
+    [accounts, enqueueRef, refreshInterval]
   )
 
   const fetchSFLStatusForRepo = useCallback(

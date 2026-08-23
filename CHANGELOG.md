@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.984] - 2026-08-23
+
+### Changed
+
+- Reset cache freshness mock
+
+## [0.1.983] - 2026-08-23
+
+### Fixed
+
+- Refresh stale repo counts (#576)
+
 ## [0.1.982] - 2026-08-23
 
 ### Fixed

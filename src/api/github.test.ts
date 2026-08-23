@@ -28,6 +28,7 @@ const mockOctokit = {
     getCombinedStatusForRef: vi.fn(),
     getCommit: vi.fn(),
     listForOrg: vi.fn(),
+    listForAuthenticatedUser: vi.fn(),
     listForUser: vi.fn(),
   },
   actions: {
@@ -3872,6 +3873,43 @@ describe('GitHubClient', () => {
         const result = await fetchAllOrgOrUserRepos(TEST_CONFIG, 'someuser')
         expect(result.isUserNamespace).toBe(true)
         expect(result.repos).toHaveLength(1)
+      })
+
+      it('includes private repos when the namespace is the authenticated user', async () => {
+        mockOctokit.repos.listForOrg.mockRejectedValue(new Error('404 Not Found'))
+        mockOctokit.repos.listForAuthenticatedUser.mockResolvedValue({
+          data: [
+            {
+              name: 'private-repo',
+              full_name: 'user1/private-repo',
+              html_url: 'https://github.com/user1/private-repo',
+              description: null,
+              default_branch: 'main',
+              stargazers_count: 0,
+              forks_count: 0,
+              language: 'TypeScript',
+              private: true,
+              archived: false,
+              updated_at: '2026-01-01T00:00:00Z',
+            },
+          ],
+        })
+
+        const result = await fetchAllOrgOrUserRepos(TEST_CONFIG, 'USER1')
+
+        expect(mockOctokit.repos.listForAuthenticatedUser).toHaveBeenCalledWith({
+          affiliation: 'owner',
+          visibility: 'all',
+          sort: 'full_name',
+          direction: 'asc',
+          per_page: 100,
+          page: 1,
+        })
+        expect(mockOctokit.repos.listForUser).not.toHaveBeenCalled()
+        expect(result.isUserNamespace).toBe(true)
+        expect(result.repos).toEqual([
+          expect.objectContaining({ name: 'private-repo', isPrivate: true }),
+        ])
       })
     })
 

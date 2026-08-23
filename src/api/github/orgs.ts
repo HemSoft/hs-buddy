@@ -212,33 +212,46 @@ function mergeContributorEntry(
 function fetchOrgRepoPage(
   octokit: Octokit,
   namespace: string,
-  kind: 'org' | 'user',
+  kind: 'org' | 'user' | 'authenticated-user',
   perPage: number,
   page: number
 ) {
-  return kind === 'org'
-    ? octokit.repos.listForOrg({
-        org: namespace,
-        type: 'all',
-        sort: 'full_name',
-        direction: 'asc',
-        per_page: perPage,
-        page,
-      })
-    : octokit.repos.listForUser({
-        username: namespace,
-        type: 'owner',
-        sort: 'full_name',
-        direction: 'asc',
-        per_page: perPage,
-        page,
-      })
+  if (kind === 'org') {
+    return octokit.repos.listForOrg({
+      org: namespace,
+      type: 'all',
+      sort: 'full_name',
+      direction: 'asc',
+      per_page: perPage,
+      page,
+    })
+  }
+
+  if (kind === 'authenticated-user') {
+    return octokit.repos.listForAuthenticatedUser({
+      affiliation: 'owner',
+      visibility: 'all',
+      sort: 'full_name',
+      direction: 'asc',
+      per_page: perPage,
+      page,
+    })
+  }
+
+  return octokit.repos.listForUser({
+    username: namespace,
+    type: 'owner',
+    sort: 'full_name',
+    direction: 'asc',
+    per_page: perPage,
+    page,
+  })
 }
 
 async function paginateRepos(
   octokit: Octokit,
   namespace: string,
-  kind: 'org' | 'user'
+  kind: 'org' | 'user' | 'authenticated-user'
 ): Promise<OrgRepo[]> {
   const repos: OrgRepo[] = []
   const perPage = 100
@@ -263,7 +276,8 @@ async function paginateRepos(
  */
 async function resolveOrgOrUserRepos(
   octokit: Octokit,
-  namespace: string
+  namespace: string,
+  authenticatedUsername: string
 ): Promise<{ repos: OrgRepo[]; isUserNamespace: boolean }> {
   try {
     const repos = await paginateRepos(octokit, namespace, 'org')
@@ -271,9 +285,14 @@ async function resolveOrgOrUserRepos(
   } catch (error: unknown) {
     if (!isNotFoundError(error)) throw error
 
-    // Namespace is likely a user account — retry with user endpoint
+    // Namespace is likely a user account. Use the authenticated endpoint for the
+    // signed-in user's own namespace so private repositories are included.
     console.info(`Namespace '${namespace}' is not an org, trying user repos…`)
-    const repos = await paginateRepos(octokit, namespace, 'user')
+    const kind =
+      namespace.toLowerCase() === authenticatedUsername.toLowerCase()
+        ? 'authenticated-user'
+        : 'user'
+    const repos = await paginateRepos(octokit, namespace, kind)
     return { repos, isUserNamespace: true }
   }
 }
@@ -332,7 +351,8 @@ async function resolveOrgOrUserMembers(
 
 /**
  * Fetch all repos for an org (or user namespace).
- * Tries repos.listForOrg first; on 404 falls back to repos.listForUser.
+ * Tries repos.listForOrg first; on 404 uses the authenticated endpoint for the
+ * signed-in user's own namespace and the public user endpoint for other users.
  * Returns which account was used so the UI can attribute the request.
  */
 export async function fetchOrgRepos(
@@ -343,7 +363,7 @@ export async function fetchOrgRepos(
     config,
     owner,
     async (octokit, username) => {
-      const result = await resolveOrgOrUserRepos(octokit, owner)
+      const result = await resolveOrgOrUserRepos(octokit, owner, username)
       return { ...result, authenticatedAs: username }
     },
     `fetch repos for '${owner}'`
@@ -436,7 +456,7 @@ export async function fetchOrgOverview(
     config,
     owner,
     async (octokit, username) => {
-      const { repos, isUserNamespace } = await resolveOrgOrUserRepos(octokit, owner)
+      const { repos, isUserNamespace } = await resolveOrgOrUserRepos(octokit, owner, username)
       const startOfDay = new Date()
       startOfDay.setHours(0, 0, 0, 0)
       const startOfDayIso = startOfDay.toISOString()
@@ -531,7 +551,7 @@ export async function fetchAllOrgOrUserRepos(
   return withFirstAvailableAccount(
     config,
     owner,
-    async octokit => resolveOrgOrUserRepos(octokit, owner),
+    async (octokit, username) => resolveOrgOrUserRepos(octokit, owner, username),
     `fetch repos for '${owner}'`
   )
 }

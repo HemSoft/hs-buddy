@@ -4,7 +4,6 @@ import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
 import { buildScheduleUpdateFields } from '../shared/utils/scheduleUtils'
-import { requireAuthorizedIdentity } from './lib/authorization'
 
 /**
  * Schedule CRUD operations
@@ -14,7 +13,6 @@ import { requireAuthorizedIdentity } from './lib/authorization'
 export const list = query({
   args: {},
   handler: async ctx => {
-    await requireAuthorizedIdentity(ctx)
     const schedules = await ctx.db.query('schedules').collect()
 
     // Fetch associated jobs
@@ -36,7 +34,6 @@ export const list = query({
 export const listEnabled = query({
   args: {},
   handler: async ctx => {
-    await requireAuthorizedIdentity(ctx)
     return await ctx.db
       .query('schedules')
       .withIndex('by_enabled', q => q.eq('enabled', true))
@@ -48,7 +45,6 @@ export const listEnabled = query({
 export const get = query({
   args: { id: v.id('schedules') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const schedule = await ctx.db.get('schedules', args.id)
     if (!schedule) return null
 
@@ -73,7 +69,6 @@ export const create = mutation({
     missedPolicy: v.union(v.literal('catchup'), v.literal('skip'), v.literal('last')),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     // Verify job exists
     const job = await ctx.db.get('jobs', args.jobId)
     if (!job) {
@@ -117,7 +112,6 @@ export const update = mutation({
     missedPolicy: v.optional(v.union(v.literal('catchup'), v.literal('skip'), v.literal('last'))),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const { id, ...updates } = args
 
     const existing = await ctx.db.get('schedules', id)
@@ -143,7 +137,6 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id('schedules') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const existing = await ctx.db.get('schedules', args.id)
     if (!existing) {
       throw notFoundError('Schedule', args.id)
@@ -158,7 +151,6 @@ export const remove = mutation({
 export const toggle = mutation({
   args: { id: v.id('schedules') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const schedule = await ctx.db.get('schedules', args.id)
     if (!schedule) {
       throw notFoundError('Schedule', args.id)
@@ -190,7 +182,6 @@ export const advanceNextRun = mutation({
     lastRunAt: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const schedule = await ctx.db.get('schedules', args.id)
     if (!schedule) {
       throw notFoundError('Schedule', args.id)

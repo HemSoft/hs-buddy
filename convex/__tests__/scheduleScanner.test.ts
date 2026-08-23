@@ -8,14 +8,13 @@ import {
   RUNNING_TIMEOUT_HEADROOM_MS,
   STALE_RUN_TIMEOUT_MS,
 } from '../lib/constants'
-import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
 
 function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
   const t = createConvexTest(schemaDefinition, moduleFiles)
   aggregateComponent.register(t, 'runCounts')
-  return withAuthorizedIdentity(t)
+  return t
 }
 
 const baseJob = {

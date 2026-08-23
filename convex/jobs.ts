@@ -2,7 +2,6 @@ import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import { notFoundError, shellValidator } from './lib/domain'
 import { buildUpdateData } from '../shared/utils/convexPatchUtils'
-import { requireAuthorizedIdentity } from './lib/authorization'
 
 /**
  * Job CRUD operations
@@ -14,7 +13,6 @@ const workerTypeValidator = v.union(v.literal('exec'), v.literal('ai'), v.litera
 export const list = query({
   args: {},
   handler: async ctx => {
-    await requireAuthorizedIdentity(ctx)
     return ctx.db.query('jobs').collect()
   },
 })
@@ -25,7 +23,6 @@ export const listByType = query({
     workerType: workerTypeValidator,
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     return ctx.db
       .query('jobs')
       .withIndex('by_worker_type', q => q.eq('workerType', args.workerType))
@@ -37,7 +34,6 @@ export const listByType = query({
 export const get = query({
   args: { id: v.id('jobs') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     return ctx.db.get('jobs', args.id)
   },
 })
@@ -46,7 +42,6 @@ export const get = query({
 export const getByName = query({
   args: { name: v.string() },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     return ctx.db
       .query('jobs')
       .withIndex('by_name', q => q.eq('name', args.name))
@@ -91,7 +86,6 @@ export const create = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     // Check for duplicate name
     const existing = await ctx.db
       .query('jobs')
@@ -154,7 +148,6 @@ export const update = mutation({
     ),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const { id, ...updates } = args
 
     const existing = await ctx.db.get('jobs', id)
@@ -183,7 +176,6 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id('jobs') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const existing = await ctx.db.get('jobs', args.id)
     if (!existing) {
       throw notFoundError('Job', args.id)

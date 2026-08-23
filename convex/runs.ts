@@ -6,7 +6,6 @@ import { isPendingOrRunning, notFoundError, runStatusValidator } from './lib/dom
 import { projectJob } from './lib/projections'
 import { incrementStat } from './lib/stats'
 import { deleteRun, getRunCountsByJob, insertRun, patchRun } from './lib/runStore'
-import { requireAuthorizedIdentity } from './lib/authorization'
 
 // List recent runs (last N runs)
 export const listRecent = query({
@@ -14,7 +13,6 @@ export const listRecent = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const limit = args.limit ?? 50
 
     const runs = await ctx.db.query('runs').withIndex('by_started').order('desc').take(limit)
@@ -49,7 +47,6 @@ export const listByJob = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const limit = args.limit ?? 20
 
     return await ctx.db
@@ -67,7 +64,6 @@ export const listBySchedule = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const limit = args.limit ?? 20
 
     return await ctx.db
@@ -82,7 +78,6 @@ export const listBySchedule = query({
 export const get = query({
   args: { id: v.id('runs') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const run = await ctx.db.get('runs', args.id)
     if (!run) return null
 
@@ -106,7 +101,6 @@ export const create = mutation({
     input: v.optional(v.any()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     // Verify job exists
     const job = await ctx.db.get('jobs', args.jobId)
     if (!job) {
@@ -143,7 +137,6 @@ export const create = mutation({
 export const markRunning = mutation({
   args: { id: v.id('runs') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const run = await ctx.db.get('runs', args.id)
     if (!run) {
       throw notFoundError('Run', args.id)
@@ -207,7 +200,6 @@ export const complete = mutation({
     outputFileId: v.optional(v.id('_storage')),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     await finalizeRun(ctx, args.id, 'completed', 'runsCompleted', {
       output: args.output,
       outputFileId: args.outputFileId,
@@ -222,7 +214,6 @@ export const fail = mutation({
     error: v.string(),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     await finalizeRun(ctx, args.id, 'failed', 'runsFailed', {
       error: args.error,
     })
@@ -233,7 +224,6 @@ export const fail = mutation({
 export const cancel = mutation({
   args: { id: v.id('runs') },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const run = await ctx.db.get('runs', args.id)
     if (!run) {
       throw notFoundError('Run', args.id)
@@ -259,7 +249,6 @@ export const listByStatus = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const limit = args.limit ?? 50
 
     return await ctx.db
@@ -274,7 +263,6 @@ export const listByStatus = query({
 export const claimPending = mutation({
   args: {},
   handler: async ctx => {
-    await requireAuthorizedIdentity(ctx)
     // Get oldest pending run
     const pendingRun = await ctx.db
       .query('runs')
@@ -318,7 +306,6 @@ export const cleanup = mutation({
     olderThanDays: v.number(),
   },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const cutoff = Date.now() - args.olderThanDays * MS_PER_DAY
 
     // Fetch old runs using take() to avoid unbounded .collect()
@@ -346,7 +333,6 @@ const MAX_JOBS_PER_COUNT_QUERY = 100
 export const countsByJob = query({
   args: { jobIds: v.array(v.id('jobs')) },
   handler: async (ctx, args) => {
-    await requireAuthorizedIdentity(ctx)
     const jobIds = [...new Set(args.jobIds)]
     if (jobIds.length > MAX_JOBS_PER_COUNT_QUERY) {
       throw new Error(`Run counts can be requested for at most ${MAX_JOBS_PER_COUNT_QUERY} jobs`)

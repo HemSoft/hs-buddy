@@ -878,6 +878,21 @@ describe('RepoNode component', () => {
     mockCache.get.mockReturnValue(null)
   })
 
+  it('updates the PR age label after repo counts refresh', () => {
+    const expanded = new Set(['org/hs-buddy'])
+    const mockCache = vi.mocked(dataCache)
+    mockCache.get.mockReturnValue({ data: { issues: 5, prs: 3 }, fetchedAt: Date.now() - 120_000 })
+    const { rerender } = render(<RepoNode {...baseProps} expandedRepos={expanded} />)
+    expect(screen.getByText('updated 2m ago')).toBeDefined()
+
+    mockCache.get.mockReturnValue({ data: { issues: 5, prs: 3 }, fetchedAt: Date.now() })
+    rerender(<RepoNode {...baseProps} expandedRepos={expanded} refreshTick={1} />)
+
+    expect(screen.getByText('updated now')).toBeDefined()
+    expect(screen.queryByText('updated 2m ago')).toBeNull()
+    mockCache.get.mockReturnValue(null)
+  })
+
   it('calls onToggleSFLGroup when clicking SFL section', () => {
     const expanded = new Set(['org/hs-buddy'])
     const onToggleSFLGroup = vi.fn()

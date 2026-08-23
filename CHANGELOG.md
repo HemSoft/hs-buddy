@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.980] - 2026-08-23
+
+### Fixed
+
+- Remove executable API authentication (#574)
+
 ## [0.1.979] - 2026-08-21
 
 ### Changed

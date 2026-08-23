@@ -4,19 +4,14 @@ import { convexTest as createConvexTest } from 'convex-test'
 import { describe, expect, test } from 'vitest'
 import schema from '../schema'
 import { api } from '../_generated/api'
-import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
 
-function testHarness(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
+function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
   const t = createConvexTest(schemaDefinition, moduleFiles)
   aggregateComponent.register(t, 'runCounts')
   migrationsComponent.register(t)
   return t
-}
-
-function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
-  return withAuthorizedIdentity(testHarness(schemaDefinition, moduleFiles))
 }
 
 const baseJob = {

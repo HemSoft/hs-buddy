@@ -4,19 +4,14 @@ import { convexTest as createConvexTest } from 'convex-test'
 import { describe, test, expect, vi } from 'vitest'
 import schema from '../schema'
 import { api, internal } from '../_generated/api'
-import { withAuthorizedIdentity } from '../../testing/convex-test-auth'
 
 const modules = import.meta.glob('../**/*.*s')
 
-function testHarness(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
+function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
   const t = createConvexTest(schemaDefinition, moduleFiles)
   aggregateComponent.register(t, 'runCounts')
   migrationsComponent.register(t)
   return t
-}
-
-function convexTest(schemaDefinition: typeof schema, moduleFiles: typeof modules) {
-  return withAuthorizedIdentity(testHarness(schemaDefinition, moduleFiles))
 }
 
 const baseJob = {
@@ -26,33 +21,7 @@ const baseJob = {
 }
 
 describe('runs', () => {
-  test('rejects unauthenticated reads and mutations', async () => {
-    const t = testHarness(schema, modules)
-    const authorized = withAuthorizedIdentity(t)
-    const jobId = await authorized.mutation(api.jobs.create, baseJob)
-
-    await expect(t.query(api.runs.listRecent, {})).rejects.toThrow(/Authentication is required/)
-    await expect(t.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })).rejects.toThrow(
-      /Authentication is required/
-    )
-  })
-
-  test('rejects authenticated identities outside the allowlist', async () => {
-    const t = testHarness(schema, modules)
-    const authorized = withAuthorizedIdentity(t)
-    const jobId = await authorized.mutation(api.jobs.create, baseJob)
-    const unauthorized = t.withIdentity({
-      subject: 'unapproved-user',
-      issuer: 'https://auth.test.hs-buddy',
-    })
-
-    await expect(unauthorized.query(api.runs.listRecent, {})).rejects.toThrow(/not authorized/)
-    await expect(
-      unauthorized.mutation(api.runs.create, { jobId, triggeredBy: 'manual' })
-    ).rejects.toThrow(/not authorized/)
-  })
-
-  test('create inserts a pending run and returns its ID', async () => {
+  test('anonymous clients can create and list runs', async () => {
     const t = convexTest(schema, modules)
     const jobId = await t.mutation(api.jobs.create, baseJob)
 

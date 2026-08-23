@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.981] - 2026-08-23
+
+### Fixed
+
+- Show startup errors instead of a blank screen
+
 ## [0.1.980] - 2026-08-23
 
 ### Fixed

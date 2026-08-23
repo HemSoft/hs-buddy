@@ -113,3 +113,38 @@
   font-size: 13px;
   color: var(--accent-blue);
 }
+
+.startup-error .content-header h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.startup-error-details {
+  max-width: 900px;
+  margin-bottom: 20px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.startup-error-retry {
+  padding: 8px 14px;
+  color: #ffffff;
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-primary);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.startup-error-retry:hover {
+  background: var(--accent-primary-hover);
+}

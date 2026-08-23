@@ -1,8 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import App from './App'
+import { AppRoot } from './AppRoot'
 import { installBrowserIpcMock } from './browser-ipc-mock'
-import { ConvexClientProvider } from './providers/ConvexClientProvider'
 import { dataCache } from './services/dataCache'
 import { IPC_PUSH } from './ipc/contracts'
 import './index.css'
@@ -25,9 +24,7 @@ if (import.meta.env.DEV && import.meta.env.VITE_REACT_SCAN === '1') {
 dataCache.initialize().then(() => {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-      <ConvexClientProvider>
-        <App />
-      </ConvexClientProvider>
+      <AppRoot />
     </React.StrictMode>
   )
 

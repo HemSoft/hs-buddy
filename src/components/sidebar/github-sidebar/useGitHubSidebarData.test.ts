@@ -161,6 +161,7 @@ function getPRTreeSubscribeCb(): (key: string) => void {
 beforeEach(() => {
   vi.clearAllMocks()
   mockGet.mockReturnValue(null)
+  mockIsFresh.mockReturnValue(false)
   mockRefreshInterval = 0
   mockCreateBookmarkResult = undefined
   mockCreateBookmarkShouldReject = false

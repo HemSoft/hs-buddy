@@ -12,6 +12,7 @@ import {
 } from './useConfig'
 import {
   mergeUsageProviderOverrideSnapshot,
+  mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
 } from './useUsageProviderOverrides'
 import { markAccountMigrationPending, markAccountMigrationReady } from './useAccountMigrationState'
@@ -200,6 +201,38 @@ describe('useConfig', () => {
         ])
       )
       expect(result.current.canUpdateAccounts).toBe(false)
+    })
+
+    it('merges equal-timestamp legacy collisions deterministically', async () => {
+      const first = {
+        _id: 'account-a',
+        username: 'Alice',
+        org: 'Org',
+        repoRoot: 'old-root',
+        usageProvider: 'codex' as const,
+        createdAt: 1,
+        updatedAt: 2,
+      }
+      const second = {
+        _id: 'account-b',
+        username: 'alice',
+        org: 'org',
+        repoRoot: '',
+        usageProvider: 'copilot' as const,
+        createdAt: 2,
+        updatedAt: 2,
+      }
+
+      await mirrorConnectedGitHubAccounts([second, first])
+      await mirrorConnectedGitHubAccounts([first, second])
+
+      const snapshots = mockInvoke.mock.calls
+        .filter(call => call[0] === 'config:sync-github-accounts')
+        .map(call => call[1])
+      expect(snapshots).toEqual([
+        [{ username: 'Alice', org: 'Org', repoRoot: '', usageProvider: 'copilot' }],
+        [{ username: 'Alice', org: 'Org', repoRoot: '', usageProvider: 'copilot' }],
+      ])
     })
 
     it('forgets a pending override when another client removes the account', async () => {
@@ -565,9 +598,7 @@ describe('useConfig', () => {
         )
 
         renderHook(() => useGitHubAccounts())
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(0)
-        })
+        await act(() => vi.advanceTimersByTimeAsync(0))
         expect(mockUpdate).toHaveBeenCalledTimes(1)
 
         await act(async () => {
@@ -1379,6 +1410,7 @@ describe('useConfig', () => {
       vi.useFakeTimers()
       try {
         let resolveStaleClear!: () => void
+        let resolveRecoveryFailure!: () => void
         let storedOverride: 'copilot' | 'codex' | null = 'codex'
         let copilotWriteCount = 0
         mockConvexAccounts = [
@@ -1406,8 +1438,12 @@ describe('useConfig', () => {
             }
             if (provider === 'copilot') {
               copilotWriteCount += 1
-              if (copilotWriteCount >= 2) {
-                return Promise.resolve({ success: false, error: 'Store busy' })
+              if (copilotWriteCount === 2) {
+                return new Promise(resolve => {
+                  resolveRecoveryFailure = () => {
+                    resolve({ success: false, error: 'Store busy' })
+                  }
+                })
               }
             }
             storedOverride = provider
@@ -1423,30 +1459,30 @@ describe('useConfig', () => {
         mockIsWebSocketConnected = false
         rerender()
         await act(async () => {
-          expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual(
-            {
-              success: true,
-            }
-          )
+          const response = await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')
+          expect(response).toEqual({ success: true })
           resolveStaleClear()
           await vi.advanceTimersByTimeAsync(0)
         })
-        expect(copilotWriteCount).toBeGreaterThanOrEqual(2)
-        const writesBeforeRemoval = copilotWriteCount
+        expect(resolveRecoveryFailure).toBeTypeOf('function')
 
-        await act(async () => {
-          expect(await result.current.removeAccount('HemSoft', 'HemSoft')).toEqual({
-            success: true,
-          })
+        let removal!: Promise<{ success: boolean; error?: string }>
+        act(() => {
+          removal = result.current.removeAccount('HemSoft', 'HemSoft')
         })
+        await act(() => vi.advanceTimersByTimeAsync(0))
+        expect(mockRemove).toHaveBeenCalledWith({ id: 'old-id' })
+        await act(async () => {
+          resolveRecoveryFailure()
+          expect(await removal).toEqual({ success: true })
+        })
+        const writesBeforeRemoval = copilotWriteCount
         mockConvexAccounts = [
           { _id: 'new-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
         ]
         rerender()
 
-        await act(async () => {
-          await vi.advanceTimersByTimeAsync(2_000)
-        })
+        await act(() => vi.advanceTimersByTimeAsync(2_000))
         expect(copilotWriteCount).toBe(writesBeforeRemoval)
         expect(storedOverride).toBeNull()
       } finally {

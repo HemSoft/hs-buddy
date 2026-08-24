@@ -31,6 +31,7 @@ export {
 } from './usageProviderSelectionCoordinator'
 
 export type ConvexGitHubAccount = {
+  _id?: string
   username: string
   org: string
   repoRoot?: string
@@ -84,16 +85,17 @@ function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
     accountGroups.set(key, [...(accountGroups.get(key) ?? []), account])
   }
   return [...accountGroups.values()].map(group => {
-    const ordered = [...group].sort(
-      (left, right) =>
+    const ordered = [...group].sort((left, right) => {
+      const updatedDifference =
         (left.updatedAt ?? left.createdAt ?? 0) - (right.updatedAt ?? right.createdAt ?? 0)
-    )
+      return updatedDifference || (left._id ?? '').localeCompare(right._id ?? '')
+    })
     const canonical = ordered[0]
     return ordered.reduce<GitHubAccount>(
       (durable, account) => ({
         ...durable,
-        ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
-        ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
+        ...(account.repoRoot === undefined ? {} : { repoRoot: account.repoRoot }),
+        ...(account.usageProvider === undefined ? {} : { usageProvider: account.usageProvider }),
       }),
       { username: canonical.username, org: canonical.org }
     )

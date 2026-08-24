@@ -148,7 +148,7 @@ describe('githubAccounts', () => {
       const second = await ctx.db.insert('githubAccounts', {
         username: 'alice',
         org: 'corp',
-        repoRoot: 'D:/github/latest',
+        repoRoot: '',
         createdAt: 2,
         updatedAt: 2,
       })
@@ -163,11 +163,49 @@ describe('githubAccounts', () => {
       _id: ids.first,
       username: 'Alice',
       org: 'Corp',
-      repoRoot: 'D:/github/latest',
+      repoRoot: '',
       usageProvider: 'codex',
       updatedAt: 2,
     })
     expect(await t.query(api.githubAccounts.get, { id: ids.second })).toBeNull()
+  })
+
+  test('migration preserves only the newest global Codex owner', async () => {
+    const t = convexTest(schema, modules)
+    migrationsTest.register(t)
+    const ids = await t.run(async ctx => {
+      const oldOwner = await ctx.db.insert('githubAccounts', {
+        username: 'old-owner',
+        org: 'Org',
+        usageProvider: 'codex',
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      const keeper = await ctx.db.insert('githubAccounts', {
+        username: 'Alice',
+        org: 'Org',
+        createdAt: 2,
+        updatedAt: 2,
+      })
+      await ctx.db.insert('githubAccounts', {
+        username: 'alice',
+        org: 'org',
+        usageProvider: 'codex',
+        createdAt: 3,
+        updatedAt: 3,
+      })
+      return { oldOwner, keeper }
+    })
+
+    await t.mutation(internal.migrations.runMergeCaseCollidingGitHubAccounts, {})
+
+    expect((await t.query(api.githubAccounts.get, { id: ids.oldOwner }))?.usageProvider).toBe(
+      'copilot'
+    )
+    expect((await t.query(api.githubAccounts.get, { id: ids.keeper }))?.usageProvider).toBe('codex')
+    expect(
+      (await t.query(api.githubAccounts.list)).filter(a => a.usageProvider === 'codex')
+    ).toHaveLength(1)
   })
 
   test('usage provider is optional and can be changed to Codex', async () => {

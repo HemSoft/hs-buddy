@@ -186,6 +186,7 @@ export async function invalidateUsageProviderSelection(
       // Removal cleanup remains authoritative when an older reconciliation rejects.
     }
   }
+  cancelUsageProviderRetry(key)
 }
 
 export function hasPendingUsageProviderWork(key: string) {

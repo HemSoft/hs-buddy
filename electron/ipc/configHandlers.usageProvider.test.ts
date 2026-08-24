@@ -9,7 +9,7 @@ vi.mock('electron', () => ({
 vi.mock('node:fs/promises', () => ({ readFile: vi.fn(), stat: vi.fn() }))
 
 vi.mock('../config', () => ({
-  configManager: { setUsageProviderOverride: vi.fn() },
+  configManager: { hasGitHubAccount: vi.fn(() => true), setUsageProviderOverride: vi.fn() },
 }))
 
 import { ipcMain } from 'electron'
@@ -17,6 +17,7 @@ import { configManager } from '../config'
 import { registerConfigHandlers } from './configHandlers'
 
 const setUsageProviderOverride = vi.mocked(configManager.setUsageProviderOverride)
+const hasGitHubAccount = vi.mocked(configManager.hasGitHubAccount)
 
 describe('usage provider override config handler', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -24,6 +25,7 @@ describe('usage provider override config handler', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    hasGitHubAccount.mockReset().mockReturnValue(true)
     vi.mocked(ipcMain.handle).mockImplementation((channel, registeredHandler) => {
       if (channel === 'config:set-usage-provider-override') handler = registeredHandler
     })
@@ -36,8 +38,19 @@ describe('usage provider override config handler', () => {
   })
 
   it('clears a local provider when Convex becomes authoritative', () => {
+    hasGitHubAccount.mockReturnValue(false)
     expect(handler({}, 'HemSoft', 'HemSoft', null)).toEqual({ success: true })
     expect(setUsageProviderOverride).toHaveBeenCalledWith('HemSoft', 'HemSoft', null)
+  })
+
+  it('rejects a provider for an account that is not configured locally', () => {
+    hasGitHubAccount.mockReturnValue(false)
+
+    expect(handler({}, 'HemSoft', 'HemSoft', 'codex')).toEqual({
+      success: false,
+      error: 'Account is not configured locally',
+    })
+    expect(setUsageProviderOverride).not.toHaveBeenCalled()
   })
 
   it('rejects invalid identities and providers', () => {

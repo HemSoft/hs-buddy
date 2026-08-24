@@ -22,6 +22,11 @@ type OverrideEvent = {
 }
 
 type OverrideResult = { success: boolean; error?: string }
+type ReconcileUsageProvider = (
+  username: string,
+  org: string,
+  provider: UsageProvider
+) => Promise<OverrideResult>
 
 function notifyOverride(
   account: Pick<GitHubAccount, 'username' | 'org'>,
@@ -48,16 +53,32 @@ export async function persistUsageProviderOverride(
   return result
 }
 
-function applyOverride(
-  account: GitHubAccount,
-  overrides: UsageProviderOverrides,
-  convexConnected: boolean
-): GitHubAccount {
+function applyOverride(account: GitHubAccount, overrides: UsageProviderOverrides): GitHubAccount {
   const localProvider = overrides[getUsageProviderOverrideKey(account)]
-  const usageProvider = convexConnected
-    ? (account.usageProvider ?? localProvider)
-    : (localProvider ?? account.usageProvider)
+  const usageProvider = localProvider ?? account.usageProvider
   return { ...account, ...(usageProvider ? { usageProvider } : {}) }
+}
+
+function getConnectedOverrides(
+  accounts: ConvexGitHubAccount[],
+  overrides: UsageProviderOverrides
+): UsageProviderOverrides {
+  const explicitCodexOwner = accounts.find(account => {
+    const override = overrides[getUsageProviderOverrideKey(account)]
+    return account.usageProvider === 'codex' && override !== 'copilot'
+  })
+  let codexOwnerKey = explicitCodexOwner ? getUsageProviderOverrideKey(explicitCodexOwner) : null
+  const connectedOverrides: UsageProviderOverrides = {}
+
+  for (const account of accounts) {
+    const key = getUsageProviderOverrideKey(account)
+    const provider = overrides[key]
+    if (!provider) continue
+    if (provider === 'codex' && codexOwnerKey && codexOwnerKey !== key) continue
+    connectedOverrides[key] = provider
+    if (provider === 'codex') codexOwnerKey = key
+  }
+  return connectedOverrides
 }
 
 function resolveAccountsFromSources(
@@ -66,6 +87,7 @@ function resolveAccountsFromSources(
   overrides: UsageProviderOverrides
 ): GitHubAccount[] {
   if (convexAccounts) {
+    const connectedOverrides = getConnectedOverrides(convexAccounts, overrides)
     return convexAccounts.map(account =>
       applyOverride(
         {
@@ -74,12 +96,11 @@ function resolveAccountsFromSources(
           ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
           ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
         },
-        overrides,
-        true
+        connectedOverrides
       )
     )
   }
-  return electronStoreAccounts.map(account => applyOverride(account, overrides, false))
+  return electronStoreAccounts.map(account => applyOverride(account, overrides))
 }
 
 export function useResolvedAccounts(
@@ -105,9 +126,14 @@ export function useResolvedAccounts(
   return accounts.current
 }
 
-async function reconcileOverride(account: ConvexGitHubAccount, key: string): Promise<void> {
+async function reconcileOverride(
+  account: ConvexGitHubAccount,
+  key: string,
+  provider: UsageProvider,
+  reconcile: ReconcileUsageProvider
+): Promise<void> {
   try {
-    await persistUsageProviderOverride(account, null)
+    await reconcile(account.username, account.org, provider)
   } catch (_: unknown) {
     // Keep the override so a later account refresh can retry reconciliation.
   } finally {
@@ -115,21 +141,54 @@ async function reconcileOverride(account: ConvexGitHubAccount, key: string): Pro
   }
 }
 
-export function useLocalAccountConfig(convexAccounts: ConvexGitHubAccount[] | undefined) {
+async function discardOverride(account: ConvexGitHubAccount, key: string): Promise<void> {
+  try {
+    await persistUsageProviderOverride(account, null)
+  } catch (_: unknown) {
+    // Keep the conflicting override so a later account refresh can retry cleanup.
+  } finally {
+    reconciliations.delete(key)
+  }
+}
+
+function mergeInitialOverrides(
+  snapshot: UsageProviderOverrides,
+  current: UsageProviderOverrides,
+  changedKeys: Set<string>
+): UsageProviderOverrides {
+  const merged = { ...snapshot }
+  for (const key of changedKeys) {
+    const provider = current[key]
+    if (provider) merged[key] = provider
+    else delete merged[key]
+  }
+  return merged
+}
+
+export function useLocalAccountConfig(
+  convexAccounts: ConvexGitHubAccount[] | undefined,
+  reconcile: ReconcileUsageProvider
+) {
   const [accounts, setAccounts] = useState<GitHubAccount[]>([])
   const [overrides, setOverrides] = useState<UsageProviderOverrides>({})
   const [loaded, setLoaded] = useState(true)
+  const changedOverrideKeys = useRef(new Set<string>())
 
   useEffect(() => {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
         setAccounts(config.github.accounts)
-        setOverrides(config.github.usageProviderOverrides ?? {})
+        setOverrides(current =>
+          mergeInitialOverrides(
+            config.github.usageProviderOverrides ?? {},
+            current,
+            changedOverrideKeys.current
+          )
+        )
       })
       .catch(() => {
         setAccounts([])
-        setOverrides({})
       })
       .finally(() => {
         setLoaded(true)
@@ -139,6 +198,7 @@ export function useLocalAccountConfig(convexAccounts: ConvexGitHubAccount[] | un
   useEffect(() => {
     const handleOverride = (event: Event) => {
       const { key, provider } = (event as CustomEvent<OverrideEvent>).detail
+      changedOverrideKeys.current.add(key)
       setOverrides(current => {
         const next = { ...current }
         if (provider === null) delete next[key]
@@ -154,14 +214,30 @@ export function useLocalAccountConfig(convexAccounts: ConvexGitHubAccount[] | un
 
   useEffect(() => {
     if (!convexAccounts) return
+    const connectedOverrides = getConnectedOverrides(convexAccounts, overrides)
+    const explicitCodexOwner = convexAccounts.find(account => account.usageProvider === 'codex')
+    const explicitCodexOwnerKey = explicitCodexOwner
+      ? getUsageProviderOverrideKey(explicitCodexOwner)
+      : null
     for (const account of convexAccounts) {
-      if (!account.usageProvider) continue
       const key = getUsageProviderOverrideKey(account)
-      if (!overrides[key] || reconciliations.has(key)) continue
+      const provider = overrides[key]
+      if (!provider || reconciliations.has(key)) continue
+      if (
+        connectedOverrides[key] === 'codex' &&
+        explicitCodexOwnerKey &&
+        explicitCodexOwnerKey !== key
+      ) {
+        continue
+      }
       reconciliations.add(key)
-      void reconcileOverride(account, key)
+      if (connectedOverrides[key] === provider) {
+        void reconcileOverride(account, key, provider, reconcile)
+      } else {
+        void discardOverride(account, key)
+      }
     }
-  }, [convexAccounts, overrides])
+  }, [convexAccounts, overrides, reconcile])
 
   return { accounts, overrides, loaded }
 }

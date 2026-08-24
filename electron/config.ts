@@ -43,6 +43,11 @@ class ConfigManager {
     return this.store.get('github.accounts', [])
   }
 
+  hasGitHubAccount(username: string, org: string): boolean {
+    const key = getUsageProviderOverrideKey({ username, org })
+    return this.getGitHubAccounts().some(account => getUsageProviderOverrideKey(account) === key)
+  }
+
   addGitHubAccount(account: GitHubAccount): void {
     const accounts = this.getGitHubAccounts()
     // Check for duplicates
@@ -58,6 +63,7 @@ class ConfigManager {
     const accounts = this.getGitHubAccounts()
     const filtered = accounts.filter(a => !(a.username === username && a.org === org))
     this.store.set('github.accounts', filtered)
+    this.setUsageProviderOverride(username, org, null)
   }
 
   updateGitHubAccount(username: string, org: string, updates: Partial<GitHubAccount>): void {
@@ -66,8 +72,12 @@ class ConfigManager {
     if (index === -1) {
       throw new Error(`GitHub account ${username}@${org} not found`)
     }
+    const previousKey = getUsageProviderOverrideKey(accounts[index])
     accounts[index] = { ...accounts[index], ...updates }
     this.store.set('github.accounts', accounts)
+    if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
+      this.setUsageProviderOverride(username, org, null)
+    }
   }
 
   getUsageProviderOverrides(): UsageProviderOverrides {

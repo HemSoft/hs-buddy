@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
+import type { AppConfig } from '../types/config'
 import {
   useConfig,
   useGitHubAccounts,
@@ -46,6 +47,12 @@ Object.defineProperty(window, 'ipcRenderer', {
 describe('useConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockCreate.mockReset()
+    mockUpdate.mockReset()
+    mockRemove.mockReset()
+    mockUpdatePR.mockReset()
+    mockUpdateCopilot.mockReset()
+    mockInvoke.mockReset()
     mockConvexAccounts = undefined
     mockSettings = undefined
     mockInvoke.mockImplementation((channel: string) =>
@@ -207,7 +214,7 @@ describe('useConfig', () => {
       })
     })
 
-    it('uses a local provider until Convex supplies one, then clears the override', async () => {
+    it('keeps a local provider pending until Convex confirms it', async () => {
       mockInvoke.mockImplementation((channel: string) =>
         Promise.resolve(
           channel === 'config:get-config'
@@ -226,9 +233,25 @@ describe('useConfig', () => {
       mockConvexAccounts = [
         { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
       ]
+      mockUpdate.mockResolvedValueOnce(undefined)
       rerender()
 
-      expect(result.current.accounts[0].usageProvider).toBe('copilot')
+      expect(result.current.accounts[0].usageProvider).toBe('codex')
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'id1', usageProvider: 'codex' })
+      )
+      expect(mockInvoke).not.toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      rerender()
+
       await waitFor(() =>
         expect(mockInvoke).toHaveBeenCalledWith(
           'config:set-usage-provider-override',
@@ -236,6 +259,164 @@ describe('useConfig', () => {
           'HemSoft',
           null
         )
+      )
+    })
+
+    it('does not apply a conflicting local Codex owner beside an explicit owner', async () => {
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'Owner', org: 'HemSoft', usageProvider: 'codex' },
+        { _id: 'id2', username: 'Second', org: 'HemSoft' },
+      ]
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [
+                    { username: 'Owner', org: 'HemSoft' },
+                    { username: 'Second', org: 'HemSoft' },
+                  ],
+                  usageProviderOverrides: { 'hemsoft/second': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0].usageProvider).toBe('codex'))
+      expect(result.current.accounts[1].usageProvider).toBeUndefined()
+      await waitFor(() =>
+        expect(mockInvoke).toHaveBeenCalledWith(
+          'config:set-usage-provider-override',
+          'Second',
+          'HemSoft',
+          null
+        )
+      )
+    })
+
+    it('defers transferring Codex ownership until the current owner is confirmed Copilot', async () => {
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'Owner', org: 'HemSoft', usageProvider: 'codex' },
+        { _id: 'id2', username: 'Second', org: 'HemSoft' },
+      ]
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [
+                    { username: 'Owner', org: 'HemSoft' },
+                    { username: 'Second', org: 'HemSoft' },
+                  ],
+                  usageProviderOverrides: {
+                    'hemsoft/owner': 'copilot',
+                    'hemsoft/second': 'codex',
+                  },
+                },
+              }
+            : { success: true }
+        )
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'id1', usageProvider: 'copilot' })
+      )
+      expect(mockUpdate).not.toHaveBeenCalledWith({ id: 'id2', usageProvider: 'codex' })
+      expect(result.current.accounts.map(account => account.usageProvider)).toEqual([
+        'copilot',
+        'codex',
+      ])
+
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'Owner', org: 'HemSoft', usageProvider: 'copilot' },
+        { _id: 'id2', username: 'Second', org: 'HemSoft' },
+      ]
+      rerender()
+
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'id2', usageProvider: 'codex' })
+      )
+    })
+
+    it('preserves an override selected while the initial config request is pending', async () => {
+      let resolveConfig!: (config: AppConfig) => void
+      const configRequest = new Promise<AppConfig>(resolve => {
+        resolveConfig = resolve
+      })
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'config:get-config' ? configRequest : Promise.resolve({ success: true })
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await act(async () => {
+        await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      resolveConfig({
+        github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
+      } as unknown as AppConfig)
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+    })
+
+    it('does not restore a stale snapshot after confirmed reconciliation clears an override', async () => {
+      let resolveConfig!: (config: AppConfig) => void
+      const configRequest = new Promise<AppConfig>(resolve => {
+        resolveConfig = resolve
+      })
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'config:get-config' ? configRequest : Promise.resolve({ success: true })
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await act(async () => {
+        await result.current.reconcileUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      resolveConfig({
+        github: {
+          accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+          usageProviderOverrides: { 'hemsoft/hemsoft': 'copilot' },
+        },
+      } as unknown as AppConfig)
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+    })
+
+    it('preserves a fallback while stale Convex data disagrees and retry fails', async () => {
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockUpdate.mockRejectedValueOnce(new Error('Convex unavailable'))
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'copilot' },
+                },
+              }
+            : { success: true }
+        )
+      )
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0].usageProvider).toBe('copilot'))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'id1', usageProvider: 'copilot' })
+      )
+      expect(mockInvoke).not.toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
       )
     })
 

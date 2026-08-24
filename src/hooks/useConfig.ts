@@ -175,7 +175,7 @@ export function useGitHubAccounts() {
     accounts: electronStoreAccounts,
     overrides: usageProviderOverrides,
     loaded: fallbackLoaded,
-  } = useLocalAccountConfig(convexAccounts)
+  } = useLocalAccountConfig(convexAccounts, accountActions.reconcileUsageProvider)
 
   // Use Convex if connected, otherwise electron-store
   const convexConnected = convexAccounts !== undefined

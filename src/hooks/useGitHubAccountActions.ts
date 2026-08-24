@@ -1,9 +1,12 @@
+import { useCallback } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
 import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
 import { persistUsageProviderOverride } from './useUsageProviderOverrides'
 
 type ConvexAccounts = ReturnType<typeof useGitHubAccountsConvex>
+type ConvexAccount = NonNullable<ConvexAccounts>[number]
+type UpdateMutation = ReturnType<typeof useGitHubAccountMutations>['update']
 type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
 
@@ -22,8 +25,40 @@ async function persistLocalUsageProvider(
   }
 }
 
+async function reconcileConnectedUsageProvider(
+  account: ConvexAccount,
+  usageProvider: UsageProvider,
+  update: UpdateMutation
+): Promise<MutationResult> {
+  try {
+    if (account.usageProvider === usageProvider) {
+      const result = await persistUsageProviderOverride(account, null)
+      return result.success
+        ? { success: true }
+        : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
+    }
+    await update({ id: account._id, usageProvider })
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
 export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
   const { create, update, remove } = useGitHubAccountMutations()
+
+  const reconcileUsageProvider = useCallback(
+    async (
+      username: string,
+      org: string,
+      usageProvider: UsageProvider
+    ): Promise<MutationResult> => {
+      const account = findAccount(convexAccounts, username, org)
+      if (!account) return { success: false, error: 'Account not found' }
+      return reconcileConnectedUsageProvider(account, usageProvider, update)
+    },
+    [convexAccounts, update]
+  )
 
   const addAccount = async (account: GitHubAccount): Promise<MutationResult> => {
     try {
@@ -92,5 +127,5 @@ export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
     }
   }
 
-  return { addAccount, removeAccount, updateAccount, updateUsageProvider }
+  return { addAccount, removeAccount, updateAccount, updateUsageProvider, reconcileUsageProvider }
 }

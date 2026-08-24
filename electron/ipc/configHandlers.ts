@@ -258,6 +258,9 @@ function registerMiscConfigHandlers(): void {
       try {
         assertValidGitHubAccountSlug(username)
         assertValidGitHubAccountSlug(org)
+        if (provider !== null && !configManager.hasGitHubAccount(username, org)) {
+          return { success: false, error: 'Account is not configured locally' }
+        }
         configManager.setUsageProviderOverride(username, org, provider)
         return { success: true }
       } catch (error: unknown) {

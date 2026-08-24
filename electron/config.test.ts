@@ -96,6 +96,15 @@ describe('config', () => {
       const accounts = configManager.getGitHubAccounts()
       expect(accounts).toEqual([])
     })
+
+    it('clears the removed account provider override', () => {
+      configManager.addGitHubAccount({ username: 'user1', org: 'org1' })
+      configManager.setUsageProviderOverride('user1', 'org1', 'codex')
+
+      configManager.removeGitHubAccount('user1', 'org1')
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
   })
 
   describe('updateGitHubAccount', () => {
@@ -112,6 +121,13 @@ describe('config', () => {
   })
 
   describe('usage provider overrides', () => {
+    it('matches configured accounts case-insensitively', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      expect(configManager.hasGitHubAccount('hemsoft', 'hemsoft')).toBe(true)
+      expect(configManager.hasGitHubAccount('other', 'hemsoft')).toBe(false)
+    })
+
     it('stores an account provider without credentials', () => {
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
 

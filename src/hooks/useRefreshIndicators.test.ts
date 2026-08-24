@@ -118,3 +118,11 @@ describe('useRefreshIndicators', () => {
     })
   })
 })
+
+describe('interactive PR task normalization', () => {
+  it('maps an interactive PR fetch to its mode', () => {
+    mockGetRunning.mockReturnValue(['fetch-needs-review'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['needs-review']).toBe('active')
+  })
+})

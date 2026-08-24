@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
-import { getFriendlyTaskLabel, useBackgroundStatus } from './useBackgroundStatus'
+import { useBackgroundStatus } from './useBackgroundStatus'
+import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
 
 // Mock dependencies for hook tests
 const mockQueue = {
@@ -23,27 +24,39 @@ vi.mock('../services/dataCache', () => ({
   dataCache: { get: (...args: unknown[]) => mockDataCacheGet(...args) },
 }))
 
-describe('getFriendlyTaskLabel', () => {
+describe('getFriendlyGitHubTaskLabel', () => {
   it('returns null for null input', () => {
-    expect(getFriendlyTaskLabel(null)).toBeNull()
+    expect(getFriendlyGitHubTaskLabel(null)).toBeNull()
   })
 
   it('maps known task names', () => {
-    expect(getFriendlyTaskLabel('my-prs')).toBe('My PRs')
-    expect(getFriendlyTaskLabel('needs-review')).toBe('Needs Review')
-    expect(getFriendlyTaskLabel('recently-merged')).toBe('Recently Merged')
-    expect(getFriendlyTaskLabel('need-a-nudge')).toBe('Needs a nudge')
+    expect(getFriendlyGitHubTaskLabel('my-prs')).toBe('My PRs')
+    expect(getFriendlyGitHubTaskLabel('needs-review')).toBe('Needs Review')
+    expect(getFriendlyGitHubTaskLabel('recently-merged')).toBe('Recently Merged')
+    expect(getFriendlyGitHubTaskLabel('need-a-nudge')).toBe('Needs a nudge')
   })
 
   it('maps prefixed task names', () => {
-    expect(getFriendlyTaskLabel('org-detail-overview-myorg')).toBe('Org Overview')
-    expect(getFriendlyTaskLabel('org-detail-members-myorg')).toBe('Org Members')
-    expect(getFriendlyTaskLabel('org-detail-copilot-myorg')).toBe('Org Copilot')
-    expect(getFriendlyTaskLabel('refresh-org-myorg')).toBe('Organizations')
+    expect(getFriendlyGitHubTaskLabel('org-detail-overview-myorg')).toBe('Org Overview')
+    expect(getFriendlyGitHubTaskLabel('org-detail-members-myorg')).toBe('Org Members')
+    expect(getFriendlyGitHubTaskLabel('org-detail-copilot-myorg')).toBe('Org Copilot')
+    expect(getFriendlyGitHubTaskLabel('refresh-org-myorg')).toBe('Organizations')
   })
 
-  it('returns raw task name for unknown tasks', () => {
-    expect(getFriendlyTaskLabel('some-custom-task')).toBe('some-custom-task')
+  it('normalizes an encoded account-scoped PR task name', () => {
+    const encodedScope =
+      '%5B%22%5B%5C%22fhemmerrelias%5C%22%2C%5C%22relias-engineering%5C%22%5D%22%5D'
+    expect(getFriendlyGitHubTaskLabel(`autorefresh-recently-merged:${encodedScope}`)).toBe(
+      'Recently Merged'
+    )
+  })
+
+  it('maps an interactive PR fetch to its mode label', () => {
+    expect(getFriendlyGitHubTaskLabel('fetch-needs-review')).toBe('Needs Review')
+  })
+
+  it('uses a safe generic label for unknown tasks', () => {
+    expect(getFriendlyGitHubTaskLabel('internal-task:%5Bsecret-payload%5D')).toBe('GitHub data')
   })
 })
 
@@ -66,6 +79,8 @@ describe('useBackgroundStatus', () => {
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.phase).toBe('idle')
     expect(result.current.activeTasks).toBe(0)
+    expect(result.current.runningTasks).toBe(0)
+    expect(result.current.queuedTasks).toBe(0)
     expect(result.current.activeLabel).toBeNull()
   })
 
@@ -76,6 +91,8 @@ describe('useBackgroundStatus', () => {
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.phase).toBe('syncing')
     expect(result.current.activeTasks).toBe(3)
+    expect(result.current.runningTasks).toBe(1)
+    expect(result.current.queuedTasks).toBe(2)
     expect(result.current.activeLabel).toBe('My PRs')
   })
 

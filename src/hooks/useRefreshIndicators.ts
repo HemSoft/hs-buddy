@@ -14,39 +14,17 @@
 
 import { useState, useEffect } from 'react'
 import { getTaskQueue } from '../services/taskQueue'
+import { getGitHubTaskDataSourceKey } from '../utils/githubTaskNames'
 
 type RefreshState = 'idle' | 'pending' | 'active'
 
 export type RefreshIndicators = Record<string, RefreshState>
 
-/**
- * Extracts the data source key from a task name.
- * Task names follow the pattern: "{label}-{key}" where label is "prefetch"
- * or "autorefresh" (from usePrefetch's label.toLowerCase()).
- *
- * Examples:
- *   "prefetch-my-prs"                  → "my-prs"
- *   "autorefresh-needs-review"         → "needs-review"
- *   "prefetch-org-repos:relias-engineering" → "org-repos:relias-engineering"
- *   "autorefresh-org-repos:hemsoft"    → "org-repos:hemsoft"
- */
-function extractDataSourceKey(taskName: string): string {
-  // Strip known prefixes (usePrefetch uses 'Prefetch' and 'AutoRefresh' labels,
-  // which become 'prefetch-' and 'autorefresh-' via .toLowerCase())
-  for (const prefix of ['prefetch-', 'autorefresh-']) {
-    if (taskName.startsWith(prefix)) {
-      const key = taskName.slice(prefix.length)
-      return key.replace(/^(my-prs|needs-review|recently-merged|need-a-nudge):.*$/, '$1')
-    }
-  }
-  return taskName
-}
-
 function buildActiveRefreshIndicators(running: string[]): RefreshIndicators {
   const next: RefreshIndicators = {}
 
   for (const name of running) {
-    const key = extractDataSourceKey(name)
+    const key = getGitHubTaskDataSourceKey(name)
     next[key] = 'active'
   }
 
@@ -55,7 +33,7 @@ function buildActiveRefreshIndicators(running: string[]): RefreshIndicators {
 
 function applyPendingRefreshIndicators(next: RefreshIndicators, pending: string[]): void {
   for (const name of pending) {
-    const key = extractDataSourceKey(name)
+    const key = getGitHubTaskDataSourceKey(name)
     if (!next[key]) {
       next[key] = 'pending'
     }

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('electron-store', () => ({
   default: class MockStore {
     private data: Record<string, unknown> = {}
+    private listeners = new Map<string, Set<() => void>>()
     path = '/mock/config.json'
     store = {}
 
@@ -17,6 +18,14 @@ vi.mock('electron-store', () => ({
 
     set(key: string, value: unknown): void {
       this.data[key] = value
+      for (const listener of this.listeners.get(key) ?? []) listener()
+    }
+
+    onDidChange(key: string, listener: () => void): () => void {
+      const listeners = this.listeners.get(key) ?? new Set<() => void>()
+      listeners.add(listener)
+      this.listeners.set(key, listeners)
+      return () => listeners.delete(listener)
     }
 
     has(key: string): boolean {
@@ -155,6 +164,7 @@ describe('config', () => {
     })
 
     it('stores an account provider without credentials', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
 
       expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
@@ -163,6 +173,18 @@ describe('config', () => {
     it('clears an account provider during Convex reconciliation', () => {
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', null)
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
+
+    it('prunes an override when an external config edit removes its account', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+      const managerStore = (
+        configManager as unknown as { store: { set: (key: string, value: unknown) => void } }
+      ).store
+
+      managerStore.set('github.accounts', [])
 
       expect(configManager.getUsageProviderOverrides()).toEqual({})
     })

@@ -35,7 +35,24 @@ class ConfigManager {
       watch: true, // Watch for external changes
     })
 
+    this.store.onDidChange('github.accounts', () => {
+      this.pruneUsageProviderOverrides()
+    })
+    this.pruneUsageProviderOverrides()
+
     console.log('[ConfigManager] Store location:', this.store.path)
+  }
+
+  private pruneUsageProviderOverrides(): UsageProviderOverrides {
+    const overrides = this.store.get('github.usageProviderOverrides', {})
+    const accountKeys = new Set(this.getGitHubAccounts().map(getUsageProviderOverrideKey))
+    const pruned = Object.fromEntries(
+      Object.entries(overrides).filter(([key]) => accountKeys.has(key))
+    )
+    if (Object.keys(pruned).length !== Object.keys(overrides).length) {
+      this.store.set('github.usageProviderOverrides', pruned)
+    }
+    return pruned
   }
 
   // GitHub Account Management
@@ -98,7 +115,7 @@ class ConfigManager {
   }
 
   getUsageProviderOverrides(): UsageProviderOverrides {
-    return this.store.get('github.usageProviderOverrides', {})
+    return this.pruneUsageProviderOverrides()
   }
 
   setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {

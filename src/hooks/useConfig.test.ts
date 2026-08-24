@@ -10,6 +10,7 @@ import {
   resolvePRFallback,
   resolveCopilotFallback,
 } from './useConfig'
+import { persistUsageProviderOverride } from './useUsageProviderOverrides'
 
 // Mock Convex hooks
 const mockCreate = vi.fn()
@@ -384,7 +385,7 @@ describe('useConfig', () => {
       await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
     })
 
-    it('does not restore a stale snapshot after confirmed reconciliation clears an override', async () => {
+    it('does not restore a stale snapshot after an override clear event', async () => {
       let resolveConfig!: (config: AppConfig) => void
       const configRequest = new Promise<AppConfig>(resolve => {
         resolveConfig = resolve
@@ -398,7 +399,7 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useGitHubAccounts())
 
       await act(async () => {
-        await result.current.reconcileUsageProvider('HemSoft', 'HemSoft', 'codex')
+        await persistUsageProviderOverride({ username: 'HemSoft', org: 'HemSoft' }, null)
       })
       resolveConfig({
         github: {

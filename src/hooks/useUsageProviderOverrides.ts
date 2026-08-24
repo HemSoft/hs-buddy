@@ -64,7 +64,8 @@ export function publishUsageProviderOverrideChange(
 export async function waitForUsageProviderReconciliation(
   account: Pick<GitHubAccount, 'username' | 'org'>
 ): Promise<void> {
-  await reconciliations.get(getUsageProviderOverrideKey(account))
+  const reconciliation = reconciliations.get(getUsageProviderOverrideKey(account))
+  if (reconciliation) await reconciliation
 }
 
 function notifyOverrideRetry(key: string) {
@@ -375,7 +376,9 @@ function useReconciliationRetry(retryContext: string): [number, ScheduleRetry] {
   const [revision, setRevision] = useState(0)
   const timers = useRef(new Map<string, number>())
   const attempts = useRef(new Map<string, number>())
-  const scheduleRetry = useCallback((key: string) => notifyOverrideRetry(key), [])
+  const scheduleRetry = useCallback((key: string) => {
+    notifyOverrideRetry(key)
+  }, [])
 
   useEffect(() => {
     const activeTimers = timers.current

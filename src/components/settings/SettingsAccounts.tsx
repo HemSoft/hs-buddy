@@ -923,6 +923,32 @@ function AccountsLoadingState() {
   )
 }
 
+type RemoveAccountAction = (
+  username: string,
+  org: string
+) => Promise<{ success: boolean; error?: string }>
+
+function useAccountRemoval(removeAccount: RemoveAccountAction) {
+  const [error, setError] = useState<string | null>(null)
+  const { confirm, confirmDialog } = useConfirm()
+  const remove = async (username: string, org: string) => {
+    const confirmed = await confirm({
+      message: `Remove ${username}@${org}?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    setError(null)
+    try {
+      const result = await removeAccount(username, org)
+      if (!result.success) setError(result.error ?? 'Failed to remove account')
+    } catch (caught: unknown) {
+      setError(getUserFacingErrorMessage(caught, 'Failed to remove account'))
+    }
+  }
+  return { error, remove, confirmDialog }
+}
+
 export function SettingsAccounts() {
   const {
     accounts,
@@ -933,6 +959,11 @@ export function SettingsAccounts() {
     updateAccount,
     updateUsageProvider,
   } = useGitHubAccounts()
+  const {
+    error: removeError,
+    remove: handleRemove,
+    confirmDialog,
+  } = useAccountRemoval(removeAccount)
   const { showAddForm, newUsername, newOrg, addError, isAdding, dispatch, handleAdd } =
     useAddAccountForm(accounts, addAccount)
   const {
@@ -945,26 +976,6 @@ export function SettingsAccounts() {
   } = useEnterpriseBilling()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editRepoRoot, setEditRepoRoot] = useState('')
-  const [removeError, setRemoveError] = useState<string | null>(null)
-
-  const { confirm, confirmDialog } = useConfirm()
-
-  const handleRemove = async (username: string, org: string) => {
-    const confirmed = await confirm({
-      message: `Remove ${username}@${org}?`,
-      confirmLabel: 'Remove',
-      variant: 'danger',
-    })
-    if (confirmed) {
-      setRemoveError(null)
-      try {
-        const result = await removeAccount(username, org)
-        if (!result.success) setRemoveError(result.error ?? 'Failed to remove account')
-      } catch (error: unknown) {
-        setRemoveError(getUserFacingErrorMessage(error, 'Failed to remove account'))
-      }
-    }
-  }
 
   if (loading || configLoading) {
     return <AccountsLoadingState />

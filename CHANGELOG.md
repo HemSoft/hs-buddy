@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1016] - 2026-08-24
+
+### Fixed
+
+- Expose Convex connection state in E2E
+
 ## [0.1.1015] - 2026-08-24
 
 ### Fixed

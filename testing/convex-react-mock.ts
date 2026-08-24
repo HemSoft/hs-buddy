@@ -32,6 +32,16 @@ export function useMutation() {
   return async () => {}
 }
 
+// Mock useConvexConnectionState — remains disconnected in E2E mode
+export function useConvexConnectionState() {
+  return {
+    hasEverConnected: false,
+    isWebSocketConnected: false,
+    connectionCount: 0,
+    connectionRetries: 0,
+  }
+}
+
 // Mock useConvex — returns a minimal client mock
 export function useConvex() {
   return {

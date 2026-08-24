@@ -845,7 +845,10 @@ describe('terminalHandlers', () => {
         2
       )
 
-      ptyHarness.ptyProcesses[0].emitData('visible after timeout')
+      const marker = `\u001b]9;hsb-startup-${spawnResult.sessionId}\u0007`
+      ptyHarness.ptyProcesses[0].emitData(marker.slice(0, 12))
+      expect(mockSender.send).toHaveBeenCalledTimes(2)
+      ptyHarness.ptyProcesses[0].emitData(marker.slice(12) + 'visible after timeout')
       expect(mockSender.send).toHaveBeenLastCalledWith(
         IPC_PUSH.TERMINAL_DATA,
         spawnResult.sessionId,

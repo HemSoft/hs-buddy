@@ -130,6 +130,11 @@ interface StartupOutputFilter {
   bufferedSuffix: string
 }
 
+interface StartupMarkerStripper {
+  marker: string
+  bufferedPrefix: string
+}
+
 interface TerminalSession {
   id: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -152,6 +157,8 @@ interface TerminalSession {
   startupOutputFilter?: StartupOutputFilter
   /** Stops startup filtering if PowerShell never emits the completion marker. */
   startupFilterTimer?: ReturnType<typeof setTimeout>
+  /** Removes the private marker if it arrives after timeout or interruption recovery. */
+  lateStartupMarker?: StartupMarkerStripper
   /** Buffer for partial OSC 7 sequences split across data chunks */
   oscBuffer: string
 }
@@ -240,10 +247,41 @@ function forwardTerminalData(session: TerminalSession, data: string): void {
   processOsc7(session, data)
 }
 
+function getMarkerPrefixLength(data: string, marker: string): number {
+  const maxLength = Math.min(data.length, marker.length - 1)
+  for (let length = maxLength; length > 0; length--) {
+    if (data.endsWith(marker.slice(0, length))) return length
+  }
+  return 0
+}
+
+function forwardWithoutLateStartupMarker(session: TerminalSession, data: string): void {
+  const stripper = session.lateStartupMarker
+  if (!stripper) {
+    forwardTerminalData(session, data)
+    return
+  }
+
+  const buffered = stripper.bufferedPrefix + data
+  const markerIndex = buffered.indexOf(stripper.marker)
+  if (markerIndex >= 0) {
+    session.lateStartupMarker = undefined
+    forwardTerminalData(
+      session,
+      buffered.slice(0, markerIndex) + buffered.slice(markerIndex + stripper.marker.length)
+    )
+    return
+  }
+
+  const prefixLength = getMarkerPrefixLength(buffered, stripper.marker)
+  stripper.bufferedPrefix = prefixLength > 0 ? buffered.slice(-prefixLength) : ''
+  forwardTerminalData(session, prefixLength > 0 ? buffered.slice(0, -prefixLength) : buffered)
+}
+
 function handleTerminalData(session: TerminalSession, data: string): void {
   const filter = session.startupOutputFilter
   if (!filter) {
-    forwardTerminalData(session, data)
+    forwardWithoutLateStartupMarker(session, data)
     return
   }
 
@@ -257,15 +295,18 @@ function handleTerminalData(session: TerminalSession, data: string): void {
   if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
   session.startupFilterTimer = undefined
   session.startupOutputFilter = undefined
+  session.lateStartupMarker = undefined
   forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
 }
 
 function stopStartupOutputFilter(session: TerminalSession): void {
   if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
   session.startupFilterTimer = undefined
-  const bufferedSuffix = session.startupOutputFilter?.bufferedSuffix ?? ''
+  const filter = session.startupOutputFilter
   session.startupOutputFilter = undefined
-  forwardTerminalData(session, bufferedSuffix)
+  if (!filter) return
+  session.lateStartupMarker = { marker: filter.marker, bufferedPrefix: '' }
+  forwardWithoutLateStartupMarker(session, filter.bufferedSuffix)
 }
 
 function createTerminalSession(
@@ -380,6 +421,7 @@ function cleanupTerminalSession(session: TerminalSession): void {
   if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
   session.startupBootstrapPending = false
   session.startupOutputFilter = undefined
+  session.lateStartupMarker = undefined
   for (const d of session.disposables) {
     try {
       d.dispose()

@@ -203,6 +203,9 @@ interface Window {
       data?: Record<string, { requests: number; lastActiveDate: string | null }>
     }>
   }
+  codex: {
+    getUsage: () => Promise<import('../src/types/codexUsage').CodexUsageResult>
+  }
   finance: {
     fetchQuote: (symbol: string) => Promise<{
       success: boolean

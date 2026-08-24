@@ -23,8 +23,10 @@ import { dataCache } from '../services/dataCache'
 import { getTaskQueue } from '../services/taskQueue'
 import { MS_PER_MINUTE } from '../constants'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
+import { getCodexUsageKey, useCodexUsage, type CodexUsageState } from '../hooks/useCodexUsage'
 import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
+import { CodexUsageCard } from './codex-usage/CodexUsageCard'
 import { OVERAGE_COST_PER_CREDIT, formatCurrency } from './copilot-usage/quotaUtils'
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
 import { sumBy } from '../utils/arrayUtils'
@@ -127,6 +129,7 @@ function OrgDetailHero({
   liveOverviewPhase,
   liveMembersPhase,
   liveCopilotPhase,
+  usageLabel,
   rateLimit,
   isUpdating,
   onRefresh,
@@ -137,6 +140,7 @@ function OrgDetailHero({
   liveOverviewPhase: LoadPhase
   liveMembersPhase: LoadPhase
   liveCopilotPhase: LoadPhase
+  usageLabel: 'Copilot' | 'Codex'
   rateLimit: RateLimitSnapshot | null
   isUpdating: boolean
   onRefresh: () => void
@@ -156,7 +160,7 @@ function OrgDetailHero({
         <div className="org-detail-status-row">
           <LivePill label="Overview" phase={liveOverviewPhase} />
           <LivePill label="Members" phase={liveMembersPhase} />
-          <LivePill label="Copilot" phase={liveCopilotPhase} />
+          <LivePill label={usageLabel} phase={liveCopilotPhase} />
         </div>
       </div>
       <div className="org-detail-hero-right">
@@ -259,6 +263,7 @@ function PersonalCopilotGrid({
 }
 
 const COPILOT_USAGE_DEFAULTS = { premiumRequests: 0, netCost: 0, grossCost: 0, businessSeats: 0 }
+const NOOP_USAGE_REFRESH = () => {}
 
 function OrgCopilotGrid({ copilotUsage }: { copilotUsage: OrgCopilotUsageData | null }) {
   const u = { ...COPILOT_USAGE_DEFAULTS, ...copilotUsage }
@@ -499,6 +504,29 @@ function OrgCopilotSection({
   )
 }
 
+function OrgCodexSection({
+  account,
+  state,
+}: {
+  account: GitHubAccount
+  state: CodexUsageState | undefined
+}) {
+  return (
+    <section className="org-detail-section">
+      <div className="org-detail-section-header">
+        <h3>
+          <Sparkles size={15} />
+          Codex Allowance
+        </h3>
+        {state?.data?.fetchedAt ? (
+          <span className="org-detail-fetched-at">{formatTime(state.data.fetchedAt)}</span>
+        ) : null}
+      </div>
+      <CodexUsageCard account={account} state={state} />
+    </section>
+  )
+}
+
 function OrgLeadersSection({
   org,
   contributors,
@@ -551,11 +579,13 @@ function OrgMemberSpotlightSection({
   selectedContributor,
   selectedConfiguredAccount,
   selectedMemberQuotaState,
+  selectedMemberCodexState,
 }: {
   selectedMember: OrgMember
   selectedContributor: OrgContributor | null
   selectedConfiguredAccount: GitHubAccount | null
   selectedMemberQuotaState: CopilotQuotaState | null
+  selectedMemberCodexState: CodexUsageState | undefined
 }) {
   const displayName = formatMemberDisplayName(selectedMember)
   const memberMeta = formatSpotlightMemberMeta(selectedMember, selectedContributor)
@@ -584,6 +614,7 @@ function OrgMemberSpotlightSection({
       <MemberQuotaSpotlight
         selectedConfiguredAccount={selectedConfiguredAccount}
         selectedMemberQuotaState={selectedMemberQuotaState}
+        selectedMemberCodexState={selectedMemberCodexState}
       />
     </section>
   )
@@ -602,11 +633,23 @@ function formatSpotlightMemberMeta(member: OrgMember, contributor: OrgContributo
 function MemberQuotaSpotlight({
   selectedConfiguredAccount,
   selectedMemberQuotaState,
+  selectedMemberCodexState,
 }: {
   selectedConfiguredAccount: GitHubAccount | null
   selectedMemberQuotaState: CopilotQuotaState | null
+  selectedMemberCodexState: CodexUsageState | undefined
 }) {
-  if (!selectedConfiguredAccount || !selectedMemberQuotaState) {
+  if (!selectedConfiguredAccount) {
+    return <div className="org-detail-empty">No configured usage card for this member.</div>
+  }
+  if (selectedConfiguredAccount.usageProvider === 'codex') {
+    return (
+      <div className="org-detail-account-grid org-detail-account-grid-single">
+        <CodexUsageCard account={selectedConfiguredAccount} state={selectedMemberCodexState} />
+      </div>
+    )
+  }
+  if (!selectedMemberQuotaState) {
     return <div className="org-detail-empty">No configured Copilot quota card for this member.</div>
   }
   return (
@@ -621,11 +664,13 @@ function SelectedMemberSpotlight({
   selectedContributor,
   selectedConfiguredAccount,
   selectedMemberQuotaState,
+  selectedMemberCodexState,
 }: {
   selectedMember: OrgMember | null
   selectedContributor: OrgContributor | null
   selectedConfiguredAccount: GitHubAccount | null
   selectedMemberQuotaState: CopilotQuotaState | null
+  selectedMemberCodexState: CodexUsageState | undefined
 }) {
   if (!selectedMember) return null
   return (
@@ -634,6 +679,7 @@ function SelectedMemberSpotlight({
       selectedContributor={selectedContributor}
       selectedConfiguredAccount={selectedConfiguredAccount}
       selectedMemberQuotaState={selectedMemberQuotaState}
+      selectedMemberCodexState={selectedMemberCodexState}
     />
   )
 }
@@ -641,9 +687,11 @@ function SelectedMemberSpotlight({
 function OrgConfiguredAccountsSection({
   configuredAccounts,
   quotas,
+  codexStates,
 }: {
   configuredAccounts: GitHubAccount[]
   quotas: ReturnType<typeof useCopilotUsage>['quotas']
+  codexStates: ReturnType<typeof useCodexUsage>['states']
 }) {
   if (configuredAccounts.length === 0) {
     return null
@@ -658,13 +706,21 @@ function OrgConfiguredAccountsSection({
         </h3>
       </div>
       <div className="org-detail-account-grid">
-        {configuredAccounts.map(account => (
-          <AccountQuotaCard
-            key={account.username}
-            account={account}
-            state={quotas[account.username]}
-          />
-        ))}
+        {configuredAccounts.map(account =>
+          account.usageProvider === 'codex' ? (
+            <CodexUsageCard
+              key={getCodexUsageKey(account)}
+              account={account}
+              state={codexStates[getCodexUsageKey(account)]}
+            />
+          ) : (
+            <AccountQuotaCard
+              key={account.username}
+              account={account}
+              state={quotas[account.username]}
+            />
+          )
+        )}
       </div>
     </section>
   )
@@ -944,6 +1000,79 @@ function resolveSelectedQuotaState(
   return account ? (quotas[account.username] ?? null) : null
 }
 
+function resolveCodexPhase(state: CodexUsageState | undefined): LoadPhase {
+  if (!state || (state.loading && !state.data)) return 'loading'
+  if (state.loading) return 'refreshing'
+  if (state.data) return 'ready'
+  return 'error'
+}
+
+function getCodexState(
+  account: GitHubAccount | null,
+  states: ReturnType<typeof useCodexUsage>['states']
+): CodexUsageState | undefined {
+  return account ? states[getCodexUsageKey(account)] : undefined
+}
+
+function resolveNamespaceUsage({
+  isUserNamespace,
+  codexAccount,
+  codexState,
+  copilotPhase,
+  copilotError,
+  personalQuotaSummary,
+}: {
+  isUserNamespace: boolean
+  codexAccount: GitHubAccount | null
+  codexState: CodexUsageState | undefined
+  copilotPhase: LoadPhase
+  copilotError: string | null
+  personalQuotaSummary: PersonalQuotaSummary | null
+}) {
+  if (isUserNamespace && codexAccount) {
+    return {
+      phase: resolveCodexPhase(codexState),
+      error: codexState?.error ?? null,
+      label: 'Codex' as const,
+      showPersonalQuotaPulse: false,
+    }
+  }
+  return {
+    phase: copilotPhase,
+    error: copilotError,
+    label: 'Copilot' as const,
+    showPersonalQuotaPulse: Boolean(isUserNamespace && personalQuotaSummary),
+  }
+}
+
+async function fetchNamespaceUsage({
+  isUserNamespace,
+  codexAccount,
+  fetchCodexUsage,
+  refreshCopilotUsage,
+  fetchCopilot,
+  forceRefresh,
+  refreshCodex,
+}: {
+  isUserNamespace: boolean
+  codexAccount: GitHubAccount | null
+  fetchCodexUsage: (account: GitHubAccount) => Promise<void>
+  refreshCopilotUsage: () => void
+  fetchCopilot: (forceRefresh?: boolean) => Promise<void>
+  forceRefresh: boolean
+  refreshCodex: boolean
+}): Promise<void> {
+  if (isUserNamespace && codexAccount) {
+    if (refreshCodex) return fetchCodexUsage(codexAccount)
+    return
+  }
+  if (isUserNamespace) {
+    refreshCopilotUsage()
+    return
+  }
+  return fetchCopilot(forceRefresh)
+}
+
 function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
@@ -955,13 +1084,28 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const membersTaskName = `org-detail-members-${org}`
   const copilotTaskName = `org-detail-copilot-${org}`
   const initialOverview = buildSeedOverview(org)
-  const { quotas, orgBudgets, orgOverageFromQuotas } = useCopilotUsage()
+  const {
+    quotas,
+    orgBudgets,
+    orgOverageFromQuotas,
+    refreshAll: refreshCopilotUsage = NOOP_USAGE_REFRESH,
+  } = useCopilotUsage()
+  const { states: codexStates, fetchUsage: fetchCodexUsage } = useCodexUsage()
   const configuredAccounts = useMemo(
     () => accounts.filter(account => account.org === org),
     [accounts, org]
   )
+  const copilotConfiguredAccounts = useMemo(
+    () => configuredAccounts.filter(account => account.usageProvider !== 'codex'),
+    [configuredAccounts]
+  )
+  const codexAccount = useMemo(
+    () => configuredAccounts.find(account => account.usageProvider === 'codex') ?? null,
+    [configuredAccounts]
+  )
+  const codexState = getCodexState(codexAccount, codexStates)
   const { personalQuotaLoading, personalQuotaSummary } = usePersonalQuotaSummary(
-    configuredAccounts,
+    copilotConfiguredAccounts,
     quotas
   )
   const overviewData = useOrgOverviewData({
@@ -1003,7 +1147,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
 
   const githubQueue = getTaskQueue('github')
   void stats
-  const { liveOverviewPhase, liveMembersPhase, liveCopilotPhase } = computeLivePhases(
+  const computedPhases = computeLivePhases(
     overviewData,
     membersData,
     copilotData,
@@ -1015,24 +1159,52 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     membersTaskName,
     copilotTaskName
   )
+  const liveOverviewPhase = computedPhases.liveOverviewPhase
+  const liveMembersPhase = computedPhases.liveMembersPhase
+  const namespaceUsage = resolveNamespaceUsage({
+    isUserNamespace,
+    codexAccount,
+    codexState,
+    copilotPhase: computedPhases.liveCopilotPhase,
+    copilotError: copilotData.copilotError,
+    personalQuotaSummary,
+  })
+  const liveCopilotPhase = namespaceUsage.phase
 
   const { fetchOverview } = overviewData
   const { fetchMembers } = membersData
   const { fetchCopilot } = copilotData
 
   const fetchAll = useCallback(
-    async (forceRefresh = false) => {
+    async (forceRefresh = false, refreshCodex = forceRefresh) => {
       const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
-      if (!isUserNamespace) {
-        work.push(fetchCopilot(forceRefresh))
-      }
+      work.push(
+        fetchNamespaceUsage({
+          isUserNamespace,
+          codexAccount,
+          fetchCodexUsage,
+          refreshCopilotUsage,
+          fetchCopilot,
+          forceRefresh,
+          refreshCodex,
+        })
+      )
       await Promise.allSettled(work)
     },
-    [fetchCopilot, fetchRateLimit, isUserNamespace, fetchMembers, fetchOverview]
+    [
+      codexAccount,
+      fetchCodexUsage,
+      fetchCopilot,
+      fetchRateLimit,
+      isUserNamespace,
+      fetchMembers,
+      fetchOverview,
+      refreshCopilotUsage,
+    ]
   )
 
   useEffect(() => {
-    void fetchAll(shouldRefreshOnMount)
+    void fetchAll(shouldRefreshOnMount, false)
   }, [fetchAll, shouldRefreshOnMount])
 
   useEffect(() => {
@@ -1069,12 +1241,19 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const isUpdating = [liveOverviewPhase, liveMembersPhase, liveCopilotPhase].includes('refreshing')
   const selectedContributor = resolveSelectedContributor(memberLogin, contributorMap)
   const selectedMemberQuotaState = resolveSelectedQuotaState(selectedConfiguredAccount, quotas)
+  const selectedMemberCodexState =
+    selectedConfiguredAccount?.usageProvider === 'codex'
+      ? getCodexState(selectedConfiguredAccount, codexStates)
+      : undefined
 
   return {
     budgetState,
     configuredAccounts,
+    codexAccount,
+    codexState,
+    codexStates,
     contributorMap,
-    copilotError: copilotData.copilotError,
+    copilotError: namespaceUsage.error,
     copilotUsage: copilotData.copilotUsage,
     fetchAll,
     hasFullOverview: overviewData.hasFullOverview,
@@ -1096,7 +1275,9 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     selectedContributor,
     selectedMember,
     selectedMemberQuotaState,
-    shouldShowPersonalQuotaPulse: Boolean(isUserNamespace && personalQuotaSummary),
+    selectedMemberCodexState,
+    shouldShowPersonalQuotaPulse: namespaceUsage.showPersonalQuotaPulse,
+    usageLabel: namespaceUsage.label,
   }
 }
 
@@ -1343,6 +1524,7 @@ function OrgDetailAlerts({
   liveMembersPhase,
   liveCopilotPhase,
   onRetry,
+  usageLabel,
 }: {
   isUpdating: boolean
   membersError: string | null
@@ -1350,6 +1532,7 @@ function OrgDetailAlerts({
   liveMembersPhase: LoadPhase
   liveCopilotPhase: LoadPhase
   onRetry: () => void
+  usageLabel: 'Copilot' | 'Codex'
 }) {
   return (
     <>
@@ -1361,7 +1544,7 @@ function OrgDetailAlerts({
         onRetry={onRetry}
       />
       <OrgPhaseErrorBanner
-        label="Copilot"
+        label={usageLabel}
         message={copilotError}
         phase={liveCopilotPhase}
         onRetry={onRetry}
@@ -1450,6 +1633,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
   const {
     budgetState,
     configuredAccounts,
+    codexAccount,
+    codexState,
+    codexStates,
     contributorMap,
     copilotError,
     copilotUsage,
@@ -1473,7 +1659,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     selectedContributor,
     selectedMember,
     selectedMemberQuotaState,
+    selectedMemberCodexState,
     shouldShowPersonalQuotaPulse,
+    usageLabel,
   } = useOrgDetailData(org, memberLogin)
 
   const [rosterFilter, setRosterFilter] = useState<RosterFilter>('all')
@@ -1536,6 +1724,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         liveOverviewPhase={liveOverviewPhase}
         liveMembersPhase={liveMembersPhase}
         liveCopilotPhase={liveCopilotPhase}
+        usageLabel={usageLabel}
         rateLimit={rateLimit}
         isUpdating={isUpdating}
         onRefresh={() => fetchAll(true)}
@@ -1549,22 +1738,27 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         copilotError={copilotError}
         liveMembersPhase={liveMembersPhase}
         liveCopilotPhase={liveCopilotPhase}
+        usageLabel={usageLabel}
         /* v8 ignore start */
         onRetry={() => fetchAll(true)}
         /* v8 ignore stop */
       />
 
       <div className="org-detail-section-grid">
-        <OrgCopilotSection
-          overview={overview}
-          copilotUsage={copilotUsage}
-          personalQuotaSummary={personalQuotaSummary}
-          configuredAccountsCount={configuredAccounts.length}
-          budgetState={budgetState}
-          quotaOverage={quotaOverage}
-          liveCopilotPhase={liveCopilotPhase}
-          shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
-        />
+        {codexAccount && overview.isUserNamespace ? (
+          <OrgCodexSection account={codexAccount} state={codexState} />
+        ) : (
+          <OrgCopilotSection
+            overview={overview}
+            copilotUsage={copilotUsage}
+            personalQuotaSummary={personalQuotaSummary}
+            configuredAccountsCount={configuredAccounts.length}
+            budgetState={budgetState}
+            quotaOverage={quotaOverage}
+            liveCopilotPhase={liveCopilotPhase}
+            shouldShowPersonalQuotaPulse={shouldShowPersonalQuotaPulse}
+          />
+        )}
 
         <OrgLeadersSection
           org={org}
@@ -1580,9 +1774,14 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedContributor={selectedContributor}
         selectedConfiguredAccount={selectedConfiguredAccount}
         selectedMemberQuotaState={selectedMemberQuotaState}
+        selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      <OrgConfiguredAccountsSection configuredAccounts={configuredAccounts} quotas={quotas} />
+      <OrgConfiguredAccountsSection
+        configuredAccounts={configuredAccounts}
+        quotas={quotas}
+        codexStates={codexStates}
+      />
 
       <MemberRosterSection
         org={org}

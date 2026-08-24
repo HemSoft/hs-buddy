@@ -438,6 +438,13 @@ describe('preload', () => {
     })
   })
 
+  describe('codex bridge', () => {
+    it('getUsage invokes codex:get-usage', () => {
+      exposedApis.codex.getUsage()
+      expect(mockInvoke).toHaveBeenCalledWith(IPC_INVOKE.CODEX_GET_USAGE)
+    })
+  })
+
   describe('crew bridge - additional methods', () => {
     it('listProjects invokes crew:list-projects', () => {
       exposedApis.crew.listProjects()

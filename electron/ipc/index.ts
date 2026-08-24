@@ -16,6 +16,7 @@ import { registerRalphHandlers } from './ralphHandlers'
 import { registerSlackHandlers } from './slackHandlers'
 import { registerPollenHandlers } from './pollenHandlers'
 import { registerCopilotMetricsHandlers } from './copilotMetricsHandlers'
+import { registerCodexUsageHandlers } from './codexUsageHandlers'
 import type { WindowProvider } from './windowProvider'
 
 export function registerAllHandlers(getWindow: WindowProvider): void {
@@ -40,4 +41,5 @@ export function registerAllHandlers(getWindow: WindowProvider): void {
   registerSlackHandlers()
   registerPollenHandlers()
   registerCopilotMetricsHandlers()
+  registerCodexUsageHandlers()
 }

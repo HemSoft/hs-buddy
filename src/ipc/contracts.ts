@@ -57,6 +57,9 @@ export const IPC_INVOKE = {
   GITHUB_SWITCH_ACCOUNT: 'github:switch-account',
   GITHUB_COLLECT_COPILOT_SNAPSHOTS: 'github:collect-copilot-snapshots',
 
+  // ── Codex ──────────────────────────────────────────────────────────────
+  CODEX_GET_USAGE: 'codex:get-usage',
+
   // ── Config ─────────────────────────────────────────────────────────────
   CONFIG_GET_ASSISTANT_OPEN: 'config:get-assistant-open',
   CONFIG_SET_ASSISTANT_OPEN: 'config:set-assistant-open',

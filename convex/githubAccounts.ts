@@ -52,8 +52,9 @@ export const create = mutation({
   args: {
     username: v.string(),
     org: v.string(),
+    usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
   },
-  handler: async (ctx, { username, org }) => {
+  handler: async (ctx, { username, org, usageProvider }) => {
     // Check for duplicates
     const existing = await ctx.db
       .query('githubAccounts')
@@ -68,6 +69,7 @@ export const create = mutation({
     return await ctx.db.insert('githubAccounts', {
       username,
       org,
+      ...(usageProvider !== undefined && { usageProvider }),
       createdAt: now,
       updatedAt: now,
     })
@@ -83,8 +85,9 @@ export const update = mutation({
     username: v.optional(v.string()),
     org: v.optional(v.string()),
     repoRoot: v.optional(v.string()),
+    usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
   },
-  handler: async (ctx, { id, username, org, repoRoot }) => {
+  handler: async (ctx, { id, username, org, repoRoot, usageProvider }) => {
     const existing = await ctx.db.get('githubAccounts', id)
     if (!existing) {
       throw new Error('GitHub account not found')
@@ -94,6 +97,7 @@ export const update = mutation({
       ...(username !== undefined && { username }),
       ...(org !== undefined && { org }),
       ...(repoRoot !== undefined && { repoRoot }),
+      ...(usageProvider !== undefined && { usageProvider }),
       updatedAt: Date.now(),
     })
   },
@@ -118,6 +122,7 @@ export const bulkImport = mutation({
       v.object({
         username: v.string(),
         org: v.string(),
+        usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
       })
     ),
   },
@@ -140,6 +145,7 @@ export const bulkImport = mutation({
       const id = await ctx.db.insert('githubAccounts', {
         username: account.username,
         org: account.org,
+        ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
         createdAt: now,
         updatedAt: now,
       })

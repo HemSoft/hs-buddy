@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1003] - 2026-08-24
+
+### Fixed
+
+- Disable read-only provider edits
+
+## [0.1.1002] - 2026-08-24
+
+### Fixed
+
+- Harden Codex allowance presentation
+
+## [0.1.1001] - 2026-08-24
+
+### Fixed
+
+- Bind local Codex usage to one account
+
+## [0.1.1000] - 2026-08-24
+
+### Fixed
+
+- Retain organization budgets for Codex accounts
+
+## [0.1.999] - 2026-08-24
+
+### Added
+
+- Show Codex allowance windows for configured accounts
+
 ## [0.1.998] - 2026-08-24
 
 ### Fixed

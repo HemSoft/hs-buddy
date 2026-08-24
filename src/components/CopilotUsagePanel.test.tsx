@@ -16,6 +16,10 @@ let mockAggregateSpend: { totalSpent: number; projectedSpend: number } | null = 
 let mockOrgBudgets: Record<string, { data: unknown; loading: boolean; error: string | null }> = {}
 let mockOrgOverageFromQuotas = new Map<string, number>()
 const mockRefreshAll = vi.fn()
+const mockRefreshAllCodex = vi.fn()
+let mockCodexAccounts: Array<{ username: string; org: string; usageProvider: 'codex' }> = []
+let mockCodexStates: Record<string, unknown> = {}
+let mockCodexLoading = false
 
 vi.mock('../hooks/useCopilotUsage', () => ({
   useCopilotUsage: () => ({
@@ -42,6 +46,23 @@ vi.mock('../hooks/useCopilotUsage', () => ({
   }),
 }))
 
+vi.mock('../hooks/useCodexUsage', () => ({
+  useCodexUsage: () => ({
+    accounts: mockCodexAccounts,
+    states: mockCodexStates,
+    refreshAll: mockRefreshAllCodex,
+    anyLoading: mockCodexLoading,
+  }),
+  getCodexUsageKey: (account: { username: string; org?: string }) =>
+    JSON.stringify([account.username, account.org]),
+}))
+
+vi.mock('./codex-usage/CodexUsageCard', () => ({
+  CodexUsageCard: ({ account }: { account: { username: string } }) => (
+    <div data-testid={`codex-card-${account.username}`}>Codex: {account.username}</div>
+  ),
+}))
+
 vi.mock('./copilot-usage/AccountQuotaCard', () => ({
   AccountQuotaCard: ({
     account,
@@ -66,14 +87,18 @@ vi.mock('./copilot-usage/UsageHeader', () => ({
     totalSpent,
     projectedSpend,
     onRefreshAll,
+    anyLoading,
+    mode,
   }: {
     totalUsed: number
     projectedTotal: number | null
     totalSpent: number | null
     projectedSpend: number | null
     onRefreshAll: () => void
+    anyLoading: boolean
+    mode: string
   }) => (
-    <div data-testid="usage-header">
+    <div data-testid="usage-header" data-mode={mode} data-loading={anyLoading}>
       Total: {totalUsed} Projected: {projectedTotal === null ? 'null' : projectedTotal} Spend:{' '}
       {totalSpent === null ? 'null' : totalSpent} ProjSpend:{' '}
       {projectedSpend === null ? 'null' : projectedSpend}
@@ -107,6 +132,10 @@ describe('CopilotUsagePanel', () => {
     mockOrgBudgets = {}
     mockOrgOverageFromQuotas = new Map()
     mockRefreshAll.mockClear()
+    mockRefreshAllCodex.mockClear()
+    mockCodexAccounts = []
+    mockCodexStates = {}
+    mockCodexLoading = false
     mockTopUsersSection.mockClear()
   })
 
@@ -125,6 +154,29 @@ describe('CopilotUsagePanel', () => {
   it('renders account quota cards', () => {
     render(<CopilotUsagePanel />)
     expect(screen.getByTestId('quota-card-testuser')).toBeTruthy()
+  })
+
+  it('renders configured Codex accounts with Codex usage cards', () => {
+    mockCodexAccounts = [{ username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' }]
+    mockCodexStates = {
+      '["HemSoft","HemSoft"]': { loading: true, data: null, error: null },
+    }
+
+    render(<CopilotUsagePanel />)
+
+    expect(screen.getByTestId('codex-card-HemSoft')).toBeInTheDocument()
+  })
+
+  it('uses Codex-only copy, loading state, and omits Copilot enterprise fields', () => {
+    mockAccounts = []
+    mockCodexAccounts = [{ username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' }]
+    mockCodexLoading = true
+
+    render(<CopilotUsagePanel />)
+
+    expect(screen.getByTestId('usage-header')).toHaveAttribute('data-mode', 'codex')
+    expect(screen.getByTestId('usage-header')).toHaveAttribute('data-loading', 'true')
+    expect(screen.queryByText('Copilot Enterprise Users')).not.toBeInTheDocument()
   })
 
   it('passes org budget details to account quota cards', () => {
@@ -191,8 +243,8 @@ describe('CopilotUsagePanel – undefined org fallback', () => {
   })
 })
 
-describe('CopilotUsagePanel – hemsoft org skipped', () => {
-  it('does not render a quota card for hemsoft accounts', () => {
+describe('CopilotUsagePanel – configured accounts', () => {
+  it('renders every Copilot account supplied by the hook without an org special-case', () => {
     mockAggregateProjections = { projectedTotal: 200, projectedOverageCost: 0 }
     mockAccounts = [
       { username: 'testuser', org: 'testorg' },
@@ -200,6 +252,6 @@ describe('CopilotUsagePanel – hemsoft org skipped', () => {
     ]
     render(<CopilotUsagePanel />)
     expect(screen.getByTestId('quota-card-testuser')).toBeTruthy()
-    expect(screen.queryByTestId('quota-card-hemsoftuser')).toBeNull()
+    expect(screen.getByTestId('quota-card-hemsoftuser')).toBeTruthy()
   })
 })

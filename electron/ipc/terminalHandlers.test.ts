@@ -14,6 +14,12 @@ vi.mock('node:fs', () => ({
   accessSync: vi.fn(),
   existsSync: vi.fn(() => true),
   constants: { R_OK: 4, X_OK: 1 },
+  realpathSync: Object.assign(
+    vi.fn((candidate: string) => candidate),
+    {
+      native: vi.fn((candidate: string) => candidate),
+    }
+  ),
   statSync: vi.fn((candidate: string) => ({
     isDirectory: () => !String(candidate).toLowerCase().endsWith('.exe'),
     isFile: () => String(candidate).toLowerCase().endsWith('.exe'),
@@ -124,14 +130,21 @@ describe('terminalHandlers', () => {
   })
 
   it('terminal:resolve-repo-path accepts a matching shared agent checkout', async () => {
-    vi.mocked(execFileSync).mockReturnValueOnce('git@github-personal1:HemSoft/skills.git\n')
     const handler = handlers.get('terminal:resolve-repo-path')!
     const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
     const candidate = path.join(home, '.agents', 'skills')
+    vi.mocked(execFileSync)
+      .mockReturnValueOnce(`${candidate}\n`)
+      .mockReturnValueOnce('git@github-personal1:HemSoft/skills.git\n')
 
     const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
 
     expect(result).toEqual({ path: candidate })
+    expect(execFileSync).toHaveBeenCalledWith(
+      'git',
+      ['-C', candidate, 'rev-parse', '--show-toplevel'],
+      expect.objectContaining({ encoding: 'utf8', windowsHide: true })
+    )
     expect(execFileSync).toHaveBeenCalledWith(
       'git',
       ['-C', candidate, 'remote', 'get-url', 'origin'],
@@ -140,12 +153,28 @@ describe('terminalHandlers', () => {
   })
 
   it('terminal:resolve-repo-path rejects an agent checkout for another owner', async () => {
-    vi.mocked(execFileSync).mockReturnValueOnce('git@github.com:HemSoft/skills.git\n')
     const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    vi.mocked(execFileSync)
+      .mockReturnValueOnce(`${candidate}\n`)
+      .mockReturnValueOnce('git@github.com:HemSoft/skills.git\n')
 
     const result = await handler({}, { owner: 'other-org', repo: 'skills' })
 
     expect(result).toEqual({ path: null })
+  })
+
+  it('terminal:resolve-repo-path rejects a nested directory inside an ancestor checkout', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    vi.mocked(execFileSync).mockReturnValueOnce(`${path.dirname(candidate)}\n`)
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
+    expect(result).toEqual({ path: null })
+    expect(execFileSync).toHaveBeenCalledTimes(1)
   })
 
   it('terminal:attach returns error for unknown session', async () => {

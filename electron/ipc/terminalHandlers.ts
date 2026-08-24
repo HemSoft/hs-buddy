@@ -1,7 +1,7 @@
 import { ipcMain, app, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { accessSync, constants, existsSync, statSync } from 'node:fs'
+import { accessSync, constants, existsSync, realpathSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import {
@@ -194,11 +194,26 @@ function getCloneRootsLocal(): string[] {
   return getCloneRoots(process.platform, getHomeDirectory())
 }
 
+function isSameDirectory(left: string, right: string): boolean {
+  const canonicalLeft = realpathSync.native(left)
+  const canonicalRight = realpathSync.native(right)
+  return process.platform === 'win32'
+    ? canonicalLeft.toLowerCase() === canonicalRight.toLowerCase()
+    : canonicalLeft === canonicalRight
+}
+
 function resolveSharedAgentRepoPath(owner: string, repo: string): string | null {
   const candidate = path.join(getHomeDirectory(), '.agents', repo)
   if (!isValidCwd(candidate)) return null
 
   try {
+    const topLevel = execFileSync('git', ['-C', candidate, 'rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+    if (!topLevel || !isSameDirectory(candidate, topLevel)) return null
+
     const remote = execFileSync('git', ['-C', candidate, 'remote', 'get-url', 'origin'], {
       encoding: 'utf8',
       windowsHide: true,

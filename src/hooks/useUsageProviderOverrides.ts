@@ -233,6 +233,8 @@ function useInitialLocalConfig(
 function useConnectedAccountMirror(
   convexAccounts: ConvexGitHubAccount[] | undefined,
   setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
+  setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
+  changedOverrideKeys: RefObject<Set<string>>,
   accountsMirroredFromConvex: RefObject<boolean>
 ) {
   useEffect(() => {
@@ -243,11 +245,20 @@ function useConnectedAccountMirror(
         if (!result.success) return
         accountsMirroredFromConvex.current = true
         setAccounts(mirroredAccounts)
+        const mirroredAccountKeys = new Set(mirroredAccounts.map(getUsageProviderOverrideKey))
+        setOverrides(current => {
+          const next: UsageProviderOverrides = {}
+          for (const [key, provider] of Object.entries(current)) {
+            if (mirroredAccountKeys.has(key)) next[key] = provider
+            else changedOverrideKeys.current.add(key)
+          }
+          return next
+        })
       })
       .catch(() => {
         // Keep the last durable snapshot when electron-store cannot be updated.
       })
-  }, [accountsMirroredFromConvex, convexAccounts, setAccounts])
+  }, [accountsMirroredFromConvex, changedOverrideKeys, convexAccounts, setAccounts, setOverrides])
 }
 
 function useOverrideEvents(
@@ -346,7 +357,13 @@ export function useLocalAccountConfig(
     changedOverrideKeys,
     accountsMirroredFromConvex
   )
-  useConnectedAccountMirror(convexAccounts, setAccounts, accountsMirroredFromConvex)
+  useConnectedAccountMirror(
+    convexAccounts,
+    setAccounts,
+    setOverrides,
+    changedOverrideKeys,
+    accountsMirroredFromConvex
+  )
   useOverrideEvents(setOverrides, changedOverrideKeys)
   useOverrideReconciliation(convexAccounts, overrides, reconcile, retryRevision, scheduleRetry)
 

@@ -190,6 +190,39 @@ describe('useConfig', () => {
       expect(result.current.canUpdateAccounts).toBe(false)
     })
 
+    it('forgets a pending override when another client removes the account', async () => {
+      mockConvexAccounts = [
+        { _id: 'old-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate.mockRejectedValue(new Error('Convex unavailable'))
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+
+      mockConvexAccounts = []
+      rerender()
+      await waitFor(() => expect(result.current.accounts).toEqual([]))
+      const attemptsBeforeReadding = mockUpdate.mock.calls.length
+
+      mockConvexAccounts = [{ _id: 'new-id', username: 'HemSoft', org: 'HemSoft' }]
+      rerender()
+
+      await waitFor(() => expect(result.current.accounts).toHaveLength(1))
+      expect(result.current.accounts[0].usageProvider).toBeUndefined()
+      expect(mockUpdate).toHaveBeenCalledTimes(attemptsBeforeReadding)
+    })
+
     it('falls back to electron-store when Convex unavailable', async () => {
       mockConvexAccounts = undefined
       const { result } = renderHook(() => useGitHubAccounts())

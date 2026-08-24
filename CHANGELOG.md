@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1010] - 2026-08-24
+
+### Fixed
+
+- Synchronize pruned provider overrides (#592)
+
 ## [0.1.1009] - 2026-08-24
 
 ### Fixed

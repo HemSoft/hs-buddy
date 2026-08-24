@@ -1270,7 +1270,7 @@ describe('useConfig', () => {
             })
           }
           if (provider === 'copilot' && ++copilotWriteCount === 2) {
-            return Promise.resolve({ success: false, error: 'Store temporarily unavailable' })
+            return Promise.reject(new Error('Store temporarily unavailable'))
           }
           storedOverride = provider
         }

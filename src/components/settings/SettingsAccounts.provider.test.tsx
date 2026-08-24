@@ -93,6 +93,16 @@ describe('SettingsAccounts usage provider', () => {
     )
     expect(updateAccount).not.toHaveBeenCalled()
   })
+})
+
+describe('SettingsAccounts usage provider save failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
+    canUpdateAccounts = true
+    updateAccount.mockResolvedValue({ success: true })
+    updateUsageProvider.mockResolvedValue({ success: true })
+  })
 
   it('keeps a staged repository root visible when connectivity drops before Save', async () => {
     accounts[0].repoRoot = 'D:\\github\\HemSoft'

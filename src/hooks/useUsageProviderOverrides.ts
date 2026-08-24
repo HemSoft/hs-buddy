@@ -13,14 +13,19 @@ import {
   getUsageProviderOverrideKey,
   type UsageProviderOverrides,
 } from '../utils/usageProviderOverrides'
+import { useAccountMigrationReady } from './useAccountMigrationState'
 import {
-  cancelUsageProviderRetry,
-  scheduleUsageProviderRetry,
+  hasPendingUsageProviderWork,
+  startPendingUsageProviderRecovery,
+  trackUsageProviderReconciliation,
+} from './usageProviderSelectionCoordinator'
+import {
   useUsageProviderRetry,
   type CanAttemptReconciliation,
   type ScheduleRetry,
 } from './useUsageProviderRetry'
-import { useAccountMigrationReady } from './useAccountMigrationState'
+
+export { serializeUsageProviderSelection } from './usageProviderSelectionCoordinator'
 
 export type ConvexGitHubAccount = {
   username: string
@@ -30,14 +35,6 @@ export type ConvexGitHubAccount = {
 }
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
-const reconciliations = new Map<string, Promise<void>>()
-const selectionQueues = new Map<string, Promise<void>>()
-const localSelectionQueues = new Map<string, Promise<void>>()
-const selectionRevisions = new Map<string, number>()
-const staleReconciliationRecoveries = new Map<
-  string,
-  { revision: number; recover: () => Promise<OverrideResult> }
->()
 
 type OverrideEvent = {
   key: string
@@ -45,18 +42,6 @@ type OverrideEvent = {
 }
 
 type OverrideResult = { success: boolean; error?: string }
-type SelectionSerializationOptions = {
-  waitForReconciliation?: boolean
-  recoverAfterStaleReconciliation?: () => Promise<OverrideResult>
-}
-type SelectionTurn = {
-  previousSelection?: Promise<void>
-  previousLocalSelection?: Promise<void>
-  staleReconciliation?: Promise<void>
-  queuedSelections: Promise<void>
-  queuedLocalSelections: Promise<void> | null
-  release: () => void
-}
 type ReconcileUsageProvider = (
   username: string,
   org: string,
@@ -71,127 +56,6 @@ function notifyOverride(
       detail: { key: getUsageProviderOverrideKey(account), provider },
     })
   )
-}
-
-async function waitForUsageProviderReconciliation(
-  account: Pick<GitHubAccount, 'username' | 'org'>
-): Promise<void> {
-  const reconciliation = reconciliations.get(getUsageProviderOverrideKey(account))
-  if (reconciliation) await reconciliation
-}
-
-function beginSelection(key: string, skipsReconciliation: boolean): number {
-  const revision = (selectionRevisions.get(key) ?? 0) + 1
-  selectionRevisions.set(key, revision)
-  if (!skipsReconciliation) staleReconciliationRecoveries.delete(key)
-  return revision
-}
-
-function scheduleStaleReconciliationRecovery(
-  key: string,
-  revision: number,
-  result: OverrideResult,
-  recover: (() => Promise<OverrideResult>) | undefined,
-  staleWork: Promise<void> | null
-) {
-  if (!result.success || !recover || !staleWork || selectionRevisions.get(key) !== revision) return
-  staleReconciliationRecoveries.set(key, { revision, recover })
-  void staleWork.then(() => {
-    const operation = recoverStaleReconciliation(key, revision)
-    trackReconciliation(key, operation)
-  })
-}
-
-async function recoverStaleReconciliation(key: string, revision: number) {
-  if (selectionRevisions.get(key) !== revision) return
-  const recovery = staleReconciliationRecoveries.get(key)
-  if (!recovery || recovery.revision !== revision) return
-  const result = await settleOverrideResult(recovery.recover)
-  if (
-    selectionRevisions.get(key) !== revision ||
-    staleReconciliationRecoveries.get(key) !== recovery
-  ) {
-    return
-  }
-  if (result.success) staleReconciliationRecoveries.delete(key)
-  else scheduleUsageProviderRetry(key)
-}
-
-function enqueueSelection(key: string, localOnly: boolean): SelectionTurn {
-  const previousSelection = selectionQueues.get(key)
-  const previousLocalSelection = localSelectionQueues.get(key)
-  const staleReconciliation = reconciliations.get(key)
-  let release!: () => void
-  const complete = new Promise<void>(resolve => {
-    release = resolve
-  })
-  const queuedSelections = Promise.all([previousSelection, complete]).then(() => undefined)
-  selectionQueues.set(key, queuedSelections)
-  const queuedLocalSelections = localOnly
-    ? (previousLocalSelection ?? Promise.resolve()).then(() => complete)
-    : null
-  if (queuedLocalSelections) localSelectionQueues.set(key, queuedLocalSelections)
-  return {
-    previousSelection,
-    previousLocalSelection,
-    staleReconciliation,
-    queuedSelections,
-    queuedLocalSelections,
-    release,
-  }
-}
-
-async function waitForSelectionTurn(
-  account: Pick<GitHubAccount, 'username' | 'org'>,
-  turn: SelectionTurn,
-  localOnly: boolean
-) {
-  await (localOnly ? turn.previousLocalSelection : turn.previousSelection)
-  if (!localOnly) await waitForUsageProviderReconciliation(account)
-}
-
-function getStaleSelectionWork(turn: SelectionTurn): Promise<void> | null {
-  return turn.staleReconciliation ?? null
-}
-
-function completeSelectionTurn(key: string, turn: SelectionTurn) {
-  turn.release()
-  void turn.queuedSelections.then(() => {
-    if (selectionQueues.get(key) === turn.queuedSelections) selectionQueues.delete(key)
-  })
-  if (turn.queuedLocalSelections) {
-    void turn.queuedLocalSelections.then(() => {
-      if (localSelectionQueues.get(key) === turn.queuedLocalSelections) {
-        localSelectionQueues.delete(key)
-      }
-    })
-  }
-}
-
-export async function serializeUsageProviderSelection(
-  account: Pick<GitHubAccount, 'username' | 'org'>,
-  operation: (isCurrent: () => boolean) => Promise<OverrideResult>,
-  options: SelectionSerializationOptions = {}
-): Promise<OverrideResult> {
-  const key = getUsageProviderOverrideKey(account)
-  const skipsReconciliation = options.waitForReconciliation === false
-  const selectionRevision = beginSelection(key, skipsReconciliation)
-  const turn = enqueueSelection(key, skipsReconciliation)
-  try {
-    await waitForSelectionTurn(account, turn, skipsReconciliation)
-    cancelUsageProviderRetry(key)
-    const result = await operation(() => selectionRevisions.get(key) === selectionRevision)
-    scheduleStaleReconciliationRecovery(
-      key,
-      selectionRevision,
-      result,
-      options.recoverAfterStaleReconciliation,
-      getStaleSelectionWork(turn)
-    )
-    return result
-  } finally {
-    completeSelectionTurn(key, turn)
-  }
 }
 
 export async function persistUsageProviderOverride(
@@ -334,13 +198,6 @@ async function discardOverride(
   if (!result.success) scheduleRetry(key)
 }
 
-function trackReconciliation(key: string, operation: Promise<void>) {
-  reconciliations.set(key, operation)
-  void operation.finally(() => {
-    if (reconciliations.get(key) === operation) reconciliations.delete(key)
-  })
-}
-
 export function mergeUsageProviderOverrideSnapshot(
   snapshot: UsageProviderOverrides,
   current: UsageProviderOverrides,
@@ -455,25 +312,7 @@ function canStartReconciliation(
   provider: UsageProvider | undefined,
   canAttempt: CanAttemptReconciliation
 ): provider is UsageProvider {
-  return Boolean(
-    provider && !reconciliations.has(key) && !selectionQueues.has(key) && canAttempt(key)
-  )
-}
-
-function startPendingRecovery(key: string, canAttempt: CanAttemptReconciliation) {
-  const recovery = staleReconciliationRecoveries.get(key)
-  if (
-    !recovery ||
-    recovery.revision !== selectionRevisions.get(key) ||
-    reconciliations.has(key) ||
-    selectionQueues.has(key) ||
-    !canAttempt(key)
-  ) {
-    return false
-  }
-  const operation = recoverStaleReconciliation(key, recovery.revision)
-  trackReconciliation(key, operation)
-  return true
+  return Boolean(provider && !hasPendingUsageProviderWork(key) && canAttempt(key))
 }
 
 function isBlockedCodexTransfer(
@@ -504,7 +343,7 @@ function useOverrideReconciliation(
       : null
     for (const account of convexAccounts) {
       const key = getUsageProviderOverrideKey(account)
-      if (startPendingRecovery(key, canAttempt)) continue
+      if (startPendingUsageProviderRecovery(key, canAttempt)) continue
       const provider = overrides[key]
       if (!canStartReconciliation(key, provider, canAttemptWhileConnected)) continue
       if (isBlockedCodexTransfer(key, connectedOverrides[key], explicitCodexOwnerKey)) continue
@@ -512,7 +351,7 @@ function useOverrideReconciliation(
         connectedOverrides[key] === provider
           ? reconcileOverride(account, key, provider, reconcile, scheduleRetry)
           : discardOverride(account, key, scheduleRetry)
-      trackReconciliation(key, operation)
+      trackUsageProviderReconciliation(key, operation)
     }
   }, [
     canAttempt,

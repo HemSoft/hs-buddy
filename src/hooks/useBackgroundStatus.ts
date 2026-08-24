@@ -17,6 +17,7 @@ import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
 import { PR_MODES, MS_PER_MINUTE } from '../constants'
 import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
+import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
 
 type SyncPhase = 'idle' | 'syncing' | 'error'
 
@@ -25,8 +26,12 @@ export interface BackgroundStatus {
   phase: SyncPhase
   /** Human-readable label of what's being synced, e.g. "My PRs" */
   activeLabel: string | null
-  /** Number of queued + running tasks in the github queue */
+  /** Total number of running + queued tasks in the GitHub queue */
   activeTasks: number
+  /** Number of tasks currently running */
+  runningTasks: number
+  /** Number of tasks waiting in the queue */
+  queuedTasks: number
   /** Seconds until the next auto-refresh fires (based on oldest cache entry) */
   nextRefreshSecs: number | null
   /** Human-readable countdown string, e.g. "12m 30s" */
@@ -37,27 +42,6 @@ export interface BackgroundStatus {
   lastRefreshedLabel: string | null
 }
 
-/** Friendly labels for task names */
-const TASK_LABELS: Record<string, string> = {
-  'my-prs': 'My PRs',
-  'needs-review': 'Needs Review',
-  'recently-merged': 'Recently Merged',
-  'need-a-nudge': 'Needs a nudge',
-}
-
-const PREFIX_LABELS: ReadonlyArray<readonly [string, string]> = [
-  ['org-detail-overview-', 'Org Overview'],
-  ['org-detail-members-', 'Org Members'],
-  ['org-detail-copilot-', 'Org Copilot'],
-  ['refresh-org-', 'Organizations'],
-]
-
-export function getFriendlyTaskLabel(taskName: string | null): string | null {
-  if (!taskName) return null
-  if (TASK_LABELS[taskName]) return TASK_LABELS[taskName]
-  return PREFIX_LABELS.find(([prefix]) => taskName.startsWith(prefix))?.[1] ?? taskName
-}
-
 /**
  * Hook that provides real-time background sync status.
  * Updates every second for smooth countdown display.
@@ -65,7 +49,7 @@ export function getFriendlyTaskLabel(taskName: string | null): string | null {
  */
 function computeActiveLabel(activeTasks: number, runningTaskName: string | null): string | null {
   if (activeTasks <= 0) return null
-  return getFriendlyTaskLabel(runningTaskName) ?? 'GitHub data'
+  return getFriendlyGitHubTaskLabel(runningTaskName) ?? 'GitHub data'
 }
 
 function computeCacheAges(modes: readonly string[]): { oldestAge: number; latestRefresh: number } {
@@ -125,6 +109,8 @@ function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
     phase,
     activeLabel,
     activeTasks,
+    runningTasks: running,
+    queuedTasks: pending,
     ...resolveNextRefreshStatus(phase, intervalMs, oldestAge),
     ...resolveLastRefreshStatus(latestRefresh),
   }
@@ -136,6 +122,8 @@ export function useBackgroundStatus(): BackgroundStatus {
     phase: 'idle',
     activeLabel: null,
     activeTasks: 0,
+    runningTasks: 0,
+    queuedTasks: 0,
     nextRefreshSecs: null,
     nextRefreshLabel: null,
     lastRefreshedAt: null,

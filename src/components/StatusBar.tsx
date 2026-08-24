@@ -65,13 +65,15 @@ interface StatusBarProps {
 
 function buildSyncingTooltip(status: BackgroundStatus): string {
   const label = status.activeLabel || 'GitHub data'
-  const suffix = status.activeTasks > 1 ? ` — ${status.activeTasks} tasks remaining` : ''
-  return `Syncing ${label}${suffix}`
+  const runningLabel = `${status.runningTasks} running`
+  const queuedLabel = `${status.queuedTasks} queued`
+  return `Syncing ${label} — ${runningLabel}, ${queuedLabel}`
 }
 
 function buildSyncingLabel(status: BackgroundStatus): string {
-  const label = status.activeLabel || 'Syncing'
-  return status.activeTasks > 1 ? `${status.activeTasks} remaining · ${label}…` : `${label}…`
+  const label = status.activeLabel || 'GitHub data'
+  const taskCount = status.activeTasks > 1 ? ` · ${status.activeTasks} sync tasks` : ''
+  return `Syncing ${label}${taskCount}…`
 }
 
 function buildIdleTooltip(status: BackgroundStatus): string {

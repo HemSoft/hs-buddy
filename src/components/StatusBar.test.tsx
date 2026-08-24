@@ -64,13 +64,19 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: 'PRs',
       activeTasks: 3,
+      runningTasks: 1,
+      queuedTasks: 2,
       nextRefreshSecs: null,
       lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText(/3 remaining · PRs…/)).toBeTruthy()
+    expect(screen.getByText('Syncing PRs · 3 sync tasks…')).toBeTruthy()
+    expect(screen.getByText('Syncing PRs · 3 sync tasks…').closest('.status-item')).toHaveAttribute(
+      'data-tooltip',
+      'Syncing PRs — 1 running, 2 queued'
+    )
   })
 
   it('shows single task syncing without count', () => {
@@ -78,13 +84,15 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: 'Repos',
       activeTasks: 1,
+      runningTasks: 1,
+      queuedTasks: 0,
       nextRefreshSecs: null,
       lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText('Repos…')).toBeTruthy()
+    expect(screen.getByText('Syncing Repos…')).toBeTruthy()
   })
 
   it('shows idle status with next refresh time', () => {
@@ -92,6 +100,8 @@ describe('StatusBar', () => {
       phase: 'idle',
       activeLabel: null,
       activeTasks: 0,
+      runningTasks: 0,
+      queuedTasks: 0,
       nextRefreshSecs: 180,
       lastRefreshedAt: Date.now() - 120000,
       lastRefreshedLabel: '2 min ago',
@@ -153,6 +163,8 @@ describe('StatusBar', () => {
       phase: 'idle',
       activeLabel: null,
       activeTasks: 0,
+      runningTasks: 0,
+      queuedTasks: 0,
       nextRefreshSecs: null,
       lastRefreshedAt: null,
       lastRefreshedLabel: null,
@@ -167,13 +179,15 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: null,
       activeTasks: 1,
+      runningTasks: 1,
+      queuedTasks: 0,
       nextRefreshSecs: null,
       lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText('Syncing…')).toBeTruthy()
+    expect(screen.getByText('Syncing GitHub data…')).toBeTruthy()
   })
 
   it('shows syncing multi-task without label', () => {
@@ -181,13 +195,17 @@ describe('StatusBar', () => {
       phase: 'syncing',
       activeLabel: null,
       activeTasks: 5,
+      runningTasks: 1,
+      queuedTasks: 4,
       nextRefreshSecs: null,
       lastRefreshedAt: null,
       lastRefreshedLabel: null,
       nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText(/5 remaining · Syncing…/)).toBeTruthy()
+    const statusText = screen.getByText('Syncing GitHub data · 5 sync tasks…')
+    expect(statusText).toBeTruthy()
+    expect(statusText.textContent).not.toContain('internal-task')
   })
 
   it('does not show Copilot when assistantActive is false', () => {

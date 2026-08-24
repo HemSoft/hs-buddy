@@ -58,7 +58,13 @@ function CodexWindow({ window, prominent }: { window: CodexUsageWindow; prominen
   )
 }
 
-function CodexUsageContent({ state }: { state: CodexUsageState | undefined }) {
+function CodexUsageContent({
+  account,
+  state,
+}: {
+  account: GitHubAccount
+  state: CodexUsageState | undefined
+}) {
   if (!state || (state.loading && !state.data)) {
     return <div className="usage-account-loading">Loading Codex allowance…</div>
   }
@@ -78,11 +84,17 @@ function CodexUsageContent({ state }: { state: CodexUsageState | undefined }) {
         <div className="usage-account-identity">
           <Sparkles size={18} />
           <div>
-            <div className="usage-account-name">Codex allowance</div>
+            <div className="usage-account-name">{account.username} · Codex allowance</div>
             <div className="usage-account-plan">{formatPlan(state.data.planType)}</div>
           </div>
         </div>
       </div>
+      {state.error ? (
+        <div className="usage-account-warning" role="status">
+          <AlertCircle size={14} />
+          <span>Showing the last successful response. {state.error}</span>
+        </div>
+      ) : null}
       <div className="codex-window-list">
         {state.data.windows.map(window => (
           <CodexWindow
@@ -117,7 +129,7 @@ export function CodexUsageCard({
 }) {
   return (
     <div className="usage-account-card codex-usage-card" data-account={account.username}>
-      <CodexUsageContent state={state} />
+      <CodexUsageContent account={account} state={state} />
     </div>
   )
 }

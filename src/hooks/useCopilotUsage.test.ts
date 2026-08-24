@@ -110,7 +110,7 @@ describe('useCopilotUsage', () => {
     mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData() })
   })
 
-  it('does not send Codex-backed accounts through GitHub Copilot APIs', async () => {
+  it('skips Codex account quota calls while retaining its organization budget', async () => {
     mockAccounts.splice(0, mockAccounts.length, {
       username: 'HemSoft',
       org: 'HemSoft',

@@ -182,22 +182,6 @@
   text-transform: uppercase;
 }
 
-.usage-account-loading,
-.usage-account-error {
-  min-height: 96px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: var(--text-secondary, #888);
-  font-size: 12px;
-  text-align: center;
-}
-
-.usage-account-error {
-  color: var(--error-foreground, #f48771);
-}
-
 /* ── Account Header ───────────────────────────────────────────────────── */
 
 .usage-account-header {
@@ -365,6 +349,7 @@
 /* ── Loading / Error states ───────────────────────────────────────────── */
 
 .usage-account-loading {
+  min-height: 96px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -372,15 +357,25 @@
   padding: 30px 0;
   color: var(--text-secondary, #888);
   font-size: 13px;
+  text-align: center;
 }
 
 .usage-account-error {
+  min-height: 96px;
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 16px 0;
   color: #e85d5d;
   font-size: 13px;
+}
+
+.usage-account-warning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning-foreground, #d7ba7d);
+  font-size: 11px;
 }
 
 .usage-account-error strong {

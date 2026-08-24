@@ -1,7 +1,7 @@
 import { AlertCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
-import { useCodexUsage } from '../hooks/useCodexUsage'
+import { getCodexUsageKey, useCodexUsage } from '../hooks/useCodexUsage'
 import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import type { OrgBudgetState } from './copilot-usage/types'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
@@ -55,9 +55,9 @@ function AccountsGrid({
       {accountQuotaCards}
       {codexAccounts.map(account => (
         <CodexUsageCard
-          key={`${account.username}-${account.org}`}
+          key={getCodexUsageKey(account)}
           account={account}
-          state={codexStates[account.username]}
+          state={codexStates[getCodexUsageKey(account)]}
         />
       ))}
     </>
@@ -99,7 +99,14 @@ export function CopilotUsagePanel() {
     accounts: codexAccounts,
     states: codexStates,
     refreshAll: refreshAllCodex,
+    anyLoading: codexLoading,
   } = useCodexUsage()
+  const usageMode =
+    accounts.length > 0 && codexAccounts.length > 0
+      ? 'mixed'
+      : codexAccounts.length > 0
+        ? 'codex'
+        : 'copilot'
 
   const projections = resolveProjection(aggregateProjections)
   const handleRefreshAll = useCallback(() => {
@@ -118,8 +125,9 @@ export function CopilotUsagePanel() {
         projectedSpend={aggregateSpend?.projectedSpend ?? null}
         projectedTotal={projections.projectedTotal}
         projectedOverageCost={projections.projectedOverageCost}
-        anyLoading={anyLoading}
+        anyLoading={anyLoading || codexLoading}
         onRefreshAll={handleRefreshAll}
+        mode={usageMode}
       />
 
       <div className="usage-accounts-grid">
@@ -133,7 +141,7 @@ export function CopilotUsagePanel() {
         />
       </div>
 
-      <TopUsersSection refreshToken={enterpriseUsersRefreshToken} />
+      {accounts.length > 0 ? <TopUsersSection refreshToken={enterpriseUsersRefreshToken} /> : null}
     </div>
   )
 }

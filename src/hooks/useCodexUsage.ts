@@ -10,6 +10,10 @@ export interface CodexUsageState {
   error: string | null
 }
 
+export function getCodexUsageKey(account: Pick<GitHubAccount, 'username' | 'org'>): string {
+  return JSON.stringify([account.username, account.org])
+}
+
 export function useCodexUsage() {
   const { accounts } = useGitHubAccounts()
   const codexAccounts = useMemo(
@@ -20,10 +24,11 @@ export function useCodexUsage() {
   const [states, setStates] = useState<Partial<Record<string, CodexUsageState>>>({})
 
   const fetchUsage = useCallback(async (account: GitHubAccount) => {
+    const key = getCodexUsageKey(account)
     setStates(previous => ({
       ...previous,
-      [account.username]: {
-        data: previous[account.username]?.data ?? null,
+      [key]: {
+        data: previous[key]?.data ?? null,
         loading: true,
         error: null,
       },
@@ -33,14 +38,18 @@ export function useCodexUsage() {
       const result = await window.codex.getUsage()
       setStates(previous => ({
         ...previous,
-        [account.username]: result.success
+        [key]: result.success
           ? { data: result.data, loading: false, error: null }
-          : { data: null, loading: false, error: result.error },
+          : { data: previous[key]?.data ?? null, loading: false, error: result.error },
       }))
     } catch (error: unknown) {
       setStates(previous => ({
         ...previous,
-        [account.username]: { data: null, loading: false, error: getErrorMessage(error) },
+        [key]: {
+          data: previous[key]?.data ?? null,
+          loading: false,
+          error: getErrorMessage(error),
+        },
       }))
     }
   }, [])
@@ -57,7 +66,7 @@ export function useCodexUsage() {
     setStates(previous => {
       const next = { ...previous }
       for (const account of codexAccounts.slice(1)) {
-        next[account.username] = {
+        next[getCodexUsageKey(account)] = {
           data: null,
           loading: false,
           error: `The local Codex login is assigned to ${activeAccount.username}. Choose Copilot for this account.`,
@@ -72,5 +81,10 @@ export function useCodexUsage() {
     [activeAccount, fetchUsage]
   )
 
-  return { accounts: codexAccounts, states, fetchUsage, refreshAll }
+  const anyLoading = useMemo(
+    () => Object.values(states).some(state => state?.loading === true),
+    [states]
+  )
+
+  return { accounts: codexAccounts, states, fetchUsage, refreshAll, anyLoading }
 }

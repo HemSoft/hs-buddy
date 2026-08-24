@@ -67,6 +67,10 @@ describe('parseCodexUsage', () => {
       success: false,
       error: 'Could not parse the Codex usage response.',
     })
+    expect(parseCodexUsage('null', NOW)).toEqual({
+      success: false,
+      error: 'Could not parse the Codex usage response.',
+    })
   })
 
   it('labels unfamiliar durations honestly and clamps invalid percentages', () => {
@@ -101,6 +105,27 @@ describe('parseCodexUsage', () => {
     expect(result.success).toBe(true)
     if (!result.success) return
     expect(result.data.windows.map(window => window.kind)).toEqual(['five-hour'])
+  })
+})
+
+describe('Codex usage projections', () => {
+  it('caps projections at the usable allowance boundary', () => {
+    const result = parseCodexUsage(
+      JSON.stringify({
+        rate_limit: {
+          primary_window: {
+            used_percent: 10,
+            reset_at: Math.floor((NOW.getTime() + 604_700 * 1000) / 1000),
+            limit_window_seconds: 604_800,
+          },
+        },
+      }),
+      NOW
+    )
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.windows[0].projectedPercent).toBe(100)
   })
 })
 

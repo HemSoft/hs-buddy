@@ -11,7 +11,14 @@ interface UsageHeaderProps {
   projectedOverageCost: number | null
   anyLoading: boolean
   onRefreshAll: () => void
+  mode?: 'copilot' | 'codex' | 'mixed'
 }
+
+const HEADER_COPY = {
+  copilot: ['Copilot Usage', 'Copilot AI credit quota per account'],
+  codex: ['Codex Usage', 'Rolling allowance windows from the local Codex sign-in'],
+  mixed: ['AI Usage', 'Copilot credit quotas and Codex allowance windows'],
+} as const
 
 function OrgPoolBar({
   totalUsed,
@@ -86,7 +93,10 @@ export function UsageHeader({
   projectedOverageCost,
   anyLoading,
   onRefreshAll,
+  mode = 'copilot',
 }: UsageHeaderProps) {
+  const [title, subtitle] = HEADER_COPY[mode]
+  const showCopilotSummary = mode !== 'codex'
   return (
     <>
       <div className="usage-header">
@@ -95,45 +105,47 @@ export function UsageHeader({
             <Zap size={20} />
           </div>
           <div>
-            <h2>Copilot Usage</h2>
-            <p className="usage-subtitle">Copilot AI credit quota per account</p>
+            <h2>{title}</h2>
+            <p className="usage-subtitle">{subtitle}</p>
           </div>
         </div>
-        <div className="usage-header-summary" aria-live="polite">
-          <div className="usage-header-summary-item">
-            <span className="usage-header-summary-value">{totalUsed.toLocaleString()}</span>
-            <span className="usage-header-summary-label">Total Used</span>
+        {showCopilotSummary ? (
+          <div className="usage-header-summary" aria-live="polite">
+            <div className="usage-header-summary-item">
+              <span className="usage-header-summary-value">{totalUsed.toLocaleString()}</span>
+              <span className="usage-header-summary-label">Total Used</span>
+            </div>
+            <div className="usage-header-summary-divider" aria-hidden="true" />
+            <div className="usage-header-summary-item">
+              <span className="usage-header-summary-value">{formatCurrency(totalOverageCost)}</span>
+              <span className="usage-header-summary-label">Total Overage</span>
+            </div>
+            <SpendSummary totalSpent={totalSpent} projectedSpend={projectedSpend} />
+            {projectedTotal != null && (
+              <>
+                <div className="usage-header-summary-divider" aria-hidden="true" />
+                <div className="usage-header-summary-item usage-header-projected">
+                  <span className="usage-header-summary-value">
+                    <TrendingUp size={11} />
+                    {projectedTotal.toLocaleString()}
+                  </span>
+                  <span className="usage-header-summary-label">Projected</span>
+                </div>
+              </>
+            )}
+            {projectedOverageCost != null && projectedOverageCost > 0 && (
+              <>
+                <div className="usage-header-summary-divider" aria-hidden="true" />
+                <div className="usage-header-summary-item usage-header-projected-overage">
+                  <span className="usage-header-summary-value">
+                    {formatCurrency(projectedOverageCost)}
+                  </span>
+                  <span className="usage-header-summary-label">Est. Overage</span>
+                </div>
+              </>
+            )}
           </div>
-          <div className="usage-header-summary-divider" aria-hidden="true" />
-          <div className="usage-header-summary-item">
-            <span className="usage-header-summary-value">{formatCurrency(totalOverageCost)}</span>
-            <span className="usage-header-summary-label">Total Overage</span>
-          </div>
-          <SpendSummary totalSpent={totalSpent} projectedSpend={projectedSpend} />
-          {projectedTotal != null && (
-            <>
-              <div className="usage-header-summary-divider" aria-hidden="true" />
-              <div className="usage-header-summary-item usage-header-projected">
-                <span className="usage-header-summary-value">
-                  <TrendingUp size={11} />
-                  {projectedTotal.toLocaleString()}
-                </span>
-                <span className="usage-header-summary-label">Projected</span>
-              </div>
-            </>
-          )}
-          {projectedOverageCost != null && projectedOverageCost > 0 && (
-            <>
-              <div className="usage-header-summary-divider" aria-hidden="true" />
-              <div className="usage-header-summary-item usage-header-projected-overage">
-                <span className="usage-header-summary-value">
-                  {formatCurrency(projectedOverageCost)}
-                </span>
-                <span className="usage-header-summary-label">Est. Overage</span>
-              </div>
-            </>
-          )}
-        </div>
+        ) : null}
         <button
           type="button"
           className="usage-refresh-btn"
@@ -145,7 +157,9 @@ export function UsageHeader({
           Refresh
         </button>
       </div>
-      <OrgPoolBar totalUsed={totalUsed} totalEntitlement={totalEntitlement} />
+      {showCopilotSummary ? (
+        <OrgPoolBar totalUsed={totalUsed} totalEntitlement={totalEntitlement} />
+      ) : null}
     </>
   )
 }

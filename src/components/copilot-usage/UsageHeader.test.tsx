@@ -22,6 +22,15 @@ describe('UsageHeader', () => {
     expect(screen.getByText('Copilot AI credit quota per account')).toBeInTheDocument()
   })
 
+  it('uses Codex copy without Copilot totals or organization pool', () => {
+    render(<UsageHeader {...baseProps} mode="codex" totalEntitlement={2000} />)
+
+    expect(screen.getByRole('heading', { level: 2, name: 'Codex Usage' })).toBeInTheDocument()
+    expect(screen.getByText(/rolling allowance windows/i)).toBeInTheDocument()
+    expect(screen.queryByText('Total Used')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('org-pool')).not.toBeInTheDocument()
+  })
+
   it('renders summary values with formatting', () => {
     render(<UsageHeader {...baseProps} totalUsed={12345} totalOverageCost={99.99} />)
 

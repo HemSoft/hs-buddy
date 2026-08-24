@@ -26,7 +26,7 @@ describe('SettingsAccounts usage provider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
-    updateAccount.mockResolvedValue(undefined)
+    updateAccount.mockResolvedValue({ success: true })
   })
 
   it('stages provider changes until Save and discards them on Cancel', async () => {
@@ -69,5 +69,27 @@ describe('SettingsAccounts usage provider', () => {
     expect(screen.getByLabelText('Usage provider for Second')).toHaveValue('copilot')
     expect(screen.getByRole('option', { name: 'ChatGPT / Codex' })).toBeDisabled()
     expect(screen.getByText(/already assigned to HemSoft/i)).toBeInTheDocument()
+  })
+
+  it('keeps the editor open and reports an update failure', async () => {
+    updateAccount.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    fireEvent.click(screen.getByTitle('Save'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Convex is unavailable')
+    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeInTheDocument()
+  })
+
+  it('reports a rejected account update without closing the editor', async () => {
+    updateAccount.mockRejectedValue(new Error('Network request failed'))
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    fireEvent.click(screen.getByTitle('Save'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Network request failed')
+    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeInTheDocument()
   })
 })

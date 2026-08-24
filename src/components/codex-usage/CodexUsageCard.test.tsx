@@ -53,7 +53,7 @@ describe('CodexUsageCard', () => {
   it('makes the weekly allowance prominent and keeps projections per window', () => {
     const { container } = render(<CodexUsageCard account={account} state={state} />)
 
-    expect(screen.getByText('Codex allowance')).toBeInTheDocument()
+    expect(screen.getByText('HemSoft · Codex allowance')).toBeInTheDocument()
     expect(screen.getByText('ChatGPT / Codex · Plus')).toBeInTheDocument()
     const windows = container.querySelectorAll('.codex-window')
     expect(windows).toHaveLength(2)
@@ -78,6 +78,20 @@ describe('CodexUsageCard', () => {
   it('shows a loading state before the first allowance response', () => {
     render(<CodexUsageCard account={account} state={undefined} />)
     expect(screen.getByText('Loading Codex allowance…')).toBeInTheDocument()
+  })
+
+  it('keeps the last successful response visible when a refresh fails', () => {
+    render(
+      <CodexUsageCard
+        account={account}
+        state={{ ...state, error: 'The usage service is temporarily unavailable.' }}
+      />
+    )
+
+    expect(screen.getByText('Weekly allowance')).toBeInTheDocument()
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Showing the last successful response. The usage service is temporarily unavailable.'
+    )
   })
 
   it('opens the Codex usage settings page', () => {

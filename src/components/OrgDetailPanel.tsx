@@ -23,7 +23,7 @@ import { dataCache } from '../services/dataCache'
 import { getTaskQueue } from '../services/taskQueue'
 import { MS_PER_MINUTE } from '../constants'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
-import { useCodexUsage, type CodexUsageState } from '../hooks/useCodexUsage'
+import { getCodexUsageKey, useCodexUsage, type CodexUsageState } from '../hooks/useCodexUsage'
 import type { GitHubAccount } from '../types/config'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { CodexUsageCard } from './codex-usage/CodexUsageCard'
@@ -709,9 +709,9 @@ function OrgConfiguredAccountsSection({
         {configuredAccounts.map(account =>
           account.usageProvider === 'codex' ? (
             <CodexUsageCard
-              key={account.username}
+              key={getCodexUsageKey(account)}
               account={account}
-              state={codexStates[account.username]}
+              state={codexStates[getCodexUsageKey(account)]}
             />
           ) : (
             <AccountQuotaCard
@@ -1011,7 +1011,7 @@ function getCodexState(
   account: GitHubAccount | null,
   states: ReturnType<typeof useCodexUsage>['states']
 ): CodexUsageState | undefined {
-  return account ? states[account.username] : undefined
+  return account ? states[getCodexUsageKey(account)] : undefined
 }
 
 function resolveNamespaceUsage({
@@ -1052,6 +1052,7 @@ async function fetchNamespaceUsage({
   refreshCopilotUsage,
   fetchCopilot,
   forceRefresh,
+  refreshCodex,
 }: {
   isUserNamespace: boolean
   codexAccount: GitHubAccount | null
@@ -1059,8 +1060,12 @@ async function fetchNamespaceUsage({
   refreshCopilotUsage: () => void
   fetchCopilot: (forceRefresh?: boolean) => Promise<void>
   forceRefresh: boolean
+  refreshCodex: boolean
 }): Promise<void> {
-  if (isUserNamespace && codexAccount) return fetchCodexUsage(codexAccount)
+  if (isUserNamespace && codexAccount) {
+    if (refreshCodex) return fetchCodexUsage(codexAccount)
+    return
+  }
   if (isUserNamespace) {
     refreshCopilotUsage()
     return
@@ -1171,7 +1176,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const { fetchCopilot } = copilotData
 
   const fetchAll = useCallback(
-    async (forceRefresh = false) => {
+    async (forceRefresh = false, refreshCodex = forceRefresh) => {
       const work = [fetchOverview(forceRefresh), fetchMembers(forceRefresh), fetchRateLimit()]
       work.push(
         fetchNamespaceUsage({
@@ -1181,6 +1186,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
           refreshCopilotUsage,
           fetchCopilot,
           forceRefresh,
+          refreshCodex,
         })
       )
       await Promise.allSettled(work)
@@ -1198,7 +1204,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   )
 
   useEffect(() => {
-    void fetchAll(shouldRefreshOnMount)
+    void fetchAll(shouldRefreshOnMount, false)
   }, [fetchAll, shouldRefreshOnMount])
 
   useEffect(() => {

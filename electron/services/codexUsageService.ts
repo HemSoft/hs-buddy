@@ -91,7 +91,10 @@ function parseWindow(raw: RawCodexWindow | undefined, now: Date): CodexUsageWind
   const periodStart = new Date(resetAt.getTime() - durationSeconds * 1000)
   const elapsedMs = Math.max(0, now.getTime() - periodStart.getTime())
   const elapsedFraction = Math.min(1, elapsedMs / (durationSeconds * 1000))
-  const projectedPercent = elapsedFraction > 0 ? boundedUsed / elapsedFraction : boundedUsed
+  const projectedPercent = Math.min(
+    100,
+    elapsedFraction > 0 ? boundedUsed / elapsedFraction : boundedUsed
+  )
 
   return {
     kind: classifyDuration(durationSeconds),
@@ -112,12 +115,16 @@ const WINDOW_ORDER: Record<CodexUsageWindowKind, number> = {
 }
 
 export function parseCodexUsage(payload: string, now = new Date()): CodexUsageResult {
-  let raw: RawCodexUsage
+  let parsed: unknown
   try {
-    raw = JSON.parse(payload) as RawCodexUsage
+    parsed = JSON.parse(payload)
   } catch (_: unknown) {
     return { success: false, error: 'Could not parse the Codex usage response.' }
   }
+  if (!parsed || typeof parsed !== 'object') {
+    return { success: false, error: 'Could not parse the Codex usage response.' }
+  }
+  const raw = parsed as RawCodexUsage
 
   const windows = [
     parseWindow(raw.rate_limit?.primary_window, now),

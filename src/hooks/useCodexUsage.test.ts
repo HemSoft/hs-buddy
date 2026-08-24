@@ -18,7 +18,7 @@ Object.defineProperty(window, 'codex', {
   configurable: true,
 })
 
-import { useCodexUsage } from './useCodexUsage'
+import { getCodexUsageKey, useCodexUsage } from './useCodexUsage'
 
 const usageData = {
   planType: 'plus',
@@ -39,7 +39,7 @@ const usageData = {
 
 describe('useCodexUsage', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
     accounts.splice(0, accounts.length)
   })
 
@@ -51,11 +51,12 @@ describe('useCodexUsage', () => {
     getUsage.mockResolvedValue({ success: true, data: usageData })
 
     const { result } = renderHook(() => useCodexUsage())
+    const codexKey = getCodexUsageKey(accounts[1])
 
-    await waitFor(() => expect(result.current.states['codex-user']?.loading).toBe(false))
+    await waitFor(() => expect(result.current.states[codexKey]?.loading).toBe(false))
     expect(result.current.accounts.map(account => account.username)).toEqual(['codex-user'])
-    expect(result.current.states['codex-user']?.data).toEqual(usageData)
-    expect(result.current.states['copilot-user']).toBeUndefined()
+    expect(result.current.states[codexKey]?.data).toEqual(usageData)
+    expect(result.current.states[getCodexUsageKey(accounts[0])]).toBeUndefined()
     expect(getUsage).toHaveBeenCalledTimes(1)
   })
 
@@ -64,13 +65,14 @@ describe('useCodexUsage', () => {
     getUsage.mockResolvedValueOnce({ success: false, error: 'Sign in again.' })
 
     const { result } = renderHook(() => useCodexUsage())
-    await waitFor(() => expect(result.current.states['codex-user']?.error).toBe('Sign in again.'))
+    const key = getCodexUsageKey(accounts[0])
+    await waitFor(() => expect(result.current.states[key]?.error).toBe('Sign in again.'))
 
     getUsage.mockRejectedValueOnce(new Error('IPC unavailable'))
     await act(async () => {
       await result.current.fetchUsage(accounts[0])
     })
-    expect(result.current.states['codex-user']).toMatchObject({
+    expect(result.current.states[key]).toMatchObject({
       data: null,
       loading: false,
       error: 'IPC unavailable',
@@ -85,7 +87,7 @@ describe('useCodexUsage', () => {
     getUsage.mockResolvedValue({ success: true, data: usageData })
     const { result } = renderHook(() => useCodexUsage())
     await waitFor(() => expect(getUsage).toHaveBeenCalledTimes(1))
-    expect(result.current.states.two).toMatchObject({
+    expect(result.current.states[getCodexUsageKey(accounts[1])]).toMatchObject({
       data: null,
       loading: false,
       error: 'The local Codex login is assigned to one. Choose Copilot for this account.',
@@ -95,5 +97,24 @@ describe('useCodexUsage', () => {
       await result.current.refreshAll()
     })
     expect(getUsage).toHaveBeenCalledTimes(2)
+  })
+
+  it('keeps the last successful allowance when a refresh fails', async () => {
+    accounts.push({ username: 'codex-user', org: 'org', usageProvider: 'codex' })
+    getUsage.mockResolvedValueOnce({ success: true, data: usageData })
+    const { result } = renderHook(() => useCodexUsage())
+    const key = getCodexUsageKey(accounts[0])
+    await waitFor(() => expect(result.current.states[key]?.data).toEqual(usageData))
+
+    getUsage.mockResolvedValueOnce({ success: false, error: 'Temporarily unavailable' })
+    await act(async () => {
+      await result.current.fetchUsage(accounts[0])
+    })
+
+    expect(result.current.states[key]).toEqual({
+      data: usageData,
+      loading: false,
+      error: 'Temporarily unavailable',
+    })
   })
 })

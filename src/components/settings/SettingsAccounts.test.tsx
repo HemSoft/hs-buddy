@@ -536,7 +536,7 @@ describe('SettingsAccounts account editing', () => {
 
   it('save button calls updateAccount with repoRoot and closes editing', async () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
-    mockUpdateAccount.mockResolvedValue(undefined)
+    mockUpdateAccount.mockResolvedValue({ success: true })
     Object.defineProperty(window, 'ralph', {
       value: {
         selectDirectory: vi.fn(),
@@ -617,7 +617,7 @@ describe('SettingsAccounts account editing', () => {
 
   it('save button passes undefined repoRoot when editRepoRoot is empty', async () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org' }]
-    mockUpdateAccount.mockResolvedValue(undefined)
+    mockUpdateAccount.mockResolvedValue({ success: true })
     Object.defineProperty(window, 'ralph', {
       value: {
         selectDirectory: vi.fn(),

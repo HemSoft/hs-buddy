@@ -45,6 +45,8 @@ vi.mock('../hooks/useCopilotUsage', () => ({
 
 vi.mock('../hooks/useCodexUsage', () => ({
   useCodexUsage: orgMocks.useCodexUsage,
+  getCodexUsageKey: (account: { username: string; org?: string }) =>
+    JSON.stringify([account.username, account.org]),
 }))
 
 vi.mock('../api/github', () => ({
@@ -935,6 +937,7 @@ describe('OrgDetailPanel', () => {
     it('renders Codex rolling allowances for an opted-in user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
+      const fetchUsage = vi.fn()
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
           { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
@@ -944,7 +947,7 @@ describe('OrgDetailPanel', () => {
       orgMocks.useCodexUsage.mockReturnValue({
         accounts: [{ username: 'alice', org: 'test-org', usageProvider: 'codex' }],
         states: {
-          alice: {
+          '["alice","test-org"]': {
             loading: false,
             error: null,
             data: {
@@ -965,7 +968,7 @@ describe('OrgDetailPanel', () => {
             },
           },
         },
-        fetchUsage: vi.fn(),
+        fetchUsage,
         refreshAll: vi.fn(),
       })
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
@@ -981,6 +984,7 @@ describe('OrgDetailPanel', () => {
       expect(screen.getAllByText('Weekly allowance').length).toBeGreaterThan(0)
       expect(screen.queryByText('Copilot Quota')).not.toBeInTheDocument()
       expect(screen.queryByText('Premium Requests')).not.toBeInTheDocument()
+      expect(fetchUsage).not.toHaveBeenCalled()
     })
 
     it('reports an unavailable Codex allowance in the namespace status', async () => {
@@ -994,7 +998,9 @@ describe('OrgDetailPanel', () => {
       })
       orgMocks.useCodexUsage.mockReturnValue({
         accounts: [{ username: 'alice', org: 'test-org', usageProvider: 'codex' }],
-        states: { alice: { loading: false, data: null, error: 'Sign in again.' } },
+        states: {
+          '["alice","test-org"]': { loading: false, data: null, error: 'Sign in again.' },
+        },
         fetchUsage: vi.fn(),
         refreshAll: vi.fn(),
       })

@@ -343,6 +343,7 @@ type AccountEditPanelProps = {
   editUsageProvider: UsageProvider
   setEditUsageProvider: React.Dispatch<React.SetStateAction<UsageProvider>>
   codexOwner: GitHubAccount | null
+  editError: string | null
   onSave: () => Promise<void>
 }
 
@@ -354,6 +355,7 @@ function AccountEditPanel({
   editUsageProvider,
   setEditUsageProvider,
   codexOwner,
+  editError,
   onSave,
 }: AccountEditPanelProps) {
   if (!isEditing) return null
@@ -371,6 +373,12 @@ function AccountEditPanel({
         onChange={setEditUsageProvider}
         codexOwner={codexOwner}
       />
+      {editError ? (
+        <div className="form-error" role="alert">
+          <AlertCircle size={14} />
+          {editError}
+        </div>
+      ) : null}
       <div className="form-field">
         <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
           <FolderOpen size={14} />
@@ -427,13 +435,28 @@ type AccountListItemProps = {
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ) => Promise<unknown>
+  updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
   codexOwner: GitHubAccount | null
+}
+
+function AccountIdentity({ account, repoRoot }: { account: GitHubAccount; repoRoot?: string }) {
+  return (
+    <span className="list-item-content">
+      <span className="list-item-primary">
+        <User size={16} />
+        <span className="item-name">{account.username}</span>
+      </span>
+      <span className="list-item-secondary">
+        <Building2 size={14} />
+        <span>{account.org}</span>
+        <span className="account-badge">
+          {account.usageProvider === 'codex' ? 'Codex' : 'Copilot'}
+        </span>
+        <AccountRepoRootBadge repoRoot={repoRoot} />
+      </span>
+    </span>
+  )
 }
 
 function AccountListItem({
@@ -451,17 +474,28 @@ function AccountListItem({
   const [editUsageProvider, setEditUsageProvider] = useState<UsageProvider>(
     account.usageProvider ?? 'copilot'
   )
+  const [editError, setEditError] = useState<string | null>(null)
   const visibleRepoRoot = resolveVisibleRepoRoot(account.repoRoot, isEditing)
   const activate = () => {
+    setEditError(null)
     setEditUsageProvider(account.usageProvider ?? 'copilot')
     openAccountEditor(account, isEditing, setEditingKey, setEditRepoRoot)
   }
   const save = async () => {
-    await updateAccount(account.username, account.org, {
-      repoRoot: resolveRepoRootUpdate(editRepoRoot),
-      usageProvider: editUsageProvider,
-    })
-    setEditingKey(null)
+    try {
+      const result = await updateAccount(account.username, account.org, {
+        repoRoot: resolveRepoRootUpdate(editRepoRoot),
+        usageProvider: editUsageProvider,
+      })
+      if (!result.success) {
+        setEditError(result.error || 'Failed to update account')
+        return
+      }
+      setEditError(null)
+      setEditingKey(null)
+    } catch (error: unknown) {
+      setEditError(getUserFacingErrorMessage(error, 'Failed to update account'))
+    }
   }
 
   return (
@@ -474,25 +508,13 @@ function AccountListItem({
           onKeyDown={e => handleAccountItemKeyDown(e, isEditing, activate)}
           style={{ cursor: resolveAccountItemCursor(isEditing) }}
         >
-          <span className="list-item-content">
-            <span className="list-item-primary">
-              <User size={16} />
-              <span className="item-name">{account.username}</span>
-            </span>
-            <span className="list-item-secondary">
-              <Building2 size={14} />
-              <span>{account.org}</span>
-              <span className="account-badge">
-                {account.usageProvider === 'codex' ? 'Codex' : 'Copilot'}
-              </span>
-              <AccountRepoRootBadge repoRoot={visibleRepoRoot} />
-            </span>
-          </span>
+          <AccountIdentity account={account} repoRoot={visibleRepoRoot} />
         </button>
         <AccountItemActions
           isEditing={isEditing}
           onCancel={e => {
             e.stopPropagation()
+            setEditError(null)
             setEditingKey(null)
           }}
           onRemove={e => {
@@ -509,6 +531,7 @@ function AccountListItem({
         editUsageProvider={editUsageProvider}
         setEditUsageProvider={setEditUsageProvider}
         codexOwner={codexOwner}
+        editError={editError}
         onSave={save}
       />
     </div>
@@ -529,11 +552,7 @@ function AccountsListSection({
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ) => Promise<unknown>
+  updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
 }) {
   if (accounts.length === 0) {
@@ -588,11 +607,7 @@ function ConfiguredAccountsSection({
   editRepoRoot: string
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ) => Promise<unknown>
+  updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
 }) {
   return (

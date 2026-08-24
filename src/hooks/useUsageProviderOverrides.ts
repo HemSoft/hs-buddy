@@ -35,6 +35,8 @@ export type ConvexGitHubAccount = {
   org: string
   repoRoot?: string
   usageProvider?: UsageProvider
+  createdAt?: number
+  updatedAt?: number
 }
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
@@ -76,17 +78,26 @@ export async function persistUsageProviderOverride(
 }
 
 function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
-  const durableAccounts = new Map<string, GitHubAccount>()
+  const accountGroups = new Map<string, ConvexGitHubAccount[]>()
   for (const account of accounts) {
-    const durableAccount = {
-      username: account.username,
-      org: account.org,
-      ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
-      ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
-    }
-    durableAccounts.set(getUsageProviderOverrideKey(durableAccount), durableAccount)
+    const key = getUsageProviderOverrideKey(account)
+    accountGroups.set(key, [...(accountGroups.get(key) ?? []), account])
   }
-  return [...durableAccounts.values()]
+  return [...accountGroups.values()].map(group => {
+    const ordered = [...group].sort(
+      (left, right) =>
+        (left.updatedAt ?? left.createdAt ?? 0) - (right.updatedAt ?? right.createdAt ?? 0)
+    )
+    const canonical = ordered[0]
+    return ordered.reduce<GitHubAccount>(
+      (durable, account) => ({
+        ...durable,
+        ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
+        ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
+      }),
+      { username: canonical.username, org: canonical.org }
+    )
+  })
 }
 
 export async function mirrorConnectedGitHubAccounts(

@@ -1,7 +1,8 @@
 import { convexTest } from 'convex-test'
+import migrationsTest from '@convex-dev/migrations/test'
 import { describe, test, expect } from 'vitest'
 import schema from '../schema'
-import { api } from '../_generated/api'
+import { api, internal } from '../_generated/api'
 
 const modules = import.meta.glob('../**/*.*s')
 
@@ -107,6 +108,66 @@ describe('githubAccounts', () => {
     await expect(
       t.mutation(api.githubAccounts.update, { id, username: 'alice', org: 'corp' })
     ).rejects.toThrow('GitHub account alice@corp already exists')
+  })
+
+  test('update permits non-identity changes on legacy case-variant duplicates', async () => {
+    const t = convexTest(schema, modules)
+    const now = Date.now()
+    const id = await t.run(async ctx => {
+      await ctx.db.insert('githubAccounts', {
+        username: 'Alice',
+        org: 'Corp',
+        createdAt: now,
+        updatedAt: now,
+      })
+      return ctx.db.insert('githubAccounts', {
+        username: 'alice',
+        org: 'corp',
+        createdAt: now + 1,
+        updatedAt: now + 1,
+      })
+    })
+
+    await expect(
+      t.mutation(api.githubAccounts.update, { id, repoRoot: 'D:/github/example' })
+    ).resolves.toBeNull()
+    expect((await t.query(api.githubAccounts.get, { id }))?.repoRoot).toBe('D:/github/example')
+  })
+
+  test('migration merges legacy case-variant identities without losing metadata', async () => {
+    const t = convexTest(schema, modules)
+    migrationsTest.register(t)
+    const ids = await t.run(async ctx => {
+      const first = await ctx.db.insert('githubAccounts', {
+        username: 'Alice',
+        org: 'Corp',
+        usageProvider: 'codex',
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      const second = await ctx.db.insert('githubAccounts', {
+        username: 'alice',
+        org: 'corp',
+        repoRoot: 'D:/github/latest',
+        createdAt: 2,
+        updatedAt: 2,
+      })
+      return { first, second }
+    })
+
+    await t.mutation(internal.migrations.runMergeCaseCollidingGitHubAccounts, {})
+
+    const accounts = await t.query(api.githubAccounts.list)
+    expect(accounts).toHaveLength(1)
+    expect(accounts[0]).toMatchObject({
+      _id: ids.first,
+      username: 'Alice',
+      org: 'Corp',
+      repoRoot: 'D:/github/latest',
+      usageProvider: 'codex',
+      updatedAt: 2,
+    })
+    expect(await t.query(api.githubAccounts.get, { id: ids.second })).toBeNull()
   })
 
   test('usage provider is optional and can be changed to Codex', async () => {

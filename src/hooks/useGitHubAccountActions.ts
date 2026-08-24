@@ -96,7 +96,7 @@ async function removeConnectedAccount(
     const account = findAccount(getAccounts(), username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    invalidateUsageProviderSelection(account)
+    await invalidateUsageProviderSelection(account)
     let error = 'Account removed, but its offline fallback could not be cleared'
     for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
       try {

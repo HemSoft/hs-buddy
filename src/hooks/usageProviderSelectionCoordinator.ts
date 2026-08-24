@@ -169,13 +169,23 @@ export async function serializeUsageProviderSelection(
   }
 }
 
-export function invalidateUsageProviderSelection(account: Pick<GitHubAccount, 'username' | 'org'>) {
+export async function invalidateUsageProviderSelection(
+  account: Pick<GitHubAccount, 'username' | 'org'>
+) {
   const key = getUsageProviderOverrideKey(account)
+  const pendingReconciliation = reconciliations.get(key)
   const revision = (selectionRevisions.get(key) ?? 0) + 1
   selectionRevisions.set(key, revision)
   successfulSelectionRevisions.set(key, revision)
   staleReconciliationRecoveries.delete(key)
   cancelUsageProviderRetry(key)
+  if (pendingReconciliation) {
+    try {
+      await pendingReconciliation
+    } catch (_: unknown) {
+      // Removal cleanup remains authoritative when an older reconciliation rejects.
+    }
+  }
 }
 
 export function hasPendingUsageProviderWork(key: string) {

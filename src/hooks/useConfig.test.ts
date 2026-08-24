@@ -30,6 +30,8 @@ let mockConvexAccounts:
       org: string
       repoRoot?: string
       usageProvider?: 'copilot' | 'codex'
+      createdAt?: number
+      updatedAt?: number
     }>
   | undefined
 let mockSettings: Record<string, unknown> | undefined
@@ -1024,11 +1026,26 @@ describe('useConfig', () => {
       expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
     })
 
-    it('deduplicates case-variant identities while mirroring a removal', async () => {
+    it('merges legacy case-variant identities while mirroring a removal', async () => {
       mockConvexAccounts = [
         { _id: 'target', username: 'remove-me', org: 'org' },
-        { _id: 'first', username: 'User', org: 'Org', repoRoot: 'old-root' },
-        { _id: 'second', username: 'user', org: 'org', repoRoot: 'new-root' },
+        {
+          _id: 'first',
+          username: 'User',
+          org: 'Org',
+          repoRoot: 'old-root',
+          usageProvider: 'codex',
+          createdAt: 1,
+          updatedAt: 1,
+        },
+        {
+          _id: 'second',
+          username: 'user',
+          org: 'org',
+          repoRoot: 'new-root',
+          createdAt: 2,
+          updatedAt: 2,
+        },
       ]
       mockRemove.mockResolvedValue(undefined)
       const { result } = renderHook(() => useGitHubAccounts())
@@ -1037,7 +1054,7 @@ describe('useConfig', () => {
 
       expect(response).toEqual({ success: true })
       expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
-        { username: 'user', org: 'org', repoRoot: 'new-root' },
+        { username: 'User', org: 'Org', repoRoot: 'new-root', usageProvider: 'codex' },
       ])
     })
 
@@ -1435,6 +1452,84 @@ describe('useConfig', () => {
       } finally {
         vi.useRealTimers()
       }
+    })
+
+    it('waits for in-flight stale recovery before clearing a removed identity', async () => {
+      let resolveStaleClear!: () => void
+      let resolveRecovery!: () => void
+      let storedOverride: 'copilot' | 'codex' | null = 'codex'
+      let copilotWriteCount = 0
+      mockConvexAccounts = [
+        { _id: 'old-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          const provider = args[2] as 'copilot' | 'codex' | null
+          if (provider === null && !resolveStaleClear) {
+            return new Promise(resolve => {
+              resolveStaleClear = () => {
+                storedOverride = null
+                resolve({ success: true })
+              }
+            })
+          }
+          if (provider === 'copilot' && ++copilotWriteCount === 2) {
+            return new Promise(resolve => {
+              resolveRecovery = () => {
+                storedOverride = 'copilot'
+                resolve({ success: true })
+              }
+            })
+          }
+          storedOverride = provider
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(resolveStaleClear).toBeTypeOf('function'))
+
+      mockIsWebSocketConnected = false
+      rerender()
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: true,
+        })
+        resolveStaleClear()
+      })
+      await waitFor(() => expect(resolveRecovery).toBeTypeOf('function'))
+
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('HemSoft', 'HemSoft')
+      })
+      await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ id: 'old-id' }))
+      expect(storedOverride).toBeNull()
+
+      await act(async () => {
+        resolveRecovery()
+        expect(await removal).toEqual({ success: true })
+      })
+      expect(storedOverride).toBeNull()
+      const recoveryWriteCount = copilotWriteCount
+
+      mockConvexAccounts = [
+        { _id: 'new-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      rerender()
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 20))
+      })
+      expect(copilotWriteCount).toBe(recoveryWriteCount)
+      expect(storedOverride).toBeNull()
     })
 
     it('keeps the newest offline choice when an older recovery finishes late', async () => {

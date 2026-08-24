@@ -37,6 +37,20 @@ async function accountIdentityExists(
   )
 }
 
+async function assertAvailableAccountIdentity(
+  ctx: MutationCtx,
+  id: Id<'githubAccounts'>,
+  current: { username: string; org: string },
+  username?: string,
+  org?: string
+) {
+  if (username === undefined && org === undefined) return
+  const identity = { username: username ?? current.username, org: org ?? current.org }
+  if (await accountIdentityExists(ctx, identity, id)) {
+    throw new Error(`GitHub account ${identity.username}@${identity.org} already exists`)
+  }
+}
+
 /**
  * Internal: return every tracked account for snapshot collection runs.
  */
@@ -124,15 +138,7 @@ export const update = mutation({
       throw new Error('GitHub account not found')
     }
 
-    const updatedIdentity = {
-      username: username ?? existing.username,
-      org: org ?? existing.org,
-    }
-    if (await accountIdentityExists(ctx, updatedIdentity, id)) {
-      throw new Error(
-        `GitHub account ${updatedIdentity.username}@${updatedIdentity.org} already exists`
-      )
-    }
+    await assertAvailableAccountIdentity(ctx, id, existing, username, org)
 
     if (usageProvider === 'codex') await transferCodexOwnership(ctx, id)
 

@@ -1,14 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
-import type { AppConfig, GitHubAccount } from '../types/config'
-import {
-  useGitHubAccountsConvex,
-  useGitHubAccountMutations,
-  useSettings,
-  useSettingsMutations,
-} from './useConvex'
+import type { AppConfig } from '../types/config'
+import { useGitHubAccountsConvex, useSettings, useSettingsMutations } from './useConvex'
 import { getErrorMessage } from '../utils/errorUtils'
 import { IPC_INVOKE } from '../ipc/contracts'
+import { useLocalAccountConfig, useResolvedAccounts } from './useUsageProviderOverrides'
+import { useGitHubAccountActions } from './useGitHubAccountActions'
 
 function useElectronStoreFallback<T>(
   convexValue: T | undefined,
@@ -119,100 +116,6 @@ export function useConfig() {
  * Uses Convex as primary source, falls back to electron-store if Convex unavailable
  */
 
-function resolveAccountsFromSources(
-  convexAccounts:
-    | Array<{
-        username: string
-        org: string
-        repoRoot?: string
-        usageProvider?: 'copilot' | 'codex'
-      }>
-    | undefined,
-  electronStoreAccounts: GitHubAccount[],
-  convexConnected: boolean
-): GitHubAccount[] {
-  if (convexConnected && convexAccounts) {
-    return convexAccounts.map(a => ({
-      username: a.username,
-      org: a.org,
-      ...(a.repoRoot && { repoRoot: a.repoRoot }),
-      ...(a.usageProvider && { usageProvider: a.usageProvider }),
-    }))
-  }
-  return electronStoreAccounts
-}
-
-function shouldInitializeAccounts(
-  currentAccounts: GitHubAccount[],
-  electronStoreAccounts: GitHubAccount[],
-  convexAccounts:
-    | Array<{
-        username: string
-        org: string
-        repoRoot?: string
-        usageProvider?: 'copilot' | 'codex'
-      }>
-    | undefined
-): boolean {
-  return (
-    currentAccounts.length === 0 &&
-    (electronStoreAccounts.length > 0 || (!!convexAccounts && convexAccounts.length > 0))
-  )
-}
-
-function buildAccountsContentKey(
-  convexAccounts:
-    | Array<{
-        username: string
-        org: string
-        repoRoot?: string
-        usageProvider?: 'copilot' | 'codex'
-      }>
-    | undefined,
-  electronStoreAccounts: GitHubAccount[],
-  convexConnected: boolean
-): string {
-  return JSON.stringify(
-    resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(
-      account => [account.username, account.org, account.repoRoot, account.usageProvider]
-    )
-  )
-}
-
-function syncAccountsRef(
-  prevKeyRef: { current: string },
-  accountsRef: { current: GitHubAccount[] },
-  contentKey: string,
-  convexAccounts:
-    | Array<{
-        username: string
-        org: string
-        repoRoot?: string
-        usageProvider?: 'copilot' | 'codex'
-      }>
-    | undefined,
-  electronStoreAccounts: GitHubAccount[],
-  convexConnected: boolean
-) {
-  if (prevKeyRef.current !== contentKey) {
-    prevKeyRef.current = contentKey
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-    return
-  }
-
-  if (shouldInitializeAccounts(accountsRef.current, electronStoreAccounts, convexAccounts)) {
-    accountsRef.current = resolveAccountsFromSources(
-      convexAccounts,
-      electronStoreAccounts,
-      convexConnected
-    )
-  }
-}
-
 function computeAccountsLoading(convexConnected: boolean, fallbackLoaded: boolean): boolean {
   return !convexConnected && !fallbackLoaded
 }
@@ -267,99 +170,31 @@ function resolveCopilotValues(s: {
 
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
-  const { create, update, remove } = useGitHubAccountMutations()
-  const [electronStoreAccounts, setElectronStoreAccounts] = useState<GitHubAccount[]>([])
-  const [fallbackLoaded, setFallbackLoaded] = useState(true) // Start true - electron-store always has defaults
-
-  // Load electron-store accounts as fallback
-  useEffect(() => {
-    window.ipcRenderer
-      .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
-      .then((config: AppConfig) => {
-        setElectronStoreAccounts(config.github?.accounts ?? [])
-        setFallbackLoaded(true)
-      })
-      .catch(() => setFallbackLoaded(true))
-  }, [])
+  const accountActions = useGitHubAccountActions(convexAccounts)
+  const {
+    accounts: electronStoreAccounts,
+    overrides: usageProviderOverrides,
+    loaded: fallbackLoaded,
+  } = useLocalAccountConfig(convexAccounts)
 
   // Use Convex if connected, otherwise electron-store
   const convexConnected = convexAccounts !== undefined
 
-  // Build content key for comparison (include repoRoot so edits trigger refresh)
-  const contentKey = buildAccountsContentKey(convexAccounts, electronStoreAccounts, convexConnected)
-
-  // Use ref to track previous key and accounts
-  const prevKeyRef = useRef(contentKey)
-  const accountsRef = useRef<GitHubAccount[]>([])
-
-  // Only update accounts if content actually changed
-  syncAccountsRef(
-    prevKeyRef,
-    accountsRef,
-    contentKey,
+  const accounts = useResolvedAccounts(
     convexAccounts,
     electronStoreAccounts,
-    convexConnected
+    usageProviderOverrides
   )
-
-  const accounts = accountsRef.current
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
 
   const loading = computeAccountsLoading(convexConnected, fallbackLoaded)
-
-  const findAccount = (username: string, org: string) => {
-    /* v8 ignore next -- defensive guard during convex loading */
-    if (!convexAccounts) return undefined
-    return convexAccounts.find(account => account.username === username && account.org === org)
-  }
-
-  const addAccount = async (account: GitHubAccount) => {
-    try {
-      await create({
-        username: account.username,
-        org: account.org,
-        ...(account.usageProvider && { usageProvider: account.usageProvider }),
-      })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  const removeAccount = async (username: string, org: string) => {
-    try {
-      const account = findAccount(username, org)
-      if (!account) {
-        return { success: false, error: 'Account not found' }
-      }
-      await remove({ id: account._id })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  const updateAccount = async (username: string, org: string, updates: Partial<GitHubAccount>) => {
-    try {
-      const account = findAccount(username, org)
-      if (!account) {
-        return { success: false, error: 'Account not found' }
-      }
-      await update({ id: account._id, ...updates })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
 
   return {
     accounts,
     uniqueUsernames,
     loading,
     canUpdateAccounts: convexConnected,
-    addAccount,
-    removeAccount,
-    updateAccount,
+    ...accountActions,
   }
 }
 

@@ -29,6 +29,7 @@ interface DisplayRect {
 export interface AppConfig {
   github: {
     accounts: GitHubAccount[]
+    usageProviderOverrides?: Partial<Record<string, UsageProvider>>
   }
   ui: {
     theme: 'dark' | 'light'
@@ -99,6 +100,11 @@ export const configSchema: Schema<AppConfig> = {
           required: ['username', 'org'],
         },
         default: [],
+      },
+      usageProviderOverrides: {
+        type: 'object',
+        additionalProperties: { type: 'string', enum: ['copilot', 'codex'] },
+        default: {},
       },
     },
     required: ['accounts'],
@@ -349,6 +355,7 @@ export const configSchema: Schema<AppConfig> = {
 export const defaultConfig: AppConfig = {
   github: {
     accounts: [],
+    usageProviderOverrides: {},
   },
   ui: {
     theme: 'dark',

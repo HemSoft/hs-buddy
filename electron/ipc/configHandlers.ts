@@ -245,6 +245,27 @@ function registerMiscConfigHandlers(): void {
     }
   )
 
+  ipcMain.handle(
+    IPC_INVOKE.CONFIG_SET_USAGE_PROVIDER_OVERRIDE,
+    (_event: IpcMainInvokeEvent, username: unknown, org: unknown, provider: unknown) => {
+      if (typeof username !== 'string' || typeof org !== 'string') {
+        return { success: false, error: 'Account identity must be text' }
+      }
+      if (provider !== null && provider !== 'copilot' && provider !== 'codex') {
+        return { success: false, error: 'Usage provider must be Copilot or Codex' }
+      }
+
+      try {
+        assertValidGitHubAccountSlug(username)
+        assertValidGitHubAccountSlug(org)
+        configManager.setUsageProviderOverride(username, org, provider)
+        return { success: true }
+      } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error) }
+      }
+    }
+  )
+
   ipcMain.handle(IPC_INVOKE.CONFIG_GET_CONFIG, () => {
     return configManager.getConfig()
   })

@@ -79,6 +79,7 @@ export const IPC_INVOKE = {
   CONFIG_PLAY_NOTIFICATION_SOUND: 'config:play-notification-sound',
   CONFIG_GET_FINANCE_WATCHLIST: 'config:get-finance-watchlist',
   CONFIG_SET_FINANCE_WATCHLIST: 'config:set-finance-watchlist',
+  CONFIG_SET_USAGE_PROVIDER_OVERRIDE: 'config:set-usage-provider-override',
   CONFIG_GET_CONFIG: 'config:get-config',
   CONFIG_GET_STORE_PATH: 'config:get-store-path',
   CONFIG_OPEN_IN_EDITOR: 'config:open-in-editor',

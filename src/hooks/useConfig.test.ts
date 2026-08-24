@@ -48,11 +48,17 @@ describe('useConfig', () => {
     vi.clearAllMocks()
     mockConvexAccounts = undefined
     mockSettings = undefined
-    mockInvoke.mockResolvedValue({
-      github: { accounts: [{ username: 'user1', org: 'myorg' }] },
-      pr: { refreshInterval: 10, autoRefresh: true, recentlyMergedDays: 14 },
-      copilot: { ghAccount: 'user1', model: 'gpt-4' },
-    })
+    mockInvoke.mockImplementation((channel: string) =>
+      Promise.resolve(
+        channel === 'config:get-config'
+          ? {
+              github: { accounts: [{ username: 'user1', org: 'myorg' }] },
+              pr: { refreshInterval: 10, autoRefresh: true, recentlyMergedDays: 14 },
+              copilot: { ghAccount: 'user1', model: 'gpt-4' },
+            }
+          : { success: true }
+      )
+    )
   })
 
   describe('useConfig hook', () => {
@@ -146,6 +152,111 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useGitHubAccounts())
       await waitFor(() => expect(result.current.accounts).toBeDefined())
       expect(result.current.canUpdateAccounts).toBe(false)
+    })
+
+    it('applies a persisted local provider while Convex is unavailable', async () => {
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      expect(result.current.canUpdateAccounts).toBe(false)
+    })
+
+    it('persists an offline provider and updates every mounted account consumer', async () => {
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? { github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] } }
+            : { success: true }
+        )
+      )
+
+      const { result } = renderHook(() => ({
+        first: useGitHubAccounts(),
+        second: useGitHubAccounts(),
+      }))
+      await waitFor(() => expect(result.current.first.accounts).toHaveLength(1))
+
+      await act(async () => {
+        expect(
+          await result.current.first.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+        ).toEqual({ success: true })
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+      await waitFor(() => {
+        expect(result.current.first.accounts[0].usageProvider).toBe('codex')
+        expect(result.current.second.accounts[0].usageProvider).toBe('codex')
+      })
+    })
+
+    it('uses a local provider until Convex supplies one, then clears the override', async () => {
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      rerender()
+
+      expect(result.current.accounts[0].usageProvider).toBe('copilot')
+      await waitFor(() =>
+        expect(mockInvoke).toHaveBeenCalledWith(
+          'config:set-usage-provider-override',
+          'HemSoft',
+          'HemSoft',
+          null
+        )
+      )
+    })
+
+    it('uses the local provider when connected Convex data has no explicit provider', async () => {
+      mockConvexAccounts = [{ _id: 'id1', username: 'HemSoft', org: 'HemSoft' }]
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
     })
 
     it('handles electron-store config load error gracefully', async () => {
@@ -243,6 +354,52 @@ describe('useConfig', () => {
       const res = await result.current.updateAccount('user1', 'myorg', { org: 'neworg' })
       expect(res.success).toBe(false)
       expect(res.error).toBe('Update failed')
+    })
+
+    it('updates a connected usage provider and clears its local override', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockResolvedValue(undefined)
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      const response = await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+
+      expect(response).toEqual({ success: true })
+      expect(mockUpdate).toHaveBeenCalledWith({ id: '123', usageProvider: 'codex' })
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+    })
+
+    it('reports a failed local reconciliation after a connected provider update', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? { github: { accounts: [] } }
+            : { success: false, error: 'Local store unavailable' }
+        )
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+        success: false,
+        error: 'Local store unavailable',
+      })
+    })
+
+    it('reports a rejected connected provider update', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockRejectedValue(new Error('Provider update failed'))
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+        success: false,
+        error: 'Provider update failed',
+      })
     })
 
     it('updates accountsRef when Convex accounts change across renders', () => {

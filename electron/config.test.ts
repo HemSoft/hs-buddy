@@ -111,6 +111,21 @@ describe('config', () => {
     })
   })
 
+  describe('usage provider overrides', () => {
+    it('stores an account provider without credentials', () => {
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+    })
+
+    it('clears an account provider during Convex reconciliation', () => {
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', null)
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
+  })
+
   describe('UI values', () => {
     it('getUiValue returns default when not set', () => {
       const value = configManager.getUiValue('theme')

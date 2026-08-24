@@ -4,7 +4,12 @@ import {
   defaultConfig,
   type AppConfig,
   type GitHubAccount,
+  type UsageProvider,
 } from '../src/types/config'
+import {
+  getUsageProviderOverrideKey,
+  type UsageProviderOverrides,
+} from '../src/utils/usageProviderOverrides'
 
 /** Shared Convex URL — single source of truth for the main process. */
 export const CONVEX_URL =
@@ -63,6 +68,21 @@ class ConfigManager {
     }
     accounts[index] = { ...accounts[index], ...updates }
     this.store.set('github.accounts', accounts)
+  }
+
+  getUsageProviderOverrides(): UsageProviderOverrides {
+    return this.store.get('github.usageProviderOverrides', {})
+  }
+
+  setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {
+    const overrides = { ...this.getUsageProviderOverrides() }
+    const key = getUsageProviderOverrideKey({ username, org })
+    if (provider === null) {
+      delete overrides[key]
+    } else {
+      overrides[key] = provider
+    }
+    this.store.set('github.usageProviderOverrides', overrides)
   }
 
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {

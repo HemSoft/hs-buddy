@@ -10,7 +10,10 @@ import {
   resolvePRFallback,
   resolveCopilotFallback,
 } from './useConfig'
-import { persistUsageProviderOverride } from './useUsageProviderOverrides'
+import {
+  mergeUsageProviderOverrideSnapshot,
+  persistUsageProviderOverride,
+} from './useUsageProviderOverrides'
 
 // Mock Convex hooks
 const mockCreate = vi.fn()
@@ -146,6 +149,16 @@ describe('useConfig', () => {
   })
 
   describe('useGitHubAccounts', () => {
+    it('removes locally cleared keys from a stale override snapshot', () => {
+      expect(
+        mergeUsageProviderOverrideSnapshot(
+          { 'hemsoft/hemsoft': 'codex' },
+          {},
+          new Set(['hemsoft/hemsoft'])
+        )
+      ).toEqual({})
+    })
+
     it('uses Convex accounts when connected', () => {
       mockConvexAccounts = [{ _id: '1', username: 'user1', org: 'myorg' }]
       const { result } = renderHook(() => useGitHubAccounts())
@@ -446,6 +459,83 @@ describe('useConfig', () => {
       )
     })
 
+    it('retries a rejected provider reconciliation without waiting for account refresh', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue(undefined)
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                    usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                  },
+                }
+              : { success: true }
+          )
+        )
+
+        renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(1)
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('retries conflicting override cleanup after an IPC rejection', async () => {
+      vi.useFakeTimers()
+      let clearAttempts = 0
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'Owner', org: 'HemSoft', usageProvider: 'codex' },
+          { _id: 'id2', username: 'Second', org: 'HemSoft' },
+        ]
+        mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+          if (channel === 'config:get-config') {
+            return Promise.resolve({
+              github: {
+                accounts: [
+                  { username: 'Owner', org: 'HemSoft' },
+                  { username: 'Second', org: 'HemSoft' },
+                ],
+                usageProviderOverrides: { 'hemsoft/second': 'codex' },
+              },
+            })
+          }
+          if (channel === 'config:set-usage-provider-override' && args[2] === null) {
+            clearAttempts += 1
+            if (clearAttempts === 1) return Promise.reject(new Error('Temporary IPC failure'))
+          }
+          return Promise.resolve({ success: true })
+        })
+
+        renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(clearAttempts).toBe(1)
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(clearAttempts).toBe(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('uses the local provider when connected Convex data has no explicit provider', async () => {
       mockConvexAccounts = [{ _id: 'id1', username: 'HemSoft', org: 'HemSoft' }]
       mockInvoke.mockImplementation((channel: string) =>
@@ -518,6 +608,12 @@ describe('useConfig', () => {
       const res = await result.current.removeAccount('user1', 'myorg')
       expect(res.success).toBe(true)
       expect(mockRemove).toHaveBeenCalledWith({ id: '123' })
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'user1',
+        'myorg',
+        null
+      )
     })
 
     it('removeAccount returns error when account not found', async () => {

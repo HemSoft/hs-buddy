@@ -181,12 +181,17 @@ describe('config', () => {
       configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
       const managerStore = (
-        configManager as unknown as { store: { set: (key: string, value: unknown) => void } }
+        configManager as unknown as {
+          store: {
+            get: (key: string, defaultValue?: unknown) => unknown
+            set: (key: string, value: unknown) => void
+          }
+        }
       ).store
 
       managerStore.set('github.accounts', [])
 
-      expect(configManager.getUsageProviderOverrides()).toEqual({})
+      expect(managerStore.get('github.usageProviderOverrides')).toEqual({})
     })
   })
 

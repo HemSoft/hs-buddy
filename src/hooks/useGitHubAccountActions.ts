@@ -82,7 +82,10 @@ async function removeConnectedAccount(
     const account = findAccount(accounts, username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    return { success: true }
+    const cleared = await persistUsageProviderOverride(account, null)
+    return cleared.success
+      ? { success: true }
+      : { success: false, error: cleared.error ?? 'Account removed, but local provider remained' }
   } catch (error: unknown) {
     return { success: false, error: getErrorMessage(error) }
   }

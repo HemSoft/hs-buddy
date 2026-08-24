@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1009] - 2026-08-24
+
+### Fixed
+
+- Retry pending provider reconciliation (#592)
+
 ## [0.1.1008] - 2026-08-24
 
 ### Fixed

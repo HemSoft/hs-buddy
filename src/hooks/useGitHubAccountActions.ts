@@ -6,6 +6,7 @@ import {
   mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
   publishUsageProviderOverrideChange,
+  waitForUsageProviderReconciliation,
 } from './useUsageProviderOverrides'
 
 type ConvexAccounts = ReturnType<typeof useGitHubAccountsConvex>
@@ -131,6 +132,7 @@ async function updateConnectedUsageProvider(
   options: UsageProviderUpdateOptions
 ): Promise<MutationResult> {
   const accountIdentity = { username, org }
+  await waitForUsageProviderReconciliation(accountIdentity)
   if (options.localOnly) {
     return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
   }

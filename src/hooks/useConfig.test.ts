@@ -223,6 +223,38 @@ describe('useConfig', () => {
       expect(mockUpdate).toHaveBeenCalledTimes(attemptsBeforeReadding)
     })
 
+    it('filters a stale initial override after an earlier connected mirror', async () => {
+      let resolveConfig!: (config: AppConfig) => void
+      const configRequest = new Promise<AppConfig>(resolve => {
+        resolveConfig = resolve
+      })
+      mockConvexAccounts = []
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'config:get-config' ? configRequest : Promise.resolve({ success: true })
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() =>
+        expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
+      )
+
+      resolveConfig({
+        github: {
+          accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+          usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+        },
+      } as unknown as AppConfig)
+      await act(async () => {
+        await configRequest
+      })
+
+      mockConvexAccounts = [{ _id: 'new-id', username: 'HemSoft', org: 'HemSoft' }]
+      rerender()
+
+      await waitFor(() => expect(result.current.accounts).toHaveLength(1))
+      expect(result.current.accounts[0].usageProvider).toBeUndefined()
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
     it('falls back to electron-store when Convex unavailable', async () => {
       mockConvexAccounts = undefined
       const { result } = renderHook(() => useGitHubAccounts())
@@ -874,6 +906,49 @@ describe('useConfig', () => {
         'HemSoft',
         null
       )
+    })
+
+    it('waits for an in-flight reconciliation before saving a manual provider choice', async () => {
+      let resolveReconciliation!: () => void
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>(resolve => {
+              resolveReconciliation = resolve
+            })
+        )
+        .mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+
+      let manualSave!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        manualSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')
+      })
+      await Promise.resolve()
+      expect(mockUpdate).toHaveBeenCalledTimes(1)
+
+      await act(async () => {
+        resolveReconciliation()
+        await manualSave
+      })
+      expect(mockUpdate).toHaveBeenNthCalledWith(2, { id: '123', usageProvider: 'copilot' })
+      expect(await manualSave).toEqual({ success: true })
     })
 
     it('reports a failed local reconciliation after a connected provider update', async () => {

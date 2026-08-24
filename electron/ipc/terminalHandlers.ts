@@ -146,12 +146,12 @@ interface TerminalSession {
   sender: WebContents
   /** Timer for delayed startup command — cleared on kill to prevent writing to a dead PTY */
   startupTimer?: ReturnType<typeof setTimeout>
+  /** True until the delayed PowerShell bootstrap starts or user input cancels it. */
+  startupBootstrapPending?: boolean
   /** Suppresses the echoed PowerShell bootstrap until its private completion marker arrives. */
   startupOutputFilter?: StartupOutputFilter
   /** Stops startup filtering if PowerShell never emits the completion marker. */
   startupFilterTimer?: ReturnType<typeof setTimeout>
-  /** Holds user input until the PowerShell bootstrap has reached its completion marker. */
-  startupInputBuffer?: string
   /** Buffer for partial OSC 7 sequences split across data chunks */
   oscBuffer: string
 }
@@ -240,18 +240,6 @@ function forwardTerminalData(session: TerminalSession, data: string): void {
   processOsc7(session, data)
 }
 
-function flushStartupInput(session: TerminalSession): void {
-  const bufferedInput = session.startupInputBuffer
-  session.startupInputBuffer = undefined
-  if (!bufferedInput || !session.alive) return
-
-  try {
-    session.pty.write(bufferedInput)
-  } catch (_: unknown) {
-    // PTY died before the buffered input could be written — ignore
-  }
-}
-
 function handleTerminalData(session: TerminalSession, data: string): void {
   const filter = session.startupOutputFilter
   if (!filter) {
@@ -270,7 +258,14 @@ function handleTerminalData(session: TerminalSession, data: string): void {
   session.startupFilterTimer = undefined
   session.startupOutputFilter = undefined
   forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
-  flushStartupInput(session)
+}
+
+function stopStartupOutputFilter(session: TerminalSession): void {
+  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
+  session.startupFilterTimer = undefined
+  const bufferedSuffix = session.startupOutputFilter?.bufferedSuffix ?? ''
+  session.startupOutputFilter = undefined
+  forwardTerminalData(session, bufferedSuffix)
 }
 
 function createTerminalSession(
@@ -321,12 +316,15 @@ function scheduleStartupCommands(
 ): void {
   const session = sessions.get(sessionId)
   if (!session) return
-  if (shellStartupCommand) session.startupInputBuffer = ''
+  if (shellStartupCommand) session.startupBootstrapPending = true
   session.startupTimer = setTimeout(() => {
     const s = sessions.get(sessionId)
     if (!s?.alive) return
+    s.startupTimer = undefined
     try {
       if (shellStartupCommand) {
+        if (!s.startupBootstrapPending) return
+        s.startupBootstrapPending = false
         const marker = buildStartupMarker(sessionId)
         s.startupOutputFilter = { marker, bufferedSuffix: '' }
         s.startupFilterTimer = setTimeout(() => {
@@ -334,10 +332,7 @@ function scheduleStartupCommands(
           const filter = currentSession?.startupOutputFilter
           if (!currentSession?.alive || !filter || filter.marker !== marker) return
 
-          currentSession.startupFilterTimer = undefined
-          currentSession.startupOutputFilter = undefined
-          forwardTerminalData(currentSession, filter.bufferedSuffix)
-          flushStartupInput(currentSession)
+          stopStartupOutputFilter(currentSession)
         }, STARTUP_FILTER_TIMEOUT_MS)
         forwardTerminalData(s, '\r\x1b[2K')
         const nextCommand = startupCommand ? `;${startupCommand}` : ''
@@ -351,7 +346,6 @@ function scheduleStartupCommands(
       if (s.startupFilterTimer) clearTimeout(s.startupFilterTimer)
       s.startupFilterTimer = undefined
       s.startupOutputFilter = undefined
-      flushStartupInput(s)
       // PTY died between alive check and write — ignore
     }
   }, 500)
@@ -384,8 +378,8 @@ function buildSpawnOptions(
 function cleanupTerminalSession(session: TerminalSession): void {
   if (session.startupTimer) clearTimeout(session.startupTimer)
   if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
+  session.startupBootstrapPending = false
   session.startupOutputFilter = undefined
-  session.startupInputBuffer = undefined
   for (const d of session.disposables) {
     try {
       d.dispose()
@@ -513,8 +507,16 @@ export function registerTerminalHandlers(): void {
   ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
     if (!session?.alive) return
-    if (session.startupInputBuffer !== undefined) {
-      session.startupInputBuffer += data
+    if (session.startupBootstrapPending) {
+      if (session.startupTimer) clearTimeout(session.startupTimer)
+      session.startupTimer = undefined
+      session.startupBootstrapPending = false
+      session.pty.write(data)
+      return
+    }
+    if (session.startupOutputFilter) {
+      stopStartupOutputFilter(session)
+      session.pty.write(data.includes('\x03') ? data : `\x03${data}`)
       return
     }
     session.pty.write(data)

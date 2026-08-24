@@ -176,7 +176,6 @@ export function findRepoPath(
 /** Build the PowerShell OSC 7 prompt-injection script. */
 function buildPowerShellOsc7Setup(): string {
   return [
-    '& { . $PROFILE } 2>$null',
     '$__hsb_op=$function:prompt',
     'function global:prompt{',
     '$e=[char]0x1b',

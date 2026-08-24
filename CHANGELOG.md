@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.989] - 2026-08-24
+
+### Fixed
+
+- Preserve interactive PowerShell profiles (#578)
+
 ## [0.1.988] - 2026-08-24
 
 ### Fixed

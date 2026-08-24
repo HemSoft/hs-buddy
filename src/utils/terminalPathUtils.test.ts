@@ -214,6 +214,7 @@ describe('buildTerminalStartupCommand', () => {
 
     expect(command).toContain('function global:prompt')
     expect(command).toContain('file:///')
+    expect(command).not.toContain('. $PROFILE')
   })
 
   it('returns undefined for non-PowerShell shells', () => {

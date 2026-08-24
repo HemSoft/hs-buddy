@@ -1,12 +1,10 @@
 import { useCallback, useRef } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
-import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
 import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
 import {
   mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
-  publishUsageProviderOverrideChange,
   serializeUsageProviderSelection,
 } from './useUsageProviderOverrides'
 
@@ -77,6 +75,16 @@ async function createConnectedAccount(
   }
 }
 
+async function clearRemovedAccountFallback(
+  account: ConvexAccount,
+  getAccounts: () => ConvexAccounts
+): Promise<MutationResult> {
+  const cleared = await persistUsageProviderOverride(account, null)
+  if (!cleared.success) return cleared
+  const remainingAccounts = getAccounts()?.filter(candidate => candidate._id !== account._id) ?? []
+  return mirrorConnectedGitHubAccounts(remainingAccounts)
+}
+
 async function removeConnectedAccount(
   getAccounts: () => ConvexAccounts,
   username: string,
@@ -87,24 +95,12 @@ async function removeConnectedAccount(
     const account = findAccount(getAccounts(), username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    const remainingAccounts =
-      getAccounts()?.filter(candidate => candidate._id !== account._id) ?? []
     let error = 'Account removed, but its offline fallback could not be cleared'
     for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
       try {
-        const mirrored = await mirrorConnectedGitHubAccounts(remainingAccounts)
-        if (mirrored.success) {
-          const removedKey = getUsageProviderOverrideKey(account)
-          if (
-            !remainingAccounts.some(
-              candidate => getUsageProviderOverrideKey(candidate) === removedKey
-            )
-          ) {
-            publishUsageProviderOverrideChange(account, null)
-          }
-          return { success: true }
-        }
-        error = mirrored.error ?? error
+        const result = await clearRemovedAccountFallback(account, getAccounts)
+        if (result.success) return { success: true }
+        error = result.error ?? error
       } catch (caught: unknown) {
         error = getErrorMessage(caught)
       }

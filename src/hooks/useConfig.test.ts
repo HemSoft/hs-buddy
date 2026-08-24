@@ -956,6 +956,74 @@ describe('useConfig', () => {
       ])
     })
 
+    it('clears a deleted override before mirroring a same-identity replacement', async () => {
+      let finishRemoval!: () => void
+      mockConvexAccounts = [{ _id: 'old-id', username: 'replace-me', org: 'org' }]
+      mockRemove.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            finishRemoval = resolve
+          })
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('replace-me', 'org')
+      })
+      await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ id: 'old-id' }))
+
+      mockConvexAccounts = [
+        { _id: 'new-id', username: 'replace-me', org: 'org', repoRoot: 'replacement-root' },
+      ]
+      rerender()
+      await act(async () => {
+        finishRemoval()
+        await removal
+      })
+
+      const clearCall = mockInvoke.mock.calls.findIndex(
+        call =>
+          call[0] === 'config:set-usage-provider-override' &&
+          call[1] === 'replace-me' &&
+          call[2] === 'org' &&
+          call[3] === null
+      )
+      const replacementMirrorCall = mockInvoke.mock.calls.findIndex(
+        (call, index) =>
+          index > clearCall &&
+          call[0] === 'config:sync-github-accounts' &&
+          Array.isArray(call[1]) &&
+          call[1][0]?.repoRoot === 'replacement-root'
+      )
+      expect(clearCall).toBeGreaterThanOrEqual(0)
+      expect(replacementMirrorCall).toBeGreaterThan(clearCall)
+    })
+
+    it('retries override cleanup before mirroring a removed account', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockRemove.mockResolvedValue(undefined)
+      let clearAttempts = 0
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          clearAttempts += 1
+          return Promise.resolve(
+            clearAttempts < 3 ? { success: false, error: 'Store busy' } : { success: true }
+          )
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      const response = await result.current.removeAccount('user1', 'myorg')
+
+      expect(response).toEqual({ success: true })
+      expect(clearAttempts).toBe(3)
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
+    })
+
     it('deduplicates case-variant identities while mirroring a removal', async () => {
       mockConvexAccounts = [
         { _id: 'target', username: 'remove-me', org: 'org' },

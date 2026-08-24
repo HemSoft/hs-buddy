@@ -53,13 +53,6 @@ function notifyOverride(
   )
 }
 
-export function publishUsageProviderOverrideChange(
-  account: Pick<GitHubAccount, 'username' | 'org'>,
-  provider: UsageProvider | null
-) {
-  notifyOverride(account, provider)
-}
-
 async function waitForUsageProviderReconciliation(
   account: Pick<GitHubAccount, 'username' | 'org'>
 ): Promise<void> {

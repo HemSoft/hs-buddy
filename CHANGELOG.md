@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.993] - 2026-08-24
+
+### Changed
+
+- Rename perfection skill
+
 ## [0.1.992] - 2026-08-24
 
 ### Fixed

@@ -1,9 +1,10 @@
 <#
 .SYNOPSIS
-Runs the Perfection skill quality gates and prints the next repo improvements.
+Runs the Buddy Perfection quality gates and prints the next repo improvements.
 
 .DESCRIPTION
-Deterministically evaluates the hs-buddy gates listed in .agents/skills/perfection/SKILL.md:
+Deterministically evaluates the hs-buddy baseline gates documented in
+.agents/skills/buddy-perfection/SKILL.md:
 TypeScript, ESLint, Test Coverage, CRAP Score, Knip, Prettier, Markdown Lint,
 Bundle Size, e18e, Dep Cruiser, React Doctor, and Scorecard.
 
@@ -405,7 +406,7 @@ if ($Json) {
 }
 
 Write-Host ''
-Write-Host 'Perfection Metrics - hs-buddy'
+Write-Host 'Buddy Perfection - hs-buddy'
 Write-Host "Generated: $generatedAt"
 Write-Host "Score: $($report.PerfectionScore)"
 Write-Host ''

@@ -49,10 +49,11 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   getCloneRoots: vi.fn(() => ['/repos']),
   getOrgCandidates: vi.fn((owner: string) => [owner]),
   processOsc7Buffer: vi.fn(() => ({ cwd: null, remainingBuffer: '' })),
-  buildTerminalShellArgs: vi.fn(() => []),
+  buildTerminalShellArgs: vi.fn(() => ['-NoLogo', '-NoExit', '-Command', 'static-launcher']),
   buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
+  POWERSHELL_STARTUP_SCRIPT_ENV: 'HS_BUDDY_STARTUP_SCRIPT',
 }))
 
 vi.mock('../../src/utils/errorUtils', () => ({
@@ -283,29 +284,31 @@ describe('terminalHandlers', () => {
       emitExit: (exitCode: number) => void
     }
     const ptyProcesses: MockPty[] = []
-    const spawn = vi.fn(() => {
-      let onData: ((data: string) => void) | undefined
-      let onExit: ((event: { exitCode: number }) => void) | undefined
+    const spawn = vi.fn(
+      (_shell: string, _args: string[], _options: { env: Record<string, string> }) => {
+        let onData: ((data: string) => void) | undefined
+        let onExit: ((event: { exitCode: number }) => void) | undefined
 
-      const ptyProcess = {
-        onData: vi.fn((callback: (data: string) => void) => {
-          onData = callback
-          return { dispose: vi.fn() }
-        }),
-        onExit: vi.fn((callback: (event: { exitCode: number }) => void) => {
-          onExit = callback
-          return { dispose: vi.fn() }
-        }),
-        write: vi.fn(),
-        resize: vi.fn(),
-        kill: vi.fn(),
-        emitData: (data: string) => onData?.(data),
-        emitExit: (exitCode: number) => onExit?.({ exitCode }),
+        const ptyProcess = {
+          onData: vi.fn((callback: (data: string) => void) => {
+            onData = callback
+            return { dispose: vi.fn() }
+          }),
+          onExit: vi.fn((callback: (event: { exitCode: number }) => void) => {
+            onExit = callback
+            return { dispose: vi.fn() }
+          }),
+          write: vi.fn(),
+          resize: vi.fn(),
+          kill: vi.fn(),
+          emitData: (data: string) => onData?.(data),
+          emitExit: (exitCode: number) => onExit?.({ exitCode }),
+        }
+
+        ptyProcesses.push(ptyProcess)
+        return ptyProcess
       }
-
-      ptyProcesses.push(ptyProcess)
-      return ptyProcess
-    })
+    )
 
     const createRequireImpl = () => {
       const req = (mod: string) => {
@@ -672,8 +675,7 @@ describe('terminalHandlers', () => {
     }
   })
 
-  it('terminal:spawn sends PowerShell setup after launch instead of in process args', async () => {
-    vi.useFakeTimers()
+  it('terminal:spawn passes PowerShell setup through the child environment', async () => {
     const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
     vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
     const ptyHarness = createTrackedPtyHarness()
@@ -689,17 +691,54 @@ describe('terminalHandlers', () => {
         { cols: 80, rows: 24, startupCommand: 'echo hello' }
       )
 
-      vi.advanceTimersByTime(500)
-
-      expect(ptyHarness.spawn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.not.arrayContaining(['-EncodedCommand']),
-        expect.any(Object)
+      const [, shellArgs, spawnOptions] = ptyHarness.spawn.mock.calls[0]
+      expect(shellArgs).toContain('-Command')
+      expect(shellArgs).not.toContain('-EncodedCommand')
+      expect(shellArgs.join(' ')).not.toContain('setup-prompt')
+      expect(spawnOptions.env[terminalPathUtils.POWERSHELL_STARTUP_SCRIPT_ENV]).toBe(
+        'setup-prompt;echo hello'
       )
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('setup-prompt;echo hello\r')
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
     } finally {
       restore()
-      vi.useRealTimers()
+    }
+  })
+
+  it('forwards PowerShell startup and early-exit output without filtering', async () => {
+    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
+    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const { IPC_PUSH } = await import('../../src/ipc/contracts')
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const attachHandler = freshHandlers.get('terminal:attach')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler(
+        { sender: mockSender },
+        { cols: 80, rows: 24, startupCommand: 'echo hello' }
+      )
+
+      ptyHarness.ptyProcesses[0].emitData('profile output')
+      ptyHarness.ptyProcesses[0].emitData('startup output')
+      ptyHarness.ptyProcesses[0].emitExit(23)
+
+      expect(mockSender.send).toHaveBeenLastCalledWith(
+        IPC_PUSH.TERMINAL_EXIT,
+        spawnResult.sessionId,
+        23
+      )
+      const attachResult = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
+      expect(attachResult.buffer).toBe('profile outputstartup output')
+      expect(attachResult.buffer).not.toContain('setup-prompt')
+      expect(attachResult.buffer).not.toContain('echo hello')
+      expect(attachResult.alive).toBe(false)
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
+    } finally {
+      restore()
     }
   })
 

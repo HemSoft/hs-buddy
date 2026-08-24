@@ -1,6 +1,5 @@
 import {
   useEffect,
-  useCallback,
   useRef,
   useState,
   type Dispatch,
@@ -13,6 +12,12 @@ import {
   getUsageProviderOverrideKey,
   type UsageProviderOverrides,
 } from '../utils/usageProviderOverrides'
+import {
+  cancelUsageProviderRetry,
+  useUsageProviderRetry,
+  type CanAttemptReconciliation,
+  type ScheduleRetry,
+} from './useUsageProviderRetry'
 
 export type ConvexGitHubAccount = {
   username: string
@@ -22,15 +27,13 @@ export type ConvexGitHubAccount = {
 }
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
-const OVERRIDE_RETRY_EVENT = 'buddy:usage-provider-override-retry'
 const reconciliations = new Map<string, Promise<void>>()
+const manualSelections = new Set<string>()
 
 type OverrideEvent = {
   key: string
   provider: UsageProvider | null
 }
-
-type OverrideRetryEvent = { key: string }
 
 type OverrideResult = { success: boolean; error?: string }
 type ReconcileUsageProvider = (
@@ -38,11 +41,6 @@ type ReconcileUsageProvider = (
   org: string,
   provider: UsageProvider
 ) => Promise<OverrideResult>
-type ScheduleRetry = (key: string) => void
-
-const RECONCILIATION_RETRY_MS = 1_000
-const MAX_RECONCILIATION_RETRIES = 5
-
 function notifyOverride(
   account: Pick<GitHubAccount, 'username' | 'org'>,
   provider: UsageProvider | null
@@ -61,17 +59,26 @@ export function publishUsageProviderOverrideChange(
   notifyOverride(account, provider)
 }
 
-export async function waitForUsageProviderReconciliation(
+async function waitForUsageProviderReconciliation(
   account: Pick<GitHubAccount, 'username' | 'org'>
 ): Promise<void> {
   const reconciliation = reconciliations.get(getUsageProviderOverrideKey(account))
   if (reconciliation) await reconciliation
 }
 
-function notifyOverrideRetry(key: string) {
-  window.dispatchEvent(
-    new CustomEvent<OverrideRetryEvent>(OVERRIDE_RETRY_EVENT, { detail: { key } })
-  )
+export async function serializeUsageProviderSelection<T>(
+  account: Pick<GitHubAccount, 'username' | 'org'>,
+  operation: () => Promise<T>
+): Promise<T> {
+  const key = getUsageProviderOverrideKey(account)
+  await waitForUsageProviderReconciliation(account)
+  cancelUsageProviderRetry(key)
+  manualSelections.add(key)
+  try {
+    return await operation()
+  } finally {
+    manualSelections.delete(key)
+  }
 }
 
 export async function persistUsageProviderOverride(
@@ -89,12 +96,17 @@ export async function persistUsageProviderOverride(
 }
 
 function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
-  return accounts.map(account => ({
-    username: account.username,
-    org: account.org,
-    ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
-    ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
-  }))
+  const durableAccounts = new Map<string, GitHubAccount>()
+  for (const account of accounts) {
+    const durableAccount = {
+      username: account.username,
+      org: account.org,
+      ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
+      ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
+    }
+    durableAccounts.set(getUsageProviderOverrideKey(durableAccount), durableAccount)
+  }
+  return [...durableAccounts.values()]
 }
 
 export async function mirrorConnectedGitHubAccounts(
@@ -338,12 +350,33 @@ function useOverrideEvents(
   }, [changedOverrideKeys, setOverrides])
 }
 
+function canStartReconciliation(
+  key: string,
+  provider: UsageProvider | undefined,
+  canAttempt: CanAttemptReconciliation
+): provider is UsageProvider {
+  return Boolean(
+    provider && !reconciliations.has(key) && !manualSelections.has(key) && canAttempt(key)
+  )
+}
+
+function isBlockedCodexTransfer(
+  key: string,
+  connectedProvider: UsageProvider | undefined,
+  explicitCodexOwnerKey: string | null
+) {
+  return (
+    connectedProvider === 'codex' && explicitCodexOwnerKey !== null && explicitCodexOwnerKey !== key
+  )
+}
+
 function useOverrideReconciliation(
   convexAccounts: ConvexGitHubAccount[] | undefined,
   overrides: UsageProviderOverrides,
   reconcile: ReconcileUsageProvider,
   retryRevision: number,
-  scheduleRetry: ScheduleRetry
+  scheduleRetry: ScheduleRetry,
+  canAttempt: CanAttemptReconciliation
 ) {
   useEffect(() => {
     if (!convexAccounts) return
@@ -355,63 +388,15 @@ function useOverrideReconciliation(
     for (const account of convexAccounts) {
       const key = getUsageProviderOverrideKey(account)
       const provider = overrides[key]
-      if (!provider || reconciliations.has(key)) continue
-      if (
-        connectedOverrides[key] === 'codex' &&
-        explicitCodexOwnerKey &&
-        explicitCodexOwnerKey !== key
-      ) {
-        continue
-      }
+      if (!canStartReconciliation(key, provider, canAttempt)) continue
+      if (isBlockedCodexTransfer(key, connectedOverrides[key], explicitCodexOwnerKey)) continue
       const operation =
         connectedOverrides[key] === provider
           ? reconcileOverride(account, key, provider, reconcile, scheduleRetry)
           : discardOverride(account, key, scheduleRetry)
       trackReconciliation(key, operation)
     }
-  }, [convexAccounts, overrides, reconcile, retryRevision, scheduleRetry])
-}
-
-function useReconciliationRetry(retryContext: string): [number, ScheduleRetry] {
-  const [revision, setRevision] = useState(0)
-  const timers = useRef(new Map<string, number>())
-  const attempts = useRef(new Map<string, number>())
-  const scheduleRetry = useCallback((key: string) => {
-    notifyOverrideRetry(key)
-  }, [])
-
-  useEffect(() => {
-    const activeTimers = timers.current
-    const handleRetry = (event: Event) => {
-      const { key } = (event as CustomEvent<OverrideRetryEvent>).detail
-      if (activeTimers.has(key)) return
-      const attempt = attempts.current.get(key) ?? 0
-      if (attempt >= MAX_RECONCILIATION_RETRIES) return
-      attempts.current.set(key, attempt + 1)
-      const timer = window.setTimeout(
-        () => {
-          activeTimers.delete(key)
-          setRevision(current => current + 1)
-        },
-        RECONCILIATION_RETRY_MS * 2 ** attempt
-      )
-      activeTimers.set(key, timer)
-    }
-    window.addEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
-    return () => {
-      window.removeEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
-      for (const timer of activeTimers.values()) window.clearTimeout(timer)
-      activeTimers.clear()
-    }
-  }, [])
-
-  useEffect(() => {
-    for (const timer of timers.current.values()) window.clearTimeout(timer)
-    timers.current.clear()
-    attempts.current.clear()
-  }, [retryContext])
-
-  return [revision, scheduleRetry]
+  }, [canAttempt, convexAccounts, overrides, reconcile, retryRevision, scheduleRetry])
 }
 
 export function useLocalAccountConfig(
@@ -424,11 +409,15 @@ export function useLocalAccountConfig(
   const changedOverrideKeys = useRef(new Set<string>())
   const accountsMirroredFromConvex = useRef(false)
   const mirroredAccountKeys = useRef<Set<string> | null>(null)
-  const retryContext = JSON.stringify([
-    convexAccounts?.map(account => [account.username, account.org, account.usageProvider]),
-    overrides,
-  ])
-  const [retryRevision, scheduleRetry] = useReconciliationRetry(retryContext)
+  const retryContext = JSON.stringify(
+    (convexAccounts ?? [])
+      .map(account => {
+        const key = getUsageProviderOverrideKey(account)
+        return [key, JSON.stringify([account.repoRoot, account.usageProvider, overrides[key]])]
+      })
+      .sort(([left], [right]) => left.localeCompare(right))
+  )
+  const [retryRevision, scheduleRetry, canAttempt] = useUsageProviderRetry(retryContext)
 
   useInitialLocalConfig(
     setAccounts,
@@ -447,7 +436,14 @@ export function useLocalAccountConfig(
     mirroredAccountKeys
   )
   useOverrideEvents(setOverrides, changedOverrideKeys)
-  useOverrideReconciliation(convexAccounts, overrides, reconcile, retryRevision, scheduleRetry)
+  useOverrideReconciliation(
+    convexAccounts,
+    overrides,
+    reconcile,
+    retryRevision,
+    scheduleRetry,
+    canAttempt
+  )
 
   return { accounts, overrides, loaded }
 }

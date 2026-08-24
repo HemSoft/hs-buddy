@@ -612,6 +612,56 @@ describe('useConfig', () => {
       }
     })
 
+    it('preserves one account retry budget when another override changes', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'First', org: 'HemSoft', usageProvider: 'codex' },
+          { _id: 'id2', username: 'Second', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate.mockRejectedValue(new Error('Persistent outage'))
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [
+                      { username: 'First', org: 'HemSoft' },
+                      { username: 'Second', org: 'HemSoft' },
+                    ],
+                    usageProviderOverrides: {
+                      'hemsoft/first': 'copilot',
+                      'hemsoft/second': 'codex',
+                    },
+                  },
+                }
+              : { success: true }
+          )
+        )
+
+        renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        const firstAttempts = () =>
+          mockUpdate.mock.calls.filter(([value]) => value.id === 'id1').length
+        expect(firstAttempts()).toBe(1)
+
+        await act(async () => {
+          await persistUsageProviderOverride({ username: 'Second', org: 'HemSoft' }, 'copilot')
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(firstAttempts()).toBe(1)
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(firstAttempts()).toBe(2)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('routes a late retry to another mounted account consumer', async () => {
       vi.useFakeTimers()
       let rejectFirst!: (error: Error) => void
@@ -810,6 +860,59 @@ describe('useConfig', () => {
       expect(cleanupAttempts).toBe(3)
     })
 
+    it('mirrors the latest account snapshot after a slow Convex removal', async () => {
+      let finishRemoval!: () => void
+      mockConvexAccounts = [
+        { _id: 'target', username: 'remove-me', org: 'org' },
+        { _id: 'other', username: 'other', org: 'org', repoRoot: 'old-root' },
+      ]
+      mockRemove.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            finishRemoval = resolve
+          })
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('remove-me', 'org')
+      })
+      await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ id: 'target' }))
+
+      mockConvexAccounts = [
+        { _id: 'target', username: 'remove-me', org: 'org' },
+        { _id: 'other', username: 'other', org: 'org', repoRoot: 'new-root' },
+        { _id: 'new', username: 'new-account', org: 'org' },
+      ]
+      rerender()
+      await act(async () => {
+        finishRemoval()
+        await removal
+      })
+
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'other', org: 'org', repoRoot: 'new-root' },
+        { username: 'new-account', org: 'org' },
+      ])
+    })
+
+    it('deduplicates case-variant identities while mirroring a removal', async () => {
+      mockConvexAccounts = [
+        { _id: 'target', username: 'remove-me', org: 'org' },
+        { _id: 'first', username: 'User', org: 'Org', repoRoot: 'old-root' },
+        { _id: 'second', username: 'user', org: 'org', repoRoot: 'new-root' },
+      ]
+      mockRemove.mockResolvedValue(undefined)
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      const response = await result.current.removeAccount('remove-me', 'org')
+
+      expect(response).toEqual({ success: true })
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'user', org: 'org', repoRoot: 'new-root' },
+      ])
+    })
+
     it('reports local cleanup failure after a successful Convex removal', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
       mockRemove.mockResolvedValue(undefined)
@@ -949,6 +1052,47 @@ describe('useConfig', () => {
       })
       expect(mockUpdate).toHaveBeenNthCalledWith(2, { id: '123', usageProvider: 'copilot' })
       expect(await manualSave).toEqual({ success: true })
+    })
+
+    it('cancels a queued reconciliation retry before a manual provider save', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate.mockRejectedValueOnce(new Error('Temporary outage')).mockResolvedValue(undefined)
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                    usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                  },
+                }
+              : { success: true }
+          )
+        )
+        const { result } = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(1)
+
+        await act(async () => {
+          expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual(
+            { success: true }
+          )
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(2)
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(2)
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('reports a failed local reconciliation after a connected provider update', async () => {

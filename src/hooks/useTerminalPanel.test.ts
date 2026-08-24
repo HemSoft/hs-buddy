@@ -516,6 +516,48 @@ describe('useTerminalPanel', () => {
     })
   })
 
+  it('opens a repo-scoped terminal from the active Issues view', async () => {
+    const checkout = 'C:\\Users\\Test User\\.agents\\skills'
+    mockResolveRepoPath.mockResolvedValue({ path: checkout })
+    const { result } = renderHook(() => useTerminalPanel())
+
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+
+    act(() => {
+      result.current.toggleTerminal('repo-issues:HemSoft/skills')
+    })
+
+    await vi.waitFor(() => expect(result.current.terminalTabs).toHaveLength(1))
+    expect(mockResolveRepoPath).toHaveBeenCalledWith('HemSoft', 'skills')
+    expect(result.current.terminalTabs[0]).toMatchObject({
+      title: 'skills',
+      cwd: checkout,
+      repoSlug: 'HemSoft/skills',
+    })
+  })
+
+  it('does not change an existing session when the selected repository changes', async () => {
+    const checkout = 'C:\\repos\\acme\\widget'
+    mockResolveRepoPath.mockResolvedValue({ path: checkout })
+    const { result, rerender } = renderHook(
+      ({ viewId }: { viewId: string }) => useTerminalPanel(viewId),
+      { initialProps: { viewId: 'repo-issues:acme/widget' } }
+    )
+
+    await vi.waitFor(() => expect(result.current.loaded).toBe(true))
+    act(() => {
+      result.current.toggleTerminal('repo-issues:acme/widget')
+    })
+    await vi.waitFor(() => expect(result.current.terminalTabs).toHaveLength(1))
+
+    const originalTab = result.current.terminalTabs[0]
+    rerender({ viewId: 'repo-issues:other/repository' })
+
+    expect(result.current.terminalTabs).toEqual([originalTab])
+    expect(result.current.activeTerminalTabId).toBe(originalTab.id)
+    expect(mockResolveRepoPath).toHaveBeenCalledTimes(1)
+  })
+
   it('handles config load rejection gracefully', async () => {
     mockInvoke.mockImplementation(() => Promise.reject(new Error('IPC fail')))
 

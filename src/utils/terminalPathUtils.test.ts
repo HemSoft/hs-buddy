@@ -9,6 +9,8 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  getSshRemoteHost,
+  remoteMatchesRepo,
 } from './terminalPathUtils'
 
 /** Build a platform-native path from posix-style segments. */
@@ -101,6 +103,61 @@ describe('getCloneRoots', () => {
   it('does not include drive letters for linux', () => {
     const roots = getCloneRoots('linux', '/home/user')
     expect(roots.some(r => r.includes('C:'))).toBe(false)
+  })
+})
+
+// ─── remoteMatchesRepo ─────────────────────────────────
+
+describe('remoteMatchesRepo', () => {
+  it.each([
+    'git@github.com:HemSoft/skills.git',
+    'https://github.com/HemSoft/skills.git',
+    'ssh://git@github.com/HemSoft/skills.git',
+  ])('matches GitHub remote %s', remote => {
+    expect(remoteMatchesRepo(remote, 'hemsoft', 'skills')).toBe(true)
+  })
+
+  it('matches a custom SSH alias only when it resolves to GitHub', () => {
+    const remote = 'git@github-personal1:HemSoft/skills.git'
+    expect(remoteMatchesRepo(remote, 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo(remote, 'HemSoft', 'skills', 'github.com')).toBe(true)
+    expect(remoteMatchesRepo(remote, 'HemSoft', 'skills', 'gitlab.com')).toBe(false)
+  })
+
+  it('rejects a checkout owned by a different organization', () => {
+    expect(remoteMatchesRepo('git@github.com:HemSoft/skills.git', 'other-org', 'skills')).toBe(
+      false
+    )
+  })
+
+  it('rejects a checkout with a different repository name', () => {
+    expect(remoteMatchesRepo('git@github.com:HemSoft/skills.git', 'HemSoft', 'other')).toBe(false)
+  })
+
+  it.each([
+    'https://gitlab.com/HemSoft/skills.git',
+    'git@gitlab.com:HemSoft/skills.git',
+    'https://github.com/prefix/HemSoft/skills.git',
+  ])('rejects a non-GitHub or noncanonical remote %s', remote => {
+    expect(remoteMatchesRepo(remote, 'HemSoft', 'skills')).toBe(false)
+  })
+
+  it('rejects empty and malformed remotes', () => {
+    expect(remoteMatchesRepo('', 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo('not-a-remote', 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo('https://[invalid', 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo('file:///tmp/HemSoft/skills.git', 'HemSoft', 'skills')).toBe(false)
+  })
+})
+
+describe('getSshRemoteHost', () => {
+  it('returns hosts and aliases from SSH remotes', () => {
+    expect(getSshRemoteHost('git@github-personal1:HemSoft/skills.git')).toBe('github-personal1')
+    expect(getSshRemoteHost('ssh://git@github-work/HemSoft/skills.git')).toBe('github-work')
+  })
+
+  it('returns null for non-SSH remotes', () => {
+    expect(getSshRemoteHost('https://github.com/HemSoft/skills.git')).toBeNull()
   })
 })
 

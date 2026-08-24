@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.997] - 2026-08-24
+
+### Fixed
+
+- Harden shared agent repo resolution
+
+## [0.1.996] - 2026-08-24
+
+### Fixed
+
+- Require exact checkout root
+
+## [0.1.995] - 2026-08-24
+
+### Fixed
+
+- Verify shared checkout remote
+
+## [0.1.994] - 2026-08-24
+
+### Fixed
+
+- Find shared agent repo checkouts
+
 ## [0.1.993] - 2026-08-24
 
 ### Changed

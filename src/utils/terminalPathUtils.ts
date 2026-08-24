@@ -50,6 +50,71 @@ export function getCloneRoots(platform: string, home: string): string[] {
   return roots
 }
 
+interface ParsedGitRemote {
+  host: string
+  owner: string
+  repo: string
+  usesSsh: boolean
+}
+
+function parseGitRemote(remote: string): ParsedGitRemote | null {
+  const value = remote.trim().replace(/[\\/]$/, '')
+  if (!value || /^[A-Za-z]:[\\/]/.test(value)) return null
+
+  let repositoryPath: string
+  let host: string
+  let usesSsh: boolean
+  if (value.includes('://')) {
+    try {
+      const url = new URL(value)
+      if (!['https:', 'http:', 'ssh:', 'git:'].includes(url.protocol)) return null
+      repositoryPath = url.pathname
+      host = url.hostname
+      usesSsh = url.protocol === 'ssh:'
+    } catch (_: unknown) {
+      return null
+    }
+  } else {
+    const scpLike = /^(?:[^@/\\]+@)?([^:/\\]+):(.+)$/.exec(value)
+    if (!scpLike) return null
+    host = scpLike[1]
+    repositoryPath = scpLike[2]
+    usesSsh = true
+  }
+
+  const parts = repositoryPath.split('/').filter(Boolean)
+  if (!host || parts.length !== 2) return null
+  return {
+    host,
+    owner: parts[parts.length - 2],
+    repo: parts[parts.length - 1].replace(/\.git$/i, ''),
+    usesSsh,
+  }
+}
+
+/** Return the SSH host or alias used by a Git remote. */
+export function getSshRemoteHost(remote: string): string | null {
+  const parsed = parseGitRemote(remote)
+  return parsed?.usesSsh ? parsed.host : null
+}
+
+/** Check whether a Git remote identifies the requested GitHub repository. */
+export function remoteMatchesRepo(
+  remote: string,
+  owner: string,
+  repo: string,
+  resolvedSshHost?: string
+): boolean {
+  const parsed = parseGitRemote(remote)
+  if (!parsed) return false
+  const host = parsed.usesSsh && resolvedSshHost ? resolvedSshHost : parsed.host
+  return (
+    host.toLowerCase() === 'github.com' &&
+    parsed.owner.toLowerCase() === owner.toLowerCase() &&
+    parsed.repo.toLowerCase() === repo.toLowerCase()
+  )
+}
+
 const MAX_OSC_BUFFER = 512
 
 // eslint-disable-next-line no-control-regex -- intentional terminal escape sequences (OSC 7)

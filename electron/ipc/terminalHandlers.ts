@@ -1,6 +1,7 @@
 import { ipcMain, app, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { accessSync, constants, existsSync, statSync } from 'node:fs'
+import { execFile } from 'node:child_process'
+import { accessSync, constants, existsSync, realpathSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import {
@@ -12,6 +13,8 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  getSshRemoteHost,
+  remoteMatchesRepo,
   POWERSHELL_STARTUP_SCRIPT_ENV,
 } from '../../src/utils/terminalPathUtils'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
@@ -184,19 +187,85 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
 }
 
 /** Returns the list of clone root directories to probe (handles Windows drive letters vs Unix). */
+function getHomeDirectory(): string {
+  return process.env.USERPROFILE || process.env.HOME || app.getPath('home')
+}
+
 function getCloneRootsLocal(): string[] {
-  const home = process.env.USERPROFILE || process.env.HOME || app.getPath('home')
-  return getCloneRoots(process.platform, home)
+  return getCloneRoots(process.platform, getHomeDirectory())
+}
+
+function isSameDirectory(left: string, right: string): boolean {
+  const canonicalLeft = realpathSync.native(left)
+  const canonicalRight = realpathSync.native(right)
+  return process.platform === 'win32'
+    ? canonicalLeft.toLowerCase() === canonicalRight.toLowerCase()
+    : canonicalLeft === canonicalRight
+}
+
+const REPO_COMMAND_TIMEOUT_MS = 5_000
+const REPO_COMMAND_MAX_BUFFER = 64 * 1024
+
+function execFileText(file: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile(
+      file,
+      args,
+      {
+        encoding: 'utf8',
+        windowsHide: true,
+        timeout: REPO_COMMAND_TIMEOUT_MS,
+        maxBuffer: REPO_COMMAND_MAX_BUFFER,
+      },
+      (error, stdout) => {
+        if (error) {
+          reject(error)
+          return
+        }
+        resolve(stdout)
+      }
+    )
+  })
+}
+
+function getConfiguredSshHostname(config: string): string | null {
+  return /^hostname\s+(.+)$/im.exec(config)?.[1]?.trim() || null
+}
+
+async function resolveRemoteSshHost(remote: string): Promise<string | undefined> {
+  const host = getSshRemoteHost(remote)
+  if (!host || host.toLowerCase() === 'github.com') return undefined
+  const config = await execFileText('ssh', ['-G', host])
+  return getConfiguredSshHostname(config) ?? undefined
+}
+
+async function resolveSharedAgentRepoPath(owner: string, repo: string): Promise<string | null> {
+  const candidate = path.join(getHomeDirectory(), '.agents', repo)
+  if (!isValidCwd(candidate)) return null
+
+  try {
+    const topLevel = (
+      await execFileText('git', ['-C', candidate, 'rev-parse', '--show-toplevel'])
+    ).trim()
+    if (!topLevel || !isSameDirectory(candidate, topLevel)) return null
+
+    const remote = await execFileText('git', ['-C', candidate, 'remote', 'get-url', 'origin'])
+    const resolvedSshHost = await resolveRemoteSshHost(remote)
+    return remoteMatchesRepo(remote, owner, repo, resolvedSshHost) ? candidate : null
+  } catch (_: unknown) {
+    return null
+  }
 }
 
 /**
  * Resolve a GitHub owner/repo to a local clone directory.
  * Probes common directory patterns under well-known clone roots.
  */
-function resolveRepoPath(owner: string, repo: string): string | null {
+async function resolveRepoPath(owner: string, repo: string): Promise<string | null> {
   const cloneRoots = getCloneRootsLocal()
   const orgCandidates = getOrgCandidates(owner)
-  return findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
+  const standardPath = findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
+  return standardPath ?? (await resolveSharedAgentRepoPath(owner, repo))
 }
 
 /** Builds shell args, including the static environment-backed PowerShell startup launcher. */
@@ -317,11 +386,11 @@ function cleanupTerminalSession(session: TerminalSession): void {
   }
 }
 
-function handleResolveRepoPath(_event: unknown, opts: unknown) {
+async function handleResolveRepoPath(_event: unknown, opts: unknown) {
   if (!opts || typeof opts !== 'object') return { path: null }
   const { owner, repo } = opts as { owner?: unknown; repo?: unknown }
   if (!isValidRepoSlug(owner) || !isValidRepoSlug(repo)) return { path: null }
-  return { path: resolveRepoPath(owner, repo) }
+  return { path: await resolveRepoPath(owner, repo) }
 }
 
 interface ParsedSpawnOpts {

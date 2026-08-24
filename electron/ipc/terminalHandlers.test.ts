@@ -7,13 +7,19 @@ vi.mock('electron', () => ({
 }))
 
 vi.mock('node:child_process', () => ({
-  execFileSync: vi.fn(() => ''),
+  execFile: vi.fn(),
 }))
 
 vi.mock('node:fs', () => ({
   accessSync: vi.fn(),
   existsSync: vi.fn(() => true),
   constants: { R_OK: 4, X_OK: 1 },
+  realpathSync: Object.assign(
+    vi.fn((candidate: string) => candidate),
+    {
+      native: vi.fn((candidate: string) => candidate),
+    }
+  ),
   statSync: vi.fn((candidate: string) => ({
     isDirectory: () => !String(candidate).toLowerCase().endsWith('.exe'),
     isFile: () => String(candidate).toLowerCase().endsWith('.exe'),
@@ -53,6 +59,20 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
+  getSshRemoteHost: vi.fn((remote: string) => {
+    const match = /^(?:[^@/\\]+@)?([^:/\\]+):/.exec(remote.trim())
+    return match?.[1] ?? null
+  }),
+  remoteMatchesRepo: vi.fn(
+    (remote: string, owner: string, repo: string, resolvedSshHost?: string) => {
+      const match = /^(?:[^@/\\]+@)?([^:/\\]+):(.+)$/.exec(remote.trim())
+      const host = resolvedSshHost ?? match?.[1]
+      return (
+        host?.toLowerCase() === 'github.com' &&
+        match?.[2].toLowerCase() === `${owner}/${repo}.git`.toLowerCase()
+      )
+    }
+  ),
   POWERSHELL_STARTUP_SCRIPT_ENV: 'HS_BUDDY_STARTUP_SCRIPT',
 }))
 
@@ -63,8 +83,28 @@ vi.mock('../../src/utils/errorUtils', () => ({
 }))
 
 import { ipcMain } from 'electron'
+import { execFile } from 'node:child_process'
 import { accessSync, existsSync, statSync } from 'node:fs'
 import { registerTerminalHandlers } from './terminalHandlers'
+
+type ExecFileResult = string | Error
+type ExecFileCallback = (error: Error | null, stdout: string, stderr: string) => void
+
+function queueExecFileResults(...results: ExecFileResult[]): void {
+  const queue = [...results]
+  vi.mocked(execFile).mockImplementation(((...args: unknown[]) => {
+    const callback = args.at(-1) as ExecFileCallback
+    const result = queue.shift() ?? ''
+    queueMicrotask(() => {
+      if (result instanceof Error) {
+        callback(result, '', '')
+      } else {
+        callback(null, result, '')
+      }
+    })
+    return {}
+  }) as typeof execFile)
+}
 
 describe('terminalHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,6 +114,7 @@ describe('terminalHandlers', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    queueExecFileResults()
     vi.mocked(accessSync).mockImplementation((): undefined => {})
     vi.mocked(existsSync).mockImplementation(() => true)
     vi.mocked(statSync).mockImplementation(
@@ -116,6 +157,86 @@ describe('terminalHandlers', () => {
   it('terminal:resolve-repo-path returns null for invalid slug', async () => {
     const handler = handlers.get('terminal:resolve-repo-path')!
     const result = await handler({}, { owner: 'valid', repo: 'valid' })
+    expect(result).toEqual({ path: null })
+  })
+
+  it('terminal:resolve-repo-path accepts a matching shared agent checkout', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    queueExecFileResults(
+      `${candidate}\n`,
+      'git@github-personal1:HemSoft/skills.git\n',
+      'hostname github.com\nuser git\n'
+    )
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
+    expect(result).toEqual({ path: candidate })
+    expect(execFile).toHaveBeenCalledWith(
+      'git',
+      ['-C', candidate, 'rev-parse', '--show-toplevel'],
+      expect.objectContaining({ encoding: 'utf8', windowsHide: true }),
+      expect.any(Function)
+    )
+    expect(execFile).toHaveBeenCalledWith(
+      'git',
+      ['-C', candidate, 'remote', 'get-url', 'origin'],
+      expect.objectContaining({ encoding: 'utf8', windowsHide: true }),
+      expect.any(Function)
+    )
+    expect(execFile).toHaveBeenCalledWith(
+      'ssh',
+      ['-G', 'github-personal1'],
+      expect.objectContaining({ timeout: 5_000, maxBuffer: 64 * 1024 }),
+      expect.any(Function)
+    )
+  })
+
+  it('terminal:resolve-repo-path rejects an agent checkout for another owner', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    queueExecFileResults(`${candidate}\n`, 'git@github.com:HemSoft/skills.git\n')
+
+    const result = await handler({}, { owner: 'other-org', repo: 'skills' })
+
+    expect(result).toEqual({ path: null })
+  })
+
+  it('terminal:resolve-repo-path rejects a nested directory inside an ancestor checkout', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    queueExecFileResults(`${path.dirname(candidate)}\n`)
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
+    expect(result).toEqual({ path: null })
+    expect(execFile).toHaveBeenCalledTimes(1)
+  })
+
+  it('terminal:resolve-repo-path rejects a matching non-GitHub remote', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+    queueExecFileResults(
+      `${candidate}\n`,
+      'git@gitlab-alias:HemSoft/skills.git\n',
+      'hostname gitlab.com\nuser git\n'
+    )
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
+    expect(result).toEqual({ path: null })
+  })
+
+  it('terminal:resolve-repo-path returns null when Git inspection fails', async () => {
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    queueExecFileResults(new Error('git unavailable'))
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
     expect(result).toEqual({ path: null })
   })
 

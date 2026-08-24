@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1025] - 2026-08-24
+
+### Fixed
+
+- Retry and schedule account migrations
+
 ## [0.1.1024] - 2026-08-24
 
 ### Fixed

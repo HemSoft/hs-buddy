@@ -47,6 +47,7 @@ export function useMigrateToConvex() {
   const initSettings = useMutation(api.settings.initFromMigration)
   const [isComplete, setIsComplete] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
+  const [retryRevision, setRetryRevision] = useState(0)
   const migrationPromiseRef = useRef<Promise<void> | null>(null)
 
   // Check if Convex already has data (skip migration if so)
@@ -75,32 +76,37 @@ export function useMigrateToConvex() {
     }
 
     let cancelled = false
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
 
     if (!migrationPromiseRef.current) {
       migrationPromiseRef.current = (async () => {
-        try {
-          // Get data from electron-store
-          const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
-
-          await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
-          await migrateSettings(config.pr, existingSettings, initSettings)
-        } catch (error: unknown) {
-          console.error('[Migration] Failed to migrate from electron-store:', error)
-        }
+        const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
+        await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
+        await migrateSettings(config.pr, existingSettings, initSettings)
       })()
     }
 
-    void migrationPromiseRef.current.then(() => {
-      markAccountMigrationReady()
-      if (!cancelled) {
-        setIsComplete(true)
-      }
-    })
+    const migration = migrationPromiseRef.current
+    void migration
+      .then(() => {
+        markAccountMigrationReady()
+        if (!cancelled) setIsComplete(true)
+      })
+      .catch((error: unknown) => {
+        console.error('[Migration] Failed to migrate from electron-store:', error)
+        if (migrationPromiseRef.current === migration) migrationPromiseRef.current = null
+        if (!cancelled) {
+          retryTimer = setTimeout(() => {
+            setRetryRevision(current => current + 1)
+          }, 1_000)
+        }
+      })
 
     return () => {
       cancelled = true
+      if (retryTimer) clearTimeout(retryTimer)
     }
-  }, [isLoading, existingAccounts, existingSettings, bulkImportAccounts, initSettings])
+  }, [existingAccounts, existingSettings, bulkImportAccounts, initSettings, retryRevision])
 
   return { isComplete, isLoading }
 }

@@ -185,18 +185,33 @@ describe('useMigrateToConvex', () => {
     expect(result.current.isComplete).toBe(true)
   })
 
-  it('handles migration error gracefully', async () => {
+  it('keeps a failed account migration pending and retries it', async () => {
+    vi.useFakeTimers()
     mockExistingAccounts = []
     mockExistingSettings = {}
-    mockInvoke.mockRejectedValue(new Error('IPC failed'))
+    mockBulkImportAccounts
+      .mockRejectedValueOnce(new Error('Convex unavailable'))
+      .mockResolvedValueOnce([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => useMigrateToConvex())
+    const { result } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
     })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
+    expect(result.current.accountsReady).toBe(false)
+    expect(result.current.migration.isComplete).toBe(false)
 
-    expect(mockBulkImportAccounts).not.toHaveBeenCalled()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(2)
+    expect(result.current.accountsReady).toBe(true)
+    expect(result.current.migration.isComplete).toBe(true)
   })
 
   it('skips migration on re-render when already attempted', async () => {

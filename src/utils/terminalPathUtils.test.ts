@@ -180,18 +180,22 @@ describe('processOsc7Buffer', () => {
 describe('buildTerminalShellArgs', () => {
   it('returns interactive args for pwsh.exe on win32', () => {
     const args = buildTerminalShellArgs('pwsh.exe', 'win32')
-    expect(args).toEqual(['-NoLogo', '-NoExit'])
+    expect(args.slice(0, 3)).toEqual(['-NoLogo', '-NoExit', '-Command'])
+    expect(args[3]).toContain('HS_BUDDY_STARTUP_SCRIPT')
+    expect(args[3]).toContain('. ([scriptblock]::Create')
   })
 
   it('returns interactive args for powershell.exe on win32', () => {
     const args = buildTerminalShellArgs('powershell.exe', 'win32')
-    expect(args).toEqual(['-NoLogo', '-NoExit'])
+    expect(args.slice(0, 3)).toEqual(['-NoLogo', '-NoExit', '-Command'])
+    expect(args[3]).toContain('HS_BUDDY_STARTUP_SCRIPT')
   })
 
-  it('returns encoded command args for an absolute PowerShell path on win32', () => {
+  it('keeps the startup payload out of args for an absolute PowerShell path on win32', () => {
     const args = buildTerminalShellArgs('C:\\Program Files\\PowerShell\\7\\pwsh.exe', 'win32')
-    expect(args).toEqual(['-NoLogo', '-NoExit'])
+    expect(args).toContain('-Command')
     expect(args).not.toContain('-EncodedCommand')
+    expect(args.join(' ')).not.toContain('function global:prompt')
   })
 
   it('returns empty array for non-Windows platform', () => {
@@ -214,6 +218,7 @@ describe('buildTerminalStartupCommand', () => {
 
     expect(command).toContain('function global:prompt')
     expect(command).toContain('file:///')
+    expect(command).not.toContain('. $PROFILE')
   })
 
   it('returns undefined for non-PowerShell shells', () => {

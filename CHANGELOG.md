@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.992] - 2026-08-24
+
+### Fixed
+
+- Preserve wrapped PowerShell prompt scope (#578)
+
+## [0.1.991] - 2026-08-24
+
+### Fixed
+
+- Sequence bootstrap after PowerShell profiles (#578)
+
+## [0.1.990] - 2026-08-24
+
+### Fixed
+
+- Strip late startup markers (#578)
+
+## [0.1.989] - 2026-08-24
+
+### Fixed
+
+- Preserve interactive PowerShell profiles (#578)
+
+## [0.1.988] - 2026-08-24
+
+### Fixed
+
+- Recover from missing startup marker (#578)
+
+## [0.1.987] - 2026-08-24
+
+### Fixed
+
+- Buffer input during PowerShell startup (#578)
+
+## [0.1.986] - 2026-08-23
+
+### Fixed
+
+- Hide PowerShell bootstrap output (#578)
+
 ## [0.1.984] - 2026-08-23
 
 ### Changed

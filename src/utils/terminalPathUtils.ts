@@ -191,19 +191,30 @@ function isWindowsPowerShell(shell: string, platform: string): boolean {
   return shellExecutable === 'pwsh.exe' || shellExecutable === 'powershell.exe'
 }
 
+export const POWERSHELL_STARTUP_SCRIPT_ENV = 'HS_BUDDY_STARTUP_SCRIPT'
+
+const POWERSHELL_STARTUP_COMMAND = [
+  `$__hsb_s=$env:${POWERSHELL_STARTUP_SCRIPT_ENV}`,
+  `Remove-Item Env:${POWERSHELL_STARTUP_SCRIPT_ENV} -ErrorAction SilentlyContinue`,
+  '& ([scriptblock]::Create($__hsb_s))',
+  'Remove-Variable __hsb_s -ErrorAction SilentlyContinue',
+].join(';')
+
 /**
  * Build shell args for the terminal.
  *
- * PowerShell startup customization is intentionally not passed on the process
- * command line because Windows application-control policies can reject the
- * encoded command with error code 5. It is sent after spawn instead.
+ * The static command reads the startup payload from the child process environment.
+ * This lets PowerShell finish loading profiles before setup runs and keeps the
+ * payload out of the process command line that Windows application control checks.
  */
 export function buildTerminalShellArgs(shell: string, platform: string): string[] {
-  if (isWindowsPowerShell(shell, platform)) return ['-NoLogo', '-NoExit']
+  if (isWindowsPowerShell(shell, platform)) {
+    return ['-NoLogo', '-NoExit', '-Command', POWERSHELL_STARTUP_COMMAND]
+  }
   return []
 }
 
-/** Build the PowerShell prompt customization that is sent after the PTY launches. */
+/** Build the PowerShell prompt customization stored in the child process environment. */
 export function buildTerminalStartupCommand(shell: string, platform: string): string | undefined {
   return isWindowsPowerShell(shell, platform) ? buildPowerShellOsc7Setup() : undefined
 }

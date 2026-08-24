@@ -12,6 +12,7 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  POWERSHELL_STARTUP_SCRIPT_ENV,
 } from '../../src/utils/terminalPathUtils'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../../src/ipc/contracts'
@@ -70,7 +71,6 @@ function getPty(): typeof import('node-pty') {
 }
 
 const MAX_SCROLLBACK_BUFFER = 100_000
-const STARTUP_FILTER_TIMEOUT_MS = 5_000
 
 const executablePathCache = new Map<string, string | null>()
 
@@ -125,16 +125,6 @@ interface PtyDisposable {
   dispose(): void
 }
 
-interface StartupOutputFilter {
-  marker: string
-  bufferedSuffix: string
-}
-
-interface StartupMarkerStripper {
-  marker: string
-  bufferedPrefix: string
-}
-
 interface TerminalSession {
   id: string
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,14 +141,6 @@ interface TerminalSession {
   sender: WebContents
   /** Timer for delayed startup command — cleared on kill to prevent writing to a dead PTY */
   startupTimer?: ReturnType<typeof setTimeout>
-  /** True until the delayed PowerShell bootstrap starts or user input cancels it. */
-  startupBootstrapPending?: boolean
-  /** Suppresses the echoed PowerShell bootstrap until its private completion marker arrives. */
-  startupOutputFilter?: StartupOutputFilter
-  /** Stops startup filtering if PowerShell never emits the completion marker. */
-  startupFilterTimer?: ReturnType<typeof setTimeout>
-  /** Removes the private marker if it arrives after timeout or interruption recovery. */
-  lateStartupMarker?: StartupMarkerStripper
   /** Buffer for partial OSC 7 sequences split across data chunks */
   oscBuffer: string
 }
@@ -217,7 +199,7 @@ function resolveRepoPath(owner: string, repo: string): string | null {
   return findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
 }
 
-/** Builds shell args. For Windows PowerShell, generates OSC 7 setup via encoded command. */
+/** Builds shell args, including the static environment-backed PowerShell startup launcher. */
 function buildShellArgs(shell: string): string[] {
   return buildTerminalShellArgs(shell, process.platform)
 }
@@ -247,68 +229,6 @@ function forwardTerminalData(session: TerminalSession, data: string): void {
   processOsc7(session, data)
 }
 
-function getMarkerPrefixLength(data: string, marker: string): number {
-  const maxLength = Math.min(data.length, marker.length - 1)
-  for (let length = maxLength; length > 0; length--) {
-    if (data.endsWith(marker.slice(0, length))) return length
-  }
-  return 0
-}
-
-function forwardWithoutLateStartupMarker(session: TerminalSession, data: string): void {
-  const stripper = session.lateStartupMarker
-  if (!stripper) {
-    forwardTerminalData(session, data)
-    return
-  }
-
-  const buffered = stripper.bufferedPrefix + data
-  const markerIndex = buffered.indexOf(stripper.marker)
-  if (markerIndex >= 0) {
-    session.lateStartupMarker = undefined
-    forwardTerminalData(
-      session,
-      buffered.slice(0, markerIndex) + buffered.slice(markerIndex + stripper.marker.length)
-    )
-    return
-  }
-
-  const prefixLength = getMarkerPrefixLength(buffered, stripper.marker)
-  stripper.bufferedPrefix = prefixLength > 0 ? buffered.slice(-prefixLength) : ''
-  forwardTerminalData(session, prefixLength > 0 ? buffered.slice(0, -prefixLength) : buffered)
-}
-
-function handleTerminalData(session: TerminalSession, data: string): void {
-  const filter = session.startupOutputFilter
-  if (!filter) {
-    forwardWithoutLateStartupMarker(session, data)
-    return
-  }
-
-  const buffered = filter.bufferedSuffix + data
-  const markerIndex = buffered.indexOf(filter.marker)
-  if (markerIndex < 0) {
-    filter.bufferedSuffix = buffered.slice(-(filter.marker.length - 1))
-    return
-  }
-
-  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
-  session.startupFilterTimer = undefined
-  session.startupOutputFilter = undefined
-  session.lateStartupMarker = undefined
-  forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
-}
-
-function stopStartupOutputFilter(session: TerminalSession): void {
-  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
-  session.startupFilterTimer = undefined
-  const filter = session.startupOutputFilter
-  session.startupOutputFilter = undefined
-  if (!filter) return
-  session.lateStartupMarker = { marker: filter.marker, bufferedPrefix: '' }
-  forwardWithoutLateStartupMarker(session, filter.bufferedSuffix)
-}
-
 function createTerminalSession(
   sessionId: string,
   ptyProcess: ReturnType<ReturnType<typeof getPty>['spawn']>,
@@ -329,7 +249,7 @@ function createTerminalSession(
   sessions.set(sessionId, session)
 
   const dataDisposable = ptyProcess.onData((data: string) => {
-    handleTerminalData(session, data)
+    forwardTerminalData(session, data)
   })
 
   const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
@@ -342,51 +262,16 @@ function createTerminalSession(
   return session
 }
 
-function buildStartupMarker(sessionId: string): string {
-  return `\x1b]9;hsb-startup-${sessionId}\x07`
-}
-
-function buildStartupMarkerCommand(sessionId: string): string {
-  return `[Console]::Write(([char]27)+']9;hsb-startup-${sessionId}'+[char]7)`
-}
-
-function scheduleStartupCommands(
-  sessionId: string,
-  shellStartupCommand: string | undefined,
-  startupCommand: string | undefined
-): void {
+function scheduleStartupCommand(sessionId: string, startupCommand: string): void {
   const session = sessions.get(sessionId)
   if (!session) return
-  if (shellStartupCommand) session.startupBootstrapPending = true
   session.startupTimer = setTimeout(() => {
     const s = sessions.get(sessionId)
     if (!s?.alive) return
     s.startupTimer = undefined
     try {
-      if (shellStartupCommand) {
-        if (!s.startupBootstrapPending) return
-        s.startupBootstrapPending = false
-        const marker = buildStartupMarker(sessionId)
-        s.startupOutputFilter = { marker, bufferedSuffix: '' }
-        s.startupFilterTimer = setTimeout(() => {
-          const currentSession = sessions.get(sessionId)
-          const filter = currentSession?.startupOutputFilter
-          if (!currentSession?.alive || !filter || filter.marker !== marker) return
-
-          stopStartupOutputFilter(currentSession)
-        }, STARTUP_FILTER_TIMEOUT_MS)
-        forwardTerminalData(s, '\r\x1b[2K')
-        const nextCommand = startupCommand ? `;${startupCommand}` : ''
-        s.pty.write(
-          `try{${shellStartupCommand}}finally{${buildStartupMarkerCommand(sessionId)}}${nextCommand}\r`
-        )
-      } else if (startupCommand) {
-        s.pty.write(startupCommand + '\r')
-      }
+      s.pty.write(startupCommand + '\r')
     } catch (_: unknown) {
-      if (s.startupFilterTimer) clearTimeout(s.startupFilterTimer)
-      s.startupFilterTimer = undefined
-      s.startupOutputFilter = undefined
       // PTY died between alive check and write — ignore
     }
   }, 500)
@@ -418,10 +303,6 @@ function buildSpawnOptions(
 /** Idempotent cleanup: clear timer → dispose listeners → kill PTY. */
 function cleanupTerminalSession(session: TerminalSession): void {
   if (session.startupTimer) clearTimeout(session.startupTimer)
-  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
-  session.startupBootstrapPending = false
-  session.startupOutputFilter = undefined
-  session.lateStartupMarker = undefined
   for (const d of session.disposables) {
     try {
       d.dispose()
@@ -490,6 +371,12 @@ async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
   const { shell, shellArgs } = resolveSpawnShell()
   const shellStartupCommand = buildTerminalStartupCommand(shell, process.platform)
   const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
+  if (shellStartupCommand) {
+    const env = spawnOptions.env as Record<string, string | undefined>
+    env[POWERSHELL_STARTUP_SCRIPT_ENV] = [shellStartupCommand, startupCommand]
+      .filter((command): command is string => command !== undefined)
+      .join(';')
+  }
 
   let ptyProcess
   let launchStage = 'native-pty-load'
@@ -513,8 +400,8 @@ async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  if (shellStartupCommand || startupCommand) {
-    scheduleStartupCommands(sessionId, shellStartupCommand, startupCommand)
+  if (!shellStartupCommand && startupCommand) {
+    scheduleStartupCommand(sessionId, startupCommand)
   }
 
   return { success: true, sessionId, cwd }
@@ -549,18 +436,6 @@ export function registerTerminalHandlers(): void {
   ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
     if (!session?.alive) return
-    if (session.startupBootstrapPending) {
-      if (session.startupTimer) clearTimeout(session.startupTimer)
-      session.startupTimer = undefined
-      session.startupBootstrapPending = false
-      session.pty.write(data)
-      return
-    }
-    if (session.startupOutputFilter) {
-      stopStartupOutputFilter(session)
-      session.pty.write(data.includes('\x03') ? data : `\x03${data}`)
-      return
-    }
     session.pty.write(data)
   })
 

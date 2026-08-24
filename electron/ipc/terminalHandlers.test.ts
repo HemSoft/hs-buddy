@@ -49,10 +49,11 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   getCloneRoots: vi.fn(() => ['/repos']),
   getOrgCandidates: vi.fn((owner: string) => [owner]),
   processOsc7Buffer: vi.fn(() => ({ cwd: null, remainingBuffer: '' })),
-  buildTerminalShellArgs: vi.fn(() => []),
+  buildTerminalShellArgs: vi.fn(() => ['-NoLogo', '-NoExit', '-Command', 'static-launcher']),
   buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
+  POWERSHELL_STARTUP_SCRIPT_ENV: 'HS_BUDDY_STARTUP_SCRIPT',
 }))
 
 vi.mock('../../src/utils/errorUtils', () => ({
@@ -283,29 +284,31 @@ describe('terminalHandlers', () => {
       emitExit: (exitCode: number) => void
     }
     const ptyProcesses: MockPty[] = []
-    const spawn = vi.fn(() => {
-      let onData: ((data: string) => void) | undefined
-      let onExit: ((event: { exitCode: number }) => void) | undefined
+    const spawn = vi.fn(
+      (_shell: string, _args: string[], _options: { env: Record<string, string> }) => {
+        let onData: ((data: string) => void) | undefined
+        let onExit: ((event: { exitCode: number }) => void) | undefined
 
-      const ptyProcess = {
-        onData: vi.fn((callback: (data: string) => void) => {
-          onData = callback
-          return { dispose: vi.fn() }
-        }),
-        onExit: vi.fn((callback: (event: { exitCode: number }) => void) => {
-          onExit = callback
-          return { dispose: vi.fn() }
-        }),
-        write: vi.fn(),
-        resize: vi.fn(),
-        kill: vi.fn(),
-        emitData: (data: string) => onData?.(data),
-        emitExit: (exitCode: number) => onExit?.({ exitCode }),
+        const ptyProcess = {
+          onData: vi.fn((callback: (data: string) => void) => {
+            onData = callback
+            return { dispose: vi.fn() }
+          }),
+          onExit: vi.fn((callback: (event: { exitCode: number }) => void) => {
+            onExit = callback
+            return { dispose: vi.fn() }
+          }),
+          write: vi.fn(),
+          resize: vi.fn(),
+          kill: vi.fn(),
+          emitData: (data: string) => onData?.(data),
+          emitExit: (exitCode: number) => onExit?.({ exitCode }),
+        }
+
+        ptyProcesses.push(ptyProcess)
+        return ptyProcess
       }
-
-      ptyProcesses.push(ptyProcess)
-      return ptyProcess
-    })
+    )
 
     const createRequireImpl = () => {
       const req = (mod: string) => {
@@ -672,8 +675,7 @@ describe('terminalHandlers', () => {
     }
   })
 
-  it('terminal:spawn sends PowerShell setup after launch instead of in process args', async () => {
-    vi.useFakeTimers()
+  it('terminal:spawn passes PowerShell setup through the child environment', async () => {
     const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
     vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
     const ptyHarness = createTrackedPtyHarness()
@@ -689,24 +691,20 @@ describe('terminalHandlers', () => {
         { cols: 80, rows: 24, startupCommand: 'echo hello' }
       )
 
-      vi.advanceTimersByTime(500)
-
-      expect(ptyHarness.spawn).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.not.arrayContaining(['-EncodedCommand']),
-        expect.any(Object)
+      const [, shellArgs, spawnOptions] = ptyHarness.spawn.mock.calls[0]
+      expect(shellArgs).toContain('-Command')
+      expect(shellArgs).not.toContain('-EncodedCommand')
+      expect(shellArgs.join(' ')).not.toContain('setup-prompt')
+      expect(spawnOptions.env[terminalPathUtils.POWERSHELL_STARTUP_SCRIPT_ENV]).toBe(
+        'setup-prompt;echo hello'
       )
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith(
-        expect.stringMatching(/^try\{setup-prompt\}finally\{.*\};echo hello\r$/)
-      )
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
     } finally {
       restore()
-      vi.useRealTimers()
     }
   })
 
-  it('filters PowerShell setup echo from renderer output and reconnect scrollback', async () => {
-    vi.useFakeTimers()
+  it('forwards PowerShell startup and early-exit output without filtering', async () => {
     const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
     vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
     const ptyHarness = createTrackedPtyHarness()
@@ -724,140 +722,23 @@ describe('terminalHandlers', () => {
         { cols: 80, rows: 24, startupCommand: 'echo hello' }
       )
 
-      vi.advanceTimersByTime(500)
-
-      const writtenCommand = ptyHarness.ptyProcesses[0].write.mock.calls[0][0] as string
-      const marker = `\u001b]9;hsb-startup-${spawnResult.sessionId}\u0007`
-      expect(mockSender.send).toHaveBeenCalledWith(
-        IPC_PUSH.TERMINAL_DATA,
-        spawnResult.sessionId,
-        '\r\u001b[2K',
-        1
-      )
-
-      ptyHarness.ptyProcesses[0].emitData(`PS> ${writtenCommand}`)
-      ptyHarness.ptyProcesses[0].emitData(marker.slice(0, 12))
-      expect(mockSender.send).toHaveBeenCalledTimes(1)
-
-      ptyHarness.ptyProcesses[0].emitData(marker.slice(12) + 'startup output')
+      ptyHarness.ptyProcesses[0].emitData('profile output')
+      ptyHarness.ptyProcesses[0].emitData('startup output')
+      ptyHarness.ptyProcesses[0].emitExit(23)
 
       expect(mockSender.send).toHaveBeenLastCalledWith(
-        IPC_PUSH.TERMINAL_DATA,
+        IPC_PUSH.TERMINAL_EXIT,
         spawnResult.sessionId,
-        'startup output',
-        2
+        23
       )
       const attachResult = await attachHandler({ sender: mockSender }, spawnResult.sessionId)
-      expect(attachResult.buffer).toBe('\r\u001b[2Kstartup output')
+      expect(attachResult.buffer).toBe('profile outputstartup output')
       expect(attachResult.buffer).not.toContain('setup-prompt')
       expect(attachResult.buffer).not.toContain('echo hello')
+      expect(attachResult.alive).toBe(false)
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
     } finally {
       restore()
-      vi.useRealTimers()
-    }
-  })
-
-  it('cancels pending PowerShell setup rather than withholding profile input', async () => {
-    vi.useFakeTimers()
-    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
-    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
-    const ptyHarness = createTrackedPtyHarness()
-    const { freshHandlers, freshListeners, restore } = await registerFreshTerminalHandlers(
-      ptyHarness.createRequireImpl
-    )
-
-    try {
-      const spawnHandler = freshHandlers.get('terminal:spawn')!
-      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
-      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
-
-      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'Get-Date\r')
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledWith('Get-Date\r')
-
-      vi.advanceTimersByTime(500)
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledTimes(1)
-    } finally {
-      restore()
-      vi.useRealTimers()
-    }
-  })
-
-  it('interrupts active PowerShell setup before forwarding interactive input', async () => {
-    vi.useFakeTimers()
-    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
-    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
-    const ptyHarness = createTrackedPtyHarness()
-    const { freshHandlers, freshListeners, restore } = await registerFreshTerminalHandlers(
-      ptyHarness.createRequireImpl
-    )
-
-    try {
-      const { IPC_PUSH } = await import('../../src/ipc/contracts')
-      const spawnHandler = freshHandlers.get('terminal:spawn')!
-      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
-      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
-
-      vi.advanceTimersByTime(500)
-      ptyHarness.ptyProcesses[0].emitData('partial bootstrap')
-      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'G')
-
-      expect(mockSender.send).toHaveBeenLastCalledWith(
-        IPC_PUSH.TERMINAL_DATA,
-        spawnResult.sessionId,
-        'partial bootstrap',
-        2
-      )
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenNthCalledWith(2, '\u0003G')
-
-      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'et-Date\r')
-      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenNthCalledWith(3, 'et-Date\r')
-    } finally {
-      restore()
-      vi.useRealTimers()
-    }
-  })
-
-  it('restores terminal output and input when the PowerShell setup marker never arrives', async () => {
-    vi.useFakeTimers()
-    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
-    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
-    const ptyHarness = createTrackedPtyHarness()
-    const { freshHandlers, restore } = await registerFreshTerminalHandlers(
-      ptyHarness.createRequireImpl
-    )
-
-    try {
-      const { IPC_PUSH } = await import('../../src/ipc/contracts')
-      const spawnHandler = freshHandlers.get('terminal:spawn')!
-      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
-      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
-
-      vi.advanceTimersByTime(500)
-      ptyHarness.ptyProcesses[0].emitData('last buffered output')
-      expect(mockSender.send).toHaveBeenCalledTimes(1)
-
-      vi.advanceTimersByTime(5_000)
-
-      expect(mockSender.send).toHaveBeenLastCalledWith(
-        IPC_PUSH.TERMINAL_DATA,
-        spawnResult.sessionId,
-        'last buffered output',
-        2
-      )
-
-      const marker = `\u001b]9;hsb-startup-${spawnResult.sessionId}\u0007`
-      ptyHarness.ptyProcesses[0].emitData(marker.slice(0, 12))
-      expect(mockSender.send).toHaveBeenCalledTimes(2)
-      ptyHarness.ptyProcesses[0].emitData(marker.slice(12) + 'visible after timeout')
-      expect(mockSender.send).toHaveBeenLastCalledWith(
-        IPC_PUSH.TERMINAL_DATA,
-        spawnResult.sessionId,
-        'visible after timeout',
-        3
-      )
-    } finally {
-      restore()
-      vi.useRealTimers()
     }
   })
 

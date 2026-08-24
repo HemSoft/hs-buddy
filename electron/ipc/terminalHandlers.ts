@@ -147,6 +147,8 @@ interface TerminalSession {
   startupTimer?: ReturnType<typeof setTimeout>
   /** Suppresses the echoed PowerShell bootstrap until its private completion marker arrives. */
   startupOutputFilter?: StartupOutputFilter
+  /** Holds user input until the PowerShell bootstrap has reached its completion marker. */
+  startupInputBuffer?: string
   /** Buffer for partial OSC 7 sequences split across data chunks */
   oscBuffer: string
 }
@@ -235,6 +237,18 @@ function forwardTerminalData(session: TerminalSession, data: string): void {
   processOsc7(session, data)
 }
 
+function flushStartupInput(session: TerminalSession): void {
+  const bufferedInput = session.startupInputBuffer
+  session.startupInputBuffer = undefined
+  if (!bufferedInput || !session.alive) return
+
+  try {
+    session.pty.write(bufferedInput)
+  } catch (_: unknown) {
+    // PTY died before the buffered input could be written — ignore
+  }
+}
+
 function handleTerminalData(session: TerminalSession, data: string): void {
   const filter = session.startupOutputFilter
   if (!filter) {
@@ -251,6 +265,7 @@ function handleTerminalData(session: TerminalSession, data: string): void {
 
   session.startupOutputFilter = undefined
   forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
+  flushStartupInput(session)
 }
 
 function createTerminalSession(
@@ -301,6 +316,7 @@ function scheduleStartupCommands(
 ): void {
   const session = sessions.get(sessionId)
   if (!session) return
+  if (shellStartupCommand) session.startupInputBuffer = ''
   session.startupTimer = setTimeout(() => {
     const s = sessions.get(sessionId)
     if (!s?.alive) return
@@ -318,6 +334,7 @@ function scheduleStartupCommands(
       }
     } catch (_: unknown) {
       s.startupOutputFilter = undefined
+      flushStartupInput(s)
       // PTY died between alive check and write — ignore
     }
   }, 500)
@@ -476,7 +493,12 @@ export function registerTerminalHandlers(): void {
 
   ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
-    if (session?.alive) session.pty.write(data)
+    if (!session?.alive) return
+    if (session.startupInputBuffer !== undefined) {
+      session.startupInputBuffer += data
+      return
+    }
+    session.pty.write(data)
   })
 
   ipcMain.on(IPC_SEND.TERMINAL_RESIZE, (_event, sessionId: string, cols: number, rows: number) => {

@@ -757,6 +757,38 @@ describe('terminalHandlers', () => {
     }
   })
 
+  it('buffers interactive input until the PowerShell setup marker arrives', async () => {
+    vi.useFakeTimers()
+    const terminalPathUtils = await import('../../src/utils/terminalPathUtils')
+    vi.mocked(terminalPathUtils.buildTerminalStartupCommand).mockReturnValueOnce('setup-prompt')
+    const ptyHarness = createTrackedPtyHarness()
+    const { freshHandlers, freshListeners, restore } = await registerFreshTerminalHandlers(
+      ptyHarness.createRequireImpl
+    )
+
+    try {
+      const spawnHandler = freshHandlers.get('terminal:spawn')!
+      const mockSender = { isDestroyed: vi.fn(() => false), send: vi.fn() }
+      const spawnResult = await spawnHandler({ sender: mockSender }, { cols: 80, rows: 24 })
+
+      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'Get-Date\r')
+      expect(ptyHarness.ptyProcesses[0].write).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(500)
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledTimes(1)
+      freshListeners.get('terminal:write')!({}, spawnResult.sessionId, 'echo ready\r')
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenCalledTimes(1)
+
+      const marker = `\u001b]9;hsb-startup-${spawnResult.sessionId}\u0007`
+      ptyHarness.ptyProcesses[0].emitData(marker)
+
+      expect(ptyHarness.ptyProcesses[0].write).toHaveBeenNthCalledWith(2, 'Get-Date\recho ready\r')
+    } finally {
+      restore()
+      vi.useRealTimers()
+    }
+  })
+
   it('terminal PTY callbacks skip IPC sends for destroyed renderers', async () => {
     const ptyHarness = createTrackedPtyHarness()
     const { freshHandlers, restore } = await registerFreshTerminalHandlers(

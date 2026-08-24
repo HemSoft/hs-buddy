@@ -148,6 +148,56 @@
   border-color: rgba(255, 255, 255, 0.12);
 }
 
+.codex-window-list {
+  display: grid;
+  gap: 10px;
+}
+
+.codex-window {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.codex-window-prominent {
+  border-color: color-mix(in srgb, var(--accent-primary, #0e639c) 55%, transparent);
+  background: color-mix(in srgb, var(--accent-primary, #0e639c) 8%, transparent);
+}
+
+.codex-window-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--text-heading, #e8e8e8);
+  font-size: 12px;
+}
+
+.codex-window-heading span {
+  color: var(--text-secondary, #888);
+  font-size: 9px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.usage-account-loading,
+.usage-account-error {
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-secondary, #888);
+  font-size: 12px;
+  text-align: center;
+}
+
+.usage-account-error {
+  color: var(--error-foreground, #f48771);
+}
+
 /* ── Account Header ───────────────────────────────────────────────────── */
 
 .usage-account-header {
@@ -260,6 +310,23 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.usage-account-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--accent-foreground, #4ec9b0);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+}
+
+.usage-account-link:hover {
+  text-decoration: underline;
 }
 
 .usage-fetched-at {

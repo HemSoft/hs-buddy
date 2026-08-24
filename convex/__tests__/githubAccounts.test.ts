@@ -90,6 +90,19 @@ describe('githubAccounts', () => {
     expect(account?.repoRoot).toBe('/home/eve/code')
   })
 
+  test('usage provider is optional and can be changed to Codex', async () => {
+    const t = convexTest(schema, modules)
+    const id = await t.mutation(api.githubAccounts.create, {
+      username: 'HemSoft',
+      org: 'HemSoft',
+    })
+
+    expect((await t.query(api.githubAccounts.get, { id }))?.usageProvider).toBeUndefined()
+
+    await t.mutation(api.githubAccounts.update, { id, usageProvider: 'codex' })
+    expect((await t.query(api.githubAccounts.get, { id }))?.usageProvider).toBe('codex')
+  })
+
   test('update throws when account does not exist', async () => {
     const t = convexTest(schema, modules)
     const id = await t.mutation(api.githubAccounts.create, { username: 'gone', org: 'gone' })

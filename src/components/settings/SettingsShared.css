@@ -257,6 +257,16 @@
   color: var(--text-secondary);
 }
 
+.account-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--border-primary, #3c3c3c);
+  border-radius: 999px;
+  color: var(--text-secondary, #888);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
 .list-item-actions {
   display: flex;
   flex-direction: row;

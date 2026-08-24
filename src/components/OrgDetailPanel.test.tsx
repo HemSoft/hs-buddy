@@ -10,6 +10,7 @@ const orgMocks = vi.hoisted(() => ({
   usePRSettings: vi.fn(),
   useTaskQueue: vi.fn(),
   useCopilotUsage: vi.fn(),
+  useCodexUsage: vi.fn(),
   formatDistanceToNow: vi.fn(),
   formatTime: vi.fn(),
   getErrorMessage: vi.fn((err: unknown) => (err instanceof Error ? err.message : String(err))),
@@ -40,6 +41,10 @@ vi.mock('../hooks/useTaskQueue', () => ({
 
 vi.mock('../hooks/useCopilotUsage', () => ({
   useCopilotUsage: orgMocks.useCopilotUsage,
+}))
+
+vi.mock('../hooks/useCodexUsage', () => ({
+  useCodexUsage: orgMocks.useCodexUsage,
 }))
 
 vi.mock('../api/github', () => ({
@@ -169,6 +174,13 @@ beforeEach(() => {
     quotas: {},
     orgBudgets: {},
     orgOverageFromQuotas: new Map(),
+    refreshAll: vi.fn(),
+  })
+  orgMocks.useCodexUsage.mockReturnValue({
+    accounts: [],
+    states: {},
+    fetchUsage: vi.fn(),
+    refreshAll: vi.fn(),
   })
 
   orgMocks.dataCacheGet.mockImplementation((key: string) => {
@@ -213,7 +225,7 @@ describe('OrgDetailPanel', () => {
   describe('loading state', () => {
     it('renders skeleton when no cached overview exists', () => {
       orgMocks.dataCacheGet.mockReturnValue(null)
-      render(<OrgDetailPanel org="test-org" />)
+      render(<OrgDetailPanel org="test-org" memberLogin="alice" />)
       expect(screen.getAllByText('Loading…').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('test-org')).toBeInTheDocument()
     })
@@ -920,6 +932,85 @@ describe('OrgDetailPanel', () => {
   })
 
   describe('copilot section branches', () => {
+    it('renders Codex rolling allowances for an opted-in user namespace', async () => {
+      const userOverview = makeOverview()
+      userOverview.isUserNamespace = true
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
+        ],
+        loading: false,
+      })
+      orgMocks.useCodexUsage.mockReturnValue({
+        accounts: [{ username: 'alice', org: 'test-org', usageProvider: 'codex' }],
+        states: {
+          alice: {
+            loading: false,
+            error: null,
+            data: {
+              planType: 'plus',
+              fetchedAt: Date.now(),
+              windows: [
+                {
+                  kind: 'weekly',
+                  label: 'Weekly allowance',
+                  usedPercent: 20,
+                  remainingPercent: 80,
+                  resetAt: new Date(Date.now() + 86_400_000).toISOString(),
+                  durationSeconds: 604_800,
+                  periodStart: new Date(Date.now() - 518_400_000).toISOString(),
+                  projectedPercent: 30,
+                },
+              ],
+            },
+          },
+        },
+        fetchUsage: vi.fn(),
+        refreshAll: vi.fn(),
+      })
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(userOverview)
+
+      render(<OrgDetailPanel org="test-org" memberLogin="alice" />)
+
+      await waitFor(() => expect(screen.getByText('Codex Allowance')).toBeInTheDocument())
+      expect(screen.getAllByText('Weekly allowance').length).toBeGreaterThan(0)
+      expect(screen.queryByText('Copilot Quota')).not.toBeInTheDocument()
+      expect(screen.queryByText('Premium Requests')).not.toBeInTheDocument()
+    })
+
+    it('reports an unavailable Codex allowance in the namespace status', async () => {
+      const userOverview = makeOverview()
+      userOverview.isUserNamespace = true
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
+        ],
+        loading: false,
+      })
+      orgMocks.useCodexUsage.mockReturnValue({
+        accounts: [{ username: 'alice', org: 'test-org', usageProvider: 'codex' }],
+        states: { alice: { loading: false, data: null, error: 'Sign in again.' } },
+        fetchUsage: vi.fn(),
+        refreshAll: vi.fn(),
+      })
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(userOverview)
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      await waitFor(() => expect(screen.getAllByText('Sign in again.')).toHaveLength(2))
+      expect(screen.getByText('Unavailable')).toBeInTheDocument()
+    })
+
     it('renders personal quota pulse for user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
@@ -1088,9 +1179,7 @@ describe('OrgDetailPanel', () => {
       await waitFor(() => {
         expect(screen.getByText('Member Spotlight')).toBeInTheDocument()
       })
-      expect(
-        screen.getByText('No configured Copilot quota card for this member.')
-      ).toBeInTheDocument()
+      expect(screen.getByText('No configured usage card for this member.')).toBeInTheDocument()
     })
 
     it('shows member type in spotlight meta', async () => {

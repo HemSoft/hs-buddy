@@ -1,11 +1,13 @@
 import { AlertCircle } from 'lucide-react'
 import { useCallback, useState } from 'react'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
+import { useCodexUsage } from '../hooks/useCodexUsage'
 import type { AccountQuotaState } from './copilot-usage/quotaUtils'
 import type { OrgBudgetState } from './copilot-usage/types'
 import { AccountQuotaCard } from './copilot-usage/AccountQuotaCard'
 import { TopUsersSection } from './copilot-usage/TopUsersSection'
 import { UsageHeader } from './copilot-usage/UsageHeader'
+import { CodexUsageCard } from './codex-usage/CodexUsageCard'
 import './CopilotUsagePanel.css'
 
 type CopilotUsageAccount = { username: string; org?: string }
@@ -25,13 +27,17 @@ function AccountsGrid({
   quotas,
   orgBudgets,
   orgOverageFromQuotas,
+  codexAccounts,
+  codexStates,
 }: {
   accounts: CopilotUsageAccount[]
   quotas: Record<string, AccountQuotaState>
   orgBudgets: Record<string, OrgBudgetState>
   orgOverageFromQuotas: Map<string, number>
+  codexAccounts: ReturnType<typeof useCodexUsage>['accounts']
+  codexStates: ReturnType<typeof useCodexUsage>['states']
 }) {
-  if (accounts.length === 0) {
+  if (accounts.length === 0 && codexAccounts.length === 0) {
     return (
       <div className="usage-empty">
         <AlertCircle size={24} />
@@ -40,17 +46,22 @@ function AccountsGrid({
       </div>
     )
   }
-  const accountQuotaCards = accounts.reduce<ReturnType<typeof renderAccountQuotaCard>[]>(
-    (cards, account) => {
-      if (account.org !== 'hemsoft') {
-        cards.push(renderAccountQuotaCard(account, quotas, orgBudgets, orgOverageFromQuotas))
-      }
-      return cards
-    },
-    []
+  const accountQuotaCards = accounts.map(account =>
+    renderAccountQuotaCard(account, quotas, orgBudgets, orgOverageFromQuotas)
   )
 
-  return <>{accountQuotaCards}</>
+  return (
+    <>
+      {accountQuotaCards}
+      {codexAccounts.map(account => (
+        <CodexUsageCard
+          key={`${account.username}-${account.org}`}
+          account={account}
+          state={codexStates[account.username]}
+        />
+      ))}
+    </>
+  )
 }
 
 function renderAccountQuotaCard(
@@ -84,12 +95,18 @@ export function CopilotUsagePanel() {
     aggregateSpend,
     orgOverageFromQuotas,
   } = useCopilotUsage()
+  const {
+    accounts: codexAccounts,
+    states: codexStates,
+    refreshAll: refreshAllCodex,
+  } = useCodexUsage()
 
   const projections = resolveProjection(aggregateProjections)
   const handleRefreshAll = useCallback(() => {
     refreshAll()
+    void refreshAllCodex()
     setEnterpriseUsersRefreshToken(token => token + 1)
-  }, [refreshAll])
+  }, [refreshAll, refreshAllCodex])
 
   return (
     <div className="copilot-usage-panel">
@@ -111,6 +128,8 @@ export function CopilotUsagePanel() {
           quotas={quotas}
           orgBudgets={orgBudgets}
           orgOverageFromQuotas={orgOverageFromQuotas}
+          codexAccounts={codexAccounts}
+          codexStates={codexStates}
         />
       </div>
 

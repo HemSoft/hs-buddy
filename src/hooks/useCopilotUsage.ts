@@ -384,7 +384,11 @@ async function doFetchBudget(
 }
 
 export function useCopilotUsage() {
-  const { accounts } = useGitHubAccounts()
+  const { accounts: configuredAccounts } = useGitHubAccounts()
+  const accounts = useMemo(
+    () => configuredAccounts.filter(account => account.usageProvider !== 'codex'),
+    [configuredAccounts]
+  )
   const [quotas, setQuotas] = useState<Record<string, AccountQuotaState>>({})
   const [orgBudgets, setOrgBudgets] = useState<Record<string, OrgBudgetState>>({})
 

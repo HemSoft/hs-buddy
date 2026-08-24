@@ -18,7 +18,14 @@ const mockUpdatePR = vi.fn()
 const mockUpdateCopilot = vi.fn()
 
 let mockConvexAccounts:
-  Array<{ _id: string; username: string; org: string; repoRoot?: string }> | undefined
+  | Array<{
+      _id: string
+      username: string
+      org: string
+      repoRoot?: string
+      usageProvider?: 'copilot' | 'codex'
+    }>
+  | undefined
 let mockSettings: Record<string, unknown> | undefined
 
 vi.mock('./useConvex', () => ({
@@ -265,6 +272,14 @@ describe('useConfig', () => {
       const account = result.current.accounts.find(a => a.username === 'user2')
       expect(account).toBeDefined()
       expect(account?.repoRoot).toBeUndefined()
+    })
+
+    it('preserves an explicit usage provider from Convex', () => {
+      mockConvexAccounts = [
+        { _id: 'id3', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      const { result } = renderHook(() => useGitHubAccounts())
+      expect(result.current.accounts[0].usageProvider).toBe('codex')
     })
 
     it('falls back to electron-store accounts when contentKey changes and Convex unavailable', async () => {

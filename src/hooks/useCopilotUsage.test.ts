@@ -1,7 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 
-const makeAccounts = () => [
+type TestAccount = {
+  username: string
+  org: string
+  token: string
+  usageProvider?: 'copilot' | 'codex'
+}
+
+const makeAccounts = (): TestAccount[] => [
   { username: 'user1', org: 'org1', token: 'tok1' },
   { username: 'user2', org: 'org1', token: 'tok2' },
   { username: 'user3', org: '', token: 'tok3' },
@@ -101,6 +108,20 @@ describe('useCopilotUsage', () => {
     mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData() })
     mockGetCopilotQuota.mockResolvedValue({ success: true, data: makePersonalQuotaData() })
     mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData() })
+  })
+
+  it('does not send Codex-backed accounts through GitHub Copilot APIs', async () => {
+    mockAccounts.splice(0, mockAccounts.length, {
+      username: 'HemSoft',
+      org: 'HemSoft',
+      token: 'tok-codex',
+      usageProvider: 'codex',
+    })
+
+    const { result } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.accounts).toEqual([]))
+    expect(mockGetCopilotUsage).not.toHaveBeenCalled()
+    expect(mockGetCopilotQuota).not.toHaveBeenCalled()
   })
 
   it('fetches usage pool for each account with an org on mount', async () => {

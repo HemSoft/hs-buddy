@@ -106,6 +106,10 @@ contextBridge.exposeInMainWorld('github', {
     ipcRenderer.invoke(IPC_INVOKE.GITHUB_GET_COPILOT_ENTERPRISE_USERS),
 })
 
+contextBridge.exposeInMainWorld('codex', {
+  getUsage: () => ipcRenderer.invoke(IPC_INVOKE.CODEX_GET_USAGE),
+})
+
 contextBridge.exposeInMainWorld('crew', {
   addProject: () => ipcRenderer.invoke(IPC_INVOKE.CREW_ADD_PROJECT),
   listProjects: () => ipcRenderer.invoke(IPC_INVOKE.CREW_LIST_PROJECTS),

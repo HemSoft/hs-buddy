@@ -12,6 +12,7 @@ import {
   FolderOpen,
   Check,
   X,
+  Sparkles,
 } from 'lucide-react'
 import type { GitHubAccount } from '../../types/config'
 import { getUserFacingErrorMessage } from '../../utils/errorUtils'
@@ -258,7 +259,6 @@ function CancelEditButton({
   onClick: (e: React.MouseEvent<HTMLButtonElement>) => void
 }) {
   if (!isEditing) return null
-
   return (
     <button
       aria-label="Cancel editing"
@@ -298,14 +298,44 @@ function AccountItemActions({
   )
 }
 
-function AccountEditPanel({
-  isEditing,
+function AccountUsageProviderField({
   account,
-  editRepoRoot,
-  setEditRepoRoot,
   updateAccount,
-  setEditingKey,
 }: {
+  account: GitHubAccount
+  updateAccount: (
+    username: string,
+    org: string,
+    updates: Partial<GitHubAccount>
+  ) => Promise<unknown>
+}) {
+  return (
+    <div className="form-field">
+      <label htmlFor={`usage-provider-${resolveAccountKey(account)}`}>
+        <Sparkles size={14} />
+        Usage provider
+      </label>
+      <select
+        aria-label={`Usage provider for ${account.username}`}
+        id={`usage-provider-${resolveAccountKey(account)}`}
+        value={account.usageProvider ?? 'copilot'}
+        onChange={async event => {
+          await updateAccount(account.username, account.org, {
+            usageProvider: event.target.value as 'copilot' | 'codex',
+          })
+        }}
+      >
+        <option value="copilot">GitHub Copilot</option>
+        <option value="codex">ChatGPT / Codex</option>
+      </select>
+      <span className="form-hint">
+        Codex reads the local Codex CLI sign-in and shows rolling allowance windows.
+      </span>
+    </div>
+  )
+}
+
+type AccountEditPanelProps = {
   isEditing: boolean
   account: GitHubAccount
   editRepoRoot: string
@@ -316,7 +346,16 @@ function AccountEditPanel({
     updates: Partial<GitHubAccount>
   ) => Promise<unknown>
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
-}) {
+}
+
+function AccountEditPanel({
+  isEditing,
+  account,
+  editRepoRoot,
+  setEditRepoRoot,
+  updateAccount,
+  setEditingKey,
+}: AccountEditPanelProps) {
   if (!isEditing) return null
 
   return (
@@ -326,6 +365,7 @@ function AccountEditPanel({
       onClick={e => e.stopPropagation()}
       onKeyDown={e => e.stopPropagation()}
     >
+      <AccountUsageProviderField account={account} updateAccount={updateAccount} />
       <div className="form-field">
         <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
           <FolderOpen size={14} />
@@ -425,6 +465,9 @@ function AccountListItem({
             <span className="list-item-secondary">
               <Building2 size={14} />
               <span>{account.org}</span>
+              <span className="account-badge">
+                {account.usageProvider === 'codex' ? 'Codex' : 'Copilot'}
+              </span>
               <AccountRepoRootBadge repoRoot={visibleRepoRoot} />
             </span>
           </span>

@@ -21,6 +21,7 @@ export default defineSchema({
     username: v.string(),
     org: v.string(),
     repoRoot: v.optional(v.string()),
+    usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

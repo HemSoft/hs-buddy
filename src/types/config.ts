@@ -9,7 +9,10 @@ export interface GitHubAccount {
   username: string
   org: string
   repoRoot?: string
+  usageProvider?: UsageProvider
 }
+
+type UsageProvider = 'copilot' | 'codex'
 
 /** Rectangle describing display bounds or work area */
 interface DisplayRect {
@@ -90,6 +93,8 @@ export const configSchema: Schema<AppConfig> = {
           properties: {
             username: { type: 'string' },
             org: { type: 'string' },
+            repoRoot: { type: 'string' },
+            usageProvider: { type: 'string', enum: ['copilot', 'codex'] },
           },
           required: ['username', 'org'],
         },

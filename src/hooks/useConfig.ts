@@ -120,7 +120,14 @@ export function useConfig() {
  */
 
 function resolveAccountsFromSources(
-  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  convexAccounts:
+    | Array<{
+        username: string
+        org: string
+        repoRoot?: string
+        usageProvider?: 'copilot' | 'codex'
+      }>
+    | undefined,
   electronStoreAccounts: GitHubAccount[],
   convexConnected: boolean
 ): GitHubAccount[] {
@@ -129,6 +136,7 @@ function resolveAccountsFromSources(
       username: a.username,
       org: a.org,
       ...(a.repoRoot && { repoRoot: a.repoRoot }),
+      ...(a.usageProvider && { usageProvider: a.usageProvider }),
     }))
   }
   return electronStoreAccounts
@@ -137,7 +145,14 @@ function resolveAccountsFromSources(
 function shouldInitializeAccounts(
   currentAccounts: GitHubAccount[],
   electronStoreAccounts: GitHubAccount[],
-  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined
+  convexAccounts:
+    | Array<{
+        username: string
+        org: string
+        repoRoot?: string
+        usageProvider?: 'copilot' | 'codex'
+      }>
+    | undefined
 ): boolean {
   return (
     currentAccounts.length === 0 &&
@@ -146,13 +161,20 @@ function shouldInitializeAccounts(
 }
 
 function buildAccountsContentKey(
-  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  convexAccounts:
+    | Array<{
+        username: string
+        org: string
+        repoRoot?: string
+        usageProvider?: 'copilot' | 'codex'
+      }>
+    | undefined,
   electronStoreAccounts: GitHubAccount[],
   convexConnected: boolean
 ): string {
   return JSON.stringify(
     resolveAccountsFromSources(convexAccounts, electronStoreAccounts, convexConnected).map(
-      account => [account.username, account.org, account.repoRoot]
+      account => [account.username, account.org, account.repoRoot, account.usageProvider]
     )
   )
 }
@@ -161,7 +183,14 @@ function syncAccountsRef(
   prevKeyRef: { current: string },
   accountsRef: { current: GitHubAccount[] },
   contentKey: string,
-  convexAccounts: Array<{ username: string; org: string; repoRoot?: string }> | undefined,
+  convexAccounts:
+    | Array<{
+        username: string
+        org: string
+        repoRoot?: string
+        usageProvider?: 'copilot' | 'codex'
+      }>
+    | undefined,
   electronStoreAccounts: GitHubAccount[],
   convexConnected: boolean
 ) {
@@ -286,7 +315,11 @@ export function useGitHubAccounts() {
 
   const addAccount = async (account: GitHubAccount) => {
     try {
-      await create({ username: account.username, org: account.org })
+      await create({
+        username: account.username,
+        org: account.org,
+        ...(account.usageProvider && { usageProvider: account.usageProvider }),
+      })
       return { success: true }
     } catch (error: unknown) {
       return { success: false, error: getErrorMessage(error) }

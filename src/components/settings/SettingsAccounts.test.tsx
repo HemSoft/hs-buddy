@@ -332,6 +332,7 @@ describe('SettingsAccounts account editing', () => {
     await waitFor(() => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
         repoRoot: 'D:\\new\\path',
+        usageProvider: 'copilot',
       })
     })
   })
@@ -566,6 +567,7 @@ describe('SettingsAccounts account editing', () => {
     await waitFor(() => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
         repoRoot: 'D:\\github\\test-org',
+        usageProvider: 'copilot',
       })
     })
   })
@@ -646,6 +648,7 @@ describe('SettingsAccounts account editing', () => {
     await waitFor(() => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
         repoRoot: undefined,
+        usageProvider: 'copilot',
       })
     })
   })

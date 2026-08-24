@@ -12,7 +12,7 @@ export interface GitHubAccount {
   usageProvider?: UsageProvider
 }
 
-type UsageProvider = 'copilot' | 'codex'
+export type UsageProvider = 'copilot' | 'codex'
 
 /** Rectangle describing display bounds or work area */
 interface DisplayRect {

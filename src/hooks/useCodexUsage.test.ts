@@ -77,18 +77,23 @@ describe('useCodexUsage', () => {
     })
   })
 
-  it('refreshes every configured Codex account', async () => {
+  it('uses one local login and rejects additional Codex account cards', async () => {
     accounts.push(
       { username: 'one', org: 'org', usageProvider: 'codex' },
       { username: 'two', org: 'org', usageProvider: 'codex' }
     )
     getUsage.mockResolvedValue({ success: true, data: usageData })
     const { result } = renderHook(() => useCodexUsage())
-    await waitFor(() => expect(getUsage).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(getUsage).toHaveBeenCalledTimes(1))
+    expect(result.current.states.two).toMatchObject({
+      data: null,
+      loading: false,
+      error: 'The local Codex login is assigned to one. Choose Copilot for this account.',
+    })
 
     await act(async () => {
       await result.current.refreshAll()
     })
-    expect(getUsage).toHaveBeenCalledTimes(4)
+    expect(getUsage).toHaveBeenCalledTimes(2)
   })
 })

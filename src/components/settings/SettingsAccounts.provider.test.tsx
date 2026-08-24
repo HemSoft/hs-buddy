@@ -1,12 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsAccounts } from './SettingsAccounts'
+import type { GitHubAccount } from '../../types/config'
 
 const updateAccount = vi.fn()
+const accounts: GitHubAccount[] = [{ username: 'HemSoft', org: 'HemSoft' }]
 
 vi.mock('../../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
-    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+    accounts,
     loading: false,
     addAccount: vi.fn(),
     removeAccount: vi.fn(),
@@ -23,10 +25,11 @@ vi.mock('../../hooks/useConfig', () => ({
 describe('SettingsAccounts usage provider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
     updateAccount.mockResolvedValue(undefined)
   })
 
-  it('defaults to Copilot and lets an account explicitly opt into Codex', async () => {
+  it('stages provider changes until Save and discards them on Cancel', async () => {
     render(<SettingsAccounts />)
 
     expect(screen.getByText('Copilot')).toBeInTheDocument()
@@ -35,11 +38,36 @@ describe('SettingsAccounts usage provider', () => {
     expect(provider).toHaveValue('copilot')
 
     fireEvent.change(provider, { target: { value: 'codex' } })
+    expect(updateAccount).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel editing' }))
+    expect(updateAccount).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    fireEvent.change(screen.getByLabelText('Usage provider for HemSoft'), {
+      target: { value: 'codex' },
+    })
+    fireEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => {
       expect(updateAccount).toHaveBeenCalledWith('HemSoft', 'HemSoft', {
+        repoRoot: undefined,
         usageProvider: 'codex',
       })
     })
+  })
+
+  it('allows only one account to own the local Codex login', () => {
+    accounts.splice(
+      0,
+      accounts.length,
+      { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      { username: 'Second', org: 'HemSoft' }
+    )
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByText('Second').closest('button')!)
+    expect(screen.getByLabelText('Usage provider for Second')).toHaveValue('copilot')
+    expect(screen.getByRole('option', { name: 'ChatGPT / Codex' })).toBeDisabled()
+    expect(screen.getByText(/already assigned to HemSoft/i)).toBeInTheDocument()
   })
 })

@@ -16,6 +16,7 @@ export function useCodexUsage() {
     () => accounts.filter(account => account.usageProvider === 'codex'),
     [accounts]
   )
+  const activeAccount = codexAccounts.at(0)
   const [states, setStates] = useState<Partial<Record<string, CodexUsageState>>>({})
 
   const fetchUsage = useCallback(async (account: GitHubAccount) => {
@@ -50,12 +51,25 @@ export function useCodexUsage() {
   )
 
   useEffect(() => {
-    for (const account of codexAccounts) void fetchUsage(account)
-  }, [accountsKey, codexAccounts, fetchUsage])
+    if (!activeAccount) return
+    void fetchUsage(activeAccount)
+
+    setStates(previous => {
+      const next = { ...previous }
+      for (const account of codexAccounts.slice(1)) {
+        next[account.username] = {
+          data: null,
+          loading: false,
+          error: `The local Codex login is assigned to ${activeAccount.username}. Choose Copilot for this account.`,
+        }
+      }
+      return next
+    })
+  }, [accountsKey, activeAccount, codexAccounts, fetchUsage])
 
   const refreshAll = useCallback(
-    () => Promise.allSettled(codexAccounts.map(account => fetchUsage(account))),
-    [codexAccounts, fetchUsage]
+    () => Promise.allSettled(activeAccount ? [fetchUsage(activeAccount)] : []),
+    [activeAccount, fetchUsage]
   )
 
   return { accounts: codexAccounts, states, fetchUsage, refreshAll }

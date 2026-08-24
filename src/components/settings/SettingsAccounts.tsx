@@ -14,7 +14,7 @@ import {
   X,
   Sparkles,
 } from 'lucide-react'
-import type { GitHubAccount } from '../../types/config'
+import type { GitHubAccount, UsageProvider } from '../../types/config'
 import { getUserFacingErrorMessage } from '../../utils/errorUtils'
 import { assertValidGitHubAccountSlug } from '../../utils/githubAuthUtils'
 import './SettingsShared.css'
@@ -300,14 +300,14 @@ function AccountItemActions({
 
 function AccountUsageProviderField({
   account,
-  updateAccount,
+  value,
+  onChange,
+  codexOwner,
 }: {
   account: GitHubAccount
-  updateAccount: (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ) => Promise<unknown>
+  value: UsageProvider
+  onChange: (value: UsageProvider) => void
+  codexOwner: GitHubAccount | null
 }) {
   return (
     <div className="form-field">
@@ -318,18 +318,18 @@ function AccountUsageProviderField({
       <select
         aria-label={`Usage provider for ${account.username}`}
         id={`usage-provider-${resolveAccountKey(account)}`}
-        value={account.usageProvider ?? 'copilot'}
-        onChange={async event => {
-          await updateAccount(account.username, account.org, {
-            usageProvider: event.target.value as 'copilot' | 'codex',
-          })
-        }}
+        value={value}
+        onChange={event => onChange(event.target.value as UsageProvider)}
       >
         <option value="copilot">GitHub Copilot</option>
-        <option value="codex">ChatGPT / Codex</option>
+        <option value="codex" disabled={codexOwner !== null}>
+          ChatGPT / Codex
+        </option>
       </select>
       <span className="form-hint">
-        Codex reads the local Codex CLI sign-in and shows rolling allowance windows.
+        {codexOwner
+          ? `The local Codex login is already assigned to ${codexOwner.username}.`
+          : 'Codex reads the local Codex CLI sign-in and shows rolling allowance windows.'}
       </span>
     </div>
   )
@@ -340,12 +340,10 @@ type AccountEditPanelProps = {
   account: GitHubAccount
   editRepoRoot: string
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
-  updateAccount: (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ) => Promise<unknown>
-  setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
+  editUsageProvider: UsageProvider
+  setEditUsageProvider: React.Dispatch<React.SetStateAction<UsageProvider>>
+  codexOwner: GitHubAccount | null
+  onSave: () => Promise<void>
 }
 
 function AccountEditPanel({
@@ -353,8 +351,10 @@ function AccountEditPanel({
   account,
   editRepoRoot,
   setEditRepoRoot,
-  updateAccount,
-  setEditingKey,
+  editUsageProvider,
+  setEditUsageProvider,
+  codexOwner,
+  onSave,
 }: AccountEditPanelProps) {
   if (!isEditing) return null
 
@@ -365,7 +365,12 @@ function AccountEditPanel({
       onClick={e => e.stopPropagation()}
       onKeyDown={e => e.stopPropagation()}
     >
-      <AccountUsageProviderField account={account} updateAccount={updateAccount} />
+      <AccountUsageProviderField
+        account={account}
+        value={editUsageProvider}
+        onChange={setEditUsageProvider}
+        codexOwner={codexOwner}
+      />
       <div className="form-field">
         <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
           <FolderOpen size={14} />
@@ -403,12 +408,7 @@ function AccountEditPanel({
             type="button"
             className="settings-btn settings-btn-primary settings-btn-icon"
             title="Save"
-            onClick={async () => {
-              await updateAccount(account.username, account.org, {
-                repoRoot: resolveRepoRootUpdate(editRepoRoot),
-              })
-              setEditingKey(null)
-            }}
+            onClick={onSave}
           >
             <Check size={14} />
           </button>
@@ -421,15 +421,7 @@ function AccountEditPanel({
   )
 }
 
-function AccountListItem({
-  account,
-  editingKey,
-  editRepoRoot,
-  setEditingKey,
-  setEditRepoRoot,
-  updateAccount,
-  handleRemove,
-}: {
+type AccountListItemProps = {
   account: GitHubAccount
   editingKey: string | null
   editRepoRoot: string
@@ -441,11 +433,36 @@ function AccountListItem({
     updates: Partial<GitHubAccount>
   ) => Promise<unknown>
   handleRemove: (username: string, org: string) => Promise<void>
-}) {
+  codexOwner: GitHubAccount | null
+}
+
+function AccountListItem({
+  account,
+  editingKey,
+  editRepoRoot,
+  setEditingKey,
+  setEditRepoRoot,
+  updateAccount,
+  handleRemove,
+  codexOwner,
+}: AccountListItemProps) {
   const key = resolveAccountKey(account)
   const isEditing = editingKey === key
+  const [editUsageProvider, setEditUsageProvider] = useState<UsageProvider>(
+    account.usageProvider ?? 'copilot'
+  )
   const visibleRepoRoot = resolveVisibleRepoRoot(account.repoRoot, isEditing)
-  const activate = () => openAccountEditor(account, isEditing, setEditingKey, setEditRepoRoot)
+  const activate = () => {
+    setEditUsageProvider(account.usageProvider ?? 'copilot')
+    openAccountEditor(account, isEditing, setEditingKey, setEditRepoRoot)
+  }
+  const save = async () => {
+    await updateAccount(account.username, account.org, {
+      repoRoot: resolveRepoRootUpdate(editRepoRoot),
+      usageProvider: editUsageProvider,
+    })
+    setEditingKey(null)
+  }
 
   return (
     <div key={key} className={resolveAccountItemClassName(isEditing)}>
@@ -489,8 +506,10 @@ function AccountListItem({
         account={account}
         editRepoRoot={editRepoRoot}
         setEditRepoRoot={setEditRepoRoot}
-        updateAccount={updateAccount}
-        setEditingKey={setEditingKey}
+        editUsageProvider={editUsageProvider}
+        setEditUsageProvider={setEditUsageProvider}
+        codexOwner={codexOwner}
+        onSave={save}
       />
     </div>
   )
@@ -520,6 +539,7 @@ function AccountsListSection({
   if (accounts.length === 0) {
     return <AccountsEmptyState />
   }
+  const codexOwner = accounts.find(account => account.usageProvider === 'codex') ?? null
 
   return (
     <div className="items-list">
@@ -533,6 +553,7 @@ function AccountsListSection({
           setEditRepoRoot={setEditRepoRoot}
           updateAccount={updateAccount}
           handleRemove={handleRemove}
+          codexOwner={codexOwner === account ? null : codexOwner}
         />
       ))}
     </div>

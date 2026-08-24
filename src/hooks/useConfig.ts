@@ -176,7 +176,7 @@ function resolveCopilotValues(s: {
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
   const connection = useGitHubAccountsConnection()
-  const accountActions = useGitHubAccountActions(convexAccounts)
+  const accountActions = useGitHubAccountActions(convexAccounts, connection.isWebSocketConnected)
   const {
     accounts: electronStoreAccounts,
     overrides: usageProviderOverrides,
@@ -184,7 +184,8 @@ export function useGitHubAccounts() {
   } = useLocalAccountConfig(
     convexAccounts,
     accountActions.reconcileUsageProvider,
-    connection.connectionCount
+    connection.connectionCount,
+    connection.isWebSocketConnected
   )
 
   // Use Convex if connected, otherwise electron-store
@@ -203,7 +204,7 @@ export function useGitHubAccounts() {
     accounts,
     uniqueUsernames,
     loading,
-    canUpdateAccounts: convexConnected,
+    canUpdateAccounts: convexConnected && connection.isWebSocketConnected,
     ...accountActions,
   }
 }

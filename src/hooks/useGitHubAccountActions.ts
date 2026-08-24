@@ -137,30 +137,37 @@ async function updateConnectedUsageProvider(
   options: UsageProviderUpdateOptions
 ): Promise<MutationResult> {
   const accountIdentity = { username, org }
-  return serializeUsageProviderSelection(accountIdentity, async () => {
-    if (options.localOnly) {
-      return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
-    }
+  return serializeUsageProviderSelection(
+    accountIdentity,
+    async () => {
+      if (options.localOnly) {
+        return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
+      }
 
-    try {
-      const account = findAccount(accounts, username, org)
-      if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
+      try {
+        const account = findAccount(accounts, username, org)
+        if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
 
-      await update({ id: account._id, usageProvider })
-      const result = await persistUsageProviderOverride(accountIdentity, null)
-      return result.success
-        ? { success: true }
-        : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
-    } catch (error: unknown) {
-      const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
-      return fallback.success
-        ? fallback
-        : { success: false, error: fallback.error ?? getErrorMessage(error) }
-    }
-  })
+        await update({ id: account._id, usageProvider })
+        const result = await persistUsageProviderOverride(accountIdentity, null)
+        return result.success
+          ? { success: true }
+          : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
+      } catch (error: unknown) {
+        const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
+        return fallback.success
+          ? fallback
+          : { success: false, error: fallback.error ?? getErrorMessage(error) }
+      }
+    },
+    { waitForReconciliation: !options.localOnly }
+  )
 }
 
-export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
+export function useGitHubAccountActions(
+  convexAccounts: ConvexAccounts,
+  isWebSocketConnected: boolean
+) {
   const { create, update, remove } = useGitHubAccountMutations()
   const accountsRef = useRef(convexAccounts)
   accountsRef.current = convexAccounts
@@ -190,7 +197,10 @@ export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
     usageProvider: UsageProvider,
     options: UsageProviderUpdateOptions = {}
   ): Promise<MutationResult> =>
-    updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, options)
+    updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, {
+      ...options,
+      localOnly: options.localOnly === true || !isWebSocketConnected,
+    })
 
   return { addAccount, removeAccount, updateAccount, updateUsageProvider, reconcileUsageProvider }
 }

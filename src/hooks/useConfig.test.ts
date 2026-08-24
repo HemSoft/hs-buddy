@@ -1139,6 +1139,54 @@ describe('useConfig', () => {
       )
     })
 
+    it('persists a provider locally when cached Convex data outlives the connection', async () => {
+      let resolveReconciliation!: () => void
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            resolveReconciliation = resolve
+          })
+      )
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? {
+                github: {
+                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                },
+              }
+            : { success: true }
+        )
+      )
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+
+      mockIsWebSocketConnected = false
+      rerender()
+
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: true,
+        })
+      })
+      expect(result.current.canUpdateAccounts).toBe(false)
+      expect(mockUpdate).toHaveBeenCalledTimes(1)
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'copilot'
+      )
+
+      await act(async () => {
+        resolveReconciliation()
+      })
+    })
+
     it('waits for an in-flight reconciliation before saving a manual provider choice', async () => {
       let resolveReconciliation!: () => void
       mockConvexAccounts = [

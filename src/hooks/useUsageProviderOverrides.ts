@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -37,6 +38,7 @@ type OverrideEvent = {
 }
 
 type OverrideResult = { success: boolean; error?: string }
+type SelectionSerializationOptions = { waitForReconciliation?: boolean }
 type ReconcileUsageProvider = (
   username: string,
   org: string,
@@ -62,7 +64,8 @@ async function waitForUsageProviderReconciliation(
 
 export async function serializeUsageProviderSelection<T>(
   account: Pick<GitHubAccount, 'username' | 'org'>,
-  operation: () => Promise<T>
+  operation: () => Promise<T>,
+  options: SelectionSerializationOptions = {}
 ): Promise<T> {
   const key = getUsageProviderOverrideKey(account)
   const previousSelection = manualSelectionQueues.get(key) ?? Promise.resolve()
@@ -74,7 +77,9 @@ export async function serializeUsageProviderSelection<T>(
   manualSelectionQueues.set(key, queuedSelections)
   try {
     await previousSelection
-    await waitForUsageProviderReconciliation(account)
+    if (options.waitForReconciliation !== false) {
+      await waitForUsageProviderReconciliation(account)
+    }
     cancelUsageProviderRetry(key)
     return await operation()
   } finally {
@@ -393,7 +398,8 @@ function useOverrideReconciliation(
 export function useLocalAccountConfig(
   convexAccounts: ConvexGitHubAccount[] | undefined,
   reconcile: ReconcileUsageProvider,
-  connectionCount: number
+  connectionCount: number,
+  isWebSocketConnected: boolean
 ) {
   const [accounts, setAccounts] = useState<GitHubAccount[]>([])
   const [overrides, setOverrides] = useState<UsageProviderOverrides>({})
@@ -418,6 +424,10 @@ export function useLocalAccountConfig(
       .sort(([left], [right]) => left.localeCompare(right))
   )
   const [retryRevision, scheduleRetry, canAttempt] = useUsageProviderRetry(retryContext)
+  const canAttemptWhileConnected = useCallback(
+    (key: string) => isWebSocketConnected && canAttempt(key),
+    [canAttempt, isWebSocketConnected]
+  )
 
   useInitialLocalConfig(setAccounts, setOverrides, setLoaded, changedOverrideKeys)
   useConnectedAccountMirror(
@@ -437,7 +447,7 @@ export function useLocalAccountConfig(
     reconcile,
     retryRevision,
     scheduleRetry,
-    canAttempt
+    canAttemptWhileConnected
   )
 
   return { accounts, overrides, loaded }

@@ -98,6 +98,13 @@ describe('getCloneRoots', () => {
     expect(roots).toContain(path.join('/Users/test', 'github'))
   })
 
+  it('includes the cross-agent skills checkout root', () => {
+    const home = path.join('C:', 'Users', 'test')
+    const roots = getCloneRoots('win32', home)
+
+    expect(roots).toContain(path.join(home, '.agents'))
+  })
+
   it('does not include drive letters for linux', () => {
     const roots = getCloneRoots('linux', '/home/user')
     expect(roots.some(r => r.includes('C:'))).toBe(false)

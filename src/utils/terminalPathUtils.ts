@@ -44,7 +44,8 @@ export function getCloneRoots(platform: string, home: string): string[] {
     path.join(home, 'github'),
     path.join(home, 'repos'),
     path.join(home, 'projects'),
-    path.join(home, 'source', 'repos')
+    path.join(home, 'source', 'repos'),
+    path.join(home, '.agents')
   )
 
   return roots

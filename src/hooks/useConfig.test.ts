@@ -1182,6 +1182,56 @@ describe('useConfig', () => {
       expect(await manualSave).toEqual({ success: true })
     })
 
+    it('serializes overlapping provider saves and blocks reconciliation until both settle', async () => {
+      let rejectFirstSave!: (error: Error) => void
+      let resolveSecondSave!: () => void
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>((_resolve, reject) => {
+              rejectFirstSave = reject
+            })
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise<void>(resolve => {
+              resolveSecondSave = resolve
+            })
+        )
+        .mockResolvedValue(undefined)
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      let firstSave!: Promise<{ success: boolean; error?: string }>
+      let secondSave!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        firstSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+        secondSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+
+      await act(async () => {
+        rejectFirstSave(new Error('Temporary outage'))
+        expect(await firstSave).toEqual({ success: true })
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(2))
+      expect(mockUpdate).toHaveBeenNthCalledWith(1, { id: '123', usageProvider: 'codex' })
+      expect(mockUpdate).toHaveBeenNthCalledWith(2, { id: '123', usageProvider: 'copilot' })
+
+      await act(async () => {
+        await Promise.resolve()
+      })
+      expect(mockUpdate).toHaveBeenCalledTimes(2)
+
+      await act(async () => {
+        resolveSecondSave()
+        expect(await secondSave).toEqual({ success: true })
+      })
+      expect(mockUpdate).toHaveBeenCalledTimes(2)
+    })
+
     it('cancels a queued reconciliation retry before a manual provider save', async () => {
       vi.useFakeTimers()
       try {

@@ -29,7 +29,7 @@ export type ConvexGitHubAccount = {
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
 const reconciliations = new Map<string, Promise<void>>()
-const manualSelections = new Set<string>()
+const manualSelectionQueues = new Map<string, Promise<void>>()
 
 type OverrideEvent = {
   key: string
@@ -65,13 +65,23 @@ export async function serializeUsageProviderSelection<T>(
   operation: () => Promise<T>
 ): Promise<T> {
   const key = getUsageProviderOverrideKey(account)
-  await waitForUsageProviderReconciliation(account)
-  cancelUsageProviderRetry(key)
-  manualSelections.add(key)
+  const previousSelection = manualSelectionQueues.get(key) ?? Promise.resolve()
+  let releaseSelection!: () => void
+  const selectionComplete = new Promise<void>(resolve => {
+    releaseSelection = resolve
+  })
+  const queuedSelections = previousSelection.then(() => selectionComplete)
+  manualSelectionQueues.set(key, queuedSelections)
   try {
+    await previousSelection
+    await waitForUsageProviderReconciliation(account)
+    cancelUsageProviderRetry(key)
     return await operation()
   } finally {
-    manualSelections.delete(key)
+    releaseSelection()
+    if (manualSelectionQueues.get(key) === queuedSelections) {
+      manualSelectionQueues.delete(key)
+    }
   }
 }
 
@@ -337,7 +347,7 @@ function canStartReconciliation(
   canAttempt: CanAttemptReconciliation
 ): provider is UsageProvider {
   return Boolean(
-    provider && !reconciliations.has(key) && !manualSelections.has(key) && canAttempt(key)
+    provider && !reconciliations.has(key) && !manualSelectionQueues.has(key) && canAttempt(key)
   )
 }
 

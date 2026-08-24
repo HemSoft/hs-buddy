@@ -12,6 +12,7 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  POWERSHELL_STARTUP_SCRIPT_ENV,
 } from '../../src/utils/terminalPathUtils'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../../src/ipc/contracts'
@@ -198,7 +199,7 @@ function resolveRepoPath(owner: string, repo: string): string | null {
   return findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
 }
 
-/** Builds shell args. For Windows PowerShell, generates OSC 7 setup via encoded command. */
+/** Builds shell args, including the static environment-backed PowerShell startup launcher. */
 function buildShellArgs(shell: string): string[] {
   return buildTerminalShellArgs(shell, process.platform)
 }
@@ -215,6 +216,17 @@ function processOsc7(session: TerminalSession, data: string): void {
       safeSend(session.sender, IPC_PUSH.TERMINAL_CWD_CHANGED, session.id, newCwd)
     }
   }
+}
+
+function forwardTerminalData(session: TerminalSession, data: string): void {
+  if (!data) return
+  session.outputBuffer += data
+  if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
+    session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
+  }
+  session.outputSeq++
+  safeSend(session.sender, IPC_PUSH.TERMINAL_DATA, session.id, data, session.outputSeq)
+  processOsc7(session, data)
 }
 
 function createTerminalSession(
@@ -237,13 +249,7 @@ function createTerminalSession(
   sessions.set(sessionId, session)
 
   const dataDisposable = ptyProcess.onData((data: string) => {
-    session.outputBuffer += data
-    if (session.outputBuffer.length > MAX_SCROLLBACK_BUFFER) {
-      session.outputBuffer = session.outputBuffer.slice(-MAX_SCROLLBACK_BUFFER)
-    }
-    session.outputSeq++
-    safeSend(session.sender, IPC_PUSH.TERMINAL_DATA, sessionId, data, session.outputSeq)
-    processOsc7(session, data)
+    forwardTerminalData(session, data)
   })
 
   const exitDisposable = ptyProcess.onExit(({ exitCode }: { exitCode: number }) => {
@@ -262,6 +268,7 @@ function scheduleStartupCommand(sessionId: string, startupCommand: string): void
   session.startupTimer = setTimeout(() => {
     const s = sessions.get(sessionId)
     if (!s?.alive) return
+    s.startupTimer = undefined
     try {
       s.pty.write(startupCommand + '\r')
     } catch (_: unknown) {
@@ -364,6 +371,12 @@ async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
   const { shell, shellArgs } = resolveSpawnShell()
   const shellStartupCommand = buildTerminalStartupCommand(shell, process.platform)
   const spawnOptions = buildSpawnOptions({ cols, rows }, cwd)
+  if (shellStartupCommand) {
+    const env = spawnOptions.env as Record<string, string | undefined>
+    env[POWERSHELL_STARTUP_SCRIPT_ENV] = [shellStartupCommand, startupCommand]
+      .filter((command): command is string => command !== undefined)
+      .join(';')
+  }
 
   let ptyProcess
   let launchStage = 'native-pty-load'
@@ -387,11 +400,8 @@ async function handleSpawn(event: { sender: WebContents }, rawOpts: unknown) {
 
   createTerminalSession(sessionId, ptyProcess, cwd, event.sender)
 
-  const startupCommands = [shellStartupCommand, startupCommand].filter(
-    (command): command is string => command !== undefined
-  )
-  if (startupCommands.length > 0) {
-    scheduleStartupCommand(sessionId, startupCommands.join(';'))
+  if (!shellStartupCommand && startupCommand) {
+    scheduleStartupCommand(sessionId, startupCommand)
   }
 
   return { success: true, sessionId, cwd }
@@ -425,7 +435,8 @@ export function registerTerminalHandlers(): void {
 
   ipcMain.on(IPC_SEND.TERMINAL_WRITE, (_event, sessionId: string, data: string) => {
     const session = sessions.get(sessionId)
-    if (session?.alive) session.pty.write(data)
+    if (!session?.alive) return
+    session.pty.write(data)
   })
 
   ipcMain.on(IPC_SEND.TERMINAL_RESIZE, (_event, sessionId: string, cols: number, rows: number) => {

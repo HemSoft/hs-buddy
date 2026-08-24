@@ -508,10 +508,15 @@ async function persistAccountEdit(
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount'],
   updateUsageProvider: ReturnType<typeof useGitHubAccounts>['updateUsageProvider']
 ) {
-  if (!canUpdateAccounts) {
-    return updateUsageProvider(account.username, account.org, usageProvider)
-  }
   const resolvedRepoRoot = resolveRepoRootUpdate(repoRoot)
+  if (!canUpdateAccounts) {
+    const providerResult = await updateUsageProvider(account.username, account.org, usageProvider)
+    if (!providerResult.success || resolvedRepoRoot === account.repoRoot) return providerResult
+    return {
+      success: false,
+      error: 'Usage provider saved, but the repository root still requires Convex.',
+    }
+  }
   const providerResult = await updateUsageProvider(account.username, account.org, usageProvider)
   if (resolvedRepoRoot === account.repoRoot) return providerResult
 

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1021] - 2026-08-24
+
+### Fixed
+
+- Make offline provider saves authoritative
+
 ## [0.1.1020] - 2026-08-24
 
 ### Fixed

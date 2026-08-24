@@ -139,7 +139,7 @@ async function updateConnectedUsageProvider(
   const accountIdentity = { username, org }
   return serializeUsageProviderSelection(
     accountIdentity,
-    async () => {
+    async isCurrent => {
       if (options.localOnly) {
         return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
       }
@@ -149,11 +149,13 @@ async function updateConnectedUsageProvider(
         if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
 
         await update({ id: account._id, usageProvider })
+        if (!isCurrent()) return { success: true }
         const result = await persistUsageProviderOverride(accountIdentity, null)
         return result.success
           ? { success: true }
           : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
       } catch (error: unknown) {
+        if (!isCurrent()) return { success: true }
         const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
         return fallback.success
           ? fallback

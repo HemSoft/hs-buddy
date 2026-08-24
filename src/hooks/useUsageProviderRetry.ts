@@ -18,6 +18,10 @@ export function cancelUsageProviderRetry(key: string) {
   publishRetryEvent(OVERRIDE_RETRY_CANCEL_EVENT, key)
 }
 
+export function scheduleUsageProviderRetry(key: string) {
+  publishRetryEvent(OVERRIDE_RETRY_EVENT, key)
+}
+
 function clearRetryState(
   key: string,
   timers: Map<string, number>,
@@ -40,7 +44,7 @@ export function useUsageProviderRetry(
   const exhausted = useRef(new Set<string>())
   const previousContexts = useRef(new Map<string, string>())
   const scheduleRetry = useCallback((key: string) => {
-    publishRetryEvent(OVERRIDE_RETRY_EVENT, key)
+    scheduleUsageProviderRetry(key)
   }, [])
   const canAttempt = useCallback(
     (key: string) => !timers.current.has(key) && !exhausted.current.has(key),

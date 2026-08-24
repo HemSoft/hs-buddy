@@ -94,6 +94,29 @@ describe('SettingsAccounts usage provider', () => {
     expect(updateAccount).not.toHaveBeenCalled()
   })
 
+  it('keeps a staged repository root visible when connectivity drops before Save', async () => {
+    accounts[0].repoRoot = 'D:\\github\\HemSoft'
+    const { rerender } = render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    fireEvent.change(screen.getByLabelText('Repository root path'), {
+      target: { value: 'D:\\github\\Elsewhere' },
+    })
+    fireEvent.change(screen.getByLabelText('Usage provider for HemSoft'), {
+      target: { value: 'codex' },
+    })
+    canUpdateAccounts = false
+    rerender(<SettingsAccounts />)
+    fireEvent.click(screen.getByTitle('Save'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Usage provider saved, but the repository root still requires Convex.'
+    )
+    expect(screen.getByLabelText('Repository root path')).toHaveValue('D:\\github\\Elsewhere')
+    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeInTheDocument()
+    expect(updateAccount).not.toHaveBeenCalled()
+  })
+
   it('keeps the editor open and reports an update failure', async () => {
     updateUsageProvider.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
     render(<SettingsAccounts />)

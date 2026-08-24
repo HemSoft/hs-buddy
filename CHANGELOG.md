@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1020] - 2026-08-24
+
+### Fixed
+
+- Preserve offline provider selections
+
 ## [0.1.1019] - 2026-08-24
 
 ### Fixed

@@ -1187,6 +1187,59 @@ describe('useConfig', () => {
       })
     })
 
+    it('restores a disconnected provider choice after a stale reconciliation clears it', async () => {
+      let resolveStaleClear!: () => void
+      let storedOverride: 'copilot' | 'codex' | null = 'codex'
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          const provider = args[2] as 'copilot' | 'codex' | null
+          if (provider === null) {
+            return new Promise(resolve => {
+              resolveStaleClear = () => {
+                storedOverride = null
+                resolve({ success: true })
+              }
+            })
+          }
+          storedOverride = provider
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(resolveStaleClear).toBeTypeOf('function'))
+
+      mockIsWebSocketConnected = false
+      rerender()
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: true,
+        })
+      })
+      expect(storedOverride).toBe('copilot')
+
+      await act(async () => {
+        resolveStaleClear()
+      })
+      await waitFor(() => expect(storedOverride).toBe('copilot'))
+      expect(mockInvoke).toHaveBeenLastCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'copilot'
+      )
+    })
+
     it('waits for an in-flight reconciliation before saving a manual provider choice', async () => {
       let resolveReconciliation!: () => void
       mockConvexAccounts = [
@@ -1382,7 +1435,11 @@ describe('useConfig', () => {
       )
       const { result } = renderHook(() => useGitHubAccounts())
 
-      expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+      expect(
+        await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex', {
+          localOnly: true,
+        })
+      ).toEqual({
         success: false,
         error: 'IPC unavailable',
       })

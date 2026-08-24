@@ -31,6 +31,11 @@ export type ConvexGitHubAccount = {
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
 const reconciliations = new Map<string, Promise<void>>()
 const manualSelectionQueues = new Map<string, Promise<void>>()
+const localSelectionRevisions = new Map<string, number>()
+const staleReconciliationRecoveries = new Map<
+  string,
+  { revision: number; recover: () => Promise<OverrideResult> }
+>()
 
 type OverrideEvent = {
   key: string
@@ -38,7 +43,10 @@ type OverrideEvent = {
 }
 
 type OverrideResult = { success: boolean; error?: string }
-type SelectionSerializationOptions = { waitForReconciliation?: boolean }
+type SelectionSerializationOptions = {
+  waitForReconciliation?: boolean
+  recoverAfterStaleReconciliation?: () => Promise<OverrideResult>
+}
 type ReconcileUsageProvider = (
   username: string,
   org: string,
@@ -62,12 +70,35 @@ async function waitForUsageProviderReconciliation(
   if (reconciliation) await reconciliation
 }
 
-export async function serializeUsageProviderSelection<T>(
+function beginLocalSelection(key: string, skipsReconciliation: boolean): number | null {
+  if (!skipsReconciliation) return null
+  const revision = (localSelectionRevisions.get(key) ?? 0) + 1
+  localSelectionRevisions.set(key, revision)
+  return revision
+}
+
+function updateStaleReconciliationRecovery(
+  key: string,
+  revision: number | null,
+  result: OverrideResult,
+  recover: (() => Promise<OverrideResult>) | undefined
+) {
+  if (revision === null || localSelectionRevisions.get(key) !== revision) return
+  if (result.success && recover) {
+    staleReconciliationRecoveries.set(key, { revision, recover })
+  } else {
+    staleReconciliationRecoveries.delete(key)
+  }
+}
+
+export async function serializeUsageProviderSelection(
   account: Pick<GitHubAccount, 'username' | 'org'>,
-  operation: () => Promise<T>,
+  operation: () => Promise<OverrideResult>,
   options: SelectionSerializationOptions = {}
-): Promise<T> {
+): Promise<OverrideResult> {
   const key = getUsageProviderOverrideKey(account)
+  const skipsReconciliation = options.waitForReconciliation === false
+  const selectionRevision = beginLocalSelection(key, skipsReconciliation)
   const previousSelection = manualSelectionQueues.get(key) ?? Promise.resolve()
   let releaseSelection!: () => void
   const selectionComplete = new Promise<void>(resolve => {
@@ -81,7 +112,14 @@ export async function serializeUsageProviderSelection<T>(
       await waitForUsageProviderReconciliation(account)
     }
     cancelUsageProviderRetry(key)
-    return await operation()
+    const result = await operation()
+    updateStaleReconciliationRecovery(
+      key,
+      selectionRevision,
+      result,
+      options.recoverAfterStaleReconciliation
+    )
+    return result
   } finally {
     releaseSelection()
     if (manualSelectionQueues.get(key) === queuedSelections) {
@@ -230,11 +268,24 @@ async function discardOverride(
   if (!result.success) scheduleRetry(key)
 }
 
+async function finishReconciliation(key: string, operation: Promise<void>, revision: number) {
+  if (reconciliations.get(key) === operation) reconciliations.delete(key)
+  if (localSelectionRevisions.get(key) === revision) return
+
+  const selectionQueue = manualSelectionQueues.get(key)
+  if (selectionQueue) await selectionQueue
+  const recovery = staleReconciliationRecoveries.get(key)
+  if (!recovery || recovery.revision !== localSelectionRevisions.get(key)) return
+  await settleOverrideResult(recovery.recover)
+  if (staleReconciliationRecoveries.get(key) === recovery) {
+    staleReconciliationRecoveries.delete(key)
+  }
+}
+
 function trackReconciliation(key: string, operation: Promise<void>) {
+  const revision = localSelectionRevisions.get(key) ?? 0
   reconciliations.set(key, operation)
-  void operation.finally(() => {
-    if (reconciliations.get(key) === operation) reconciliations.delete(key)
-  })
+  void operation.finally(() => finishReconciliation(key, operation, revision))
 }
 
 export function mergeUsageProviderOverrideSnapshot(

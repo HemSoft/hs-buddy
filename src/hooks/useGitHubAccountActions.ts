@@ -160,7 +160,15 @@ async function updateConnectedUsageProvider(
           : { success: false, error: fallback.error ?? getErrorMessage(error) }
       }
     },
-    { waitForReconciliation: !options.localOnly }
+    {
+      waitForReconciliation: !options.localOnly,
+      ...(options.localOnly
+        ? {
+            recoverAfterStaleReconciliation: () =>
+              persistUsageProviderOverride(accountIdentity, usageProvider),
+          }
+        : {}),
+    }
   )
 }
 

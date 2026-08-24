@@ -1,4 +1,4 @@
-const TASK_PREFIXES = ['prefetch-', 'autorefresh-'] as const
+const TASK_PREFIXES = ['prefetch-', 'autorefresh-', 'fetch-'] as const
 
 const PR_TASK_LABELS: Readonly<Record<string, string>> = {
   'my-prs': 'My PRs',

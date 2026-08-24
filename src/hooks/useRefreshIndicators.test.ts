@@ -72,6 +72,12 @@ describe('useRefreshIndicators', () => {
     expect(result.current['org-repos:relias-engineering']).toBe('pending')
   })
 
+  it('maps an interactive PR fetch to its mode', () => {
+    mockGetRunning.mockReturnValue(['fetch-needs-review'])
+    const { result } = renderHook(() => useRefreshIndicators())
+    expect(result.current['needs-review']).toBe('active')
+  })
+
   it('passes through task names without known prefix', () => {
     mockGetRunning.mockReturnValue(['unknown-task'])
     const { result } = renderHook(() => useRefreshIndicators())

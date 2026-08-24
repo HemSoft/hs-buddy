@@ -51,6 +51,10 @@ describe('getFriendlyGitHubTaskLabel', () => {
     )
   })
 
+  it('maps an interactive PR fetch to its mode label', () => {
+    expect(getFriendlyGitHubTaskLabel('fetch-needs-review')).toBe('Needs Review')
+  })
+
   it('uses a safe generic label for unknown tasks', () => {
     expect(getFriendlyGitHubTaskLabel('internal-task:%5Bsecret-payload%5D')).toBe('GitHub data')
   })

@@ -1,5 +1,20 @@
 import { v } from 'convex/values'
-import { query, mutation, internalQuery } from './_generated/server'
+import { query, mutation, internalQuery, type MutationCtx } from './_generated/server'
+import type { Id } from './_generated/dataModel'
+
+async function transferCodexOwnership(ctx: MutationCtx, ownerId?: Id<'githubAccounts'>) {
+  const accounts = await ctx.db.query('githubAccounts').collect()
+  await Promise.all(
+    accounts
+      .filter(account => account._id !== ownerId && account.usageProvider === 'codex')
+      .map(account =>
+        ctx.db.patch('githubAccounts', account._id, {
+          usageProvider: 'copilot',
+          updatedAt: Date.now(),
+        })
+      )
+  )
+}
 
 /**
  * Internal: return every tracked account for snapshot collection runs.
@@ -65,6 +80,7 @@ export const create = mutation({
       throw new Error(`GitHub account ${username}@${org} already exists`)
     }
 
+    if (usageProvider === 'codex') await transferCodexOwnership(ctx)
     const now = Date.now()
     return await ctx.db.insert('githubAccounts', {
       username,
@@ -92,6 +108,8 @@ export const update = mutation({
     if (!existing) {
       throw new Error('GitHub account not found')
     }
+
+    if (usageProvider === 'codex') await transferCodexOwnership(ctx, id)
 
     await ctx.db.patch('githubAccounts', id, {
       ...(username !== undefined && { username }),
@@ -141,6 +159,8 @@ export const bulkImport = mutation({
       if (existing.some(a => a.org === account.org)) {
         continue
       }
+
+      if (account.usageProvider === 'codex') await transferCodexOwnership(ctx)
 
       const id = await ctx.db.insert('githubAccounts', {
         username: account.username,

@@ -103,6 +103,42 @@ describe('githubAccounts', () => {
     expect((await t.query(api.githubAccounts.get, { id }))?.usageProvider).toBe('codex')
   })
 
+  test('updating an account to Codex atomically demotes the previous owner', async () => {
+    const t = convexTest(schema, modules)
+    const firstId = await t.mutation(api.githubAccounts.create, {
+      username: 'first',
+      org: 'HemSoft',
+      usageProvider: 'codex',
+    })
+    const secondId = await t.mutation(api.githubAccounts.create, {
+      username: 'second',
+      org: 'HemSoft',
+    })
+
+    await t.mutation(api.githubAccounts.update, { id: secondId, usageProvider: 'codex' })
+
+    expect((await t.query(api.githubAccounts.get, { id: firstId }))?.usageProvider).toBe('copilot')
+    expect((await t.query(api.githubAccounts.get, { id: secondId }))?.usageProvider).toBe('codex')
+  })
+
+  test('creating a Codex account atomically demotes the previous owner', async () => {
+    const t = convexTest(schema, modules)
+    const firstId = await t.mutation(api.githubAccounts.create, {
+      username: 'first',
+      org: 'HemSoft',
+      usageProvider: 'codex',
+    })
+
+    const secondId = await t.mutation(api.githubAccounts.create, {
+      username: 'second',
+      org: 'HemSoft',
+      usageProvider: 'codex',
+    })
+
+    expect((await t.query(api.githubAccounts.get, { id: firstId }))?.usageProvider).toBe('copilot')
+    expect((await t.query(api.githubAccounts.get, { id: secondId }))?.usageProvider).toBe('codex')
+  })
+
   test('update throws when account does not exist', async () => {
     const t = convexTest(schema, modules)
     const id = await t.mutation(api.githubAccounts.create, { username: 'gone', org: 'gone' })
@@ -153,5 +189,19 @@ describe('githubAccounts', () => {
 
     const accounts = await t.query(api.githubAccounts.list)
     expect(accounts).toHaveLength(2)
+  })
+
+  test('bulkImport leaves only the last imported Codex owner selected', async () => {
+    const t = convexTest(schema, modules)
+    await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        { username: 'first', org: 'HemSoft', usageProvider: 'codex' },
+        { username: 'second', org: 'HemSoft', usageProvider: 'codex' },
+      ],
+    })
+
+    const accounts = await t.query(api.githubAccounts.list)
+    expect(accounts.find(account => account.username === 'first')?.usageProvider).toBe('copilot')
+    expect(accounts.find(account => account.username === 'second')?.usageProvider).toBe('codex')
   })
 })

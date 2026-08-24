@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { IPC_INVOKE } from '../ipc/contracts'
+import { markAccountMigrationReady } from './useAccountMigrationState'
 
 function hasAccountsToMigrate<T>(configAccounts: T[] | undefined): configAccounts is T[] {
   return !!configAccounts && configAccounts.length > 0
@@ -69,7 +70,7 @@ export function useMigrateToConvex() {
 
   useEffect(() => {
     // Wait for Convex queries to load first
-    if (isLoading) {
+    if (existingAccounts === undefined || existingSettings === undefined) {
       return
     }
 
@@ -90,6 +91,7 @@ export function useMigrateToConvex() {
     }
 
     void migrationPromiseRef.current.then(() => {
+      markAccountMigrationReady()
       if (!cancelled) {
         setIsComplete(true)
       }

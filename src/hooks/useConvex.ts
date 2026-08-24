@@ -1,4 +1,4 @@
-import { useQuery, useMutation } from 'convex/react'
+import { useConvexConnectionState, useQuery, useMutation } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import type { Id } from '../../convex/_generated/dataModel'
 
@@ -9,6 +9,10 @@ import type { Id } from '../../convex/_generated/dataModel'
 // List all GitHub accounts
 export function useGitHubAccountsConvex() {
   return useQuery(api.githubAccounts.list)
+}
+
+export function useGitHubAccountsConnection() {
+  return useConvexConnectionState()
 }
 
 // GitHub account mutations

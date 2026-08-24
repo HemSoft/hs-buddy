@@ -86,12 +86,15 @@ export function useUsageProviderRetry(
   useEffect(() => {
     const nextContexts = new Map(JSON.parse(retryContext) as Array<[string, string]>)
     const keys = new Set([...previousContexts.current.keys(), ...nextContexts.keys()])
+    let contextChanged = false
     for (const key of keys) {
       if (previousContexts.current.get(key) !== nextContexts.get(key)) {
         clearRetryState(key, timers.current, attempts.current, exhausted.current)
+        contextChanged = true
       }
     }
     previousContexts.current = nextContexts
+    if (contextChanged) setRevision(current => current + 1)
   }, [retryContext])
 
   return [revision, scheduleRetry, canAttempt]

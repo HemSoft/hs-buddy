@@ -14,6 +14,7 @@ import {
   mergeUsageProviderOverrideSnapshot,
   persistUsageProviderOverride,
 } from './useUsageProviderOverrides'
+import { markAccountMigrationPending, markAccountMigrationReady } from './useAccountMigrationState'
 
 // Mock Convex hooks
 const mockCreate = vi.fn()
@@ -32,9 +33,15 @@ let mockConvexAccounts:
     }>
   | undefined
 let mockSettings: Record<string, unknown> | undefined
+let mockConnectionCount = 1
+let mockIsWebSocketConnected = true
 
 vi.mock('./useConvex', () => ({
   useGitHubAccountsConvex: () => mockConvexAccounts,
+  useGitHubAccountsConnection: () => ({
+    connectionCount: mockConnectionCount,
+    isWebSocketConnected: mockIsWebSocketConnected,
+  }),
   useGitHubAccountMutations: () => ({ create: mockCreate, update: mockUpdate, remove: mockRemove }),
   useSettings: () => mockSettings,
   useSettingsMutations: () => ({ updatePR: mockUpdatePR, updateCopilot: mockUpdateCopilot }),
@@ -59,6 +66,9 @@ describe('useConfig', () => {
     mockInvoke.mockReset()
     mockConvexAccounts = undefined
     mockSettings = undefined
+    mockConnectionCount = 1
+    mockIsWebSocketConnected = true
+    markAccountMigrationReady()
     mockInvoke.mockImplementation((channel: string) =>
       Promise.resolve(
         channel === 'config:get-config'
@@ -223,19 +233,17 @@ describe('useConfig', () => {
       expect(mockUpdate).toHaveBeenCalledTimes(attemptsBeforeReadding)
     })
 
-    it('filters a stale initial override after an earlier connected mirror', async () => {
+    it('preserves local accounts until a pending migration populates Convex', async () => {
       let resolveConfig!: (config: AppConfig) => void
       const configRequest = new Promise<AppConfig>(resolve => {
         resolveConfig = resolve
       })
       mockConvexAccounts = []
+      markAccountMigrationPending()
       mockInvoke.mockImplementation((channel: string) =>
         channel === 'config:get-config' ? configRequest : Promise.resolve({ success: true })
       )
       const { result, rerender } = renderHook(() => useGitHubAccounts())
-      await waitFor(() =>
-        expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
-      )
 
       resolveConfig({
         github: {
@@ -246,12 +254,22 @@ describe('useConfig', () => {
       await act(async () => {
         await configRequest
       })
+      expect(mockInvoke).not.toHaveBeenCalledWith('config:sync-github-accounts', [])
+      expect(result.current.accounts).toEqual([])
 
-      mockConvexAccounts = [{ _id: 'new-id', username: 'HemSoft', org: 'HemSoft' }]
+      await act(async () => {
+        markAccountMigrationReady()
+        rerender()
+      })
+      expect(mockInvoke).not.toHaveBeenCalledWith('config:sync-github-accounts', [])
+
+      mockConvexAccounts = [
+        { _id: 'new-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
       rerender()
 
       await waitFor(() => expect(result.current.accounts).toHaveLength(1))
-      expect(result.current.accounts[0].usageProvider).toBeUndefined()
+      expect(result.current.accounts[0].usageProvider).toBe('codex')
       expect(mockUpdate).not.toHaveBeenCalled()
     })
 
@@ -602,6 +620,48 @@ describe('useConfig', () => {
             usageProvider: 'copilot',
           },
         ]
+        rerender()
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(7)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('retries again after Convex reconnects without account data changing', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate.mockRejectedValue(new Error('Persistent outage'))
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                    usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                  },
+                }
+              : { success: true }
+          )
+        )
+
+        const { rerender } = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        for (const delay of [1_000, 2_000, 4_000, 8_000, 16_000]) {
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(delay)
+          })
+        }
+        expect(mockUpdate).toHaveBeenCalledTimes(6)
+
+        mockConnectionCount = 2
         rerender()
         await act(async () => {
           await vi.advanceTimersByTimeAsync(0)

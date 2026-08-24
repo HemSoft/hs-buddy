@@ -18,6 +18,7 @@ import {
   type CanAttemptReconciliation,
   type ScheduleRetry,
 } from './useUsageProviderRetry'
+import { useAccountMigrationReady } from './useAccountMigrationState'
 
 export type ConvexGitHubAccount = {
   username: string
@@ -246,26 +247,16 @@ function useInitialLocalConfig(
   setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
   setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
   setLoaded: Dispatch<SetStateAction<boolean>>,
-  changedOverrideKeys: RefObject<Set<string>>,
-  accountsMirroredFromConvex: RefObject<boolean>,
-  mirroredAccountKeys: RefObject<Set<string> | null>
+  changedOverrideKeys: RefObject<Set<string>>
 ) {
   useEffect(() => {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
-        if (!accountsMirroredFromConvex.current) setAccounts(config.github.accounts)
-        const connectedKeys = mirroredAccountKeys.current
+        setAccounts(config.github.accounts)
         const snapshot = config.github.usageProviderOverrides ?? {}
-        const applicableSnapshot = connectedKeys
-          ? Object.fromEntries(Object.entries(snapshot).filter(([key]) => connectedKeys.has(key)))
-          : snapshot
         setOverrides(current =>
-          mergeUsageProviderOverrideSnapshot(
-            applicableSnapshot,
-            current,
-            changedOverrideKeys.current
-          )
+          mergeUsageProviderOverrideSnapshot(snapshot, current, changedOverrideKeys.current)
         )
       })
       .catch(() => {
@@ -274,34 +265,31 @@ function useInitialLocalConfig(
       .finally(() => {
         setLoaded(true)
       })
-  }, [
-    accountsMirroredFromConvex,
-    changedOverrideKeys,
-    mirroredAccountKeys,
-    setAccounts,
-    setLoaded,
-    setOverrides,
-  ])
+  }, [changedOverrideKeys, setAccounts, setLoaded, setOverrides])
 }
 
 function useConnectedAccountMirror(
   convexAccounts: ConvexGitHubAccount[] | undefined,
+  hasLocalAccounts: boolean,
+  localConfigLoaded: boolean,
+  accountMigrationReady: boolean,
   setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
   setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
   changedOverrideKeys: RefObject<Set<string>>,
-  accountsMirroredFromConvex: RefObject<boolean>,
-  mirroredAccountKeys: RefObject<Set<string> | null>
+  accountsMirroredFromConvex: RefObject<boolean>
 ) {
   useEffect(() => {
-    if (!convexAccounts) return
+    if (!convexAccounts || !localConfigLoaded || !accountMigrationReady) return
+    if (convexAccounts.length === 0 && hasLocalAccounts && !accountsMirroredFromConvex.current) {
+      return
+    }
     const mirroredAccounts = toDurableAccounts(convexAccounts)
-    void mirrorConnectedGitHubAccounts(convexAccounts)
-      .then((result: OverrideResult) => {
+    void settleOverrideResult(() => mirrorConnectedGitHubAccounts(convexAccounts)).then(
+      (result: OverrideResult) => {
         if (!result.success) return
         accountsMirroredFromConvex.current = true
         setAccounts(mirroredAccounts)
         const accountKeys = new Set(mirroredAccounts.map(getUsageProviderOverrideKey))
-        mirroredAccountKeys.current = accountKeys
         setOverrides(current => {
           const next: UsageProviderOverrides = {}
           let changed = false
@@ -314,15 +302,15 @@ function useConnectedAccountMirror(
           }
           return changed ? next : current
         })
-      })
-      .catch(() => {
-        // Keep the last durable snapshot when electron-store cannot be updated.
-      })
+      }
+    )
   }, [
     accountsMirroredFromConvex,
     changedOverrideKeys,
     convexAccounts,
-    mirroredAccountKeys,
+    hasLocalAccounts,
+    localConfigLoaded,
+    accountMigrationReady,
     setAccounts,
     setOverrides,
   ])
@@ -401,39 +389,43 @@ function useOverrideReconciliation(
 
 export function useLocalAccountConfig(
   convexAccounts: ConvexGitHubAccount[] | undefined,
-  reconcile: ReconcileUsageProvider
+  reconcile: ReconcileUsageProvider,
+  connectionCount: number
 ) {
   const [accounts, setAccounts] = useState<GitHubAccount[]>([])
   const [overrides, setOverrides] = useState<UsageProviderOverrides>({})
-  const [loaded, setLoaded] = useState(true)
+  const [loaded, setLoaded] = useState(false)
+  const accountMigrationReady = useAccountMigrationReady()
   const changedOverrideKeys = useRef(new Set<string>())
   const accountsMirroredFromConvex = useRef(false)
-  const mirroredAccountKeys = useRef<Set<string> | null>(null)
   const retryContext = JSON.stringify(
     (convexAccounts ?? [])
       .map(account => {
         const key = getUsageProviderOverrideKey(account)
-        return [key, JSON.stringify([account.repoRoot, account.usageProvider, overrides[key]])]
+        return [
+          key,
+          JSON.stringify([
+            account.repoRoot,
+            account.usageProvider,
+            overrides[key],
+            connectionCount,
+          ]),
+        ]
       })
       .sort(([left], [right]) => left.localeCompare(right))
   )
   const [retryRevision, scheduleRetry, canAttempt] = useUsageProviderRetry(retryContext)
 
-  useInitialLocalConfig(
-    setAccounts,
-    setOverrides,
-    setLoaded,
-    changedOverrideKeys,
-    accountsMirroredFromConvex,
-    mirroredAccountKeys
-  )
+  useInitialLocalConfig(setAccounts, setOverrides, setLoaded, changedOverrideKeys)
   useConnectedAccountMirror(
     convexAccounts,
+    accounts.length > 0,
+    loaded,
+    accountMigrationReady,
     setAccounts,
     setOverrides,
     changedOverrideKeys,
-    accountsMirroredFromConvex,
-    mirroredAccountKeys
+    accountsMirroredFromConvex
   )
   useOverrideEvents(setOverrides, changedOverrideKeys)
   useOverrideReconciliation(

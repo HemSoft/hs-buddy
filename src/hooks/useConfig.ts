@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { DEFAULT_RECENTLY_MERGED_DAYS } from '../constants'
 import type { AppConfig } from '../types/config'
-import { useGitHubAccountsConvex, useSettings, useSettingsMutations } from './useConvex'
+import {
+  useGitHubAccountsConnection,
+  useGitHubAccountsConvex,
+  useSettings,
+  useSettingsMutations,
+} from './useConvex'
 import { getErrorMessage } from '../utils/errorUtils'
 import { IPC_INVOKE } from '../ipc/contracts'
 import { useLocalAccountConfig, useResolvedAccounts } from './useUsageProviderOverrides'
@@ -170,12 +175,17 @@ function resolveCopilotValues(s: {
 
 export function useGitHubAccounts() {
   const convexAccounts = useGitHubAccountsConvex()
+  const connection = useGitHubAccountsConnection()
   const accountActions = useGitHubAccountActions(convexAccounts)
   const {
     accounts: electronStoreAccounts,
     overrides: usageProviderOverrides,
     loaded: fallbackLoaded,
-  } = useLocalAccountConfig(convexAccounts, accountActions.reconcileUsageProvider)
+  } = useLocalAccountConfig(
+    convexAccounts,
+    accountActions.reconcileUsageProvider,
+    connection.connectionCount
+  )
 
   // Use Convex if connected, otherwise electron-store
   const convexConnected = convexAccounts !== undefined

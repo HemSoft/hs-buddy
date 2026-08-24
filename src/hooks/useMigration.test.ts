@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMigrateToConvex } from './useMigration'
+import { markAccountMigrationPending, useAccountMigrationReady } from './useAccountMigrationState'
 
 const mockBulkImportAccounts = vi.fn()
 const mockInitSettings = vi.fn()
@@ -52,6 +53,7 @@ describe('useMigrateToConvex', () => {
     vi.clearAllMocks()
     mockExistingAccounts = undefined
     mockExistingSettings = undefined
+    markAccountMigrationPending()
     mockInvoke.mockResolvedValue({
       github: { accounts: [{ username: 'user1', org: 'org1' }] },
       pr: { refreshInterval: 10, autoRefresh: true },
@@ -127,6 +129,35 @@ describe('useMigrateToConvex', () => {
     })
 
     expect(result.current.isComplete).toBe(true)
+  })
+
+  it('migrates after a timeout when Convex later reconnects', async () => {
+    vi.useFakeTimers()
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3_100)
+    })
+    expect(result.current.migration.isComplete).toBe(true)
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(mockBulkImportAccounts).toHaveBeenCalledWith({
+      accounts: [{ username: 'user1', org: 'org1' }],
+    })
+    expect(result.current.accountsReady).toBe(true)
   })
 
   it('timeout no-ops after migration already completed', async () => {

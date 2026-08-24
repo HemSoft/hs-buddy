@@ -122,6 +122,8 @@ describe('useCopilotUsage', () => {
     await waitFor(() => expect(result.current.accounts).toEqual([]))
     expect(mockGetCopilotUsage).not.toHaveBeenCalled()
     expect(mockGetCopilotQuota).not.toHaveBeenCalled()
+    expect(mockGetCopilotBudget).toHaveBeenCalledWith('HemSoft', 'HemSoft')
+    expect(result.current.orgBudgets.HemSoft?.data).toBeDefined()
   })
 
   it('fetches usage pool for each account with an org on mount', async () => {

@@ -394,13 +394,13 @@ export function useCopilotUsage() {
 
   const uniqueOrgs = useMemo(() => {
     const map = new Map<string, string>()
-    for (const account of accounts) {
+    for (const account of configuredAccounts) {
       if (account.org && !map.has(account.org)) {
         map.set(account.org, account.username)
       }
     }
     return map
-  }, [accounts])
+  }, [configuredAccounts])
 
   const fetchQuota = useCallback(
     async (account: GitHubAccount) => doFetchQuota(account, setQuotas),

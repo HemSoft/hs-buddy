@@ -1,21 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 
-const mockAccounts = [
+const makeAccounts = () => [
   { username: 'user1', org: 'org1', token: 'tok1' },
   { username: 'user2', org: 'org1', token: 'tok2' },
   { username: 'user3', org: '', token: 'tok3' },
 ]
+const mockAccounts = makeAccounts()
 
 vi.mock('./useConfig', () => ({
   useGitHubAccounts: () => ({ accounts: mockAccounts, loading: false }),
 }))
 
 const mockGetCopilotUsage = vi.fn()
+const mockGetCopilotQuota = vi.fn()
 const mockGetCopilotBudget = vi.fn()
 
 Object.defineProperty(window, 'github', {
-  value: { getCopilotUsage: mockGetCopilotUsage, getCopilotBudget: mockGetCopilotBudget },
+  value: {
+    getCopilotUsage: mockGetCopilotUsage,
+    getCopilotQuota: mockGetCopilotQuota,
+    getCopilotBudget: mockGetCopilotBudget,
+  },
   writable: true,
   configurable: true,
 })
@@ -60,10 +66,40 @@ function makeBudgetData(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function makePersonalQuotaData(overrides: Record<string, unknown> = {}) {
+  return {
+    login: 'SelfUser',
+    copilot_plan: 'individual',
+    quota_reset_date: '2026-09-01',
+    quota_reset_date_utc: '2026-09-01T00:00:00.000Z',
+    organization_login_list: [],
+    quota_snapshots: {
+      premium_interactions: {
+        overage_count: 0,
+        overage_permitted: false,
+        percent_remaining: 80,
+        quota_id: 'premium_interactions',
+        quota_remaining: 800,
+        unlimited: false,
+        timestamp_utc: '2026-08-24T13:33:56.679Z',
+        has_quota: true,
+        quota_reset_at: 0,
+        token_based_billing: true,
+        credits_used: 200,
+        remaining: 800,
+        entitlement: 1000,
+      },
+    },
+    ...overrides,
+  }
+}
+
 describe('useCopilotUsage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockAccounts.splice(0, mockAccounts.length, ...makeAccounts())
     mockGetCopilotUsage.mockResolvedValue({ success: true, data: makeUsageData() })
+    mockGetCopilotQuota.mockResolvedValue({ success: true, data: makePersonalQuotaData() })
     mockGetCopilotBudget.mockResolvedValue({ success: true, data: makeBudgetData() })
   })
 
@@ -72,7 +108,37 @@ describe('useCopilotUsage', () => {
     await waitFor(() => expect(result.current.anyLoading).toBe(false))
     expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user1')
     expect(mockGetCopilotUsage).toHaveBeenCalledWith('org1', 'user2')
+    expect(mockGetCopilotQuota).not.toHaveBeenCalled()
     expect(result.current.quotas['user1']?.data).toBeDefined()
+  })
+
+  it('fetches personal quota for a case-insensitive self namespace', async () => {
+    mockAccounts.push({ username: 'SelfUser', org: 'selfuser', token: 'tok-self' })
+
+    const { result, unmount } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.quotas.SelfUser?.loading).toBe(false))
+
+    expect(mockGetCopilotQuota).toHaveBeenCalledWith('SelfUser')
+    expect(mockGetCopilotUsage).not.toHaveBeenCalledWith('selfuser', 'SelfUser')
+    expect(result.current.quotas.SelfUser?.data?.login).toBe('SelfUser')
+    expect(result.current.quotas.SelfUser?.error).toBeNull()
+
+    unmount()
+    mockAccounts.pop()
+  })
+
+  it('surfaces personal quota failures for a self namespace', async () => {
+    mockAccounts.push({ username: 'SelfUser', org: 'selfuser', token: 'tok-self' })
+    mockGetCopilotQuota.mockResolvedValue({ success: false, error: 'Personal quota unavailable' })
+
+    const { result, unmount } = renderHook(() => useCopilotUsage())
+    await waitFor(() => expect(result.current.quotas.SelfUser?.loading).toBe(false))
+
+    expect(result.current.quotas.SelfUser?.data).toBeNull()
+    expect(result.current.quotas.SelfUser?.error).toBe('Personal quota unavailable')
+
+    unmount()
+    mockAccounts.pop()
   })
 
   it('marks accounts without an org as unavailable', async () => {

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.998] - 2026-08-24
+
+### Fixed
+
+- Load user namespace quota
+
 ## [0.1.997] - 2026-08-24
 
 ### Fixed

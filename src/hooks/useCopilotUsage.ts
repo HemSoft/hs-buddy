@@ -220,6 +220,7 @@ type BudgetSetter = Dispatch<SetStateAction<Record<string, OrgBudgetState>>>
 type BudgetData = NonNullable<OrgBudgetState['data']>
 type CopilotUsageResult = Awaited<ReturnType<(typeof window.github)['getCopilotUsage']>>
 type CopilotUsageData = NonNullable<CopilotUsageResult['data']>
+type CopilotQuotaResult = Awaited<ReturnType<(typeof window.github)['getCopilotQuota']>>
 
 const NO_ORG_POOL_ERROR = 'Per-account AI Credit data requires an organization with Copilot seats.'
 
@@ -263,6 +264,14 @@ function usageResultError(result: CopilotUsageResult): string {
   return result.error || 'Unknown error'
 }
 
+function quotaResultError(result: CopilotQuotaResult): string {
+  return result.error || 'Unknown error'
+}
+
+function isPersonalNamespace(account: GitHubAccount): boolean {
+  return account.username.toLowerCase() === account.org.toLowerCase()
+}
+
 function quotaDataFromUsage(
   username: string,
   org: string,
@@ -302,12 +311,26 @@ function handleQuotaResult(
   setQuotaData(setQuotas, username, quotaDataFromUsage(username, org, data))
 }
 
+function handlePersonalQuotaResult(
+  setQuotas: QuotaSetter,
+  username: string,
+  result: CopilotQuotaResult
+): void {
+  if (!result.success || !result.data) {
+    setQuotaError(setQuotas, username, quotaResultError(result))
+    return
+  }
+
+  setQuotaData(setQuotas, username, result.data)
+}
+
 /**
  * Fetch the org AI Credit pool for an account and synthesize a quota snapshot.
  * Under June 2026 AI Credits billing the per-user quota endpoint reports zeros,
  * so usage is derived from the org billing/usage pool (used credits, gross/net,
- * seats → allotment). Accounts without an org or seats degrade to an explicit
- * "unavailable" message rather than misleading zeros.
+ * seats → allotment). A self namespace is a user account rather than an org, so
+ * it uses the personal quota endpoint. Accounts without either source degrade to
+ * an explicit "unavailable" message rather than misleading zeros.
  */
 async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Promise<void> {
   const { username, org } = account
@@ -320,6 +343,12 @@ async function doFetchQuota(account: GitHubAccount, setQuotas: QuotaSetter): Pro
   }
 
   try {
+    if (isPersonalNamespace(account)) {
+      const result = await window.github.getCopilotQuota(username)
+      handlePersonalQuotaResult(setQuotas, username, result)
+      return
+    }
+
     const result = await window.github.getCopilotUsage(org, username)
     handleQuotaResult(setQuotas, username, org, result)
   } catch (error: unknown) {

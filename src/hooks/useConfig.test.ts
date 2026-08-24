@@ -154,6 +154,28 @@ describe('useConfig', () => {
       expect(result.current.canUpdateAccounts).toBe(true)
     })
 
+    it('mirrors connected accounts for a later offline fallback', async () => {
+      mockConvexAccounts = [
+        { _id: '1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() =>
+        expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+          { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        ])
+      )
+      mockConvexAccounts = undefined
+      rerender()
+
+      await waitFor(() =>
+        expect(result.current.accounts).toEqual([
+          { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        ])
+      )
+      expect(result.current.canUpdateAccounts).toBe(false)
+    })
+
     it('falls back to electron-store when Convex unavailable', async () => {
       mockConvexAccounts = undefined
       const { result } = renderHook(() => useGitHubAccounts())
@@ -412,6 +434,9 @@ describe('useConfig', () => {
       await waitFor(() =>
         expect(mockUpdate).toHaveBeenCalledWith({ id: 'id1', usageProvider: 'copilot' })
       )
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ])
       expect(mockInvoke).not.toHaveBeenCalledWith(
         'config:set-usage-provider-override',
         'HemSoft',

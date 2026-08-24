@@ -80,6 +80,23 @@ class ConfigManager {
     }
   }
 
+  replaceGitHubAccounts(accounts: GitHubAccount[]): void {
+    const accountKeys = new Set<string>()
+    for (const account of accounts) {
+      const key = getUsageProviderOverrideKey(account)
+      if (accountKeys.has(key)) {
+        throw new Error(`Duplicate GitHub account ${account.username}@${account.org}`)
+      }
+      accountKeys.add(key)
+    }
+
+    this.store.set('github.accounts', accounts)
+    const overrides = Object.fromEntries(
+      Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
+    )
+    this.store.set('github.usageProviderOverrides', overrides)
+  }
+
   getUsageProviderOverrides(): UsageProviderOverrides {
     return this.store.get('github.usageProviderOverrides', {})
   }

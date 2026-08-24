@@ -2,11 +2,16 @@ import { useCallback } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
 import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
-import { persistUsageProviderOverride } from './useUsageProviderOverrides'
+import {
+  mirrorConnectedGitHubAccounts,
+  persistUsageProviderOverride,
+} from './useUsageProviderOverrides'
 
 type ConvexAccounts = ReturnType<typeof useGitHubAccountsConvex>
 type ConvexAccount = NonNullable<ConvexAccounts>[number]
+type CreateMutation = ReturnType<typeof useGitHubAccountMutations>['create']
 type UpdateMutation = ReturnType<typeof useGitHubAccountMutations>['update']
+type RemoveMutation = ReturnType<typeof useGitHubAccountMutations>['remove']
 type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
 
@@ -16,9 +21,16 @@ function findAccount(accounts: ConvexAccounts, username: string, org: string) {
 
 async function persistLocalUsageProvider(
   account: Pick<GitHubAccount, 'username' | 'org'>,
-  usageProvider: UsageProvider
+  usageProvider: UsageProvider,
+  connectedAccounts?: NonNullable<ConvexAccounts>
 ): Promise<MutationResult> {
   try {
+    if (connectedAccounts) {
+      const mirror = await mirrorConnectedGitHubAccounts(connectedAccounts)
+      if (!mirror.success) {
+        return { success: false, error: mirror.error ?? 'Failed to mirror connected accounts' }
+      }
+    }
     return await persistUsageProviderOverride(account, usageProvider)
   } catch (error: unknown) {
     return { success: false, error: getErrorMessage(error) }
@@ -44,6 +56,85 @@ async function reconcileConnectedUsageProvider(
   }
 }
 
+async function createConnectedAccount(
+  account: GitHubAccount,
+  create: CreateMutation
+): Promise<MutationResult> {
+  try {
+    await create({
+      username: account.username,
+      org: account.org,
+      ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
+    })
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+async function removeConnectedAccount(
+  accounts: ConvexAccounts,
+  username: string,
+  org: string,
+  remove: RemoveMutation
+): Promise<MutationResult> {
+  try {
+    const account = findAccount(accounts, username, org)
+    if (!account) return { success: false, error: 'Account not found' }
+    await remove({ id: account._id })
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+async function updateConnectedAccount(
+  accounts: ConvexAccounts,
+  username: string,
+  org: string,
+  updates: Partial<GitHubAccount>,
+  update: UpdateMutation
+): Promise<MutationResult> {
+  try {
+    const account = findAccount(accounts, username, org)
+    if (!account) return { success: false, error: 'Account not found' }
+    await update({ id: account._id, ...updates })
+    return { success: true }
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
+}
+
+async function updateConnectedUsageProvider(
+  accounts: ConvexAccounts,
+  update: UpdateMutation,
+  username: string,
+  org: string,
+  usageProvider: UsageProvider,
+  options: UsageProviderUpdateOptions
+): Promise<MutationResult> {
+  const accountIdentity = { username, org }
+  if (options.localOnly) {
+    return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
+  }
+
+  try {
+    const account = findAccount(accounts, username, org)
+    if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
+
+    await update({ id: account._id, usageProvider })
+    const result = await persistUsageProviderOverride(accountIdentity, null)
+    return result.success
+      ? { success: true }
+      : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
+  } catch (error: unknown) {
+    const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
+    return fallback.success
+      ? fallback
+      : { success: false, error: fallback.error ?? getErrorMessage(error) }
+  }
+}
+
 export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
   const { create, update, remove } = useGitHubAccountMutations()
 
@@ -60,72 +151,19 @@ export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
     [convexAccounts, update]
   )
 
-  const addAccount = async (account: GitHubAccount): Promise<MutationResult> => {
-    try {
-      await create({
-        username: account.username,
-        org: account.org,
-        ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
-      })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  const removeAccount = async (username: string, org: string): Promise<MutationResult> => {
-    try {
-      const account = findAccount(convexAccounts, username, org)
-      if (!account) return { success: false, error: 'Account not found' }
-      await remove({ id: account._id })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
-
-  const updateAccount = async (
-    username: string,
-    org: string,
-    updates: Partial<GitHubAccount>
-  ): Promise<MutationResult> => {
-    try {
-      const account = findAccount(convexAccounts, username, org)
-      if (!account) return { success: false, error: 'Account not found' }
-      await update({ id: account._id, ...updates })
-      return { success: true }
-    } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
-    }
-  }
+  const addAccount = (account: GitHubAccount) => createConnectedAccount(account, create)
+  const removeAccount = (username: string, org: string) =>
+    removeConnectedAccount(convexAccounts, username, org, remove)
+  const updateAccount = (username: string, org: string, updates: Partial<GitHubAccount>) =>
+    updateConnectedAccount(convexAccounts, username, org, updates, update)
 
   const updateUsageProvider = async (
     username: string,
     org: string,
     usageProvider: UsageProvider,
     options: UsageProviderUpdateOptions = {}
-  ): Promise<MutationResult> => {
-    const accountIdentity = { username, org }
-    if (options.localOnly) {
-      return persistLocalUsageProvider(accountIdentity, usageProvider)
-    }
-
-    try {
-      const account = findAccount(convexAccounts, username, org)
-      if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
-
-      await update({ id: account._id, usageProvider })
-      const result = await persistUsageProviderOverride(accountIdentity, null)
-      return result.success
-        ? { success: true }
-        : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
-    } catch (error: unknown) {
-      const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider)
-      return fallback.success
-        ? fallback
-        : { success: false, error: fallback.error ?? getErrorMessage(error) }
-    }
-  }
+  ): Promise<MutationResult> =>
+    updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, options)
 
   return { addAccount, removeAccount, updateAccount, updateUsageProvider, reconcileUsageProvider }
 }

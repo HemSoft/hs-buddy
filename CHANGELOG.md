@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1007] - 2026-08-24
+
+### Fixed
+
+- Persist connected account fallbacks safely (#592)
+
 ## [0.1.1006] - 2026-08-24
 
 ### Fixed

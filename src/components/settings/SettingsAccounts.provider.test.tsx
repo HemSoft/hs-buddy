@@ -55,11 +55,9 @@ describe('SettingsAccounts usage provider', () => {
     fireEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => {
-      expect(updateAccount).toHaveBeenCalledWith('HemSoft', 'HemSoft', {
-        repoRoot: undefined,
-        usageProvider: 'codex',
-      })
+      expect(updateUsageProvider).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex')
     })
+    expect(updateAccount).not.toHaveBeenCalled()
   })
 
   it('allows only one account to own the local Codex login', () => {
@@ -97,7 +95,7 @@ describe('SettingsAccounts usage provider', () => {
   })
 
   it('keeps the editor open and reports an update failure', async () => {
-    updateAccount.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
+    updateUsageProvider.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
     render(<SettingsAccounts />)
 
     fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
@@ -108,7 +106,7 @@ describe('SettingsAccounts usage provider', () => {
   })
 
   it('reports a rejected account update without closing the editor', async () => {
-    updateAccount.mockRejectedValue(new Error('Network request failed'))
+    updateUsageProvider.mockRejectedValue(new Error('Network request failed'))
     render(<SettingsAccounts />)
 
     fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)

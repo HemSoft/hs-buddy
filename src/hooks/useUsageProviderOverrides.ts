@@ -1,4 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type RefObject,
+  type SetStateAction,
+} from 'react'
 import { IPC_INVOKE } from '../ipc/contracts'
 import type { AppConfig, GitHubAccount, UsageProvider } from '../types/config'
 import {
@@ -51,6 +58,24 @@ export async function persistUsageProviderOverride(
   )) as OverrideResult
   if (result.success) notifyOverride(account, provider)
   return result
+}
+
+function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
+  return accounts.map(account => ({
+    username: account.username,
+    org: account.org,
+    ...(account.repoRoot ? { repoRoot: account.repoRoot } : {}),
+    ...(account.usageProvider ? { usageProvider: account.usageProvider } : {}),
+  }))
+}
+
+export async function mirrorConnectedGitHubAccounts(
+  accounts: ConvexGitHubAccount[]
+): Promise<OverrideResult> {
+  return (await window.ipcRenderer.invoke(
+    IPC_INVOKE.CONFIG_SYNC_GITHUB_ACCOUNTS,
+    toDurableAccounts(accounts)
+  )) as OverrideResult
 }
 
 function applyOverride(account: GitHubAccount, overrides: UsageProviderOverrides): GitHubAccount {
@@ -165,20 +190,18 @@ function mergeInitialOverrides(
   return merged
 }
 
-export function useLocalAccountConfig(
-  convexAccounts: ConvexGitHubAccount[] | undefined,
-  reconcile: ReconcileUsageProvider
+function useInitialLocalConfig(
+  setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
+  setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
+  setLoaded: Dispatch<SetStateAction<boolean>>,
+  changedOverrideKeys: RefObject<Set<string>>,
+  accountsMirroredFromConvex: RefObject<boolean>
 ) {
-  const [accounts, setAccounts] = useState<GitHubAccount[]>([])
-  const [overrides, setOverrides] = useState<UsageProviderOverrides>({})
-  const [loaded, setLoaded] = useState(true)
-  const changedOverrideKeys = useRef(new Set<string>())
-
   useEffect(() => {
     window.ipcRenderer
       .invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
       .then((config: AppConfig) => {
-        setAccounts(config.github.accounts)
+        if (!accountsMirroredFromConvex.current) setAccounts(config.github.accounts)
         setOverrides(current =>
           mergeInitialOverrides(
             config.github.usageProviderOverrides ?? {},
@@ -193,8 +216,33 @@ export function useLocalAccountConfig(
       .finally(() => {
         setLoaded(true)
       })
-  }, [])
+  }, [accountsMirroredFromConvex, changedOverrideKeys, setAccounts, setLoaded, setOverrides])
+}
 
+function useConnectedAccountMirror(
+  convexAccounts: ConvexGitHubAccount[] | undefined,
+  setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
+  accountsMirroredFromConvex: RefObject<boolean>
+) {
+  useEffect(() => {
+    if (!convexAccounts) return
+    const mirroredAccounts = toDurableAccounts(convexAccounts)
+    void mirrorConnectedGitHubAccounts(convexAccounts)
+      .then((result: OverrideResult) => {
+        if (!result.success) return
+        accountsMirroredFromConvex.current = true
+        setAccounts(mirroredAccounts)
+      })
+      .catch(() => {
+        // Keep the last durable snapshot when electron-store cannot be updated.
+      })
+  }, [accountsMirroredFromConvex, convexAccounts, setAccounts])
+}
+
+function useOverrideEvents(
+  setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
+  changedOverrideKeys: RefObject<Set<string>>
+) {
   useEffect(() => {
     const handleOverride = (event: Event) => {
       const { key, provider } = (event as CustomEvent<OverrideEvent>).detail
@@ -210,8 +258,14 @@ export function useLocalAccountConfig(
     return () => {
       window.removeEventListener(OVERRIDE_EVENT, handleOverride)
     }
-  }, [])
+  }, [changedOverrideKeys, setOverrides])
+}
 
+function useOverrideReconciliation(
+  convexAccounts: ConvexGitHubAccount[] | undefined,
+  overrides: UsageProviderOverrides,
+  reconcile: ReconcileUsageProvider
+) {
   useEffect(() => {
     if (!convexAccounts) return
     const connectedOverrides = getConnectedOverrides(convexAccounts, overrides)
@@ -238,6 +292,28 @@ export function useLocalAccountConfig(
       }
     }
   }, [convexAccounts, overrides, reconcile])
+}
+
+export function useLocalAccountConfig(
+  convexAccounts: ConvexGitHubAccount[] | undefined,
+  reconcile: ReconcileUsageProvider
+) {
+  const [accounts, setAccounts] = useState<GitHubAccount[]>([])
+  const [overrides, setOverrides] = useState<UsageProviderOverrides>({})
+  const [loaded, setLoaded] = useState(true)
+  const changedOverrideKeys = useRef(new Set<string>())
+  const accountsMirroredFromConvex = useRef(false)
+
+  useInitialLocalConfig(
+    setAccounts,
+    setOverrides,
+    setLoaded,
+    changedOverrideKeys,
+    accountsMirroredFromConvex
+  )
+  useConnectedAccountMirror(convexAccounts, setAccounts, accountsMirroredFromConvex)
+  useOverrideEvents(setOverrides, changedOverrideKeys)
+  useOverrideReconciliation(convexAccounts, overrides, reconcile)
 
   return { accounts, overrides, loaded }
 }

@@ -512,19 +512,17 @@ async function persistAccountEdit(
     return updateUsageProvider(account.username, account.org, usageProvider)
   }
   const resolvedRepoRoot = resolveRepoRootUpdate(repoRoot)
-  const result = await updateAccount(account.username, account.org, {
-    repoRoot: resolvedRepoRoot,
-    usageProvider,
-  })
-  if (result.success || usageProvider === (account.usageProvider ?? 'copilot')) return result
+  const providerResult = await updateUsageProvider(account.username, account.org, usageProvider)
+  if (resolvedRepoRoot === account.repoRoot) return providerResult
 
-  const fallback = await updateUsageProvider(account.username, account.org, usageProvider, {
-    localOnly: true,
+  const accountResult = await updateAccount(account.username, account.org, {
+    repoRoot: resolvedRepoRoot,
   })
-  if (!fallback.success || resolvedRepoRoot === account.repoRoot) return fallback
+  if (!providerResult.success) return providerResult
+  if (accountResult.success) return accountResult
   return {
     success: false,
-    error: 'Usage provider saved locally, but the repository root still requires Convex.',
+    error: 'Usage provider saved, but the repository root still requires Convex.',
   }
 }
 

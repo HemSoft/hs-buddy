@@ -65,6 +65,7 @@ describe('config', () => {
     expect(typeof configManager.getGitHubAccounts).toBe('function')
     expect(typeof configManager.addGitHubAccount).toBe('function')
     expect(typeof configManager.removeGitHubAccount).toBe('function')
+    expect(typeof configManager.replaceGitHubAccounts).toBe('function')
     expect(typeof configManager.getScheduleForecastDays).toBe('function')
     expect(typeof configManager.setScheduleForecastDays).toBe('function')
   })
@@ -117,6 +118,31 @@ describe('config', () => {
 
     it('throws when account not found', () => {
       expect(() => configManager.updateGitHubAccount('nouser', 'noorg', {})).toThrow('not found')
+    })
+  })
+
+  describe('replaceGitHubAccounts', () => {
+    it('replaces the durable fallback and removes orphaned overrides', () => {
+      configManager.addGitHubAccount({ username: 'old', org: 'org' })
+      configManager.setUsageProviderOverride('old', 'org', 'codex')
+
+      configManager.replaceGitHubAccounts([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ])
+
+      expect(configManager.getGitHubAccounts()).toEqual([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ])
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
+
+    it('rejects duplicate identities case-insensitively', () => {
+      expect(() =>
+        configManager.replaceGitHubAccounts([
+          { username: 'HemSoft', org: 'HemSoft' },
+          { username: 'hemsoft', org: 'hemsoft' },
+        ])
+      ).toThrow('Duplicate GitHub account')
     })
   })
 

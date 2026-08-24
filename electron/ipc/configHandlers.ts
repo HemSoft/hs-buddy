@@ -1,6 +1,6 @@
 import { dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
 import { readFile, stat } from 'node:fs/promises'
-import type { AppConfig } from '../../src/types/config'
+import type { AppConfig, GitHubAccount } from '../../src/types/config'
 import {
   getNotificationSoundMimeType,
   isSupportedNotificationSoundPath,
@@ -13,6 +13,40 @@ import { configManager } from '../config'
 
 type UiConfigKey = keyof AppConfig['ui']
 type ConfigUiChannelKey = (typeof CONFIG_UI_KEYS)[number]
+
+function parseOptionalRepoRoot(value: unknown): string | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string') throw new Error('Repository root must be text')
+  return value || undefined
+}
+
+function parseOptionalUsageProvider(value: unknown): GitHubAccount['usageProvider'] {
+  if (value === undefined) return undefined
+  if (value !== 'copilot' && value !== 'codex') {
+    throw new Error('Usage provider must be Copilot or Codex')
+  }
+  return value
+}
+
+function parseGitHubAccountSnapshot(candidate: unknown): GitHubAccount {
+  if (!candidate || typeof candidate !== 'object') {
+    throw new Error('GitHub account must be an object')
+  }
+  const { username, org, repoRoot, usageProvider } = candidate as Record<string, unknown>
+  if (typeof username !== 'string' || typeof org !== 'string') {
+    throw new Error('Account identity must be text')
+  }
+  assertValidGitHubAccountSlug(username)
+  assertValidGitHubAccountSlug(org)
+  const parsedRepoRoot = parseOptionalRepoRoot(repoRoot)
+  const parsedUsageProvider = parseOptionalUsageProvider(usageProvider)
+  return {
+    username,
+    org,
+    ...(parsedRepoRoot ? { repoRoot: parsedRepoRoot } : {}),
+    ...(parsedUsageProvider ? { usageProvider: parsedUsageProvider } : {}),
+  }
+}
 
 // Maps each contract channel key to its AppConfig['ui'] property name.
 // Record<ConfigUiChannelKey, …> ensures every key from CONFIG_UI_KEYS has an
@@ -242,6 +276,23 @@ function registerMiscConfigHandlers(): void {
       }
       configManager.setFinanceWatchlist(symbols)
       return { success: true }
+    }
+  )
+
+  ipcMain.handle(
+    IPC_INVOKE.CONFIG_SYNC_GITHUB_ACCOUNTS,
+    (_event: IpcMainInvokeEvent, value: unknown) => {
+      if (!Array.isArray(value)) {
+        return { success: false, error: 'GitHub accounts must be an array' }
+      }
+
+      try {
+        const accounts = value.map(parseGitHubAccountSnapshot)
+        configManager.replaceGitHubAccounts(accounts)
+        return { success: true }
+      } catch (error: unknown) {
+        return { success: false, error: getErrorMessage(error) }
+      }
     }
   )
 

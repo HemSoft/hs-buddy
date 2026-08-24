@@ -46,9 +46,7 @@ describe('SettingsAccounts connected fallback', () => {
     selectCodexAndSave()
 
     await waitFor(() =>
-      expect(updateUsageProvider).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex', {
-        localOnly: true,
-      })
+      expect(updateUsageProvider).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex')
     )
     expect(screen.queryByLabelText('Usage provider for HemSoft')).not.toBeInTheDocument()
   })
@@ -67,7 +65,7 @@ describe('SettingsAccounts connected fallback', () => {
     fireEvent.click(screen.getByTitle('Save'))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Usage provider saved locally, but the repository root still requires Convex.'
+      'Usage provider saved, but the repository root still requires Convex.'
     )
     expect(screen.getByLabelText('Usage provider for HemSoft')).toBeInTheDocument()
   })

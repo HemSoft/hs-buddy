@@ -70,6 +70,7 @@ function getPty(): typeof import('node-pty') {
 }
 
 const MAX_SCROLLBACK_BUFFER = 100_000
+const STARTUP_FILTER_TIMEOUT_MS = 5_000
 
 const executablePathCache = new Map<string, string | null>()
 
@@ -147,6 +148,8 @@ interface TerminalSession {
   startupTimer?: ReturnType<typeof setTimeout>
   /** Suppresses the echoed PowerShell bootstrap until its private completion marker arrives. */
   startupOutputFilter?: StartupOutputFilter
+  /** Stops startup filtering if PowerShell never emits the completion marker. */
+  startupFilterTimer?: ReturnType<typeof setTimeout>
   /** Holds user input until the PowerShell bootstrap has reached its completion marker. */
   startupInputBuffer?: string
   /** Buffer for partial OSC 7 sequences split across data chunks */
@@ -263,6 +266,8 @@ function handleTerminalData(session: TerminalSession, data: string): void {
     return
   }
 
+  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
+  session.startupFilterTimer = undefined
   session.startupOutputFilter = undefined
   forwardTerminalData(session, buffered.slice(markerIndex + filter.marker.length))
   flushStartupInput(session)
@@ -324,6 +329,16 @@ function scheduleStartupCommands(
       if (shellStartupCommand) {
         const marker = buildStartupMarker(sessionId)
         s.startupOutputFilter = { marker, bufferedSuffix: '' }
+        s.startupFilterTimer = setTimeout(() => {
+          const currentSession = sessions.get(sessionId)
+          const filter = currentSession?.startupOutputFilter
+          if (!currentSession?.alive || !filter || filter.marker !== marker) return
+
+          currentSession.startupFilterTimer = undefined
+          currentSession.startupOutputFilter = undefined
+          forwardTerminalData(currentSession, filter.bufferedSuffix)
+          flushStartupInput(currentSession)
+        }, STARTUP_FILTER_TIMEOUT_MS)
         forwardTerminalData(s, '\r\x1b[2K')
         const nextCommand = startupCommand ? `;${startupCommand}` : ''
         s.pty.write(
@@ -333,6 +348,8 @@ function scheduleStartupCommands(
         s.pty.write(startupCommand + '\r')
       }
     } catch (_: unknown) {
+      if (s.startupFilterTimer) clearTimeout(s.startupFilterTimer)
+      s.startupFilterTimer = undefined
       s.startupOutputFilter = undefined
       flushStartupInput(s)
       // PTY died between alive check and write — ignore
@@ -366,7 +383,9 @@ function buildSpawnOptions(
 /** Idempotent cleanup: clear timer → dispose listeners → kill PTY. */
 function cleanupTerminalSession(session: TerminalSession): void {
   if (session.startupTimer) clearTimeout(session.startupTimer)
+  if (session.startupFilterTimer) clearTimeout(session.startupFilterTimer)
   session.startupOutputFilter = undefined
+  session.startupInputBuffer = undefined
   for (const d of session.disposables) {
     try {
       d.dispose()

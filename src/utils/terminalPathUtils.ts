@@ -50,31 +50,68 @@ export function getCloneRoots(platform: string, home: string): string[] {
   return roots
 }
 
-/** Check whether a Git remote identifies the requested owner/repository pair. */
-export function remoteMatchesRepo(remote: string, owner: string, repo: string): boolean {
+interface ParsedGitRemote {
+  host: string
+  owner: string
+  repo: string
+  usesSsh: boolean
+}
+
+function parseGitRemote(remote: string): ParsedGitRemote | null {
   const value = remote.trim().replace(/[\\/]$/, '')
-  if (!value || /^[A-Za-z]:[\\/]/.test(value)) return false
+  if (!value || /^[A-Za-z]:[\\/]/.test(value)) return null
 
   let repositoryPath: string
+  let host: string
+  let usesSsh: boolean
   if (value.includes('://')) {
     try {
-      repositoryPath = new URL(value).pathname
+      const url = new URL(value)
+      if (!['https:', 'http:', 'ssh:', 'git:'].includes(url.protocol)) return null
+      repositoryPath = url.pathname
+      host = url.hostname
+      usesSsh = url.protocol === 'ssh:'
     } catch (_: unknown) {
-      return false
+      return null
     }
   } else {
-    const scpLike = /^[^/\\]+:(.+)$/.exec(value)
-    if (!scpLike) return false
-    repositoryPath = scpLike[1]
+    const scpLike = /^(?:[^@/\\]+@)?([^:/\\]+):(.+)$/.exec(value)
+    if (!scpLike) return null
+    host = scpLike[1]
+    repositoryPath = scpLike[2]
+    usesSsh = true
   }
 
   const parts = repositoryPath.split('/').filter(Boolean)
-  if (parts.length < 2) return false
-  const remoteOwner = parts[parts.length - 2]
-  const remoteRepo = parts[parts.length - 1].replace(/\.git$/i, '')
+  if (!host || parts.length !== 2) return null
+  return {
+    host,
+    owner: parts[parts.length - 2],
+    repo: parts[parts.length - 1].replace(/\.git$/i, ''),
+    usesSsh,
+  }
+}
+
+/** Return the SSH host or alias used by a Git remote. */
+export function getSshRemoteHost(remote: string): string | null {
+  const parsed = parseGitRemote(remote)
+  return parsed?.usesSsh ? parsed.host : null
+}
+
+/** Check whether a Git remote identifies the requested GitHub repository. */
+export function remoteMatchesRepo(
+  remote: string,
+  owner: string,
+  repo: string,
+  resolvedSshHost?: string
+): boolean {
+  const parsed = parseGitRemote(remote)
+  if (!parsed) return false
+  const host = parsed.usesSsh && resolvedSshHost ? resolvedSshHost : parsed.host
   return (
-    remoteOwner.toLowerCase() === owner.toLowerCase() &&
-    remoteRepo.toLowerCase() === repo.toLowerCase()
+    host.toLowerCase() === 'github.com' &&
+    parsed.owner.toLowerCase() === owner.toLowerCase() &&
+    parsed.repo.toLowerCase() === repo.toLowerCase()
   )
 }
 

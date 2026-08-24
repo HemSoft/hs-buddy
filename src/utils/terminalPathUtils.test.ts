@@ -182,6 +182,7 @@ describe('buildTerminalShellArgs', () => {
     const args = buildTerminalShellArgs('pwsh.exe', 'win32')
     expect(args.slice(0, 3)).toEqual(['-NoLogo', '-NoExit', '-Command'])
     expect(args[3]).toContain('HS_BUDDY_STARTUP_SCRIPT')
+    expect(args[3]).toContain('. ([scriptblock]::Create')
   })
 
   it('returns interactive args for powershell.exe on win32', () => {

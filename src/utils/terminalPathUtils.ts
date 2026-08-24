@@ -196,7 +196,7 @@ export const POWERSHELL_STARTUP_SCRIPT_ENV = 'HS_BUDDY_STARTUP_SCRIPT'
 const POWERSHELL_STARTUP_COMMAND = [
   `$__hsb_s=$env:${POWERSHELL_STARTUP_SCRIPT_ENV}`,
   `Remove-Item Env:${POWERSHELL_STARTUP_SCRIPT_ENV} -ErrorAction SilentlyContinue`,
-  '& ([scriptblock]::Create($__hsb_s))',
+  '. ([scriptblock]::Create($__hsb_s))',
   'Remove-Variable __hsb_s -ErrorAction SilentlyContinue',
 ].join(';')
 

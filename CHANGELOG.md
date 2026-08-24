@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.992] - 2026-08-24
+
+### Fixed
+
+- Preserve wrapped PowerShell prompt scope (#578)
+
 ## [0.1.991] - 2026-08-24
 
 ### Fixed

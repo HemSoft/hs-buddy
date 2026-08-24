@@ -9,6 +9,7 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  remoteMatchesRepo,
 } from './terminalPathUtils'
 
 /** Build a platform-native path from posix-style segments. */
@@ -98,16 +99,38 @@ describe('getCloneRoots', () => {
     expect(roots).toContain(path.join('/Users/test', 'github'))
   })
 
-  it('includes the cross-agent skills checkout root', () => {
-    const home = path.join('C:', 'Users', 'test')
-    const roots = getCloneRoots('win32', home)
-
-    expect(roots).toContain(path.join(home, '.agents'))
-  })
-
   it('does not include drive letters for linux', () => {
     const roots = getCloneRoots('linux', '/home/user')
     expect(roots.some(r => r.includes('C:'))).toBe(false)
+  })
+})
+
+// ─── remoteMatchesRepo ─────────────────────────────────
+
+describe('remoteMatchesRepo', () => {
+  it.each([
+    'git@github.com:HemSoft/skills.git',
+    'git@github-personal1:HemSoft/skills.git',
+    'https://github.com/HemSoft/skills.git',
+    'ssh://git@github.com/HemSoft/skills.git',
+  ])('matches GitHub remote %s', remote => {
+    expect(remoteMatchesRepo(remote, 'hemsoft', 'skills')).toBe(true)
+  })
+
+  it('rejects a checkout owned by a different organization', () => {
+    expect(remoteMatchesRepo('git@github.com:HemSoft/skills.git', 'other-org', 'skills')).toBe(
+      false
+    )
+  })
+
+  it('rejects a checkout with a different repository name', () => {
+    expect(remoteMatchesRepo('git@github.com:HemSoft/skills.git', 'HemSoft', 'other')).toBe(false)
+  })
+
+  it('rejects empty and malformed remotes', () => {
+    expect(remoteMatchesRepo('', 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo('not-a-remote', 'HemSoft', 'skills')).toBe(false)
+    expect(remoteMatchesRepo('https://[invalid', 'HemSoft', 'skills')).toBe(false)
   })
 })
 

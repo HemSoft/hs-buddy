@@ -53,6 +53,9 @@ vi.mock('../../src/utils/terminalPathUtils', () => ({
   buildTerminalStartupCommand: vi.fn((): undefined => {}),
   buildPtySpawnOptions: vi.fn(() => ({ env: {} })),
   findRepoPath: vi.fn(() => null),
+  remoteMatchesRepo: vi.fn((remote: string, owner: string, repo: string) =>
+    remote.toLowerCase().includes(`${owner}/${repo}.git`.toLowerCase())
+  ),
   POWERSHELL_STARTUP_SCRIPT_ENV: 'HS_BUDDY_STARTUP_SCRIPT',
 }))
 
@@ -63,6 +66,7 @@ vi.mock('../../src/utils/errorUtils', () => ({
 }))
 
 import { ipcMain } from 'electron'
+import { execFileSync } from 'node:child_process'
 import { accessSync, existsSync, statSync } from 'node:fs'
 import { registerTerminalHandlers } from './terminalHandlers'
 
@@ -116,6 +120,31 @@ describe('terminalHandlers', () => {
   it('terminal:resolve-repo-path returns null for invalid slug', async () => {
     const handler = handlers.get('terminal:resolve-repo-path')!
     const result = await handler({}, { owner: 'valid', repo: 'valid' })
+    expect(result).toEqual({ path: null })
+  })
+
+  it('terminal:resolve-repo-path accepts a matching shared agent checkout', async () => {
+    vi.mocked(execFileSync).mockReturnValueOnce('git@github-personal1:HemSoft/skills.git\n')
+    const handler = handlers.get('terminal:resolve-repo-path')!
+    const home = process.env.USERPROFILE || process.env.HOME || '/home/user'
+    const candidate = path.join(home, '.agents', 'skills')
+
+    const result = await handler({}, { owner: 'HemSoft', repo: 'skills' })
+
+    expect(result).toEqual({ path: candidate })
+    expect(execFileSync).toHaveBeenCalledWith(
+      'git',
+      ['-C', candidate, 'remote', 'get-url', 'origin'],
+      expect.objectContaining({ encoding: 'utf8', windowsHide: true })
+    )
+  })
+
+  it('terminal:resolve-repo-path rejects an agent checkout for another owner', async () => {
+    vi.mocked(execFileSync).mockReturnValueOnce('git@github.com:HemSoft/skills.git\n')
+    const handler = handlers.get('terminal:resolve-repo-path')!
+
+    const result = await handler({}, { owner: 'other-org', repo: 'skills' })
+
     expect(result).toEqual({ path: null })
   })
 

@@ -44,11 +44,38 @@ export function getCloneRoots(platform: string, home: string): string[] {
     path.join(home, 'github'),
     path.join(home, 'repos'),
     path.join(home, 'projects'),
-    path.join(home, 'source', 'repos'),
-    path.join(home, '.agents')
+    path.join(home, 'source', 'repos')
   )
 
   return roots
+}
+
+/** Check whether a Git remote identifies the requested owner/repository pair. */
+export function remoteMatchesRepo(remote: string, owner: string, repo: string): boolean {
+  const value = remote.trim().replace(/[\\/]$/, '')
+  if (!value || /^[A-Za-z]:[\\/]/.test(value)) return false
+
+  let repositoryPath: string
+  if (value.includes('://')) {
+    try {
+      repositoryPath = new URL(value).pathname
+    } catch (_: unknown) {
+      return false
+    }
+  } else {
+    const scpLike = /^[^/\\]+:(.+)$/.exec(value)
+    if (!scpLike) return false
+    repositoryPath = scpLike[1]
+  }
+
+  const parts = repositoryPath.split('/').filter(Boolean)
+  if (parts.length < 2) return false
+  const remoteOwner = parts[parts.length - 2]
+  const remoteRepo = parts[parts.length - 1].replace(/\.git$/i, '')
+  return (
+    remoteOwner.toLowerCase() === owner.toLowerCase() &&
+    remoteRepo.toLowerCase() === repo.toLowerCase()
+  )
 }
 
 const MAX_OSC_BUFFER = 512

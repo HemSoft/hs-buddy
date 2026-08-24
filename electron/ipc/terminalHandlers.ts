@@ -1,5 +1,6 @@
 import { ipcMain, app, type WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
+import { execFileSync } from 'node:child_process'
 import { accessSync, constants, existsSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -12,6 +13,7 @@ import {
   buildTerminalStartupCommand,
   buildPtySpawnOptions,
   findRepoPath,
+  remoteMatchesRepo,
   POWERSHELL_STARTUP_SCRIPT_ENV,
 } from '../../src/utils/terminalPathUtils'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
@@ -184,9 +186,28 @@ function safeSend(sender: WebContents, channel: string, ...args: unknown[]): voi
 }
 
 /** Returns the list of clone root directories to probe (handles Windows drive letters vs Unix). */
+function getHomeDirectory(): string {
+  return process.env.USERPROFILE || process.env.HOME || app.getPath('home')
+}
+
 function getCloneRootsLocal(): string[] {
-  const home = process.env.USERPROFILE || process.env.HOME || app.getPath('home')
-  return getCloneRoots(process.platform, home)
+  return getCloneRoots(process.platform, getHomeDirectory())
+}
+
+function resolveSharedAgentRepoPath(owner: string, repo: string): string | null {
+  const candidate = path.join(getHomeDirectory(), '.agents', repo)
+  if (!isValidCwd(candidate)) return null
+
+  try {
+    const remote = execFileSync('git', ['-C', candidate, 'remote', 'get-url', 'origin'], {
+      encoding: 'utf8',
+      windowsHide: true,
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    return remoteMatchesRepo(remote, owner, repo) ? candidate : null
+  } catch (_: unknown) {
+    return null
+  }
 }
 
 /**
@@ -196,7 +217,10 @@ function getCloneRootsLocal(): string[] {
 function resolveRepoPath(owner: string, repo: string): string | null {
   const cloneRoots = getCloneRootsLocal()
   const orgCandidates = getOrgCandidates(owner)
-  return findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd)
+  return (
+    findRepoPath(cloneRoots, orgCandidates, repo, isValidCwd) ??
+    resolveSharedAgentRepoPath(owner, repo)
+  )
 }
 
 /** Builds shell args, including the static environment-backed PowerShell startup launcher. */

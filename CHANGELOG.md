@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1023] - 2026-08-24
+
+### Fixed
+
+- Close provider selection race gaps
+
 ## [0.1.1022] - 2026-08-24
 
 ### Changed

@@ -25,7 +25,10 @@ import {
   type ScheduleRetry,
 } from './useUsageProviderRetry'
 
-export { serializeUsageProviderSelection } from './usageProviderSelectionCoordinator'
+export {
+  invalidateUsageProviderSelection,
+  serializeUsageProviderSelection,
+} from './usageProviderSelectionCoordinator'
 
 export type ConvexGitHubAccount = {
   username: string

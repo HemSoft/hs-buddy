@@ -1243,6 +1243,63 @@ describe('useConfig', () => {
       expect(storedOverride).toBe('copilot')
     })
 
+    it('clears the old override when a newer offline provider save fails', async () => {
+      let resolveConnectedSave!: () => void
+      let storedOverride: 'copilot' | 'codex' | null = 'codex'
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate.mockImplementationOnce(
+        () =>
+          new Promise<void>(resolve => {
+            resolveConnectedSave = resolve
+          })
+      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          const provider = args[2] as 'copilot' | 'codex' | null
+          if (provider === 'copilot') {
+            return Promise.resolve({ success: false, error: 'Store busy' })
+          }
+          storedOverride = provider
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      let connectedSave!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        connectedSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+      mockIsWebSocketConnected = false
+      rerender()
+
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: false,
+          error: 'Store busy',
+        })
+      })
+
+      await act(async () => {
+        resolveConnectedSave()
+        expect(await connectedSave).toEqual({ success: true })
+      })
+      expect(storedOverride).toBeNull()
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+    })
+
     it('restores a disconnected provider choice after a stale reconciliation clears it', async () => {
       let resolveStaleClear!: () => void
       let storedOverride: 'copilot' | 'codex' | null = 'codex'
@@ -1299,6 +1356,85 @@ describe('useConfig', () => {
         'HemSoft',
         'copilot'
       )
+    })
+
+    it('does not retry stale recovery after removing and recreating the same identity', async () => {
+      vi.useFakeTimers()
+      try {
+        let resolveStaleClear!: () => void
+        let storedOverride: 'copilot' | 'codex' | null = 'codex'
+        let copilotWriteCount = 0
+        mockConvexAccounts = [
+          { _id: 'old-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        ]
+        mockRemove.mockResolvedValue(undefined)
+        mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+          if (channel === 'config:get-config') {
+            return Promise.resolve({
+              github: {
+                accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+              },
+            })
+          }
+          if (channel === 'config:set-usage-provider-override') {
+            const provider = args[2] as 'copilot' | 'codex' | null
+            if (provider === null && !resolveStaleClear) {
+              return new Promise(resolve => {
+                resolveStaleClear = () => {
+                  storedOverride = null
+                  resolve({ success: true })
+                }
+              })
+            }
+            if (provider === 'copilot') {
+              copilotWriteCount += 1
+              if (copilotWriteCount >= 2) {
+                return Promise.resolve({ success: false, error: 'Store busy' })
+              }
+            }
+            storedOverride = provider
+          }
+          return Promise.resolve({ success: true })
+        })
+        const { result, rerender } = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(resolveStaleClear).toBeTypeOf('function')
+
+        mockIsWebSocketConnected = false
+        rerender()
+        await act(async () => {
+          expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual(
+            {
+              success: true,
+            }
+          )
+          resolveStaleClear()
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(copilotWriteCount).toBeGreaterThanOrEqual(2)
+        const writesBeforeRemoval = copilotWriteCount
+
+        await act(async () => {
+          expect(await result.current.removeAccount('HemSoft', 'HemSoft')).toEqual({
+            success: true,
+          })
+        })
+        mockConvexAccounts = [
+          { _id: 'new-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        rerender()
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(2_000)
+        })
+        expect(copilotWriteCount).toBe(writesBeforeRemoval)
+        expect(storedOverride).toBeNull()
+      } finally {
+        vi.useRealTimers()
+      }
     })
 
     it('keeps the newest offline choice when an older recovery finishes late', async () => {

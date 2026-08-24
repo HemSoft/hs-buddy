@@ -16,6 +16,27 @@ async function transferCodexOwnership(ctx: MutationCtx, ownerId?: Id<'githubAcco
   )
 }
 
+function isSameAccountIdentity(
+  left: { username: string; org: string },
+  right: { username: string; org: string }
+) {
+  return (
+    left.username.toLowerCase() === right.username.toLowerCase() &&
+    left.org.toLowerCase() === right.org.toLowerCase()
+  )
+}
+
+async function accountIdentityExists(
+  ctx: MutationCtx,
+  identity: { username: string; org: string },
+  excludeId?: Id<'githubAccounts'>
+) {
+  const accounts = await ctx.db.query('githubAccounts').collect()
+  return accounts.some(
+    account => account._id !== excludeId && isSameAccountIdentity(account, identity)
+  )
+}
+
 /**
  * Internal: return every tracked account for snapshot collection runs.
  */
@@ -70,13 +91,7 @@ export const create = mutation({
     usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
   },
   handler: async (ctx, { username, org, usageProvider }) => {
-    // Check for duplicates
-    const existing = await ctx.db
-      .query('githubAccounts')
-      .withIndex('by_username', q => q.eq('username', username))
-      .collect()
-
-    if (existing.some(a => a.org === org)) {
+    if (await accountIdentityExists(ctx, { username, org })) {
       throw new Error(`GitHub account ${username}@${org} already exists`)
     }
 
@@ -107,6 +122,16 @@ export const update = mutation({
     const existing = await ctx.db.get('githubAccounts', id)
     if (!existing) {
       throw new Error('GitHub account not found')
+    }
+
+    const updatedIdentity = {
+      username: username ?? existing.username,
+      org: org ?? existing.org,
+    }
+    if (await accountIdentityExists(ctx, updatedIdentity, id)) {
+      throw new Error(
+        `GitHub account ${updatedIdentity.username}@${updatedIdentity.org} already exists`
+      )
     }
 
     if (usageProvider === 'codex') await transferCodexOwnership(ctx, id)
@@ -149,14 +174,8 @@ export const bulkImport = mutation({
     const results = []
 
     for (const account of accounts) {
-      // Skip duplicates
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially so duplicates within the same batch are skipped.
-      const existing = await ctx.db
-        .query('githubAccounts')
-        .withIndex('by_username', q => q.eq('username', account.username))
-        .collect()
-
-      if (existing.some(a => a.org === account.org)) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially so normalized duplicates within the same batch are skipped.
+      if (await accountIdentityExists(ctx, account)) {
         continue
       }
 

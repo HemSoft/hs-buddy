@@ -24,6 +24,7 @@ const reconciliations = new Map<string, Promise<void>>()
 const selectionQueues = new Map<string, Promise<void>>()
 const localSelectionQueues = new Map<string, Promise<void>>()
 const selectionRevisions = new Map<string, number>()
+const successfulSelectionRevisions = new Map<string, number>()
 const staleReconciliationRecoveries = new Map<
   string,
   { revision: number; recover: () => Promise<OverrideResult> }
@@ -138,7 +139,7 @@ function completeSelectionTurn(key: string, turn: SelectionTurn) {
 
 export async function serializeUsageProviderSelection(
   account: Pick<GitHubAccount, 'username' | 'org'>,
-  operation: (isCurrent: () => boolean) => Promise<OverrideResult>,
+  operation: (isSuperseded: () => boolean) => Promise<OverrideResult>,
   options: SelectionSerializationOptions = {}
 ): Promise<OverrideResult> {
   const key = getUsageProviderOverrideKey(account)
@@ -148,7 +149,13 @@ export async function serializeUsageProviderSelection(
   try {
     await waitForSelectionTurn(key, turn, localOnly)
     cancelUsageProviderRetry(key)
-    const result = await operation(() => selectionRevisions.get(key) === revision)
+    const result = await operation(() => (successfulSelectionRevisions.get(key) ?? 0) > revision)
+    if (result.success) {
+      successfulSelectionRevisions.set(
+        key,
+        Math.max(successfulSelectionRevisions.get(key) ?? 0, revision)
+      )
+    }
     scheduleStaleReconciliationRecovery(
       key,
       revision,
@@ -160,6 +167,15 @@ export async function serializeUsageProviderSelection(
   } finally {
     completeSelectionTurn(key, turn)
   }
+}
+
+export function invalidateUsageProviderSelection(account: Pick<GitHubAccount, 'username' | 'org'>) {
+  const key = getUsageProviderOverrideKey(account)
+  const revision = (selectionRevisions.get(key) ?? 0) + 1
+  selectionRevisions.set(key, revision)
+  successfulSelectionRevisions.set(key, revision)
+  staleReconciliationRecoveries.delete(key)
+  cancelUsageProviderRetry(key)
 }
 
 export function hasPendingUsageProviderWork(key: string) {

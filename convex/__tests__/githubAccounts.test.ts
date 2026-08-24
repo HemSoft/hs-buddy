@@ -35,6 +35,15 @@ describe('githubAccounts', () => {
     ).rejects.toThrow('GitHub account alice@corp already exists')
   })
 
+  test('create rejects duplicate identities that differ only by case', async () => {
+    const t = convexTest(schema, modules)
+    await t.mutation(api.githubAccounts.create, { username: 'Alice', org: 'Corp' })
+
+    await expect(
+      t.mutation(api.githubAccounts.create, { username: 'alice', org: 'corp' })
+    ).rejects.toThrow('GitHub account alice@corp already exists')
+  })
+
   test('create allows same username with different orgs', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.githubAccounts.create, { username: 'bob', org: 'org1' })
@@ -88,6 +97,16 @@ describe('githubAccounts', () => {
     expect(account?.username).toBe('eve-new')
     expect(account?.org).toBe('new-org')
     expect(account?.repoRoot).toBe('/home/eve/code')
+  })
+
+  test('update rejects a case-variant duplicate identity', async () => {
+    const t = convexTest(schema, modules)
+    await t.mutation(api.githubAccounts.create, { username: 'Alice', org: 'Corp' })
+    const id = await t.mutation(api.githubAccounts.create, { username: 'bob', org: 'other' })
+
+    await expect(
+      t.mutation(api.githubAccounts.update, { id, username: 'alice', org: 'corp' })
+    ).rejects.toThrow('GitHub account alice@corp already exists')
   })
 
   test('usage provider is optional and can be changed to Codex', async () => {
@@ -189,6 +208,21 @@ describe('githubAccounts', () => {
 
     const accounts = await t.query(api.githubAccounts.list)
     expect(accounts).toHaveLength(2)
+  })
+
+  test('bulkImport skips case-variant duplicate identities', async () => {
+    const t = convexTest(schema, modules)
+    await t.mutation(api.githubAccounts.create, { username: 'Existing', org: 'Org' })
+
+    const ids = await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        { username: 'existing', org: 'org' },
+        { username: 'newuser', org: 'org' },
+      ],
+    })
+
+    expect(ids).toHaveLength(1)
+    expect(await t.query(api.githubAccounts.list)).toHaveLength(2)
   })
 
   test('bulkImport leaves only the last imported Codex owner selected', async () => {

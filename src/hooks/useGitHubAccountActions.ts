@@ -5,6 +5,7 @@ import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
 import {
   mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
+  invalidateUsageProviderSelection,
   serializeUsageProviderSelection,
 } from './useUsageProviderOverrides'
 
@@ -95,6 +96,7 @@ async function removeConnectedAccount(
     const account = findAccount(getAccounts(), username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
+    invalidateUsageProviderSelection(account)
     let error = 'Account removed, but its offline fallback could not be cleared'
     for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
       try {
@@ -139,7 +141,7 @@ async function updateConnectedUsageProvider(
   const accountIdentity = { username, org }
   return serializeUsageProviderSelection(
     accountIdentity,
-    async isCurrent => {
+    async isSuperseded => {
       if (options.localOnly) {
         return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
       }
@@ -149,13 +151,13 @@ async function updateConnectedUsageProvider(
         if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
 
         await update({ id: account._id, usageProvider })
-        if (!isCurrent()) return { success: true }
+        if (isSuperseded()) return { success: true }
         const result = await persistUsageProviderOverride(accountIdentity, null)
         return result.success
           ? { success: true }
           : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
       } catch (error: unknown) {
-        if (!isCurrent()) return { success: true }
+        if (isSuperseded()) return { success: true }
         const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
         return fallback.success
           ? fallback

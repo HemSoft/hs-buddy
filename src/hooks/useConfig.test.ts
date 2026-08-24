@@ -391,14 +391,70 @@ describe('useConfig', () => {
       })
     })
 
-    it('reports a rejected connected provider update', async () => {
+    it('falls back to a local override when a connected provider update is rejected', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
       mockUpdate.mockRejectedValue(new Error('Provider update failed'))
       const { result } = renderHook(() => useGitHubAccounts())
 
       expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+        success: true,
+      })
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+    })
+
+    it('can persist a provider locally without retrying a cached Convex account', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(
+        await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex', {
+          localOnly: true,
+        })
+      ).toEqual({ success: true })
+      expect(mockUpdate).not.toHaveBeenCalled()
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+    })
+
+    it('reports an IPC rejection while persisting a local provider', async () => {
+      mockConvexAccounts = []
+      mockInvoke.mockImplementation((channel: string) =>
+        channel === 'config:get-config'
+          ? Promise.resolve({ github: { accounts: [] } })
+          : Promise.reject(new Error('IPC unavailable'))
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
         success: false,
-        error: 'Provider update failed',
+        error: 'IPC unavailable',
+      })
+    })
+
+    it('reports a local fallback failure after a rejected connected provider update', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockRejectedValue(new Error('Provider update failed'))
+      mockInvoke.mockImplementation((channel: string) =>
+        Promise.resolve(
+          channel === 'config:get-config'
+            ? { github: { accounts: [] } }
+            : { success: false, error: 'Local store unavailable' }
+        )
+      )
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+        success: false,
+        error: 'Local store unavailable',
       })
     })
 

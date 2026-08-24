@@ -500,7 +500,7 @@ function AccountIdentity({ account, repoRoot }: { account: GitHubAccount; repoRo
   )
 }
 
-function persistAccountEdit(
+async function persistAccountEdit(
   account: GitHubAccount,
   repoRoot: string,
   usageProvider: UsageProvider,
@@ -511,10 +511,21 @@ function persistAccountEdit(
   if (!canUpdateAccounts) {
     return updateUsageProvider(account.username, account.org, usageProvider)
   }
-  return updateAccount(account.username, account.org, {
-    repoRoot: resolveRepoRootUpdate(repoRoot),
+  const resolvedRepoRoot = resolveRepoRootUpdate(repoRoot)
+  const result = await updateAccount(account.username, account.org, {
+    repoRoot: resolvedRepoRoot,
     usageProvider,
   })
+  if (result.success || usageProvider === (account.usageProvider ?? 'copilot')) return result
+
+  const fallback = await updateUsageProvider(account.username, account.org, usageProvider, {
+    localOnly: true,
+  })
+  if (!fallback.success || resolvedRepoRoot === account.repoRoot) return fallback
+  return {
+    success: false,
+    error: 'Usage provider saved locally, but the repository root still requires Convex.',
+  }
 }
 
 function useAccountEditor(props: AccountListItemProps, isEditing: boolean) {

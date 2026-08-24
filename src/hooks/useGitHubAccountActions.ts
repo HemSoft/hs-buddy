@@ -5,9 +5,21 @@ import { persistUsageProviderOverride } from './useUsageProviderOverrides'
 
 type ConvexAccounts = ReturnType<typeof useGitHubAccountsConvex>
 type MutationResult = { success: boolean; error?: string }
+type UsageProviderUpdateOptions = { localOnly?: boolean }
 
 function findAccount(accounts: ConvexAccounts, username: string, org: string) {
   return accounts?.find(account => account.username === username && account.org === org)
+}
+
+async function persistLocalUsageProvider(
+  account: Pick<GitHubAccount, 'username' | 'org'>,
+  usageProvider: UsageProvider
+): Promise<MutationResult> {
+  try {
+    return await persistUsageProviderOverride(account, usageProvider)
+  } catch (error: unknown) {
+    return { success: false, error: getErrorMessage(error) }
+  }
 }
 
 export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
@@ -55,19 +67,28 @@ export function useGitHubAccountActions(convexAccounts: ConvexAccounts) {
   const updateUsageProvider = async (
     username: string,
     org: string,
-    usageProvider: UsageProvider
+    usageProvider: UsageProvider,
+    options: UsageProviderUpdateOptions = {}
   ): Promise<MutationResult> => {
+    const accountIdentity = { username, org }
+    if (options.localOnly) {
+      return persistLocalUsageProvider(accountIdentity, usageProvider)
+    }
+
     try {
       const account = findAccount(convexAccounts, username, org)
-      if (!account) return persistUsageProviderOverride({ username, org }, usageProvider)
+      if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
 
       await update({ id: account._id, usageProvider })
-      const result = await persistUsageProviderOverride({ username, org }, null)
+      const result = await persistUsageProviderOverride(accountIdentity, null)
       return result.success
         ? { success: true }
         : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
     } catch (error: unknown) {
-      return { success: false, error: getErrorMessage(error) }
+      const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider)
+      return fallback.success
+        ? fallback
+        : { success: false, error: fallback.error ?? getErrorMessage(error) }
     }
   }
 

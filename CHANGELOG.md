@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1005] - 2026-08-24
+
+### Fixed
+
+- Retain provider choice after Convex disconnect (#592)
+
 ## [0.1.1004] - 2026-08-24
 
 ### Fixed

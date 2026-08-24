@@ -138,12 +138,14 @@ describe('useConfig', () => {
       expect(result.current.accounts).toHaveLength(1)
       expect(result.current.accounts[0].username).toBe('user1')
       expect(result.current.loading).toBe(false)
+      expect(result.current.canUpdateAccounts).toBe(true)
     })
 
     it('falls back to electron-store when Convex unavailable', async () => {
       mockConvexAccounts = undefined
       const { result } = renderHook(() => useGitHubAccounts())
       await waitFor(() => expect(result.current.accounts).toBeDefined())
+      expect(result.current.canUpdateAccounts).toBe(false)
     })
 
     it('handles electron-store config load error gracefully', async () => {

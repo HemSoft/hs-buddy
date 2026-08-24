@@ -356,6 +356,7 @@ export function useGitHubAccounts() {
     accounts,
     uniqueUsernames,
     loading,
+    canUpdateAccounts: convexConnected,
     addAccount,
     removeAccount,
     updateAccount,

@@ -5,11 +5,13 @@ import type { GitHubAccount } from '../../types/config'
 
 const updateAccount = vi.fn()
 const accounts: GitHubAccount[] = [{ username: 'HemSoft', org: 'HemSoft' }]
+let canUpdateAccounts = true
 
 vi.mock('../../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
     accounts,
     loading: false,
+    canUpdateAccounts,
     addAccount: vi.fn(),
     removeAccount: vi.fn(),
     updateAccount,
@@ -26,6 +28,7 @@ describe('SettingsAccounts usage provider', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
+    canUpdateAccounts = true
     updateAccount.mockResolvedValue({ success: true })
   })
 
@@ -69,6 +72,16 @@ describe('SettingsAccounts usage provider', () => {
     expect(screen.getByLabelText('Usage provider for Second')).toHaveValue('copilot')
     expect(screen.getByRole('option', { name: 'ChatGPT / Codex' })).toBeDisabled()
     expect(screen.getByText(/already assigned to HemSoft/i)).toBeInTheDocument()
+  })
+
+  it('disables provider changes while account data is read-only', () => {
+    canUpdateAccounts = false
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+
+    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeDisabled()
+    expect(screen.getByText(/connect to Convex/i)).toBeInTheDocument()
   })
 
   it('keeps the editor open and reports an update failure', async () => {

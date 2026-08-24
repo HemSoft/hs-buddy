@@ -303,11 +303,13 @@ function AccountUsageProviderField({
   value,
   onChange,
   codexOwner,
+  canUpdateAccounts,
 }: {
   account: GitHubAccount
   value: UsageProvider
   onChange: (value: UsageProvider) => void
   codexOwner: GitHubAccount | null
+  canUpdateAccounts: boolean
 }) {
   return (
     <div className="form-field">
@@ -320,6 +322,7 @@ function AccountUsageProviderField({
         id={`usage-provider-${resolveAccountKey(account)}`}
         value={value}
         onChange={event => onChange(event.target.value as UsageProvider)}
+        disabled={!canUpdateAccounts}
       >
         <option value="copilot">GitHub Copilot</option>
         <option value="codex" disabled={codexOwner !== null}>
@@ -327,10 +330,22 @@ function AccountUsageProviderField({
         </option>
       </select>
       <span className="form-hint">
-        {codexOwner
-          ? `The local Codex login is already assigned to ${codexOwner.username}.`
-          : 'Codex reads the local Codex CLI sign-in and shows rolling allowance windows.'}
+        {canUpdateAccounts
+          ? codexOwner
+            ? `The local Codex login is already assigned to ${codexOwner.username}.`
+            : 'Codex reads the local Codex CLI sign-in and shows rolling allowance windows.'
+          : 'Connect to Convex to change the usage provider.'}
       </span>
+    </div>
+  )
+}
+
+function AccountEditError({ error }: { error: string | null }) {
+  if (!error) return null
+  return (
+    <div className="form-error" role="alert">
+      <AlertCircle size={14} />
+      {error}
     </div>
   )
 }
@@ -343,6 +358,7 @@ type AccountEditPanelProps = {
   editUsageProvider: UsageProvider
   setEditUsageProvider: React.Dispatch<React.SetStateAction<UsageProvider>>
   codexOwner: GitHubAccount | null
+  canUpdateAccounts: boolean
   editError: string | null
   onSave: () => Promise<void>
 }
@@ -355,6 +371,7 @@ function AccountEditPanel({
   editUsageProvider,
   setEditUsageProvider,
   codexOwner,
+  canUpdateAccounts,
   editError,
   onSave,
 }: AccountEditPanelProps) {
@@ -372,13 +389,9 @@ function AccountEditPanel({
         value={editUsageProvider}
         onChange={setEditUsageProvider}
         codexOwner={codexOwner}
+        canUpdateAccounts={canUpdateAccounts}
       />
-      {editError ? (
-        <div className="form-error" role="alert">
-          <AlertCircle size={14} />
-          {editError}
-        </div>
-      ) : null}
+      <AccountEditError error={editError} />
       <div className="form-field">
         <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
           <FolderOpen size={14} />
@@ -438,6 +451,7 @@ type AccountListItemProps = {
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
   codexOwner: GitHubAccount | null
+  canUpdateAccounts: boolean
 }
 
 function AccountIdentity({ account, repoRoot }: { account: GitHubAccount; repoRoot?: string }) {
@@ -468,6 +482,7 @@ function AccountListItem({
   updateAccount,
   handleRemove,
   codexOwner,
+  canUpdateAccounts,
 }: AccountListItemProps) {
   const key = resolveAccountKey(account)
   const isEditing = editingKey === key
@@ -531,6 +546,7 @@ function AccountListItem({
         editUsageProvider={editUsageProvider}
         setEditUsageProvider={setEditUsageProvider}
         codexOwner={codexOwner}
+        canUpdateAccounts={canUpdateAccounts}
         editError={editError}
         onSave={save}
       />
@@ -546,6 +562,7 @@ function AccountsListSection({
   setEditRepoRoot,
   updateAccount,
   handleRemove,
+  canUpdateAccounts,
 }: {
   accounts: GitHubAccount[]
   editingKey: string | null
@@ -554,6 +571,7 @@ function AccountsListSection({
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
+  canUpdateAccounts: boolean
 }) {
   if (accounts.length === 0) {
     return <AccountsEmptyState />
@@ -573,6 +591,7 @@ function AccountsListSection({
           updateAccount={updateAccount}
           handleRemove={handleRemove}
           codexOwner={codexOwner === account ? null : codexOwner}
+          canUpdateAccounts={canUpdateAccounts}
         />
       ))}
     </div>
@@ -594,6 +613,7 @@ function ConfiguredAccountsSection({
   setEditRepoRoot,
   updateAccount,
   handleRemove,
+  canUpdateAccounts,
 }: {
   showAddForm: boolean
   dispatch: React.Dispatch<AddAccountFormAction>
@@ -609,6 +629,7 @@ function ConfiguredAccountsSection({
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
   handleRemove: (username: string, org: string) => Promise<void>
+  canUpdateAccounts: boolean
 }) {
   return (
     <div className="settings-section">
@@ -643,6 +664,7 @@ function ConfiguredAccountsSection({
         setEditRepoRoot={setEditRepoRoot}
         updateAccount={updateAccount}
         handleRemove={handleRemove}
+        canUpdateAccounts={canUpdateAccounts}
       />
     </div>
   )
@@ -813,8 +835,26 @@ function useEnterpriseBilling() {
   return { enterpriseSlug, saveStatus, saveError, loading, handleChange, handleSave }
 }
 
+function AccountsLoadingState() {
+  return (
+    <div className="settings-page">
+      <div className="settings-loading">
+        <RefreshCw className="spin" size={24} />
+        <p>Loading accounts…</p>
+      </div>
+    </div>
+  )
+}
+
 export function SettingsAccounts() {
-  const { accounts, loading, addAccount, removeAccount, updateAccount } = useGitHubAccounts()
+  const {
+    accounts,
+    loading,
+    canUpdateAccounts = true,
+    addAccount,
+    removeAccount,
+    updateAccount,
+  } = useGitHubAccounts()
   const { showAddForm, newUsername, newOrg, addError, isAdding, dispatch, handleAdd } =
     useAddAccountForm(accounts, addAccount)
   const {
@@ -842,14 +882,7 @@ export function SettingsAccounts() {
   }
 
   if (loading || configLoading) {
-    return (
-      <div className="settings-page">
-        <div className="settings-loading">
-          <RefreshCw className="spin" size={24} />
-          <p>Loading accounts…</p>
-        </div>
-      </div>
-    )
+    return <AccountsLoadingState />
   }
 
   return (
@@ -879,6 +912,7 @@ export function SettingsAccounts() {
             setEditRepoRoot={setEditRepoRoot}
             updateAccount={updateAccount}
             handleRemove={handleRemove}
+            canUpdateAccounts={canUpdateAccounts}
           />
           <EnterpriseBillingSection
             enterpriseSlug={enterpriseSlug}

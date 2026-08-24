@@ -22,12 +22,15 @@ export type ConvexGitHubAccount = {
 }
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
+const OVERRIDE_RETRY_EVENT = 'buddy:usage-provider-override-retry'
 const reconciliations = new Set<string>()
 
 type OverrideEvent = {
   key: string
   provider: UsageProvider | null
 }
+
+type OverrideRetryEvent = { key: string }
 
 type OverrideResult = { success: boolean; error?: string }
 type ReconcileUsageProvider = (
@@ -38,6 +41,7 @@ type ReconcileUsageProvider = (
 type ScheduleRetry = (key: string) => void
 
 const RECONCILIATION_RETRY_MS = 1_000
+const MAX_RECONCILIATION_RETRIES = 5
 
 function notifyOverride(
   account: Pick<GitHubAccount, 'username' | 'org'>,
@@ -47,6 +51,19 @@ function notifyOverride(
     new CustomEvent<OverrideEvent>(OVERRIDE_EVENT, {
       detail: { key: getUsageProviderOverrideKey(account), provider },
     })
+  )
+}
+
+export function publishUsageProviderOverrideChange(
+  account: Pick<GitHubAccount, 'username' | 'org'>,
+  provider: UsageProvider | null
+) {
+  notifyOverride(account, provider)
+}
+
+function notifyOverrideRetry(key: string) {
+  window.dispatchEvent(
+    new CustomEvent<OverrideRetryEvent>(OVERRIDE_RETRY_EVENT, { detail: { key } })
   )
 }
 
@@ -248,11 +265,15 @@ function useConnectedAccountMirror(
         const mirroredAccountKeys = new Set(mirroredAccounts.map(getUsageProviderOverrideKey))
         setOverrides(current => {
           const next: UsageProviderOverrides = {}
+          let changed = false
           for (const [key, provider] of Object.entries(current)) {
             if (mirroredAccountKeys.has(key)) next[key] = provider
-            else changedOverrideKeys.current.add(key)
+            else {
+              changed = true
+              changedOverrideKeys.current.add(key)
+            }
           }
-          return next
+          return changed ? next : current
         })
       })
       .catch(() => {
@@ -318,24 +339,43 @@ function useOverrideReconciliation(
   }, [convexAccounts, overrides, reconcile, retryRevision, scheduleRetry])
 }
 
-function useReconciliationRetry(): [number, ScheduleRetry] {
+function useReconciliationRetry(retryContext: string): [number, ScheduleRetry] {
   const [revision, setRevision] = useState(0)
   const timers = useRef(new Map<string, number>())
-  const scheduleRetry = useCallback((key: string) => {
-    if (timers.current.has(key)) return
-    const timer = window.setTimeout(() => {
-      timers.current.delete(key)
-      setRevision(current => current + 1)
-    }, RECONCILIATION_RETRY_MS)
-    timers.current.set(key, timer)
+  const attempts = useRef(new Map<string, number>())
+  const scheduleRetry = useCallback((key: string) => notifyOverrideRetry(key), [])
+
+  useEffect(() => {
+    const activeTimers = timers.current
+    const handleRetry = (event: Event) => {
+      const { key } = (event as CustomEvent<OverrideRetryEvent>).detail
+      if (activeTimers.has(key)) return
+      const attempt = attempts.current.get(key) ?? 0
+      if (attempt >= MAX_RECONCILIATION_RETRIES) return
+      attempts.current.set(key, attempt + 1)
+      const timer = window.setTimeout(
+        () => {
+          activeTimers.delete(key)
+          setRevision(current => current + 1)
+        },
+        RECONCILIATION_RETRY_MS * 2 ** attempt
+      )
+      activeTimers.set(key, timer)
+    }
+    window.addEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
+    return () => {
+      window.removeEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
+      for (const timer of activeTimers.values()) window.clearTimeout(timer)
+      activeTimers.clear()
+    }
   }, [])
-  useEffect(
-    () => () => {
-      for (const timer of timers.current.values()) window.clearTimeout(timer)
-      timers.current.clear()
-    },
-    []
-  )
+
+  useEffect(() => {
+    for (const timer of timers.current.values()) window.clearTimeout(timer)
+    timers.current.clear()
+    attempts.current.clear()
+  }, [retryContext])
+
   return [revision, scheduleRetry]
 }
 
@@ -348,7 +388,11 @@ export function useLocalAccountConfig(
   const [loaded, setLoaded] = useState(true)
   const changedOverrideKeys = useRef(new Set<string>())
   const accountsMirroredFromConvex = useRef(false)
-  const [retryRevision, scheduleRetry] = useReconciliationRetry()
+  const retryContext = JSON.stringify([
+    convexAccounts?.map(account => [account.username, account.org, account.usageProvider]),
+    overrides,
+  ])
+  const [retryRevision, scheduleRetry] = useReconciliationRetry(retryContext)
 
   useInitialLocalConfig(
     setAccounts,

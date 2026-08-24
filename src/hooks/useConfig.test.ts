@@ -527,6 +527,110 @@ describe('useConfig', () => {
       }
     })
 
+    it('caps background retries and retries again when account data changes', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate.mockRejectedValue(new Error('Persistent outage'))
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                    usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                  },
+                }
+              : { success: true }
+          )
+        )
+
+        const { rerender } = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        for (const delay of [1_000, 2_000, 4_000, 8_000, 16_000]) {
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(delay)
+          })
+        }
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(60_000)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(6)
+
+        mockConvexAccounts = [
+          {
+            _id: 'id1',
+            username: 'HemSoft',
+            org: 'HemSoft',
+            repoRoot: 'D:\\github\\HemSoft',
+            usageProvider: 'copilot',
+          },
+        ]
+        rerender()
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(7)
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('routes a late retry to another mounted account consumer', async () => {
+      vi.useFakeTimers()
+      let rejectFirst!: (error: Error) => void
+      try {
+        mockConvexAccounts = [
+          { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+        ]
+        mockUpdate
+          .mockImplementationOnce(
+            () =>
+              new Promise((_resolve, reject) => {
+                rejectFirst = reject
+              })
+          )
+          .mockResolvedValue(undefined)
+        mockInvoke.mockImplementation((channel: string) =>
+          Promise.resolve(
+            channel === 'config:get-config'
+              ? {
+                  github: {
+                    accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                    usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+                  },
+                }
+              : { success: true }
+          )
+        )
+
+        const first = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(1)
+        const second = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(0)
+        })
+        first.unmount()
+
+        await act(async () => {
+          rejectFirst(new Error('Late outage'))
+          await Promise.resolve()
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(mockUpdate).toHaveBeenCalledTimes(2)
+        second.unmount()
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
     it('retries conflicting override cleanup after an IPC rejection', async () => {
       vi.useFakeTimers()
       let clearAttempts = 0
@@ -638,15 +742,78 @@ describe('useConfig', () => {
       mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
       mockRemove.mockResolvedValue(undefined)
       const { result } = renderHook(() => useGitHubAccounts())
-      const res = await result.current.removeAccount('user1', 'myorg')
+      let res!: { success: boolean; error?: string }
+      await act(async () => {
+        res = await result.current.removeAccount('user1', 'myorg')
+      })
       expect(res.success).toBe(true)
       expect(mockRemove).toHaveBeenCalledWith({ id: '123' })
-      expect(mockInvoke).toHaveBeenCalledWith(
-        'config:set-usage-provider-override',
-        'user1',
-        'myorg',
-        null
-      )
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
+    })
+
+    it('retries local account cleanup after a successful Convex removal', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockRemove.mockResolvedValue(undefined)
+      let cleanupAttempts = 0
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:sync-github-accounts' && (args[0] as unknown[]).length === 0) {
+          cleanupAttempts += 1
+          return Promise.resolve(
+            cleanupAttempts < 3 ? { success: false, error: 'Store busy' } : { success: true }
+          )
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      let response!: { success: boolean; error?: string }
+      await act(async () => {
+        response = await result.current.removeAccount('user1', 'myorg')
+      })
+
+      expect(response).toEqual({ success: true })
+      expect(cleanupAttempts).toBe(3)
+    })
+
+    it('reports local cleanup failure after a successful Convex removal', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:sync-github-accounts' && (args[0] as unknown[]).length === 0) {
+          return Promise.resolve({ success: false, error: 'Local store unavailable' })
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      const response = await result.current.removeAccount('user1', 'myorg')
+
+      expect(response).toEqual({ success: false, error: 'Local store unavailable' })
+    })
+
+    it('reports rejected local cleanup after a successful Convex removal', async () => {
+      mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:sync-github-accounts' && (args[0] as unknown[]).length === 0) {
+          return Promise.reject(new Error('IPC unavailable'))
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      const response = await result.current.removeAccount('user1', 'myorg')
+
+      expect(response).toEqual({ success: false, error: 'IPC unavailable' })
     })
 
     it('removeAccount returns error when account not found', async () => {

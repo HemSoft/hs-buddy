@@ -154,7 +154,7 @@ describe('SettingsAccounts', () => {
   })
 
   it('removes account after confirmation', async () => {
-    mockRemoveAccount.mockResolvedValue(undefined)
+    mockRemoveAccount.mockResolvedValue({ success: true })
     render(<SettingsAccounts />)
 
     // Click the remove button on the existing account
@@ -172,6 +172,39 @@ describe('SettingsAccounts', () => {
     await waitFor(() => {
       expect(mockRemoveAccount).toHaveBeenCalledWith('existing-user', 'existing-org')
     })
+  })
+
+  it('shows an error when account removal leaves local cleanup incomplete', async () => {
+    mockRemoveAccount.mockResolvedValue({
+      success: false,
+      error: 'Local account cleanup failed',
+    })
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByTitle('Remove account'))
+    const confirmButton = await waitFor(() => {
+      const button = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(button).toBeTruthy()
+      return button
+    })
+    fireEvent.click(confirmButton)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Local account cleanup failed')
+  })
+
+  it('shows an error when account removal rejects', async () => {
+    mockRemoveAccount.mockRejectedValue(new Error('Removal unavailable'))
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByTitle('Remove account'))
+    const confirmButton = await waitFor(() => {
+      const button = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(button).toBeTruthy()
+      return button
+    })
+    fireEvent.click(confirmButton)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Removal unavailable')
   })
 
   it('does not remove account when confirmation is cancelled', async () => {
@@ -389,7 +422,7 @@ describe('SettingsAccounts account editing', () => {
   })
 
   it('removes account when Trash button is clicked', async () => {
-    mockRemoveAccount.mockResolvedValue(undefined)
+    mockRemoveAccount.mockResolvedValue({ success: true })
     render(<SettingsAccounts />)
 
     const removeButton = screen.getByTitle('Remove account')

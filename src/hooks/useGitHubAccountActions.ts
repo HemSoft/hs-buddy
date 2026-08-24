@@ -5,6 +5,7 @@ import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
 import {
   mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
+  publishUsageProviderOverrideChange,
 } from './useUsageProviderOverrides'
 
 type ConvexAccounts = ReturnType<typeof useGitHubAccountsConvex>
@@ -14,6 +15,8 @@ type UpdateMutation = ReturnType<typeof useGitHubAccountMutations>['update']
 type RemoveMutation = ReturnType<typeof useGitHubAccountMutations>['remove']
 type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
+
+const LOCAL_ACCOUNT_MIRROR_ATTEMPTS = 3
 
 function findAccount(accounts: ConvexAccounts, username: string, org: string) {
   return accounts?.find(account => account.username === username && account.org === org)
@@ -82,10 +85,21 @@ async function removeConnectedAccount(
     const account = findAccount(accounts, username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    const cleared = await persistUsageProviderOverride(account, null)
-    return cleared.success
-      ? { success: true }
-      : { success: false, error: cleared.error ?? 'Account removed, but local provider remained' }
+    const remainingAccounts = accounts?.filter(candidate => candidate._id !== account._id) ?? []
+    let error = 'Account removed, but its offline fallback could not be cleared'
+    for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
+      try {
+        const mirrored = await mirrorConnectedGitHubAccounts(remainingAccounts)
+        if (mirrored.success) {
+          publishUsageProviderOverrideChange(account, null)
+          return { success: true }
+        }
+        error = mirrored.error ?? error
+      } catch (caught: unknown) {
+        error = getErrorMessage(caught)
+      }
+    }
+    return { success: false, error }
   } catch (error: unknown) {
     return { success: false, error: getErrorMessage(error) }
   }

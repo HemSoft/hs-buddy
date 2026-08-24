@@ -945,6 +945,7 @@ export function SettingsAccounts() {
   } = useEnterpriseBilling()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editRepoRoot, setEditRepoRoot] = useState('')
+  const [removeError, setRemoveError] = useState<string | null>(null)
 
   const { confirm, confirmDialog } = useConfirm()
 
@@ -955,7 +956,13 @@ export function SettingsAccounts() {
       variant: 'danger',
     })
     if (confirmed) {
-      await removeAccount(username, org)
+      setRemoveError(null)
+      try {
+        const result = await removeAccount(username, org)
+        if (!result.success) setRemoveError(result.error ?? 'Failed to remove account')
+      } catch (error: unknown) {
+        setRemoveError(getUserFacingErrorMessage(error, 'Failed to remove account'))
+      }
     }
   }
 
@@ -975,6 +982,11 @@ export function SettingsAccounts() {
         </div>
 
         <div className="settings-page-content">
+          {removeError && (
+            <div className="form-error" role="alert">
+              {removeError}
+            </div>
+          )}
           <ConfiguredAccountsSection
             showAddForm={showAddForm}
             dispatch={dispatch}

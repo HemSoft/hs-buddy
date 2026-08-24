@@ -144,7 +144,7 @@
     "sharp": "^0.35.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.62.1",
-    "vite": "8.2.1",
+    "vite": "8.2.2",
     "vite-plugin-electron": "^1.1.0",
     "vite-plugin-electron-renderer": "^1.0.0",
     "vitest": "4.1.11",

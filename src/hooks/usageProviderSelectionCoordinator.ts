@@ -179,7 +179,7 @@ export function serializeUsageProviderMaintenance(
   operation: (isSuperseded: () => boolean) => Promise<OverrideResult>
 ) {
   return serializeUsageProviderSelection(account, operation, {
-    waitForReconciliation: false,
+    waitForReconciliation: true,
     recordSuccess: false,
   })
 }

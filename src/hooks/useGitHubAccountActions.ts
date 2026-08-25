@@ -234,7 +234,7 @@ async function persistSerializedConnectedUsageProvider(
     const result = await persistLocalUsageProvider(
       accountIdentity,
       usageProvider,
-      accounts,
+      getAccounts() ?? accounts,
       isSuperseded
     )
     return result.success

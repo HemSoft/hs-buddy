@@ -16,6 +16,7 @@ import {
   persistUsageProviderOverride,
 } from './useUsageProviderOverrides'
 import { markAccountMigrationPending, markAccountMigrationReady } from './useAccountMigrationState'
+import { hasPendingUsageProviderWork } from './usageProviderSelectionCoordinator'
 
 // Mock Convex hooks
 const mockCreate = vi.fn()
@@ -2427,6 +2428,49 @@ describe('useConfig', () => {
       })
     })
 
+    it('mirrors the latest account snapshot after a connected provider update', async () => {
+      let finishUpdate!: () => void
+      const mirroredSnapshots: unknown[] = []
+      mockConvexAccounts = [
+        { _id: 'target', username: 'HemSoft', org: 'HemSoft' },
+        { _id: 'peer', username: 'Peer', org: 'HemSoft', repoRoot: 'old-root' },
+      ]
+      mockUpdate.mockImplementation(
+        () =>
+          new Promise<void>(resolve => {
+            finishUpdate = resolve
+          })
+      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') return Promise.resolve({ github: { accounts: [] } })
+        if (channel === 'config:sync-github-accounts') mirroredSnapshots.push(args[0])
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(mirroredSnapshots).toHaveLength(1))
+
+      let save!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        save = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+      mockConvexAccounts = [
+        { _id: 'target', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        { _id: 'peer', username: 'Peer', org: 'HemSoft', repoRoot: 'new-root' },
+      ]
+      rerender()
+      await waitFor(() => expect(mirroredSnapshots).toHaveLength(2))
+
+      await act(async () => {
+        finishUpdate()
+        expect(await save).toEqual({ success: true })
+      })
+      expect(mirroredSnapshots.at(-1)).toEqual([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        { username: 'Peer', org: 'HemSoft', repoRoot: 'new-root' },
+      ])
+    })
+
     it('falls back to a local override when a connected provider update is rejected', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
       mockUpdate.mockRejectedValue(new Error('Provider update failed'))
@@ -2441,6 +2485,7 @@ describe('useConfig', () => {
         'HemSoft',
         'codex'
       )
+      await waitFor(() => expect(hasPendingUsageProviderWork('hemsoft/hemsoft')).toBe(false))
     })
 
     it('does not restore an account deleted during a rejected connected provider update', async () => {
@@ -2476,13 +2521,13 @@ describe('useConfig', () => {
 
       mockConvexAccounts = []
       rerender()
-      await waitFor(() => expect(mirroredAccounts).toEqual([]))
+      expect(mirroredAccounts).toEqual([{ username: 'HemSoft', org: 'HemSoft' }])
 
       await act(async () => {
         rejectProviderUpdate()
         expect(await save).toEqual({ success: false, error: 'Account no longer exists' })
       })
-      expect(mirroredAccounts).toEqual([])
+      await waitFor(() => expect(mirroredAccounts).toEqual([]))
       expect(mockInvoke).toHaveBeenCalledWith(
         'config:set-usage-provider-override',
         'HemSoft',

@@ -399,6 +399,32 @@ describe('githubAccounts', () => {
     expect(await t.query(api.githubAccounts.list)).toHaveLength(2)
   })
 
+  test('bulkImport fills missing metadata without replacing existing values', async () => {
+    const t = convexTest(schema, modules)
+    const id = await t.mutation(api.githubAccounts.create, {
+      username: 'Existing',
+      org: 'Org',
+      usageProvider: 'copilot',
+    })
+
+    const ids = await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        {
+          username: 'existing',
+          org: 'org',
+          repoRoot: 'D:/github/HemSoft',
+          usageProvider: 'codex',
+        },
+      ],
+    })
+
+    expect(ids).toEqual([])
+    expect(await t.query(api.githubAccounts.get, { id })).toMatchObject({
+      repoRoot: 'D:/github/HemSoft',
+      usageProvider: 'copilot',
+    })
+  })
+
   test('bulkImport merges metadata from case-variant identities in source order', async () => {
     const t = convexTest(schema, modules)
     const ids = await t.mutation(api.githubAccounts.bulkImport, {

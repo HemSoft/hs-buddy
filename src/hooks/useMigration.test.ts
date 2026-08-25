@@ -173,6 +173,40 @@ describe('useMigrateToConvex', () => {
     expect(mockBulkImportAccounts).not.toHaveBeenCalled()
   })
 
+  it('fills missing metadata on an existing identity before publishing readiness', async () => {
+    mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1' }]
+    mockExistingSettings = {}
+    mockInvoke.mockResolvedValue({
+      github: {
+        accounts: [{ username: 'user1', org: 'org1', repoRoot: 'D:\\github\\HemSoft' }],
+      },
+      pr: { refreshInterval: 10, autoRefresh: true },
+    })
+    mockBulkImportAccounts.mockResolvedValue([])
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+    await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
+
+    expect(mockBulkImportAccounts).toHaveBeenCalledWith({
+      accounts: [{ username: 'user1', org: 'org1', repoRoot: 'D:\\github\\HemSoft' }],
+    })
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = [
+      {
+        _id: 'abc',
+        username: 'USER1',
+        org: 'ORG1',
+        repoRoot: 'D:\\github\\HemSoft',
+      },
+    ]
+    rerender()
+    await waitFor(() => expect(result.current.accountsReady).toBe(true))
+  })
+
   it('skips settings import when Convex already has settings with _id', async () => {
     mockExistingAccounts = []
     mockExistingSettings = { _id: 'settings-1', pr: { refreshInterval: 5 } }

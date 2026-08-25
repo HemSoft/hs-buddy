@@ -73,6 +73,47 @@ async function accountIdentityExists(
   )
 }
 
+async function findAccountByIdentity(
+  ctx: MutationCtx,
+  identity: { username: string; org: string }
+) {
+  const accounts = await ctx.db.query('githubAccounts').collect()
+  return accounts.find(account => isSameAccountIdentity(account, identity))
+}
+
+async function backfillImportedAccountMetadata(
+  ctx: MutationCtx,
+  existing: ImportedGitHubAccount & { _id: Id<'githubAccounts'> },
+  account: ImportedGitHubAccount,
+  now: number
+) {
+  const repoRoot = existing.repoRoot === undefined ? account.repoRoot : undefined
+  const usageProvider = existing.usageProvider === undefined ? account.usageProvider : undefined
+  if (repoRoot === undefined && usageProvider === undefined) return
+  if (usageProvider === 'codex') await transferCodexOwnership(ctx, existing._id)
+  await ctx.db.patch('githubAccounts', existing._id, {
+    ...(repoRoot !== undefined && { repoRoot }),
+    ...(usageProvider !== undefined && { usageProvider }),
+    updatedAt: now,
+  })
+}
+
+async function insertImportedAccount(
+  ctx: MutationCtx,
+  account: ImportedGitHubAccount,
+  now: number
+) {
+  if (account.usageProvider === 'codex') await transferCodexOwnership(ctx)
+  return ctx.db.insert('githubAccounts', {
+    username: account.username,
+    org: account.org,
+    ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
+    ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
+    createdAt: now,
+    updatedAt: now,
+  })
+}
+
 async function assertAvailableAccountIdentity(
   ctx: MutationCtx,
   id: Id<'githubAccounts'>,
@@ -222,21 +263,12 @@ export const bulkImport = mutation({
 
     for (const account of mergeImportedAccountSnapshots(accounts)) {
       // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Final merged identities are checked and inserted sequentially so Codex ownership follows source order across distinct accounts.
-      if (await accountIdentityExists(ctx, account)) {
+      const existing = await findAccountByIdentity(ctx, account)
+      if (existing) {
+        await backfillImportedAccountMetadata(ctx, existing, account, now)
         continue
       }
-
-      if (account.usageProvider === 'codex') await transferCodexOwnership(ctx)
-
-      const id = await ctx.db.insert('githubAccounts', {
-        username: account.username,
-        org: account.org,
-        ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
-        ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
-        createdAt: now,
-        updatedAt: now,
-      })
-      results.push(id)
+      results.push(await insertImportedAccount(ctx, account, now))
     }
 
     return results

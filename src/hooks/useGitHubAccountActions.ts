@@ -19,6 +19,7 @@ type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
 type IsSuperseded = () => boolean
 type GetConvexAccounts = () => ConvexAccounts
+type RemovalTombstone = { id: ConvexAccount['_id']; cleanupSettled: boolean }
 
 const LOCAL_ACCOUNT_MIRROR_ATTEMPTS = 3
 
@@ -89,32 +90,64 @@ async function clearRemovedAccountFallback(
   return mirrorConnectedGitHubAccounts(remainingAccounts)
 }
 
+async function clearRemovedAccountFallbackWithRetry(
+  account: ConvexAccount,
+  getAccounts: () => ConvexAccounts
+): Promise<MutationResult> {
+  let error = 'Account removed, but its offline fallback could not be cleared'
+  for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
+    try {
+      const result = await clearRemovedAccountFallback(account, getAccounts)
+      if (result.success) return result
+      error = result.error ?? error
+    } catch (caught: unknown) {
+      error = getErrorMessage(caught)
+    }
+  }
+  return { success: false, error }
+}
+
+function settleRemovalTombstone(
+  removedAccounts: Map<string, RemovalTombstone>,
+  key: string,
+  tombstone: RemovalTombstone,
+  removalCompleted: boolean,
+  oldAccountStillPresent: boolean | undefined
+) {
+  if (removedAccounts.get(key) !== tombstone) return
+  tombstone.cleanupSettled = true
+  if (!removalCompleted || oldAccountStillPresent === false) removedAccounts.delete(key)
+}
+
 async function removeConnectedAccount(
   getAccounts: () => ConvexAccounts,
   username: string,
   org: string,
   remove: RemoveMutation,
-  removedAccounts: Map<string, ConvexAccount['_id']>
+  removedAccounts: Map<string, RemovalTombstone>
 ): Promise<MutationResult> {
+  const account = findAccount(getAccounts(), username, org)
+  if (!account) return { success: false, error: 'Account not found' }
+  const key = getUsageProviderOverrideKey(account)
+  const tombstone = { id: account._id, cleanupSettled: false }
+  removedAccounts.set(key, tombstone)
+  let removalCompleted = false
   try {
-    const account = findAccount(getAccounts(), username, org)
-    if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    removedAccounts.set(getUsageProviderOverrideKey(account), account._id)
+    removalCompleted = true
     await invalidateUsageProviderSelection(account)
-    let error = 'Account removed, but its offline fallback could not be cleared'
-    for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
-      try {
-        const result = await clearRemovedAccountFallback(account, getAccounts)
-        if (result.success) return { success: true }
-        error = result.error ?? error
-      } catch (caught: unknown) {
-        error = getErrorMessage(caught)
-      }
-    }
-    return { success: false, error }
+    return await clearRemovedAccountFallbackWithRetry(account, getAccounts)
   } catch (error: unknown) {
     return { success: false, error: getErrorMessage(error) }
+  } finally {
+    const oldAccountStillPresent = getAccounts()?.some(candidate => candidate._id === account._id)
+    settleRemovalTombstone(
+      removedAccounts,
+      key,
+      tombstone,
+      removalCompleted,
+      oldAccountStillPresent
+    )
   }
 }
 
@@ -251,11 +284,13 @@ export function useGitHubAccountActions(
   const { create, update, remove } = useGitHubAccountMutations()
   const accountsRef = useRef(convexAccounts)
   accountsRef.current = convexAccounts
-  const removedAccountsRef = useRef(new Map<string, ConvexAccount['_id']>())
+  const removedAccountsRef = useRef(new Map<string, RemovalTombstone>())
   if (convexAccounts) {
     const currentIds = new Set(convexAccounts.map(account => account._id))
-    for (const [key, id] of removedAccountsRef.current) {
-      if (!currentIds.has(id)) removedAccountsRef.current.delete(key)
+    for (const [key, tombstone] of removedAccountsRef.current) {
+      if (tombstone.cleanupSettled && !currentIds.has(tombstone.id)) {
+        removedAccountsRef.current.delete(key)
+      }
     }
   }
 

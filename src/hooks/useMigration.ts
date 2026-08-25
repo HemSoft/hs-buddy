@@ -12,16 +12,28 @@ function hasAccountsToMigrate<T>(configAccounts: T[] | undefined): configAccount
   return !!configAccounts && configAccounts.length > 0
 }
 
-type AccountIdentity = { username: string; org: string }
+type AccountIdentity = {
+  username: string
+  org: string
+  repoRoot?: string
+  usageProvider?: 'copilot' | 'codex'
+}
 
 function getAccountIdentityKey(account: AccountIdentity): string {
   return `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
 }
 
 type AccountMigrationPlan<T> = {
-  missingAccounts: T[]
-  expectedSnapshot: Set<string> | null
+  accountsToImport: T[]
+  expectedSnapshot: Map<string, AccountIdentity> | null
   requiresSnapshotRefresh: boolean
+}
+
+function isMissingLocalMetadata(local: AccountIdentity, existing: AccountIdentity) {
+  return (
+    (local.repoRoot !== undefined && existing.repoRoot === undefined) ||
+    (local.usageProvider !== undefined && existing.usageProvider === undefined)
+  )
 }
 
 function createAccountMigrationPlan<T extends AccountIdentity>(
@@ -29,34 +41,62 @@ function createAccountMigrationPlan<T extends AccountIdentity>(
   existingAccounts: AccountIdentity[]
 ): AccountMigrationPlan<T> {
   if (!hasAccountsToMigrate(configAccounts)) {
-    return { missingAccounts: [], expectedSnapshot: null, requiresSnapshotRefresh: false }
+    return { accountsToImport: [], expectedSnapshot: null, requiresSnapshotRefresh: false }
   }
   const validConfigAccounts = configAccounts.filter(
     account => isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
   )
-  const existingIdentities = new Set(existingAccounts.map(getAccountIdentityKey))
-  const missingAccounts = validConfigAccounts.filter(
-    account => !existingIdentities.has(getAccountIdentityKey(account))
+  const existingByIdentity = new Map(
+    existingAccounts.map(account => [getAccountIdentityKey(account), account])
   )
+  const accountsToImport = validConfigAccounts.filter(account => {
+    const existing = existingByIdentity.get(getAccountIdentityKey(account))
+    return !existing || isMissingLocalMetadata(account, existing)
+  })
   const expectedSnapshot =
-    missingAccounts.length > 0 ? new Set(validConfigAccounts.map(getAccountIdentityKey)) : null
+    accountsToImport.length > 0
+      ? new Map(
+          accountsToImport.map(account => {
+            const identity = getAccountIdentityKey(account)
+            const existing = existingByIdentity.get(identity)
+            return [
+              identity,
+              {
+                username: existing?.username ?? account.username,
+                org: existing?.org ?? account.org,
+                repoRoot: existing?.repoRoot ?? account.repoRoot,
+                usageProvider: existing?.usageProvider ?? account.usageProvider,
+              },
+            ]
+          })
+        )
+      : null
   return {
-    missingAccounts,
+    accountsToImport,
     expectedSnapshot,
-    requiresSnapshotRefresh: missingAccounts.length > 0,
+    requiresSnapshotRefresh: accountsToImport.length > 0,
   }
 }
 
-function containsExpectedAccounts(accounts: AccountIdentity[], expectedSnapshot: Set<string>) {
-  const snapshot = new Set(accounts.map(getAccountIdentityKey))
-  return [...expectedSnapshot].every(identity => snapshot.has(identity))
+function containsExpectedAccounts(
+  accounts: AccountIdentity[],
+  expectedSnapshot: Map<string, AccountIdentity>
+) {
+  return [...expectedSnapshot].every(([identity, expected]) =>
+    accounts.some(
+      account =>
+        getAccountIdentityKey(account) === identity &&
+        (expected.repoRoot === undefined || account.repoRoot === expected.repoRoot) &&
+        (expected.usageProvider === undefined || account.usageProvider === expected.usageProvider)
+    )
+  )
 }
 
 type ValueRef<T> = { current: T }
 
 function completePendingAccountSnapshot(
   accounts: AccountIdentity[],
-  pendingSnapshotRef: ValueRef<Set<string> | null>
+  pendingSnapshotRef: ValueRef<Map<string, AccountIdentity> | null>
 ) {
   const expectedSnapshot = pendingSnapshotRef.current
   if (!expectedSnapshot || !containsExpectedAccounts(accounts, expectedSnapshot)) return
@@ -186,7 +226,7 @@ export function useMigrateToConvex() {
   const retryAttemptRef = useRef(0)
   const migrationExhaustedRef = useRef(false)
   const handledConnectionCountRef = useRef(connection.connectionCount)
-  const pendingAccountSnapshotRef = useRef<Set<string> | null>(null)
+  const pendingAccountSnapshotRef = useRef<Map<string, AccountIdentity> | null>(null)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
@@ -221,7 +261,7 @@ export function useMigrateToConvex() {
         const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
         const accountPlan = createAccountMigrationPlan(config.github?.accounts, existingAccounts)
         pendingAccountSnapshotRef.current = accountPlan.expectedSnapshot
-        await migrateAccounts(accountPlan.missingAccounts, bulkImportAccounts)
+        await migrateAccounts(accountPlan.accountsToImport, bulkImportAccounts)
         if (accountPlanIsReady(accountPlan, existingAccountsRef.current)) {
           pendingAccountSnapshotRef.current = null
           markAccountMigrationReady()

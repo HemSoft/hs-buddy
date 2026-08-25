@@ -1256,6 +1256,54 @@ describe('useConfig', () => {
       expect(replacementMirrorCall).toBeGreaterThan(clearCall)
     })
 
+    it('blocks replacement provider saves until old-account cleanup settles', async () => {
+      let finishOverrideCleanup!: () => void
+      let storedOverride: 'codex' | null = 'codex'
+      mockConvexAccounts = [{ _id: 'old-id', username: 'replace-me', org: 'org' }]
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          const provider = args[2] as 'codex' | null
+          if (provider === null && !finishOverrideCleanup) {
+            return new Promise(resolve => {
+              finishOverrideCleanup = () => {
+                storedOverride = null
+                resolve({ success: true })
+              }
+            })
+          }
+          storedOverride = provider
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('replace-me', 'org')
+      })
+      await waitFor(() => expect(finishOverrideCleanup).toBeTypeOf('function'))
+
+      mockConvexAccounts = [{ _id: 'new-id', username: 'replace-me', org: 'org' }]
+      mockIsWebSocketConnected = false
+      rerender()
+      await expect(
+        result.current.updateUsageProvider('replace-me', 'org', 'codex')
+      ).resolves.toEqual({ success: false, error: 'Account removal in progress' })
+
+      await act(async () => {
+        finishOverrideCleanup()
+        expect(await removal).toEqual({ success: true })
+      })
+      await expect(
+        result.current.updateUsageProvider('replace-me', 'org', 'codex')
+      ).resolves.toEqual({ success: true })
+      expect(storedOverride).toBe('codex')
+    })
+
     it('retries override cleanup before mirroring a removed account', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
       mockRemove.mockResolvedValue(undefined)

@@ -54,6 +54,9 @@ describe('githubAccounts', () => {
     await expect(
       t.mutation(api.githubAccounts.create, { username: 'alice', org: '-corp' })
     ).rejects.toThrow("Invalid GitHub account slug: '-corp'")
+    await expect(
+      t.mutation(api.githubAccounts.create, { username: 'bad--slug', org: 'corp' })
+    ).rejects.toThrow("Invalid GitHub account slug: 'bad--slug'")
   })
 
   test('create allows same username with different orgs', async () => {
@@ -353,6 +356,7 @@ describe('githubAccounts', () => {
     const ids = await t.mutation(api.githubAccounts.bulkImport, {
       accounts: [
         { username: 'bad slug', org: 'org' },
+        { username: 'bad--slug', org: 'org' },
         { username: 'valid-user', org: 'valid-org' },
       ],
     })

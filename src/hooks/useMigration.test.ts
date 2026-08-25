@@ -98,8 +98,36 @@ describe('useMigrateToConvex', () => {
     })
   })
 
-  it('skips account import when Convex already has accounts', async () => {
-    mockExistingAccounts = [{ _id: 'abc', username: 'existing' }]
+  it('imports local accounts missing from a nonempty Convex snapshot', async () => {
+    mockExistingAccounts = [{ _id: 'abc', username: 'existing', org: 'org1' }]
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+
+    await waitFor(() => {
+      expect(result.current.migration.isComplete).toBe(true)
+    })
+
+    expect(mockBulkImportAccounts).toHaveBeenCalledWith({
+      accounts: [{ username: 'user1', org: 'org1' }],
+    })
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = [
+      { _id: 'abc', username: 'existing', org: 'org1' },
+      { _id: 'imported', username: 'user1', org: 'org1' },
+    ]
+    rerender()
+
+    await waitFor(() => expect(result.current.accountsReady).toBe(true))
+  })
+
+  it('skips local account identities already present in Convex', async () => {
+    mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1' }]
     mockExistingSettings = {}
 
     const { result } = renderHook(() => useMigrateToConvex())
@@ -317,7 +345,7 @@ describe('useMigrateToConvex', () => {
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
     expect(result.current.accountsReady).toBe(false)
 
-    mockExistingAccounts = [{ _id: 'authoritative-account' }]
+    mockExistingAccounts = [{ _id: 'authoritative-account', username: 'user1', org: 'org1' }]
     rerender()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)

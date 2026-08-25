@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useConvexConnectionState, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
+import { isValidGitHubAccountSlug } from '../../shared/githubAccountIdentity'
 import { IPC_INVOKE } from '../ipc/contracts'
 import { markAccountMigrationReady } from './useAccountMigrationState'
 
@@ -11,19 +12,88 @@ function hasAccountsToMigrate<T>(configAccounts: T[] | undefined): configAccount
   return !!configAccounts && configAccounts.length > 0
 }
 
-function shouldSkipAccountMigration(existingAccounts: { length: number } | undefined): boolean {
-  return !existingAccounts || existingAccounts.length > 0
+type AccountIdentity = { username: string; org: string }
+
+function getAccountIdentityKey(account: AccountIdentity): string {
+  return `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
+}
+
+type AccountMigrationPlan<T> = {
+  missingAccounts: T[]
+  expectedSnapshot: Set<string> | null
+  requiresSnapshotRefresh: boolean
+}
+
+function createAccountMigrationPlan<T extends AccountIdentity>(
+  configAccounts: T[] | undefined,
+  existingAccounts: AccountIdentity[]
+): AccountMigrationPlan<T> {
+  if (!hasAccountsToMigrate(configAccounts)) {
+    return { missingAccounts: [], expectedSnapshot: null, requiresSnapshotRefresh: false }
+  }
+  const validConfigAccounts = configAccounts.filter(
+    account => isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
+  )
+  const existingIdentities = new Set(existingAccounts.map(getAccountIdentityKey))
+  const missingAccounts = validConfigAccounts.filter(
+    account => !existingIdentities.has(getAccountIdentityKey(account))
+  )
+  const expectedSnapshot =
+    missingAccounts.length > 0 ? new Set(validConfigAccounts.map(getAccountIdentityKey)) : null
+  return {
+    missingAccounts,
+    expectedSnapshot,
+    requiresSnapshotRefresh: existingAccounts.length > 0 && missingAccounts.length > 0,
+  }
+}
+
+function containsExpectedAccounts(accounts: AccountIdentity[], expectedSnapshot: Set<string>) {
+  const snapshot = new Set(accounts.map(getAccountIdentityKey))
+  return [...expectedSnapshot].every(identity => snapshot.has(identity))
+}
+
+type ValueRef<T> = { current: T }
+
+function completePendingAccountSnapshot(
+  accounts: AccountIdentity[],
+  pendingSnapshotRef: ValueRef<Set<string> | null>
+) {
+  const expectedSnapshot = pendingSnapshotRef.current
+  if (!expectedSnapshot || !containsExpectedAccounts(accounts, expectedSnapshot)) return
+  pendingSnapshotRef.current = null
+  markAccountMigrationReady()
+}
+
+function accountPlanIsReady(
+  plan: AccountMigrationPlan<unknown>,
+  latestAccounts: AccountIdentity[] | undefined
+) {
+  return (
+    !plan.expectedSnapshot ||
+    !plan.requiresSnapshotRefresh ||
+    Boolean(latestAccounts && containsExpectedAccounts(latestAccounts, plan.expectedSnapshot))
+  )
+}
+
+function resetRetryBudgetAfterReconnect(
+  connectionCount: number,
+  handledConnectionCountRef: ValueRef<number>,
+  retryAttemptRef: ValueRef<number>,
+  migrationExhaustedRef: ValueRef<boolean>
+) {
+  if (connectionCount <= handledConnectionCountRef.current) return
+  handledConnectionCountRef.current = connectionCount
+  retryAttemptRef.current = 0
+  migrationExhaustedRef.current = false
 }
 
 async function migrateAccounts<T>(
-  configAccounts: T[] | undefined,
-  existingAccounts: { length: number } | undefined,
+  missingAccounts: T[],
   bulkImport: (args: { accounts: T[] }) => Promise<{ length: number }>
 ): Promise<void> {
-  if (!hasAccountsToMigrate(configAccounts)) return
-  if (shouldSkipAccountMigration(existingAccounts)) return
+  if (missingAccounts.length === 0) return
   console.log('[Migration] Importing GitHub accounts from electron-store…')
-  const imported = await bulkImport({ accounts: configAccounts })
+  const imported = await bulkImport({ accounts: missingAccounts })
   if (imported.length > 0) {
     console.log(`[Migration] Imported ${imported.length} GitHub accounts to Convex`)
   }
@@ -61,6 +131,47 @@ function useMigrationCompletionState() {
   return { isComplete, setIsComplete, timedOut }
 }
 
+type MigrationMonitor = {
+  migrationPromiseRef: ValueRef<Promise<void> | null>
+  retryAttemptRef: ValueRef<number>
+  migrationExhaustedRef: ValueRef<boolean>
+  setRetryRevision: (update: (current: number) => number) => void
+  setIsComplete: (complete: boolean) => void
+}
+
+function monitorMigration(migration: Promise<void>, monitor: MigrationMonitor) {
+  let cancelled = false
+  let retryTimer: ReturnType<typeof setTimeout> | undefined
+  void migration
+    .then(() => {
+      monitor.retryAttemptRef.current = 0
+      monitor.migrationExhaustedRef.current = false
+      if (!cancelled) monitor.setIsComplete(true)
+    })
+    .catch((error: unknown) => {
+      console.error('[Migration] Failed to migrate from electron-store:', error)
+      if (monitor.migrationPromiseRef.current === migration) {
+        monitor.migrationPromiseRef.current = null
+      }
+      if (!cancelled && monitor.retryAttemptRef.current < MAX_MIGRATION_RETRIES) {
+        const retryDelay = MIGRATION_RETRY_BASE_DELAY_MS * 2 ** monitor.retryAttemptRef.current
+        monitor.retryAttemptRef.current += 1
+        retryTimer = setTimeout(() => {
+          monitor.setRetryRevision(current => current + 1)
+        }, retryDelay)
+      } else if (!cancelled) {
+        monitor.migrationExhaustedRef.current = true
+        console.error(
+          `[Migration] Giving up after ${MAX_MIGRATION_RETRIES} retries; migration remains pending`
+        )
+      }
+    })
+  return () => {
+    cancelled = true
+    if (retryTimer) clearTimeout(retryTimer)
+  }
+}
+
 /**
  * One-time migration from electron-store to Convex
  * Runs on app startup with a timeout to prevent infinite loading
@@ -75,10 +186,13 @@ export function useMigrateToConvex() {
   const retryAttemptRef = useRef(0)
   const migrationExhaustedRef = useRef(false)
   const handledConnectionCountRef = useRef(connection.connectionCount)
+  const pendingAccountSnapshotRef = useRef<Set<string> | null>(null)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
   const existingSettings = useQuery(api.settings.get)
+  const existingAccountsRef = useRef(existingAccounts)
+  existingAccountsRef.current = existingAccounts
 
   // Loading until Convex queries resolve OR timeout
   const isLoading = (existingAccounts === undefined || existingSettings === undefined) && !timedOut
@@ -90,58 +204,39 @@ export function useMigrateToConvex() {
     }
     if (!connection.isWebSocketConnected) return
 
-    const reconnected = connection.connectionCount > handledConnectionCountRef.current
-    if (reconnected) {
-      handledConnectionCountRef.current = connection.connectionCount
-      retryAttemptRef.current = 0
-      migrationExhaustedRef.current = false
-    }
+    completePendingAccountSnapshot(existingAccounts, pendingAccountSnapshotRef)
+    resetRetryBudgetAfterReconnect(
+      connection.connectionCount,
+      handledConnectionCountRef,
+      retryAttemptRef,
+      migrationExhaustedRef
+    )
 
     if (migrationExhaustedRef.current) {
-      if (existingAccounts.length > 0) markAccountMigrationReady()
       return
     }
-
-    let cancelled = false
-    let retryTimer: ReturnType<typeof setTimeout> | undefined
 
     if (!migrationPromiseRef.current) {
       migrationPromiseRef.current = (async () => {
         const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
-        await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
-        markAccountMigrationReady()
+        const accountPlan = createAccountMigrationPlan(config.github?.accounts, existingAccounts)
+        pendingAccountSnapshotRef.current = accountPlan.expectedSnapshot
+        await migrateAccounts(accountPlan.missingAccounts, bulkImportAccounts)
+        if (accountPlanIsReady(accountPlan, existingAccountsRef.current)) {
+          pendingAccountSnapshotRef.current = null
+          markAccountMigrationReady()
+        }
         await migrateSettings(config.pr, existingSettings, initSettings)
       })()
     }
 
-    const migration = migrationPromiseRef.current
-    void migration
-      .then(() => {
-        retryAttemptRef.current = 0
-        migrationExhaustedRef.current = false
-        if (!cancelled) setIsComplete(true)
-      })
-      .catch((error: unknown) => {
-        console.error('[Migration] Failed to migrate from electron-store:', error)
-        if (migrationPromiseRef.current === migration) migrationPromiseRef.current = null
-        if (!cancelled && retryAttemptRef.current < MAX_MIGRATION_RETRIES) {
-          const retryDelay = MIGRATION_RETRY_BASE_DELAY_MS * 2 ** retryAttemptRef.current
-          retryAttemptRef.current += 1
-          retryTimer = setTimeout(() => {
-            setRetryRevision(current => current + 1)
-          }, retryDelay)
-        } else if (!cancelled) {
-          migrationExhaustedRef.current = true
-          console.error(
-            `[Migration] Giving up after ${MAX_MIGRATION_RETRIES} retries; migration remains pending`
-          )
-        }
-      })
-
-    return () => {
-      cancelled = true
-      if (retryTimer) clearTimeout(retryTimer)
-    }
+    return monitorMigration(migrationPromiseRef.current, {
+      migrationPromiseRef,
+      retryAttemptRef,
+      migrationExhaustedRef,
+      setRetryRevision,
+      setIsComplete,
+    })
   }, [
     existingAccounts,
     existingSettings,

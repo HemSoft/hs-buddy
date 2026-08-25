@@ -7,6 +7,8 @@ const mockBulkImportAccounts = vi.fn()
 const mockInitSettings = vi.fn()
 let mockExistingAccounts: Array<Record<string, unknown>> | undefined
 let mockExistingSettings: Record<string, unknown> | undefined
+let mockConnectionCount = 1
+let mockIsWebSocketConnected = true
 
 function refNameIncludes(ref: unknown, value: string) {
   const name = (ref as { name?: string } | undefined)?.name
@@ -14,6 +16,10 @@ function refNameIncludes(ref: unknown, value: string) {
 }
 
 vi.mock('convex/react', () => ({
+  useConvexConnectionState: () => ({
+    connectionCount: mockConnectionCount,
+    isWebSocketConnected: mockIsWebSocketConnected,
+  }),
   useMutation: (ref: unknown) => {
     if (refNameIncludes(ref, 'bulkImport')) {
       return mockBulkImportAccounts
@@ -53,6 +59,8 @@ describe('useMigrateToConvex', () => {
     vi.clearAllMocks()
     mockExistingAccounts = undefined
     mockExistingSettings = undefined
+    mockConnectionCount = 1
+    mockIsWebSocketConnected = true
     markAccountMigrationPending()
     mockInvoke.mockResolvedValue({
       github: { accounts: [{ username: 'user1', org: 'org1' }] },
@@ -258,6 +266,47 @@ describe('useMigrateToConvex', () => {
       await vi.advanceTimersByTimeAsync(0)
     })
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+    expect(result.current.accountsReady).toBe(true)
+  })
+
+  it('reopens an exhausted migration budget after a real Convex reconnect', async () => {
+    vi.useFakeTimers()
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockRejectedValue(new Error('Convex unavailable'))
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    for (const delay of [1_000, 2_000, 4_000, 8_000]) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(delay)
+      })
+    }
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+    expect(result.current.accountsReady).toBe(false)
+
+    mockIsWebSocketConnected = false
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+
+    mockBulkImportAccounts.mockResolvedValue([{ id: 'recovered' }])
+    mockConnectionCount += 1
+    mockIsWebSocketConnected = true
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(6)
     expect(result.current.accountsReady).toBe(true)
   })
 

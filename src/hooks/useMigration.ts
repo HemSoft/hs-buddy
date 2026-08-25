@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useMutation, useQuery } from 'convex/react'
+import { useConvexConnectionState, useMutation, useQuery } from 'convex/react'
 import { api } from '../../convex/_generated/api'
 import { IPC_INVOKE } from '../ipc/contracts'
 import { markAccountMigrationReady } from './useAccountMigrationState'
@@ -51,9 +51,11 @@ export function useMigrateToConvex() {
   const [isComplete, setIsComplete] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const [retryRevision, setRetryRevision] = useState(0)
+  const connection = useConvexConnectionState()
   const migrationPromiseRef = useRef<Promise<void> | null>(null)
   const retryAttemptRef = useRef(0)
   const migrationExhaustedRef = useRef(false)
+  const handledConnectionCountRef = useRef(connection.connectionCount)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
@@ -78,6 +80,15 @@ export function useMigrateToConvex() {
     // Wait for Convex queries to load first
     if (existingAccounts === undefined || existingSettings === undefined) {
       return
+    }
+
+    const reconnected =
+      connection.isWebSocketConnected &&
+      connection.connectionCount > handledConnectionCountRef.current
+    if (reconnected) {
+      handledConnectionCountRef.current = connection.connectionCount
+      retryAttemptRef.current = 0
+      migrationExhaustedRef.current = false
     }
 
     if (migrationExhaustedRef.current) {
@@ -125,7 +136,15 @@ export function useMigrateToConvex() {
       cancelled = true
       if (retryTimer) clearTimeout(retryTimer)
     }
-  }, [existingAccounts, existingSettings, bulkImportAccounts, initSettings, retryRevision])
+  }, [
+    existingAccounts,
+    existingSettings,
+    bulkImportAccounts,
+    initSettings,
+    retryRevision,
+    connection.connectionCount,
+    connection.isWebSocketConnected,
+  ])
 
   return { isComplete, isLoading }
 }

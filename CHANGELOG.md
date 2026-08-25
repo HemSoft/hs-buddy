@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1039] - 2026-08-25
+
+### Fixed
+
+- Retry connected account mirrors
+
 ## [0.1.1038] - 2026-08-25
 
 ### Fixed

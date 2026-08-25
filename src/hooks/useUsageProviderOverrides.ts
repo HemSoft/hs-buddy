@@ -41,6 +41,8 @@ export type ConvexGitHubAccount = {
 }
 
 const OVERRIDE_EVENT = 'buddy:usage-provider-override-changed'
+const ACCOUNT_MIRROR_RETRY_BASE_DELAY_MS = 1_000
+const MAX_ACCOUNT_MIRROR_RETRIES = 5
 
 type OverrideEvent = {
   key: string
@@ -258,20 +260,53 @@ function useConnectedAccountMirror(
   hasLocalAccounts: boolean,
   localConfigLoaded: boolean,
   accountMigrationReady: boolean,
+  connectionCount: number,
   setAccounts: Dispatch<SetStateAction<GitHubAccount[]>>,
   setOverrides: Dispatch<SetStateAction<UsageProviderOverrides>>,
   changedOverrideKeys: RefObject<Set<string>>,
   accountsMirroredFromConvex: RefObject<boolean>
 ) {
+  const [retryRevision, setRetryRevision] = useState(0)
+  const retryAttempt = useRef(0)
+  const retrySnapshot = useRef<string | null>(null)
+  const lastMirroredSnapshot = useRef<string | null>(null)
+
   useEffect(() => {
     if (!convexAccounts || !localConfigLoaded || !accountMigrationReady) return
     if (convexAccounts.length === 0 && hasLocalAccounts && !accountsMirroredFromConvex.current) {
       return
     }
     const mirroredAccounts = toDurableAccounts(convexAccounts)
+    const snapshot = JSON.stringify([connectionCount, mirroredAccounts])
+    if (lastMirroredSnapshot.current === snapshot) return
+    if (retrySnapshot.current !== snapshot) {
+      retrySnapshot.current = snapshot
+      retryAttempt.current = 0
+    }
+    if (retryAttempt.current > MAX_ACCOUNT_MIRROR_RETRIES) return
+    let cancelled = false
+    let retryTimer: number | undefined
     void settleOverrideResult(() => mirrorConnectedGitHubAccounts(convexAccounts)).then(
       (result: OverrideResult) => {
-        if (!result.success) return
+        if (cancelled) return
+        if (!result.success) {
+          if (retryAttempt.current < MAX_ACCOUNT_MIRROR_RETRIES) {
+            const retryDelay = ACCOUNT_MIRROR_RETRY_BASE_DELAY_MS * 2 ** retryAttempt.current
+            retryAttempt.current += 1
+            retryTimer = window.setTimeout(
+              () => setRetryRevision(current => current + 1),
+              retryDelay
+            )
+          } else {
+            retryAttempt.current = MAX_ACCOUNT_MIRROR_RETRIES + 1
+            console.error(
+              `[GitHub accounts] Giving up after ${MAX_ACCOUNT_MIRROR_RETRIES} mirror retries`
+            )
+          }
+          return
+        }
+        retryAttempt.current = 0
+        lastMirroredSnapshot.current = snapshot
         accountsMirroredFromConvex.current = true
         setAccounts(mirroredAccounts)
         const accountKeys = new Set(mirroredAccounts.map(getUsageProviderOverrideKey))
@@ -289,13 +324,19 @@ function useConnectedAccountMirror(
         })
       }
     )
+    return () => {
+      cancelled = true
+      if (retryTimer !== undefined) window.clearTimeout(retryTimer)
+    }
   }, [
     accountsMirroredFromConvex,
     changedOverrideKeys,
+    connectionCount,
     convexAccounts,
     hasLocalAccounts,
     localConfigLoaded,
     accountMigrationReady,
+    retryRevision,
     setAccounts,
     setOverrides,
   ])
@@ -420,6 +461,7 @@ export function useLocalAccountConfig(
     accounts.length > 0,
     loaded,
     accountMigrationReady,
+    connectionCount,
     setAccounts,
     setOverrides,
     changedOverrideKeys,

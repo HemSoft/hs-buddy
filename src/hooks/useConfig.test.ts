@@ -203,6 +203,104 @@ describe('useConfig', () => {
       expect(result.current.canUpdateAccounts).toBe(false)
     })
 
+    it('retries a failed connected-account mirror without waiting for account refresh', async () => {
+      vi.useFakeTimers()
+      try {
+        mockConvexAccounts = [
+          { _id: '1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        ]
+        let mirrorAttempts = 0
+        mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+          if (channel === 'config:get-config') {
+            return Promise.resolve({
+              github: {
+                accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+                usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+              },
+            })
+          }
+          if (channel === 'config:sync-github-accounts') {
+            mirrorAttempts += 1
+            return Promise.resolve(
+              mirrorAttempts === 1 ? { success: false, error: 'Store busy' } : { success: true }
+            )
+          }
+          if (channel === 'config:set-usage-provider-override' && args[2] === null) {
+            return Promise.resolve({ success: true })
+          }
+          return Promise.resolve({ success: true })
+        })
+
+        const { result, rerender } = renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await Promise.resolve()
+          await Promise.resolve()
+        })
+        expect(mirrorAttempts).toBe(1)
+        expect(mockInvoke).toHaveBeenCalledWith(
+          'config:set-usage-provider-override',
+          'HemSoft',
+          'HemSoft',
+          null
+        )
+
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1_000)
+        })
+        expect(mirrorAttempts).toBe(2)
+
+        mockConvexAccounts = undefined
+        rerender()
+        expect(result.current.accounts).toEqual([
+          { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+        ])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('stops retrying a connected-account mirror after the bounded attempt limit', async () => {
+      vi.useFakeTimers()
+      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        mockConvexAccounts = [{ _id: '1', username: 'HemSoft', org: 'HemSoft' }]
+        let mirrorAttempts = 0
+        mockInvoke.mockImplementation((channel: string) => {
+          if (channel === 'config:get-config') {
+            return Promise.resolve({ github: { accounts: [] } })
+          }
+          if (channel === 'config:sync-github-accounts') {
+            mirrorAttempts += 1
+            return Promise.resolve({ success: false, error: 'Store busy' })
+          }
+          return Promise.resolve({ success: true })
+        })
+
+        renderHook(() => useGitHubAccounts())
+        await act(async () => {
+          await Promise.resolve()
+          await Promise.resolve()
+        })
+        for (const delay of [1_000, 2_000, 4_000, 8_000, 16_000]) {
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(delay)
+          })
+        }
+
+        expect(mirrorAttempts).toBe(6)
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(60_000)
+        })
+        expect(mirrorAttempts).toBe(6)
+        expect(consoleError).toHaveBeenCalledWith(
+          '[GitHub accounts] Giving up after 5 mirror retries'
+        )
+      } finally {
+        consoleError.mockRestore()
+        vi.useRealTimers()
+      }
+    })
+
     it('merges equal-timestamp legacy collisions deterministically', async () => {
       const first = {
         _id: 'account-a',

@@ -1,4 +1,8 @@
 import { v } from 'convex/values'
+import {
+  assertValidGitHubAccountSlug,
+  isValidGitHubAccountSlug,
+} from '../shared/githubAccountIdentity'
 import { query, mutation, internalQuery, type MutationCtx } from './_generated/server'
 import type { Id } from './_generated/dataModel'
 
@@ -26,6 +30,10 @@ function isSameAccountIdentity(
   )
 }
 
+function isValidAccountIdentity(account: { username: string; org: string }) {
+  return isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
+}
+
 async function accountIdentityExists(
   ctx: MutationCtx,
   identity: { username: string; org: string },
@@ -46,6 +54,8 @@ async function assertAvailableAccountIdentity(
 ) {
   if (username === undefined && org === undefined) return
   const identity = { username: username ?? current.username, org: org ?? current.org }
+  assertValidGitHubAccountSlug(identity.username)
+  assertValidGitHubAccountSlug(identity.org)
   if (await accountIdentityExists(ctx, identity, id)) {
     throw new Error(`GitHub account ${identity.username}@${identity.org} already exists`)
   }
@@ -105,6 +115,8 @@ export const create = mutation({
     usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
   },
   handler: async (ctx, { username, org, usageProvider }) => {
+    assertValidGitHubAccountSlug(username)
+    assertValidGitHubAccountSlug(org)
     if (await accountIdentityExists(ctx, { username, org })) {
       throw new Error(`GitHub account ${username}@${org} already exists`)
     }
@@ -181,7 +193,7 @@ export const bulkImport = mutation({
     const results = []
     const importedByIdentity = new Map<string, Id<'githubAccounts'>>()
 
-    for (const account of accounts) {
+    for (const account of accounts.filter(isValidAccountIdentity)) {
       const identityKey = `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
       const importedId = importedByIdentity.get(identityKey)
       if (importedId) {

@@ -45,6 +45,17 @@ describe('githubAccounts', () => {
     ).rejects.toThrow('GitHub account alice@corp already exists')
   })
 
+  test('create rejects invalid GitHub account slugs', async () => {
+    const t = convexTest(schema, modules)
+
+    await expect(
+      t.mutation(api.githubAccounts.create, { username: 'bad slug', org: 'corp' })
+    ).rejects.toThrow("Invalid GitHub account slug: 'bad slug'")
+    await expect(
+      t.mutation(api.githubAccounts.create, { username: 'alice', org: '-corp' })
+    ).rejects.toThrow("Invalid GitHub account slug: '-corp'")
+  })
+
   test('create allows same username with different orgs', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.githubAccounts.create, { username: 'bob', org: 'org1' })
@@ -108,6 +119,15 @@ describe('githubAccounts', () => {
     await expect(
       t.mutation(api.githubAccounts.update, { id, username: 'alice', org: 'corp' })
     ).rejects.toThrow('GitHub account alice@corp already exists')
+  })
+
+  test('update rejects invalid GitHub account slugs', async () => {
+    const t = convexTest(schema, modules)
+    const id = await t.mutation(api.githubAccounts.create, { username: 'alice', org: 'corp' })
+
+    await expect(
+      t.mutation(api.githubAccounts.update, { id, username: 'bad slug' })
+    ).rejects.toThrow("Invalid GitHub account slug: 'bad slug'")
   })
 
   test('update permits non-identity changes on legacy case-variant duplicates', async () => {
@@ -326,6 +346,21 @@ describe('githubAccounts', () => {
 
     const accounts = await t.query(api.githubAccounts.list)
     expect(accounts).toHaveLength(2)
+  })
+
+  test('bulkImport skips invalid legacy identities without dropping valid accounts', async () => {
+    const t = convexTest(schema, modules)
+    const ids = await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        { username: 'bad slug', org: 'org' },
+        { username: 'valid-user', org: 'valid-org' },
+      ],
+    })
+
+    expect(ids).toHaveLength(1)
+    expect(await t.query(api.githubAccounts.list)).toMatchObject([
+      { username: 'valid-user', org: 'valid-org' },
+    ])
   })
 
   test('bulkImport skips duplicate username+org combinations', async () => {

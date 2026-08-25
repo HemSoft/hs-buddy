@@ -188,6 +188,21 @@ async function persistSerializedLocalUsageProvider(
   return isSuperseded() ? { success: true } : result
 }
 
+async function rejectChangedAccountGeneration(
+  accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
+  accountId: ConvexAccount['_id'],
+  latestAccounts: ConvexAccounts,
+  cleanupError: string
+): Promise<MutationResult | null> {
+  const latestAccount = findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
+  if (!latestAccounts || latestAccount?._id === accountId) return null
+  if (latestAccount) return { success: false, error: 'Account was replaced' }
+  const cleared = await persistUsageProviderOverride(accountIdentity, null)
+  return cleared.success
+    ? { success: false, error: 'Account no longer exists' }
+    : { success: false, error: cleared.error ?? cleanupError }
+}
+
 async function persistRejectedConnectedUsageProvider(
   accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
   accountId: ConvexAccount['_id'],
@@ -198,14 +213,13 @@ async function persistRejectedConnectedUsageProvider(
   isSuperseded: IsSuperseded
 ): Promise<MutationResult> {
   const latestAccounts = getAccounts()
-  const latestAccount = findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
-  if (latestAccounts && latestAccount?._id !== accountId) {
-    if (latestAccount) return { success: false, error: 'Account was replaced' }
-    const cleared = await persistUsageProviderOverride(accountIdentity, null)
-    return cleared.success
-      ? { success: false, error: 'Account no longer exists' }
-      : { success: false, error: cleared.error ?? getErrorMessage(error) }
-  }
+  const generationError = await rejectChangedAccountGeneration(
+    accountIdentity,
+    accountId,
+    latestAccounts,
+    getErrorMessage(error)
+  )
+  if (generationError) return generationError
   const fallback = await persistLocalUsageProvider(
     accountIdentity,
     usageProvider,
@@ -231,10 +245,18 @@ async function persistSerializedConnectedUsageProvider(
     if (isSuperseded()) return { success: true }
     await update({ id: account._id, usageProvider })
     if (isSuperseded()) return { success: true }
+    const latestAccounts = getAccounts()
+    const generationError = await rejectChangedAccountGeneration(
+      accountIdentity,
+      account._id,
+      latestAccounts,
+      'Failed to clear provider for removed account'
+    )
+    if (generationError) return generationError
     const result = await persistLocalUsageProvider(
       accountIdentity,
       usageProvider,
-      getAccounts() ?? accounts,
+      latestAccounts ?? accounts,
       isSuperseded
     )
     return result.success

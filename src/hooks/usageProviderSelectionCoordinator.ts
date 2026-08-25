@@ -2,6 +2,7 @@ import type { GitHubAccount } from '../types/config'
 import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
 import {
   cancelUsageProviderRetry,
+  notifyUsageProviderWorkDrained,
   scheduleUsageProviderRetry,
   type CanAttemptReconciliation,
 } from './useUsageProviderRetry'
@@ -126,7 +127,10 @@ async function waitForSelectionTurn(key: string, turn: SelectionTurn, localOnly:
 function completeSelectionTurn(key: string, turn: SelectionTurn) {
   turn.release()
   void turn.queuedSelections.then(() => {
-    if (selectionQueues.get(key) === turn.queuedSelections) selectionQueues.delete(key)
+    if (selectionQueues.get(key) === turn.queuedSelections) {
+      selectionQueues.delete(key)
+      notifyUsageProviderWorkDrained(key)
+    }
   })
   if (turn.queuedLocalSelections) {
     void turn.queuedLocalSelections.then(() => {

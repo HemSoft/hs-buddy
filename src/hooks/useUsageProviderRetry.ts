@@ -7,6 +7,7 @@ type OverrideRetryEvent = { key: string }
 
 const OVERRIDE_RETRY_EVENT = 'buddy:usage-provider-override-retry'
 const OVERRIDE_RETRY_CANCEL_EVENT = 'buddy:usage-provider-override-retry-cancel'
+const OVERRIDE_WORK_DRAINED_EVENT = 'buddy:usage-provider-work-drained'
 const RECONCILIATION_RETRY_MS = 1_000
 const MAX_RECONCILIATION_RETRIES = 5
 
@@ -20,6 +21,10 @@ export function cancelUsageProviderRetry(key: string) {
 
 export function scheduleUsageProviderRetry(key: string) {
   publishRetryEvent(OVERRIDE_RETRY_EVENT, key)
+}
+
+export function notifyUsageProviderWorkDrained(key: string) {
+  publishRetryEvent(OVERRIDE_WORK_DRAINED_EVENT, key)
 }
 
 function clearRetryState(
@@ -77,11 +82,16 @@ export function useUsageProviderRetry(
       const { key } = (event as CustomEvent<OverrideRetryEvent>).detail
       clearRetryState(key, activeTimers, activeAttempts, exhaustedKeys)
     }
+    const handleWorkDrained = () => {
+      setRevision(current => current + 1)
+    }
     window.addEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
     window.addEventListener(OVERRIDE_RETRY_CANCEL_EVENT, handleCancel)
+    window.addEventListener(OVERRIDE_WORK_DRAINED_EVENT, handleWorkDrained)
     return () => {
       window.removeEventListener(OVERRIDE_RETRY_EVENT, handleRetry)
       window.removeEventListener(OVERRIDE_RETRY_CANCEL_EVENT, handleCancel)
+      window.removeEventListener(OVERRIDE_WORK_DRAINED_EVENT, handleWorkDrained)
       for (const timer of activeTimers.values()) window.clearTimeout(timer)
       activeTimers.clear()
     }

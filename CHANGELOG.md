@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1041] - 2026-08-25
+
+### Fixed
+
+- Reconcile providers after queue drain
+
 ## [0.1.1040] - 2026-08-25
 
 ### Changed

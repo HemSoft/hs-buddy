@@ -1523,6 +1523,64 @@ describe('useConfig', () => {
       expect(mockUpdate).toHaveBeenCalledTimes(1)
     })
 
+    it('reconciles an offline choice after a superseded connected queue drains', async () => {
+      let rejectConnectedSave!: (error: Error) => void
+      let storedOverride: 'copilot' | 'codex' | null = null
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate.mockImplementationOnce(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectConnectedSave = reject
+          })
+      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          storedOverride = args[2] as 'copilot' | 'codex' | null
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      let connectedSave!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        connectedSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+
+      mockIsWebSocketConnected = false
+      rerender()
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: true,
+        })
+      })
+      expect(storedOverride).toBe('copilot')
+
+      mockIsWebSocketConnected = true
+      mockConnectionCount += 1
+      rerender()
+      expect(storedOverride).toBe('copilot')
+
+      await act(async () => {
+        rejectConnectedSave(new Error('Superseded connected mutation'))
+        expect(await connectedSave).toEqual({ success: true })
+      })
+      await waitFor(() => expect(storedOverride).toBeNull())
+      expect(mockInvoke).toHaveBeenLastCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+    })
+
     it('clears the old override when a newer offline provider save fails', async () => {
       let resolveConnectedSave!: () => void
       let storedOverride: 'copilot' | 'codex' | null = 'codex'

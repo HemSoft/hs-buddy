@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1046] - 2026-08-25
+
+### Fixed
+
+- Normalize migrated Codex ownership
+
 ## [0.1.1045] - 2026-08-25
 
 ### Fixed

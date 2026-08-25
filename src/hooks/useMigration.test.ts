@@ -109,9 +109,7 @@ describe('useMigrateToConvex', () => {
       accountsReady: useAccountMigrationReady(),
     }))
 
-    await waitFor(() => {
-      expect(result.current.migration.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
       accounts: [{ username: 'user1', org: 'org1' }],
@@ -162,9 +160,7 @@ describe('useMigrateToConvex', () => {
 
     const { result } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).not.toHaveBeenCalled()
   })
@@ -197,6 +193,35 @@ describe('useMigrateToConvex', () => {
     await waitFor(() => expect(result.current.accountsReady).toBe(true))
   })
 
+  it('keeps only the last local Codex owner in the migration snapshot', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    setLocalAccounts([
+      { username: 'first', org: 'o', usageProvider: 'codex' },
+      { username: 'second', org: 'o', usageProvider: 'codex' },
+    ])
+    mockBulkImportAccounts.mockResolvedValue([])
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+    await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
+    expect(mockBulkImportAccounts).toHaveBeenCalledWith({
+      accounts: [
+        { username: 'first', org: 'o' },
+        { username: 'second', org: 'o', usageProvider: 'codex' },
+      ],
+    })
+
+    mockExistingAccounts = [
+      { _id: 'first', username: 'first', org: 'o' },
+      { _id: 'second', username: 'second', org: 'o', usageProvider: 'codex' },
+    ]
+    rerender()
+    await waitFor(() => expect(result.current.accountsReady).toBe(true))
+  })
+
   it('uses the first canonical Convex row when legacy identities still collide', async () => {
     mockExistingAccounts = [
       { _id: 'duplicate', username: 'user', org: 'org', createdAt: 2 },
@@ -218,9 +243,7 @@ describe('useMigrateToConvex', () => {
 
     const { result } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     expect(mockInitSettings).not.toHaveBeenCalled()
   })
@@ -249,27 +272,21 @@ describe('useMigrateToConvex', () => {
       accountsReady: useAccountMigrationReady(),
     }))
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(3_100)
-    })
+    await act(() => vi.advanceTimersByTimeAsync(3_100))
     expect(result.current.migration.isComplete).toBe(true)
     expect(result.current.accountsReady).toBe(false)
 
     mockExistingAccounts = []
     mockExistingSettings = {}
     rerender()
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0)
-    })
+    await act(() => vi.advanceTimersByTimeAsync(0))
 
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
       accounts: [{ username: 'user1', org: 'org1' }],
     })
     mockExistingAccounts = [{ _id: 'imported', username: 'user1', org: 'org1' }]
     rerender()
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0)
-    })
+    await act(() => vi.advanceTimersByTimeAsync(0))
     expect(result.current.accountsReady).toBe(true)
   })
 
@@ -283,9 +300,7 @@ describe('useMigrateToConvex', () => {
     const { result } = renderHook(() => useMigrateToConvex())
 
     // Let migration promises resolve (microtasks) without advancing the 3s timeout
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(10)
-    })
+    await act(() => vi.advanceTimersByTimeAsync(10))
 
     expect(result.current.isComplete).toBe(true)
 
@@ -502,9 +517,7 @@ describe('useMigrateToConvex', () => {
 
     const { result, rerender } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     const callCount = mockBulkImportAccounts.mock.calls.length
 
@@ -512,9 +525,7 @@ describe('useMigrateToConvex', () => {
     mockExistingAccounts = [{ id: '1', username: 'user1', org: 'org1' }]
     rerender()
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     // Should not have called bulkImport again
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)
@@ -552,9 +563,7 @@ describe('useMigrateToConvex', () => {
     mockExistingAccounts = []
     rerender()
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
     expect(mockInvoke).toHaveBeenCalledTimes(1)
   })
 
@@ -565,9 +574,7 @@ describe('useMigrateToConvex', () => {
 
     const { result } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).not.toHaveBeenCalled()
     expect(mockInitSettings).not.toHaveBeenCalled()
@@ -580,9 +587,7 @@ describe('useMigrateToConvex', () => {
 
     const { result } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).toHaveBeenCalled()
     // Should still complete even though no accounts were imported
@@ -597,18 +602,14 @@ describe('useMigrateToConvex', () => {
 
     const { result, rerender } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     const callCount = mockBulkImportAccounts.mock.calls.length
 
     // Rerender - should not call again due to migrationAttempted.current guard
     rerender()
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     // Call count should not increase
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)

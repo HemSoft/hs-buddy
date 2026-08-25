@@ -61,13 +61,19 @@ function createAccountMigrationPlan<T extends AccountIdentity>(
   const existingCodexOwner = orderedExistingAccounts.find(
     account => account.usageProvider === 'codex'
   )
+  const configuredCodexOwner = [...validConfigAccounts]
+    .reverse()
+    .find(account => account.usageProvider === 'codex')
+  const codexOwnerIdentity = existingCodexOwner
+    ? getAccountIdentityKey(existingCodexOwner)
+    : configuredCodexOwner
+      ? getAccountIdentityKey(configuredCodexOwner)
+      : undefined
   const normalizedConfigAccounts = validConfigAccounts.map(account => {
-    const existing = existingByIdentity.get(getAccountIdentityKey(account))
     const conflictsWithCodexOwner =
       account.usageProvider === 'codex' &&
-      existing?.usageProvider === undefined &&
-      existingCodexOwner !== undefined &&
-      getAccountIdentityKey(existingCodexOwner) !== getAccountIdentityKey(account)
+      codexOwnerIdentity !== undefined &&
+      codexOwnerIdentity !== getAccountIdentityKey(account)
     if (!conflictsWithCodexOwner) return account
     const metadata = { ...account }
     delete metadata.usageProvider

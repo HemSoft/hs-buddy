@@ -174,18 +174,17 @@ export async function invalidateUsageProviderSelection(
 ) {
   const key = getUsageProviderOverrideKey(account)
   const pendingReconciliation = reconciliations.get(key)
+  const pendingSelection = selectionQueues.get(key)
   const revision = (selectionRevisions.get(key) ?? 0) + 1
   selectionRevisions.set(key, revision)
   successfulSelectionRevisions.set(key, revision)
   staleReconciliationRecoveries.delete(key)
   cancelUsageProviderRetry(key)
-  if (pendingReconciliation) {
-    try {
-      await pendingReconciliation
-    } catch (_: unknown) {
-      // Removal cleanup remains authoritative when an older reconciliation rejects.
-    }
-  }
+  await Promise.allSettled(
+    [pendingReconciliation, pendingSelection].filter(
+      (operation): operation is Promise<void> => operation !== undefined
+    )
+  )
   cancelUsageProviderRetry(key)
 }
 

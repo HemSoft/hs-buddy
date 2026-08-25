@@ -222,6 +222,63 @@ describe('useMigrateToConvex', () => {
     expect(result.current.migration.isComplete).toBe(true)
   })
 
+  it('marks account migration ready while settings migration continues retrying', async () => {
+    vi.useFakeTimers()
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockRejectedValue(new Error('Invalid legacy settings'))
+
+    const { result } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
+    expect(mockInitSettings).toHaveBeenCalledTimes(1)
+    expect(result.current.accountsReady).toBe(true)
+    expect(result.current.migration.isComplete).toBe(false)
+  })
+
+  it('does not run a pending retry while Convex is disconnected', async () => {
+    vi.useFakeTimers()
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts
+      .mockRejectedValueOnce(new Error('Convex unavailable'))
+      .mockResolvedValueOnce([{ id: 'recovered' }])
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
+
+    mockIsWebSocketConnected = false
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
+
+    mockConnectionCount += 1
+    mockIsWebSocketConnected = true
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(2)
+    expect(result.current.accountsReady).toBe(true)
+  })
+
   it('stops retrying a persistently failed migration after bounded exponential backoff', async () => {
     vi.useFakeTimers()
     mockExistingAccounts = []

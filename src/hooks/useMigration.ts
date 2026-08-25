@@ -88,10 +88,9 @@ export function useMigrateToConvex() {
     if (existingAccounts === undefined || existingSettings === undefined) {
       return
     }
+    if (!connection.isWebSocketConnected) return
 
-    const reconnected =
-      connection.isWebSocketConnected &&
-      connection.connectionCount > handledConnectionCountRef.current
+    const reconnected = connection.connectionCount > handledConnectionCountRef.current
     if (reconnected) {
       handledConnectionCountRef.current = connection.connectionCount
       retryAttemptRef.current = 0
@@ -110,6 +109,7 @@ export function useMigrateToConvex() {
       migrationPromiseRef.current = (async () => {
         const config = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_CONFIG)
         await migrateAccounts(config.github?.accounts, existingAccounts, bulkImportAccounts)
+        markAccountMigrationReady()
         await migrateSettings(config.pr, existingSettings, initSettings)
       })()
     }
@@ -119,7 +119,6 @@ export function useMigrateToConvex() {
       .then(() => {
         retryAttemptRef.current = 0
         migrationExhaustedRef.current = false
-        markAccountMigrationReady()
         if (!cancelled) setIsComplete(true)
       })
       .catch((error: unknown) => {

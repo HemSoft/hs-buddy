@@ -926,6 +926,62 @@ describe('useConfig', () => {
       expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [])
     })
 
+    it('waits for a queued local provider save before clearing a removed account', async () => {
+      let finishLocalSave!: () => void
+      let storedOverride: 'codex' | null = null
+      let storedAccounts = [{ username: 'HemSoft', org: 'HemSoft' }]
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockIsWebSocketConnected = false
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: storedAccounts } })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          storedAccounts = args[0] as typeof storedAccounts
+          return Promise.resolve({ success: true })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          const provider = args[2] as 'codex' | null
+          if (provider === 'codex' && !finishLocalSave) {
+            return new Promise(resolve => {
+              finishLocalSave = () => {
+                storedOverride = provider
+                resolve({ success: true })
+              }
+            })
+          }
+          storedOverride = provider
+        }
+        return Promise.resolve({ success: true })
+      })
+
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      let save!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        save = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(finishLocalSave).toBeTypeOf('function'))
+
+      mockIsWebSocketConnected = true
+      rerender()
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('HemSoft', 'HemSoft')
+      })
+      await waitFor(() => expect(mockRemove).toHaveBeenCalledWith({ id: '123' }))
+      expect(storedOverride).toBeNull()
+
+      await act(async () => {
+        finishLocalSave()
+        expect(await save).toEqual({ success: true })
+        expect(await removal).toEqual({ success: true })
+      })
+
+      expect(storedOverride).toBeNull()
+      expect(storedAccounts).toEqual([])
+    })
+
     it('retries local account cleanup after a successful Convex removal', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
       mockRemove.mockResolvedValue(undefined)

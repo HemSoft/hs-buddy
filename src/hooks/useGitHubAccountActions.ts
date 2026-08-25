@@ -16,6 +16,7 @@ type UpdateMutation = ReturnType<typeof useGitHubAccountMutations>['update']
 type RemoveMutation = ReturnType<typeof useGitHubAccountMutations>['remove']
 type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
+type IsSuperseded = () => boolean
 
 const LOCAL_ACCOUNT_MIRROR_ATTEMPTS = 3
 
@@ -130,6 +131,43 @@ async function updateConnectedAccount(
   }
 }
 
+async function persistSerializedLocalUsageProvider(
+  account: Pick<GitHubAccount, 'username' | 'org'>,
+  usageProvider: UsageProvider,
+  accounts: ConvexAccounts,
+  isSuperseded: IsSuperseded
+) {
+  if (isSuperseded()) return { success: true }
+  const result = await persistLocalUsageProvider(account, usageProvider, accounts)
+  return isSuperseded() ? { success: true } : result
+}
+
+async function persistSerializedConnectedUsageProvider(
+  accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
+  usageProvider: UsageProvider,
+  accounts: ConvexAccounts,
+  update: UpdateMutation,
+  isSuperseded: IsSuperseded
+): Promise<MutationResult> {
+  try {
+    const account = findAccount(accounts, accountIdentity.username, accountIdentity.org)
+    if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
+
+    await update({ id: account._id, usageProvider })
+    if (isSuperseded()) return { success: true }
+    const result = await persistUsageProviderOverride(accountIdentity, null)
+    return result.success
+      ? { success: true }
+      : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
+  } catch (error: unknown) {
+    if (isSuperseded()) return { success: true }
+    const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
+    return fallback.success
+      ? fallback
+      : { success: false, error: fallback.error ?? getErrorMessage(error) }
+  }
+}
+
 async function updateConnectedUsageProvider(
   accounts: ConvexAccounts,
   update: UpdateMutation,
@@ -141,29 +179,21 @@ async function updateConnectedUsageProvider(
   const accountIdentity = { username, org }
   return serializeUsageProviderSelection(
     accountIdentity,
-    async isSuperseded => {
-      if (options.localOnly) {
-        return persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
-      }
-
-      try {
-        const account = findAccount(accounts, username, org)
-        if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
-
-        await update({ id: account._id, usageProvider })
-        if (isSuperseded()) return { success: true }
-        const result = await persistUsageProviderOverride(accountIdentity, null)
-        return result.success
-          ? { success: true }
-          : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
-      } catch (error: unknown) {
-        if (isSuperseded()) return { success: true }
-        const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
-        return fallback.success
-          ? fallback
-          : { success: false, error: fallback.error ?? getErrorMessage(error) }
-      }
-    },
+    async isSuperseded =>
+      options.localOnly
+        ? persistSerializedLocalUsageProvider(
+            accountIdentity,
+            usageProvider,
+            accounts,
+            isSuperseded
+          )
+        : persistSerializedConnectedUsageProvider(
+            accountIdentity,
+            usageProvider,
+            accounts,
+            update,
+            isSuperseded
+          ),
     {
       waitForReconciliation: !options.localOnly,
       ...(options.localOnly

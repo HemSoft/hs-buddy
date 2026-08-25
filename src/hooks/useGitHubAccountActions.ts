@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
+import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
 import { useGitHubAccountMutations, useGitHubAccountsConvex } from './useConvex'
 import {
   mirrorConnectedGitHubAccounts,
@@ -17,6 +18,7 @@ type RemoveMutation = ReturnType<typeof useGitHubAccountMutations>['remove']
 type MutationResult = { success: boolean; error?: string }
 type UsageProviderUpdateOptions = { localOnly?: boolean }
 type IsSuperseded = () => boolean
+type GetConvexAccounts = () => ConvexAccounts
 
 const LOCAL_ACCOUNT_MIRROR_ATTEMPTS = 3
 
@@ -92,13 +94,13 @@ async function removeConnectedAccount(
   username: string,
   org: string,
   remove: RemoveMutation,
-  removedAccountIds: Set<ConvexAccount['_id']>
+  removedAccounts: Map<string, ConvexAccount['_id']>
 ): Promise<MutationResult> {
   try {
     const account = findAccount(getAccounts(), username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
-    removedAccountIds.add(account._id)
+    removedAccounts.set(getUsageProviderOverrideKey(account), account._id)
     await invalidateUsageProviderSelection(account)
     let error = 'Account removed, but its offline fallback could not be cleared'
     for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
@@ -144,10 +146,38 @@ async function persistSerializedLocalUsageProvider(
   return isSuperseded() ? { success: true } : result
 }
 
+async function persistRejectedConnectedUsageProvider(
+  accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
+  usageProvider: UsageProvider,
+  accounts: ConvexAccounts,
+  getAccounts: GetConvexAccounts,
+  error: unknown
+): Promise<MutationResult> {
+  const latestAccounts = getAccounts()
+  if (
+    latestAccounts &&
+    !findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
+  ) {
+    const cleared = await persistUsageProviderOverride(accountIdentity, null)
+    return cleared.success
+      ? { success: false, error: 'Account no longer exists' }
+      : { success: false, error: cleared.error ?? getErrorMessage(error) }
+  }
+  const fallback = await persistLocalUsageProvider(
+    accountIdentity,
+    usageProvider,
+    latestAccounts ?? accounts
+  )
+  return fallback.success
+    ? fallback
+    : { success: false, error: fallback.error ?? getErrorMessage(error) }
+}
+
 async function persistSerializedConnectedUsageProvider(
   accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
   usageProvider: UsageProvider,
   accounts: ConvexAccounts,
+  getAccounts: GetConvexAccounts,
   update: UpdateMutation,
   isSuperseded: IsSuperseded
 ): Promise<MutationResult> {
@@ -164,15 +194,19 @@ async function persistSerializedConnectedUsageProvider(
       : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
   } catch (error: unknown) {
     if (isSuperseded()) return { success: true }
-    const fallback = await persistLocalUsageProvider(accountIdentity, usageProvider, accounts)
-    return fallback.success
-      ? fallback
-      : { success: false, error: fallback.error ?? getErrorMessage(error) }
+    return persistRejectedConnectedUsageProvider(
+      accountIdentity,
+      usageProvider,
+      accounts,
+      getAccounts,
+      error
+    )
   }
 }
 
 async function updateConnectedUsageProvider(
   accounts: ConvexAccounts,
+  getAccounts: GetConvexAccounts,
   update: UpdateMutation,
   username: string,
   org: string,
@@ -194,6 +228,7 @@ async function updateConnectedUsageProvider(
             accountIdentity,
             usageProvider,
             accounts,
+            getAccounts,
             update,
             isSuperseded
           ),
@@ -216,11 +251,11 @@ export function useGitHubAccountActions(
   const { create, update, remove } = useGitHubAccountMutations()
   const accountsRef = useRef(convexAccounts)
   accountsRef.current = convexAccounts
-  const removedAccountIdsRef = useRef(new Set<ConvexAccount['_id']>())
+  const removedAccountsRef = useRef(new Map<string, ConvexAccount['_id']>())
   if (convexAccounts) {
     const currentIds = new Set(convexAccounts.map(account => account._id))
-    for (const id of removedAccountIdsRef.current) {
-      if (!currentIds.has(id)) removedAccountIdsRef.current.delete(id)
+    for (const [key, id] of removedAccountsRef.current) {
+      if (!currentIds.has(id)) removedAccountsRef.current.delete(key)
     }
   }
 
@@ -244,7 +279,7 @@ export function useGitHubAccountActions(
       username,
       org,
       remove,
-      removedAccountIdsRef.current
+      removedAccountsRef.current
     )
   const updateAccount = (username: string, org: string, updates: Partial<GitHubAccount>) =>
     updateConnectedAccount(convexAccounts, username, org, updates, update)
@@ -255,14 +290,21 @@ export function useGitHubAccountActions(
     usageProvider: UsageProvider,
     options: UsageProviderUpdateOptions = {}
   ): Promise<MutationResult> => {
-    const account = findAccount(convexAccounts, username, org)
-    if (account && removedAccountIdsRef.current.has(account._id)) {
+    if (removedAccountsRef.current.has(getUsageProviderOverrideKey({ username, org }))) {
       return { success: false, error: 'Account removal in progress' }
     }
-    return updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, {
-      ...options,
-      localOnly: options.localOnly === true || !isWebSocketConnected,
-    })
+    return updateConnectedUsageProvider(
+      convexAccounts,
+      () => accountsRef.current,
+      update,
+      username,
+      org,
+      usageProvider,
+      {
+        ...options,
+        localOnly: options.localOnly === true || !isWebSocketConnected,
+      }
+    )
   }
 
   return { addAccount, removeAccount, updateAccount, updateUsageProvider, reconcileUsageProvider }

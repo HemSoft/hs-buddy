@@ -1009,6 +1009,7 @@ describe('useConfig', () => {
       await waitFor(() => expect(finishOverrideCleanup).toBeTypeOf('function'))
 
       mockIsWebSocketConnected = false
+      mockConvexAccounts = undefined
       rerender()
       await act(async () => {
         expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
@@ -1993,6 +1994,60 @@ describe('useConfig', () => {
         success: true,
       })
       expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+    })
+
+    it('does not restore an account deleted during a rejected connected provider update', async () => {
+      let rejectProviderUpdate!: () => void
+      let mirroredAccounts: Array<{ username: string; org: string }> = []
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockImplementation(
+        () =>
+          new Promise<void>((_resolve, reject) => {
+            rejectProviderUpdate = () => reject(new Error('Account deleted'))
+          })
+      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          mirroredAccounts = args[0] as typeof mirroredAccounts
+        }
+        return Promise.resolve({ success: true })
+      })
+
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() =>
+        expect(mirroredAccounts).toEqual([{ username: 'HemSoft', org: 'HemSoft' }])
+      )
+
+      let save!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        save = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+
+      mockConvexAccounts = []
+      rerender()
+      await waitFor(() => expect(mirroredAccounts).toEqual([]))
+
+      await act(async () => {
+        rejectProviderUpdate()
+        expect(await save).toEqual({ success: false, error: 'Account no longer exists' })
+      })
+      expect(mirroredAccounts).toEqual([])
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+      expect(mockInvoke).not.toHaveBeenCalledWith(
         'config:set-usage-provider-override',
         'HemSoft',
         'HemSoft',

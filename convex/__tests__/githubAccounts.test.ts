@@ -208,6 +208,42 @@ describe('githubAccounts', () => {
     ).toHaveLength(1)
   })
 
+  test('migration does not reassign Codex when the selected owner is discarded', async () => {
+    const t = convexTest(schema, modules)
+    migrationsTest.register(t)
+    const oldOwner = await t.run(async ctx => {
+      const id = await ctx.db.insert('githubAccounts', {
+        username: 'old-owner',
+        org: 'Org',
+        usageProvider: 'codex',
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      await ctx.db.insert('githubAccounts', {
+        username: 'Alice',
+        org: 'Org',
+        usageProvider: 'codex',
+        createdAt: 2,
+        updatedAt: 3,
+      })
+      await ctx.db.insert('githubAccounts', {
+        username: 'alice',
+        org: 'org',
+        usageProvider: 'copilot',
+        createdAt: 3,
+        updatedAt: 4,
+      })
+      return id
+    })
+
+    await t.mutation(internal.migrations.runMergeCaseCollidingGitHubAccounts, {})
+
+    expect((await t.query(api.githubAccounts.get, { id: oldOwner }))?.usageProvider).toBe('copilot')
+    expect(
+      (await t.query(api.githubAccounts.list)).filter(account => account.usageProvider === 'codex')
+    ).toHaveLength(0)
+  })
+
   test('usage provider is optional and can be changed to Codex', async () => {
     const t = convexTest(schema, modules)
     const id = await t.mutation(api.githubAccounts.create, {
@@ -322,6 +358,34 @@ describe('githubAccounts', () => {
 
     expect(ids).toHaveLength(1)
     expect(await t.query(api.githubAccounts.list)).toHaveLength(2)
+  })
+
+  test('bulkImport merges metadata from case-variant identities in source order', async () => {
+    const t = convexTest(schema, modules)
+    const ids = await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        {
+          username: 'Alice',
+          org: 'Org',
+          repoRoot: 'D:/old',
+          usageProvider: 'codex',
+        },
+        {
+          username: 'alice',
+          org: 'org',
+          repoRoot: '',
+          usageProvider: 'copilot',
+        },
+      ],
+    })
+
+    expect(ids).toHaveLength(1)
+    expect(await t.query(api.githubAccounts.get, { id: ids[0] })).toMatchObject({
+      username: 'Alice',
+      org: 'Org',
+      repoRoot: '',
+      usageProvider: 'copilot',
+    })
   })
 
   test('bulkImport leaves only the last imported Codex owner selected', async () => {

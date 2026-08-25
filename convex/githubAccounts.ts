@@ -171,6 +171,7 @@ export const bulkImport = mutation({
       v.object({
         username: v.string(),
         org: v.string(),
+        repoRoot: v.optional(v.string()),
         usageProvider: v.optional(v.union(v.literal('copilot'), v.literal('codex'))),
       })
     ),
@@ -178,9 +179,23 @@ export const bulkImport = mutation({
   handler: async (ctx, { accounts }) => {
     const now = Date.now()
     const results = []
+    const importedByIdentity = new Map<string, Id<'githubAccounts'>>()
 
     for (const account of accounts) {
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially so normalized duplicates within the same batch are skipped.
+      const identityKey = `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
+      const importedId = importedByIdentity.get(identityKey)
+      if (importedId) {
+        if (account.usageProvider === 'codex') await transferCodexOwnership(ctx, importedId)
+        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Later case-variant snapshots merge into the earlier imported identity in source order.
+        await ctx.db.patch('githubAccounts', importedId, {
+          ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
+          ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
+          updatedAt: now,
+        })
+        continue
+      }
+
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially to distinguish existing Convex data from duplicates in this import batch.
       if (await accountIdentityExists(ctx, account)) {
         continue
       }
@@ -190,11 +205,13 @@ export const bulkImport = mutation({
       const id = await ctx.db.insert('githubAccounts', {
         username: account.username,
         org: account.org,
+        ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
         ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
         createdAt: now,
         updatedAt: now,
       })
       results.push(id)
+      importedByIdentity.set(identityKey, id)
     }
 
     return results

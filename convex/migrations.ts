@@ -47,8 +47,22 @@ async function demoteConflictingCodexOwner(
   }
 }
 
+async function demoteCodexAccountsOutsideCollisions(
+  ctx: MutationCtx,
+  accounts: GitHubAccountDocument[],
+  collisions: GitHubAccountDocument[]
+) {
+  const collisionIds = new Set(collisions.map(candidate => candidate._id))
+  for (const candidate of accounts) {
+    if (candidate.usageProvider !== 'codex' || collisionIds.has(candidate._id)) continue
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The selected owner is being discarded, so every older Codex assignment must be cleared in the same transaction.
+    await ctx.db.patch(candidate._id, { usageProvider: 'copilot', updatedAt: Date.now() })
+  }
+}
+
 async function mergeIdentityCollisions(
   ctx: MutationCtx,
+  accounts: GitHubAccountDocument[],
   collisions: GitHubAccountDocument[],
   codexOwner: GitHubAccountDocument | undefined
 ) {
@@ -62,6 +76,11 @@ async function mergeIdentityCollisions(
     newestProvider === 'codex' && !collisions.some(candidate => candidate._id === codexOwner?._id)
       ? 'copilot'
       : newestProvider
+  const discardsCodexOwner =
+    usageProvider !== 'codex' && collisions.some(candidate => candidate._id === codexOwner?._id)
+  if (discardsCodexOwner) {
+    await demoteCodexAccountsOutsideCollisions(ctx, accounts, collisions)
+  }
   await ctx.db.patch(keeper._id, {
     ...(repoRoot !== undefined && { repoRoot }),
     ...(usageProvider !== undefined && { usageProvider }),
@@ -88,7 +107,7 @@ export const mergeCaseCollidingGitHubAccounts = migrations.define({
       return
     }
     if (account._id !== collisions[0]._id) return
-    await mergeIdentityCollisions(ctx, collisions, codexOwner)
+    await mergeIdentityCollisions(ctx, accounts, collisions, codexOwner)
   },
 })
 

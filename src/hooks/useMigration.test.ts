@@ -220,7 +220,7 @@ describe('useMigrateToConvex', () => {
     mockExistingSettings = {}
     mockBulkImportAccounts.mockRejectedValue(new Error('Convex unavailable'))
 
-    const { result } = renderHook(() => ({
+    const { result, rerender } = renderHook(() => ({
       migration: useMigrateToConvex(),
       accountsReady: useAccountMigrationReady(),
     }))
@@ -243,6 +243,22 @@ describe('useMigrateToConvex', () => {
       await vi.advanceTimersByTimeAsync(60_000)
     })
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+
+    mockExistingSettings = { changed: true }
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = [{ _id: 'authoritative-account' }]
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(5)
+    expect(result.current.accountsReady).toBe(true)
   })
 
   it('skips migration on re-render when already attempted', async () => {

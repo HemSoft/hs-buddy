@@ -53,6 +53,7 @@ export function useMigrateToConvex() {
   const [retryRevision, setRetryRevision] = useState(0)
   const migrationPromiseRef = useRef<Promise<void> | null>(null)
   const retryAttemptRef = useRef(0)
+  const migrationExhaustedRef = useRef(false)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
@@ -79,6 +80,11 @@ export function useMigrateToConvex() {
       return
     }
 
+    if (migrationExhaustedRef.current) {
+      if (existingAccounts.length > 0) markAccountMigrationReady()
+      return
+    }
+
     let cancelled = false
     let retryTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -94,6 +100,7 @@ export function useMigrateToConvex() {
     void migration
       .then(() => {
         retryAttemptRef.current = 0
+        migrationExhaustedRef.current = false
         markAccountMigrationReady()
         if (!cancelled) setIsComplete(true)
       })
@@ -107,6 +114,7 @@ export function useMigrateToConvex() {
             setRetryRevision(current => current + 1)
           }, retryDelay)
         } else if (!cancelled) {
+          migrationExhaustedRef.current = true
           console.error(
             `[Migration] Giving up after ${MAX_MIGRATION_RETRIES} retries; migration remains pending`
           )

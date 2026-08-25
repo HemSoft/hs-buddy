@@ -4,6 +4,9 @@ import { api } from '../../convex/_generated/api'
 import { IPC_INVOKE } from '../ipc/contracts'
 import { markAccountMigrationReady } from './useAccountMigrationState'
 
+const MAX_MIGRATION_RETRIES = 4
+const MIGRATION_RETRY_BASE_DELAY_MS = 1_000
+
 function hasAccountsToMigrate<T>(configAccounts: T[] | undefined): configAccounts is T[] {
   return !!configAccounts && configAccounts.length > 0
 }
@@ -49,6 +52,7 @@ export function useMigrateToConvex() {
   const [timedOut, setTimedOut] = useState(false)
   const [retryRevision, setRetryRevision] = useState(0)
   const migrationPromiseRef = useRef<Promise<void> | null>(null)
+  const retryAttemptRef = useRef(0)
 
   // Check if Convex already has data (skip migration if so)
   const existingAccounts = useQuery(api.githubAccounts.list)
@@ -89,16 +93,23 @@ export function useMigrateToConvex() {
     const migration = migrationPromiseRef.current
     void migration
       .then(() => {
+        retryAttemptRef.current = 0
         markAccountMigrationReady()
         if (!cancelled) setIsComplete(true)
       })
       .catch((error: unknown) => {
         console.error('[Migration] Failed to migrate from electron-store:', error)
         if (migrationPromiseRef.current === migration) migrationPromiseRef.current = null
-        if (!cancelled) {
+        if (!cancelled && retryAttemptRef.current < MAX_MIGRATION_RETRIES) {
+          const retryDelay = MIGRATION_RETRY_BASE_DELAY_MS * 2 ** retryAttemptRef.current
+          retryAttemptRef.current += 1
           retryTimer = setTimeout(() => {
             setRetryRevision(current => current + 1)
-          }, 1_000)
+          }, retryDelay)
+        } else if (!cancelled) {
+          console.error(
+            `[Migration] Giving up after ${MAX_MIGRATION_RETRIES} retries; migration remains pending`
+          )
         }
       })
 

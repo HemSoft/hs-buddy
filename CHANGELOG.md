@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1027] - 2026-08-25
+
+### Fixed
+
+- Bound migration retry backoff
+
 ## [0.1.1026] - 2026-08-25
 
 ### Fixed

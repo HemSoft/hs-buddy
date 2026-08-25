@@ -11,6 +11,7 @@ type OverrideResult = { success: boolean; error?: string }
 type SelectionSerializationOptions = {
   waitForReconciliation?: boolean
   recoverAfterStaleReconciliation?: () => Promise<OverrideResult>
+  recordSuccess?: boolean
 }
 type SelectionTurn = {
   previousSelection?: Promise<void>
@@ -154,7 +155,7 @@ export async function serializeUsageProviderSelection(
     await waitForSelectionTurn(key, turn, localOnly)
     cancelUsageProviderRetry(key)
     const result = await operation(() => (successfulSelectionRevisions.get(key) ?? 0) > revision)
-    if (result.success) {
+    if (result.success && options.recordSuccess !== false) {
       successfulSelectionRevisions.set(
         key,
         Math.max(successfulSelectionRevisions.get(key) ?? 0, revision)
@@ -171,6 +172,16 @@ export async function serializeUsageProviderSelection(
   } finally {
     completeSelectionTurn(key, turn)
   }
+}
+
+export function serializeUsageProviderMaintenance(
+  account: Pick<GitHubAccount, 'username' | 'org'>,
+  operation: (isSuperseded: () => boolean) => Promise<OverrideResult>
+) {
+  return serializeUsageProviderSelection(account, operation, {
+    waitForReconciliation: false,
+    recordSuccess: false,
+  })
 }
 
 export async function invalidateUsageProviderSelection(

@@ -34,10 +34,25 @@ describe('github account mirror observation', () => {
     ])
     expect(pending).toEqual(
       new Map([
-        ['org/replaced', { username: 'replaced', org: 'org' }],
-        ['org/removed', { username: 'removed', org: 'org' }],
+        ['org/replaced', { account: { username: 'replaced', org: 'org' }, documentIds: 'new' }],
+        ['org/removed', { account: { username: 'removed', org: 'org' }, documentIds: '' }],
       ])
     )
+  })
+
+  it('revalidates a pending clear when a replacement document appears', () => {
+    const previous = new Map<string, ObservedAccountGroup>([
+      ['org/user', { account: { username: 'user', org: 'org' }, ids: new Set(['old']) }],
+    ])
+    const pending = new Map()
+    const deletion = observeRemoteAccounts([], previous, pending)
+
+    observeRemoteAccounts([{ _id: 'new', username: 'user', org: 'org' }], deletion.groups, pending)
+
+    expect(pending.get('org/user')).toEqual({
+      account: { username: 'user', org: 'org' },
+      documentIds: 'new',
+    })
   })
 
   it('removes overrides for accounts absent from the connected snapshot', () => {

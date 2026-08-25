@@ -17,6 +17,7 @@ import {
 import { useAccountMigrationReady } from './useAccountMigrationState'
 import {
   hasPendingUsageProviderWork,
+  serializeUsageProviderMaintenance,
   startPendingUsageProviderRecovery,
   trackUsageProviderReconciliation,
 } from './usageProviderSelectionCoordinator'
@@ -26,6 +27,7 @@ import {
   type ScheduleRetry,
 } from './useUsageProviderRetry'
 import {
+  clearPendingRemoteOverrides,
   observeRemoteAccounts,
   retainConnectedOverrides,
   type ObservedAccountGroup,
@@ -292,20 +294,12 @@ function useInitialLocalConfig(
   }, [changedOverrideKeys, setAccounts, setLoaded, setOverrides])
 }
 
-async function clearRemoteAccountOverrides(
-  pendingClears: PendingRemoteClears
-): Promise<OverrideResult> {
-  const entries = [...pendingClears]
-  const results = await Promise.all(
-    entries.map(async ([key, account]) => ({
-      key,
-      result: await settleOverrideResult(() => persistUsageProviderOverride(account, null)),
-    }))
+function clearRemoteOverrides(pendingClears: PendingRemoteClears) {
+  return clearPendingRemoteOverrides(
+    pendingClears,
+    account => settleOverrideResult(() => persistUsageProviderOverride(account, null)),
+    serializeUsageProviderMaintenance
   )
-  for (const { key, result } of results) {
-    if (result.success) pendingClears.delete(key)
-  }
-  return results.find(({ result }) => !result.success)?.result ?? { success: true }
 }
 
 function useConnectedAccountMirror(
@@ -351,7 +345,7 @@ function useConnectedAccountMirror(
     if (retryAttempt.current > MAX_ACCOUNT_MIRROR_RETRIES) return
     let cancelled = false
     let retryTimer: number | undefined
-    void clearRemoteAccountOverrides(pendingRemoteClears.current)
+    void clearRemoteOverrides(pendingRemoteClears.current)
       .then(clearResult =>
         clearResult.success
           ? settleOverrideResult(() => mirrorConnectedGitHubAccounts(convexAccounts))

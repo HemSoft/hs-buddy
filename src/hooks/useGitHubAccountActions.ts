@@ -190,6 +190,7 @@ async function persistSerializedLocalUsageProvider(
 
 async function persistRejectedConnectedUsageProvider(
   accountIdentity: Pick<GitHubAccount, 'username' | 'org'>,
+  accountId: ConvexAccount['_id'],
   usageProvider: UsageProvider,
   accounts: ConvexAccounts,
   getAccounts: GetConvexAccounts,
@@ -197,10 +198,9 @@ async function persistRejectedConnectedUsageProvider(
   isSuperseded: IsSuperseded
 ): Promise<MutationResult> {
   const latestAccounts = getAccounts()
-  if (
-    latestAccounts &&
-    !findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
-  ) {
+  const latestAccount = findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
+  if (latestAccounts && latestAccount?._id !== accountId) {
+    if (latestAccount) return { success: false, error: 'Account was replaced' }
     const cleared = await persistUsageProviderOverride(accountIdentity, null)
     return cleared.success
       ? { success: false, error: 'Account no longer exists' }
@@ -225,14 +225,18 @@ async function persistSerializedConnectedUsageProvider(
   update: UpdateMutation,
   isSuperseded: IsSuperseded
 ): Promise<MutationResult> {
+  const account = findAccount(accounts, accountIdentity.username, accountIdentity.org)
+  if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
   try {
-    const account = findAccount(accounts, accountIdentity.username, accountIdentity.org)
-    if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
-
     if (isSuperseded()) return { success: true }
     await update({ id: account._id, usageProvider })
     if (isSuperseded()) return { success: true }
-    const result = await persistUsageProviderOverride(accountIdentity, usageProvider)
+    const result = await persistLocalUsageProvider(
+      accountIdentity,
+      usageProvider,
+      accounts,
+      isSuperseded
+    )
     return result.success
       ? { success: true }
       : { success: false, error: result.error ?? 'Failed to preserve local provider' }
@@ -240,6 +244,7 @@ async function persistSerializedConnectedUsageProvider(
     if (isSuperseded()) return { success: true }
     return persistRejectedConnectedUsageProvider(
       accountIdentity,
+      account._id,
       usageProvider,
       accounts,
       getAccounts,

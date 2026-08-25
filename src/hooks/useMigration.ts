@@ -43,7 +43,7 @@ function createAccountMigrationPlan<T extends AccountIdentity>(
   return {
     missingAccounts,
     expectedSnapshot,
-    requiresSnapshotRefresh: existingAccounts.length > 0 && missingAccounts.length > 0,
+    requiresSnapshotRefresh: missingAccounts.length > 0,
   }
 }
 

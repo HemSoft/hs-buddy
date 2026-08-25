@@ -126,6 +126,40 @@ describe('useMigrateToConvex', () => {
     await waitFor(() => expect(result.current.accountsReady).toBe(true))
   })
 
+  it('waits for the full imported snapshot when an empty query updates partially', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: 'user1' }, { id: 'user2' }])
+    mockInitSettings.mockResolvedValue(undefined)
+    mockInvoke.mockResolvedValue({
+      github: {
+        accounts: [
+          { username: 'user1', org: 'org1' },
+          { username: 'user2', org: 'org1' },
+        ],
+      },
+      pr: { refreshInterval: 10, autoRefresh: true },
+    })
+
+    const { result, rerender } = renderHook(() => ({
+      migration: useMigrateToConvex(),
+      accountsReady: useAccountMigrationReady(),
+    }))
+    await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = [{ _id: 'user1', username: 'user1', org: 'org1' }]
+    rerender()
+    expect(result.current.accountsReady).toBe(false)
+
+    mockExistingAccounts = [
+      { _id: 'user1', username: 'user1', org: 'org1' },
+      { _id: 'user2', username: 'user2', org: 'org1' },
+    ]
+    rerender()
+    await waitFor(() => expect(result.current.accountsReady).toBe(true))
+  })
+
   it('skips local account identities already present in Convex', async () => {
     mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1' }]
     mockExistingSettings = {}
@@ -193,6 +227,11 @@ describe('useMigrateToConvex', () => {
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
       accounts: [{ username: 'user1', org: 'org1' }],
     })
+    mockExistingAccounts = [{ _id: 'imported', username: 'user1', org: 'org1' }]
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
     expect(result.current.accountsReady).toBe(true)
   })
 
@@ -230,7 +269,7 @@ describe('useMigrateToConvex', () => {
       .mockResolvedValueOnce([{ id: '1', username: 'user1' }])
     mockInitSettings.mockResolvedValue(undefined)
 
-    const { result } = renderHook(() => ({
+    const { result, rerender } = renderHook(() => ({
       migration: useMigrateToConvex(),
       accountsReady: useAccountMigrationReady(),
     }))
@@ -245,6 +284,11 @@ describe('useMigrateToConvex', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1_000)
     })
+    mockExistingAccounts = [{ _id: 'imported', username: 'user1', org: 'org1' }]
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(2)
     expect(result.current.accountsReady).toBe(true)
     expect(result.current.migration.isComplete).toBe(true)
@@ -255,9 +299,11 @@ describe('useMigrateToConvex', () => {
     mockExistingAccounts = []
     mockExistingSettings = {}
     mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
-    mockInitSettings.mockRejectedValueOnce(new Error('Invalid legacy settings'))
+    mockInitSettings
+      .mockRejectedValueOnce(new Error('Invalid legacy settings'))
+      .mockRejectedValueOnce(new Error('Invalid legacy settings'))
 
-    const { result } = renderHook(() => ({
+    const { result, rerender } = renderHook(() => ({
       migration: useMigrateToConvex(),
       accountsReady: useAccountMigrationReady(),
     }))
@@ -265,9 +311,14 @@ describe('useMigrateToConvex', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
+    mockExistingAccounts = [{ _id: 'imported', username: 'user1', org: 'org1' }]
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
 
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
-    expect(mockInitSettings).toHaveBeenCalledTimes(1)
+    expect(mockInitSettings).toHaveBeenCalledTimes(2)
     expect(result.current.accountsReady).toBe(true)
     expect(result.current.migration.isComplete).toBe(false)
   })
@@ -299,6 +350,11 @@ describe('useMigrateToConvex', () => {
 
     mockConnectionCount += 1
     mockIsWebSocketConnected = true
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
+    mockExistingAccounts = [{ _id: 'recovered', username: 'user1', org: 'org1' }]
     rerender()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
@@ -390,6 +446,11 @@ describe('useMigrateToConvex', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0)
     })
+    mockExistingAccounts = [{ _id: 'recovered', username: 'user1', org: 'org1' }]
+    rerender()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0)
+    })
 
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(6)
     expect(result.current.accountsReady).toBe(true)
@@ -410,7 +471,7 @@ describe('useMigrateToConvex', () => {
     const callCount = mockBulkImportAccounts.mock.calls.length
 
     // Change a dependency so the effect re-fires with migrationAttempted.current = true
-    mockExistingAccounts = [{ id: '1', username: 'user1' }]
+    mockExistingAccounts = [{ id: '1', username: 'user1', org: 'org1' }]
     rerender()
 
     await waitFor(() => {

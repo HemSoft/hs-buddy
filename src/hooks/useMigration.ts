@@ -41,6 +41,26 @@ async function migrateSettings<T>(
   console.log('[Migration] PR settings migrated to Convex')
 }
 
+function useMigrationCompletionState() {
+  const [isComplete, setIsComplete] = useState(false)
+  const [timedOut, setTimedOut] = useState(false)
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (!isComplete) {
+        console.warn('[Migration] Convex connection timeout - proceeding without migration')
+        setTimedOut(true)
+        setIsComplete(true)
+      }
+    }, 3000)
+    return () => {
+      clearTimeout(timeout)
+    }
+  }, [isComplete])
+
+  return { isComplete, setIsComplete, timedOut }
+}
+
 /**
  * One-time migration from electron-store to Convex
  * Runs on app startup with a timeout to prevent infinite loading
@@ -48,8 +68,7 @@ async function migrateSettings<T>(
 export function useMigrateToConvex() {
   const bulkImportAccounts = useMutation(api.githubAccounts.bulkImport)
   const initSettings = useMutation(api.settings.initFromMigration)
-  const [isComplete, setIsComplete] = useState(false)
-  const [timedOut, setTimedOut] = useState(false)
+  const { isComplete, setIsComplete, timedOut } = useMigrationCompletionState()
   const [retryRevision, setRetryRevision] = useState(0)
   const connection = useConvexConnectionState()
   const migrationPromiseRef = useRef<Promise<void> | null>(null)
@@ -63,18 +82,6 @@ export function useMigrateToConvex() {
 
   // Loading until Convex queries resolve OR timeout
   const isLoading = (existingAccounts === undefined || existingSettings === undefined) && !timedOut
-
-  // Timeout after 3 seconds to prevent infinite loading
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (!isComplete) {
-        console.warn('[Migration] Convex connection timeout - proceeding without migration')
-        setTimedOut(true)
-        setIsComplete(true)
-      }
-    }, 3000)
-    return () => clearTimeout(timeout)
-  }, [isComplete])
 
   useEffect(() => {
     // Wait for Convex queries to load first
@@ -144,6 +151,7 @@ export function useMigrateToConvex() {
     retryRevision,
     connection.connectionCount,
     connection.isWebSocketConnected,
+    setIsComplete,
   ])
 
   return { isComplete, isLoading }

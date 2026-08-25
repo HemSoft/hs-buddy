@@ -227,7 +227,7 @@ describe('useMigrateToConvex', () => {
     mockExistingAccounts = []
     mockExistingSettings = {}
     mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
-    mockInitSettings.mockRejectedValue(new Error('Invalid legacy settings'))
+    mockInitSettings.mockRejectedValueOnce(new Error('Invalid legacy settings'))
 
     const { result } = renderHook(() => ({
       migration: useMigrateToConvex(),

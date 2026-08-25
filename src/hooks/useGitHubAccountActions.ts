@@ -153,6 +153,7 @@ async function persistSerializedConnectedUsageProvider(
     const account = findAccount(accounts, accountIdentity.username, accountIdentity.org)
     if (!account) return await persistLocalUsageProvider(accountIdentity, usageProvider)
 
+    if (isSuperseded()) return { success: true }
     await update({ id: account._id, usageProvider })
     if (isSuperseded()) return { success: true }
     const result = await persistUsageProviderOverride(accountIdentity, null)

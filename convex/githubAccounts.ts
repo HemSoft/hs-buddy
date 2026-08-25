@@ -88,7 +88,17 @@ async function backfillImportedAccountMetadata(
   now: number
 ) {
   const repoRoot = existing.repoRoot === undefined ? account.repoRoot : undefined
-  const usageProvider = existing.usageProvider === undefined ? account.usageProvider : undefined
+  let usageProvider = existing.usageProvider === undefined ? account.usageProvider : undefined
+  if (usageProvider === 'codex') {
+    const accounts = await ctx.db.query('githubAccounts').collect()
+    if (
+      accounts.some(
+        candidate => candidate._id !== existing._id && candidate.usageProvider === 'codex'
+      )
+    ) {
+      usageProvider = undefined
+    }
+  }
   if (repoRoot === undefined && usageProvider === undefined) return
   if (usageProvider === 'codex') await transferCodexOwnership(ctx, existing._id)
   await ctx.db.patch('githubAccounts', existing._id, {

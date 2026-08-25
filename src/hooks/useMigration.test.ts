@@ -48,6 +48,12 @@ vi.mock('../../convex/_generated/api', () => ({
 }))
 
 const mockInvoke = vi.fn()
+function setLocalAccounts(accounts: Array<Record<string, unknown>>) {
+  mockInvoke.mockResolvedValue({
+    github: { accounts },
+    pr: { refreshInterval: 10, autoRefresh: true },
+  })
+}
 Object.defineProperty(window, 'ipcRenderer', {
   value: { invoke: mockInvoke },
   writable: true,
@@ -62,10 +68,7 @@ describe('useMigrateToConvex', () => {
     mockConnectionCount = 1
     mockIsWebSocketConnected = true
     markAccountMigrationPending()
-    mockInvoke.mockResolvedValue({
-      github: { accounts: [{ username: 'user1', org: 'org1' }] },
-      pr: { refreshInterval: 10, autoRefresh: true },
-    })
+    setLocalAccounts([{ username: 'user1', org: 'org1' }])
   })
 
   afterEach(() => {
@@ -131,15 +134,10 @@ describe('useMigrateToConvex', () => {
     mockExistingSettings = {}
     mockBulkImportAccounts.mockResolvedValue([{ id: 'user1' }, { id: 'user2' }])
     mockInitSettings.mockResolvedValue(undefined)
-    mockInvoke.mockResolvedValue({
-      github: {
-        accounts: [
-          { username: 'user1', org: 'org1' },
-          { username: 'user2', org: 'org1' },
-        ],
-      },
-      pr: { refreshInterval: 10, autoRefresh: true },
-    })
+    setLocalAccounts([
+      { username: 'user1', org: 'org1' },
+      { username: 'user2', org: 'org1' },
+    ])
 
     const { result, rerender } = renderHook(() => ({
       migration: useMigrateToConvex(),
@@ -176,12 +174,7 @@ describe('useMigrateToConvex', () => {
   it('fills missing metadata on an existing identity before publishing readiness', async () => {
     mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1' }]
     mockExistingSettings = {}
-    mockInvoke.mockResolvedValue({
-      github: {
-        accounts: [{ username: 'user1', org: 'org1', repoRoot: 'D:\\github\\HemSoft' }],
-      },
-      pr: { refreshInterval: 10, autoRefresh: true },
-    })
+    setLocalAccounts([{ username: 'user1', org: 'org1', repoRoot: 'local-root' }])
     mockBulkImportAccounts.mockResolvedValue([])
 
     const { result, rerender } = renderHook(() => ({
@@ -191,20 +184,27 @@ describe('useMigrateToConvex', () => {
     await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
-      accounts: [{ username: 'user1', org: 'org1', repoRoot: 'D:\\github\\HemSoft' }],
+      accounts: [{ username: 'user1', org: 'org1', repoRoot: 'local-root' }],
     })
     expect(result.current.accountsReady).toBe(false)
 
-    mockExistingAccounts = [
-      {
-        _id: 'abc',
-        username: 'USER1',
-        org: 'ORG1',
-        repoRoot: 'D:\\github\\HemSoft',
-      },
-    ]
+    mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1', repoRoot: 'local-root' }]
     rerender()
     await waitFor(() => expect(result.current.accountsReady).toBe(true))
+  })
+
+  it('uses the first canonical Convex row when legacy identities still collide', async () => {
+    mockExistingAccounts = [
+      { _id: 'canonical', username: 'USER1', org: 'ORG1', repoRoot: 'canonical-root' },
+      { _id: 'duplicate', username: 'user1', org: 'org1' },
+    ]
+    mockExistingSettings = {}
+    setLocalAccounts([{ username: 'user1', org: 'org1', repoRoot: 'local-root' }])
+
+    const { result } = renderHook(() => useMigrateToConvex())
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
+
+    expect(mockBulkImportAccounts).not.toHaveBeenCalled()
   })
 
   it('skips settings import when Convex already has settings with _id', async () => {

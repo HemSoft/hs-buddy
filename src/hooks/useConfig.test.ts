@@ -333,6 +333,42 @@ describe('useConfig', () => {
       ])
     })
 
+    it('serializes connected-account mirrors so the newest snapshot persists last', async () => {
+      let finishFirstMirror!: () => void
+      let finishSecondMirror!: () => void
+      const snapshots: unknown[] = []
+      mockInvoke.mockImplementation((channel: string, snapshot: unknown) => {
+        if (channel !== 'config:sync-github-accounts') return Promise.resolve({ success: true })
+        snapshots.push(snapshot)
+        return new Promise(resolve => {
+          if (snapshots.length === 1) {
+            finishFirstMirror = () => resolve({ success: true })
+          } else {
+            finishSecondMirror = () => resolve({ success: true })
+          }
+        })
+      })
+
+      const first = mirrorConnectedGitHubAccounts([{ username: 'old', org: 'org' }])
+      const second = mirrorConnectedGitHubAccounts([
+        { username: 'new', org: 'org', repoRoot: 'new-root' },
+      ])
+      await waitFor(() => expect(finishFirstMirror).toBeTypeOf('function'))
+      expect(snapshots).toEqual([[{ username: 'old', org: 'org' }]])
+
+      finishFirstMirror()
+      await waitFor(() => expect(finishSecondMirror).toBeTypeOf('function'))
+      expect(snapshots).toEqual([
+        [{ username: 'old', org: 'org' }],
+        [{ username: 'new', org: 'org', repoRoot: 'new-root' }],
+      ])
+      finishSecondMirror()
+      await expect(Promise.all([first, second])).resolves.toEqual([
+        { success: true },
+        { success: true },
+      ])
+    })
+
     it('forgets a pending override when another client removes the account', async () => {
       mockConvexAccounts = [
         { _id: 'old-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
@@ -1626,6 +1662,61 @@ describe('useConfig', () => {
         'HemSoft',
         'HemSoft',
         null
+      )
+    })
+
+    it('does not let a rejected connected fallback overwrite a newer offline choice', async () => {
+      let finishFallbackMirror!: () => void
+      let storedOverride: 'copilot' | 'codex' | null = null
+      let mirrorCount = 0
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockUpdate.mockRejectedValue(new Error('Connected mutation failed'))
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
+          })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          mirrorCount += 1
+          if (mirrorCount === 2) {
+            return new Promise(resolve => {
+              finishFallbackMirror = () => resolve({ success: true })
+            })
+          }
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          storedOverride = args[2] as 'copilot' | 'codex' | null
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(mirrorCount).toBe(1))
+
+      let connectedSave!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        connectedSave = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(finishFallbackMirror).toBeTypeOf('function'))
+
+      mockConvexAccounts = undefined
+      mockIsWebSocketConnected = false
+      rerender()
+      await expect(
+        result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')
+      ).resolves.toEqual({ success: true })
+      expect(storedOverride).toBe('copilot')
+
+      finishFallbackMirror()
+      await expect(connectedSave).resolves.toEqual({ success: true })
+      expect(storedOverride).toBe('copilot')
+      expect(mockInvoke).not.toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
       )
     })
 

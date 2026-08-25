@@ -46,9 +46,11 @@ function createAccountMigrationPlan<T extends AccountIdentity>(
   const validConfigAccounts = configAccounts.filter(
     account => isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
   )
-  const existingByIdentity = new Map(
-    existingAccounts.map(account => [getAccountIdentityKey(account), account])
-  )
+  const existingByIdentity = new Map<string, AccountIdentity>()
+  for (const account of existingAccounts) {
+    const identity = getAccountIdentityKey(account)
+    if (!existingByIdentity.has(identity)) existingByIdentity.set(identity, account)
+  }
   const accountsToImport = validConfigAccounts.filter(account => {
     const existing = existingByIdentity.get(getAccountIdentityKey(account))
     return !existing || isMissingLocalMetadata(account, existing)

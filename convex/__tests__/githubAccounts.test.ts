@@ -425,6 +425,36 @@ describe('githubAccounts', () => {
     })
   })
 
+  test('bulkImport does not transfer an existing Codex owner during metadata backfill', async () => {
+    const t = convexTest(schema, modules)
+    const ownerId = await t.mutation(api.githubAccounts.create, {
+      username: 'owner',
+      org: 'Org',
+      usageProvider: 'codex',
+    })
+    const targetId = await t.mutation(api.githubAccounts.create, {
+      username: 'target',
+      org: 'Org',
+    })
+
+    await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        {
+          username: 'target',
+          org: 'org',
+          repoRoot: 'D:/github/HemSoft',
+          usageProvider: 'codex',
+        },
+      ],
+    })
+
+    expect((await t.query(api.githubAccounts.get, { id: ownerId }))?.usageProvider).toBe('codex')
+    expect(await t.query(api.githubAccounts.get, { id: targetId })).toMatchObject({
+      repoRoot: 'D:/github/HemSoft',
+    })
+    expect((await t.query(api.githubAccounts.get, { id: targetId }))?.usageProvider).toBeUndefined()
+  })
+
   test('bulkImport merges metadata from case-variant identities in source order', async () => {
     const t = convexTest(schema, modules)
     const ids = await t.mutation(api.githubAccounts.bulkImport, {

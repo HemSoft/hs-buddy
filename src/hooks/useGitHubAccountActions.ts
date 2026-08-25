@@ -30,7 +30,8 @@ function findAccount(accounts: ConvexAccounts, username: string, org: string) {
 async function persistLocalUsageProvider(
   account: Pick<GitHubAccount, 'username' | 'org'>,
   usageProvider: UsageProvider,
-  connectedAccounts?: NonNullable<ConvexAccounts>
+  connectedAccounts?: NonNullable<ConvexAccounts>,
+  isSuperseded: IsSuperseded = () => false
 ): Promise<MutationResult> {
   try {
     if (connectedAccounts) {
@@ -39,6 +40,7 @@ async function persistLocalUsageProvider(
         return { success: false, error: mirror.error ?? 'Failed to mirror connected accounts' }
       }
     }
+    if (isSuperseded()) return { success: true }
     return await persistUsageProviderOverride(account, usageProvider)
   } catch (error: unknown) {
     return { success: false, error: getErrorMessage(error) }
@@ -184,7 +186,8 @@ async function persistRejectedConnectedUsageProvider(
   usageProvider: UsageProvider,
   accounts: ConvexAccounts,
   getAccounts: GetConvexAccounts,
-  error: unknown
+  error: unknown,
+  isSuperseded: IsSuperseded
 ): Promise<MutationResult> {
   const latestAccounts = getAccounts()
   if (
@@ -199,7 +202,8 @@ async function persistRejectedConnectedUsageProvider(
   const fallback = await persistLocalUsageProvider(
     accountIdentity,
     usageProvider,
-    latestAccounts ?? accounts
+    latestAccounts ?? accounts,
+    isSuperseded
   )
   return fallback.success
     ? fallback
@@ -232,7 +236,8 @@ async function persistSerializedConnectedUsageProvider(
       usageProvider,
       accounts,
       getAccounts,
-      error
+      error,
+      isSuperseded
     )
   }
 }

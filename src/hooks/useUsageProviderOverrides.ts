@@ -50,6 +50,7 @@ type OverrideEvent = {
 }
 
 type OverrideResult = { success: boolean; error?: string }
+let connectedAccountMirrorQueue: Promise<void> = Promise.resolve()
 type ReconcileUsageProvider = (
   username: string,
   org: string,
@@ -121,13 +122,22 @@ function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
   })
 }
 
-export async function mirrorConnectedGitHubAccounts(
+export function mirrorConnectedGitHubAccounts(
   accounts: ConvexGitHubAccount[]
 ): Promise<OverrideResult> {
-  return (await window.ipcRenderer.invoke(
-    IPC_INVOKE.CONFIG_SYNC_GITHUB_ACCOUNTS,
-    toDurableAccounts(accounts)
-  )) as OverrideResult
+  const snapshot = toDurableAccounts(accounts)
+  const operation = connectedAccountMirrorQueue.then(
+    () =>
+      window.ipcRenderer.invoke(
+        IPC_INVOKE.CONFIG_SYNC_GITHUB_ACCOUNTS,
+        snapshot
+      ) as Promise<OverrideResult>
+  )
+  connectedAccountMirrorQueue = operation.then(
+    () => {},
+    () => {}
+  )
+  return operation
 }
 
 function applyOverride(account: GitHubAccount, overrides: UsageProviderOverrides): GitHubAccount {

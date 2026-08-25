@@ -34,6 +34,34 @@ function isValidAccountIdentity(account: { username: string; org: string }) {
   return isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
 }
 
+type ImportedGitHubAccount = {
+  username: string
+  org: string
+  repoRoot?: string
+  usageProvider?: 'copilot' | 'codex'
+}
+
+function mergeImportedAccountSnapshots(accounts: ImportedGitHubAccount[]) {
+  const mergedByIdentity = new Map<string, ImportedGitHubAccount>()
+  for (const account of accounts.filter(isValidAccountIdentity)) {
+    const identityKey = `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
+    const existing = mergedByIdentity.get(identityKey)
+    mergedByIdentity.set(
+      identityKey,
+      existing
+        ? {
+            ...existing,
+            ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
+            ...(account.usageProvider !== undefined && {
+              usageProvider: account.usageProvider,
+            }),
+          }
+        : account
+    )
+  }
+  return [...mergedByIdentity.values()]
+}
+
 async function accountIdentityExists(
   ctx: MutationCtx,
   identity: { username: string; org: string },
@@ -191,23 +219,9 @@ export const bulkImport = mutation({
   handler: async (ctx, { accounts }) => {
     const now = Date.now()
     const results = []
-    const importedByIdentity = new Map<string, Id<'githubAccounts'>>()
 
-    for (const account of accounts.filter(isValidAccountIdentity)) {
-      const identityKey = `${account.username.toLowerCase()}\0${account.org.toLowerCase()}`
-      const importedId = importedByIdentity.get(identityKey)
-      if (importedId) {
-        if (account.usageProvider === 'codex') await transferCodexOwnership(ctx, importedId)
-        // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Later case-variant snapshots merge into the earlier imported identity in source order.
-        await ctx.db.patch('githubAccounts', importedId, {
-          ...(account.repoRoot !== undefined && { repoRoot: account.repoRoot }),
-          ...(account.usageProvider !== undefined && { usageProvider: account.usageProvider }),
-          updatedAt: now,
-        })
-        continue
-      }
-
-      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Bulk import checks and inserts sequentially to distinguish existing Convex data from duplicates in this import batch.
+    for (const account of mergeImportedAccountSnapshots(accounts)) {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Final merged identities are checked and inserted sequentially so Codex ownership follows source order across distinct accounts.
       if (await accountIdentityExists(ctx, account)) {
         continue
       }
@@ -223,7 +237,6 @@ export const bulkImport = mutation({
         updatedAt: now,
       })
       results.push(id)
-      importedByIdentity.set(identityKey, id)
     }
 
     return results

@@ -427,6 +427,29 @@ describe('githubAccounts', () => {
     })
   })
 
+  test('bulkImport transfers Codex ownership only from a duplicate groups final provider', async () => {
+    const t = convexTest(schema, modules)
+    const existingOwnerId = await t.mutation(api.githubAccounts.create, {
+      username: 'existing',
+      org: 'HemSoft',
+      usageProvider: 'codex',
+    })
+
+    const [importedId] = await t.mutation(api.githubAccounts.bulkImport, {
+      accounts: [
+        { username: 'NewOwner', org: 'HemSoft', usageProvider: 'codex' },
+        { username: 'newowner', org: 'hemsoft', usageProvider: 'copilot' },
+      ],
+    })
+
+    expect((await t.query(api.githubAccounts.get, { id: existingOwnerId }))?.usageProvider).toBe(
+      'codex'
+    )
+    expect((await t.query(api.githubAccounts.get, { id: importedId }))?.usageProvider).toBe(
+      'copilot'
+    )
+  })
+
   test('bulkImport leaves only the last imported Codex owner selected', async () => {
     const t = convexTest(schema, modules)
     await t.mutation(api.githubAccounts.bulkImport, {

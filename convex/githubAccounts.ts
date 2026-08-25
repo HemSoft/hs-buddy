@@ -78,7 +78,9 @@ async function findAccountByIdentity(
   identity: { username: string; org: string }
 ) {
   const accounts = await ctx.db.query('githubAccounts').collect()
-  return accounts.find(account => isSameAccountIdentity(account, identity))
+  return accounts
+    .filter(account => isSameAccountIdentity(account, identity))
+    .sort((left, right) => left.createdAt - right.createdAt || left._id.localeCompare(right._id))[0]
 }
 
 async function backfillImportedAccountMetadata(

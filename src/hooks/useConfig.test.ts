@@ -210,13 +210,10 @@ describe('useConfig', () => {
           { _id: '1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
         ]
         let mirrorAttempts = 0
-        mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        mockInvoke.mockImplementation((channel: string) => {
           if (channel === 'config:get-config') {
             return Promise.resolve({
-              github: {
-                accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
-                usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
-              },
+              github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
             })
           }
           if (channel === 'config:sync-github-accounts') {
@@ -224,9 +221,6 @@ describe('useConfig', () => {
             return Promise.resolve(
               mirrorAttempts === 1 ? { success: false, error: 'Store busy' } : { success: true }
             )
-          }
-          if (channel === 'config:set-usage-provider-override' && args[2] === null) {
-            return Promise.resolve({ success: true })
           }
           return Promise.resolve({ success: true })
         })
@@ -237,13 +231,6 @@ describe('useConfig', () => {
           await Promise.resolve()
         })
         expect(mirrorAttempts).toBe(1)
-        expect(mockInvoke).toHaveBeenCalledWith(
-          'config:set-usage-provider-override',
-          'HemSoft',
-          'HemSoft',
-          null
-        )
-
         await act(async () => {
           await vi.advanceTimersByTimeAsync(1_000)
         })
@@ -333,6 +320,17 @@ describe('useConfig', () => {
       ])
     })
 
+    it('omits invalid legacy identities from the durable mirror', async () => {
+      await mirrorConnectedGitHubAccounts([
+        { username: 'bad slug', org: 'org' },
+        { username: 'valid', org: 'org' },
+      ])
+
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'valid', org: 'org' },
+      ])
+    })
+
     it('serializes connected-account mirrors so the newest snapshot persists last', async () => {
       let finishFirstMirror!: () => void
       let finishSecondMirror!: () => void
@@ -369,29 +367,36 @@ describe('useConfig', () => {
       ])
     })
 
-    it('forgets a pending override when another client removes the account', async () => {
+    it('forgets a pending override before mirroring a remote removal', async () => {
+      let storedOverride: 'codex' | null = 'codex'
       mockConvexAccounts = [
         { _id: 'old-id', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
       ]
       mockUpdate.mockRejectedValue(new Error('Convex unavailable'))
-      mockInvoke.mockImplementation((channel: string) =>
-        Promise.resolve(
-          channel === 'config:get-config'
-            ? {
-                github: {
-                  accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
-                  usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
-                },
-              }
-            : { success: true }
-        )
-      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          storedOverride = args[2] as 'codex' | null
+        }
+        if (channel === 'config:sync-github-accounts' && (args[0] as unknown[]).length === 0) {
+          return Promise.resolve({ success: false, error: 'Store busy' })
+        }
+        return Promise.resolve({ success: true })
+      })
       const { result, rerender } = renderHook(() => useGitHubAccounts())
       await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
 
       mockConvexAccounts = []
       rerender()
       await waitFor(() => expect(result.current.accounts).toEqual([]))
+      await waitFor(() => expect(storedOverride).toBeNull())
       const attemptsBeforeReadding = mockUpdate.mock.calls.length
 
       mockConvexAccounts = [{ _id: 'new-id', username: 'HemSoft', org: 'HemSoft' }]
@@ -703,6 +708,38 @@ describe('useConfig', () => {
       expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
         { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
       ])
+      expect(mockInvoke).not.toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        null
+      )
+    })
+
+    it('keeps a matching override when its connected snapshot cannot be mirrored', async () => {
+      mockConvexAccounts = [
+        { _id: 'id1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        return Promise.resolve(
+          channel === 'config:sync-github-accounts'
+            ? { success: false, error: 'Store busy' }
+            : { success: true }
+        )
+      })
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      expect(mockUpdate).not.toHaveBeenCalled()
       expect(mockInvoke).not.toHaveBeenCalledWith(
         'config:set-usage-provider-override',
         'HemSoft',
@@ -1478,21 +1515,44 @@ describe('useConfig', () => {
       expect(res.error).toBe('Update failed')
     })
 
-    it('updates a connected usage provider and clears its local override', async () => {
+    it('keeps a connected provider override until its Convex snapshot is mirrored', async () => {
+      let storedOverride: 'codex' | null = null
       mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
       mockUpdate.mockResolvedValue(undefined)
-      const { result } = renderHook(() => useGitHubAccounts())
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: { accounts: [{ username: 'HemSoft', org: 'HemSoft' }] },
+          })
+        }
+        if (channel === 'config:set-usage-provider-override') {
+          storedOverride = args[2] as 'codex' | null
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
 
-      const response = await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+          success: true,
+        })
+      })
 
-      expect(response).toEqual({ success: true })
       expect(mockUpdate).toHaveBeenCalledWith({ id: '123', usageProvider: 'codex' })
-      expect(mockInvoke).toHaveBeenCalledWith(
-        'config:set-usage-provider-override',
-        'HemSoft',
-        'HemSoft',
-        null
-      )
+      expect(storedOverride).toBe('codex')
+
+      mockConvexAccounts = undefined
+      mockIsWebSocketConnected = false
+      rerender()
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+
+      mockConvexAccounts = [
+        { _id: '123', username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ]
+      mockIsWebSocketConnected = true
+      mockConnectionCount += 1
+      rerender()
+      await waitFor(() => expect(storedOverride).toBeNull())
     })
 
     it('persists a provider locally when cached Convex data outlives the connection', async () => {
@@ -1683,7 +1743,7 @@ describe('useConfig', () => {
           mirrorCount += 1
           if (mirrorCount === 2) {
             return new Promise(resolve => {
-              finishFallbackMirror = () => resolve({ success: true })
+              finishFallbackMirror = () => resolve({ success: false, error: 'Store busy' })
             })
           }
         }
@@ -1704,13 +1764,17 @@ describe('useConfig', () => {
       mockConvexAccounts = undefined
       mockIsWebSocketConnected = false
       rerender()
-      await expect(
-        result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')
-      ).resolves.toEqual({ success: true })
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'copilot')).toEqual({
+          success: true,
+        })
+      })
       expect(storedOverride).toBe('copilot')
 
-      finishFallbackMirror()
-      await expect(connectedSave).resolves.toEqual({ success: true })
+      await act(async () => {
+        finishFallbackMirror()
+        expect(await connectedSave).toEqual({ success: true })
+      })
       expect(storedOverride).toBe('copilot')
       expect(mockInvoke).not.toHaveBeenCalledWith(
         'config:set-usage-provider-override',
@@ -1720,7 +1784,7 @@ describe('useConfig', () => {
       )
     })
 
-    it('clears the old override when a newer offline provider save fails', async () => {
+    it('retains the connected provider when a newer offline provider save fails', async () => {
       let resolveConnectedSave!: () => void
       let storedOverride: 'copilot' | 'codex' | null = 'codex'
       mockConvexAccounts = [
@@ -1768,12 +1832,12 @@ describe('useConfig', () => {
         resolveConnectedSave()
         expect(await connectedSave).toEqual({ success: true })
       })
-      expect(storedOverride).toBeNull()
+      expect(storedOverride).toBe('codex')
       expect(mockInvoke).toHaveBeenCalledWith(
         'config:set-usage-provider-override',
         'HemSoft',
         'HemSoft',
-        null
+        'codex'
       )
     })
 

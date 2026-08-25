@@ -13,10 +13,12 @@ function hasAccountsToMigrate<T>(configAccounts: T[] | undefined): configAccount
 }
 
 type AccountIdentity = {
+  _id?: string
   username: string
   org: string
   repoRoot?: string
   usageProvider?: 'copilot' | 'codex'
+  createdAt?: number
 }
 
 function getAccountIdentityKey(account: AccountIdentity): string {
@@ -46,12 +48,32 @@ function createAccountMigrationPlan<T extends AccountIdentity>(
   const validConfigAccounts = configAccounts.filter(
     account => isValidGitHubAccountSlug(account.username) && isValidGitHubAccountSlug(account.org)
   )
+  const orderedExistingAccounts = [...existingAccounts].sort(
+    (left, right) =>
+      (left.createdAt ?? 0) - (right.createdAt ?? 0) ||
+      (left._id ?? '').localeCompare(right._id ?? '')
+  )
   const existingByIdentity = new Map<string, AccountIdentity>()
-  for (const account of existingAccounts) {
+  for (const account of orderedExistingAccounts) {
     const identity = getAccountIdentityKey(account)
     if (!existingByIdentity.has(identity)) existingByIdentity.set(identity, account)
   }
-  const accountsToImport = validConfigAccounts.filter(account => {
+  const existingCodexOwner = orderedExistingAccounts.find(
+    account => account.usageProvider === 'codex'
+  )
+  const normalizedConfigAccounts = validConfigAccounts.map(account => {
+    const existing = existingByIdentity.get(getAccountIdentityKey(account))
+    const conflictsWithCodexOwner =
+      account.usageProvider === 'codex' &&
+      existing?.usageProvider === undefined &&
+      existingCodexOwner !== undefined &&
+      getAccountIdentityKey(existingCodexOwner) !== getAccountIdentityKey(account)
+    if (!conflictsWithCodexOwner) return account
+    const metadata = { ...account }
+    delete metadata.usageProvider
+    return metadata
+  })
+  const accountsToImport = normalizedConfigAccounts.filter(account => {
     const existing = existingByIdentity.get(getAccountIdentityKey(account))
     return !existing || isMissingLocalMetadata(account, existing)
   })

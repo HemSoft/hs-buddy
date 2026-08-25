@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1044] - 2026-08-25
+
+### Fixed
+
+- Harden provider mirror reconciliation
+
 ## [0.1.1043] - 2026-08-25
 
 ### Fixed

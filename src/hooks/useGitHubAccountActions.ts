@@ -37,12 +37,14 @@ async function persistLocalUsageProvider(
     if (connectedAccounts) {
       const mirror = await mirrorConnectedGitHubAccounts(connectedAccounts)
       if (!mirror.success) {
+        if (isSuperseded()) return { success: true }
         return { success: false, error: mirror.error ?? 'Failed to mirror connected accounts' }
       }
     }
     if (isSuperseded()) return { success: true }
     return await persistUsageProviderOverride(account, usageProvider)
   } catch (error: unknown) {
+    if (isSuperseded()) return { success: true }
     return { success: false, error: getErrorMessage(error) }
   }
 }
@@ -50,10 +52,15 @@ async function persistLocalUsageProvider(
 async function reconcileConnectedUsageProvider(
   account: ConvexAccount,
   usageProvider: UsageProvider,
-  update: UpdateMutation
+  update: UpdateMutation,
+  connectedAccounts: NonNullable<ConvexAccounts>
 ): Promise<MutationResult> {
   try {
     if (account.usageProvider === usageProvider) {
+      const mirror = await mirrorConnectedGitHubAccounts(connectedAccounts)
+      if (!mirror.success) {
+        return { success: false, error: mirror.error ?? 'Failed to mirror connected provider' }
+      }
       const result = await persistUsageProviderOverride(account, null)
       return result.success
         ? { success: true }
@@ -177,7 +184,7 @@ async function persistSerializedLocalUsageProvider(
   isSuperseded: IsSuperseded
 ) {
   if (isSuperseded()) return { success: true }
-  const result = await persistLocalUsageProvider(account, usageProvider, accounts)
+  const result = await persistLocalUsageProvider(account, usageProvider, accounts, isSuperseded)
   return isSuperseded() ? { success: true } : result
 }
 
@@ -225,10 +232,10 @@ async function persistSerializedConnectedUsageProvider(
     if (isSuperseded()) return { success: true }
     await update({ id: account._id, usageProvider })
     if (isSuperseded()) return { success: true }
-    const result = await persistUsageProviderOverride(accountIdentity, null)
+    const result = await persistUsageProviderOverride(accountIdentity, usageProvider)
     return result.success
       ? { success: true }
-      : { success: false, error: result.error ?? 'Failed to reconcile local provider' }
+      : { success: false, error: result.error ?? 'Failed to preserve local provider' }
   } catch (error: unknown) {
     if (isSuperseded()) return { success: true }
     return persistRejectedConnectedUsageProvider(
@@ -305,9 +312,10 @@ export function useGitHubAccountActions(
       org: string,
       usageProvider: UsageProvider
     ): Promise<MutationResult> => {
+      if (!convexAccounts) return { success: false, error: 'Account not found' }
       const account = findAccount(convexAccounts, username, org)
       if (!account) return { success: false, error: 'Account not found' }
-      return reconcileConnectedUsageProvider(account, usageProvider, update)
+      return reconcileConnectedUsageProvider(account, usageProvider, update, convexAccounts)
     },
     [convexAccounts, update]
   )

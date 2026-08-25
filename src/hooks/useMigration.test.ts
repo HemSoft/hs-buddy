@@ -89,9 +89,7 @@ describe('useMigrateToConvex', () => {
 
     const { result } = renderHook(() => useMigrateToConvex())
 
-    await waitFor(() => {
-      expect(result.current.isComplete).toBe(true)
-    })
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
       accounts: [{ username: 'user1', org: 'org1' }],
@@ -172,9 +170,12 @@ describe('useMigrateToConvex', () => {
   })
 
   it('fills missing metadata on an existing identity before publishing readiness', async () => {
-    mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1' }]
+    mockExistingAccounts = [
+      { _id: 'owner', username: 'owner', org: 'o', usageProvider: 'codex' },
+      { _id: 'abc', username: 'u', org: 'o' },
+    ]
     mockExistingSettings = {}
-    setLocalAccounts([{ username: 'user1', org: 'org1', repoRoot: 'local-root' }])
+    setLocalAccounts([{ username: 'u', org: 'o', repoRoot: 'r', usageProvider: 'codex' }])
     mockBulkImportAccounts.mockResolvedValue([])
 
     const { result, rerender } = renderHook(() => ({
@@ -184,22 +185,25 @@ describe('useMigrateToConvex', () => {
     await waitFor(() => expect(result.current.migration.isComplete).toBe(true))
 
     expect(mockBulkImportAccounts).toHaveBeenCalledWith({
-      accounts: [{ username: 'user1', org: 'org1', repoRoot: 'local-root' }],
+      accounts: [{ username: 'u', org: 'o', repoRoot: 'r' }],
     })
     expect(result.current.accountsReady).toBe(false)
 
-    mockExistingAccounts = [{ _id: 'abc', username: 'USER1', org: 'ORG1', repoRoot: 'local-root' }]
+    mockExistingAccounts = [
+      mockExistingAccounts[0],
+      { _id: 'abc', username: 'u', org: 'o', repoRoot: 'r' },
+    ]
     rerender()
     await waitFor(() => expect(result.current.accountsReady).toBe(true))
   })
 
   it('uses the first canonical Convex row when legacy identities still collide', async () => {
     mockExistingAccounts = [
-      { _id: 'canonical', username: 'USER1', org: 'ORG1', repoRoot: 'canonical-root' },
-      { _id: 'duplicate', username: 'user1', org: 'org1' },
+      { _id: 'duplicate', username: 'user', org: 'org', createdAt: 2 },
+      { _id: 'canonical', username: 'USER', org: 'ORG', repoRoot: 'root', createdAt: 1 },
     ]
     mockExistingSettings = {}
-    setLocalAccounts([{ username: 'user1', org: 'org1', repoRoot: 'local-root' }])
+    setLocalAccounts([{ username: 'user', org: 'org', repoRoot: 'local' }])
 
     const { result } = renderHook(() => useMigrateToConvex())
     await waitFor(() => expect(result.current.isComplete).toBe(true))

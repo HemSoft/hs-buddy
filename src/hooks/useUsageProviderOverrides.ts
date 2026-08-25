@@ -7,6 +7,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react'
+import { isValidGitHubAccountSlug } from '../../shared/githubAccountIdentity'
 import { IPC_INVOKE } from '../ipc/contracts'
 import type { AppConfig, GitHubAccount, UsageProvider } from '../types/config'
 import {
@@ -24,6 +25,12 @@ import {
   type CanAttemptReconciliation,
   type ScheduleRetry,
 } from './useUsageProviderRetry'
+import {
+  observeRemoteAccounts,
+  retainConnectedOverrides,
+  type ObservedAccountGroup,
+  type PendingRemoteClears,
+} from './githubAccountMirrorObservation'
 
 export {
   invalidateUsageProviderSelection,
@@ -100,7 +107,10 @@ export async function persistUsageProviderOverride(
 
 function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccount[] {
   const accountGroups = new Map<string, ConvexGitHubAccount[]>()
-  for (const account of accounts) {
+  for (const account of accounts.filter(
+    candidate =>
+      isValidGitHubAccountSlug(candidate.username) && isValidGitHubAccountSlug(candidate.org)
+  )) {
     const key = getUsageProviderOverrideKey(account)
     accountGroups.set(key, [...(accountGroups.get(key) ?? []), account])
   }
@@ -282,6 +292,22 @@ function useInitialLocalConfig(
   }, [changedOverrideKeys, setAccounts, setLoaded, setOverrides])
 }
 
+async function clearRemoteAccountOverrides(
+  pendingClears: PendingRemoteClears
+): Promise<OverrideResult> {
+  const entries = [...pendingClears]
+  const results = await Promise.all(
+    entries.map(async ([key, account]) => ({
+      key,
+      result: await settleOverrideResult(() => persistUsageProviderOverride(account, null)),
+    }))
+  )
+  for (const { key, result } of results) {
+    if (result.success) pendingClears.delete(key)
+  }
+  return results.find(({ result }) => !result.success)?.result ?? { success: true }
+}
+
 function useConnectedAccountMirror(
   convexAccounts: ConvexGitHubAccount[] | undefined,
   hasLocalAccounts: boolean,
@@ -297,6 +323,8 @@ function useConnectedAccountMirror(
   const retryAttempt = useRef(0)
   const retrySnapshot = useRef<string | null>(null)
   const lastMirroredSnapshot = useRef<string | null>(null)
+  const observedAccountGroups = useRef(new Map<string, ObservedAccountGroup>())
+  const pendingRemoteClears = useRef<PendingRemoteClears>(new Map())
 
   useEffect(() => {
     if (!convexAccounts || !localConfigLoaded || !accountMigrationReady) return
@@ -304,7 +332,17 @@ function useConnectedAccountMirror(
       return
     }
     const mirroredAccounts = toDurableAccounts(convexAccounts)
-    const snapshot = JSON.stringify([connectionCount, mirroredAccounts])
+    const observation = observeRemoteAccounts(
+      convexAccounts,
+      observedAccountGroups.current,
+      pendingRemoteClears.current
+    )
+    observedAccountGroups.current = observation.groups
+    const snapshot = JSON.stringify([
+      connectionCount,
+      mirroredAccounts,
+      observation.documentSnapshot,
+    ])
     if (lastMirroredSnapshot.current === snapshot) return
     if (retrySnapshot.current !== snapshot) {
       retrySnapshot.current = snapshot
@@ -313,8 +351,13 @@ function useConnectedAccountMirror(
     if (retryAttempt.current > MAX_ACCOUNT_MIRROR_RETRIES) return
     let cancelled = false
     let retryTimer: number | undefined
-    void settleOverrideResult(() => mirrorConnectedGitHubAccounts(convexAccounts)).then(
-      (result: OverrideResult) => {
+    void clearRemoteAccountOverrides(pendingRemoteClears.current)
+      .then(clearResult =>
+        clearResult.success
+          ? settleOverrideResult(() => mirrorConnectedGitHubAccounts(convexAccounts))
+          : clearResult
+      )
+      .then((result: OverrideResult) => {
         if (cancelled) return
         if (!result.success) {
           retryTimer = scheduleAccountMirrorRetry(retryAttempt, setRetryRevision)
@@ -325,20 +368,10 @@ function useConnectedAccountMirror(
         accountsMirroredFromConvex.current = true
         setAccounts(mirroredAccounts)
         const accountKeys = new Set(mirroredAccounts.map(getUsageProviderOverrideKey))
-        setOverrides(current => {
-          const next: UsageProviderOverrides = {}
-          let changed = false
-          for (const [key, provider] of Object.entries(current)) {
-            if (accountKeys.has(key)) next[key] = provider
-            else {
-              changed = true
-              changedOverrideKeys.current.add(key)
-            }
-          }
-          return changed ? next : current
-        })
-      }
-    )
+        setOverrides(current =>
+          retainConnectedOverrides(current, accountKeys, changedOverrideKeys.current)
+        )
+      })
     return () => {
       cancelled = true
       if (retryTimer !== undefined) window.clearTimeout(retryTimer)

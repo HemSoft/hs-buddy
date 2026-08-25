@@ -55,6 +55,23 @@ type ReconcileUsageProvider = (
   org: string,
   provider: UsageProvider
 ) => Promise<OverrideResult>
+
+function scheduleAccountMirrorRetry(
+  retryAttempt: RefObject<number>,
+  setRetryRevision: Dispatch<SetStateAction<number>>
+): number | undefined {
+  if (retryAttempt.current >= MAX_ACCOUNT_MIRROR_RETRIES) {
+    retryAttempt.current = MAX_ACCOUNT_MIRROR_RETRIES + 1
+    console.error(`[GitHub accounts] Giving up after ${MAX_ACCOUNT_MIRROR_RETRIES} mirror retries`)
+    return undefined
+  }
+  const retryDelay = ACCOUNT_MIRROR_RETRY_BASE_DELAY_MS * 2 ** retryAttempt.current
+  retryAttempt.current += 1
+  return window.setTimeout(() => {
+    setRetryRevision(current => current + 1)
+  }, retryDelay)
+}
+
 function notifyOverride(
   account: Pick<GitHubAccount, 'username' | 'org'>,
   provider: UsageProvider | null
@@ -290,19 +307,7 @@ function useConnectedAccountMirror(
       (result: OverrideResult) => {
         if (cancelled) return
         if (!result.success) {
-          if (retryAttempt.current < MAX_ACCOUNT_MIRROR_RETRIES) {
-            const retryDelay = ACCOUNT_MIRROR_RETRY_BASE_DELAY_MS * 2 ** retryAttempt.current
-            retryAttempt.current += 1
-            retryTimer = window.setTimeout(
-              () => setRetryRevision(current => current + 1),
-              retryDelay
-            )
-          } else {
-            retryAttempt.current = MAX_ACCOUNT_MIRROR_RETRIES + 1
-            console.error(
-              `[GitHub accounts] Giving up after ${MAX_ACCOUNT_MIRROR_RETRIES} mirror retries`
-            )
-          }
+          retryTimer = scheduleAccountMirrorRetry(retryAttempt, setRetryRevision)
           return
         }
         retryAttempt.current = 0

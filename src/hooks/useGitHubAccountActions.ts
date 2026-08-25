@@ -197,7 +197,9 @@ async function rejectChangedAccountGeneration(
   const latestAccount = findAccount(latestAccounts, accountIdentity.username, accountIdentity.org)
   if (!latestAccounts || latestAccount?._id === accountId) return null
   if (latestAccount) return { success: false, error: 'Account was replaced' }
-  const cleared = await persistUsageProviderOverride(accountIdentity, null)
+  const cleared = await persistUsageProviderOverride(accountIdentity, null).catch(
+    (error: unknown): MutationResult => ({ success: false, error: getErrorMessage(error) })
+  )
   return cleared.success
     ? { success: false, error: 'Account no longer exists' }
     : { success: false, error: cleared.error ?? cleanupError }

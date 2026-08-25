@@ -2618,6 +2618,39 @@ describe('useConfig', () => {
       await waitFor(() => expect(hasPendingUsageProviderWork('hemsoft/hemsoft')).toBe(false))
     })
 
+    it('reports rejected override cleanup after a successful update races with removal', async () => {
+      let finishProviderUpdate!: () => void
+      mockConvexAccounts = [{ _id: 'old', username: 'HemSoft', org: 'HemSoft' }]
+      mockUpdate.mockImplementation(
+        () =>
+          new Promise<void>(resolve => {
+            finishProviderUpdate = resolve
+          })
+      )
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') return Promise.resolve({ github: { accounts: [] } })
+        if (channel === 'config:set-usage-provider-override' && args[2] === null) {
+          return Promise.reject(new Error('IPC unavailable'))
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+
+      let save!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        save = result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')
+      })
+      await waitFor(() => expect(mockUpdate).toHaveBeenCalledTimes(1))
+      mockConvexAccounts = []
+      rerender()
+
+      await act(async () => {
+        finishProviderUpdate()
+        expect(await save).toEqual({ success: false, error: 'IPC unavailable' })
+      })
+      await waitFor(() => expect(hasPendingUsageProviderWork('hemsoft/hemsoft')).toBe(false))
+    })
+
     it('can persist a provider locally without retrying a cached Convex account', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
       const { result } = renderHook(() => useGitHubAccounts())

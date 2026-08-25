@@ -981,6 +981,76 @@ describe('useConfig', () => {
       expect(storedAccounts).toEqual([])
     })
 
+    it('rejects provider saves until the removed account leaves the Convex snapshot', async () => {
+      let finishOverrideCleanup!: () => void
+      let storedAccounts = [{ username: 'HemSoft', org: 'HemSoft' }]
+      mockConvexAccounts = [{ _id: '123', username: 'HemSoft', org: 'HemSoft' }]
+      mockRemove.mockResolvedValue(undefined)
+      mockInvoke.mockImplementation((channel: string, ...args: unknown[]) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: storedAccounts } })
+        }
+        if (channel === 'config:set-usage-provider-override' && args[2] === null) {
+          return new Promise(resolve => {
+            finishOverrideCleanup = () => resolve({ success: true })
+          })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          storedAccounts = args[0] as typeof storedAccounts
+        }
+        return Promise.resolve({ success: true })
+      })
+
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      let removal!: Promise<{ success: boolean; error?: string }>
+      act(() => {
+        removal = result.current.removeAccount('HemSoft', 'HemSoft')
+      })
+      await waitFor(() => expect(finishOverrideCleanup).toBeTypeOf('function'))
+
+      mockIsWebSocketConnected = false
+      rerender()
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+          success: false,
+          error: 'Account removal in progress',
+        })
+      })
+      expect(mockInvoke).not.toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+
+      await act(async () => {
+        finishOverrideCleanup()
+        expect(await removal).toEqual({ success: true })
+      })
+      expect(storedAccounts).toEqual([])
+
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+          success: false,
+          error: 'Account removal in progress',
+        })
+      })
+
+      mockConvexAccounts = [{ _id: 'replacement', username: 'HemSoft', org: 'HemSoft' }]
+      rerender()
+      await act(async () => {
+        expect(await result.current.updateUsageProvider('HemSoft', 'HemSoft', 'codex')).toEqual({
+          success: true,
+        })
+      })
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'config:set-usage-provider-override',
+        'HemSoft',
+        'HemSoft',
+        'codex'
+      )
+    })
+
     it('retries local account cleanup after a successful Convex removal', async () => {
       mockConvexAccounts = [{ _id: '123', username: 'user1', org: 'myorg' }]
       mockRemove.mockResolvedValue(undefined)

@@ -91,12 +91,14 @@ async function removeConnectedAccount(
   getAccounts: () => ConvexAccounts,
   username: string,
   org: string,
-  remove: RemoveMutation
+  remove: RemoveMutation,
+  removedAccountIds: Set<ConvexAccount['_id']>
 ): Promise<MutationResult> {
   try {
     const account = findAccount(getAccounts(), username, org)
     if (!account) return { success: false, error: 'Account not found' }
     await remove({ id: account._id })
+    removedAccountIds.add(account._id)
     await invalidateUsageProviderSelection(account)
     let error = 'Account removed, but its offline fallback could not be cleared'
     for (let attempt = 0; attempt < LOCAL_ACCOUNT_MIRROR_ATTEMPTS; attempt += 1) {
@@ -214,6 +216,13 @@ export function useGitHubAccountActions(
   const { create, update, remove } = useGitHubAccountMutations()
   const accountsRef = useRef(convexAccounts)
   accountsRef.current = convexAccounts
+  const removedAccountIdsRef = useRef(new Set<ConvexAccount['_id']>())
+  if (convexAccounts) {
+    const currentIds = new Set(convexAccounts.map(account => account._id))
+    for (const id of removedAccountIdsRef.current) {
+      if (!currentIds.has(id)) removedAccountIdsRef.current.delete(id)
+    }
+  }
 
   const reconcileUsageProvider = useCallback(
     async (
@@ -230,7 +239,13 @@ export function useGitHubAccountActions(
 
   const addAccount = (account: GitHubAccount) => createConnectedAccount(account, create)
   const removeAccount = (username: string, org: string) =>
-    removeConnectedAccount(() => accountsRef.current, username, org, remove)
+    removeConnectedAccount(
+      () => accountsRef.current,
+      username,
+      org,
+      remove,
+      removedAccountIdsRef.current
+    )
   const updateAccount = (username: string, org: string, updates: Partial<GitHubAccount>) =>
     updateConnectedAccount(convexAccounts, username, org, updates, update)
 
@@ -239,11 +254,16 @@ export function useGitHubAccountActions(
     org: string,
     usageProvider: UsageProvider,
     options: UsageProviderUpdateOptions = {}
-  ): Promise<MutationResult> =>
-    updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, {
+  ): Promise<MutationResult> => {
+    const account = findAccount(convexAccounts, username, org)
+    if (account && removedAccountIdsRef.current.has(account._id)) {
+      return { success: false, error: 'Account removal in progress' }
+    }
+    return updateConnectedUsageProvider(convexAccounts, update, username, org, usageProvider, {
       ...options,
       localOnly: options.localOnly === true || !isWebSocketConnected,
     })
+  }
 
   return { addAccount, removeAccount, updateAccount, updateUsageProvider, reconcileUsageProvider }
 }

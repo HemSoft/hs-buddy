@@ -289,7 +289,11 @@ function registerMiscConfigHandlers(): void {
       try {
         const accounts = value.map(parseGitHubAccountSnapshot)
         configManager.replaceGitHubAccounts(accounts)
-        return { success: true }
+        return {
+          success: true,
+          usageProviderOverrides: configManager.getUsageProviderOverrides(),
+          usageProviderDefaultOverrides: configManager.getUsageProviderDefaultOverrides(),
+        }
       } catch (error: unknown) {
         return { success: false, error: getErrorMessage(error) }
       }

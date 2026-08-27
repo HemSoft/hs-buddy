@@ -4,6 +4,7 @@ vi.mock('electron-store', () => ({
   default: class MockStore {
     private data: Record<string, unknown> = {}
     private listeners = new Map<string, Set<() => void>>()
+    writes: string[] = []
     path = '/mock/config.json'
     store = {}
 
@@ -13,12 +14,34 @@ vi.mock('electron-store', () => ({
     }
 
     get(key: string, defaultValue?: unknown): unknown {
-      return this.data[key] ?? defaultValue
+      let value: unknown = this.data
+      for (const segment of key.split('.')) {
+        if (!value || typeof value !== 'object' || !(segment in value)) return defaultValue
+        value = (value as Record<string, unknown>)[segment]
+      }
+      return value
     }
 
     set(key: string, value: unknown): void {
-      this.data[key] = value
-      for (const listener of this.listeners.get(key) ?? []) listener()
+      const previous = new Map(
+        [...this.listeners.keys()].map(listenerKey => [
+          listenerKey,
+          JSON.stringify(this.get(listenerKey)),
+        ])
+      )
+      const segments = key.split('.')
+      let target = this.data
+      for (const segment of segments.slice(0, -1)) {
+        const child = target[segment]
+        if (!child || typeof child !== 'object') target[segment] = {}
+        target = target[segment] as Record<string, unknown>
+      }
+      target[segments.at(-1)!] = value
+      this.writes.push(key)
+      for (const [listenerKey, listeners] of this.listeners) {
+        if (previous.get(listenerKey) === JSON.stringify(this.get(listenerKey))) continue
+        for (const listener of listeners) listener()
+      }
     }
 
     onDidChange(key: string, listener: () => void): () => void {
@@ -39,6 +62,7 @@ vi.mock('electron-store', () => ({
     clear(): void {
       this.data = {}
       this.store = this.data
+      this.writes = []
     }
   },
 }))
@@ -155,7 +179,111 @@ describe('config', () => {
     })
   })
 
-  describe('usage provider overrides', () => {
+  describe('usage provider default ownership', () => {
+    it('seeds Codex for an unassigned HemSoft account', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({
+        'hemsoft/hemsoft': 'codex',
+      })
+    })
+
+    it('seeds the HemSoft assignment case-insensitively after a connected snapshot', () => {
+      configManager.replaceGitHubAccounts([{ username: 'hemsoft', org: 'HEMSOFT' }])
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+    })
+
+    it('does not replace an explicit HemSoft provider', () => {
+      configManager.addGitHubAccount({
+        username: 'HemSoft',
+        org: 'HemSoft',
+        usageProvider: 'copilot',
+      })
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+
+    it('does not seed HemSoft when another account explicitly owns Codex', () => {
+      configManager.replaceGitHubAccounts([
+        { username: 'Other', org: 'HemSoft', usageProvider: 'codex' },
+        { username: 'HemSoft', org: 'HemSoft' },
+      ])
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+
+    it('removes the HemSoft seed when another account explicitly owns Codex', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      configManager.replaceGitHubAccounts([
+        { username: 'Other', org: 'HemSoft', usageProvider: 'codex' },
+        { username: 'HemSoft', org: 'HemSoft' },
+      ])
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+
+    it('does not seed HemSoft when another local override owns Codex', () => {
+      configManager.addGitHubAccount({ username: 'Other', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('Other', 'HemSoft', 'codex')
+
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/other': 'codex' })
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+
+    it('lets a local override release a connected Codex assignment', () => {
+      configManager.replaceGitHubAccounts([
+        { username: 'Other', org: 'HemSoft', usageProvider: 'codex' },
+      ])
+      configManager.setUsageProviderOverride('Other', 'HemSoft', 'copilot')
+
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({
+        'hemsoft/other': 'copilot',
+        'hemsoft/hemsoft': 'codex',
+      })
+    })
+
+    it('removes a seeded default when a connected provider becomes explicit', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      configManager.replaceGitHubAccounts([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ])
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+  })
+
+  describe('usage provider persistence and reconciliation', () => {
+    it('keeps a user override when a connected provider disagrees', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+
+      configManager.replaceGitHubAccounts([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ])
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+      expect(configManager.getUsageProviderDefaultOverrides()).toEqual({})
+    })
+
+    it('keeps an explicit local Copilot selection for HemSoft', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'copilot')
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'copilot' })
+    })
+
     it('matches configured accounts case-insensitively', () => {
       configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
 
@@ -168,6 +296,20 @@ describe('config', () => {
       configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
 
       expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+    })
+
+    it('persists provider and provenance in one GitHub store write', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      const managerStore = (
+        configManager as unknown as {
+          store: { writes: string[] }
+        }
+      ).store
+      managerStore.writes = []
+
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'copilot')
+
+      expect(managerStore.writes).toEqual(['github'])
     })
 
     it('clears an account provider during Convex reconciliation', () => {

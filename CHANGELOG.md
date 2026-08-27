@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1051] - 2026-08-27
+
+### Fixed
+
+- Default HemSoft usage to Codex (#594)
+
 ## [0.1.1049] - 2026-08-25
 
 ### Fixed

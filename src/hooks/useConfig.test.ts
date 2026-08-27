@@ -15,6 +15,11 @@ import {
   mirrorConnectedGitHubAccounts,
   persistUsageProviderOverride,
 } from './useUsageProviderOverrides'
+import {
+  markOverrideChange,
+  mergeConnectedOverrides,
+  retainDefaultOverrides,
+} from './githubAccountProviderState'
 import { markAccountMigrationPending, markAccountMigrationReady } from './useAccountMigrationState'
 import { hasPendingUsageProviderWork } from './usageProviderSelectionCoordinator'
 
@@ -204,6 +209,161 @@ describe('useConfig', () => {
       expect(result.current.canUpdateAccounts).toBe(false)
     })
 
+    it('applies a provider default returned by the connected-account mirror immediately', async () => {
+      mockConvexAccounts = [{ _id: '1', username: 'HemSoft', org: 'HemSoft' }]
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({ github: { accounts: [] } })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          return Promise.resolve({
+            success: true,
+            usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+          })
+        }
+        return Promise.resolve({ success: true })
+      })
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: '1', usageProvider: 'codex' })
+      )
+    })
+
+    it('does not reconcile a seeded default over an explicit connected provider', async () => {
+      mockConvexAccounts = [
+        { _id: '1', username: 'HemSoft', org: 'HemSoft', usageProvider: 'copilot' },
+      ]
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+              usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          return Promise.resolve({
+            success: true,
+            usageProviderOverrides: {},
+            usageProviderDefaultOverrides: {},
+          })
+        }
+        return Promise.resolve({ success: true })
+      })
+
+      const { result } = renderHook(() => useGitHubAccounts())
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('copilot'))
+      expect(mockUpdate).not.toHaveBeenCalled()
+    })
+
+    it('treats an explicit local save as user-owned even when it matches the seed', () => {
+      const key = 'hemsoft/hemsoft'
+      const changedOverrideKeys = new Set<string>()
+      const changedDefaultOverrideKeys = new Set<string>()
+      markOverrideChange(key, 'codex', changedOverrideKeys, changedDefaultOverrideKeys)
+
+      expect(
+        mergeConnectedOverrides(
+          { [key]: 'codex' },
+          { [key]: 'codex' },
+          { [key]: 'codex' },
+          new Set([key]),
+          changedOverrideKeys,
+          changedDefaultOverrideKeys
+        )
+      ).toEqual({ [key]: 'codex' })
+      expect(
+        retainDefaultOverrides({ [key]: 'codex' }, {}, new Set([key]), changedDefaultOverrideKeys)
+      ).toEqual({})
+    })
+
+    it('does not protect default provenance for a maintenance clear', () => {
+      const changedDefaultOverrideKeys = new Set<string>()
+      markOverrideChange('hemsoft/hemsoft', null, new Set<string>(), changedDefaultOverrideKeys)
+      expect(changedDefaultOverrideKeys).toEqual(new Set())
+    })
+
+    it('accepts a newly seeded default after a same-identity account recreation', async () => {
+      mockConvexAccounts = [{ _id: 'old', username: 'HemSoft', org: 'HemSoft' }]
+      mockInvoke.mockImplementation((channel: string, snapshot?: unknown) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+              usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          const hasAccount = Array.isArray(snapshot) && snapshot.length > 0
+          return Promise.resolve({
+            success: true,
+            usageProviderOverrides: hasAccount ? { 'hemsoft/hemsoft': 'codex' } : {},
+            usageProviderDefaultOverrides: hasAccount ? { 'hemsoft/hemsoft': 'codex' } : {},
+          })
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+
+      mockConvexAccounts = []
+      rerender()
+      await waitFor(() => expect(result.current.accounts).toEqual([]))
+
+      mockUpdate.mockClear()
+      mockConvexAccounts = [{ _id: 'replacement', username: 'HemSoft', org: 'HemSoft' }]
+      rerender()
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'replacement', usageProvider: 'codex' })
+      )
+    })
+
+    it('accepts a newly seeded default after a direct account generation swap', async () => {
+      mockConvexAccounts = [{ _id: 'old', username: 'HemSoft', org: 'HemSoft' }]
+      mockInvoke.mockImplementation((channel: string) => {
+        if (channel === 'config:get-config') {
+          return Promise.resolve({
+            github: {
+              accounts: [{ username: 'HemSoft', org: 'HemSoft' }],
+              usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+              usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+            },
+          })
+        }
+        if (channel === 'config:sync-github-accounts') {
+          return Promise.resolve({
+            success: true,
+            usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+            usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+          })
+        }
+        return Promise.resolve({ success: true })
+      })
+      const { result, rerender } = renderHook(() => useGitHubAccounts())
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      await waitFor(() => expect(hasPendingUsageProviderWork('hemsoft/hemsoft')).toBe(false))
+
+      mockUpdate.mockClear()
+      mockConvexAccounts = [{ _id: 'replacement', username: 'HemSoft', org: 'HemSoft' }]
+      rerender()
+
+      await waitFor(() => expect(result.current.accounts[0]?.usageProvider).toBe('codex'))
+      await waitFor(() =>
+        expect(mockUpdate).toHaveBeenCalledWith({ id: 'replacement', usageProvider: 'codex' })
+      )
+    })
+
     it('retries a failed connected-account mirror without waiting for account refresh', async () => {
       vi.useFakeTimers()
       try {
@@ -318,6 +478,40 @@ describe('useConfig', () => {
       expect(snapshots).toEqual([
         [{ username: 'Alice', org: 'Org', repoRoot: '', usageProvider: 'copilot' }],
         [{ username: 'Alice', org: 'Org', repoRoot: '', usageProvider: 'copilot' }],
+      ])
+    })
+
+    it('merges legacy collisions without document metadata', async () => {
+      await mirrorConnectedGitHubAccounts([
+        { username: 'Alice', org: 'Org' },
+        { username: 'alice', org: 'org', repoRoot: 'legacy-root' },
+      ])
+
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'Alice', org: 'Org', repoRoot: 'legacy-root' },
+      ])
+    })
+
+    it('keeps the oldest Convex identity casing when a younger collision updated first', async () => {
+      await mirrorConnectedGitHubAccounts([
+        {
+          _id: 'younger',
+          username: 'alice',
+          org: 'org',
+          createdAt: 2,
+          updatedAt: 2,
+        },
+        {
+          _id: 'older',
+          username: 'Alice',
+          org: 'Org',
+          createdAt: 1,
+          updatedAt: 10,
+        },
+      ])
+
+      expect(mockInvoke).toHaveBeenCalledWith('config:sync-github-accounts', [
+        { username: 'Alice', org: 'Org' },
       ])
     })
 
@@ -2727,6 +2921,12 @@ describe('useConfig', () => {
       const { result } = renderHook(() => useGitHubAccounts())
       const account = result.current.accounts.find(a => a.username === 'user1')
       expect(account?.repoRoot).toBe('/custom/path')
+    })
+
+    it('preserves an explicitly cleared repoRoot from a Convex account', () => {
+      mockConvexAccounts = [{ _id: 'id1', username: 'user1', org: 'myorg', repoRoot: '' }]
+      const { result } = renderHook(() => useGitHubAccounts())
+      expect(result.current.accounts[0].repoRoot).toBe('')
     })
 
     it('omits repoRoot from Convex account when not present', () => {

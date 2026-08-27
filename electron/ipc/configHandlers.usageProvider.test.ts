@@ -11,6 +11,8 @@ vi.mock('node:fs/promises', () => ({ readFile: vi.fn(), stat: vi.fn() }))
 vi.mock('../config', () => ({
   configManager: {
     hasGitHubAccount: vi.fn(() => true),
+    getUsageProviderOverrides: vi.fn(() => ({ 'hemsoft/hemsoft': 'codex' })),
+    getUsageProviderDefaultOverrides: vi.fn(() => ({ 'hemsoft/hemsoft': 'codex' })),
     replaceGitHubAccounts: vi.fn(),
     setUsageProviderOverride: vi.fn(),
   },
@@ -22,7 +24,21 @@ import { registerConfigHandlers } from './configHandlers'
 
 const setUsageProviderOverride = vi.mocked(configManager.setUsageProviderOverride)
 const hasGitHubAccount = vi.mocked(configManager.hasGitHubAccount)
+const getUsageProviderOverrides = vi.mocked(configManager.getUsageProviderOverrides)
+const getUsageProviderDefaultOverrides = vi.mocked(configManager.getUsageProviderDefaultOverrides)
 const replaceGitHubAccounts = vi.mocked(configManager.replaceGitHubAccounts)
+const seededProviderSnapshot = { 'hemsoft/hemsoft': 'codex' as const }
+
+function seedProviderSnapshotsAfterUnassignedMirror() {
+  getUsageProviderOverrides.mockReturnValue({})
+  getUsageProviderDefaultOverrides.mockReturnValue({})
+  replaceGitHubAccounts.mockImplementationOnce(accounts => {
+    if (accounts[0]?.usageProvider === undefined) {
+      getUsageProviderOverrides.mockReturnValue(seededProviderSnapshot)
+      getUsageProviderDefaultOverrides.mockReturnValue(seededProviderSnapshot)
+    }
+  })
+}
 
 describe('usage provider override config handler', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -33,6 +49,8 @@ describe('usage provider override config handler', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     hasGitHubAccount.mockReset().mockReturnValue(true)
+    getUsageProviderOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
+    getUsageProviderDefaultOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
     vi.mocked(ipcMain.handle).mockImplementation((channel, registeredHandler) => {
       if (channel === 'config:set-usage-provider-override') handler = registeredHandler
       if (channel === 'config:sync-github-accounts') syncHandler = registeredHandler
@@ -70,24 +88,28 @@ describe('usage provider override config handler', () => {
     expect(setUsageProviderOverride).not.toHaveBeenCalled()
   })
 
-  it('mirrors validated Convex accounts for offline fallback', () => {
+  it('returns reconciled provider snapshots while mirroring an unassigned account', () => {
+    seedProviderSnapshotsAfterUnassignedMirror()
+
     expect(
       syncHandler({}, [
         {
           username: 'HemSoft',
           org: 'HemSoft',
           repoRoot: 'D:\\github\\HemSoft',
-          usageProvider: 'codex',
           ignored: 'value',
         },
       ])
-    ).toEqual({ success: true })
+    ).toEqual({
+      success: true,
+      usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+      usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+    })
     expect(replaceGitHubAccounts).toHaveBeenCalledWith([
       {
         username: 'HemSoft',
         org: 'HemSoft',
         repoRoot: 'D:\\github\\HemSoft',
-        usageProvider: 'codex',
       },
     ])
   })

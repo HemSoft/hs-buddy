@@ -180,6 +180,7 @@ export function useGitHubAccounts() {
   const {
     accounts: electronStoreAccounts,
     overrides: usageProviderOverrides,
+    defaultOverrides: usageProviderDefaultOverrides,
     loaded: fallbackLoaded,
   } = useLocalAccountConfig(
     convexAccounts,
@@ -194,7 +195,8 @@ export function useGitHubAccounts() {
   const accounts = useResolvedAccounts(
     convexAccounts,
     electronStoreAccounts,
-    usageProviderOverrides
+    usageProviderOverrides,
+    usageProviderDefaultOverrides
   )
   const uniqueUsernames = [...new Set(accounts.map(account => account.username))]
 

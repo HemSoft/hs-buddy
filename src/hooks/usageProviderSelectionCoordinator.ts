@@ -1,4 +1,4 @@
-import type { GitHubAccount } from '../types/config'
+import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
 import {
   cancelUsageProviderRetry,
@@ -205,6 +205,24 @@ export async function invalidateUsageProviderSelection(
 
 export function hasPendingUsageProviderWork(key: string) {
   return reconciliations.has(key) || selectionQueues.has(key)
+}
+
+export function canStartUsageProviderReconciliation(
+  key: string,
+  provider: UsageProvider | undefined,
+  canAttempt: CanAttemptReconciliation
+): provider is UsageProvider {
+  return Boolean(provider && !hasPendingUsageProviderWork(key) && canAttempt(key))
+}
+
+export function isBlockedCodexTransfer(
+  key: string,
+  connectedProvider: UsageProvider | undefined,
+  explicitCodexOwnerKey: string | null
+) {
+  return (
+    connectedProvider === 'codex' && explicitCodexOwnerKey !== null && explicitCodexOwnerKey !== key
+  )
 }
 
 export function startPendingUsageProviderRecovery(

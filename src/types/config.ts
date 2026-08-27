@@ -30,6 +30,7 @@ export interface AppConfig {
   github: {
     accounts: GitHubAccount[]
     usageProviderOverrides?: Partial<Record<string, UsageProvider>>
+    usageProviderDefaultOverrides?: Partial<Record<string, UsageProvider>>
   }
   ui: {
     theme: 'dark' | 'light'
@@ -102,6 +103,11 @@ export const configSchema: Schema<AppConfig> = {
         default: [],
       },
       usageProviderOverrides: {
+        type: 'object',
+        additionalProperties: { type: 'string', enum: ['copilot', 'codex'] },
+        default: {},
+      },
+      usageProviderDefaultOverrides: {
         type: 'object',
         additionalProperties: { type: 'string', enum: ['copilot', 'codex'] },
         default: {},
@@ -356,6 +362,7 @@ export const defaultConfig: AppConfig = {
   github: {
     accounts: [],
     usageProviderOverrides: {},
+    usageProviderDefaultOverrides: {},
   },
   ui: {
     theme: 'dark',

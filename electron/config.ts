@@ -16,6 +16,100 @@ export const CONVEX_URL =
   import.meta.env.VITE_CONVEX_URL || 'https://balanced-trout-451.convex.cloud'
 
 /**
+ * Product-owned account defaults. These seed the durable provider override only
+ * while an account has no explicit local or Convex provider selection.
+ */
+const INITIAL_USAGE_PROVIDER_OVERRIDES: UsageProviderOverrides = {
+  'hemsoft/hemsoft': 'codex',
+}
+
+type UsageProviderAccountMap = Map<string, GitHubAccount>
+
+function retainConfiguredOverrides(
+  overrides: UsageProviderOverrides,
+  accountByKey: UsageProviderAccountMap
+): UsageProviderOverrides {
+  return Object.fromEntries(Object.entries(overrides).filter(([key]) => accountByKey.has(key)))
+}
+
+function removeSupersededDefaults(
+  accountByKey: UsageProviderAccountMap,
+  overrides: UsageProviderOverrides,
+  defaultOverrides: UsageProviderOverrides
+): void {
+  for (const [key, provider] of Object.entries(defaultOverrides)) {
+    const account = accountByKey.get(key)
+    if (overrides[key] !== provider) {
+      delete defaultOverrides[key]
+    } else if (account?.usageProvider !== undefined) {
+      delete overrides[key]
+      delete defaultOverrides[key]
+    }
+  }
+}
+
+function findExplicitProviderOwner(
+  provider: UsageProvider,
+  accountByKey: UsageProviderAccountMap,
+  overrides: UsageProviderOverrides,
+  defaultOverrides: UsageProviderOverrides
+): string | undefined {
+  return [...accountByKey].find(([key, account]) => {
+    const override = overrides[key]
+    const explicitProvider =
+      override !== undefined && defaultOverrides[key] !== override
+        ? override
+        : account.usageProvider
+    return explicitProvider === provider
+  })?.[0]
+}
+
+function removeConflictingDefaults(
+  accountByKey: UsageProviderAccountMap,
+  overrides: UsageProviderOverrides,
+  defaultOverrides: UsageProviderOverrides
+): void {
+  const codexOwnerKey = findExplicitProviderOwner(
+    'codex',
+    accountByKey,
+    overrides,
+    defaultOverrides
+  )
+  if (!codexOwnerKey) return
+  for (const [key, provider] of Object.entries(defaultOverrides)) {
+    if (provider !== 'codex' || key === codexOwnerKey) continue
+    delete overrides[key]
+    delete defaultOverrides[key]
+  }
+}
+
+function seedInitialOverrides(
+  accountByKey: UsageProviderAccountMap,
+  overrides: UsageProviderOverrides,
+  defaultOverrides: UsageProviderOverrides
+): void {
+  for (const [key, provider] of Object.entries(INITIAL_USAGE_PROVIDER_OVERRIDES)) {
+    if (!provider) continue
+    const account = accountByKey.get(key)
+    const hasExplicitOwner = findExplicitProviderOwner(
+      provider,
+      accountByKey,
+      overrides,
+      defaultOverrides
+    )
+    if (
+      account &&
+      !hasExplicitOwner &&
+      account.usageProvider === undefined &&
+      overrides[key] === undefined
+    ) {
+      overrides[key] = provider
+      defaultOverrides[key] = provider
+    }
+  }
+}
+
+/**
  * Configuration manager using electron-store for persistent storage
  * Stores in userData/config.json (OS-specific location)
  *
@@ -36,23 +130,45 @@ class ConfigManager {
     })
 
     this.store.onDidChange('github.accounts', () => {
-      this.pruneUsageProviderOverrides()
+      this.reconcileUsageProviderOverrides()
     })
-    this.pruneUsageProviderOverrides()
+    this.reconcileUsageProviderOverrides()
 
     console.log('[ConfigManager] Store location:', this.store.path)
   }
 
-  private pruneUsageProviderOverrides(): UsageProviderOverrides {
-    const overrides = this.store.get('github.usageProviderOverrides', {})
-    const accountKeys = new Set(this.getGitHubAccounts().map(getUsageProviderOverrideKey))
-    const pruned = Object.fromEntries(
-      Object.entries(overrides).filter(([key]) => accountKeys.has(key))
+  private reconcileUsageProviderOverrides(): UsageProviderOverrides {
+    const accounts = this.getGitHubAccounts()
+    const accountByKey = new Map(
+      accounts.map(account => [getUsageProviderOverrideKey(account), account])
     )
-    if (Object.keys(pruned).length !== Object.keys(overrides).length) {
-      this.store.set('github.usageProviderOverrides', pruned)
+    const storedOverrides = this.store.get('github.usageProviderOverrides', {})
+    const overrides = retainConfiguredOverrides(storedOverrides, accountByKey)
+    const storedDefaultOverrides = this.store.get('github.usageProviderDefaultOverrides', {})
+    const defaultOverrides = retainConfiguredOverrides(storedDefaultOverrides, accountByKey)
+    removeSupersededDefaults(accountByKey, overrides, defaultOverrides)
+    removeConflictingDefaults(accountByKey, overrides, defaultOverrides)
+    seedInitialOverrides(accountByKey, overrides, defaultOverrides)
+
+    if (
+      JSON.stringify(overrides) !== JSON.stringify(storedOverrides) ||
+      JSON.stringify(defaultOverrides) !== JSON.stringify(storedDefaultOverrides)
+    ) {
+      this.persistUsageProviderState(overrides, defaultOverrides)
     }
-    return pruned
+    return overrides
+  }
+
+  private persistUsageProviderState(
+    overrides: UsageProviderOverrides,
+    defaultOverrides: UsageProviderOverrides
+  ): void {
+    const github = this.store.get('github', defaultConfig.github)
+    this.store.set('github', {
+      ...github,
+      usageProviderOverrides: overrides,
+      usageProviderDefaultOverrides: defaultOverrides,
+    })
   }
 
   // GitHub Account Management
@@ -111,22 +227,36 @@ class ConfigManager {
     const overrides = Object.fromEntries(
       Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
     )
-    this.store.set('github.usageProviderOverrides', overrides)
+    const defaultOverrides = Object.fromEntries(
+      Object.entries(this.getUsageProviderDefaultOverrides()).filter(([key]) =>
+        accountKeys.has(key)
+      )
+    )
+    this.persistUsageProviderState(overrides, defaultOverrides)
   }
 
   getUsageProviderOverrides(): UsageProviderOverrides {
-    return this.pruneUsageProviderOverrides()
+    return this.reconcileUsageProviderOverrides()
+  }
+
+  getUsageProviderDefaultOverrides(): UsageProviderOverrides {
+    this.reconcileUsageProviderOverrides()
+    return this.store.get('github.usageProviderDefaultOverrides', {})
   }
 
   setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {
     const overrides = { ...this.getUsageProviderOverrides() }
     const key = getUsageProviderOverrideKey({ username, org })
+    const defaultOverrides = {
+      ...this.store.get('github.usageProviderDefaultOverrides', {}),
+    }
+    delete defaultOverrides[key]
     if (provider === null) {
       delete overrides[key]
     } else {
       overrides[key] = provider
     }
-    this.store.set('github.usageProviderOverrides', overrides)
+    this.persistUsageProviderState(overrides, defaultOverrides)
   }
 
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {

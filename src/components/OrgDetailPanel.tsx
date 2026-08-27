@@ -1777,11 +1777,13 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      <OrgConfiguredAccountsSection
-        configuredAccounts={configuredAccounts}
-        quotas={quotas}
-        codexStates={codexStates}
-      />
+      {overview.isUserNamespace ? null : (
+        <OrgConfiguredAccountsSection
+          configuredAccounts={configuredAccounts}
+          quotas={quotas}
+          codexStates={codexStates}
+        />
+      )}
 
       <MemberRosterSection
         org={org}

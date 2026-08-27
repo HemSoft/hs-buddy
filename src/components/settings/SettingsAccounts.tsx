@@ -322,7 +322,6 @@ function AccountUsageProviderField({
         id={`usage-provider-${resolveAccountKey(account)}`}
         value={value}
         onChange={event => onChange(event.target.value as UsageProvider)}
-        disabled={!canUpdateAccounts}
       >
         <option value="copilot">GitHub Copilot</option>
         <option value="codex" disabled={codexOwner !== null}>
@@ -330,11 +329,11 @@ function AccountUsageProviderField({
         </option>
       </select>
       <span className="form-hint">
-        {canUpdateAccounts
-          ? codexOwner
-            ? `The local Codex login is already assigned to ${codexOwner.username}.`
-            : 'Codex reads the local Codex CLI sign-in and shows rolling allowance windows.'
-          : 'Connect to Convex to change the usage provider.'}
+        {codexOwner
+          ? `The local Codex login is already assigned to ${codexOwner.username}.`
+          : canUpdateAccounts
+            ? 'This selection syncs through Convex.'
+            : 'This selection is saved locally on this device.'}
       </span>
     </div>
   )
@@ -346,6 +345,71 @@ function AccountEditError({ error }: { error: string | null }) {
     <div className="form-error" role="alert">
       <AlertCircle size={14} />
       {error}
+    </div>
+  )
+}
+
+function AccountRepoRootField({
+  account,
+  value,
+  onChange,
+  canUpdateAccounts,
+}: {
+  account: GitHubAccount
+  value: string
+  onChange: (value: string) => void
+  canUpdateAccounts: boolean
+}) {
+  const selectDirectory = async () => {
+    try {
+      const selected = await window.ralph.selectDirectory(resolveRepoRootUpdate(value))
+      if (selected) onChange(selected)
+    } catch (_: unknown) {
+      // Keep the current value when the picker fails or its sender detaches.
+    }
+  }
+
+  return (
+    <div className="form-field">
+      <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
+        <FolderOpen size={14} />
+        Repository Root Path
+      </label>
+      <div className="ralph-input-row">
+        <input
+          aria-label="Repository root path"
+          id={`repo-root-${resolveAccountKey(account)}`}
+          type="text"
+          value={value}
+          onChange={event => onChange(event.target.value)}
+          placeholder={`D:\\github\\${account.org}`}
+          disabled={!canUpdateAccounts}
+        />
+        <button
+          aria-label="Browse for folder"
+          type="button"
+          className="settings-btn settings-btn-icon"
+          title="Browse for folder"
+          disabled={!canUpdateAccounts}
+          onClick={selectDirectory}
+        >
+          <FolderOpen size={14} />
+        </button>
+        <button
+          aria-label="Save"
+          type="submit"
+          className="settings-btn settings-btn-primary settings-btn-icon"
+          title="Save"
+          form="account-edit-form"
+        >
+          <Check size={14} />
+        </button>
+      </div>
+      <span className="form-hint">
+        {canUpdateAccounts
+          ? `Local folder containing repos for this org (e.g. D:\\github\\${account.org})`
+          : 'Connect to Convex to change the repository root.'}
+      </span>
     </div>
   )
 }
@@ -378,11 +442,13 @@ function AccountEditPanel({
   if (!isEditing) return null
 
   return (
-    <div
+    <form
+      id="account-edit-form"
       className="list-item-edit-panel"
-      role="presentation"
-      onClick={e => e.stopPropagation()}
-      onKeyDown={e => e.stopPropagation()}
+      onSubmit={event => {
+        event.preventDefault()
+        void onSave()
+      }}
     >
       <AccountUsageProviderField
         account={account}
@@ -392,53 +458,13 @@ function AccountEditPanel({
         canUpdateAccounts={canUpdateAccounts}
       />
       <AccountEditError error={editError} />
-      <div className="form-field">
-        <label htmlFor={`repo-root-${resolveAccountKey(account)}`}>
-          <FolderOpen size={14} />
-          Repository Root Path
-        </label>
-        <div className="ralph-input-row">
-          <input
-            aria-label="Repository root path"
-            id={`repo-root-${resolveAccountKey(account)}`}
-            type="text"
-            value={editRepoRoot}
-            onChange={e => setEditRepoRoot(e.target.value)}
-            placeholder={`D:\\github\\${account.org}`}
-          />
-          <button
-            aria-label="Browse for folder"
-            type="button"
-            className="settings-btn settings-btn-icon"
-            title="Browse for folder"
-            onClick={async () => {
-              try {
-                const selected = await window.ralph.selectDirectory(
-                  resolveRepoRootUpdate(editRepoRoot)
-                )
-                if (selected) setEditRepoRoot(selected)
-              } catch (_: unknown) {
-                // picker failed or sender window detached; keep current value
-              }
-            }}
-          >
-            <FolderOpen size={14} />
-          </button>
-          <button
-            aria-label="Save"
-            type="button"
-            className="settings-btn settings-btn-primary settings-btn-icon"
-            title="Save"
-            onClick={onSave}
-          >
-            <Check size={14} />
-          </button>
-        </div>
-        <span className="form-hint">
-          Local folder containing repos for this org (e.g. D:\github\{account.org})
-        </span>
-      </div>
-    </div>
+      <AccountRepoRootField
+        account={account}
+        value={editRepoRoot}
+        onChange={setEditRepoRoot}
+        canUpdateAccounts={canUpdateAccounts}
+      />
+    </form>
   )
 }
 
@@ -449,6 +475,7 @@ type AccountListItemProps = {
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
+  updateUsageProvider: ReturnType<typeof useGitHubAccounts>['updateUsageProvider']
   handleRemove: (username: string, org: string) => Promise<void>
   codexOwner: GitHubAccount | null
   canUpdateAccounts: boolean
@@ -473,45 +500,94 @@ function AccountIdentity({ account, repoRoot }: { account: GitHubAccount; repoRo
   )
 }
 
-function AccountListItem({
-  account,
-  editingKey,
-  editRepoRoot,
-  setEditingKey,
-  setEditRepoRoot,
-  updateAccount,
-  handleRemove,
-  codexOwner,
-  canUpdateAccounts,
-}: AccountListItemProps) {
-  const key = resolveAccountKey(account)
-  const isEditing = editingKey === key
-  const [editUsageProvider, setEditUsageProvider] = useState<UsageProvider>(
+async function persistAccountEdit(
+  account: GitHubAccount,
+  repoRoot: string,
+  usageProvider: UsageProvider,
+  canUpdateAccounts: boolean,
+  updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount'],
+  updateUsageProvider: ReturnType<typeof useGitHubAccounts>['updateUsageProvider']
+) {
+  const resolvedRepoRoot = resolveRepoRootUpdate(repoRoot)
+  if (!canUpdateAccounts) {
+    const providerResult = await updateUsageProvider(account.username, account.org, usageProvider)
+    if (!providerResult.success || resolvedRepoRoot === account.repoRoot) return providerResult
+    return {
+      success: false,
+      error: 'Usage provider saved, but the repository root still requires Convex.',
+    }
+  }
+  const providerResult = await updateUsageProvider(account.username, account.org, usageProvider)
+  if (resolvedRepoRoot === account.repoRoot) return providerResult
+
+  const accountResult = await updateAccount(account.username, account.org, {
+    repoRoot: resolvedRepoRoot,
+  })
+  if (!providerResult.success) return providerResult
+  if (accountResult.success) return accountResult
+  return {
+    success: false,
+    error: 'Usage provider saved, but the repository root still requires Convex.',
+  }
+}
+
+function useAccountEditor(props: AccountListItemProps, isEditing: boolean) {
+  const {
+    account,
+    editRepoRoot,
+    setEditingKey,
+    setEditRepoRoot,
+    updateAccount,
+    updateUsageProvider,
+    canUpdateAccounts,
+  } = props
+  const [usageProvider, setUsageProvider] = useState<UsageProvider>(
     account.usageProvider ?? 'copilot'
   )
-  const [editError, setEditError] = useState<string | null>(null)
-  const visibleRepoRoot = resolveVisibleRepoRoot(account.repoRoot, isEditing)
+  const [error, setError] = useState<string | null>(null)
   const activate = () => {
-    setEditError(null)
-    setEditUsageProvider(account.usageProvider ?? 'copilot')
+    setError(null)
+    setUsageProvider(account.usageProvider ?? 'copilot')
     openAccountEditor(account, isEditing, setEditingKey, setEditRepoRoot)
   }
   const save = async () => {
     try {
-      const result = await updateAccount(account.username, account.org, {
-        repoRoot: resolveRepoRootUpdate(editRepoRoot),
-        usageProvider: editUsageProvider,
-      })
+      const result = await persistAccountEdit(
+        account,
+        editRepoRoot,
+        usageProvider,
+        canUpdateAccounts,
+        updateAccount,
+        updateUsageProvider
+      )
       if (!result.success) {
-        setEditError(result.error || 'Failed to update account')
+        setError(result.error || 'Failed to update account')
         return
       }
-      setEditError(null)
+      setError(null)
       setEditingKey(null)
-    } catch (error: unknown) {
-      setEditError(getUserFacingErrorMessage(error, 'Failed to update account'))
+    } catch (caught: unknown) {
+      setError(getUserFacingErrorMessage(caught, 'Failed to update account'))
     }
   }
+  return { usageProvider, setUsageProvider, error, setError, activate, save }
+}
+
+function AccountListItem(props: AccountListItemProps) {
+  const {
+    account,
+    editingKey,
+    editRepoRoot,
+    setEditingKey,
+    setEditRepoRoot,
+    handleRemove,
+    codexOwner,
+    canUpdateAccounts,
+  } = props
+  const key = resolveAccountKey(account)
+  const isEditing = editingKey === key
+  const editor = useAccountEditor(props, isEditing)
+  const visibleRepoRoot = resolveVisibleRepoRoot(account.repoRoot, isEditing)
 
   return (
     <div key={key} className={resolveAccountItemClassName(isEditing)}>
@@ -519,8 +595,8 @@ function AccountListItem({
         <button
           type="button"
           className="list-item-main-button"
-          onClick={activate}
-          onKeyDown={e => handleAccountItemKeyDown(e, isEditing, activate)}
+          onClick={editor.activate}
+          onKeyDown={e => handleAccountItemKeyDown(e, isEditing, editor.activate)}
           style={{ cursor: resolveAccountItemCursor(isEditing) }}
         >
           <AccountIdentity account={account} repoRoot={visibleRepoRoot} />
@@ -529,7 +605,7 @@ function AccountListItem({
           isEditing={isEditing}
           onCancel={e => {
             e.stopPropagation()
-            setEditError(null)
+            editor.setError(null)
             setEditingKey(null)
           }}
           onRemove={e => {
@@ -543,12 +619,12 @@ function AccountListItem({
         account={account}
         editRepoRoot={editRepoRoot}
         setEditRepoRoot={setEditRepoRoot}
-        editUsageProvider={editUsageProvider}
-        setEditUsageProvider={setEditUsageProvider}
+        editUsageProvider={editor.usageProvider}
+        setEditUsageProvider={editor.setUsageProvider}
         codexOwner={codexOwner}
         canUpdateAccounts={canUpdateAccounts}
-        editError={editError}
-        onSave={save}
+        editError={editor.error}
+        onSave={editor.save}
       />
     </div>
   )
@@ -561,6 +637,7 @@ function AccountsListSection({
   setEditingKey,
   setEditRepoRoot,
   updateAccount,
+  updateUsageProvider,
   handleRemove,
   canUpdateAccounts,
 }: {
@@ -570,6 +647,7 @@ function AccountsListSection({
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
+  updateUsageProvider: ReturnType<typeof useGitHubAccounts>['updateUsageProvider']
   handleRemove: (username: string, org: string) => Promise<void>
   canUpdateAccounts: boolean
 }) {
@@ -589,6 +667,7 @@ function AccountsListSection({
           setEditingKey={setEditingKey}
           setEditRepoRoot={setEditRepoRoot}
           updateAccount={updateAccount}
+          updateUsageProvider={updateUsageProvider}
           handleRemove={handleRemove}
           codexOwner={codexOwner === account ? null : codexOwner}
           canUpdateAccounts={canUpdateAccounts}
@@ -612,6 +691,7 @@ function ConfiguredAccountsSection({
   setEditingKey,
   setEditRepoRoot,
   updateAccount,
+  updateUsageProvider,
   handleRemove,
   canUpdateAccounts,
 }: {
@@ -628,6 +708,7 @@ function ConfiguredAccountsSection({
   setEditingKey: React.Dispatch<React.SetStateAction<string | null>>
   setEditRepoRoot: React.Dispatch<React.SetStateAction<string>>
   updateAccount: ReturnType<typeof useGitHubAccounts>['updateAccount']
+  updateUsageProvider: ReturnType<typeof useGitHubAccounts>['updateUsageProvider']
   handleRemove: (username: string, org: string) => Promise<void>
   canUpdateAccounts: boolean
 }) {
@@ -663,6 +744,7 @@ function ConfiguredAccountsSection({
         setEditingKey={setEditingKey}
         setEditRepoRoot={setEditRepoRoot}
         updateAccount={updateAccount}
+        updateUsageProvider={updateUsageProvider}
         handleRemove={handleRemove}
         canUpdateAccounts={canUpdateAccounts}
       />
@@ -846,6 +928,32 @@ function AccountsLoadingState() {
   )
 }
 
+type RemoveAccountAction = (
+  username: string,
+  org: string
+) => Promise<{ success: boolean; error?: string }>
+
+function useAccountRemoval(removeAccount: RemoveAccountAction) {
+  const [error, setError] = useState<string | null>(null)
+  const { confirm, confirmDialog } = useConfirm()
+  const remove = async (username: string, org: string) => {
+    const confirmed = await confirm({
+      message: `Remove ${username}@${org}?`,
+      confirmLabel: 'Remove',
+      variant: 'danger',
+    })
+    if (!confirmed) return
+    setError(null)
+    try {
+      const result = await removeAccount(username, org)
+      if (!result.success) setError(result.error ?? 'Failed to remove account')
+    } catch (caught: unknown) {
+      setError(getUserFacingErrorMessage(caught, 'Failed to remove account'))
+    }
+  }
+  return { error, remove, confirmDialog }
+}
+
 export function SettingsAccounts() {
   const {
     accounts,
@@ -854,7 +962,13 @@ export function SettingsAccounts() {
     addAccount,
     removeAccount,
     updateAccount,
+    updateUsageProvider,
   } = useGitHubAccounts()
+  const {
+    error: removeError,
+    remove: handleRemove,
+    confirmDialog,
+  } = useAccountRemoval(removeAccount)
   const { showAddForm, newUsername, newOrg, addError, isAdding, dispatch, handleAdd } =
     useAddAccountForm(accounts, addAccount)
   const {
@@ -867,19 +981,6 @@ export function SettingsAccounts() {
   } = useEnterpriseBilling()
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editRepoRoot, setEditRepoRoot] = useState('')
-
-  const { confirm, confirmDialog } = useConfirm()
-
-  const handleRemove = async (username: string, org: string) => {
-    const confirmed = await confirm({
-      message: `Remove ${username}@${org}?`,
-      confirmLabel: 'Remove',
-      variant: 'danger',
-    })
-    if (confirmed) {
-      await removeAccount(username, org)
-    }
-  }
 
   if (loading || configLoading) {
     return <AccountsLoadingState />
@@ -897,6 +998,11 @@ export function SettingsAccounts() {
         </div>
 
         <div className="settings-page-content">
+          {removeError && (
+            <div className="form-error" role="alert">
+              {removeError}
+            </div>
+          )}
           <ConfiguredAccountsSection
             showAddForm={showAddForm}
             dispatch={dispatch}
@@ -911,6 +1017,7 @@ export function SettingsAccounts() {
             setEditingKey={setEditingKey}
             setEditRepoRoot={setEditRepoRoot}
             updateAccount={updateAccount}
+            updateUsageProvider={updateUsageProvider}
             handleRemove={handleRemove}
             canUpdateAccounts={canUpdateAccounts}
           />

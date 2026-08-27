@@ -9,6 +9,282 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1049] - 2026-08-25
+
+### Fixed
+
+- Report provider cleanup rejections
+
+## [0.1.1048] - 2026-08-25
+
+### Fixed
+
+- Bind successful provider saves to account generation
+
+## [0.1.1047] - 2026-08-25
+
+### Fixed
+
+- Serialize provider maintenance safely
+
+## [0.1.1046] - 2026-08-25
+
+### Fixed
+
+- Normalize migrated Codex ownership
+
+## [0.1.1045] - 2026-08-25
+
+### Fixed
+
+- Bind provider cleanup to account generations
+
+## [0.1.1044] - 2026-08-25
+
+### Fixed
+
+- Harden provider mirror reconciliation
+
+## [0.1.1043] - 2026-08-25
+
+### Fixed
+
+- Serialize provider fallback state
+
+## [0.1.1042] - 2026-08-25
+
+### Fixed
+
+- Preserve account migration metadata
+
+## [0.1.1041] - 2026-08-25
+
+### Fixed
+
+- Reconcile providers after queue drain
+
+## [0.1.1040] - 2026-08-25
+
+### Changed
+
+- Extract account mirror retry scheduling
+
+## [0.1.1039] - 2026-08-25
+
+### Fixed
+
+- Retry connected account mirrors
+
+## [0.1.1038] - 2026-08-25
+
+### Fixed
+
+- Merge provider snapshots before import
+
+## [0.1.1037] - 2026-08-25
+
+### Fixed
+
+- Prevent deleted account resurrection
+
+## [0.1.1036] - 2026-08-25
+
+### Fixed
+
+- Confirm imported account snapshots
+
+## [0.1.1035] - 2026-08-25
+
+### Fixed
+
+- Block saves for removed accounts
+
+## [0.1.1034] - 2026-08-25
+
+### Fixed
+
+- Preserve partial account migrations
+
+## [0.1.1033] - 2026-08-25
+
+### Fixed
+
+- Skip superseded provider writes
+
+## [0.1.1032] - 2026-08-25
+
+### Fixed
+
+- Validate durable GitHub identities
+
+## [0.1.1031] - 2026-08-25
+
+### Fixed
+
+- Close migration and removal races
+
+## [0.1.1030] - 2026-08-25
+
+### Changed
+
+- Keep migration hook within quality limits
+
+## [0.1.1029] - 2026-08-25
+
+### Fixed
+
+- Retry migration after reconnect
+
+## [0.1.1028] - 2026-08-25
+
+### Fixed
+
+- Make account migration lossless
+
+## [0.1.1027] - 2026-08-25
+
+### Fixed
+
+- Bound migration retry backoff
+
+## [0.1.1026] - 2026-08-25
+
+### Fixed
+
+- Make legacy provider repair deterministic
+
+## [0.1.1025] - 2026-08-24
+
+### Fixed
+
+- Retry and schedule account migrations
+
+## [0.1.1024] - 2026-08-24
+
+### Fixed
+
+- Resolve legacy provider state safely
+
+## [0.1.1023] - 2026-08-24
+
+### Fixed
+
+- Close provider selection race gaps
+
+## [0.1.1022] - 2026-08-24
+
+### Changed
+
+- Isolate provider selection coordination
+
+## [0.1.1021] - 2026-08-24
+
+### Fixed
+
+- Make offline provider saves authoritative
+
+## [0.1.1020] - 2026-08-24
+
+### Fixed
+
+- Preserve offline provider selections
+
+## [0.1.1019] - 2026-08-24
+
+### Fixed
+
+- Persist provider choices while disconnected
+
+## [0.1.1018] - 2026-08-24
+
+### Fixed
+
+- Serialize overlapping provider selections
+
+## [0.1.1017] - 2026-08-24
+
+### Fixed
+
+- Clear provider state before account replacement
+
+## [0.1.1016] - 2026-08-24
+
+### Fixed
+
+- Expose Convex connection state in E2E
+
+## [0.1.1015] - 2026-08-24
+
+### Fixed
+
+- Harden provider reconciliation across reconnects
+
+## [0.1.1014] - 2026-08-24
+
+### Fixed
+
+- Coordinate provider retry ownership (#592)
+
+## [0.1.1013] - 2026-08-24
+
+### Fixed
+
+- Satisfy provider quality gates (#592)
+
+## [0.1.1012] - 2026-08-24
+
+### Fixed
+
+- Serialize provider state transitions (#592)
+
+## [0.1.1011] - 2026-08-24
+
+### Fixed
+
+- Bound provider recovery retries (#592)
+
+## [0.1.1010] - 2026-08-24
+
+### Fixed
+
+- Synchronize pruned provider overrides (#592)
+
+## [0.1.1009] - 2026-08-24
+
+### Fixed
+
+- Retry pending provider reconciliation (#592)
+
+## [0.1.1008] - 2026-08-24
+
+### Fixed
+
+- Prune stale provider overrides (#592)
+
+## [0.1.1007] - 2026-08-24
+
+### Fixed
+
+- Persist connected account fallbacks safely (#592)
+
+## [0.1.1006] - 2026-08-24
+
+### Fixed
+
+- Reconcile local provider overrides safely (#592)
+
+## [0.1.1005] - 2026-08-24
+
+### Fixed
+
+- Retain provider choice after Convex disconnect (#592)
+
+## [0.1.1004] - 2026-08-24
+
+### Fixed
+
+- Persist offline usage provider selection (#592)
+
 ## [0.1.1003] - 2026-08-24
 
 ### Fixed

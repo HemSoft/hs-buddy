@@ -4,7 +4,12 @@ import {
   defaultConfig,
   type AppConfig,
   type GitHubAccount,
+  type UsageProvider,
 } from '../src/types/config'
+import {
+  getUsageProviderOverrideKey,
+  type UsageProviderOverrides,
+} from '../src/utils/usageProviderOverrides'
 
 /** Shared Convex URL — single source of truth for the main process. */
 export const CONVEX_URL =
@@ -30,12 +35,34 @@ class ConfigManager {
       watch: true, // Watch for external changes
     })
 
+    this.store.onDidChange('github.accounts', () => {
+      this.pruneUsageProviderOverrides()
+    })
+    this.pruneUsageProviderOverrides()
+
     console.log('[ConfigManager] Store location:', this.store.path)
+  }
+
+  private pruneUsageProviderOverrides(): UsageProviderOverrides {
+    const overrides = this.store.get('github.usageProviderOverrides', {})
+    const accountKeys = new Set(this.getGitHubAccounts().map(getUsageProviderOverrideKey))
+    const pruned = Object.fromEntries(
+      Object.entries(overrides).filter(([key]) => accountKeys.has(key))
+    )
+    if (Object.keys(pruned).length !== Object.keys(overrides).length) {
+      this.store.set('github.usageProviderOverrides', pruned)
+    }
+    return pruned
   }
 
   // GitHub Account Management
   getGitHubAccounts(): GitHubAccount[] {
     return this.store.get('github.accounts', [])
+  }
+
+  hasGitHubAccount(username: string, org: string): boolean {
+    const key = getUsageProviderOverrideKey({ username, org })
+    return this.getGitHubAccounts().some(account => getUsageProviderOverrideKey(account) === key)
   }
 
   addGitHubAccount(account: GitHubAccount): void {
@@ -53,6 +80,7 @@ class ConfigManager {
     const accounts = this.getGitHubAccounts()
     const filtered = accounts.filter(a => !(a.username === username && a.org === org))
     this.store.set('github.accounts', filtered)
+    this.setUsageProviderOverride(username, org, null)
   }
 
   updateGitHubAccount(username: string, org: string, updates: Partial<GitHubAccount>): void {
@@ -61,8 +89,44 @@ class ConfigManager {
     if (index === -1) {
       throw new Error(`GitHub account ${username}@${org} not found`)
     }
+    const previousKey = getUsageProviderOverrideKey(accounts[index])
     accounts[index] = { ...accounts[index], ...updates }
     this.store.set('github.accounts', accounts)
+    if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
+      this.setUsageProviderOverride(username, org, null)
+    }
+  }
+
+  replaceGitHubAccounts(accounts: GitHubAccount[]): void {
+    const accountKeys = new Set<string>()
+    for (const account of accounts) {
+      const key = getUsageProviderOverrideKey(account)
+      if (accountKeys.has(key)) {
+        throw new Error(`Duplicate GitHub account ${account.username}@${account.org}`)
+      }
+      accountKeys.add(key)
+    }
+
+    this.store.set('github.accounts', accounts)
+    const overrides = Object.fromEntries(
+      Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
+    )
+    this.store.set('github.usageProviderOverrides', overrides)
+  }
+
+  getUsageProviderOverrides(): UsageProviderOverrides {
+    return this.pruneUsageProviderOverrides()
+  }
+
+  setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {
+    const overrides = { ...this.getUsageProviderOverrides() }
+    const key = getUsageProviderOverrideKey({ username, org })
+    if (provider === null) {
+      delete overrides[key]
+    } else {
+      overrides[key] = provider
+    }
+    this.store.set('github.usageProviderOverrides', overrides)
   }
 
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {

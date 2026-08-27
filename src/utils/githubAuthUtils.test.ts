@@ -12,14 +12,18 @@ describe('assertValidGitHubAccountSlug', () => {
     expect(() => assertValidGitHubAccountSlug(slug)).not.toThrow()
   })
 
-  it.each(['org; echo injected', 'user$(whoami)', '-leading', 'trailing-', 'a'.repeat(40)])(
-    'rejects invalid slug %s',
-    slug => {
-      expect(() => assertValidGitHubAccountSlug(slug)).toThrow(
-        `Invalid GitHub account slug: '${slug}'`
-      )
-    }
-  )
+  it.each([
+    'org; echo injected',
+    'user$(whoami)',
+    '-leading',
+    'trailing-',
+    'double--hyphen',
+    'a'.repeat(40),
+  ])('rejects invalid slug %s', slug => {
+    expect(() => assertValidGitHubAccountSlug(slug)).toThrow(
+      `Invalid GitHub account slug: '${slug}'`
+    )
+  })
 })
 
 describe('parseActiveGitHubAccount', () => {

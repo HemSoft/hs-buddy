@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 vi.mock('electron-store', () => ({
   default: class MockStore {
     private data: Record<string, unknown> = {}
+    private listeners = new Map<string, Set<() => void>>()
     path = '/mock/config.json'
     store = {}
 
@@ -17,6 +18,14 @@ vi.mock('electron-store', () => ({
 
     set(key: string, value: unknown): void {
       this.data[key] = value
+      for (const listener of this.listeners.get(key) ?? []) listener()
+    }
+
+    onDidChange(key: string, listener: () => void): () => void {
+      const listeners = this.listeners.get(key) ?? new Set<() => void>()
+      listeners.add(listener)
+      this.listeners.set(key, listeners)
+      return () => listeners.delete(listener)
     }
 
     has(key: string): boolean {
@@ -65,6 +74,7 @@ describe('config', () => {
     expect(typeof configManager.getGitHubAccounts).toBe('function')
     expect(typeof configManager.addGitHubAccount).toBe('function')
     expect(typeof configManager.removeGitHubAccount).toBe('function')
+    expect(typeof configManager.replaceGitHubAccounts).toBe('function')
     expect(typeof configManager.getScheduleForecastDays).toBe('function')
     expect(typeof configManager.setScheduleForecastDays).toBe('function')
   })
@@ -96,6 +106,15 @@ describe('config', () => {
       const accounts = configManager.getGitHubAccounts()
       expect(accounts).toEqual([])
     })
+
+    it('clears the removed account provider override', () => {
+      configManager.addGitHubAccount({ username: 'user1', org: 'org1' })
+      configManager.setUsageProviderOverride('user1', 'org1', 'codex')
+
+      configManager.removeGitHubAccount('user1', 'org1')
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
   })
 
   describe('updateGitHubAccount', () => {
@@ -108,6 +127,71 @@ describe('config', () => {
 
     it('throws when account not found', () => {
       expect(() => configManager.updateGitHubAccount('nouser', 'noorg', {})).toThrow('not found')
+    })
+  })
+
+  describe('replaceGitHubAccounts', () => {
+    it('replaces the durable fallback and removes orphaned overrides', () => {
+      configManager.addGitHubAccount({ username: 'old', org: 'org' })
+      configManager.setUsageProviderOverride('old', 'org', 'codex')
+
+      configManager.replaceGitHubAccounts([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ])
+
+      expect(configManager.getGitHubAccounts()).toEqual([
+        { username: 'HemSoft', org: 'HemSoft', usageProvider: 'codex' },
+      ])
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
+
+    it('rejects duplicate identities case-insensitively', () => {
+      expect(() =>
+        configManager.replaceGitHubAccounts([
+          { username: 'HemSoft', org: 'HemSoft' },
+          { username: 'hemsoft', org: 'hemsoft' },
+        ])
+      ).toThrow('Duplicate GitHub account')
+    })
+  })
+
+  describe('usage provider overrides', () => {
+    it('matches configured accounts case-insensitively', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+
+      expect(configManager.hasGitHubAccount('hemsoft', 'hemsoft')).toBe(true)
+      expect(configManager.hasGitHubAccount('other', 'hemsoft')).toBe(false)
+    })
+
+    it('stores an account provider without credentials', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({ 'hemsoft/hemsoft': 'codex' })
+    })
+
+    it('clears an account provider during Convex reconciliation', () => {
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', null)
+
+      expect(configManager.getUsageProviderOverrides()).toEqual({})
+    })
+
+    it('prunes an override when an external config edit removes its account', () => {
+      configManager.addGitHubAccount({ username: 'HemSoft', org: 'HemSoft' })
+      configManager.setUsageProviderOverride('HemSoft', 'HemSoft', 'codex')
+      const managerStore = (
+        configManager as unknown as {
+          store: {
+            get: (key: string, defaultValue?: unknown) => unknown
+            set: (key: string, value: unknown) => void
+          }
+        }
+      ).store
+
+      managerStore.set('github.accounts', [])
+
+      expect(managerStore.get('github.usageProviderOverrides')).toEqual({})
     })
   })
 

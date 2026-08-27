@@ -3,10 +3,15 @@ import { renderHook } from '@testing-library/react'
 
 const mockUseQuery = vi.fn().mockReturnValue(undefined)
 const mockUseMutation = vi.fn().mockReturnValue(vi.fn())
+const mockUseConvexConnectionState = vi.fn().mockReturnValue({
+  connectionCount: 1,
+  isWebSocketConnected: true,
+})
 
 vi.mock('convex/react', () => ({
   useQuery: (...args: unknown[]) => mockUseQuery(...args),
   useMutation: (...args: unknown[]) => mockUseMutation(...args),
+  useConvexConnectionState: () => mockUseConvexConnectionState(),
 }))
 
 vi.mock('../../convex/_generated/api', () => ({
@@ -101,6 +106,7 @@ vi.mock('../../convex/_generated/api', () => ({
 
 import {
   useGitHubAccountsConvex,
+  useGitHubAccountsConnection,
   useGitHubAccountMutations,
   useSettings,
   useSettingsMutations,
@@ -135,6 +141,12 @@ describe('useConvex hooks', () => {
   beforeEach(() => {
     mockUseQuery.mockClear().mockReturnValue(undefined)
     mockUseMutation.mockClear().mockReturnValue(vi.fn())
+    mockUseConvexConnectionState.mockClear()
+  })
+
+  it('returns the current Convex connection state', () => {
+    const { result } = renderHook(() => useGitHubAccountsConnection())
+    expect(result.current).toEqual({ connectionCount: 1, isWebSocketConnected: true })
   })
 
   describe('simple query hooks', () => {

@@ -28,6 +28,15 @@ crons.interval(
   {}
 )
 
+// Repairs the pre-normalized account identity model. The migration runner is
+// resumable and becomes a cheap no-op after every legacy collision is merged.
+crons.interval(
+  'merge case-colliding GitHub accounts',
+  { minutes: 1 },
+  internal.migrations.runMergeCaseCollidingGitHubAccounts,
+  {}
+)
+
 /**
  * Copilot Usage Snapshot
  *

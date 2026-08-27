@@ -5,6 +5,7 @@ import { SettingsAccounts, addAccountFormReducer } from './SettingsAccounts'
 const mockAddAccount = vi.fn()
 const mockRemoveAccount = vi.fn()
 const mockUpdateAccount = vi.fn()
+const mockUpdateUsageProvider = vi.fn()
 const mockSetEnterpriseSlug = vi.fn()
 const mockRefreshConfig = vi.fn()
 
@@ -17,9 +18,11 @@ vi.mock('../../hooks/useConfig', () => ({
   useGitHubAccounts: () => ({
     accounts: mockAccounts,
     loading: mockLoading,
+    canUpdateAccounts: true,
     addAccount: mockAddAccount,
     removeAccount: mockRemoveAccount,
     updateAccount: mockUpdateAccount,
+    updateUsageProvider: mockUpdateUsageProvider,
   }),
   useConfig: () => ({
     config: { ui: { enterpriseSlug: mockEnterpriseSlug } },
@@ -38,6 +41,7 @@ describe('SettingsAccounts', () => {
     mockEnterpriseSlug = 'example-enterprise'
     mockSetEnterpriseSlug.mockResolvedValue({ success: true })
     mockRefreshConfig.mockResolvedValue(undefined)
+    mockUpdateUsageProvider.mockResolvedValue({ success: true })
   })
 
   it('shows a validation error when required fields are missing', async () => {
@@ -150,7 +154,7 @@ describe('SettingsAccounts', () => {
   })
 
   it('removes account after confirmation', async () => {
-    mockRemoveAccount.mockResolvedValue(undefined)
+    mockRemoveAccount.mockResolvedValue({ success: true })
     render(<SettingsAccounts />)
 
     // Click the remove button on the existing account
@@ -168,6 +172,39 @@ describe('SettingsAccounts', () => {
     await waitFor(() => {
       expect(mockRemoveAccount).toHaveBeenCalledWith('existing-user', 'existing-org')
     })
+  })
+
+  it('shows an error when account removal leaves local cleanup incomplete', async () => {
+    mockRemoveAccount.mockResolvedValue({
+      success: false,
+      error: 'Local account cleanup failed',
+    })
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByTitle('Remove account'))
+    const confirmButton = await waitFor(() => {
+      const button = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(button).toBeTruthy()
+      return button
+    })
+    fireEvent.click(confirmButton)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Local account cleanup failed')
+  })
+
+  it('shows an error when account removal rejects', async () => {
+    mockRemoveAccount.mockRejectedValue(new Error('Removal unavailable'))
+    render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getByTitle('Remove account'))
+    const confirmButton = await waitFor(() => {
+      const button = document.querySelector('.confirm-dialog-btn-danger') as HTMLButtonElement
+      expect(button).toBeTruthy()
+      return button
+    })
+    fireEvent.click(confirmButton)
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Removal unavailable')
   })
 
   it('does not remove account when confirmation is cancelled', async () => {
@@ -332,9 +369,9 @@ describe('SettingsAccounts account editing', () => {
     await waitFor(() => {
       expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
         repoRoot: 'D:\\new\\path',
-        usageProvider: 'copilot',
       })
     })
+    expect(mockUpdateUsageProvider).toHaveBeenCalledWith('test-user', 'test-org', 'copilot')
   })
 
   it('opens folder browser when Browse button is clicked', async () => {
@@ -385,7 +422,7 @@ describe('SettingsAccounts account editing', () => {
   })
 
   it('removes account when Trash button is clicked', async () => {
-    mockRemoveAccount.mockResolvedValue(undefined)
+    mockRemoveAccount.mockResolvedValue({ success: true })
     render(<SettingsAccounts />)
 
     const removeButton = screen.getByTitle('Remove account')
@@ -534,7 +571,7 @@ describe('SettingsAccounts account editing', () => {
     })
   })
 
-  it('save button calls updateAccount with repoRoot and closes editing', async () => {
+  it('save button confirms the provider and closes editing when repoRoot is unchanged', async () => {
     mockAccounts = [{ username: 'test-user', org: 'test-org', repoRoot: 'D:\\github\\test-org' }]
     mockUpdateAccount.mockResolvedValue({ success: true })
     Object.defineProperty(window, 'ralph', {
@@ -565,11 +602,10 @@ describe('SettingsAccounts account editing', () => {
     fireEvent.click(saveBtn)
 
     await waitFor(() => {
-      expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
-        repoRoot: 'D:\\github\\test-org',
-        usageProvider: 'copilot',
-      })
+      expect(mockUpdateUsageProvider).toHaveBeenCalledWith('test-user', 'test-org', 'copilot')
+      expect(screen.queryByTitle('Save')).not.toBeInTheDocument()
     })
+    expect(mockUpdateAccount).not.toHaveBeenCalled()
   })
 
   it('expands account item via Enter key', () => {
@@ -613,43 +649,5 @@ describe('SettingsAccounts account editing', () => {
 
     // The edit panel is still visible (event didn't bubble up and collapse)
     expect(screen.getByDisplayValue('D:\\github\\test-org')).toBeInTheDocument()
-  })
-
-  it('save button passes undefined repoRoot when editRepoRoot is empty', async () => {
-    mockAccounts = [{ username: 'test-user', org: 'test-org' }]
-    mockUpdateAccount.mockResolvedValue({ success: true })
-    Object.defineProperty(window, 'ralph', {
-      value: {
-        selectDirectory: vi.fn(),
-        listTemplates: vi.fn().mockResolvedValue([]),
-        list: vi.fn(),
-        launch: vi.fn(),
-        stop: vi.fn(),
-        onStatusChange: vi.fn(),
-        offStatusChange: vi.fn(),
-        getConfig: vi.fn(),
-        getStatus: vi.fn(),
-      },
-      writable: true,
-      configurable: true,
-    })
-    render(<SettingsAccounts />)
-
-    const accountItem = screen.getByText('test-user').closest('button')
-    fireEvent.click(accountItem!)
-
-    await waitFor(() => {
-      expect(screen.getByTitle('Save')).toBeInTheDocument()
-    })
-
-    const saveBtn = screen.getByTitle('Save')
-    fireEvent.click(saveBtn)
-
-    await waitFor(() => {
-      expect(mockUpdateAccount).toHaveBeenCalledWith('test-user', 'test-org', {
-        repoRoot: undefined,
-        usageProvider: 'copilot',
-      })
-    })
   })
 })

@@ -4,6 +4,7 @@ import { SettingsAccounts } from './SettingsAccounts'
 import type { GitHubAccount } from '../../types/config'
 
 const updateAccount = vi.fn()
+const updateUsageProvider = vi.fn()
 const accounts: GitHubAccount[] = [{ username: 'HemSoft', org: 'HemSoft' }]
 let canUpdateAccounts = true
 
@@ -15,6 +16,7 @@ vi.mock('../../hooks/useConfig', () => ({
     addAccount: vi.fn(),
     removeAccount: vi.fn(),
     updateAccount,
+    updateUsageProvider,
   }),
   useConfig: () => ({
     config: { ui: { enterpriseSlug: '' } },
@@ -30,6 +32,7 @@ describe('SettingsAccounts usage provider', () => {
     accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
     canUpdateAccounts = true
     updateAccount.mockResolvedValue({ success: true })
+    updateUsageProvider.mockResolvedValue({ success: true })
   })
 
   it('stages provider changes until Save and discards them on Cancel', async () => {
@@ -52,11 +55,9 @@ describe('SettingsAccounts usage provider', () => {
     fireEvent.click(screen.getByTitle('Save'))
 
     await waitFor(() => {
-      expect(updateAccount).toHaveBeenCalledWith('HemSoft', 'HemSoft', {
-        repoRoot: undefined,
-        usageProvider: 'codex',
-      })
+      expect(updateUsageProvider).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex')
     })
+    expect(updateAccount).not.toHaveBeenCalled()
   })
 
   it('allows only one account to own the local Codex login', () => {
@@ -74,18 +75,60 @@ describe('SettingsAccounts usage provider', () => {
     expect(screen.getByText(/already assigned to HemSoft/i)).toBeInTheDocument()
   })
 
-  it('disables provider changes while account data is read-only', () => {
+  it('saves provider changes locally while account data is read-only', async () => {
     canUpdateAccounts = false
     render(<SettingsAccounts />)
 
     fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    const provider = screen.getByLabelText('Usage provider for HemSoft')
 
-    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeDisabled()
-    expect(screen.getByText(/connect to Convex/i)).toBeInTheDocument()
+    expect(provider).toBeEnabled()
+    expect(screen.getByText(/saved locally on this device/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Repository root path')).toBeDisabled()
+    fireEvent.change(provider, { target: { value: 'codex' } })
+    fireEvent.click(screen.getByTitle('Save'))
+
+    await waitFor(() =>
+      expect(updateUsageProvider).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex')
+    )
+    expect(updateAccount).not.toHaveBeenCalled()
+  })
+})
+
+describe('SettingsAccounts usage provider save failures', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    accounts.splice(0, accounts.length, { username: 'HemSoft', org: 'HemSoft' })
+    canUpdateAccounts = true
+    updateAccount.mockResolvedValue({ success: true })
+    updateUsageProvider.mockResolvedValue({ success: true })
+  })
+
+  it('keeps a staged repository root visible when connectivity drops before Save', async () => {
+    accounts[0].repoRoot = 'D:\\github\\HemSoft'
+    const { rerender } = render(<SettingsAccounts />)
+
+    fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
+    fireEvent.change(screen.getByLabelText('Repository root path'), {
+      target: { value: 'D:\\github\\Elsewhere' },
+    })
+    fireEvent.change(screen.getByLabelText('Usage provider for HemSoft'), {
+      target: { value: 'codex' },
+    })
+    canUpdateAccounts = false
+    rerender(<SettingsAccounts />)
+    fireEvent.click(screen.getByTitle('Save'))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Usage provider saved, but the repository root still requires Convex.'
+    )
+    expect(screen.getByLabelText('Repository root path')).toHaveValue('D:\\github\\Elsewhere')
+    expect(screen.getByLabelText('Usage provider for HemSoft')).toBeInTheDocument()
+    expect(updateAccount).not.toHaveBeenCalled()
   })
 
   it('keeps the editor open and reports an update failure', async () => {
-    updateAccount.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
+    updateUsageProvider.mockResolvedValue({ success: false, error: 'Convex is unavailable' })
     render(<SettingsAccounts />)
 
     fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)
@@ -96,7 +139,7 @@ describe('SettingsAccounts usage provider', () => {
   })
 
   it('reports a rejected account update without closing the editor', async () => {
-    updateAccount.mockRejectedValue(new Error('Network request failed'))
+    updateUsageProvider.mockRejectedValue(new Error('Network request failed'))
     render(<SettingsAccounts />)
 
     fireEvent.click(screen.getAllByText('HemSoft')[0].closest('button')!)

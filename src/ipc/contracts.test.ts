@@ -125,7 +125,7 @@ describe('IPC Contract Registry', () => {
     it('has the expected number of invoke channels', () => {
       // If this fails, a channel was added or removed without updating contracts.
       // Update the contract AND this count when adding new IPC handlers.
-      expect(ALL_INVOKE_CHANNELS.length).toBe(134)
+      expect(ALL_INVOKE_CHANNELS.length).toBe(136)
     })
 
     it('has the expected number of send channels', () => {
@@ -236,6 +236,7 @@ describe('IPC Contract Registry', () => {
       expect(configChannels).toContain('config:reset')
       expect(configChannels).toContain('config:pick-audio-file')
       expect(configChannels).toContain('config:play-notification-sound')
+      expect(configChannels).toContain('config:set-usage-provider-override')
     })
 
     it('config domain has all expected UI invoke channels', () => {

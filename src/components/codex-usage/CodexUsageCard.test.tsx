@@ -124,3 +124,20 @@ describe('CodexUsageCard', () => {
     expect(openExternal).toHaveBeenCalledWith('https://chatgpt.com/codex/settings/usage')
   })
 })
+
+describe('CodexUsageCard weekly metric layout', () => {
+  it('orders three equal cells as used, remaining, then projected', () => {
+    const { container } = render(<CodexUsageCard account={account} state={state} />)
+    const weeklyBody = container.querySelector('.codex-weekly-body')
+    expect(weeklyBody).not.toBeNull()
+    const metrics = Array.from(weeklyBody!.querySelectorAll('.codex-weekly-metric'))
+    expect(metrics).toHaveLength(3)
+    expect(metrics.map(metric => metric.getAttribute('data-metric'))).toEqual([
+      'used',
+      'remaining',
+      'projected',
+    ])
+    expect(within(metrics[1] as HTMLElement).getByText('70.0%')).toBeInTheDocument()
+    expect(within(metrics[1] as HTMLElement).getByText('Remaining')).toBeInTheDocument()
+  })
+})

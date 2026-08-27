@@ -109,13 +109,13 @@ describe('parseCodexUsage', () => {
 })
 
 describe('Codex usage projections', () => {
-  it('caps projections at the usable allowance boundary', () => {
+  it('preserves projections above the usable allowance boundary', () => {
     const result = parseCodexUsage(
       JSON.stringify({
         rate_limit: {
           primary_window: {
-            used_percent: 10,
-            reset_at: Math.floor((NOW.getTime() + 604_700 * 1000) / 1000),
+            used_percent: 70,
+            reset_at: Math.floor((NOW.getTime() + 302_400 * 1000) / 1000),
             limit_window_seconds: 604_800,
           },
         },
@@ -125,7 +125,7 @@ describe('Codex usage projections', () => {
 
     expect(result.success).toBe(true)
     if (!result.success) return
-    expect(result.data.windows[0].projectedPercent).toBe(100)
+    expect(result.data.windows[0].projectedPercent).toBe(140)
   })
 })
 

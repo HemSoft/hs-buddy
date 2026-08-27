@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1055] - 2026-08-27
+
+### Fixed
+
+- Preserve over-limit Codex projections
+
+## [0.1.1054] - 2026-08-27
+
+### Added
+
+- Add Codex weekly projection ring (#597)
+
 ## [0.1.1053] - 2026-08-27
 
 ### Fixed

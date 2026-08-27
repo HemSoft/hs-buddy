@@ -91,10 +91,7 @@ function parseWindow(raw: RawCodexWindow | undefined, now: Date): CodexUsageWind
   const periodStart = new Date(resetAt.getTime() - durationSeconds * 1000)
   const elapsedMs = Math.max(0, now.getTime() - periodStart.getTime())
   const elapsedFraction = Math.min(1, elapsedMs / (durationSeconds * 1000))
-  const projectedPercent = Math.min(
-    100,
-    elapsedFraction > 0 ? boundedUsed / elapsedFraction : boundedUsed
-  )
+  const projectedPercent = elapsedFraction > 0 ? boundedUsed / elapsedFraction : boundedUsed
 
   return {
     kind: classifyDuration(durationSeconds),

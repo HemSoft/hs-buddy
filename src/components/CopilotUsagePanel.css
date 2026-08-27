@@ -222,6 +222,32 @@
   gap: 20px;
 }
 
+.codex-weekly-body {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+
+.codex-weekly-rings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 1 1 204px;
+  max-width: 216px;
+  gap: 12px;
+}
+
+.codex-weekly-rings .usage-ring {
+  width: min(96px, 100%);
+  height: auto;
+  justify-self: center;
+}
+
+.codex-weekly-stats {
+  grid-template-columns: 1fr;
+  flex: 1 1 76px;
+  min-width: 76px;
+}
+
 .usage-ring {
   flex-shrink: 0;
 }

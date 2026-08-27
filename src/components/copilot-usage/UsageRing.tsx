@@ -39,11 +39,13 @@ function ProjectedArc({
 export function UsageRing({
   percentUsed,
   projectedPercent,
+  label = 'used',
   size = 100,
   strokeWidth = 8,
 }: {
   percentUsed: number
   projectedPercent?: number
+  label?: string
   size?: number
   strokeWidth?: number
 }) {
@@ -55,7 +57,13 @@ export function UsageRing({
   const showProjected = projectedPercent != null && projectedPercent > percentUsed
 
   return (
-    <svg width={size} height={size} className="usage-ring">
+    <svg
+      width={size}
+      height={size}
+      className="usage-ring"
+      role="img"
+      aria-label={`${label} ${percentUsed.toFixed(1)}%`}
+    >
       <circle
         cx={size / 2}
         cy={size / 2}
@@ -104,7 +112,7 @@ export function UsageRing({
         className="usage-ring-label"
         fill="var(--text-secondary, #888)"
       >
-        used
+        {label}
       </text>
     </svg>
   )

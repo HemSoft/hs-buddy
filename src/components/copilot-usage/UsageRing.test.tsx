@@ -7,6 +7,14 @@ describe('UsageRing', () => {
     render(<UsageRing percentUsed={42.5} />)
     expect(screen.getByText('42.5%')).toBeInTheDocument()
     expect(screen.getByText('used')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'used 42.5%' })).toBeInTheDocument()
+  })
+
+  it('uses a custom label in the ring and accessible name', () => {
+    render(<UsageRing percentUsed={135.7} label="projected use" />)
+    expect(screen.getByText('135.7%')).toBeInTheDocument()
+    expect(screen.getByText('projected use')).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'projected use 135.7%' })).toBeInTheDocument()
   })
 
   it('renders with default size and stroke', () => {

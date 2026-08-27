@@ -50,7 +50,7 @@ describe('CodexUsageCard', () => {
     vi.clearAllMocks()
   })
 
-  it('makes the weekly allowance prominent and keeps projections per window', () => {
+  it('shows separate used and projected rings for the weekly allowance', () => {
     const { container } = render(<CodexUsageCard account={account} state={state} />)
 
     expect(screen.getByText('HemSoft · Codex allowance')).toBeInTheDocument()
@@ -58,10 +58,34 @@ describe('CodexUsageCard', () => {
     const windows = container.querySelectorAll('.codex-window')
     expect(windows).toHaveLength(2)
     expect(windows[0]).toHaveClass('codex-window-prominent')
-    expect(within(windows[0] as HTMLElement).getByText('52.0%')).toBeInTheDocument()
+    expect(
+      within(windows[0] as HTMLElement).getByRole('img', { name: 'used 30.0%' })
+    ).toBeInTheDocument()
+    expect(
+      within(windows[0] as HTMLElement).getByRole('img', { name: 'projected use 52.0%' })
+    ).toBeInTheDocument()
+    expect(within(windows[0] as HTMLElement).getAllByRole('img')).toHaveLength(2)
+    expect(within(windows[1] as HTMLElement).getAllByRole('img')).toHaveLength(1)
     expect(within(windows[1] as HTMLElement).getByText('16.0%')).toBeInTheDocument()
     expect(screen.queryByText(/month-end/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/premium requests/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the exact weekly projection when it exceeds 100%', () => {
+    const overLimitState: CodexUsageState = {
+      ...state,
+      data: {
+        ...state.data!,
+        windows: state.data!.windows.map(window =>
+          window.kind === 'weekly' ? { ...window, projectedPercent: 135.7 } : window
+        ),
+      },
+    }
+
+    render(<CodexUsageCard account={account} state={overLimitState} />)
+
+    expect(screen.getByRole('img', { name: 'projected use 135.7%' })).toBeInTheDocument()
+    expect(screen.getByText('135.7%')).toBeInTheDocument()
   })
 
   it('shows the specific authentication error', () => {

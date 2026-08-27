@@ -30,29 +30,46 @@ function formatReset(resetAt: string): string {
 }
 
 function CodexWindow({ window, prominent }: { window: CodexUsageWindow; prominent: boolean }) {
+  const usageBody = prominent ? (
+    <div className="usage-account-body codex-weekly-body">
+      <div className="codex-weekly-rings">
+        <UsageRing percentUsed={window.usedPercent} label="used" size={96} />
+        <UsageRing percentUsed={window.projectedPercent} label="projected use" size={96} />
+      </div>
+      <div className="usage-account-stats codex-weekly-stats">
+        <div className="usage-stat">
+          <span className="usage-stat-value">{window.remainingPercent.toFixed(1)}%</span>
+          <span className="usage-stat-label">Remaining</span>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="usage-account-body">
+      <UsageRing
+        percentUsed={window.usedPercent}
+        projectedPercent={window.projectedPercent}
+        size={84}
+      />
+      <div className="usage-account-stats">
+        <div className="usage-stat">
+          <span className="usage-stat-value">{window.remainingPercent.toFixed(1)}%</span>
+          <span className="usage-stat-label">Remaining</span>
+        </div>
+        <div className="usage-stat">
+          <span className="usage-stat-value">{window.projectedPercent.toFixed(1)}%</span>
+          <span className="usage-stat-label">Projected use</span>
+        </div>
+      </div>
+    </div>
+  )
+
   return (
     <div className={`codex-window${prominent ? ' codex-window-prominent' : ''}`}>
       <div className="codex-window-heading">
         <strong>{window.label}</strong>
         {prominent ? <span>Primary</span> : null}
       </div>
-      <div className="usage-account-body">
-        <UsageRing
-          percentUsed={window.usedPercent}
-          projectedPercent={window.projectedPercent}
-          size={prominent ? 104 : 84}
-        />
-        <div className="usage-account-stats">
-          <div className="usage-stat">
-            <span className="usage-stat-value">{window.remainingPercent.toFixed(1)}%</span>
-            <span className="usage-stat-label">Remaining</span>
-          </div>
-          <div className="usage-stat">
-            <span className="usage-stat-value">{window.projectedPercent.toFixed(1)}%</span>
-            <span className="usage-stat-label">Projected use</span>
-          </div>
-        </div>
-      </div>
+      {usageBody}
       <div className="usage-account-reset">{formatReset(window.resetAt)}</div>
     </div>
   )

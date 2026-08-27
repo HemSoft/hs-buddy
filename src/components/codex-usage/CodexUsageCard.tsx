@@ -32,15 +32,17 @@ function formatReset(resetAt: string): string {
 function CodexWindow({ window, prominent }: { window: CodexUsageWindow; prominent: boolean }) {
   const usageBody = prominent ? (
     <div className="usage-account-body codex-weekly-body">
-      <div className="codex-weekly-rings">
+      <div className="codex-weekly-metric" data-metric="used">
         <UsageRing percentUsed={window.usedPercent} label="used" size={96} />
-        <UsageRing percentUsed={window.projectedPercent} label="projected use" size={96} />
       </div>
-      <div className="usage-account-stats codex-weekly-stats">
+      <div className="codex-weekly-metric" data-metric="remaining">
         <div className="usage-stat">
           <span className="usage-stat-value">{window.remainingPercent.toFixed(1)}%</span>
           <span className="usage-stat-label">Remaining</span>
         </div>
+      </div>
+      <div className="codex-weekly-metric" data-metric="projected">
+        <UsageRing percentUsed={window.projectedPercent} label="projected use" size={96} />
       </div>
     </div>
   ) : (

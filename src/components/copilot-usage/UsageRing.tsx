@@ -55,11 +55,11 @@ export function UsageRing({
   const color = getQuotaColor(percentUsed)
   const projectedCapped = clampPercent(projectedPercent)
   const showProjected = projectedPercent != null && projectedPercent > percentUsed
+  const dimensions = { width: size, height: size, viewBox: `0 0 ${size} ${size}` }
 
   return (
     <svg
-      width={size}
-      height={size}
+      {...dimensions}
       className="usage-ring"
       role="img"
       aria-label={`${label} ${percentUsed.toFixed(1)}%`}

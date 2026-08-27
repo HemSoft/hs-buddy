@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1053] - 2026-08-27
+
+### Fixed
+
+- Preserve mixed namespace account cards
+
 ## [0.1.1052] - 2026-08-27
 
 ### Fixed

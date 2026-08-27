@@ -611,6 +611,12 @@ describe('OrgDetailPanel', () => {
     it('does not render the duplicate section for a user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
+        ],
+        loading: false,
+      })
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -623,6 +629,30 @@ describe('OrgDetailPanel', () => {
       await waitFor(() => expect(screen.getByText('User Namespace')).toBeInTheDocument())
       expect(screen.queryByTestId('quota-card-alice')).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Configured Accounts' })).not.toBeInTheDocument()
+    })
+
+    it('keeps separate Copilot accounts visible for a mixed user namespace', async () => {
+      const userOverview = makeOverview()
+      userOverview.isUserNamespace = true
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_codex' },
+          { username: 'bob', org: 'test-org', usageProvider: 'copilot', token: 'ghp_copilot' },
+        ],
+        loading: false,
+      })
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(userOverview)
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      await waitFor(() => expect(screen.getByTestId('quota-card-bob')).toBeInTheDocument())
+      expect(screen.queryByTestId('quota-card-alice')).not.toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Configured Accounts' })).toBeInTheDocument()
     })
 
     it('does not render section when no configured accounts', async () => {

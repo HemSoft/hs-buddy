@@ -1715,6 +1715,11 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
+  const secondaryConfiguredAccounts =
+    overview.isUserNamespace && codexAccount
+      ? configuredAccounts.filter(account => account !== codexAccount)
+      : configuredAccounts
+
   return (
     <div className="org-detail-container">
       <OrgDetailHero
@@ -1777,13 +1782,11 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      {overview.isUserNamespace ? null : (
-        <OrgConfiguredAccountsSection
-          configuredAccounts={configuredAccounts}
-          quotas={quotas}
-          codexStates={codexStates}
-        />
-      )}
+      <OrgConfiguredAccountsSection
+        configuredAccounts={secondaryConfiguredAccounts}
+        quotas={quotas}
+        codexStates={codexStates}
+      />
 
       <MemberRosterSection
         org={org}

@@ -107,7 +107,10 @@ function RepositoryCard({
   activity: RepositoryActivitySummary
 }) {
   return (
-    <article className="active-repos-card">
+    <article
+      className={`active-repos-card ${rank === 1 ? 'active-repos-card-featured' : ''}`}
+      aria-label={`Activity rank ${rank}: ${repository.name}`}
+    >
       <div className="active-repos-card-header">
         <span className="active-repos-rank" aria-label={`Activity rank ${rank}`}>
           {rank.toString().padStart(2, '0')}
@@ -217,7 +220,7 @@ export function ActiveRepositoriesSection({
   return (
     <section className="org-detail-section active-repos-section">
       <div className="active-repos-section-header">
-        <div>
+        <div className="active-repos-title-block">
           <div className="active-repos-kicker">Current workbench</div>
           <h3>
             <FolderKanban aria-hidden="true" size={16} />
@@ -225,6 +228,12 @@ export function ActiveRepositoriesSection({
           </h3>
         </div>
         <div className="active-repos-header-meta">
+          {activity ? (
+            <span className="active-repos-repository-total">
+              {activity.repositories.length}{' '}
+              {activity.repositories.length === 1 ? 'repository' : 'repositories'}
+            </span>
+          ) : null}
           {isRefreshing ? (
             <span className="active-repos-refreshing">
               <RefreshCw aria-hidden="true" className="spin" size={12} />

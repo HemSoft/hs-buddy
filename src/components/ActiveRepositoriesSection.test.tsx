@@ -77,17 +77,20 @@ it('renders repositories in supplied activity order with issues left and pull re
 
   const cards = container.querySelectorAll('.active-repos-card')
   expect(cards).toHaveLength(2)
-  expect(cards[0]).toHaveClass('active-repos-card-featured')
-  expect(cards[1]).not.toHaveClass('active-repos-card-featured')
+  expect(cards[0]).toHaveClass('active-repos-card')
+  expect(cards[1]).toHaveClass('active-repos-card')
+  expect(container.querySelector('.active-repos-card-featured')).not.toBeInTheDocument()
   expect(within(cards[0] as HTMLElement).getByText('hs-buddy')).toBeInTheDocument()
   expect(within(cards[1] as HTMLElement).getByText('codexbar-ios')).toBeInTheDocument()
   expect(screen.getByText('2 repositories')).toBeInTheDocument()
 
-  const lanes = cards[0].querySelectorAll('.active-repos-lane')
-  expect(lanes[0]).toHaveClass('active-repos-lane-issues')
-  expect(lanes[1]).toHaveClass('active-repos-lane-pull-requests')
-  expect(within(lanes[0] as HTMLElement).getByText('#604')).toBeInTheDocument()
-  expect(within(lanes[1] as HTMLElement).getByText('#605')).toBeInTheDocument()
+  cards.forEach(card => {
+    const lanes = card.querySelectorAll('.active-repos-lane')
+    expect(lanes[0]).toHaveClass('active-repos-lane-issues')
+    expect(lanes[1]).toHaveClass('active-repos-lane-pull-requests')
+  })
+  expect(within(cards[0] as HTMLElement).getByText('#604')).toBeInTheDocument()
+  expect(within(cards[0] as HTMLElement).getByText('#605')).toBeInTheDocument()
 })
 
 it('shows issue and pull-request states and handles an empty side', () => {

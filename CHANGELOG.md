@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1062] - 2026-08-28
+
+### Fixed
+
+- Make repository cards full width
+
 ## [0.1.1061] - 2026-08-28
 
 ### Fixed

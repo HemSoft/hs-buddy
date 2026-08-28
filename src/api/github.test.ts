@@ -2324,6 +2324,8 @@ describe('GitHubClient', () => {
       expect(result.metrics.org).toBe('myorg')
       expect(result.metrics.repoCount).toBeGreaterThanOrEqual(1)
       expect(result.authenticatedAs).toBeDefined()
+      expect(result.repositoryActivity).toBeNull()
+      expect(mockOctokit.search.issuesAndPullRequests).toHaveBeenCalledTimes(2)
     })
   })
 

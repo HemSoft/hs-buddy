@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { OrgDetailPanel } from './OrgDetailPanel'
 import { runCopilotFetch } from './orgCopilotFetch'
+import type { OrgOverviewResult } from '../api/github'
 
 /* ── hoisted mocks ─────────────────────────────────────────────────── */
 
@@ -100,10 +101,11 @@ vi.mock('./RateLimitGauge', () => ({
 
 /* ── test data factories ──────────────────────────────────────────── */
 
-function makeOverview(overrides = {}) {
+function makeOverview(overrides: Partial<OrgOverviewResult['metrics']> = {}): OrgOverviewResult {
   return {
     authenticatedAs: 'alice',
     isUserNamespace: false,
+    repositoryActivity: null,
     metrics: {
       org: 'test-org',
       repoCount: 25,
@@ -117,8 +119,8 @@ function makeOverview(overrides = {}) {
       commitsToday: 28,
       lastPushAt: '2026-04-14T02:00:00Z',
       topContributorsToday: [
-        { login: 'alice', commits: 12 },
-        { login: 'bob', commits: 8 },
+        { login: 'alice', avatarUrl: null, url: null, commits: 12 },
+        { login: 'bob', avatarUrl: null, url: null, commits: 8 },
       ],
       ...overrides,
     },
@@ -1075,6 +1077,64 @@ describe('OrgDetailPanel', () => {
       expect(fetchUsage).not.toHaveBeenCalled()
     })
 
+    it('places active repositories below Codex Allowance on a user namespace', async () => {
+      const userOverview = makePersonalOverview()
+      userOverview.repositoryActivity = {
+        repositories: [
+          {
+            name: 'hs-buddy',
+            fullName: 'test-org/hs-buddy',
+            url: 'https://github.com/test-org/hs-buddy',
+            updatedAt: '2026-04-14T03:00:00Z',
+            issues: [
+              {
+                number: 604,
+                title: 'Add an Active repositories workbench',
+                url: 'https://github.com/test-org/hs-buddy/issues/604',
+                state: 'open',
+                updatedAt: '2026-04-14T02:00:00Z',
+              },
+            ],
+            pullRequests: [
+              {
+                number: 605,
+                title: 'Build the repository workbench',
+                url: 'https://github.com/test-org/hs-buddy/pull/605',
+                state: 'draft',
+                updatedAt: '2026-04-14T03:00:00Z',
+              },
+            ],
+          },
+        ],
+        issuesAvailable: true,
+        pullRequestsAvailable: true,
+        hasMore: false,
+        fetchedAt: '2026-04-14T03:00:00Z',
+      }
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
+        ],
+        loading: false,
+      })
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(userOverview)
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      const codexHeading = await screen.findByRole('heading', { name: 'Codex Allowance' })
+      const activityHeading = screen.getByRole('heading', { name: 'Active repositories' })
+      expect(
+        codexHeading.compareDocumentPosition(activityHeading) & Node.DOCUMENT_POSITION_FOLLOWING
+      ).not.toBe(0)
+      expect(screen.getByText('#604')).toBeInTheDocument()
+      expect(screen.getByText('#605')).toBeInTheDocument()
+    })
+
     it('reports an unavailable Codex allowance in the namespace status', async () => {
       const userOverview = makePersonalOverview()
       orgMocks.useGitHubAccounts.mockReturnValue({
@@ -1487,9 +1547,9 @@ describe('OrgDetailPanel', () => {
     it('sorts members with equal commits by name when sorted by commits', async () => {
       const tiedOverview = makeOverview({
         topContributorsToday: [
-          { login: 'alice', commits: 10 },
-          { login: 'bob', commits: 10 },
-          { login: 'charlie', commits: 5 },
+          { login: 'alice', avatarUrl: null, url: null, commits: 10 },
+          { login: 'bob', avatarUrl: null, url: null, commits: 10 },
+          { login: 'charlie', avatarUrl: null, url: null, commits: 5 },
         ],
       })
       const tiedMembers = {

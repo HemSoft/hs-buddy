@@ -31,6 +31,7 @@ import { OVERAGE_COST_PER_CREDIT, formatCurrency } from './copilot-usage/quotaUt
 import { formatDistanceToNow, formatTime } from '../utils/dateUtils'
 import { sumBy } from '../utils/arrayUtils'
 import { RateLimitGauge } from './RateLimitGauge'
+import { ActiveRepositoriesSection } from './ActiveRepositoriesSection'
 import { useOrgCachedFetch } from '../hooks/useOrgCachedFetch'
 import { getCachedCopilotData, runCopilotFetch } from './orgCopilotFetch'
 import './CopilotUsagePanel.css'
@@ -79,6 +80,7 @@ function buildMetricsFromRepos(org: string, cachedRepos: OrgRepoResult): OrgOver
   return {
     authenticatedAs: cachedRepos.authenticatedAs,
     isUserNamespace: cachedRepos.isUserNamespace,
+    repositoryActivity: null,
     metrics: {
       org,
       repoCount: repos.length,
@@ -1803,6 +1805,14 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           hasFullOverview={hasFullOverview}
         />
       </div>
+
+      {overview.isUserNamespace ? (
+        <ActiveRepositoriesSection
+          org={org}
+          activity={overview.repositoryActivity ?? null}
+          phase={liveOverviewPhase}
+        />
+      ) : null}
 
       <SelectedMemberSpotlight
         selectedMember={selectedMember}

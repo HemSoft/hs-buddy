@@ -125,6 +125,13 @@ function makeOverview(overrides = {}) {
   }
 }
 
+function makePersonalOverview() {
+  const overview = makeOverview()
+  overview.authenticatedAs = 'test-org'
+  overview.isUserNamespace = true
+  return overview
+}
+
 function makeMembers() {
   return {
     members: [
@@ -283,8 +290,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('renders User Namespace kicker for user namespaces', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -453,8 +459,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('renders Copilot Quota header for user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -609,8 +614,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('does not render configured accounts or member roster for a user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
           { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
@@ -633,11 +637,10 @@ describe('OrgDetailPanel', () => {
     })
 
     it('hides configured account cards for a mixed user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
-          { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_codex' },
+          { username: 'test-org', org: 'test-org', usageProvider: 'codex', token: 'ghp_codex' },
           { username: 'bob', org: 'test-org', usageProvider: 'copilot', token: 'ghp_copilot' },
         ],
         loading: false,
@@ -656,6 +659,23 @@ describe('OrgDetailPanel', () => {
       expect(screen.queryByTestId('quota-card-alice')).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Configured Accounts' })).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Member Roster' })).not.toBeInTheDocument()
+    })
+
+    it('keeps configured accounts and member roster for another user namespace', async () => {
+      const userOverview = makeOverview()
+      userOverview.isUserNamespace = true
+      orgMocks.dataCacheGet.mockImplementation((key: string) => {
+        if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
+        if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+        return null
+      })
+      orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(userOverview)
+
+      render(<OrgDetailPanel org="test-org" />)
+
+      await waitFor(() => expect(screen.getByTestId('quota-card-alice')).toBeInTheDocument())
+      expect(screen.getByRole('heading', { name: 'Configured Accounts' })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Member Roster' })).toBeInTheDocument()
     })
 
     it('does not render section when no configured accounts', async () => {
@@ -986,8 +1006,7 @@ describe('OrgDetailPanel', () => {
 
   describe('copilot section branches', () => {
     it('renders Codex rolling allowances for an opted-in user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       const fetchUsage = vi.fn()
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
@@ -1039,8 +1058,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('reports an unavailable Codex allowance in the namespace status', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
           { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_test' },
@@ -1069,8 +1087,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('renders personal quota pulse for user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -1107,8 +1124,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('renders user namespace budget band with personal quota info', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -1179,8 +1195,7 @@ describe('OrgDetailPanel', () => {
     })
 
     it('renders personal quota waiting message for user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -1428,8 +1443,7 @@ describe('OrgDetailPanel', () => {
 
   describe('user namespace copilot reset', () => {
     it('skips copilot fetch and shows personal quota UI for user namespace', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -1522,8 +1536,7 @@ describe('OrgDetailPanel', () => {
 
   describe('overage calculation with negative remaining', () => {
     it('computes overage cost from negative remaining', async () => {
-      const userOverview = makeOverview()
-      userOverview.isUserNamespace = true
+      const userOverview = makePersonalOverview()
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }

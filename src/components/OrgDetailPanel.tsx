@@ -1715,6 +1715,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
+  const isPersonalNamespace =
+    overview.isUserNamespace && overview.authenticatedAs.toLowerCase() === org.toLowerCase()
+
   return (
     <div className="org-detail-container">
       <OrgDetailHero
@@ -1777,7 +1780,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      {overview.isUserNamespace ? null : (
+      {isPersonalNamespace ? null : (
         <>
           <OrgConfiguredAccountsSection
             configuredAccounts={configuredAccounts}

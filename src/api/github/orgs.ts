@@ -464,29 +464,39 @@ export async function fetchOrgOverview(
       const startOfDayIso = startOfDay.toISOString()
 
       const qualifier = isUserNamespace ? 'user' : 'org'
-      const [openIssuesResult, openPrsResult, recentIssuesResult, recentPrsResult] =
-        await Promise.allSettled([
-          octokit.search.issuesAndPullRequests({
-            q: `${qualifier}:${owner} is:issue is:open`,
-            per_page: 1,
-          }),
-          octokit.search.issuesAndPullRequests({
-            q: `${qualifier}:${owner} is:pr is:open`,
-            per_page: 1,
-          }),
-          octokit.search.issuesAndPullRequests({
-            q: `${qualifier}:${owner} is:issue`,
-            sort: 'updated',
-            order: 'desc',
-            per_page: 50,
-          }),
-          octokit.search.issuesAndPullRequests({
-            q: `${qualifier}:${owner} is:pr`,
-            sort: 'updated',
-            order: 'desc',
-            per_page: 50,
-          }),
-        ])
+      const countPromise = Promise.allSettled([
+        octokit.search.issuesAndPullRequests({
+          q: `${qualifier}:${owner} is:issue is:open`,
+          per_page: 1,
+        }),
+        octokit.search.issuesAndPullRequests({
+          q: `${qualifier}:${owner} is:pr is:open`,
+          per_page: 1,
+        }),
+      ])
+      const activityPromise = isUserNamespace
+        ? Promise.allSettled([
+            octokit.search.issuesAndPullRequests({
+              q: `${qualifier}:${owner} is:issue`,
+              sort: 'updated',
+              order: 'desc',
+              per_page: 50,
+            }),
+            octokit.search.issuesAndPullRequests({
+              q: `${qualifier}:${owner} is:pr`,
+              sort: 'updated',
+              order: 'desc',
+              per_page: 50,
+            }),
+          ]).then(([recentIssuesResult, recentPrsResult]) =>
+            buildRepositoryActivity(repos, recentIssuesResult, recentPrsResult)
+          )
+        : Promise.resolve(null)
+
+      const [[openIssuesResult, openPrsResult], repositoryActivity] = await Promise.all([
+        countPromise,
+        activityPromise,
+      ])
 
       const recentlyPushedRepos = repos.filter(
         repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
@@ -511,9 +521,7 @@ export async function fetchOrgOverview(
         ),
         authenticatedAs: username,
         isUserNamespace,
-        repositoryActivity: isUserNamespace
-          ? buildRepositoryActivity(repos, recentIssuesResult, recentPrsResult)
-          : null,
+        repositoryActivity,
       }
     },
     `fetch overview for '${owner}'`

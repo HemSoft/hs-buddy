@@ -726,6 +726,15 @@ function OrgConfiguredAccountsSection({
   )
 }
 
+function getSecondaryConfiguredAccounts(
+  configuredAccounts: GitHubAccount[],
+  codexAccount: GitHubAccount | null,
+  isUserNamespace: boolean
+): GitHubAccount[] {
+  if (!isUserNamespace || !codexAccount) return configuredAccounts
+  return configuredAccounts.filter(account => account !== codexAccount)
+}
+
 function useOrgOverviewData({
   accounts,
   org,
@@ -1717,6 +1726,11 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   const isPersonalNamespace =
     overview.isUserNamespace && overview.authenticatedAs.toLowerCase() === org.toLowerCase()
+  const secondaryConfiguredAccounts = getSecondaryConfiguredAccounts(
+    configuredAccounts,
+    codexAccount,
+    overview.isUserNamespace
+  )
 
   return (
     <div className="org-detail-container">
@@ -1783,7 +1797,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
       {isPersonalNamespace ? null : (
         <>
           <OrgConfiguredAccountsSection
-            configuredAccounts={configuredAccounts}
+            configuredAccounts={secondaryConfiguredAccounts}
             quotas={quotas}
             codexStates={codexStates}
           />

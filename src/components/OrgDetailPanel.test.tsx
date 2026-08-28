@@ -126,10 +126,24 @@ function makeOverview(overrides = {}) {
 }
 
 function makePersonalOverview() {
-  const overview = makeOverview()
-  overview.authenticatedAs = 'test-org'
-  overview.isUserNamespace = true
-  return overview
+  return Object.assign(makeOverview(), { authenticatedAs: 'test-org', isUserNamespace: true })
+}
+
+function makeExternalUserAccounts() {
+  return [
+    { username: 'alice', org: 'test-org', usageProvider: 'codex', token: 'ghp_codex' },
+    { username: 'bob', org: 'test-org', usageProvider: 'copilot', token: 'ghp_copilot' },
+  ]
+}
+
+function expectExternalUserNamespaceSections() {
+  const heading = screen.getByRole('heading', { name: 'Configured Accounts' })
+  const section = heading.closest('section')
+  expect(section).not.toBeNull()
+  expect(within(section!).getByTestId('quota-card-bob')).toBeInTheDocument()
+  expect(section!.querySelector('.codex-usage-card')).not.toBeInTheDocument()
+  expect(document.querySelectorAll('.codex-usage-card[data-account="alice"]')).toHaveLength(1)
+  expect(screen.getByRole('heading', { name: 'Member Roster' })).toBeInTheDocument()
 }
 
 function makeMembers() {
@@ -664,6 +678,10 @@ describe('OrgDetailPanel', () => {
     it('keeps configured accounts and member roster for another user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
+      orgMocks.useGitHubAccounts.mockReturnValue({
+        accounts: makeExternalUserAccounts(),
+        loading: false,
+      })
       orgMocks.dataCacheGet.mockImplementation((key: string) => {
         if (key === 'org-overview:test-org') return { data: userOverview, fetchedAt: Date.now() }
         if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
@@ -673,9 +691,8 @@ describe('OrgDetailPanel', () => {
 
       render(<OrgDetailPanel org="test-org" />)
 
-      await waitFor(() => expect(screen.getByTestId('quota-card-alice')).toBeInTheDocument())
-      expect(screen.getByRole('heading', { name: 'Configured Accounts' })).toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'Member Roster' })).toBeInTheDocument()
+      await waitFor(() => expect(screen.getByTestId('quota-card-bob')).toBeInTheDocument())
+      expectExternalUserNamespaceSections()
     })
 
     it('does not render section when no configured accounts', async () => {

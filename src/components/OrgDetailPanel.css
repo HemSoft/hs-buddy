@@ -4,11 +4,16 @@
   gap: 16px;
   height: 100%;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px;
   background:
     radial-gradient(circle at top right, rgba(224, 122, 95, 0.12), transparent 28%),
     radial-gradient(circle at top left, rgba(129, 178, 154, 0.14), transparent 24%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 28%);
+}
+
+.org-detail-container > * {
+  flex-shrink: 0;
 }
 
 .org-detail-loading,

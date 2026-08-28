@@ -107,10 +107,7 @@ function RepositoryCard({
   activity: RepositoryActivitySummary
 }) {
   return (
-    <article
-      className={`active-repos-card ${rank === 1 ? 'active-repos-card-featured' : ''}`}
-      aria-label={`Activity rank ${rank}: ${repository.name}`}
-    >
+    <article className="active-repos-card" aria-label={`Activity rank ${rank}: ${repository.name}`}>
       <div className="active-repos-card-header">
         <span className="active-repos-rank" aria-label={`Activity rank ${rank}`}>
           {rank.toString().padStart(2, '0')}

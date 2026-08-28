@@ -91,16 +91,18 @@
 
 .active-repos-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: 10px;
 }
 
 .active-repos-card {
   overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(129, 178, 154, 0.22);
   border-radius: 11px;
-  background: rgba(15, 18, 22, 0.42);
+  background:
+    linear-gradient(120deg, rgba(129, 178, 154, 0.08), transparent 38%), rgba(15, 18, 22, 0.55);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
   transition:
     border-color 0.15s ease,
     transform 0.15s ease;
@@ -111,15 +113,7 @@
   transform: translateY(-1px);
 }
 
-.active-repos-card-featured {
-  grid-column: 1 / -1;
-  border-color: rgba(129, 178, 154, 0.22);
-  background:
-    linear-gradient(120deg, rgba(129, 178, 154, 0.08), transparent 38%), rgba(15, 18, 22, 0.55);
-  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.12);
-}
-
-.active-repos-card-featured .active-repos-rank {
+.active-repos-card .active-repos-rank {
   background: rgba(129, 178, 154, 0.08);
   color: #9bc5ae;
 }
@@ -378,12 +372,8 @@
 
 .active-repos-skeleton {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-}
-
-.active-repos-skeleton-card:first-child {
-  grid-column: 1 / -1;
 }
 
 .active-repos-skeleton-card {
@@ -400,18 +390,6 @@
   border-radius: 7px;
   background: rgba(255, 255, 255, 0.035);
   animation: org-shimmer 1.5s ease-in-out infinite;
-}
-
-@container active-repositories (max-width: 1000px) {
-  .active-repos-list,
-  .active-repos-skeleton {
-    grid-template-columns: 1fr;
-  }
-
-  .active-repos-card-featured,
-  .active-repos-skeleton-card:first-child {
-    grid-column: auto;
-  }
 }
 
 @container active-repositories (max-width: 700px) {

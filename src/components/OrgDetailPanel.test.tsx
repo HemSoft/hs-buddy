@@ -650,12 +650,13 @@ describe('OrgDetailPanel', () => {
       expect(screen.queryByRole('heading', { name: 'Member Roster' })).not.toBeInTheDocument()
     })
 
-    it('hides configured account cards for a mixed user namespace', async () => {
-      const userOverview = makePersonalOverview()
+    it('hides personal sections when the namespace owner account is not first', async () => {
+      const userOverview = makeOverview()
+      userOverview.isUserNamespace = true
       orgMocks.useGitHubAccounts.mockReturnValue({
         accounts: [
+          { username: 'alice', org: 'test-org', usageProvider: 'copilot', token: 'ghp_copilot' },
           { username: 'test-org', org: 'test-org', usageProvider: 'codex', token: 'ghp_codex' },
-          { username: 'bob', org: 'test-org', usageProvider: 'copilot', token: 'ghp_copilot' },
         ],
         loading: false,
       })

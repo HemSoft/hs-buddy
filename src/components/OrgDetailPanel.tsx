@@ -735,6 +735,20 @@ function getSecondaryConfiguredAccounts(
   return configuredAccounts.filter(account => account !== codexAccount)
 }
 
+function isPersonalUserNamespace(
+  isUserNamespace: boolean,
+  authenticatedAs: string,
+  org: string,
+  configuredAccounts: GitHubAccount[]
+): boolean {
+  if (!isUserNamespace) return false
+  const normalizedOrg = org.toLowerCase()
+  return (
+    authenticatedAs.toLowerCase() === normalizedOrg ||
+    configuredAccounts.some(account => account.username.toLowerCase() === normalizedOrg)
+  )
+}
+
 function useOrgOverviewData({
   accounts,
   org,
@@ -1724,8 +1738,12 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
-  const isPersonalNamespace =
-    overview.isUserNamespace && overview.authenticatedAs.toLowerCase() === org.toLowerCase()
+  const isPersonalNamespace = isPersonalUserNamespace(
+    overview.isUserNamespace,
+    overview.authenticatedAs,
+    org,
+    configuredAccounts
+  )
   const secondaryConfiguredAccounts = getSecondaryConfiguredAccounts(
     configuredAccounts,
     codexAccount,

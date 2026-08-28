@@ -726,6 +726,29 @@ function OrgConfiguredAccountsSection({
   )
 }
 
+function getSecondaryConfiguredAccounts(
+  configuredAccounts: GitHubAccount[],
+  codexAccount: GitHubAccount | null,
+  isUserNamespace: boolean
+): GitHubAccount[] {
+  if (!isUserNamespace || !codexAccount) return configuredAccounts
+  return configuredAccounts.filter(account => account !== codexAccount)
+}
+
+function isPersonalUserNamespace(
+  isUserNamespace: boolean,
+  authenticatedAs: string,
+  org: string,
+  configuredAccounts: GitHubAccount[]
+): boolean {
+  if (!isUserNamespace) return false
+  const normalizedOrg = org.toLowerCase()
+  return (
+    authenticatedAs.toLowerCase() === normalizedOrg ||
+    configuredAccounts.some(account => account.username.toLowerCase() === normalizedOrg)
+  )
+}
+
 function useOrgOverviewData({
   accounts,
   org,
@@ -1715,10 +1738,17 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
-  const secondaryConfiguredAccounts =
-    overview.isUserNamespace && codexAccount
-      ? configuredAccounts.filter(account => account !== codexAccount)
-      : configuredAccounts
+  const isPersonalNamespace = isPersonalUserNamespace(
+    overview.isUserNamespace,
+    overview.authenticatedAs,
+    org,
+    configuredAccounts
+  )
+  const secondaryConfiguredAccounts = getSecondaryConfiguredAccounts(
+    configuredAccounts,
+    codexAccount,
+    overview.isUserNamespace
+  )
 
   return (
     <div className="org-detail-container">
@@ -1782,25 +1812,29 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      <OrgConfiguredAccountsSection
-        configuredAccounts={secondaryConfiguredAccounts}
-        quotas={quotas}
-        codexStates={codexStates}
-      />
+      {isPersonalNamespace ? null : (
+        <>
+          <OrgConfiguredAccountsSection
+            configuredAccounts={secondaryConfiguredAccounts}
+            quotas={quotas}
+            codexStates={codexStates}
+          />
 
-      <MemberRosterSection
-        org={org}
-        memberLogin={memberLogin}
-        members={members}
-        filteredMembers={filteredMembers}
-        contributorMap={contributorMap}
-        configuredLogins={configuredLogins}
-        rosterFilter={rosterFilter}
-        rosterSort={rosterSort}
-        rosterCounts={rosterCounts}
-        onFilterChange={setRosterFilter}
-        onSortChange={setRosterSort}
-      />
+          <MemberRosterSection
+            org={org}
+            memberLogin={memberLogin}
+            members={members}
+            filteredMembers={filteredMembers}
+            contributorMap={contributorMap}
+            configuredLogins={configuredLogins}
+            rosterFilter={rosterFilter}
+            rosterSort={rosterSort}
+            rosterCounts={rosterCounts}
+            onFilterChange={setRosterFilter}
+            onSortChange={setRosterSort}
+          />
+        </>
+      )}
     </div>
   )
 }

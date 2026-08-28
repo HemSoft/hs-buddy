@@ -2,6 +2,7 @@ import type { PRConfig } from '../../types/pullRequest'
 import { type Octokit, withFirstAvailableAccount, fetchUserNames, pickFirst } from './shared'
 import { isNotFoundError } from '../../utils/errorUtils'
 import { sumBy } from '../../utils/arrayUtils'
+import { buildRepositoryActivity, type RepositoryActivitySummary } from './repositoryActivity'
 
 // ─── Types ────────────────────────────────────────────────────────────
 
@@ -93,6 +94,7 @@ export interface OrgOverviewResult {
   metrics: OrgOverviewMetrics
   authenticatedAs: string
   isUserNamespace: boolean
+  repositoryActivity?: RepositoryActivitySummary | null
 }
 
 // ─── Constants ────────────────────────────────────────────────────────
@@ -462,16 +464,29 @@ export async function fetchOrgOverview(
       const startOfDayIso = startOfDay.toISOString()
 
       const qualifier = isUserNamespace ? 'user' : 'org'
-      const [openIssuesResult, openPrsResult] = await Promise.allSettled([
-        octokit.search.issuesAndPullRequests({
-          q: `${qualifier}:${owner} is:issue is:open`,
-          per_page: 1,
-        }),
-        octokit.search.issuesAndPullRequests({
-          q: `${qualifier}:${owner} is:pr is:open`,
-          per_page: 1,
-        }),
-      ])
+      const [openIssuesResult, openPrsResult, recentIssuesResult, recentPrsResult] =
+        await Promise.allSettled([
+          octokit.search.issuesAndPullRequests({
+            q: `${qualifier}:${owner} is:issue is:open`,
+            per_page: 1,
+          }),
+          octokit.search.issuesAndPullRequests({
+            q: `${qualifier}:${owner} is:pr is:open`,
+            per_page: 1,
+          }),
+          octokit.search.issuesAndPullRequests({
+            q: `${qualifier}:${owner} is:issue`,
+            sort: 'updated',
+            order: 'desc',
+            per_page: 50,
+          }),
+          octokit.search.issuesAndPullRequests({
+            q: `${qualifier}:${owner} is:pr`,
+            sort: 'updated',
+            order: 'desc',
+            per_page: 50,
+          }),
+        ])
 
       const recentlyPushedRepos = repos.filter(
         repo => repo.pushedAt && new Date(repo.pushedAt).getTime() >= startOfDay.getTime()
@@ -496,6 +511,9 @@ export async function fetchOrgOverview(
         ),
         authenticatedAs: username,
         isUserNamespace,
+        repositoryActivity: isUserNamespace
+          ? buildRepositoryActivity(repos, recentIssuesResult, recentPrsResult)
+          : null,
       }
     },
     `fetch overview for '${owner}'`

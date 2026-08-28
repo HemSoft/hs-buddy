@@ -46,6 +46,11 @@ export {
   type TeamMembersResult,
   type OrgOverviewResult,
 } from './orgs'
+export {
+  type RepositoryActivityItem,
+  type ActiveRepositoryActivity,
+  type RepositoryActivitySummary,
+} from './repositoryActivity'
 
 // ── Users ───────────────────────────────────────────────────────────────────
 export {

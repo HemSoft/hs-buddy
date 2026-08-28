@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve over-limit Codex projections
 - Distribute Codex weekly metrics evenly (#600)
+- Hide personal namespace account sections (#601)
 
 ## [0.1.1054] - 2026-08-27
 

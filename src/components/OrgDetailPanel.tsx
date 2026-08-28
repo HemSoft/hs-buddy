@@ -1715,11 +1715,6 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
 
   if (!overview) return null
 
-  const secondaryConfiguredAccounts =
-    overview.isUserNamespace && codexAccount
-      ? configuredAccounts.filter(account => account !== codexAccount)
-      : configuredAccounts
-
   return (
     <div className="org-detail-container">
       <OrgDetailHero
@@ -1782,25 +1777,29 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
         selectedMemberCodexState={selectedMemberCodexState}
       />
 
-      <OrgConfiguredAccountsSection
-        configuredAccounts={secondaryConfiguredAccounts}
-        quotas={quotas}
-        codexStates={codexStates}
-      />
+      {overview.isUserNamespace ? null : (
+        <>
+          <OrgConfiguredAccountsSection
+            configuredAccounts={configuredAccounts}
+            quotas={quotas}
+            codexStates={codexStates}
+          />
 
-      <MemberRosterSection
-        org={org}
-        memberLogin={memberLogin}
-        members={members}
-        filteredMembers={filteredMembers}
-        contributorMap={contributorMap}
-        configuredLogins={configuredLogins}
-        rosterFilter={rosterFilter}
-        rosterSort={rosterSort}
-        rosterCounts={rosterCounts}
-        onFilterChange={setRosterFilter}
-        onSortChange={setRosterSort}
-      />
+          <MemberRosterSection
+            org={org}
+            memberLogin={memberLogin}
+            members={members}
+            filteredMembers={filteredMembers}
+            contributorMap={contributorMap}
+            configuredLogins={configuredLogins}
+            rosterFilter={rosterFilter}
+            rosterSort={rosterSort}
+            rosterCounts={rosterCounts}
+            onFilterChange={setRosterFilter}
+            onSortChange={setRosterSort}
+          />
+        </>
+      )}
     </div>
   )
 }

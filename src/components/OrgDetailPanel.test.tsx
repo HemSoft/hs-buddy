@@ -608,7 +608,7 @@ describe('OrgDetailPanel', () => {
       expect(screen.getByRole('heading', { name: 'Configured Accounts' })).toBeInTheDocument()
     })
 
-    it('does not render the duplicate section for a user namespace', async () => {
+    it('does not render configured accounts or member roster for a user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
       orgMocks.useGitHubAccounts.mockReturnValue({
@@ -629,9 +629,10 @@ describe('OrgDetailPanel', () => {
       await waitFor(() => expect(screen.getByText('User Namespace')).toBeInTheDocument())
       expect(screen.queryByTestId('quota-card-alice')).not.toBeInTheDocument()
       expect(screen.queryByRole('heading', { name: 'Configured Accounts' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Member Roster' })).not.toBeInTheDocument()
     })
 
-    it('keeps separate Copilot accounts visible for a mixed user namespace', async () => {
+    it('hides configured account cards for a mixed user namespace', async () => {
       const userOverview = makeOverview()
       userOverview.isUserNamespace = true
       orgMocks.useGitHubAccounts.mockReturnValue({
@@ -650,9 +651,11 @@ describe('OrgDetailPanel', () => {
 
       render(<OrgDetailPanel org="test-org" />)
 
-      await waitFor(() => expect(screen.getByTestId('quota-card-bob')).toBeInTheDocument())
+      await waitFor(() => expect(screen.getByText('User Namespace')).toBeInTheDocument())
+      expect(screen.queryByTestId('quota-card-bob')).not.toBeInTheDocument()
       expect(screen.queryByTestId('quota-card-alice')).not.toBeInTheDocument()
-      expect(screen.getByRole('heading', { name: 'Configured Accounts' })).toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Configured Accounts' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('heading', { name: 'Member Roster' })).not.toBeInTheDocument()
     })
 
     it('does not render section when no configured accounts', async () => {

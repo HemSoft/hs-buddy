@@ -82,6 +82,32 @@ it('uses the newest item across both lanes and preserves pull-request states', (
   expect(result.hasMore).toBe(true)
 })
 
+it('sorts open work before completed work, then sorts each group by recency', () => {
+  const issues = fulfilled([
+    makeItem('buddy', 4, '2026-08-27T14:00:00Z', { state: 'closed' }),
+    makeItem('buddy', 1, '2026-08-27T10:00:00Z'),
+    makeItem('buddy', 2, '2026-08-27T12:00:00Z'),
+  ])
+  const pullRequests = fulfilled([
+    makeItem('buddy', 8, '2026-08-27T15:00:00Z', {
+      state: 'closed',
+      pull_request: { merged_at: '2026-08-27T15:00:00Z' },
+    }),
+    makeItem('buddy', 5, '2026-08-27T11:00:00Z', {
+      draft: true,
+      pull_request: { merged_at: null },
+    }),
+    makeItem('buddy', 6, '2026-08-27T13:00:00Z', {
+      pull_request: { merged_at: null },
+    }),
+  ])
+
+  const result = buildRepositoryActivity([makeRepo('buddy')], issues, pullRequests)
+
+  expect(result.repositories[0].issues.map(item => item.number)).toEqual([2, 1, 4])
+  expect(result.repositories[0].pullRequests.map(item => item.number)).toEqual([6, 5, 8])
+})
+
 it('keeps the available lane when the other activity search fails', () => {
   const rejected = {
     status: 'rejected',
@@ -119,4 +145,17 @@ it('limits each lane to four newest items and the workbench to six repositories'
   expect(result.repositories).toHaveLength(6)
   expect(result.repositories.every(repo => repo.issues.length === 4)).toBe(true)
   expect(result.hasMore).toBe(true)
+})
+
+it('applies the lane limit after prioritizing open work', () => {
+  const issues = fulfilled([
+    makeItem('buddy', 9, '2026-08-27T15:00:00Z', { state: 'closed' }),
+    ...Array.from({ length: 4 }, (_, index) =>
+      makeItem('buddy', index + 1, `2026-08-27T0${index + 1}:00:00Z`)
+    ),
+  ])
+
+  const result = buildRepositoryActivity([makeRepo('buddy')], issues, fulfilled([]))
+
+  expect(result.repositories[0].issues.map(item => item.number)).toEqual([4, 3, 2, 1])
 })

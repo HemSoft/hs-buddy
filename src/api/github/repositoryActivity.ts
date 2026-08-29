@@ -39,7 +39,11 @@ type ActivitySearchResponse = Awaited<ReturnType<Octokit['search']['issuesAndPul
 type ActivitySearchItem = ActivitySearchResponse['data']['items'][number]
 
 function compareActivityItems(left: RepositoryActivityItem, right: RepositoryActivityItem): number {
+  const leftIsOpen = left.state === 'open' || left.state === 'draft'
+  const rightIsOpen = right.state === 'open' || right.state === 'draft'
+
   return (
+    Number(rightIsOpen) - Number(leftIsOpen) ||
     new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime() ||
     right.number - left.number
   )

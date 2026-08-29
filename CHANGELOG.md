@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1063] - 2026-08-29
+
+### Added
+
+- Prioritize open repository activity (#610)
+
 ## [0.1.1062] - 2026-08-28
 
 ### Fixed

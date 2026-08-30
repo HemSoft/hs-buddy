@@ -52,6 +52,17 @@ test.describe('Bookmarks - Loading & Connectivity', () => {
     await expect(page.locator('.activity-bar')).toBeVisible()
     await expect(page.locator('.status-bar')).toBeVisible()
   })
+
+  test('should replace stalled bookmark loading with a retryable error', async ({ page }) => {
+    await waitForAppReady(page)
+
+    await page.getByRole('button', { name: 'Bookmarks', exact: true }).click()
+    await page.getByText('All Bookmarks', { exact: true }).click()
+
+    await expect(page.getByText('Loading bookmarks…')).toHaveCount(2)
+    await expect(page.getByText('Unable to load bookmarks')).toHaveCount(2, { timeout: 12_000 })
+    await expect(page.getByRole('button', { name: 'Retry' })).toHaveCount(2)
+  })
 })
 
 test.describe('Bookmarks - Core Interactions', () => {

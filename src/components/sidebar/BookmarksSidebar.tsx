@@ -4,12 +4,18 @@ import { useBookmarks, useBookmarkCategories, useBookmarkMutations } from '../..
 import { useToggleSet } from '../../hooks/useToggleSet'
 import { onKeyboardActivate } from '../../utils/keyboard'
 import { BookmarkDialog } from '../bookmarks/BookmarkDialog'
+import { BookmarkLoadState } from '../bookmarks/BookmarkLoadState'
+import { useBookmarkLoadTimeout } from '../bookmarks/useBookmarkLoadTimeout'
 import type { Id } from '../../../convex/_generated/dataModel'
 import { isSafeImageUrl, buildCategoryTree, type CategoryNode } from './bookmarksSidebarUtils'
 
 interface BookmarksSidebarProps {
   onItemSelect: (itemId: string) => void
   selectedItem: string | null
+}
+
+interface BookmarksSidebarContentProps extends BookmarksSidebarProps {
+  onRetry: () => void
 }
 
 type BookmarkRecord = NonNullable<ReturnType<typeof useBookmarks>>[number]
@@ -653,7 +659,11 @@ function buildBookmarksByCategory(bookmarks: readonly BookmarkRecord[] | undefin
   return map
 }
 
-export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSidebarProps) {
+function BookmarksSidebarContent({
+  onItemSelect,
+  selectedItem,
+  onRetry,
+}: BookmarksSidebarContentProps) {
   const { has: isSectionExpanded, toggle: toggleSection } = useToggleSet()
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null)
   const [editingBookmark, setEditingBookmark] = useState<BookmarkRecord | null>(null)
@@ -662,6 +672,7 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   const bookmarks = useBookmarks()
   const categories = useBookmarkCategories()
   const { reorder } = useBookmarkMutations()
+  const loadTimedOut = useBookmarkLoadTimeout(bookmarks === undefined)
 
   const closeContextMenu = useCallback(() => setContextMenu(null), [])
   const closeBookmarkDialog = useCallback(() => setEditingBookmark(null), [])
@@ -758,6 +769,28 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
   )
   const bookmarksByCategory = useMemo(() => buildBookmarksByCategory(bookmarks), [bookmarks])
 
+  if (bookmarks === undefined) {
+    return (
+      <div className="sidebar-panel">
+        <BookmarksHeader totalCount={0} />
+        <div className="sidebar-panel-content">
+          <BookmarkLoadState timedOut={loadTimedOut} onRetry={onRetry} />
+        </div>
+        <BookmarksContextMenu
+          contextMenu={contextMenu}
+          menuRef={menuRef}
+          closeContextMenu={closeContextMenu}
+          onEdit={handleEditBookmark}
+        />
+        <BookmarkEditorDialog
+          editingBookmark={editingBookmark}
+          categories={categories}
+          onClose={closeBookmarkDialog}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="sidebar-panel">
       <BookmarksHeader totalCount={totalCount} />
@@ -787,5 +820,18 @@ export function BookmarksSidebar({ onItemSelect, selectedItem }: BookmarksSideba
         onClose={closeBookmarkDialog}
       />
     </div>
+  )
+}
+
+export function BookmarksSidebar(props: BookmarksSidebarProps) {
+  const [retryKey, setRetryKey] = useState(0)
+  return (
+    <BookmarksSidebarContent
+      key={retryKey}
+      {...props}
+      onRetry={() => {
+        setRetryKey(current => current + 1)
+      }}
+    />
   )
 }

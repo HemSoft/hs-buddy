@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Preserve validated local guidance
 
+### Fixed
+
+- Replace stalled loading with retry (#612)
+
 ## [0.1.1063] - 2026-08-29
 
 ### Added

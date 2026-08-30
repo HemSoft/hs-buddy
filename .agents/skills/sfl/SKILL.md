@@ -1,10 +1,9 @@
 ---
 name: sfl
 description: >
-  Commands: create-issue, status, explain, labels. SFL skill for interacting with the
-  Set it Free Loop — create properly labeled issues, check pipeline status, and understand
-  the SFL system. Use when the user mentions SFL, wants to create an agent-fixable issue,
-  or asks about the automated quality loop.
+  Commands: create-issue, status, explain, labels. Explicitly invoked SFL workflow for
+  creating SFL issues, checking pipeline status, and explaining the Set it Free Loop.
+disable-model-invocation: true
 ---
 
 # SFL — Set it Free Loop Skill

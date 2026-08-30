@@ -68,6 +68,13 @@ This sets `BUDDY_DEBUG_PORT=9222` and launches via Aspire orchestration
 (Convex + Vite/Electron). The app's `electron/main.ts` reads this env var
 and calls `app.commandLine.appendSwitch('remote-debugging-port', port)`.
 
+Before launching, compare `aspire --version` with `sdk.version` in
+`aspire.config.json`. If a mismatched global CLI fails with a missing code
+generator or binary-mismatch error, prepend the directory containing a CLI
+that matches the pinned SDK to `PATH`, then rerun the debug script. Calling the
+matching CLI directly is an acceptable fallback when the script cannot start.
+Do not change the repository's pinned SDK version to accommodate a global CLI.
+
 ## Connecting via Playwright MCP (Preferred — Full Electron Context)
 
 ### Configuration

@@ -53,7 +53,11 @@ test.describe('Bookmarks - Loading & Connectivity', () => {
     await expect(page.locator('.status-bar')).toBeVisible()
   })
 
-  test('should replace stalled bookmark loading with a retryable error', async ({ page }) => {
+  test('should replace stalled bookmark loading with a retryable error', async ({
+    page,
+  }, testInfo) => {
+    test.skip(testInfo.project.name === 'electron-cdp', 'Requires browser E2E Convex mocks')
+
     await waitForAppReady(page)
 
     await page.getByRole('button', { name: 'Bookmarks', exact: true }).click()

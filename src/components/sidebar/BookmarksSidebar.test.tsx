@@ -1,5 +1,5 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react'
 import {
   BookmarksSidebar,
   resolveDialogCategories,
@@ -10,6 +10,7 @@ import {
   handleCategoryChevronKeyDown,
 } from './BookmarksSidebar'
 import { isSafeImageUrl, buildCategoryTree } from './bookmarksSidebarUtils'
+import { BOOKMARK_LOAD_TIMEOUT_MS } from '../bookmarks/useBookmarkLoadTimeout'
 
 const { mockUseBookmarks, mockUseBookmarkCategories, mockUseBookmarkMutations } = vi.hoisted(
   () => ({
@@ -69,6 +70,8 @@ describe('BookmarksSidebar', () => {
     mockUseBookmarkCategories.mockReturnValue(['Dev Tools', 'Documentation'])
     mockUseBookmarkMutations.mockReturnValue({ reorder: vi.fn() })
   })
+
+  afterEach(() => vi.useRealTimers())
 
   it('renders categories with bookmarks and selects a category', () => {
     const onItemSelect = vi.fn()
@@ -299,6 +302,35 @@ describe('BookmarksSidebar', () => {
 
     render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
     expect(screen.getByText('BOOKMARKS')).toBeInTheDocument()
+    expect(screen.getByText('Loading bookmarks…')).toBeInTheDocument()
+    expect(screen.queryByText('No bookmarks yet')).not.toBeInTheDocument()
+  })
+
+  it('shows the shared retryable error when bookmark loading stalls', async () => {
+    vi.useFakeTimers()
+    mockUseBookmarks.mockReturnValue(undefined)
+    mockUseBookmarkCategories.mockReturnValue(undefined)
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+
+    await act(async () => vi.advanceTimersByTime(BOOKMARK_LOAD_TIMEOUT_MS))
+
+    expect(screen.getByText('Unable to load bookmarks')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+
+  it('remounts bookmark queries and renders recovered sidebar data on retry', async () => {
+    vi.useFakeTimers()
+    mockUseBookmarks.mockReturnValue(undefined)
+    mockUseBookmarkCategories.mockReturnValue(undefined)
+    render(<BookmarksSidebar onItemSelect={vi.fn()} selectedItem={null} />)
+    await act(async () => vi.advanceTimersByTime(BOOKMARK_LOAD_TIMEOUT_MS))
+
+    mockUseBookmarks.mockReturnValue(defaultBookmarks)
+    mockUseBookmarkCategories.mockReturnValue(['Dev Tools', 'Documentation'])
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(screen.getByText('Dev Tools')).toBeInTheDocument()
+    expect(screen.queryByText('Unable to load bookmarks')).not.toBeInTheDocument()
   })
 
   it('supports drag and drop on bookmarks', () => {

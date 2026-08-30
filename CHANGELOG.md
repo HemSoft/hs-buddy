@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Preserve validated local guidance
+- Scope timeout regression to browser e2e
+
+### Fixed
+
+- Replace stalled loading with retry (#612)
 
 ## [0.1.1063] - 2026-08-29
 

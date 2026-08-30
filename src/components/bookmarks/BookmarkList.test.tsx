@@ -1,6 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { BookmarkList } from './BookmarkList'
+import { BOOKMARK_LOAD_TIMEOUT_MS } from './useBookmarkLoadTimeout'
 
 const mockCreate = vi.fn()
 const mockUpdate = vi.fn()
@@ -59,10 +60,37 @@ describe('BookmarkList', () => {
     }
   })
 
+  afterEach(() => vi.useRealTimers())
+
   it('renders loading state when data is undefined', () => {
     mockBookmarksReturn = undefined
     render(<BookmarkList />)
     expect(screen.getByText('Loading bookmarks…')).toBeInTheDocument()
+  })
+
+  it('replaces stalled loading with a retryable error', async () => {
+    vi.useFakeTimers()
+    mockBookmarksReturn = undefined
+    render(<BookmarkList />)
+
+    await act(async () => vi.advanceTimersByTime(BOOKMARK_LOAD_TIMEOUT_MS))
+
+    expect(screen.queryByText('Loading bookmarks…')).not.toBeInTheDocument()
+    expect(screen.getByText('Unable to load bookmarks')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+
+  it('restarts the bookmark query and renders recovered data on retry', async () => {
+    vi.useFakeTimers()
+    mockBookmarksReturn = undefined
+    render(<BookmarkList />)
+    await act(async () => vi.advanceTimersByTime(BOOKMARK_LOAD_TIMEOUT_MS))
+
+    mockBookmarksReturn = []
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }))
+
+    expect(screen.getByText('No bookmarks yet')).toBeInTheDocument()
+    expect(screen.queryByText('Unable to load bookmarks')).not.toBeInTheDocument()
   })
 
   it('renders empty state when no bookmarks exist', () => {

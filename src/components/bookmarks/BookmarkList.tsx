@@ -1,10 +1,12 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { Plus, Search, ExternalLink, Pencil, Trash2, Globe, Tag, FolderOpen, X } from 'lucide-react'
 import { useBookmarkListState, type Bookmark } from '../../hooks/useBookmarkListState'
 
 type BookmarkDispatch = ReturnType<typeof useBookmarkListState>['dispatch']
 import { BookmarkDialog } from './BookmarkDialog'
 import { ConfirmDialog } from '../ConfirmDialog'
+import { BookmarkLoadState } from './BookmarkLoadState'
+import { useBookmarkLoadTimeout } from './useBookmarkLoadTimeout'
 import './BookmarkList.css'
 
 interface BookmarkCardProps {
@@ -283,6 +285,10 @@ interface BookmarkListProps {
   onOpenTab?: (viewId: string) => void
 }
 
+interface BookmarkListContentProps extends BookmarkListProps {
+  onRetry: () => void
+}
+
 function resolveOptionalDialogText(value: string | null): string | undefined {
   return value ?? undefined
 }
@@ -385,7 +391,7 @@ function BookmarkDialogs({
   )
 }
 
-export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
+function BookmarkListContent({ filterCategory, onOpenTab, onRetry }: BookmarkListContentProps) {
   const {
     state,
     dispatch,
@@ -400,6 +406,7 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
     handleDrop,
     hasFilters,
   } = useBookmarkListState(filterCategory)
+  const loadTimedOut = useBookmarkLoadTimeout(allBookmarks === undefined)
 
   const handleOpen = useCallback(
     (bookmark: Bookmark) => {
@@ -424,12 +431,7 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
   )
 
   if (allBookmarks === undefined) {
-    return (
-      <div className="bookmark-list-loading">
-        <div className="bookmark-list-spinner" />
-        <span>Loading bookmarks…</span>
-      </div>
-    )
+    return <BookmarkLoadState timedOut={loadTimedOut} onRetry={onRetry} />
   }
 
   return (
@@ -489,5 +491,18 @@ export function BookmarkList({ filterCategory, onOpenTab }: BookmarkListProps) {
         handleDelete={handleDelete}
       />
     </div>
+  )
+}
+
+export function BookmarkList(props: BookmarkListProps) {
+  const [retryKey, setRetryKey] = useState(0)
+  return (
+    <BookmarkListContent
+      key={retryKey}
+      {...props}
+      onRetry={() => {
+        setRetryKey(current => current + 1)
+      }}
+    />
   )
 }

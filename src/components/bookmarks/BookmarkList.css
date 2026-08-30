@@ -302,32 +302,6 @@
   color: var(--accent-error);
 }
 
-/* Loading */
-.bookmark-list-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  gap: 12px;
-  color: var(--text-secondary);
-}
-
-.bookmark-list-spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid var(--border-primary);
-  border-top-color: var(--accent-primary);
-  border-radius: 50%;
-  animation: bookmark-spin 0.8s linear infinite;
-}
-
-@keyframes bookmark-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 /* Empty state */
 .bookmark-list-empty {
   display: flex;

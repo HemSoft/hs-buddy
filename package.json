@@ -123,7 +123,7 @@
     "@vitest/coverage-v8": "4.1.11",
     "convex-test": "0.0.56",
     "dependency-cruiser": "^18.1.0",
-    "electron": "^43.0.0",
+    "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",

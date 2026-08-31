@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Validate Convex dependencies before debug startup (#617)
 
+### Added
+
+- Add active repositories refresh (#619)
+
 ## [0.1.1064] - 2026-08-30
 
 ### Changed

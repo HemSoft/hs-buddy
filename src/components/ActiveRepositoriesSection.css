@@ -54,6 +54,8 @@
 .active-repos-header-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   color: var(--text-secondary);
   font-size: 10px;
@@ -87,6 +89,18 @@
 .active-repos-header-meta button:hover {
   border-color: rgba(129, 178, 154, 0.52);
   background: rgba(129, 178, 154, 0.13);
+}
+
+.active-repos-header-meta button:disabled {
+  border-color: rgba(129, 178, 154, 0.14);
+  background: rgba(129, 178, 154, 0.035);
+  color: var(--text-secondary);
+  cursor: wait;
+}
+
+.active-repos-refresh-button {
+  min-width: 68px;
+  justify-content: center;
 }
 
 .active-repos-list {
@@ -396,6 +410,10 @@
   .active-repos-section-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .active-repos-header-meta {
+    justify-content: flex-start;
   }
 
   .active-repos-lanes,

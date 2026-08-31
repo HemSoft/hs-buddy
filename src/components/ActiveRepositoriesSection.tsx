@@ -19,6 +19,7 @@ interface ActiveRepositoriesSectionProps {
   org: string
   activity: RepositoryActivitySummary | null
   phase: LoadPhase
+  onRefresh: () => void
 }
 
 function openExternal(url: string) {
@@ -211,6 +212,7 @@ export function ActiveRepositoriesSection({
   org,
   activity,
   phase,
+  onRefresh,
 }: ActiveRepositoriesSectionProps) {
   const isRefreshing = phase === 'refreshing'
 
@@ -239,6 +241,19 @@ export function ActiveRepositoriesSection({
           ) : activity ? (
             <span>Updated {formatDistanceToNow(activity.fetchedAt)}</span>
           ) : null}
+          <button
+            type="button"
+            className="active-repos-refresh-button"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            aria-label={
+              isRefreshing ? 'Refreshing active repositories' : 'Refresh active repositories'
+            }
+            aria-busy={isRefreshing}
+          >
+            <RefreshCw aria-hidden="true" className={isRefreshing ? 'spin' : undefined} size={12} />
+            Refresh
+          </button>
           {activity?.hasMore ? (
             <button
               type="button"

@@ -1281,6 +1281,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     copilotError: namespaceUsage.error,
     copilotUsage: copilotData.copilotUsage,
     fetchAll,
+    fetchOverview,
     hasFullOverview: overviewData.hasFullOverview,
     isInitialLoading,
     isUpdating,
@@ -1665,6 +1666,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
     copilotError,
     copilotUsage,
     fetchAll,
+    fetchOverview,
     hasFullOverview,
     isInitialLoading,
     isUpdating,
@@ -1811,6 +1813,9 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           org={org}
           activity={overview.repositoryActivity ?? null}
           phase={liveOverviewPhase}
+          onRefresh={() => {
+            void fetchOverview(true)
+          }}
         />
       ) : null}
 

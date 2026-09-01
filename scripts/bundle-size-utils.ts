@@ -1,3 +1,7 @@
+import { ImportType, initSync, parse } from 'es-module-lexer'
+
+initSync()
+
 export interface BundleEntry {
   file: string
   sizeBytes: number
@@ -49,19 +53,29 @@ export function parseInitialHtmlAssets(html: string): string[] {
 }
 
 export function parseStaticModuleImports(source: string): string[] {
-  const imports = new Set<string>()
-  const fromPattern = /\b(?:import|export)\s*(?!\s*\()[^"'();]*?\bfrom\s*(["'])([^"']+)\1/g
-  const sideEffectPattern = /\bimport\s*(?!\s*\()(["'])([^"']+)\1/g
-
-  for (const pattern of [fromPattern, sideEffectPattern]) {
-    for (const match of source.matchAll(pattern)) imports.add(match[2])
-  }
-
-  return [...imports]
+  const [imports] = parse(source)
+  return [
+    ...new Set(
+      imports.flatMap(record =>
+        record.n &&
+        (record.t === ImportType.Static ||
+          record.t === ImportType.StaticSourcePhase ||
+          record.t === ImportType.StaticDeferPhase)
+          ? [record.n]
+          : []
+      )
+    ),
+  ]
 }
 
 export function parseStaticCssImports(source: string): string[] {
-  return [...source.matchAll(/@import\s+(?:url\(\s*)?["']([^"']+)["']/g)].map(match => match[1])
+  const withoutComments = source.replace(/\/\*[\s\S]*?\*\//g, '')
+  const pattern =
+    /@import\s+(?:url\(\s*(?:"([^"]+)"|'([^']+)'|([^\s)'";]+))\s*\)|"([^"]+)"|'([^']+)')/gi
+  return [...withoutComments.matchAll(pattern)].flatMap(match => {
+    const specifier = match.slice(1).find(Boolean)
+    return specifier ? [specifier] : []
+  })
 }
 
 export function resolveInitialAssetImport(importer: string, specifier: string): string | null {

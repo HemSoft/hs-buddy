@@ -1,6 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { featureRouteLoaders } from './AppContentLazyRoutes'
-import { assistantPanelLoader } from './AppLazyPanels'
 
 describe('lazy application modules', () => {
   it.each(Object.entries(featureRouteLoaders))(
@@ -12,9 +11,24 @@ describe('lazy application modules', () => {
     }
   )
 
-  it('resolves the assistant panel outside the startup graph', async () => {
-    const module = await assistantPanelLoader()
+  it('does not load the assistant panel until its loader runs', async () => {
+    let assistantModuleLoads = 0
+    vi.resetModules()
+    vi.doMock('./AssistantPanel', () => {
+      assistantModuleLoads += 1
+      return { AssistantPanel: () => null }
+    })
 
-    expect(module.default).toBeDefined()
+    try {
+      const { assistantPanelLoader } = await import('./AppLazyPanels')
+      expect(assistantModuleLoads).toBe(0)
+
+      const module = await assistantPanelLoader()
+      expect(assistantModuleLoads).toBe(1)
+      expect(module.default).toBeDefined()
+    } finally {
+      vi.doUnmock('./AssistantPanel')
+      vi.resetModules()
+    }
   })
 })

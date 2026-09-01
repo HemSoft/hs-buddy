@@ -116,6 +116,10 @@ function verifyDynamicEntriesStayLazy(
   >
   const initialFiles = new Set(initialGraph.map(asset => asset.file.replace(/^dist\//, '')))
   const dynamicEntries = Object.values(manifest).filter(entry => entry.isDynamicEntry)
+  if (dynamicEntries.length === 0) {
+    console.error('Renderer manifest contains no dynamic entries; feature routes may be eager.')
+    return true
+  }
   const eagerlyLoaded = dynamicEntries.flatMap(entry =>
     [entry.file, ...(entry.css ?? [])].filter(file => initialFiles.has(file))
   )

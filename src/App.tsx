@@ -349,7 +349,9 @@ function App() {
               {assistantOpen && (
                 <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
                   <AppErrorBoundary resetKey="assistant-panel" fallback={LazyLoadErrorFallback}>
-                    <Suspense fallback={<div className="assistant-panel">Loading assistant…</div>}>
+                    <Suspense
+                      fallback={<div className="assistant-panel-loading">Loading assistant…</div>}
+                    >
                       <LazyAssistantPanel context={assistantContext} />
                     </Suspense>
                   </AppErrorBoundary>

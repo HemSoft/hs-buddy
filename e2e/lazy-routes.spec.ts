@@ -13,6 +13,9 @@ async function openInternalRoute(page: Page, viewId: string) {
   await page.evaluate(id => {
     window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: id } }))
   }, viewId)
+}
+
+async function expectNoRouteError(page: Page) {
   await expect(page.getByText('Something went wrong')).toHaveCount(0)
 }
 
@@ -57,10 +60,8 @@ test('feature routes load through internal navigation events', async ({ page }, 
   const routes: Array<[string, string]> = [
     ['settings-accounts', 'GitHub Accounts'],
     ['settings-appearance', 'Appearance'],
-    ['automation-schedules', 'Loading schedule forecast…'],
     ['automation-runs', 'Runs'],
     ['tasks-today', 'Today'],
-    ['bookmarks-all', 'Loading bookmarks…'],
     ['copilot-prompt', 'Copilot SDK'],
     ['copilot-all-results', 'Copilot Results'],
     ['copilot-sessions', 'Session Explorer'],
@@ -69,14 +70,26 @@ test('feature routes load through internal navigation events', async ({ page }, 
   for (const [viewId, heading] of routes) {
     await openInternalRoute(page, viewId)
     await expect(page.getByText(heading, { exact: true }).first()).toBeVisible()
+    await expectNoRouteError(page)
   }
+
+  await openInternalRoute(page, 'automation-schedules')
+  await expect(page.locator('.schedule-overview')).toBeVisible()
+  await expectNoRouteError(page)
+
+  await openInternalRoute(page, 'bookmarks-all')
+  await expect(page.locator('.panel-loading, .bookmark-list-container').first()).toBeVisible()
+  await expectNoRouteError(page)
 
   await openInternalRoute(page, 'terminal-workspace')
   await expect(page.getByRole('button', { name: 'New Project' })).toBeVisible()
+  await expectNoRouteError(page)
 
   await openInternalRoute(page, 'tempo-timesheet')
   await expect(page.locator('.tempo-dashboard')).toBeVisible()
+  await expectNoRouteError(page)
 
   await openInternalRoute(page, 'ralph-dashboard')
   await expect(page.locator('.ralph-dashboard')).toBeVisible()
+  await expectNoRouteError(page)
 })

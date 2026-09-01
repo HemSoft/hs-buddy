@@ -3,6 +3,7 @@ import {
   deduplicateBundles,
   normalizeBundleFile,
   parseInitialHtmlAssets,
+  parseStaticCssImports,
   parseStaticModuleImports,
   resolveInitialAssetImport,
   traceInitialAssetGraph,
@@ -79,6 +80,38 @@ describe('initial renderer graph', () => {
         return source
       })
     ).toEqual(['assets/index.js', 'assets/shared.js', 'assets/shell.css', 'assets/shell.js'])
+  })
+
+  it('ignores import-like text while retaining every static module form', () => {
+    const source = `
+      // import './comment.js'
+      const message = "import './string.js'"
+      import './side-effect.js'
+      import value from './value.js'
+      export { shared } from './shared.js'
+      import('./dynamic.js')
+    `
+
+    expect(parseStaticModuleImports(source)).toEqual([
+      './side-effect.js',
+      './value.js',
+      './shared.js',
+    ])
+  })
+
+  it('parses quoted and unquoted CSS imports while ignoring comments', () => {
+    const source = `
+      /* @import url('./comment.css'); */
+      @import './quoted.css';
+      @import url("./url-quoted.css");
+      @import url(./url-unquoted.css) screen;
+    `
+
+    expect(parseStaticCssImports(source)).toEqual([
+      './quoted.css',
+      './url-quoted.css',
+      './url-unquoted.css',
+    ])
   })
 
   it('resolves root-relative and sibling imports inside the renderer output', () => {

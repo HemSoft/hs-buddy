@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1081",
+  "version": "0.1.1083",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -125,6 +125,7 @@
     "dependency-cruiser": "^18.1.0",
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3",
+    "es-module-lexer": "2.1.0",
     "esbuild": "^0.28.1",
     "eslint": "^10.6.0",
     "eslint-plugin-jsx-a11y": "^6.10.2",

@@ -5,7 +5,7 @@ import { LazyRouteBoundary } from './LazyRouteBoundary'
 
 describe('LazyRouteBoundary', () => {
   it('shows the shared loading state while a route module is pending', () => {
-    const PendingRoute = lazy(() => new Promise<never>(() => undefined))
+    const PendingRoute = lazy(() => new Promise<never>(() => {}))
 
     render(
       <LazyRouteBoundary routeKey="pending-route">
@@ -17,7 +17,7 @@ describe('LazyRouteBoundary', () => {
   })
 
   it('shows the shared error state when a route fails to render', () => {
-    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
 
     function BrokenRoute(): never {
       throw new Error('route failed')

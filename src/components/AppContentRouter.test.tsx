@@ -266,46 +266,8 @@ vi.mock('./appContentViewLabels', () => ({
   viewLabels: { 'some-known-view': 'Known View' },
 }))
 
-vi.mock('./AppContentLazyRoutes', async () => {
-  const [
-    pullRequests,
-    scheduleDetail,
-    scheduleOverview,
-    jobDetail,
-    runList,
-    settingsAccounts,
-    settingsAppearance,
-    settingsPullRequests,
-    settingsCopilot,
-    settingsNotifications,
-    settingsAdvanced,
-    settingsWeather,
-    repoDetail,
-    repoCommitList,
-    repoCommitDetail,
-    repoIssueList,
-    repoIssueDetail,
-    repoPullRequests,
-    pullRequestDetail,
-    copilotPrompt,
-    copilotResult,
-    copilotResults,
-    prReview,
-    copilotUsage,
-    orgDetail,
-    userDetail,
-    crewProject,
-    tempo,
-    ralph,
-    ralphRun,
-    sessions,
-    sessionDetail,
-    planner,
-    bookmarks,
-    browser,
-    folderExplorer,
-    terminalWorkspace,
-  ] = await Promise.all([
+function loadFirstLazyRouteGroup() {
+  return Promise.all([
     import('./PullRequestList'),
     import('./automation/ScheduleDetailPanel'),
     import('./automation/ScheduleOverviewPanel'),
@@ -325,6 +287,11 @@ vi.mock('./AppContentLazyRoutes', async () => {
     import('./RepoIssueDetailPanel'),
     import('./RepoPullRequestList'),
     import('./PullRequestDetailPanel'),
+  ])
+}
+
+function loadSecondLazyRouteGroup() {
+  return Promise.all([
     import('./CopilotPromptBox'),
     import('./CopilotResultPanel'),
     import('./CopilotResultsList'),
@@ -344,46 +311,31 @@ vi.mock('./AppContentLazyRoutes', async () => {
     import('./explorer/FolderExplorerView'),
     import('./terminal-workspace/TerminalWorkspaceView'),
   ])
+}
 
-  return {
-    LazyPullRequestList: pullRequests.PullRequestList,
-    LazyScheduleDetailPanel: scheduleDetail.ScheduleDetailPanel,
-    LazyScheduleOverviewPanel: scheduleOverview.ScheduleOverviewPanel,
-    LazyJobDetailPanel: jobDetail.JobDetailPanel,
-    LazyRunList: runList.RunList,
-    LazySettingsAccounts: settingsAccounts.SettingsAccounts,
-    LazySettingsAppearance: settingsAppearance.SettingsAppearance,
-    LazySettingsPullRequests: settingsPullRequests.SettingsPullRequests,
-    LazySettingsCopilot: settingsCopilot.SettingsCopilot,
-    LazySettingsNotifications: settingsNotifications.SettingsNotifications,
-    LazySettingsAdvanced: settingsAdvanced.SettingsAdvanced,
-    LazySettingsWeather: settingsWeather.SettingsWeather,
-    LazyRepoDetailPanel: repoDetail.RepoDetailPanel,
-    LazyRepoCommitListPanel: repoCommitList.RepoCommitListPanel,
-    LazyRepoCommitDetailPanel: repoCommitDetail.RepoCommitDetailPanel,
-    LazyRepoIssueList: repoIssueList.RepoIssueList,
-    LazyRepoIssueDetailPanel: repoIssueDetail.RepoIssueDetailPanel,
-    LazyRepoPullRequestList: repoPullRequests.RepoPullRequestList,
-    LazyPullRequestDetailPanel: pullRequestDetail.PullRequestDetailPanel,
-    LazyCopilotPromptBox: copilotPrompt.CopilotPromptBox,
-    LazyCopilotResultPanel: copilotResult.CopilotResultPanel,
-    LazyCopilotResultsList: copilotResults.CopilotResultsList,
-    LazyPRReviewPanel: prReview.PRReviewPanel,
-    LazyCopilotUsagePanel: copilotUsage.CopilotUsagePanel,
-    LazyOrgDetailPanel: orgDetail.OrgDetailPanel,
-    LazyUserDetailPanel: userDetail.UserDetailPanel,
-    LazyCrewProjectView: crewProject.CrewProjectView,
-    LazyTempoDashboard: tempo.TempoDashboard,
-    LazyRalphDashboard: ralph.RalphDashboard,
-    LazyRalphRunDetailPanel: ralphRun.RalphRunDetailPanel,
-    LazySessionExplorer: sessions.SessionExplorer,
-    LazySessionDetail: sessionDetail.SessionDetail,
-    LazyTaskPlannerView: planner.TaskPlannerView,
-    LazyBookmarkList: bookmarks.BookmarkList,
-    LazyBrowserTabView: browser.BrowserTabView,
-    LazyFolderExplorerView: folderExplorer.FolderExplorerView,
-    LazyTerminalWorkspaceView: terminalWorkspace.TerminalWorkspaceView,
-  }
+vi.mock('./AppContentLazyRoutes', async () => {
+  const exportNames = [
+    'LazyPullRequestList LazyScheduleDetailPanel LazyScheduleOverviewPanel LazyJobDetailPanel',
+    'LazyRunList LazySettingsAccounts LazySettingsAppearance LazySettingsPullRequests',
+    'LazySettingsCopilot LazySettingsNotifications LazySettingsAdvanced LazySettingsWeather',
+    'LazyRepoDetailPanel LazyRepoCommitListPanel LazyRepoCommitDetailPanel LazyRepoIssueList',
+    'LazyRepoIssueDetailPanel LazyRepoPullRequestList LazyPullRequestDetailPanel',
+    'LazyCopilotPromptBox LazyCopilotResultPanel LazyCopilotResultsList LazyPRReviewPanel',
+    'LazyCopilotUsagePanel LazyOrgDetailPanel LazyUserDetailPanel LazyCrewProjectView',
+    'LazyTempoDashboard LazyRalphDashboard LazyRalphRunDetailPanel LazySessionExplorer',
+    'LazySessionDetail LazyTaskPlannerView LazyBookmarkList LazyBrowserTabView',
+    'LazyFolderExplorerView LazyTerminalWorkspaceView',
+  ]
+    .join(' ')
+    .split(' ')
+  const modules = [...(await loadFirstLazyRouteGroup()), ...(await loadSecondLazyRouteGroup())]
+
+  return Object.fromEntries(
+    exportNames.map((exportName, index) => [
+      exportName,
+      (modules[index] as Record<string, unknown>)[exportName.slice(4)],
+    ])
+  )
 })
 
 import { AppContentRouter } from './AppContentRouter'

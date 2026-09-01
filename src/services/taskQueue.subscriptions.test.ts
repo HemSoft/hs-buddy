@@ -81,6 +81,26 @@ describe('TaskQueue transition notifications', () => {
 })
 
 describe('TaskQueue subscription lifecycle', () => {
+  it('isolates listener failures from queue transitions', async () => {
+    const queue = new TaskQueue('listener-failure')
+    const listenerError = new Error('listener failed')
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const healthyListener = vi.fn()
+    queue.subscribe(() => {
+      throw listenerError
+    })
+    queue.subscribe(healthyListener)
+
+    const { promise } = queue.enqueue(async () => 'completed')
+
+    await expect(promise).resolves.toBe('completed')
+    expect(healthyListener).toHaveBeenCalledTimes(3)
+    expect(queue.getSnapshot().stats.completed).toBe(1)
+    expect(consoleError).toHaveBeenCalledTimes(3)
+    expect(consoleError).toHaveBeenCalledWith('[TaskQueue] Listener error:', listenerError)
+    consoleError.mockRestore()
+  })
+
   it('does not notify when cancelling an empty queue', () => {
     const queue = new TaskQueue('empty-cancel-all')
     const listener = vi.fn()

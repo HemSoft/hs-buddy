@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1075] - 2026-09-01
+
+### Fixed
+
+- Isolate subscription failures (#625)
+
 ## [0.1.1074] - 2026-09-01
 
 ### Fixed

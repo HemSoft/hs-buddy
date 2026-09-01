@@ -296,7 +296,11 @@ export class TaskQueue {
     this.snapshot = this.createSnapshot()
     this.snapshotDirty = false
     for (const listener of this.listeners) {
-      listener()
+      try {
+        listener()
+      } catch (error: unknown) {
+        console.error('[TaskQueue] Listener error:', error)
+      }
     }
   }
 

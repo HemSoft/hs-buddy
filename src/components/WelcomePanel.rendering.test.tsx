@@ -1,5 +1,5 @@
 import { act, render } from '@testing-library/react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { commandCenterRender } = vi.hoisted(() => ({
   commandCenterRender: vi.fn(),
@@ -60,6 +60,10 @@ describe('WelcomePanel render boundaries', () => {
     vi.setSystemTime(new Date('2026-09-01T16:00:00.000Z'))
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('does not rerender dashboard cards when only uptime ticks', () => {
     const { unmount } = render(
       <WelcomePanel prCounts={{}} onNavigate={vi.fn()} onSectionChange={vi.fn()} />
@@ -72,6 +76,5 @@ describe('WelcomePanel render boundaries', () => {
 
     expect(commandCenterRender).toHaveBeenCalledTimes(initialRenderCount)
     unmount()
-    vi.useRealTimers()
   })
 })

@@ -1,6 +1,7 @@
-import { act, render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import type { ComponentProps } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 
 const { staticIconRender, clockIconRender } = vi.hoisted(() => ({
   staticIconRender: vi.fn(),
@@ -51,6 +52,7 @@ describe('StatusBar render boundaries', () => {
     const { unmount } = render(<StatusBar />)
     const initialStaticRenders = staticIconRender.mock.calls.length
     const initialClockRenders = clockIconRender.mock.calls.length
+    const initialCountdown = screen.getByText(/^Next sync/).textContent
 
     act(() => {
       vi.advanceTimersByTime(10_000)
@@ -58,6 +60,40 @@ describe('StatusBar render boundaries', () => {
 
     expect(staticIconRender).toHaveBeenCalledTimes(initialStaticRenders)
     expect(clockIconRender.mock.calls.length).toBeGreaterThan(initialClockRenders)
+    expect(screen.getByText(/^Next sync/).textContent).not.toBe(initialCountdown)
     unmount()
+  })
+
+  it('refreshes the countdown immediately when a sync becomes idle', () => {
+    const syncingStatus: BackgroundStatus = {
+      phase: 'syncing',
+      activeLabel: 'PRs',
+      activeTasks: 1,
+      runningTasks: 1,
+      queuedTasks: 0,
+      nextRefreshAt: null,
+      lastRefreshedAt: null,
+    }
+    const nextRefreshAt = Date.now() + 120_000
+    const { rerender } = render(<StatusBar backgroundStatus={syncingStatus} />)
+
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+
+    rerender(
+      <StatusBar
+        backgroundStatus={{
+          ...syncingStatus,
+          phase: 'idle',
+          activeLabel: null,
+          activeTasks: 0,
+          runningTasks: 0,
+          nextRefreshAt,
+        }}
+      />
+    )
+
+    expect(screen.getByText('Next sync 1m 50s')).toBeInTheDocument()
   })
 })

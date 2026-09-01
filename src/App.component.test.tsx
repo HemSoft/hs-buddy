@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import { useEffect, useState } from 'react'
 
@@ -177,6 +177,10 @@ describe('App component', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders the main app UI', () => {
     render(<App />)
     expect(screen.getByTestId('title-bar')).toBeInTheDocument()
@@ -202,7 +206,6 @@ describe('App component', () => {
     expect(screen.getByTestId('status-bar')).toHaveAttribute('data-tick', '10')
     expect(MockAppContentRouter).toHaveBeenCalledTimes(initialRenderCount)
     unmount()
-    vi.useRealTimers()
   })
 
   it('renders activity bar', () => {

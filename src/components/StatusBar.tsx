@@ -90,6 +90,7 @@ function useCurrentTime(enabled = true): Date {
 
   useEffect(() => {
     if (!enabled) return
+    setCurrentTime(new Date())
     const timer = setInterval(() => {
       setCurrentTime(new Date())
     }, 1000)

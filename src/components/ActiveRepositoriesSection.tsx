@@ -233,14 +233,7 @@ export function ActiveRepositoriesSection({
               {activity.repositories.length === 1 ? 'repository' : 'repositories'}
             </span>
           ) : null}
-          {isRefreshing ? (
-            <span className="active-repos-refreshing">
-              <RefreshCw aria-hidden="true" className="spin" size={12} />
-              Refreshing
-            </span>
-          ) : activity ? (
-            <span>Updated {formatDistanceToNow(activity.fetchedAt)}</span>
-          ) : null}
+          {activity ? <span>Updated {formatDistanceToNow(activity.fetchedAt)}</span> : null}
           <button
             type="button"
             className="active-repos-refresh-button"

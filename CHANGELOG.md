@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1067] - 2026-09-01
+
+### Fixed
+
+- Support Electron 44 native rebuilds
+
 ## [0.1.1066] - 2026-09-01
 
 ### Fixed

@@ -58,6 +58,21 @@ function makeActivity(
 }
 
 const openExternal = vi.fn()
+const onRefresh = vi.fn()
+
+function renderSection(
+  activity: RepositoryActivitySummary | null = makeActivity(),
+  phase: 'loading' | 'refreshing' | 'ready' | 'error' = 'ready'
+) {
+  return render(
+    <ActiveRepositoriesSection
+      org="HemSoft"
+      activity={activity}
+      phase={phase}
+      onRefresh={onRefresh}
+    />
+  )
+}
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -71,9 +86,7 @@ afterEach(() => {
 })
 
 it('renders repositories in supplied activity order with issues left and pull requests right', () => {
-  const { container } = render(
-    <ActiveRepositoriesSection org="HemSoft" activity={makeActivity()} phase="ready" />
-  )
+  const { container } = renderSection()
 
   const cards = container.querySelectorAll('.active-repos-card')
   expect(cards).toHaveLength(2)
@@ -94,7 +107,7 @@ it('renders repositories in supplied activity order with issues left and pull re
 })
 
 it('shows issue and pull-request states and handles an empty side', () => {
-  render(<ActiveRepositoriesSection org="HemSoft" activity={makeActivity()} phase="ready" />)
+  renderSection()
 
   expect(screen.getByText('draft')).toBeInTheDocument()
   expect(screen.getByText('merged')).toBeInTheDocument()
@@ -102,7 +115,7 @@ it('shows issue and pull-request states and handles an empty side', () => {
 })
 
 it('opens repository and activity links through the system browser', () => {
-  render(<ActiveRepositoriesSection org="HemSoft" activity={makeActivity()} phase="ready" />)
+  renderSection()
 
   fireEvent.click(screen.getByTitle('Open HemSoft/hs-buddy on GitHub'))
   expect(openExternal).toHaveBeenCalledWith('https://github.com/HemSoft/hs-buddy')
@@ -112,13 +125,7 @@ it('opens repository and activity links through the system browser', () => {
 })
 
 it('offers the combined GitHub activity search when more results exist', () => {
-  render(
-    <ActiveRepositoriesSection
-      org="HemSoft"
-      activity={makeActivity({ hasMore: true })}
-      phase="ready"
-    />
-  )
+  renderSection(makeActivity({ hasMore: true }))
 
   fireEvent.click(screen.getByRole('button', { name: /All activity/ }))
   expect(openExternal).toHaveBeenCalledWith(
@@ -127,13 +134,7 @@ it('offers the combined GitHub activity search when more results exist', () => {
 })
 
 it('keeps available pull requests visible after a partial issue-search failure', () => {
-  render(
-    <ActiveRepositoriesSection
-      org="HemSoft"
-      activity={makeActivity({ issuesAvailable: false })}
-      phase="ready"
-    />
-  )
+  renderSection(makeActivity({ issuesAvailable: false }))
 
   expect(
     screen.getByText('Showing the activity GitHub returned. One side could not be refreshed.')
@@ -143,9 +144,7 @@ it('keeps available pull requests visible after a partial issue-search failure',
 })
 
 it('renders loading, empty, and unavailable states without affecting surrounding content', () => {
-  const { rerender } = render(
-    <ActiveRepositoriesSection org="HemSoft" activity={null} phase="loading" />
-  )
+  const { rerender } = renderSection(null, 'loading')
   expect(screen.getByLabelText('Loading active repositories')).toBeInTheDocument()
 
   rerender(
@@ -153,14 +152,42 @@ it('renders loading, empty, and unavailable states without affecting surrounding
       org="HemSoft"
       activity={makeActivity({ repositories: [] })}
       phase="ready"
+      onRefresh={onRefresh}
     />
   )
   expect(screen.getByText('No recent issue or pull-request activity found.')).toBeInTheDocument()
 
-  rerender(<ActiveRepositoriesSection org="HemSoft" activity={null} phase="error" />)
+  rerender(
+    <ActiveRepositoriesSection org="HemSoft" activity={null} phase="error" onRefresh={onRefresh} />
+  )
   expect(
     screen.getByText(
       'Repository activity is unavailable. The rest of the overview is still current.'
     )
   ).toBeInTheDocument()
+})
+
+it('refreshes repository activity and disables the control while refreshing', () => {
+  const { container, rerender } = renderSection()
+  const updatedTimestamp = screen.getByText(/^Updated /)
+
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh active repositories' }))
+  expect(onRefresh).toHaveBeenCalledOnce()
+
+  rerender(
+    <ActiveRepositoriesSection
+      org="HemSoft"
+      activity={makeActivity()}
+      phase="refreshing"
+      onRefresh={onRefresh}
+    />
+  )
+
+  const refreshButton = screen.getByRole('button', { name: 'Refreshing active repositories' })
+  expect(refreshButton).toBeDisabled()
+  expect(refreshButton).toHaveAttribute('aria-busy', 'true')
+  expect(refreshButton.querySelector('svg')).toHaveClass('spin')
+  expect(container.querySelectorAll('.active-repos-header-meta .spin')).toHaveLength(1)
+  expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
+  expect(screen.getByText(/^Updated /)).toBe(updatedTimestamp)
 })

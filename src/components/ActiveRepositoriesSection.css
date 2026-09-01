@@ -54,13 +54,14 @@
 .active-repos-header-meta {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 10px;
   color: var(--text-secondary);
   font-size: 10px;
 }
 
-.active-repos-header-meta button,
-.active-repos-refreshing {
+.active-repos-header-meta button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -87,6 +88,18 @@
 .active-repos-header-meta button:hover {
   border-color: rgba(129, 178, 154, 0.52);
   background: rgba(129, 178, 154, 0.13);
+}
+
+.active-repos-header-meta button:disabled {
+  border-color: rgba(129, 178, 154, 0.14);
+  background: rgba(129, 178, 154, 0.035);
+  color: var(--text-secondary);
+  cursor: wait;
+}
+
+.active-repos-refresh-button {
+  min-width: 68px;
+  justify-content: center;
 }
 
 .active-repos-list {
@@ -398,6 +411,10 @@
     flex-direction: column;
   }
 
+  .active-repos-header-meta {
+    justify-content: flex-start;
+  }
+
   .active-repos-lanes,
   .active-repos-skeleton-card {
     grid-template-columns: 1fr;
@@ -412,7 +429,8 @@
 @media (prefers-reduced-motion: reduce) {
   .active-repos-card,
   .active-repos-item,
-  .active-repos-skeleton-card div {
+  .active-repos-skeleton-card div,
+  .active-repos-refresh-button .spin {
     transition: none;
     animation: none;
   }

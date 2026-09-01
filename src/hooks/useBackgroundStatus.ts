@@ -16,7 +16,6 @@ import { getTaskQueue } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
 import { usePRSettings } from './useConfig'
 import { PR_MODES, MS_PER_MINUTE } from '../constants'
-import { formatDistanceToNow, formatSecondsCountdown } from '../utils/dateUtils'
 import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
 
 type SyncPhase = 'idle' | 'syncing' | 'error'
@@ -32,68 +31,46 @@ export interface BackgroundStatus {
   runningTasks: number
   /** Number of tasks waiting in the queue */
   queuedTasks: number
-  /** Seconds until the next auto-refresh fires (based on oldest cache entry) */
-  nextRefreshSecs: number | null
-  /** Human-readable countdown string, e.g. "12m 30s" */
-  nextRefreshLabel: string | null
+  /** Absolute timestamp when the next auto-refresh fires */
+  nextRefreshAt: number | null
   /** Timestamp of the most recent successful cache update */
   lastRefreshedAt: number | null
-  /** Human-readable "Updated Xm ago" */
-  lastRefreshedLabel: string | null
 }
 
 /**
  * Hook that provides real-time background sync status.
- * Updates every second for smooth countdown display.
- * Tracks batch progress for "Processing X of N" display.
+ * Polls queue and cache facts once per second, but preserves object identity
+ * until one of those stable facts changes. Ticking labels belong in the leaf
+ * component that renders them.
  */
 function computeActiveLabel(activeTasks: number, runningTaskName: string | null): string | null {
   if (activeTasks <= 0) return null
   return getFriendlyGitHubTaskLabel(runningTaskName) ?? 'GitHub data'
 }
 
-function computeCacheAges(modes: readonly string[]): { oldestAge: number; latestRefresh: number } {
-  let oldestAge = 0
+function computeCacheTimes(modes: readonly string[]): {
+  oldestRefresh: number
+  latestRefresh: number
+} {
+  let oldestRefresh = 0
   let latestRefresh = 0
   for (const mode of modes) {
     const entry = dataCache.get(mode)
     if (entry) {
-      const age = Date.now() - entry.fetchedAt
-      if (age > oldestAge) oldestAge = age
+      if (!oldestRefresh || entry.fetchedAt < oldestRefresh) oldestRefresh = entry.fetchedAt
       if (entry.fetchedAt > latestRefresh) latestRefresh = entry.fetchedAt
     }
   }
-  return { oldestAge, latestRefresh }
+  return { oldestRefresh, latestRefresh }
 }
 
-function resolveNextRefreshStatus(
+function resolveNextRefreshAt(
   phase: SyncPhase,
   intervalMs: number,
-  oldestAge: number
-): Pick<BackgroundStatus, 'nextRefreshSecs' | 'nextRefreshLabel'> {
-  if (phase === 'syncing') {
-    return { nextRefreshSecs: null, nextRefreshLabel: null }
-  }
-
-  const remaining = Math.max(0, intervalMs - oldestAge)
-  const nextRefreshSecs = Math.ceil(remaining / 1000)
-  return {
-    nextRefreshSecs,
-    nextRefreshLabel: formatSecondsCountdown(nextRefreshSecs),
-  }
-}
-
-function resolveLastRefreshStatus(
-  latestRefresh: number
-): Pick<BackgroundStatus, 'lastRefreshedAt' | 'lastRefreshedLabel'> {
-  if (!latestRefresh) {
-    return { lastRefreshedAt: null, lastRefreshedLabel: null }
-  }
-
-  return {
-    lastRefreshedAt: latestRefresh,
-    lastRefreshedLabel: formatDistanceToNow(latestRefresh),
-  }
+  oldestRefresh: number
+): number | null {
+  if (phase === 'syncing' || !oldestRefresh) return null
+  return oldestRefresh + intervalMs
 }
 
 function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
@@ -102,7 +79,7 @@ function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
   const pending = queue.pendingCount
   const activeTasks = running + pending
   const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
-  const { oldestAge, latestRefresh } = computeCacheAges(PR_MODES)
+  const { oldestRefresh, latestRefresh } = computeCacheTimes(PR_MODES)
   const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
 
   return {
@@ -111,9 +88,21 @@ function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
     activeTasks,
     runningTasks: running,
     queuedTasks: pending,
-    ...resolveNextRefreshStatus(phase, intervalMs, oldestAge),
-    ...resolveLastRefreshStatus(latestRefresh),
+    nextRefreshAt: resolveNextRefreshAt(phase, intervalMs, oldestRefresh),
+    lastRefreshedAt: latestRefresh || null,
   }
+}
+
+function hasSameBackgroundFacts(current: BackgroundStatus, next: BackgroundStatus): boolean {
+  return (
+    current.phase === next.phase &&
+    current.activeLabel === next.activeLabel &&
+    current.activeTasks === next.activeTasks &&
+    current.runningTasks === next.runningTasks &&
+    current.queuedTasks === next.queuedTasks &&
+    current.nextRefreshAt === next.nextRefreshAt &&
+    current.lastRefreshedAt === next.lastRefreshedAt
+  )
 }
 
 export function useBackgroundStatus(): BackgroundStatus {
@@ -124,21 +113,19 @@ export function useBackgroundStatus(): BackgroundStatus {
     activeTasks: 0,
     runningTasks: 0,
     queuedTasks: 0,
-    nextRefreshSecs: null,
-    nextRefreshLabel: null,
+    nextRefreshAt: null,
     lastRefreshedAt: null,
-    lastRefreshedLabel: null,
   })
 
   useEffect(() => {
     const intervalMs = refreshInterval * MS_PER_MINUTE
 
     const compute = () => {
-      setStatus(buildBackgroundStatus(intervalMs))
+      const next = buildBackgroundStatus(intervalMs)
+      setStatus(current => (hasSameBackgroundFacts(current, next) ? current : next))
     }
 
     compute()
-    // Update every second for smooth countdown
     const timer = setInterval(compute, 1000)
     return () => clearInterval(timer)
   }, [refreshInterval])

@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
+import { useEffect, useState } from 'react'
 
 /* ── hoisted mocks ── */
 vi.mock('./components/TitleBar', () => ({
@@ -19,7 +20,14 @@ vi.mock('./components/TabBar', () => ({
 }))
 
 vi.mock('./components/StatusBar', () => ({
-  StatusBar: () => <div data-testid="status-bar" />,
+  StatusBar: function MockTickingStatusBar() {
+    const [tick, setTick] = useState(0)
+    useEffect(() => {
+      const timer = setInterval(() => setTick(value => value + 1), 1000)
+      return () => clearInterval(timer)
+    }, [])
+    return <div data-testid="status-bar" data-tick={tick} />
+  },
 }))
 
 vi.mock('./components/AppErrorBoundary', () => ({
@@ -169,6 +177,10 @@ describe('App component', () => {
     vi.clearAllMocks()
   })
 
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('renders the main app UI', () => {
     render(<App />)
     expect(screen.getByTestId('title-bar')).toBeInTheDocument()
@@ -180,6 +192,20 @@ describe('App component', () => {
     expect(screen.getByTestId('sidebar-panel')).toBeInTheDocument()
     expect(screen.getByTestId('tab-bar')).toBeInTheDocument()
     expect(screen.getByTestId('content-router')).toBeInTheDocument()
+  })
+
+  it('keeps app content stable during a 10-second status-bar tick window', () => {
+    vi.useFakeTimers()
+    const { unmount } = render(<App />)
+    const initialRenderCount = MockAppContentRouter.mock.calls.length
+
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+
+    expect(screen.getByTestId('status-bar')).toHaveAttribute('data-tick', '10')
+    expect(MockAppContentRouter).toHaveBeenCalledTimes(initialRenderCount)
+    unmount()
   })
 
   it('renders activity bar', () => {

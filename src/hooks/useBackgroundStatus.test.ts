@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { useBackgroundStatus } from './useBackgroundStatus'
 import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
 
@@ -99,10 +99,8 @@ describe('useBackgroundStatus', () => {
   it('computes countdown from cache entries', () => {
     mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
     const { result } = renderHook(() => useBackgroundStatus())
-    expect(result.current.nextRefreshSecs).toBe(180)
-    expect(result.current.nextRefreshLabel).toBe('3m 00s')
+    expect(result.current.nextRefreshAt).toBe(Date.now() + 180_000)
     expect(result.current.lastRefreshedAt).toBe(Date.now() - 120_000)
-    expect(result.current.lastRefreshedLabel).toBe('2 minutes ago')
   })
 
   it('falls back to "GitHub data" when running task name is null', () => {
@@ -118,7 +116,18 @@ describe('useBackgroundStatus', () => {
     mockQueue.runningCount = 1
     mockQueue.getRunningTaskName.mockReturnValue('needs-review')
     const { result } = renderHook(() => useBackgroundStatus())
-    expect(result.current.nextRefreshSecs).toBeNull()
-    expect(result.current.nextRefreshLabel).toBeNull()
+    expect(result.current.nextRefreshAt).toBeNull()
+  })
+
+  it('preserves stable status identity while only wall-clock time advances', () => {
+    mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
+    const { result } = renderHook(() => useBackgroundStatus())
+    const initialStatus = result.current
+
+    act(() => {
+      vi.advanceTimersByTime(10_000)
+    })
+
+    expect(result.current).toBe(initialStatus)
   })
 })

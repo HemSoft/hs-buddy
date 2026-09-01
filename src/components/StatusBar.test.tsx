@@ -5,6 +5,18 @@ import { StatusBar } from './StatusBar'
 import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
 import { axe } from '../test/axe-helper'
 
+vi.mock('../hooks/useBackgroundStatus', () => ({
+  useBackgroundStatus: () => ({
+    phase: 'idle',
+    activeLabel: null,
+    activeTasks: 0,
+    runningTasks: 0,
+    queuedTasks: 0,
+    nextRefreshAt: null,
+    lastRefreshedAt: null,
+  }),
+}))
+
 describe('StatusBar', () => {
   it('renders with default props', () => {
     render(<StatusBar />)
@@ -66,10 +78,8 @@ describe('StatusBar', () => {
       activeTasks: 3,
       runningTasks: 1,
       queuedTasks: 2,
-      nextRefreshSecs: null,
+      nextRefreshAt: null,
       lastRefreshedAt: null,
-      lastRefreshedLabel: null,
-      nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
     expect(screen.getByText('Syncing PRs · 3 sync tasks…')).toBeTruthy()
@@ -86,10 +96,8 @@ describe('StatusBar', () => {
       activeTasks: 1,
       runningTasks: 1,
       queuedTasks: 0,
-      nextRefreshSecs: null,
+      nextRefreshAt: null,
       lastRefreshedAt: null,
-      lastRefreshedLabel: null,
-      nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
     expect(screen.getByText('Syncing Repos…')).toBeTruthy()
@@ -102,13 +110,11 @@ describe('StatusBar', () => {
       activeTasks: 0,
       runningTasks: 0,
       queuedTasks: 0,
-      nextRefreshSecs: 180,
+      nextRefreshAt: Date.now() + 180_000,
       lastRefreshedAt: Date.now() - 120000,
-      lastRefreshedLabel: '2 min ago',
-      nextRefreshLabel: '3 min',
     }
     render(<StatusBar backgroundStatus={status} />)
-    expect(screen.getByText('Next sync 3 min')).toBeTruthy()
+    expect(screen.getByText('Next sync 3m 00s')).toBeTruthy()
   })
 
   it('shows Copilot indicator when assistant is active', () => {
@@ -165,10 +171,8 @@ describe('StatusBar', () => {
       activeTasks: 0,
       runningTasks: 0,
       queuedTasks: 0,
-      nextRefreshSecs: null,
+      nextRefreshAt: null,
       lastRefreshedAt: null,
-      lastRefreshedLabel: null,
-      nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
     expect(screen.getByText('Auto-refresh active')).toBeTruthy()
@@ -181,10 +185,8 @@ describe('StatusBar', () => {
       activeTasks: 1,
       runningTasks: 1,
       queuedTasks: 0,
-      nextRefreshSecs: null,
+      nextRefreshAt: null,
       lastRefreshedAt: null,
-      lastRefreshedLabel: null,
-      nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
     expect(screen.getByText('Syncing GitHub data…')).toBeTruthy()
@@ -197,10 +199,8 @@ describe('StatusBar', () => {
       activeTasks: 5,
       runningTasks: 1,
       queuedTasks: 4,
-      nextRefreshSecs: null,
+      nextRefreshAt: null,
       lastRefreshedAt: null,
-      lastRefreshedLabel: null,
-      nextRefreshLabel: null,
     }
     render(<StatusBar backgroundStatus={status} />)
     const statusText = screen.getByText('Syncing GitHub data · 5 sync tasks…')

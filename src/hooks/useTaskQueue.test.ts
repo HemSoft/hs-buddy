@@ -1,174 +1,144 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
-import { useTaskQueue } from './useTaskQueue'
-
-// Use real taskQueue service (pure JS, no external deps)
+import { describe, expect, it, vi } from 'vitest'
+import { act, renderHook } from '@testing-library/react'
+import { getTaskQueue } from '../services/taskQueue'
+import { useTaskQueue, useTaskQueueSelector } from './useTaskQueue'
 
 describe('useTaskQueue', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-  })
+  it('returns stable queue actions without subscribing to queue state', () => {
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval')
+    const { result, rerender } = renderHook(() => useTaskQueue('actions-only'))
+    const initialResult = result.current
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+    rerender()
 
-  it('returns initial stats with no tasks', () => {
-    const { result } = renderHook(() => useTaskQueue('test-queue'))
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.pendingCount).toBe(0)
-    expect(result.current.runningCount).toBe(0)
-    expect(result.current.stats).toBeDefined()
+    expect(result.current).toBe(initialResult)
+    expect(result.current).toEqual({
+      enqueue: expect.any(Function),
+      cancel: expect.any(Function),
+      cancelAll: expect.any(Function),
+    })
+    expect(intervalSpy).not.toHaveBeenCalled()
+    intervalSpy.mockRestore()
   })
 
   it('enqueues and completes a task', async () => {
-    const { result } = renderHook(() => useTaskQueue('test-enqueue'))
+    const { result } = renderHook(() => useTaskQueue('action-enqueue'))
 
-    let resolveTask: (value: string) => void
-    const taskPromise = new Promise<string>(resolve => {
-      resolveTask = resolve
-    })
-
-    let enqueueResult: Promise<string>
-    act(() => {
-      enqueueResult = result.current.enqueue(() => taskPromise)
-    })
-
-    // Resolve the task
-    await act(async () => {
-      resolveTask!('done')
-      await enqueueResult!
-    })
+    await expect(result.current.enqueue(async () => 'done')).resolves.toBe('done')
   })
 
-  it('cancels all tasks on unmount', async () => {
-    const { result, unmount } = renderHook(() => useTaskQueue('test-unmount'))
-
-    const neverResolve = new Promise<string>(() => {})
-    act(() => {
-      result.current.enqueue(() => neverResolve).catch(() => {})
-    })
-
-    // Unmount should cancel tracked tasks
-    unmount()
-  })
-
-  it('cancelAll cancels all tracked tasks', () => {
-    const { result } = renderHook(() => useTaskQueue('test-cancel-all'))
-
-    const neverResolve = new Promise<string>(() => {})
-    act(() => {
-      result.current.enqueue(() => neverResolve).catch(() => {})
-      result.current.enqueue(() => neverResolve).catch(() => {})
-    })
-
-    act(() => {
-      result.current.cancelAll()
-    })
-  })
-
-  it('cancel returns false for nonexistent task ID', () => {
-    const { result } = renderHook(() => useTaskQueue('test-cancel-single'))
-
-    act(() => {
-      const cancelled = result.current.cancel('nonexistent-id')
-      expect(cancelled).toBe(false)
-    })
-  })
-
-  it('stats interval does not update when no tracked tasks', () => {
-    const { result } = renderHook(() => useTaskQueue('test-no-tracked'))
-
-    // Advance timer - should not throw or change stats
-    act(() => {
-      vi.advanceTimersByTime(500)
-    })
-
-    expect(result.current.isLoading).toBe(false)
-    expect(result.current.pendingCount).toBe(0)
-  })
-
-  it('stats interval skips setStats after unmount with tracked tasks', () => {
-    const { result, unmount } = renderHook(() => useTaskQueue('test-unmount-interval'))
-
-    const neverResolve = new Promise<string>(() => {})
-    act(() => {
-      result.current.enqueue(() => neverResolve).catch(() => {})
-    })
-
-    // Unmount while a task is tracked
-    unmount()
-
-    // Advance past interval — should not throw (mountedRef.current = false)
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-  })
-
-  it('stats interval updates when tracked tasks exist', async () => {
-    const { result } = renderHook(() => useTaskQueue('test-interval-update'))
-
-    let resolveTask: (value: string) => void
-    const taskPromise = new Promise<string>(resolve => {
-      resolveTask = resolve
-    })
-
-    act(() => {
-      result.current.enqueue(() => taskPromise).catch(() => {})
-    })
-
-    // Advance timer past the 100ms interval to trigger stats update
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-
-    // Stats should be defined (interval ran while tracked tasks existed)
-    expect(result.current.stats).toBeDefined()
-
-    // Resolve the task to clean up
-    await act(async () => {
-      resolveTask!('done')
-      await vi.advanceTimersByTimeAsync(0)
-    })
-  })
-
-  it('cancel returns true when cancelling a tracked pending task', async () => {
-    const { result } = renderHook(() => useTaskQueue('test-cancel-tracked', { concurrency: 1 }))
-
-    // Fill the queue so the second task stays pending
-    const neverResolve = new Promise<string>(() => {})
-    act(() => {
-      result.current.enqueue(() => neverResolve).catch(() => {})
-    })
-
-    // The running task can be cancelled
-    // We don't have direct access to the taskId, but cancelAll exercises the path
-    act(() => {
-      result.current.cancelAll()
-    })
-
-    // After cancelling, stats should reflect no tracked tasks
-    expect(result.current.stats).toBeDefined()
-  })
-
-  it('does not update stats after unmount', async () => {
-    const { result, unmount } = renderHook(() => useTaskQueue('test-unmount-stats'))
-
-    let resolveTask: (value: string) => void
-    const taskPromise = new Promise<string>(resolve => {
-      resolveTask = resolve
-    })
-
-    act(() => {
-      result.current.enqueue(() => taskPromise).catch(() => {})
-    })
+  it('cancels tracked tasks on unmount', async () => {
+    const { result, unmount } = renderHook(() => useTaskQueue('action-unmount'))
+    const taskPromise = result.current.enqueue(
+      signal =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('cancelled', 'AbortError'))
+          )
+        })
+    )
 
     unmount()
 
-    // Resolving after unmount should not throw
-    await act(async () => {
-      resolveTask!('done')
-      await vi.advanceTimersByTimeAsync(0)
+    await expect(taskPromise).rejects.toThrow('cancelled')
+  })
+
+  it('cancelAll cancels every tracked task', async () => {
+    const { result } = renderHook(() => useTaskQueue('action-cancel-all', { concurrency: 0 }))
+    const first = result.current.enqueue(async () => 'first')
+    const second = result.current.enqueue(async () => 'second')
+
+    act(() => result.current.cancelAll())
+
+    await expect(first).rejects.toThrow('Task cancelled')
+    await expect(second).rejects.toThrow('Task cancelled')
+  })
+
+  it('cancels one task by ID', async () => {
+    const queue = getTaskQueue('action-cancel-one', { concurrency: 0 })
+    const { result } = renderHook(() => useTaskQueue('action-cancel-one'))
+    const { taskId, promise } = queue.enqueue(async () => 'unused')
+
+    expect(result.current.cancel(taskId)).toBe(true)
+
+    await expect(promise).rejects.toThrow('Task cancelled')
+  })
+
+  it('does not rerender its caller as queue state changes', async () => {
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      return useTaskQueue('action-render-count')
     })
+    let finishTask: () => void
+    const blocker = new Promise<void>(resolve => {
+      finishTask = resolve
+    })
+    let taskPromise: Promise<void>
+
+    act(() => {
+      taskPromise = result.current.enqueue(async () => blocker)
+    })
+    expect(renderCount).toBe(1)
+
+    await act(async () => {
+      finishTask!()
+      await taskPromise!
+    })
+    expect(renderCount).toBe(1)
+  })
+})
+
+describe('useTaskQueueSelector', () => {
+  it('rerenders only when the selected field changes', async () => {
+    let renderCount = 0
+    const { result } = renderHook(() => {
+      renderCount++
+      return useTaskQueueSelector('selector-count', snapshot => snapshot.runningCount)
+    })
+    const queue = getTaskQueue('selector-count')
+    let finishTask: () => void
+    const blocker = new Promise<void>(resolve => {
+      finishTask = resolve
+    })
+    let taskPromise: Promise<void>
+
+    act(() => {
+      taskPromise = queue.enqueue(async () => blocker).promise
+    })
+
+    expect(result.current).toBe(1)
+    expect(renderCount).toBe(2)
+
+    await act(async () => {
+      finishTask!()
+      await taskPromise!
+    })
+
+    expect(result.current).toBe(0)
+    expect(renderCount).toBe(3)
+  })
+
+  it('preserves selection identity when unrelated queue fields change', () => {
+    const queue = getTaskQueue('selector-identity', { concurrency: 0 })
+    const equalRunning = (left: { running: number }, right: { running: number }) =>
+      left.running === right.running
+    const { result } = renderHook(() =>
+      useTaskQueueSelector(
+        'selector-identity',
+        snapshot => ({ running: snapshot.runningCount }),
+        equalRunning
+      )
+    )
+    const initial = result.current
+    let taskPromise: Promise<unknown>
+
+    act(() => {
+      taskPromise = queue.enqueue(async () => 'unused').promise
+    })
+
+    expect(result.current).toBe(initial)
+    act(() => queue.cancelAll())
+    void taskPromise!.catch(() => {})
   })
 })

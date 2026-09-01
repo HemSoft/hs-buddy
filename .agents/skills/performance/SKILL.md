@@ -53,7 +53,7 @@ Report a table of uncovered functions with file path, function name, and priorit
 | `src/services/jsonSerialization.bench.ts`          | JSON.stringify/parse at 10/100/1000 entries, cache entry lookup                                                                                    |
 | `electron/services/copilotSessionParsing.bench.ts` | getSessionDetail streaming parse (10/100/500 requests), regex extraction hot path (scanInfo, JSON.parse, regex fallback, kind detection, key path) |
 | `src/components/copilot-usage/quotaUtils.bench.ts` | computeProjection (4 scenarios: mid-cycle, early, near-reset, zero remaining)                                                                      |
-| `src/services/taskQueue.bench.ts`                  | enqueue+drain (serial, concurrent, mixed priority), cancel, priority insertion                                                                     |
+| `src/services/taskQueue.bench.ts`                  | enqueue+drain (serial, concurrent, mixed priority, subscribed), cancel, priority insertion                                                         |
 | `src/utils/reactions.bench.ts`                     | applyReactionToResult (small/medium/large PR, miss, new reaction type)                                                                             |
 | `convex/lib/cronUtils.bench.ts`                    | calculateNextRunAt (6 cron patterns including timezone)                                                                                            |
 | `src/utils/budgetUtils.bench.ts`                   | findCopilotBudget (5/50/200 budgets, with/without filter), findBudgetAcrossPages (1/3/5 pages)                                                     |
@@ -71,6 +71,7 @@ Report a table of uncovered functions with file path, function name, and priorit
 Core baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5.
 Finance baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
 Network security baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
+TaskQueue subscription baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.11.
 All three use the median of 5 runs. Compare a section only when its captured toolchain matches;
 otherwise refresh it or use a same-runner base/candidate comparison.
 
@@ -140,6 +141,7 @@ otherwise refresh it or use a same-runner base/candidate comparison.
 | enqueue 10 tasks (serial)         | 242,353      | 0.0041    |
 | enqueue 10 tasks (concurrent=5)   | 216,733      | 0.0046    |
 | enqueue 50 tasks (mixed priority) | 46,895       | 0.0213    |
+| enqueue 10 tasks (one subscriber) | 70,533       | 0.0142    |
 | cancel 10 of 20 pending           | 6,476        | 0.1544    |
 | insert 100 prioritized tasks      | 37,910       | 0.0264    |
 

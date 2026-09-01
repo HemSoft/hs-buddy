@@ -98,13 +98,38 @@ describe('dataCache', () => {
       mockInvoke.mockResolvedValue(undefined)
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
 
-      dataCache.subscribe(() => {
+      const unsubscribe = dataCache.subscribe(() => {
         throw new Error('listener boom')
       })
       dataCache.set('key', 'val', 1)
 
       expect(spy).toHaveBeenCalledWith('[DataCache] Listener error:', expect.any(Error))
+      unsubscribe()
       spy.mockRestore()
+    })
+
+    it('notifies listeners when an entry is deleted', () => {
+      const keys: string[] = []
+      const unsubscribe = dataCache.subscribe(key => keys.push(key))
+      dataCache.set('delete-event', 'value', 1)
+      keys.length = 0
+
+      dataCache.delete('delete-event')
+
+      expect(keys).toEqual(['delete-event'])
+      unsubscribe()
+    })
+
+    it('notifies listeners for each entry removed by clear', async () => {
+      dataCache.set('clear-a', 'value', 1)
+      dataCache.set('clear-b', 'value', 2)
+      const keys: string[] = []
+      const unsubscribe = dataCache.subscribe(key => keys.push(key))
+
+      await dataCache.clear()
+
+      expect(keys).toEqual(expect.arrayContaining(['clear-a', 'clear-b']))
+      unsubscribe()
     })
   })
 

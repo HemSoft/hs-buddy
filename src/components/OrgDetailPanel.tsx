@@ -16,11 +16,11 @@ import {
   Users,
 } from 'lucide-react'
 import { useGitHubAccounts, usePRSettings } from '../hooks/useConfig'
-import { useTaskQueue } from '../hooks/useTaskQueue'
+import { useTaskQueue, useTaskQueueSelector } from '../hooks/useTaskQueue'
 import { type OrgMemberResult, type OrgOverviewResult, type OrgRepoResult } from '../api/github'
 import { GitHubClient } from '../api/github/client'
 import { dataCache } from '../services/dataCache'
-import { getTaskQueue } from '../services/taskQueue'
+import type { QueueSnapshot } from '../services/taskQueue'
 import { MS_PER_MINUTE } from '../constants'
 import { useCopilotUsage } from '../hooks/useCopilotUsage'
 import { getCodexUsageKey, useCodexUsage, type CodexUsageState } from '../hooks/useCodexUsage'
@@ -960,6 +960,26 @@ function usePersonalQuotaSummary(
   return { personalQuotaLoading, personalQuotaSummary }
 }
 
+interface OrgTaskActivity {
+  overview: boolean
+  members: boolean
+  copilot: boolean
+}
+
+function hasSameOrgTaskActivity(left: OrgTaskActivity, right: OrgTaskActivity): boolean {
+  return (
+    left.overview === right.overview &&
+    left.members === right.members &&
+    left.copilot === right.copilot
+  )
+}
+
+function snapshotHasTask(snapshot: QueueSnapshot, taskName: string): boolean {
+  return (
+    snapshot.runningTaskNames.includes(taskName) || snapshot.pendingTaskNames.includes(taskName)
+  )
+}
+
 function computeLivePhases(
   overviewData: ReturnType<typeof useOrgOverviewData>,
   membersData: ReturnType<typeof useOrgMembersData>,
@@ -967,30 +987,23 @@ function computeLivePhases(
   isUserNamespace: boolean,
   personalQuotaSummary: PersonalQuotaSummary | null,
   personalQuotaLoading: boolean,
-  githubQueue: ReturnType<typeof getTaskQueue>,
-  overviewTaskName: string,
-  membersTaskName: string,
-  copilotTaskName: string
+  taskActivity: OrgTaskActivity
 ) {
-  const isOverviewTaskActive = githubQueue.hasTaskWithName(overviewTaskName)
-  const isMembersTaskActive = githubQueue.hasTaskWithName(membersTaskName)
-  const isCopilotTaskActive = githubQueue.hasTaskWithName(copilotTaskName)
-
   const liveOverviewPhase = resolveRefreshPhase(
     overviewData.overviewPhase,
-    isOverviewTaskActive,
+    taskActivity.overview,
     overviewData.overview ? 'ready' : 'loading'
   )
   const liveMembersPhase = resolveRefreshPhase(
     membersData.membersPhase,
-    isMembersTaskActive,
+    taskActivity.members,
     membersData.membersResult ? 'ready' : 'loading'
   )
   const liveCopilotPhase = isUserNamespace
     ? resolvePersonalCopilotPhase(personalQuotaSummary, personalQuotaLoading)
     : resolveRefreshPhase(
         copilotData.copilotPhase,
-        isCopilotTaskActive,
+        taskActivity.copilot,
         /* v8 ignore start */
         copilotData.copilotUsage ? 'ready' : 'error'
         /* v8 ignore stop */
@@ -1101,13 +1114,22 @@ async function fetchNamespaceUsage({
 function useOrgDetailData(org: string, memberLogin?: string) {
   const { accounts } = useGitHubAccounts()
   const { refreshInterval } = usePRSettings()
-  const { enqueue, stats } = useTaskQueue('github')
+  const { enqueue } = useTaskQueue('github')
   const overviewCacheKey = `org-overview:${org}`
   const membersCacheKey = `org-members:${org}`
   const copilotCacheKey = `org-copilot:${org}`
   const overviewTaskName = `org-detail-overview-${org}`
   const membersTaskName = `org-detail-members-${org}`
   const copilotTaskName = `org-detail-copilot-${org}`
+  const selectTaskActivity = useCallback(
+    (snapshot: QueueSnapshot): OrgTaskActivity => ({
+      overview: snapshotHasTask(snapshot, overviewTaskName),
+      members: snapshotHasTask(snapshot, membersTaskName),
+      copilot: snapshotHasTask(snapshot, copilotTaskName),
+    }),
+    [copilotTaskName, membersTaskName, overviewTaskName]
+  )
+  const taskActivity = useTaskQueueSelector('github', selectTaskActivity, hasSameOrgTaskActivity)
   const initialOverview = buildSeedOverview(org)
   const {
     quotas,
@@ -1170,8 +1192,6 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     copilotData.hasCachedCopilot
   )
 
-  const githubQueue = getTaskQueue('github')
-  void stats
   const computedPhases = computeLivePhases(
     overviewData,
     membersData,
@@ -1179,10 +1199,7 @@ function useOrgDetailData(org: string, memberLogin?: string) {
     isUserNamespace,
     personalQuotaSummary,
     personalQuotaLoading,
-    githubQueue,
-    overviewTaskName,
-    membersTaskName,
-    copilotTaskName
+    taskActivity
   )
   const liveOverviewPhase = computedPhases.liveOverviewPhase
   const liveMembersPhase = computedPhases.liveMembersPhase

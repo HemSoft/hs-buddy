@@ -48,6 +48,18 @@ export interface QueueStats {
   failed: number
 }
 
+export interface QueueSnapshot {
+  stats: Readonly<QueueStats>
+  pendingCount: number
+  runningCount: number
+  isEmpty: boolean
+  runningTaskName: string | null
+  runningTaskNames: readonly string[]
+  pendingTaskNames: readonly string[]
+}
+
+type QueueListener = () => void
+
 /**
  * A task queue with concurrency control and priority support.
  */
@@ -65,6 +77,9 @@ export class TaskQueue {
   }
   private callbacks: QueueOptions
   private taskCounter = 0
+  private listeners = new Set<QueueListener>()
+  private snapshot: QueueSnapshot = this.createSnapshot()
+  private snapshotDirty = false
 
   constructor(name: string, options: QueueOptions = {}) {
     this.name = name
@@ -114,6 +129,7 @@ export class TaskQueue {
     }
 
     this.stats.pending++
+    this.emitChange()
     this.processQueue()
 
     return { taskId, promise }
@@ -135,6 +151,7 @@ export class TaskQueue {
       task.reject(new DOMException('Task cancelled', 'AbortError'))
       this.stats.pending--
       this.stats.cancelled++
+      this.emitChange()
       return true
     }
 
@@ -154,6 +171,8 @@ export class TaskQueue {
    * Cancel all pending and running tasks.
    */
   cancelAll(): void {
+    const hadPendingTasks = this.pendingTasks.length > 0
+
     // Cancel all pending tasks
     for (const task of this.pendingTasks) {
       task.status = 'cancelled'
@@ -163,6 +182,10 @@ export class TaskQueue {
     }
     this.stats.pending = 0
     this.pendingTasks = []
+
+    if (hadPendingTasks) {
+      this.emitChange()
+    }
 
     // Cancel all running tasks
     for (const task of this.runningTasks.values()) {
@@ -176,6 +199,25 @@ export class TaskQueue {
    */
   getStats(): QueueStats {
     return { ...this.stats }
+  }
+
+  /**
+   * Return the stable observable queue state used by React subscribers.
+   */
+  getSnapshot(): QueueSnapshot {
+    if (this.snapshotDirty) {
+      this.snapshot = this.createSnapshot()
+      this.snapshotDirty = false
+    }
+    return this.snapshot
+  }
+
+  /**
+   * Subscribe to semantic queue transitions.
+   */
+  subscribe(listener: QueueListener): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
   }
 
   /**
@@ -229,6 +271,33 @@ export class TaskQueue {
       if (task.name) names.push(task.name)
     }
     return names
+  }
+
+  private createSnapshot(): QueueSnapshot {
+    const runningTaskNames = this.collectTaskNames(this.runningTasks.values())
+    const pendingTaskNames = this.collectTaskNames(this.pendingTasks)
+    return {
+      stats: { ...this.stats },
+      pendingCount: this.pendingTasks.length,
+      runningCount: this.runningTasks.size,
+      isEmpty: this.pendingTasks.length === 0 && this.runningTasks.size === 0,
+      runningTaskName: runningTaskNames[0] ?? null,
+      runningTaskNames,
+      pendingTaskNames,
+    }
+  }
+
+  private emitChange(): void {
+    if (this.listeners.size === 0) {
+      this.snapshotDirty = true
+      return
+    }
+
+    this.snapshot = this.createSnapshot()
+    this.snapshotDirty = false
+    for (const listener of this.listeners) {
+      listener()
+    }
   }
 
   /**
@@ -295,6 +364,7 @@ export class TaskQueue {
     this.stats.running++
 
     this.callbacks.onTaskStart?.(task.id, task.name)
+    this.emitChange()
 
     try {
       const result = await task.execute(task.abortController.signal)
@@ -304,6 +374,7 @@ export class TaskQueue {
     } finally {
       this.runningTasks.delete(task.id)
       this.stats.running--
+      this.emitChange()
     }
 
     this.processQueue()

@@ -31,7 +31,7 @@ const STARTUP_PREFIXES = ['pr:', 'org-overview:', 'org-repos:', 'repo-counts:'] 
 const DETAIL_PREFIXES = [
   'repo-commit:',
   'pr-files:',
-  'checks:',
+  'pr-checks:',
   'repo-detail:',
   'repo-issue:',
   'user-activity:',

@@ -36,7 +36,7 @@ describe('SettingsAdvanced', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockGetStorageStats.mockResolvedValue({ entryCount: 42, totalBytes: 3 * 1024 * 1024 })
-    mockClearCache.mockResolvedValue(undefined)
+    mockClearCache.mockResolvedValue(true)
     mockUseConfig.mockReturnValue(defaultMockValues())
   })
 
@@ -102,6 +102,18 @@ describe('SettingsAdvanced', () => {
       expect(mockClearCache).toHaveBeenCalledTimes(1)
       expect(screen.getByText('0 entries · 0 B')).toBeTruthy()
     })
+  })
+
+  it('preserves displayed stats when clearing persisted data fails', async () => {
+    mockClearCache.mockResolvedValue(false)
+    render(<SettingsAdvanced />)
+    await screen.findByText('42 entries · 3.00 MiB')
+
+    fireEvent.click(screen.getByText('Clear Cached Data'))
+
+    await waitFor(() => expect(mockClearCache).toHaveBeenCalledTimes(1))
+    expect(mockGetStorageStats).toHaveBeenCalledTimes(1)
+    expect(screen.getByText('42 entries · 3.00 MiB')).toBeTruthy()
   })
 
   it('shows security note about keychain', () => {

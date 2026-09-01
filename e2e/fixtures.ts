@@ -133,6 +133,8 @@ export const test = base.extend({
               })
             case 'cache:read':
               return Promise.resolve(null)
+            case 'cache:touch':
+              return Promise.resolve({ success: true })
             case 'cache:stats':
               return Promise.resolve({ entryCount: 0, totalBytes: 0 })
             case 'cache:write':

@@ -123,6 +123,34 @@ export function writeDataCacheEntry(
     })
   } catch (err: unknown) {
     console.error('[DataCache] Failed to write cache:', err)
+    throw err
+  }
+  return result
+}
+
+export function touchDataCacheEntries(
+  keys: readonly string[],
+  now: number = Date.now()
+): DataCacheMutationResult {
+  let result = emptyMutationResult()
+  try {
+    updateJsonFile<unknown>(getDataCachePath(), {}, raw => {
+      const pruned = normalizeAndPruneDataCache(raw, now)
+      const next: PersistedDataCache = { ...pruned.cache }
+      for (const key of new Set(keys)) {
+        const entry = next[key]
+        if (entry) next[key] = { ...entry, lastAccessedAt: now }
+      }
+      const bounded = normalizeAndPruneDataCache(next, now)
+      result = {
+        stats: bounded.stats,
+        removedKeys: Array.from(new Set([...pruned.removedKeys, ...bounded.removedKeys])).sort(),
+      }
+      return bounded.cache
+    })
+  } catch (err: unknown) {
+    console.error('[DataCache] Failed to touch cache entries:', err)
+    throw err
   }
   return result
 }
@@ -146,6 +174,7 @@ export function deleteDataCacheEntry(
     })
   } catch (err: unknown) {
     console.error('[DataCache] Failed to delete cache entry:', err)
+    throw err
   }
   return result
 }
@@ -155,6 +184,7 @@ export function clearDataCache(): DataCacheMutationResult {
     writeJsonFile(getDataCachePath(), {})
   } catch (err: unknown) {
     console.error('[DataCache] Failed to clear cache:', err)
+    throw err
   }
   return emptyMutationResult()
 }

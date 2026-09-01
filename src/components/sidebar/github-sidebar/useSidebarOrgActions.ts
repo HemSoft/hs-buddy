@@ -74,7 +74,7 @@ async function fetchCachedOrgData<TRaw>(opts: {
   onData: (data: TRaw) => void
   forceRefresh?: boolean
 }): Promise<void> {
-  const cached = dataCache.get<TRaw>(opts.cacheKey)
+  const cached = await dataCache.getOrLoad<TRaw>(opts.cacheKey)
   if (cached?.data && !opts.forceRefresh) {
     opts.onData(cached.data)
     return

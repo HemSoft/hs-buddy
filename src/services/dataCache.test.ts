@@ -105,6 +105,46 @@ describe('dataCache', () => {
       expect(mockInvoke).not.toHaveBeenCalled()
     })
 
+    it('batches memory hits into one persisted access-time update', async () => {
+      vi.useFakeTimers()
+      try {
+        dataCache.set('one', 'value', 1000)
+        dataCache.set('two', 'value', 1000)
+        mockInvoke.mockClear()
+
+        dataCache.get('one')
+        dataCache.get('one')
+        dataCache.get('two')
+        await vi.advanceTimersByTimeAsync(1000)
+
+        expect(mockInvoke).toHaveBeenCalledTimes(1)
+        expect(mockInvoke).toHaveBeenCalledWith('cache:touch', ['one', 'two'])
+      } finally {
+        vi.useRealTimers()
+      }
+    })
+
+    it('logs batched access-time persistence failures', async () => {
+      vi.useFakeTimers()
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        dataCache.set('touch-error', 'value', 1000)
+        mockInvoke.mockReset()
+        mockInvoke.mockRejectedValueOnce(new Error('touch failed'))
+
+        dataCache.get('touch-error')
+        await vi.advanceTimersByTimeAsync(1000)
+
+        expect(spy).toHaveBeenCalledWith(
+          '[DataCache] Failed to persist access times:',
+          expect.any(Error)
+        )
+      } finally {
+        spy.mockRestore()
+        vi.useRealTimers()
+      }
+    })
+
     it('rejects malformed persisted entries and handles read failures', async () => {
       mockInvoke.mockResolvedValueOnce({ data: 'missing metadata', fetchedAt: 1000 })
       await expect(dataCache.getOrLoad('malformed')).resolves.toBeNull()
@@ -434,12 +474,14 @@ describe('dataCache', () => {
   })
 
   describe('clear - error path', () => {
-    it('logs error when disk clear fails', async () => {
+    it('keeps memory and stats intact when disk clear fails', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      dataCache.set('survives', 'value')
       mockInvoke.mockRejectedValueOnce(new Error('disk clear failed'))
 
-      await dataCache.clear()
+      await expect(dataCache.clear()).resolves.toBe(false)
 
+      expect(dataCache.isFresh('survives', Number.POSITIVE_INFINITY)).toBe(true)
       expect(spy).toHaveBeenCalledWith('[DataCache] Failed to clear disk cache:', expect.any(Error))
       spy.mockRestore()
     })

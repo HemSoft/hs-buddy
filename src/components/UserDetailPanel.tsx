@@ -564,38 +564,33 @@ function useUserActivity(org: string, memberLogin: string) {
 
   useEffect(() => {
     const forceRefresh = refreshKey > 0
-    const cached = dataCache.get<UserActivitySummary>(cacheKey)
-    if (cached?.data && !forceRefresh) {
-      dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
-      return
-    }
-
-    dispatch({ type: 'FETCH_START' })
-
     let cancelled = false
 
-    const doFetch = async () => {
+    const loadActivity = async () => {
+      if (!forceRefresh) {
+        const cached = await dataCache.getOrLoad<UserActivitySummary>(cacheKey)
+        if (cached?.data) {
+          if (!cancelled) dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
+          return
+        }
+      }
+
+      if (!cancelled) dispatch({ type: 'FETCH_START' })
       const client = new GitHubClient({ accounts }, 7)
-      return await client.fetchUserActivity(org, memberLogin)
+      const result = await client.fetchUserActivity(org, memberLogin)
+      dataCache.set(cacheKey, result)
+      if (!cancelled) dispatch({ type: 'FETCH_SUCCESS', payload: result })
     }
 
-    doFetch()
-      .then(result => {
-        dataCache.set(cacheKey, result)
-        /* v8 ignore start */
-        if (cancelled) return
-        /* v8 ignore stop */
-        dispatch({ type: 'FETCH_SUCCESS', payload: result })
+    loadActivity().catch(err => {
+      /* v8 ignore start */
+      if (cancelled) return
+      /* v8 ignore stop */
+      dispatch({
+        type: 'FETCH_ERROR',
+        payload: getErrorMessage(err),
       })
-      .catch(err => {
-        /* v8 ignore start */
-        if (cancelled) return
-        /* v8 ignore stop */
-        dispatch({
-          type: 'FETCH_ERROR',
-          payload: getErrorMessage(err),
-        })
-      })
+    })
 
     return () => {
       cancelled = true

@@ -82,9 +82,11 @@ export function SettingsAdvanced() {
   }
   const handleClearCache = async () => {
     setIsClearingCache(true)
-    await dataCache.clear()
-    setCacheStats(await dataCache.getStorageStats())
-    setIsClearingCache(false)
+    try {
+      if (await dataCache.clear()) setCacheStats(await dataCache.getStorageStats())
+    } finally {
+      setIsClearingCache(false)
+    }
   }
 
   if (loading) {

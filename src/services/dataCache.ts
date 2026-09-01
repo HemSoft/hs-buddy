@@ -42,6 +42,32 @@ const memoryCache: PersistedDataCache = {}
 const listeners: Set<CacheListener> = new Set()
 let initialized = false
 let storageStats: DataCacheStorageStats = { entryCount: 0, totalBytes: 0 }
+const pendingTouchKeys = new Set<string>()
+let touchTimer: ReturnType<typeof setTimeout> | null = null
+
+function flushPendingTouches(): void {
+  touchTimer = null
+  const keys = Array.from(pendingTouchKeys)
+  pendingTouchKeys.clear()
+  if (keys.length === 0) return
+  window.ipcRenderer
+    .invoke(IPC_INVOKE.CACHE_TOUCH, keys)
+    .then(applyMutationResult)
+    .catch(err => {
+      console.error('[DataCache] Failed to persist access times:', err)
+    })
+}
+
+function scheduleTouch(key: string): void {
+  pendingTouchKeys.add(key)
+  touchTimer ??= setTimeout(flushPendingTouches, 1000)
+}
+
+function cancelPendingTouches(): void {
+  pendingTouchKeys.clear()
+  if (touchTimer) clearTimeout(touchTimer)
+  touchTimer = null
+}
 
 function notifyListeners(key: string): void {
   for (const listener of listeners) {
@@ -114,6 +140,7 @@ export const dataCache = {
     const entry = memoryCache[key] as CacheEntry<T> | undefined
     if (!entry) return null
     entry.lastAccessedAt = Date.now()
+    scheduleTouch(key)
     return entry
   },
 
@@ -173,17 +200,20 @@ export const dataCache = {
     })
   },
 
-  async clear(): Promise<void> {
+  async clear(): Promise<boolean> {
     const keys = Object.keys(memoryCache)
-    for (const key of keys) delete memoryCache[key]
+    cancelPendingTouches()
     try {
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      for (const key of keys) delete memoryCache[key]
       applyMutationResult(result)
       storageStats = { entryCount: 0, totalBytes: 0 }
+      for (const key of keys) notifyListeners(key)
+      return true
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
+      return false
     }
-    for (const key of keys) notifyListeners(key)
   },
 
   async getStorageStats(): Promise<DataCacheStorageStats> {

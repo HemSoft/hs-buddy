@@ -2,6 +2,7 @@ import { ipcMain } from 'electron'
 import {
   initializeDataCache,
   readDataCacheEntry,
+  touchDataCacheEntries,
   getDataCacheStats,
   writeDataCacheEntry,
   deleteDataCacheEntry,
@@ -13,6 +14,10 @@ export function registerCacheHandlers(): void {
   ipcMain.handle(IPC_INVOKE.CACHE_INITIALIZE, () => initializeDataCache())
 
   ipcMain.handle(IPC_INVOKE.CACHE_READ, (_event, key: string) => readDataCacheEntry(key))
+
+  ipcMain.handle(IPC_INVOKE.CACHE_TOUCH, (_event, keys: string[]) => {
+    return { success: true, ...touchDataCacheEntries(keys) }
+  })
 
   ipcMain.handle(IPC_INVOKE.CACHE_STATS, () => getDataCacheStats())
 

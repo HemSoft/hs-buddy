@@ -130,6 +130,7 @@ export const IPC_INVOKE = {
   // ── Cache ──────────────────────────────────────────────────────────────
   CACHE_INITIALIZE: 'cache:initialize',
   CACHE_READ: 'cache:read',
+  CACHE_TOUCH: 'cache:touch',
   CACHE_STATS: 'cache:stats',
   CACHE_WRITE: 'cache:write',
   CACHE_DELETE: 'cache:delete',

@@ -58,6 +58,7 @@ const invokeDefaults: Record<string, unknown> = {
   'config:get-notification-sound-path': '',
   'cache:initialize': { entries: {}, stats: { entryCount: 0, totalBytes: 0 }, removedKeys: [] },
   'cache:read': null,
+  'cache:touch': { success: true },
   'cache:stats': { entryCount: 0, totalBytes: 0 },
   'cache:write': { success: true },
   'cache:delete': { success: true },

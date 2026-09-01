@@ -4,6 +4,7 @@ import type { Id } from '../../../../convex/_generated/dataModel'
 
 // --- Mock services ---
 const mockGet = vi.fn()
+const mockGetOrLoad = vi.fn((...args: unknown[]) => Promise.resolve(mockGet(...args)))
 const mockSet = vi.fn()
 const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
@@ -12,6 +13,7 @@ const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
     get: (...args: unknown[]) => mockGet(...args),
+    getOrLoad: (...args: unknown[]) => mockGetOrLoad(...args),
     set: (...args: unknown[]) => mockSet(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
     subscribe: (listener: (key: string) => void) => mockSubscribe(listener),
@@ -1456,6 +1458,7 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrgUserGroup('acme')
     })
     expect(result.current.orgMembers['acme']).toEqual(membersData.members)
+    expect(mockGetOrLoad).toHaveBeenCalledWith('org-members:acme')
     expect(mockFetchOrgMembers).not.toHaveBeenCalled()
   })
 

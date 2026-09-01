@@ -48,6 +48,7 @@ describe('dataCachePolicy', () => {
     expect(getCacheTtlMs('repo-commit:org/repo/sha')).toBeLessThan(
       getCacheTtlMs('org-overview:org')
     )
+    expect(getCacheTtlMs('pr-checks:org/repo/123')).toBe(24 * 60 * 60 * 1000)
     const result = normalizeAndPruneDataCache(
       {
         'repo-commit:org/repo/old': entry(

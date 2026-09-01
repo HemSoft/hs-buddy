@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 const mocks = vi.hoisted(() => ({
   initialize: vi.fn(),
   read: vi.fn(),
+  touch: vi.fn(),
   stats: vi.fn(),
   write: vi.fn(),
   delete: vi.fn(),
@@ -13,6 +14,7 @@ vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 vi.mock('../cache', () => ({
   initializeDataCache: mocks.initialize,
   readDataCacheEntry: mocks.read,
+  touchDataCacheEntries: mocks.touch,
   getDataCacheStats: mocks.stats,
   writeDataCacheEntry: mocks.write,
   deleteDataCacheEntry: mocks.delete,
@@ -33,6 +35,7 @@ describe('cacheHandlers', () => {
       handlers.set(channel, handler)
     })
     mocks.write.mockReturnValue({ stats: { entryCount: 1, totalBytes: 4 }, removedKeys: [] })
+    mocks.touch.mockReturnValue({ stats: { entryCount: 1, totalBytes: 4 }, removedKeys: [] })
     mocks.delete.mockReturnValue({ stats: { entryCount: 0, totalBytes: 0 }, removedKeys: ['key'] })
     mocks.clear.mockReturnValue({ stats: { entryCount: 0, totalBytes: 0 }, removedKeys: [] })
     registerCacheHandlers()
@@ -43,6 +46,7 @@ describe('cacheHandlers', () => {
       [
         'cache:initialize',
         'cache:read',
+        'cache:touch',
         'cache:stats',
         'cache:write',
         'cache:delete',
@@ -66,6 +70,14 @@ describe('cacheHandlers', () => {
     expect(handlers.get('cache:read')!({}, 'key')).toBe(entry)
     expect(mocks.read).toHaveBeenCalledWith('key')
     expect(handlers.get('cache:stats')!()).toBe(stats)
+  })
+
+  it('persists batched access timestamps', () => {
+    expect(handlers.get('cache:touch')!({}, ['one', 'two'])).toMatchObject({
+      success: true,
+      stats: { entryCount: 1, totalBytes: 4 },
+    })
+    expect(mocks.touch).toHaveBeenCalledWith(['one', 'two'])
   })
 
   it('returns write, delete, and clear mutation details', () => {

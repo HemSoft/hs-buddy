@@ -17,6 +17,7 @@ import {
   initializeDataCache,
   readDataCache,
   readDataCacheEntry,
+  touchDataCacheEntries,
   writeDataCacheEntry,
 } from './cache'
 import { readJsonFile, updateJsonFile, writeJsonFile } from './jsonFileStore'
@@ -81,6 +82,17 @@ describe('cache', () => {
 
     expect(result).toMatchObject({ data: { files: [] }, lastAccessedAt: NOW + 50 })
     expect(readDataCacheEntry('missing', NOW + 100)).toBeNull()
+  })
+
+  it('persists a deduplicated batch of cache access times', () => {
+    writeDataCacheEntry('one', { data: 1, fetchedAt: NOW }, NOW)
+    writeDataCacheEntry('two', { data: 2, fetchedAt: NOW }, NOW)
+
+    const result = touchDataCacheEntries(['one', 'one', 'missing'], NOW + 50)
+
+    expect(result.stats.entryCount).toBe(2)
+    expect(readDataCache(NOW + 50).one).toMatchObject({ lastAccessedAt: NOW + 50 })
+    expect(readDataCache(NOW + 50).two).toMatchObject({ lastAccessedAt: NOW })
   })
 
   it('replaces superseded schema and account-fingerprint siblings', () => {
@@ -171,18 +183,12 @@ describe('cache', () => {
     expect(readDataCache(NOW)).toEqual({})
     expect(readDataCacheEntry('key', NOW)).toBeNull()
     expect(getDataCacheStats(NOW)).toEqual({ entryCount: 0, totalBytes: 0 })
-    expect(writeDataCacheEntry('key', { data: null, fetchedAt: NOW }, NOW)).toEqual({
-      stats: { entryCount: 0, totalBytes: 0 },
-      removedKeys: [],
-    })
-    expect(deleteDataCacheEntry('key', NOW)).toEqual({
-      stats: { entryCount: 0, totalBytes: 0 },
-      removedKeys: [],
-    })
-    expect(clearDataCache()).toEqual({
-      stats: { entryCount: 0, totalBytes: 0 },
-      removedKeys: [],
-    })
+    expect(() => writeDataCacheEntry('key', { data: null, fetchedAt: NOW }, NOW)).toThrow(
+      'update error'
+    )
+    expect(() => touchDataCacheEntries(['key'], NOW)).toThrow('update error')
+    expect(() => deleteDataCacheEntry('key', NOW)).toThrow('update error')
+    expect(() => clearDataCache()).toThrow('write error')
     expect(errorSpy).toHaveBeenCalled()
   })
 })

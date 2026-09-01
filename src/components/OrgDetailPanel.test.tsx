@@ -1133,6 +1133,12 @@ describe('OrgDetailPanel', () => {
       ).not.toBe(0)
       expect(screen.getByText('#604')).toBeInTheDocument()
       expect(screen.getByText('#605')).toBeInTheDocument()
+
+      orgMocks.mockClient.fetchOrgOverview.mockClear()
+      fireEvent.click(screen.getByRole('button', { name: 'Refresh active repositories' }))
+      await waitFor(() => {
+        expect(orgMocks.mockClient.fetchOrgOverview).toHaveBeenCalledWith('test-org')
+      })
     })
 
     it('reports an unavailable Codex allowance in the namespace status', async () => {

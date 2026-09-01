@@ -174,6 +174,7 @@ Diagnose runtime issues in the running app.
 | Symptom | Root Cause | Fix |
 |---------|-----------|-----|
 | Infinite "Loading..." spinner | Convex dev server not running | Check Aspire dashboard |
+| Convex exits 255 with `could not find bin metadata file` | Bun's local executable metadata in `node_modules` is corrupt | Confirm with `bunx --no-install convex --version`, then run `bun install --force --frozen-lockfile` |
 | `window.electronAPI` undefined | Playwright not using CDP mode | Add `--cdp-endpoint` to config |
 | Blank white screen | Unhandled exception in render | Check console for React errors |
 | Blank screen with `ReferenceError: require is not defined` at `.vite-electron-renderer/fs+promises.mjs` | A renderer dep (e.g. `cron-parser`) statically imports a Node builtin; `vite-plugin-electron-renderer` shims it with a `require()` wrapper, but the renderer runs `nodeIntegration: false` | Remove the `renderer: {}` option from `electron()` in `vite.config.ts`; Vite then applies the dep's own `browser` field to stub the builtin. Keep `base: './'` for `loadFile` in production |

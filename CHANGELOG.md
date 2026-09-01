@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1070] - 2026-09-01
+
+### Changed
+
+- Isolate one-second display updates (#624)
+
 ## [0.1.1069] - 2026-09-01
 
 ### Fixed

@@ -11,8 +11,8 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react'
-import type { BackgroundStatus } from '../hooks/useBackgroundStatus'
-import { formatTime } from '../utils/dateUtils'
+import { useBackgroundStatus, type BackgroundStatus } from '../hooks/useBackgroundStatus'
+import { formatDistanceToNow, formatSecondsCountdown, formatTime } from '../utils/dateUtils'
 import './StatusBar.css'
 
 interface StatusBarItemProps {
@@ -76,13 +76,32 @@ function buildSyncingLabel(status: BackgroundStatus): string {
   return `Syncing ${label}${taskCount}…`
 }
 
-function buildIdleTooltip(status: BackgroundStatus): string {
-  const last = status.lastRefreshedLabel || 'never'
-  const next = status.nextRefreshLabel || '—'
+function buildIdleTooltip(
+  lastRefreshedLabel: string | null,
+  nextRefreshLabel: string | null
+): string {
+  const last = lastRefreshedLabel || 'never'
+  const next = nextRefreshLabel || '—'
   return `Last updated ${last} · Next refresh in ${next}`
 }
 
+function useCurrentTime(enabled = true): Date {
+  const [currentTime, setCurrentTime] = useState(() => new Date())
+
+  useEffect(() => {
+    if (!enabled) return
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [enabled])
+
+  return currentTime
+}
+
 function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: BackgroundStatus }) {
+  const currentTime = useCurrentTime(backgroundStatus.phase === 'idle')
+
   if (backgroundStatus.phase === 'syncing') {
     return (
       <div
@@ -97,18 +116,25 @@ function BackgroundSyncStatus({ backgroundStatus }: { backgroundStatus: Backgrou
     )
   }
 
+  const now = currentTime.getTime()
+  const nextRefreshSecs = backgroundStatus.nextRefreshAt
+    ? Math.max(0, Math.ceil((backgroundStatus.nextRefreshAt - now) / 1000))
+    : null
+  const nextRefreshLabel = nextRefreshSecs === null ? null : formatSecondsCountdown(nextRefreshSecs)
+  const lastRefreshedLabel = backgroundStatus.lastRefreshedAt
+    ? formatDistanceToNow(backgroundStatus.lastRefreshedAt)
+    : null
+
   return (
     <div
       className="status-item status-item-sync-idle"
-      data-tooltip={buildIdleTooltip(backgroundStatus)}
+      data-tooltip={buildIdleTooltip(lastRefreshedLabel, nextRefreshLabel)}
     >
       <span className="status-icon">
         <CheckCircle2 size={12} />
       </span>
       <span className="status-text">
-        {backgroundStatus.nextRefreshLabel
-          ? `Next sync ${backgroundStatus.nextRefreshLabel}`
-          : 'Auto-refresh active'}
+        {nextRefreshLabel ? `Next sync ${nextRefreshLabel}` : 'Auto-refresh active'}
       </span>
     </div>
   )
@@ -136,12 +162,20 @@ function GitHubAccountItem({
   )
 }
 
+function LiveBackgroundSyncStatus() {
+  const backgroundStatus = useBackgroundStatus()
+  return <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
+}
+
 function BackgroundSyncSection({ backgroundStatus }: { backgroundStatus?: BackgroundStatus }) {
-  if (!backgroundStatus) return null
   return (
     <>
       <div className="status-divider" />
-      <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
+      {backgroundStatus ? (
+        <BackgroundSyncStatus backgroundStatus={backgroundStatus} />
+      ) : (
+        <LiveBackgroundSyncStatus />
+      )}
     </>
   )
 }
@@ -167,23 +201,6 @@ export function StatusBar({
   onNavigate,
   assistantActive,
 }: StatusBarProps) {
-  const [currentTime, setCurrentTime] = useState(new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date())
-    }, 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString(undefined, {
-      weekday: 'short',
-      month: 'short',
-      day: 'numeric',
-    })
-  }
-
   return (
     <div className="status-bar">
       <div className="status-bar-left">
@@ -221,16 +238,29 @@ export function StatusBar({
         <StatusBarItem icon={Bot} text="Buddy" tooltip="hs-buddy" className="status-item-brand" />
       </div>
 
-      <div className="status-bar-right">
-        <StatusBarItem icon={Calendar} text={formatDate(currentTime)} tooltip="Current Date" />
-        <div className="status-divider" />
-        <StatusBarItem
-          icon={Clock}
-          text={formatTime(currentTime, { seconds: true })}
-          tooltip="Current Time"
-          className="status-item-time"
-        />
-      </div>
+      <StatusBarClock />
+    </div>
+  )
+}
+
+function StatusBarClock() {
+  const currentTime = useCurrentTime()
+  const currentDate = currentTime.toLocaleDateString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  })
+
+  return (
+    <div className="status-bar-right">
+      <StatusBarItem icon={Calendar} text={currentDate} tooltip="Current Date" />
+      <div className="status-divider" />
+      <StatusBarItem
+        icon={Clock}
+        text={formatTime(currentTime, { seconds: true })}
+        tooltip="Current Time"
+        className="status-item-time"
+      />
     </div>
   )
 }

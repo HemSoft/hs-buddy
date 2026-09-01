@@ -21,12 +21,14 @@ interface WelcomePanelProps {
 type QuickAction = 'my-prs' | 'organizations' | 'jobs' | 'settings'
 
 function WelcomeHeader({
-  liveUptime,
+  storedUptime,
+  lastSessionStart,
   cards,
   isVisible,
   toggleCard,
 }: {
-  liveUptime: number
+  storedUptime: number
+  lastSessionStart: number | undefined
   cards: ReturnType<typeof useDashboardCards>['cards']
   isVisible: ReturnType<typeof useDashboardCards>['isVisible']
   toggleCard: ReturnType<typeof useDashboardCards>['toggleCard']
@@ -49,14 +51,27 @@ function WelcomeHeader({
             <div className="welcome-version-badge">Version {APP_VERSION}</div>
             <DashboardConfigDropdown cards={cards} isVisible={isVisible} toggleCard={toggleCard} />
           </div>
-          {liveUptime > 0 && (
-            <div className="welcome-uptime-badge">
-              <Clock size={12} />
-              <span>{formatUptime(liveUptime)}</span>
-            </div>
-          )}
+          <WelcomeUptimeBadge storedUptime={storedUptime} lastSessionStart={lastSessionStart} />
         </div>
       </div>
+    </div>
+  )
+}
+
+function WelcomeUptimeBadge({
+  storedUptime,
+  lastSessionStart,
+}: {
+  storedUptime: number
+  lastSessionStart: number | undefined
+}) {
+  const liveUptime = useLiveUptime(storedUptime, lastSessionStart)
+  if (liveUptime <= 0) return null
+
+  return (
+    <div className="welcome-uptime-badge">
+      <Clock size={12} />
+      <span>{formatUptime(liveUptime)}</span>
     </div>
   )
 }
@@ -238,26 +253,17 @@ function useWelcomeStats(prCounts: Record<string, number>) {
 
 function useLiveUptime(storedUptime: number, lastSessionStart: number | undefined) {
   const [clientSessionStart] = useState<number>(() => Date.now())
-  const [liveUptime, setLiveUptime] = useState(storedUptime)
+  const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
 
   useEffect(() => {
-    const compute = () => {
-      const sessionStart = lastSessionStart ?? clientSessionStart
-      const sessionElapsed = Math.max(0, Date.now() - sessionStart)
-      setLiveUptime(prev => {
-        const newVal = storedUptime + sessionElapsed
-        return newVal === prev ? prev : newVal
-      })
-    }
-
-    compute()
-    const timer = setInterval(compute, 1_000)
+    const timer = setInterval(() => setCurrentTime(Date.now()), 1_000)
     return () => {
       clearInterval(timer)
     }
-  }, [storedUptime, lastSessionStart, clientSessionStart])
+  }, [])
 
-  return liveUptime
+  const sessionStart = lastSessionStart ?? clientSessionStart
+  return storedUptime + Math.max(0, currentTime - sessionStart)
 }
 
 export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomePanelProps) {
@@ -266,7 +272,6 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
   const { cards, visibleCards, isVisible, toggleCard } = useDashboardCards()
 
   const welcomeStats = useWelcomeStats(prCounts)
-  const liveUptime = useLiveUptime(welcomeStats.storedUptime, welcomeStats.lastSessionStart)
   const hasCopilotAccounts = accounts.length > 0
 
   const handleQuickAction = (action: QuickAction) => {
@@ -323,7 +328,8 @@ export function WelcomePanel({ prCounts, onNavigate, onSectionChange }: WelcomeP
     <div className="welcome-panel">
       <div className="welcome-stack">
         <WelcomeHeader
-          liveUptime={liveUptime}
+          storedUptime={welcomeStats.storedUptime}
+          lastSessionStart={welcomeStats.lastSessionStart}
           cards={cards}
           isVisible={isVisible}
           toggleCard={toggleCard}

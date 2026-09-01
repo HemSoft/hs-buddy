@@ -13,7 +13,6 @@ import { AssistantPanel } from './components/AssistantPanel'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
-import { useBackgroundStatus } from './hooks/useBackgroundStatus'
 import { useAppAppearance } from './hooks/useAppAppearance'
 import { usePRSidebarBadges } from './hooks/usePRSidebarBadges'
 import { useAssistantContext } from './hooks/useAssistantContext'
@@ -223,7 +222,6 @@ function App() {
   const { isComplete: migrationComplete, isLoading: migrationLoading } = useMigrateToConvex()
   usePrefetch()
   useAppAppearance()
-  const backgroundStatus = useBackgroundStatus()
   const { trackViewOpen } = useAppSessionStats()
   const {
     activeTabId,
@@ -361,7 +359,6 @@ function App() {
         scheduleCount={scheduleCount}
         jobCount={jobCount}
         activeGitHubAccount={activeGitHubAccount}
-        backgroundStatus={backgroundStatus}
         onNavigate={openTab}
         assistantActive={assistantOpen}
       />

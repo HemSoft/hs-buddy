@@ -33,6 +33,7 @@
     "deleteAppDataOnUninstall": false
   },
   "mac": {
+    "minimumSystemVersion": "13.0",
     "target": [
       {
         "target": "dmg",

@@ -12,7 +12,14 @@
  */
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
 import { basename, dirname, relative, resolve } from 'node:path'
-import { deduplicateBundles, normalizeBundleFile, type BundleEntry } from './bundle-size-utils'
+import {
+  deduplicateBundles,
+  normalizeBundleFile,
+  normalizeRendererEntryFile,
+  parseInitialHtmlAssets,
+  traceInitialAssetGraph,
+  type BundleEntry,
+} from './bundle-size-utils'
 
 const root = resolve(import.meta.dirname, '..')
 const baselinePath = resolve(root, 'bundle-size-baseline.json')
@@ -20,10 +27,18 @@ const baselinePath = resolve(root, 'bundle-size-baseline.json')
 // 5% growth allowed before warning, 10% before failure
 const WARN_THRESHOLD = 0.05
 const FAIL_THRESHOLD = 0.1
+const MAX_INITIAL_JS_BYTES = 1_500 * 1024
+const MAX_INITIAL_TOTAL_BYTES = 1_800 * 1024
 
 interface Baseline {
   updatedAt: string
   bundles: BundleEntry[]
+}
+
+interface RendererManifestEntry {
+  file: string
+  css?: string[]
+  isDynamicEntry?: boolean
 }
 
 function humanSize(bytes: number): string {
@@ -36,12 +51,91 @@ function humanSize(bytes: number): string {
 function collectRendererAssets(distDir: string): BundleEntry[] {
   const assetsDir = resolve(distDir, 'assets')
   if (!existsSync(assetsDir)) return []
+  const projectDirectoryName = basename(root)
   return readdirSync(assetsDir)
     .filter(f => f.endsWith('.js') || f.endsWith('.css'))
     .map(f => {
       const size = statSync(resolve(assetsDir, f)).size
-      return { file: `dist/assets/${f}`, sizeBytes: size, sizeHuman: humanSize(size) }
+      const logicalFile = normalizeRendererEntryFile(f, projectDirectoryName)
+      return { file: `dist/assets/${logicalFile}`, sizeBytes: size, sizeHuman: humanSize(size) }
     })
+}
+
+function collectInitialRendererGraph(distDir: string): BundleEntry[] {
+  const indexPath = resolve(distDir, 'index.html')
+  if (!existsSync(indexPath)) {
+    throw new Error('Missing dist/index.html. Run a clean renderer build before bundle-size check.')
+  }
+
+  const initialAssets = parseInitialHtmlAssets(readFileSync(indexPath, 'utf-8'))
+  const graph = traceInitialAssetGraph(initialAssets, asset => {
+    const assetPath = resolve(distDir, asset)
+    if (!existsSync(assetPath)) throw new Error(`Missing initial renderer asset ${asset}.`)
+    return readFileSync(assetPath, 'utf-8')
+  })
+
+  return graph
+    .map(file => {
+      const size = statSync(resolve(distDir, file)).size
+      return { file: `dist/${file}`, sizeBytes: size, sizeHuman: humanSize(size) }
+    })
+    .sort((a, b) => b.sizeBytes - a.sizeBytes || a.file.localeCompare(b.file))
+}
+
+function printInitialRendererGraph(graph: readonly BundleEntry[]): boolean {
+  const initialJavaScriptBytes = graph
+    .filter(asset => asset.file.endsWith('.js'))
+    .reduce((total, asset) => total + asset.sizeBytes, 0)
+  const initialTotalBytes = graph.reduce((total, asset) => total + asset.sizeBytes, 0)
+
+  console.log('Initial renderer preload graph:')
+  for (const asset of graph) console.log(`  ${asset.file.padEnd(55)} ${asset.sizeHuman}`)
+  console.log(`  ${'Initial JavaScript'.padEnd(55)} ${humanSize(initialJavaScriptBytes)}`)
+  console.log(`  ${'Initial JavaScript + CSS'.padEnd(55)} ${humanSize(initialTotalBytes)}`)
+
+  const javascriptOverBudget = initialJavaScriptBytes >= MAX_INITIAL_JS_BYTES
+  const totalOverBudget = initialTotalBytes >= MAX_INITIAL_TOTAL_BYTES
+  if (javascriptOverBudget) {
+    console.error(`Initial JavaScript must stay below ${humanSize(MAX_INITIAL_JS_BYTES)}.`)
+  }
+  if (totalOverBudget) {
+    console.error(`Initial JavaScript + CSS must stay below ${humanSize(MAX_INITIAL_TOTAL_BYTES)}.`)
+  }
+  return javascriptOverBudget || totalOverBudget
+}
+
+function verifyDynamicEntriesStayLazy(
+  distDir: string,
+  initialGraph: readonly BundleEntry[]
+): boolean {
+  const manifestPath = resolve(distDir, '.vite', 'manifest.json')
+  if (!existsSync(manifestPath)) {
+    throw new Error('Missing renderer manifest. Vite must build with build.manifest enabled.')
+  }
+
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8')) as Record<
+    string,
+    RendererManifestEntry
+  >
+  const initialFiles = new Set(initialGraph.map(asset => asset.file.replace(/^dist\//, '')))
+  const dynamicEntries = Object.values(manifest).filter(entry => entry.isDynamicEntry)
+  if (dynamicEntries.length === 0) {
+    console.error('Renderer manifest contains no dynamic entries; feature routes may be eager.')
+    return true
+  }
+  const eagerlyLoaded = dynamicEntries.flatMap(entry =>
+    [entry.file, ...(entry.css ?? [])].filter(file => initialFiles.has(file))
+  )
+
+  if (eagerlyLoaded.length > 0) {
+    console.error(`Dynamic route assets entered the initial graph: ${eagerlyLoaded.join(', ')}`)
+    return true
+  }
+
+  console.log(
+    `Lazy chunk isolation: ${dynamicEntries.length} dynamic entries excluded from startup.`
+  )
+  return false
 }
 
 function collectElectronMainChunks(distElectronDir: string): BundleEntry[] {
@@ -107,11 +201,19 @@ const isUpdate = process.argv.includes('--update')
 
 try {
   const bundles = deduplicateBundles(collectBundles())
+  const initialRendererGraph = collectInitialRendererGraph(resolve(root, 'dist'))
 
   if (bundles.length === 0) {
     console.error('No bundles found. Run `npx vite build` first.')
     process.exit(1)
   }
+
+  const initialBudgetFailed = printInitialRendererGraph(initialRendererGraph)
+  const lazyIsolationFailed = verifyDynamicEntriesStayLazy(
+    resolve(root, 'dist'),
+    initialRendererGraph
+  )
+  if (initialBudgetFailed || lazyIsolationFailed) process.exit(1)
 
   if (isUpdate) {
     const baseline: Baseline = {

@@ -19,6 +19,14 @@
   flex: 1;
 }
 
+.assistant-panel-loading {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-primary);
+  border-left: 1px solid var(--border-primary);
+}
+
 /* Style the Allotment sash (resize handle) */
 :root {
   --focus-border: var(--sash-hover, #505055);

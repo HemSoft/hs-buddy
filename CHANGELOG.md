@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1085] - 2026-09-01
+
+### Changed
+
+- Harden lazy route validation
+
+## [0.1.1084] - 2026-09-01
+
+### Fixed
+
+- Baseline lazy route chunks
+
+## [0.1.1083] - 2026-09-01
+
+### Fixed
+
+- Harden lazy-route validation
+
+## [0.1.1081] - 2026-09-01
+
+### Fixed
+
+- Address lazy-route review feedback
+
+## [0.1.1080] - 2026-09-01
+
+### Changed
+
+- Satisfy lazy-route quality lint
+
+## [0.1.1079] - 2026-09-01
+
+### Changed
+
+- Lazy-load feature routes
+
 ## [0.1.1078] - 2026-09-01
 
 ### Changed

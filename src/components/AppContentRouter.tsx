@@ -1,42 +1,45 @@
-import { PullRequestList } from './PullRequestList'
-import { ScheduleDetailPanel } from './automation/ScheduleDetailPanel'
-import { ScheduleOverviewPanel } from './automation/ScheduleOverviewPanel'
-import { JobDetailPanel } from './automation/JobDetailPanel'
-import { RunList } from './automation/RunList'
-import { SettingsAccounts } from './settings/SettingsAccounts'
-import { SettingsAppearance } from './settings/SettingsAppearance'
-import { SettingsPullRequests } from './settings/SettingsPullRequests'
-import { SettingsCopilot } from './settings/SettingsCopilot'
-import { SettingsNotifications } from './settings/SettingsNotifications'
-import { SettingsAdvanced } from './settings/SettingsAdvanced'
-import { SettingsWeather } from './settings/SettingsWeather'
 import { WelcomePanel } from './WelcomePanel'
-import { RepoDetailPanel } from './RepoDetailPanel'
-import { RepoCommitListPanel } from './RepoCommitListPanel'
-import { RepoCommitDetailPanel } from './RepoCommitDetailPanel'
-import { RepoIssueList } from './RepoIssueList'
-import { RepoIssueDetailPanel } from './RepoIssueDetailPanel'
-import { RepoPullRequestList } from './RepoPullRequestList'
-import { PullRequestDetailPanel } from './PullRequestDetailPanel'
-import { CopilotPromptBox } from './CopilotPromptBox'
-import { CopilotResultPanel } from './CopilotResultPanel'
-import { CopilotResultsList } from './CopilotResultsList'
-import { PRReviewPanel } from './PRReviewPanel'
 import { parsePRReviewInfo } from './pr-review/PRReviewInfo'
-import { CopilotUsagePanel } from './CopilotUsagePanel'
-import { OrgDetailPanel } from './OrgDetailPanel'
-import { UserDetailPanel } from './UserDetailPanel'
-import { CrewProjectView } from './crew/CrewProjectView'
-import { TempoDashboard } from './tempo/TempoDashboard'
-import { RalphDashboard } from './ralph-loops/RalphDashboard'
-import { RalphRunDetailPanel } from './ralph-loops/RalphRunDetailPanel'
-import { SessionExplorer } from './sessions/SessionExplorer'
-import { SessionDetail } from './sessions/SessionDetail'
-import { TaskPlannerView } from './planner/TaskPlannerView'
-import { BookmarkList } from './bookmarks/BookmarkList'
-import { BrowserTabView } from './BrowserTabView'
-import { FolderExplorerView } from './explorer/FolderExplorerView'
-import { TerminalWorkspaceView } from './terminal-workspace/TerminalWorkspaceView'
+import { LazyRouteBoundary } from './LazyRouteBoundary'
+import {
+  LazyBookmarkList,
+  LazyBrowserTabView,
+  LazyCopilotPromptBox,
+  LazyCopilotResultPanel,
+  LazyCopilotResultsList,
+  LazyCopilotUsagePanel,
+  LazyCrewProjectView,
+  LazyFolderExplorerView,
+  LazyJobDetailPanel,
+  LazyOrgDetailPanel,
+  LazyPRReviewPanel,
+  LazyPullRequestDetailPanel,
+  LazyPullRequestList,
+  LazyRalphDashboard,
+  LazyRalphRunDetailPanel,
+  LazyRepoCommitDetailPanel,
+  LazyRepoCommitListPanel,
+  LazyRepoDetailPanel,
+  LazyRepoIssueDetailPanel,
+  LazyRepoIssueList,
+  LazyRepoPullRequestList,
+  LazyRunList,
+  LazyScheduleDetailPanel,
+  LazyScheduleOverviewPanel,
+  LazySessionDetail,
+  LazySessionExplorer,
+  LazySettingsAccounts,
+  LazySettingsAdvanced,
+  LazySettingsAppearance,
+  LazySettingsCopilot,
+  LazySettingsNotifications,
+  LazySettingsPullRequests,
+  LazySettingsWeather,
+  LazyTaskPlannerView,
+  LazyTempoDashboard,
+  LazyTerminalWorkspaceView,
+  LazyUserDetailPanel,
+} from './AppContentLazyRoutes'
 import { PR_MODES } from '../constants'
 import { parsePRDetailRoute } from '../utils/prDetailView'
 import { viewLabels } from './appContentViewLabels'
@@ -86,13 +89,13 @@ type ExactRouteContext = {
 }
 
 const SETTINGS_ROUTES: Record<string, () => React.JSX.Element> = {
-  'settings-accounts': () => <SettingsAccounts />,
-  'settings-appearance': () => <SettingsAppearance />,
-  'settings-pullrequests': () => <SettingsPullRequests />,
-  'settings-copilot': () => <SettingsCopilot />,
-  'settings-notifications': () => <SettingsNotifications />,
-  'settings-advanced': () => <SettingsAdvanced />,
-  'settings-weather': () => <SettingsWeather />,
+  'settings-accounts': () => <LazySettingsAccounts />,
+  'settings-appearance': () => <LazySettingsAppearance />,
+  'settings-pullrequests': () => <LazySettingsPullRequests />,
+  'settings-copilot': () => <LazySettingsCopilot />,
+  'settings-notifications': () => <LazySettingsNotifications />,
+  'settings-advanced': () => <LazySettingsAdvanced />,
+  'settings-weather': () => <LazySettingsWeather />,
 }
 
 function resolveRoute(
@@ -105,33 +108,33 @@ function resolveRoute(
 function buildCopilotRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
   return {
     'copilot-prompt': () => (
-      <CopilotPromptBox onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
+      <LazyCopilotPromptBox onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
     ),
     'copilot-all-results': () => (
-      <CopilotResultsList onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
+      <LazyCopilotResultsList onOpenResult={id => ctx.onOpenTab(`copilot-result:${id}`)} />
     ),
-    'copilot-usage': () => <CopilotUsagePanel />,
+    'copilot-usage': () => <LazyCopilotUsagePanel />,
     'copilot-sessions': () => (
-      <SessionExplorer
+      <LazySessionExplorer
         onSelectSession={fp => ctx.onOpenTab(`copilot-session-detail:${encodeURIComponent(fp)}`)}
       />
     ),
     'automation-schedules': () => (
-      <ScheduleOverviewPanel onOpenSchedule={sId => ctx.onOpenTab(`schedule-detail:${sId}`)} />
+      <LazyScheduleOverviewPanel onOpenSchedule={sId => ctx.onOpenTab(`schedule-detail:${sId}`)} />
     ),
-    'automation-runs': () => <RunList />,
+    'automation-runs': () => <LazyRunList />,
   }
 }
 
 function buildWorkspaceRoutes(ctx: ExactRouteContext): Record<string, () => React.JSX.Element> {
   return {
-    'tasks-today': () => <TaskPlannerView mode="today" />,
-    'tasks-upcoming': () => <TaskPlannerView mode="upcoming" />,
-    'tasks-projects': () => <TaskPlannerView />,
-    'terminal-workspace': () => <TerminalWorkspaceView />,
-    'tempo-timesheet': () => <TempoDashboard />,
-    'ralph-dashboard': () => <RalphDashboard onOpenTab={ctx.onOpenTab} />,
-    'bookmarks-all': () => <BookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,
+    'tasks-today': () => <LazyTaskPlannerView mode="today" />,
+    'tasks-upcoming': () => <LazyTaskPlannerView mode="upcoming" />,
+    'tasks-projects': () => <LazyTaskPlannerView />,
+    'terminal-workspace': () => <LazyTerminalWorkspaceView />,
+    'tempo-timesheet': () => <LazyTempoDashboard />,
+    'ralph-dashboard': () => <LazyRalphDashboard onOpenTab={ctx.onOpenTab} />,
+    'bookmarks-all': () => <LazyBookmarkList key="bookmarks-all" onOpenTab={ctx.onOpenTab} />,
   }
 }
 
@@ -144,7 +147,7 @@ function renderPRModeRoute(
   const mode = activeViewId.slice(3) as (typeof PR_MODES)[number]
   if (!PR_MODES.includes(mode)) return null
   return (
-    <PullRequestList
+    <LazyPullRequestList
       mode={mode}
       onCountChange={count => onPRCountChange(activeViewId, count)}
       onOpenPR={onOpenTab}
@@ -195,12 +198,12 @@ type PrefixRouteContext = {
 
 function renderFolderView(slug: string): React.JSX.Element {
   const folderPath = decodeURIComponent(slug)
-  return <FolderExplorerView key={`folder-view:${slug}`} rootPath={folderPath} />
+  return <LazyFolderExplorerView key={`folder-view:${slug}`} rootPath={folderPath} />
 }
 
 function renderBookmarkCategory(slug: string, ctx: PrefixRouteContext): React.JSX.Element {
   return (
-    <BookmarkList
+    <LazyBookmarkList
       key={`bookmarks-category:${slug}`}
       filterCategory={slug}
       onOpenTab={ctx.onOpenTab}
@@ -212,7 +215,7 @@ function renderPRReviewRoute(_slug: string, ctx: PrefixRouteContext): React.JSX.
   const prInfo = parsePRReviewInfo(ctx.activeViewId)
   if (prInfo) {
     return (
-      <PRReviewPanel
+      <LazyPRReviewPanel
         prInfo={prInfo}
         onSubmitted={resultId => ctx.onOpenTab(`copilot-result:${resultId}`)}
         onClose={() => ctx.onCloseView(ctx.activeViewId)}
@@ -228,7 +231,7 @@ function renderPRReviewRoute(_slug: string, ctx: PrefixRouteContext): React.JSX.
 
 function renderPRDetailRoute(slug: string): React.JSX.Element {
   const route = parsePRDetailRoute(`pr-detail:${slug}`)
-  if (route) return <PullRequestDetailPanel pr={route.pr} section={route.section} />
+  if (route) return <LazyPullRequestDetailPanel pr={route.pr} section={route.section} />
   return (
     <div className="content-placeholder">
       <p>Invalid PR detail data</p>
@@ -245,48 +248,50 @@ const prefixRoutes: PrefixRouteEntry[] = [
       const pipeIndex = slug.indexOf('|')
       const encodedUrl = pipeIndex >= 0 ? slug.slice(0, pipeIndex) : slug
       try {
-        return <BrowserTabView key={`browser:${encodedUrl}`} url={decodeURIComponent(encodedUrl)} />
+        return (
+          <LazyBrowserTabView key={`browser:${encodedUrl}`} url={decodeURIComponent(encodedUrl)} />
+        )
       } catch (_: unknown) {
         return null
       }
     },
   },
-  { prefix: 'crew-project:', render: slug => <CrewProjectView projectId={slug} /> },
+  { prefix: 'crew-project:', render: slug => <LazyCrewProjectView projectId={slug} /> },
   {
     prefix: 'copilot-session-detail:',
     render: (slug, ctx) => (
-      <SessionDetail
+      <LazySessionDetail
         filePath={decodeURIComponent(slug)}
         onBack={() => ctx.onNavigate('copilot-sessions')}
       />
     ),
   },
-  { prefix: 'schedule-detail:', render: slug => <ScheduleDetailPanel scheduleId={slug} /> },
-  { prefix: 'job-detail:', render: slug => <JobDetailPanel jobId={slug} /> },
+  { prefix: 'schedule-detail:', render: slug => <LazyScheduleDetailPanel scheduleId={slug} /> },
+  { prefix: 'job-detail:', render: slug => <LazyJobDetailPanel jobId={slug} /> },
   {
     prefix: 'repo-detail:',
     render: slug => {
       const p = parseOwnerRepo(slug)
-      return p ? <RepoDetailPanel owner={p.owner} repo={p.repo} /> : null
+      return p ? <LazyRepoDetailPanel owner={p.owner} repo={p.repo} /> : null
     },
   },
   {
     prefix: 'org-user:',
     render: slug => {
       const p = parseOwnerRepo(slug)
-      return p ? <UserDetailPanel org={p.owner} memberLogin={p.repo} /> : null
+      return p ? <LazyUserDetailPanel org={p.owner} memberLogin={p.repo} /> : null
     },
   },
   {
     prefix: 'org-detail:',
-    render: slug => (slug ? <OrgDetailPanel org={slug} /> : null),
+    render: slug => (slug ? <LazyOrgDetailPanel org={slug} /> : null),
   },
   {
     prefix: 'repo-commits:',
     render: (slug, ctx) => {
       const p = parseOwnerRepo(slug)
       return p ? (
-        <RepoCommitListPanel
+        <LazyRepoCommitListPanel
           owner={p.owner}
           repo={p.repo}
           onOpenCommit={sha => ctx.onOpenTab(`repo-commit:${p.owner}/${p.repo}/${sha}`)}
@@ -298,7 +303,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     prefix: 'repo-commit:',
     render: slug => {
       const p = parseRepoCommitRoute(slug)
-      return p ? <RepoCommitDetailPanel owner={p.owner} repo={p.repo} sha={p.sha} /> : null
+      return p ? <LazyRepoCommitDetailPanel owner={p.owner} repo={p.repo} sha={p.sha} /> : null
     },
   },
   {
@@ -306,7 +311,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: (slug, ctx) => {
       const p = parseOwnerRepo(slug)
       return p ? (
-        <RepoIssueList
+        <LazyRepoIssueList
           owner={p.owner}
           repo={p.repo}
           issueState="closed"
@@ -320,7 +325,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: slug => {
       const p = parseRepoIssueRoute(slug)
       return p ? (
-        <RepoIssueDetailPanel owner={p.owner} repo={p.repo} issueNumber={p.issueNumber} />
+        <LazyRepoIssueDetailPanel owner={p.owner} repo={p.repo} issueNumber={p.issueNumber} />
       ) : null
     },
   },
@@ -329,7 +334,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: (slug, ctx) => {
       const p = parseOwnerRepo(slug)
       return p ? (
-        <RepoIssueList
+        <LazyRepoIssueList
           owner={p.owner}
           repo={p.repo}
           issueState="open"
@@ -343,7 +348,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: (slug, ctx) => {
       const p = parseOwnerRepo(slug)
       return p ? (
-        <RepoPullRequestList
+        <LazyRepoPullRequestList
           owner={p.owner}
           repo={p.repo}
           prState="closed"
@@ -357,7 +362,7 @@ const prefixRoutes: PrefixRouteEntry[] = [
     render: (slug, ctx) => {
       const p = parseOwnerRepo(slug)
       return p ? (
-        <RepoPullRequestList
+        <LazyRepoPullRequestList
           owner={p.owner}
           repo={p.repo}
           prState="open"
@@ -366,8 +371,8 @@ const prefixRoutes: PrefixRouteEntry[] = [
       ) : null
     },
   },
-  { prefix: 'ralph-run:', render: slug => <RalphRunDetailPanel runId={slug} /> },
-  { prefix: 'copilot-result:', render: slug => <CopilotResultPanel resultId={slug} /> },
+  { prefix: 'ralph-run:', render: slug => <LazyRalphRunDetailPanel runId={slug} /> },
+  { prefix: 'copilot-result:', render: slug => <LazyCopilotResultPanel resultId={slug} /> },
   { prefix: 'pr-review:', render: (slug, ctx) => renderPRReviewRoute(slug, ctx) },
   { prefix: 'pr-detail:', render: slug => renderPRDetailRoute(slug) },
 ]
@@ -415,11 +420,19 @@ export function AppContentRouter({
     onOpenTab,
     onPRCountChange
   )
-  if (exact) return exact
+  if (exact) {
+    return activeViewId === 'dashboard' ? (
+      exact
+    ) : (
+      <LazyRouteBoundary routeKey={activeViewId}>{exact}</LazyRouteBoundary>
+    )
+  }
 
   const ctx: PrefixRouteContext = { activeViewId, onNavigate, onOpenTab, onCloseView }
   const prefixResult = renderPrefixRoute(activeViewId, ctx)
-  if (prefixResult) return prefixResult
+  if (prefixResult) {
+    return <LazyRouteBoundary routeKey={activeViewId}>{prefixResult}</LazyRouteBoundary>
+  }
 
   return (
     <div className="content-placeholder">

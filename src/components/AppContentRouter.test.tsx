@@ -266,6 +266,78 @@ vi.mock('./appContentViewLabels', () => ({
   viewLabels: { 'some-known-view': 'Known View' },
 }))
 
+function loadFirstLazyRouteGroup() {
+  return Promise.all([
+    import('./PullRequestList'),
+    import('./automation/ScheduleDetailPanel'),
+    import('./automation/ScheduleOverviewPanel'),
+    import('./automation/JobDetailPanel'),
+    import('./automation/RunList'),
+    import('./settings/SettingsAccounts'),
+    import('./settings/SettingsAppearance'),
+    import('./settings/SettingsPullRequests'),
+    import('./settings/SettingsCopilot'),
+    import('./settings/SettingsNotifications'),
+    import('./settings/SettingsAdvanced'),
+    import('./settings/SettingsWeather'),
+    import('./RepoDetailPanel'),
+    import('./RepoCommitListPanel'),
+    import('./RepoCommitDetailPanel'),
+    import('./RepoIssueList'),
+    import('./RepoIssueDetailPanel'),
+    import('./RepoPullRequestList'),
+    import('./PullRequestDetailPanel'),
+  ])
+}
+
+function loadSecondLazyRouteGroup() {
+  return Promise.all([
+    import('./CopilotPromptBox'),
+    import('./CopilotResultPanel'),
+    import('./CopilotResultsList'),
+    import('./PRReviewPanel'),
+    import('./CopilotUsagePanel'),
+    import('./OrgDetailPanel'),
+    import('./UserDetailPanel'),
+    import('./crew/CrewProjectView'),
+    import('./tempo/TempoDashboard'),
+    import('./ralph-loops/RalphDashboard'),
+    import('./ralph-loops/RalphRunDetailPanel'),
+    import('./sessions/SessionExplorer'),
+    import('./sessions/SessionDetail'),
+    import('./planner/TaskPlannerView'),
+    import('./bookmarks/BookmarkList'),
+    import('./BrowserTabView'),
+    import('./explorer/FolderExplorerView'),
+    import('./terminal-workspace/TerminalWorkspaceView'),
+  ])
+}
+
+vi.mock('./AppContentLazyRoutes', async () => {
+  const exportNames = [
+    'LazyPullRequestList LazyScheduleDetailPanel LazyScheduleOverviewPanel LazyJobDetailPanel',
+    'LazyRunList LazySettingsAccounts LazySettingsAppearance LazySettingsPullRequests',
+    'LazySettingsCopilot LazySettingsNotifications LazySettingsAdvanced LazySettingsWeather',
+    'LazyRepoDetailPanel LazyRepoCommitListPanel LazyRepoCommitDetailPanel LazyRepoIssueList',
+    'LazyRepoIssueDetailPanel LazyRepoPullRequestList LazyPullRequestDetailPanel',
+    'LazyCopilotPromptBox LazyCopilotResultPanel LazyCopilotResultsList LazyPRReviewPanel',
+    'LazyCopilotUsagePanel LazyOrgDetailPanel LazyUserDetailPanel LazyCrewProjectView',
+    'LazyTempoDashboard LazyRalphDashboard LazyRalphRunDetailPanel LazySessionExplorer',
+    'LazySessionDetail LazyTaskPlannerView LazyBookmarkList LazyBrowserTabView',
+    'LazyFolderExplorerView LazyTerminalWorkspaceView',
+  ]
+    .join(' ')
+    .split(' ')
+  const modules = [...(await loadFirstLazyRouteGroup()), ...(await loadSecondLazyRouteGroup())]
+
+  return Object.fromEntries(
+    exportNames.map((exportName, index) => [
+      exportName,
+      (modules[index] as Record<string, unknown>)[exportName.slice(4)],
+    ])
+  )
+})
+
 import { AppContentRouter } from './AppContentRouter'
 
 function renderRouter(activeViewId: string | null = null) {

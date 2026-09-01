@@ -5,7 +5,7 @@
  * via addInitScript. This allows the app to boot in a standalone browser
  * without requiring the Electron preload script.
  */
-import { test as base, expect } from '@playwright/test'
+import { chromium, test as base, expect } from '@playwright/test'
 
 /**
  * Extend Playwright's base test with automatic IPC mocking.
@@ -16,8 +16,27 @@ export const test = base.extend({
     // Only inject mocks for browser-e2e project.
     // The electron-cdp project connects to a real Electron app with preload APIs.
     if (testInfo.project.name === 'electron-cdp') {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      await use(page)
+      const electronBrowser = await chromium.connectOverCDP('http://127.0.0.1:9222')
+      try {
+        const appPage = electronBrowser
+          .contexts()
+          .flatMap(context => context.pages())
+          .find(candidate => {
+            const rawUrl = candidate.url()
+            if (!URL.canParse(rawUrl)) return false
+            const url = new URL(rawUrl)
+            return (
+              url.protocol === 'file:' ||
+              ((url.protocol === 'http:' || url.protocol === 'https:') &&
+                (url.hostname === 'localhost' || url.hostname === '127.0.0.1'))
+            )
+          })
+        if (!appPage) throw new Error('Electron development or packaged app page was unavailable')
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        await use(appPage)
+      } finally {
+        await electronBrowser.close()
+      }
       return
     }
 

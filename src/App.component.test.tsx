@@ -42,6 +42,11 @@ vi.mock('./components/AssistantPanel', () => ({
   AssistantPanel: () => <div data-testid="assistant-panel" />,
 }))
 
+vi.mock('./components/AppLazyPanels', async () => {
+  const { AssistantPanel } = await import('./components/AssistantPanel')
+  return { LazyAssistantPanel: AssistantPanel }
+})
+
 vi.mock('allotment', () => {
   function MockAllotment({ children }: { children: React.ReactNode }) {
     return <div data-testid="allotment">{children}</div>

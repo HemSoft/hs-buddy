@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1085] - 2026-09-01
+
+### Changed
+
+- Harden lazy route validation
+
 ## [0.1.1084] - 2026-09-01
 
 ### Fixed

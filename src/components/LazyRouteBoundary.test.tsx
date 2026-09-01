@@ -18,6 +18,12 @@ describe('LazyRouteBoundary', () => {
 
   it('shows the shared error state when a route fails to render', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
+    const reloadSpy = vi.fn()
+    Object.defineProperty(window, 'location', {
+      value: { ...window.location, reload: reloadSpy },
+      writable: true,
+      configurable: true,
+    })
 
     function BrokenRoute(): never {
       throw new Error('route failed')
@@ -32,5 +38,6 @@ describe('LazyRouteBoundary', () => {
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText('route failed')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Reload Buddy' }))
+    expect(reloadSpy).toHaveBeenCalledOnce()
   })
 })

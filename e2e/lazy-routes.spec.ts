@@ -78,7 +78,10 @@ test('feature routes load through internal navigation events', async ({ page }, 
   await expectNoRouteError(page)
 
   await openInternalRoute(page, 'bookmarks-all')
-  await expect(page.locator('.panel-loading, .bookmark-list-container').first()).toBeVisible()
+  // The browser fixture has no Convex backend, so the route settles on its own
+  // service-specific loading state after the lazy module has rendered.
+  await expect(page.getByText('Loading bookmarks…', { exact: true })).toBeVisible()
+  await expect(page.getByText('Loading feature…', { exact: true })).toHaveCount(0)
   await expectNoRouteError(page)
 
   await openInternalRoute(page, 'terminal-workspace')

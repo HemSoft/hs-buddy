@@ -22,7 +22,9 @@ export const test = base.extend({
           .contexts()
           .flatMap(context => context.pages())
           .find(candidate => {
-            const url = new URL(candidate.url())
+            const rawUrl = candidate.url()
+            if (!URL.canParse(rawUrl)) return false
+            const url = new URL(rawUrl)
             return (
               url.protocol === 'file:' ||
               ((url.protocol === 'http:' || url.protocol === 'https:') &&

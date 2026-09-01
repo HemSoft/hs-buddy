@@ -126,12 +126,16 @@ describe('initial renderer graph', () => {
       @import './quoted.css';
       @import url("./url-quoted.css");
       @import url(./url-unquoted.css) screen;
+      @import url('./layered.css') layer(feature);
+      @import './anonymous-layer.css' layer;
     `
 
     expect(parseStaticCssImports(source)).toEqual([
       './quoted.css',
       './url-quoted.css',
       './url-unquoted.css',
+      './layered.css',
+      './anonymous-layer.css',
     ])
   })
 

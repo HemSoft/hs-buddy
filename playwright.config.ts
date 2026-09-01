@@ -47,6 +47,8 @@ export default defineConfig({
     },
     {
       name: 'electron-cdp',
+      // Every test connects to the same externally managed Electron renderer.
+      workers: 1,
       use: {
         // Connect to running Electron app via Chrome DevTools Protocol.
         // Requires: BUDDY_DEBUG_PORT=9222 bun run dev

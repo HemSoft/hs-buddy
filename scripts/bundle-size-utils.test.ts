@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   deduplicateBundles,
   normalizeBundleFile,
+  normalizeRendererEntryFile,
   parseInitialHtmlAssets,
   parseStaticCssImports,
   parseStaticModuleImports,
@@ -17,6 +18,26 @@ function bundle(file: string, sizeBytes: number): BundleEntry {
 describe('normalizeBundleFile', () => {
   it('strips Vite content hashes', () => {
     expect(normalizeBundleFile('dist/assets/wasm-BnjxR4X6.js')).toBe('dist/assets/wasm.js')
+  })
+})
+
+describe('normalizeRendererEntryFile', () => {
+  it('uses stable app names for root chunks produced inside worktrees', () => {
+    expect(
+      normalizeRendererEntryFile(
+        'issue-626-lazy-load-feature-routes-DWzO9sQI.js',
+        'issue-626-lazy-load-feature-routes'
+      )
+    ).toBe('app.js')
+    expect(
+      normalizeRendererEntryFile(
+        'issue-626-lazy-load-feature-routes-Bi18G-If.css',
+        'issue-626-lazy-load-feature-routes'
+      )
+    ).toBe('app.css')
+    expect(normalizeRendererEntryFile('SettingsAccounts-AbCdEf12.js', 'issue-626')).toBe(
+      'SettingsAccounts-AbCdEf12.js'
+    )
   })
 })
 

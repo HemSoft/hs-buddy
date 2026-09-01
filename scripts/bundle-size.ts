@@ -15,6 +15,7 @@ import { basename, dirname, relative, resolve } from 'node:path'
 import {
   deduplicateBundles,
   normalizeBundleFile,
+  normalizeRendererEntryFile,
   parseInitialHtmlAssets,
   traceInitialAssetGraph,
   type BundleEntry,
@@ -50,11 +51,13 @@ function humanSize(bytes: number): string {
 function collectRendererAssets(distDir: string): BundleEntry[] {
   const assetsDir = resolve(distDir, 'assets')
   if (!existsSync(assetsDir)) return []
+  const projectDirectoryName = basename(root)
   return readdirSync(assetsDir)
     .filter(f => f.endsWith('.js') || f.endsWith('.css'))
     .map(f => {
       const size = statSync(resolve(assetsDir, f)).size
-      return { file: `dist/assets/${f}`, sizeBytes: size, sizeHuman: humanSize(size) }
+      const logicalFile = normalizeRendererEntryFile(f, projectDirectoryName)
+      return { file: `dist/assets/${logicalFile}`, sizeBytes: size, sizeHuman: humanSize(size) }
     })
 }
 

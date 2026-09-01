@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1084] - 2026-09-01
+
+### Fixed
+
+- Baseline lazy route chunks
+
 ## [0.1.1083] - 2026-09-01
 
 ### Fixed

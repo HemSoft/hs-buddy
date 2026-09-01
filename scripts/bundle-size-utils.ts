@@ -123,6 +123,14 @@ export function normalizeBundleFile(file: string): string {
   return file.replace(/-[A-Za-z0-9_-]{8}\./, '.')
 }
 
+/** Stabilize the root renderer chunk name across checkout and worktree directory names. */
+export function normalizeRendererEntryFile(file: string, projectDirectoryName: string): string {
+  if (!file.startsWith(`${projectDirectoryName}-`)) return file
+  if (file.endsWith('.js')) return 'app.js'
+  if (file.endsWith('.css')) return 'app.css'
+  return file
+}
+
 /** Keep one deterministic entry per normalized filename, preferring the largest asset. */
 export function deduplicateBundles(bundles: readonly BundleEntry[]): BundleEntry[] {
   const deduped = new Map<string, BundleEntry>()

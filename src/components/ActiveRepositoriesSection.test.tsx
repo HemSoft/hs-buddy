@@ -168,7 +168,8 @@ it('renders loading, empty, and unavailable states without affecting surrounding
 })
 
 it('refreshes repository activity and disables the control while refreshing', () => {
-  const { rerender } = renderSection()
+  const { container, rerender } = renderSection()
+  const updatedTimestamp = screen.getByText(/^Updated /)
 
   fireEvent.click(screen.getByRole('button', { name: 'Refresh active repositories' }))
   expect(onRefresh).toHaveBeenCalledOnce()
@@ -186,4 +187,7 @@ it('refreshes repository activity and disables the control while refreshing', ()
   expect(refreshButton).toBeDisabled()
   expect(refreshButton).toHaveAttribute('aria-busy', 'true')
   expect(refreshButton.querySelector('svg')).toHaveClass('spin')
+  expect(container.querySelectorAll('.active-repos-header-meta .spin')).toHaveLength(1)
+  expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
+  expect(screen.getByText(/^Updated /)).toBe(updatedTimestamp)
 })

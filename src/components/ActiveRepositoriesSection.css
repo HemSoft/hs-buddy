@@ -61,8 +61,7 @@
   font-size: 10px;
 }
 
-.active-repos-header-meta button,
-.active-repos-refreshing {
+.active-repos-header-meta button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -430,7 +429,8 @@
 @media (prefers-reduced-motion: reduce) {
   .active-repos-card,
   .active-repos-item,
-  .active-repos-skeleton-card div {
+  .active-repos-skeleton-card div,
+  .active-repos-refresh-button .spin {
     transition: none;
     animation: none;
   }

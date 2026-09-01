@@ -3,6 +3,7 @@ import { act, renderHook } from '@testing-library/react'
 import { useBackgroundStatus } from './useBackgroundStatus'
 import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
 import type { QueueSnapshot } from '../services/taskQueue'
+import { getPRCacheKey } from '../utils/prCacheKey'
 
 // Mock dependencies for hook tests
 const queueListeners = new Set<() => void>()
@@ -218,8 +219,9 @@ describe('useBackgroundStatus subscriptions', () => {
     })
     expect(result.current).toBe(initialStatus)
 
+    const displayedKey = getPRCacheKey('my-prs', [{ username: 'alice', org: 'hemsoft' }])
     act(() => {
-      for (const listener of cacheListeners) listener('my-prs')
+      for (const listener of cacheListeners) listener(displayedKey)
     })
     expect(result.current.lastRefreshedAt).toBe(fetchedAt)
   })
@@ -229,8 +231,9 @@ describe('useBackgroundStatus subscriptions', () => {
     const { result } = renderHook(() => useBackgroundStatus())
     const initialStatus = result.current
 
+    const displayedKey = getPRCacheKey('my-prs', [{ username: 'alice', org: 'hemsoft' }])
     act(() => {
-      for (const listener of cacheListeners) listener('my-prs')
+      for (const listener of cacheListeners) listener(displayedKey)
     })
 
     expect(result.current).toBe(initialStatus)
@@ -238,10 +241,11 @@ describe('useBackgroundStatus subscriptions', () => {
 
   it('does not create a polling interval', () => {
     const intervalSpy = vi.spyOn(globalThis, 'setInterval')
-
-    renderHook(() => useBackgroundStatus())
-
-    expect(intervalSpy).not.toHaveBeenCalled()
-    intervalSpy.mockRestore()
+    try {
+      renderHook(() => useBackgroundStatus())
+      expect(intervalSpy).not.toHaveBeenCalled()
+    } finally {
+      intervalSpy.mockRestore()
+    }
   })
 })

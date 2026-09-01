@@ -136,10 +136,7 @@ function hasSameBackgroundStatus(current: BackgroundStatus, next: BackgroundStat
 export function useBackgroundStatus(): BackgroundStatus {
   const { refreshInterval } = usePRSettings()
   const { accounts } = useGitHubAccounts()
-  const cacheKeys = useMemo(
-    () => [...PR_MODES, ...PR_MODES.map(mode => getPRCacheKey(mode, accounts))],
-    [accounts]
-  )
+  const cacheKeys = useMemo(() => PR_MODES.map(mode => getPRCacheKey(mode, accounts)), [accounts])
   const queueFacts = useTaskQueueSelector(
     'github',
     selectBackgroundQueueFacts,

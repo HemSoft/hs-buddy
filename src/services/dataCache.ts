@@ -114,8 +114,9 @@ export const dataCache = {
    */
   delete(key: string): void {
     delete memoryCache[key]
+    const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
     notifyListeners(key)
-    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key).catch(err => {
+    deleteRequest.catch(err => {
       console.error('[DataCache] Failed to delete from disk:', err)
     })
   },
@@ -127,12 +128,14 @@ export const dataCache = {
     const keys = Object.keys(memoryCache)
     for (const key of keys) {
       delete memoryCache[key]
-      notifyListeners(key)
     }
     try {
       await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
+    }
+    for (const key of keys) {
+      notifyListeners(key)
     }
   },
 

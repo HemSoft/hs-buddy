@@ -205,7 +205,7 @@ beforeEach(() => {
   orgMocks.queueSnapshot.pendingTaskNames = []
   orgMocks.useTaskQueueSelector.mockImplementation((_name, selector, isEqual) => {
     const selection = selector(orgMocks.queueSnapshot)
-    isEqual(selection, selection)
+    expect(isEqual(selection, selection)).toBe(true)
     return selection
   })
   orgMocks.useCopilotUsage.mockReturnValue({

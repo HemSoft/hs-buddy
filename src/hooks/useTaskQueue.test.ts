@@ -6,19 +6,22 @@ import { useTaskQueue, useTaskQueueSelector } from './useTaskQueue'
 describe('useTaskQueue', () => {
   it('returns stable queue actions without subscribing to queue state', () => {
     const intervalSpy = vi.spyOn(globalThis, 'setInterval')
-    const { result, rerender } = renderHook(() => useTaskQueue('actions-only'))
-    const initialResult = result.current
+    try {
+      const { result, rerender } = renderHook(() => useTaskQueue('actions-only'))
+      const initialResult = result.current
 
-    rerender()
+      rerender()
 
-    expect(result.current).toBe(initialResult)
-    expect(result.current).toEqual({
-      enqueue: expect.any(Function),
-      cancel: expect.any(Function),
-      cancelAll: expect.any(Function),
-    })
-    expect(intervalSpy).not.toHaveBeenCalled()
-    intervalSpy.mockRestore()
+      expect(result.current).toBe(initialResult)
+      expect(result.current).toEqual({
+        enqueue: expect.any(Function),
+        cancel: expect.any(Function),
+        cancelAll: expect.any(Function),
+      })
+      expect(intervalSpy).not.toHaveBeenCalled()
+    } finally {
+      intervalSpy.mockRestore()
+    }
   })
 
   it('enqueues and completes a task', async () => {
@@ -140,5 +143,22 @@ describe('useTaskQueueSelector', () => {
     expect(result.current).toBe(initial)
     act(() => queue.cancelAll())
     void taskPromise!.catch(() => {})
+  })
+
+  it('preserves selection identity when an inline selector is recreated', () => {
+    const equalRunning = (left: { running: number }, right: { running: number }) =>
+      left.running === right.running
+    const { result, rerender } = renderHook(() =>
+      useTaskQueueSelector(
+        'selector-inline-identity',
+        snapshot => ({ running: snapshot.runningCount }),
+        equalRunning
+      )
+    )
+    const initial = result.current
+
+    rerender()
+
+    expect(result.current).toBe(initial)
   })
 })

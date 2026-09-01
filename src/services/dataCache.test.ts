@@ -111,13 +111,16 @@ describe('dataCache', () => {
     it('notifies listeners when an entry is deleted', () => {
       const keys: string[] = []
       const unsubscribe = dataCache.subscribe(key => keys.push(key))
-      dataCache.set('delete-event', 'value', 1)
-      keys.length = 0
+      try {
+        dataCache.set('delete-event', 'value', 1)
+        keys.length = 0
 
-      dataCache.delete('delete-event')
+        dataCache.delete('delete-event')
 
-      expect(keys).toEqual(['delete-event'])
-      unsubscribe()
+        expect(keys).toEqual(['delete-event'])
+      } finally {
+        unsubscribe()
+      }
     })
 
     it('notifies listeners for each entry removed by clear', async () => {
@@ -125,11 +128,13 @@ describe('dataCache', () => {
       dataCache.set('clear-b', 'value', 2)
       const keys: string[] = []
       const unsubscribe = dataCache.subscribe(key => keys.push(key))
+      try {
+        await dataCache.clear()
 
-      await dataCache.clear()
-
-      expect(keys).toEqual(expect.arrayContaining(['clear-a', 'clear-b']))
-      unsubscribe()
+        expect(keys).toEqual(expect.arrayContaining(['clear-a', 'clear-b']))
+      } finally {
+        unsubscribe()
+      }
     })
   })
 
@@ -151,6 +156,24 @@ describe('dataCache', () => {
       dataCache.delete('del-disk')
       expect(mockInvoke).toHaveBeenCalledWith('cache:delete', 'del-disk')
     })
+
+    it('orders disk deletion before notifying subscribers', () => {
+      mockInvoke.mockResolvedValue(undefined)
+      dataCache.set('ordered-delete', 'data', 1)
+      mockInvoke.mockClear()
+      const listener = vi.fn()
+      const unsubscribe = dataCache.subscribe(listener)
+      try {
+        dataCache.delete('ordered-delete')
+
+        expect(mockInvoke).toHaveBeenCalledWith('cache:delete', 'ordered-delete')
+        expect(mockInvoke.mock.invocationCallOrder[0]).toBeLessThan(
+          listener.mock.invocationCallOrder[0]
+        )
+      } finally {
+        unsubscribe()
+      }
+    })
   })
 
   describe('clear', () => {
@@ -169,6 +192,30 @@ describe('dataCache', () => {
       mockInvoke.mockResolvedValue(undefined)
       await dataCache.clear()
       expect(mockInvoke).toHaveBeenCalledWith('cache:clear')
+    })
+
+    it('waits for disk clearing before notifying subscribers', async () => {
+      dataCache.set('ordered-clear', 'data', 1)
+      let finishClear: () => void
+      mockInvoke.mockImplementation(
+        () =>
+          new Promise<void>(resolve => {
+            finishClear = resolve
+          })
+      )
+      const listener = vi.fn()
+      const unsubscribe = dataCache.subscribe(listener)
+      try {
+        const clearPromise = dataCache.clear()
+        expect(listener).not.toHaveBeenCalled()
+
+        finishClear!()
+        await clearPromise
+
+        expect(listener).toHaveBeenCalledWith('ordered-clear')
+      } finally {
+        unsubscribe()
+      }
     })
   })
 

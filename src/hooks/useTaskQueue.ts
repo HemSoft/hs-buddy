@@ -4,7 +4,7 @@
  * Provides easy access to task queues with automatic cleanup on unmount.
  */
 
-import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import {
   getTaskQueue,
   type TaskId,
@@ -32,6 +32,11 @@ export interface UseTaskQueueResult {
 }
 
 type EqualityFn<T> = (left: T, right: T) => boolean
+
+interface SelectionInstance<T> {
+  hasSelection: boolean
+  selection: T | undefined
+}
 
 const objectIs: EqualityFn<unknown> = Object.is
 
@@ -115,36 +120,48 @@ export function useTaskQueueSelector<T>(
   isEqual: EqualityFn<T> = objectIs as EqualityFn<T>
 ): T {
   const queue = getTaskQueue(queueName)
-  const selectionCache = useMemo(
-    () => ({
-      queue,
-      selector,
-      isEqual,
-      snapshot: null as QueueSnapshot | null,
-      selection: undefined as T | undefined,
-    }),
-    [isEqual, queue, selector]
-  )
+  const selectionInstance = useRef<SelectionInstance<T>>({
+    hasSelection: false,
+    selection: undefined,
+  }).current
   const subscribe = useCallback((listener: () => void) => queue.subscribe(listener), [queue])
-  const getSelection = useCallback(() => {
-    const snapshot = selectionCache.queue.getSnapshot()
-    if (selectionCache.snapshot === snapshot) {
-      return selectionCache.selection as T
+  const getSelection = useMemo(() => {
+    let hasMemo = false
+    let memoizedSnapshot: QueueSnapshot
+    let memoizedSelection: T
+
+    return () => {
+      const snapshot = queue.getSnapshot()
+      if (hasMemo && Object.is(memoizedSnapshot, snapshot)) {
+        return memoizedSelection
+      }
+
+      const nextSelection = selector(snapshot)
+      if (!hasMemo && selectionInstance.hasSelection) {
+        const currentSelection = selectionInstance.selection as T
+        if (isEqual(currentSelection, nextSelection)) {
+          hasMemo = true
+          memoizedSnapshot = snapshot
+          memoizedSelection = currentSelection
+          return currentSelection
+        }
+      } else if (hasMemo && isEqual(memoizedSelection, nextSelection)) {
+        memoizedSnapshot = snapshot
+        return memoizedSelection
+      }
+
+      hasMemo = true
+      memoizedSnapshot = snapshot
+      memoizedSelection = nextSelection
+      return nextSelection
     }
+  }, [isEqual, queue, selectionInstance, selector])
+  const selection = useSyncExternalStore(subscribe, getSelection, getSelection)
 
-    const nextSelection = selectionCache.selector(snapshot)
-    if (
-      selectionCache.snapshot !== null &&
-      selectionCache.isEqual(selectionCache.selection as T, nextSelection)
-    ) {
-      selectionCache.snapshot = snapshot
-      return selectionCache.selection as T
-    }
+  useEffect(() => {
+    selectionInstance.hasSelection = true
+    selectionInstance.selection = selection
+  }, [selection, selectionInstance])
 
-    selectionCache.snapshot = snapshot
-    selectionCache.selection = nextSelection
-    return nextSelection
-  }, [selectionCache])
-
-  return useSyncExternalStore(subscribe, getSelection, getSelection)
+  return selection
 }

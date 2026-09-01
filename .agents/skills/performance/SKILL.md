@@ -72,7 +72,7 @@ Core baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.5.
 Finance baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
 Network security baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.10.
 TaskQueue subscription baseline captured on: Windows, Bun 1.3.7, Node 24.12.0, Vitest 4.1.11.
-All three use the median of 5 runs. Compare a section only when its captured toolchain matches;
+All four use the median of 5 runs. Compare a section only when its captured toolchain matches;
 otherwise refresh it or use a same-runner base/candidate comparison.
 
 ### dateUtils
@@ -144,6 +144,9 @@ otherwise refresh it or use a same-runner base/candidate comparison.
 | enqueue 10 tasks (one subscriber) | 70,533       | 0.0142    |
 | cancel 10 of 20 pending           | 6,476        | 0.1544    |
 | insert 100 prioritized tasks      | 37,910       | 0.0264    |
+
+The one-subscriber row uses the TaskQueue subscription baseline (Vitest 4.1.11); the other
+TaskQueue rows use the core baseline (Vitest 4.1.5).
 
 ### reactions
 

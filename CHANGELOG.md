@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1086] - 2026-09-01
+
+### Added
+
+- Bound persistent renderer data cache (#627)
+
 ## [0.1.1085] - 2026-09-01
 
 ### Changed

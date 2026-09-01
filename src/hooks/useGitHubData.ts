@@ -30,33 +30,13 @@ function resolveNextCacheState<T>(cacheKey: string | null): { data: T | null; ha
   return { data: next?.data ?? null, hasCache: next !== null }
 }
 
-function tryServeFromCache<T>(
-  cacheKey: string,
-  setData: (d: T) => void,
-  setLoading: (v: boolean) => void,
-  setError: (v: string | null) => void
-): boolean {
-  const cached = dataCache.get<T>(cacheKey)
-  if (cached !== null) {
-    setData(cached.data)
-    setLoading(false)
-    setError(null)
-    return true
+async function getCachedData<T>(cacheKey: string) {
+  const cacheWithLoader = dataCache as typeof dataCache & {
+    getOrLoad?: <TLoaded>(key: string) => Promise<ReturnType<typeof dataCache.get<TLoaded>>>
   }
-  return false
-}
-
-function shouldServeGitHubDataFromCache<T>(
-  forceRefresh: boolean,
-  cacheKey: string,
-  setData: (d: T) => void,
-  setLoading: (v: boolean) => void,
-  setError: (v: string | null) => void
-): boolean {
-  if (forceRefresh) {
-    return false
-  }
-  return tryServeFromCache(cacheKey, setData, setLoading, setError)
+  return cacheWithLoader.getOrLoad
+    ? await cacheWithLoader.getOrLoad<T>(cacheKey)
+    : dataCache.get<T>(cacheKey)
 }
 
 function isActiveGitHubRequest(requestId: number, requestIdRef: { current: number }): boolean {
@@ -149,8 +129,15 @@ export function useGitHubData<T>({
       // Stale-request protection: only the latest request writes state
       const requestId = ++requestIdRef.current
 
-      if (shouldServeGitHubDataFromCache(forceRefresh, cacheKey, setData, setLoading, setError)) {
-        return
+      if (!forceRefresh) {
+        const cached = await getCachedData<T>(cacheKey)
+        if (!isActiveGitHubRequest(requestId, requestIdRef)) return
+        if (cached) {
+          setData(cached.data)
+          setLoading(false)
+          setError(null)
+          return
+        }
       }
 
       setLoading(true)

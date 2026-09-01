@@ -1,30 +1,47 @@
 /**
- * Persistent Data Cache Service
+ * Bounded persistent data cache.
  *
- * Provides in-memory caching with automatic disk persistence via electron-store IPC.
- * Data survives app restarts — hydrated from disk on initialization, written through
- * on every set operation.
- *
- * Usage:
- *   await dataCache.initialize()  // Call once before rendering
- *   dataCache.get('my-prs')       // Read (sync, from memory)
- *   dataCache.set('my-prs', data) // Write (sync in memory, async to disk)
- *   dataCache.isFresh('my-prs', 15 * 60 * 1000)  // Check staleness
+ * Startup hydrates only critical PR and organization summaries. Large list and detail
+ * payloads remain on disk until getOrLoad() requests their exact key.
  */
 
 import { MS_PER_MINUTE } from '../constants'
 import { IPC_INVOKE } from '../ipc/contracts'
+import {
+  createPersistedCacheEntry,
+  getReplacementSiblingKeys,
+  isIncomingCacheVersionSuperseded,
+  type DataCacheStorageStats,
+  type PersistedCacheEntry,
+  type PersistedDataCache,
+} from './dataCachePolicy'
 
-interface CacheEntry<T = unknown> {
+export interface CacheEntry<T = unknown> {
   data: T
   fetchedAt: number
+  schemaVersion?: number
+  lastAccessedAt?: number
+  serializedBytes?: number
 }
 
 type CacheListener = (key: string) => void
 
-const memoryCache: Record<string, CacheEntry> = {}
+interface CacheInitializationResult {
+  entries: PersistedDataCache
+  stats: DataCacheStorageStats
+  removedKeys: string[]
+}
+
+interface CacheMutationResult {
+  success: boolean
+  stats?: DataCacheStorageStats
+  removedKeys?: string[]
+}
+
+const memoryCache: PersistedDataCache = {}
 const listeners: Set<CacheListener> = new Set()
 let initialized = false
+let storageStats: DataCacheStorageStats = { entryCount: 0, totalBytes: 0 }
 
 function notifyListeners(key: string): void {
   for (const listener of listeners) {
@@ -36,112 +53,155 @@ function notifyListeners(key: string): void {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isCacheEntry(value: unknown): value is PersistedCacheEntry {
+  return (
+    isRecord(value) &&
+    'data' in value &&
+    typeof value.fetchedAt === 'number' &&
+    typeof value.schemaVersion === 'number' &&
+    typeof value.lastAccessedAt === 'number' &&
+    typeof value.serializedBytes === 'number'
+  )
+}
+
+function removeMemoryKeys(keys: readonly string[]): void {
+  for (const key of keys) {
+    if (!(key in memoryCache)) continue
+    delete memoryCache[key]
+    notifyListeners(key)
+  }
+}
+
+function applyMutationResult(result: unknown): void {
+  if (!isRecord(result)) return
+  const mutation = result as unknown as CacheMutationResult
+  if (mutation.stats) storageStats = mutation.stats
+  if (Array.isArray(mutation.removedKeys)) removeMemoryKeys(mutation.removedKeys)
+}
+
 export const dataCache = {
-  /**
-   * Initialize the cache by loading persisted data from disk.
-   * Must be called once before any component mounts.
-   */
+  /** Initialize critical startup entries after main-process pruning. */
   async initialize(): Promise<void> {
     if (initialized) return
     try {
-      const cached = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ_ALL)
-      if (cached && typeof cached === 'object') {
-        Object.assign(memoryCache, cached)
+      const result = (await window.ipcRenderer.invoke(
+        IPC_INVOKE.CACHE_INITIALIZE
+      )) as CacheInitializationResult | null
+      if (result && isRecord(result.entries)) {
+        Object.assign(memoryCache, result.entries)
+        storageStats = result.stats
       }
       initialized = true
       console.log(
         '[DataCache] Initialized with',
         Object.keys(memoryCache).length,
-        'cached entries:',
-        Object.keys(memoryCache).join(', ')
+        'startup entries from',
+        storageStats.entryCount,
+        'persisted entries'
       )
     } catch (err: unknown) {
       console.error('[DataCache] Failed to initialize:', err)
-      initialized = true // Mark as init'd to avoid blocking app startup
+      initialized = true
     }
   },
 
-  /**
-   * Get a cached entry by key. Returns null if not found.
-   * This is a synchronous read from the in-memory cache.
-   */
+  /** Return an entry already loaded into renderer memory. */
   get<T = unknown>(key: string): CacheEntry<T> | null {
-    return (memoryCache[key] as CacheEntry<T>) || null
+    const entry = memoryCache[key] as CacheEntry<T> | undefined
+    if (!entry) return null
+    entry.lastAccessedAt = Date.now()
+    return entry
   },
 
-  /**
-   * Store data in the cache. Updates memory immediately and persists to disk async.
-   * Notifies all subscribers of the update.
-   */
-  set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
-    memoryCache[key] = { data, fetchedAt }
+  /** Load one persisted entry on demand when it was not part of startup hydration. */
+  async getOrLoad<T = unknown>(key: string): Promise<CacheEntry<T> | null> {
+    const existing = this.get<T>(key)
+    if (existing) return existing
+    try {
+      const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
+      if (!isCacheEntry(loaded)) return null
+      memoryCache[key] = loaded
+      return loaded as CacheEntry<T>
+    } catch (err: unknown) {
+      console.error('[DataCache] Failed to load cache entry:', err)
+      return null
+    }
+  },
 
+  /** Store data in memory immediately and persist it through the bounded main-process cache. */
+  set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
+    if (isIncomingCacheVersionSuperseded(memoryCache, key)) return
+    const accessedAt = Date.now()
+    const replacedKeys = getReplacementSiblingKeys(memoryCache, key)
+    removeMemoryKeys(replacedKeys)
+    memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
 
-    // Persist to disk asynchronously (fire and forget)
-    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt }).catch(err => {
-      console.error('[DataCache] Failed to persist to disk:', err)
-    })
+    window.ipcRenderer
+      .invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt })
+      .then(applyMutationResult)
+      .catch(err => {
+        console.error('[DataCache] Failed to persist to disk:', err)
+      })
   },
 
-  /**
-   * Check if a cache entry exists and is within the max age.
-   */
   isFresh(key: string, maxAgeMs: number): boolean {
     const entry = memoryCache[key]
     if (!entry) return false
     return Date.now() - entry.fetchedAt < maxAgeMs
   },
 
-  /**
-   * Subscribe to cache updates. Returns an unsubscribe function.
-   * Listener is called with the cache key that was updated.
-   */
   subscribe(listener: CacheListener): () => void {
     listeners.add(listener)
     return () => listeners.delete(listener)
   },
 
-  /**
-   * Check if the cache has been initialized from disk.
-   */
   isInitialized(): boolean {
     return initialized
   },
 
-  /**
-   * Delete a single cache entry by key (memory + disk).
-   */
   delete(key: string): void {
     delete memoryCache[key]
     const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
     notifyListeners(key)
-    deleteRequest.catch(err => {
+    deleteRequest.then(applyMutationResult).catch(err => {
       console.error('[DataCache] Failed to delete from disk:', err)
     })
   },
 
-  /**
-   * Clear all cached data (memory + disk).
-   */
   async clear(): Promise<void> {
     const keys = Object.keys(memoryCache)
-    for (const key of keys) {
-      delete memoryCache[key]
-    }
+    for (const key of keys) delete memoryCache[key]
     try {
-      await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      applyMutationResult(result)
+      storageStats = { entryCount: 0, totalBytes: 0 }
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
     }
-    for (const key of keys) {
-      notifyListeners(key)
-    }
+    for (const key of keys) notifyListeners(key)
   },
 
-  /**
-   * Get all cache keys and their ages (useful for debugging).
-   */
+  async getStorageStats(): Promise<DataCacheStorageStats> {
+    try {
+      const stats = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_STATS)
+      if (
+        isRecord(stats) &&
+        typeof stats.entryCount === 'number' &&
+        typeof stats.totalBytes === 'number'
+      ) {
+        storageStats = stats as unknown as DataCacheStorageStats
+      }
+    } catch (err: unknown) {
+      console.error('[DataCache] Failed to read storage stats:', err)
+    }
+    return storageStats
+  },
+
   getStats(): Record<string, { ageMs: number; ageFormatted: string }> {
     const now = Date.now()
     const stats: Record<string, { ageMs: number; ageFormatted: string }> = {}

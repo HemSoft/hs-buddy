@@ -3,12 +3,21 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { axe } from '../../test/axe-helper'
 import { SettingsAdvanced } from './SettingsAdvanced'
 
-const { mockUseConfig } = vi.hoisted(() => ({
+const { mockUseConfig, mockGetStorageStats, mockClearCache } = vi.hoisted(() => ({
   mockUseConfig: vi.fn(),
+  mockGetStorageStats: vi.fn(),
+  mockClearCache: vi.fn(),
 }))
 
 vi.mock('../../hooks/useConfig', () => ({
   useConfig: mockUseConfig,
+}))
+
+vi.mock('../../services/dataCache', () => ({
+  dataCache: {
+    getStorageStats: mockGetStorageStats,
+    clear: mockClearCache,
+  },
 }))
 
 function defaultMockValues() {
@@ -26,6 +35,8 @@ function defaultMockValues() {
 describe('SettingsAdvanced', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockGetStorageStats.mockResolvedValue({ entryCount: 42, totalBytes: 3 * 1024 * 1024 })
+    mockClearCache.mockResolvedValue(undefined)
     mockUseConfig.mockReturnValue(defaultMockValues())
   })
 
@@ -70,6 +81,27 @@ describe('SettingsAdvanced', () => {
   it('shows About Storage section', () => {
     render(<SettingsAdvanced />)
     expect(screen.getByText('About Storage')).toBeTruthy()
+  })
+
+  it('shows persisted cache entry count and size', async () => {
+    render(<SettingsAdvanced />)
+
+    expect(await screen.findByText('42 entries · 3.00 MiB')).toBeTruthy()
+  })
+
+  it('clears cached data and refreshes the displayed stats', async () => {
+    mockGetStorageStats
+      .mockResolvedValueOnce({ entryCount: 42, totalBytes: 3 * 1024 * 1024 })
+      .mockResolvedValueOnce({ entryCount: 0, totalBytes: 0 })
+    render(<SettingsAdvanced />)
+    await screen.findByText('42 entries · 3.00 MiB')
+
+    fireEvent.click(screen.getByText('Clear Cached Data'))
+
+    await waitFor(() => {
+      expect(mockClearCache).toHaveBeenCalledTimes(1)
+      expect(screen.getByText('0 entries · 0 B')).toBeTruthy()
+    })
   })
 
   it('shows security note about keychain', () => {

@@ -581,7 +581,7 @@ function useUserActivity(org: string, memberLogin: string) {
 
     doFetch()
       .then(result => {
-        dataCache.set(cacheKey, result, 5 * 60 * 1000) // 5 min TTL
+        dataCache.set(cacheKey, result)
         /* v8 ignore start */
         if (cancelled) return
         /* v8 ignore stop */

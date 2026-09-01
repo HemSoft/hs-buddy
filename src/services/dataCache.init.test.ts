@@ -20,17 +20,33 @@ describe('dataCache – initialize()', () => {
 
   it('hydrates memory cache from persisted disk data', async () => {
     const mockInvoke = vi.fn().mockResolvedValueOnce({
-      'my-prs': { data: [1, 2, 3], fetchedAt: 1000 },
-      'my-reviews': { data: ['a'], fetchedAt: 2000 },
+      entries: {
+        'pr:my-prs:account': {
+          data: [1, 2, 3],
+          fetchedAt: 1000,
+          schemaVersion: 1,
+          lastAccessedAt: 1000,
+          serializedBytes: 7,
+        },
+        'org-overview:HemSoft': {
+          data: ['a'],
+          fetchedAt: 2000,
+          schemaVersion: 1,
+          lastAccessedAt: 2000,
+          serializedBytes: 5,
+        },
+      },
+      stats: { entryCount: 2, totalBytes: 12 },
+      removedKeys: [],
     })
     stubIpc(mockInvoke)
 
     const { dataCache } = await import('./dataCache')
     await dataCache.initialize()
 
-    expect(mockInvoke).toHaveBeenCalledWith('cache:read-all')
-    expect(dataCache.get('my-prs')).toEqual({ data: [1, 2, 3], fetchedAt: 1000 })
-    expect(dataCache.get('my-reviews')).toEqual({ data: ['a'], fetchedAt: 2000 })
+    expect(mockInvoke).toHaveBeenCalledWith('cache:initialize')
+    expect(dataCache.get('pr:my-prs:account')).toMatchObject({ data: [1, 2, 3], fetchedAt: 1000 })
+    expect(dataCache.get('org-overview:HemSoft')).toMatchObject({ data: ['a'], fetchedAt: 2000 })
     expect(dataCache.isInitialized()).toBe(true)
   })
 

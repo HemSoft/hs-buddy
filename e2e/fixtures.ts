@@ -125,8 +125,16 @@ export const test = base.extend({
               return Promise.resolve(false)
             case 'config:get-notification-sound-path':
               return Promise.resolve('')
-            case 'cache:read-all':
-              return Promise.resolve({})
+            case 'cache:initialize':
+              return Promise.resolve({
+                entries: {},
+                stats: { entryCount: 0, totalBytes: 0 },
+                removedKeys: [],
+              })
+            case 'cache:read':
+              return Promise.resolve(null)
+            case 'cache:stats':
+              return Promise.resolve({ entryCount: 0, totalBytes: 0 })
             case 'cache:write':
             case 'cache:delete':
             case 'cache:clear':

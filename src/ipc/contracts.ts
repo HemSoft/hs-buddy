@@ -128,7 +128,9 @@ export const IPC_INVOKE = {
   CONFIG_SET_ENTERPRISE_SLUG: 'config:set-enterprise-slug',
 
   // ── Cache ──────────────────────────────────────────────────────────────
-  CACHE_READ_ALL: 'cache:read-all',
+  CACHE_INITIALIZE: 'cache:initialize',
+  CACHE_READ: 'cache:read',
+  CACHE_STATS: 'cache:stats',
   CACHE_WRITE: 'cache:write',
   CACHE_DELETE: 'cache:delete',
   CACHE_CLEAR: 'cache:clear',

@@ -256,7 +256,9 @@ function useLiveUptime(storedUptime: number, lastSessionStart: number | undefine
   const [currentTime, setCurrentTime] = useState<number>(() => Date.now())
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(Date.now()), 1_000)
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now())
+    }, 1_000)
     return () => {
       clearInterval(timer)
     }

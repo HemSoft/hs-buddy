@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1071] - 2026-09-01
+
+### Fixed
+
+- Satisfy typed lint for uptime timer
+
 ## [0.1.1070] - 2026-09-01
 
 ### Changed

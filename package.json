@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1068",
+  "version": "0.1.1069",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -69,7 +69,7 @@
   "author": "HemSoft Developments",
   "license": "MIT",
   "dependencies": {
-    "@convex-dev/aggregate": "^0.2.2",
+    "@convex-dev/aggregate": "^0.3.0",
     "@convex-dev/migrations": "^0.3.6",
     "@github/copilot-sdk": "^1.0.5",
     "@octokit/graphql": "^9.0.3",

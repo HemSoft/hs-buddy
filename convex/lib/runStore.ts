@@ -7,7 +7,7 @@ type RunStatus = Doc<'runs'>['status']
 type RunCountSummary = { total: number; completed: number; failed: number }
 type RunInsert = Omit<Doc<'runs'>, '_creationTime' | '_id' | 'runCountVersion'>
 type RunPatch = Partial<RunInsert>
-export type RunWriteCtx = Pick<MutationCtx, 'db' | 'runMutation' | 'runQuery'>
+export type RunWriteCtx = MutationCtx
 
 const runCounts = new TableAggregate<{
   Namespace: Id<'jobs'>
@@ -51,7 +51,7 @@ export async function backfillRunCount(ctx: RunWriteCtx, run: Doc<'runs'>): Prom
 }
 
 export async function getRunCountsByJob(
-  ctx: Pick<QueryCtx, 'db' | 'runQuery'>,
+  ctx: QueryCtx,
   jobIds: Id<'jobs'>[]
 ): Promise<Record<string, RunCountSummary>> {
   // Readiness is scoped to the requested jobs. A job whose runs are all

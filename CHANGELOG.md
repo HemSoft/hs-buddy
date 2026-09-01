@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1079] - 2026-09-01
+
+### Changed
+
+- Lazy-load feature routes
+
 ## [0.1.1078] - 2026-09-01
 
 ### Changed

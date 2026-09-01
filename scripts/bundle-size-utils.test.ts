@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { deduplicateBundles, normalizeBundleFile, type BundleEntry } from './bundle-size-utils'
+import {
+  deduplicateBundles,
+  normalizeBundleFile,
+  parseInitialHtmlAssets,
+  parseStaticModuleImports,
+  resolveInitialAssetImport,
+  traceInitialAssetGraph,
+  type BundleEntry,
+} from './bundle-size-utils'
 
 function bundle(file: string, sizeBytes: number): BundleEntry {
   return { file, sizeBytes, sizeHuman: `${sizeBytes} B` }
@@ -30,5 +38,55 @@ describe('deduplicateBundles', () => {
     const larger = bundle('dist/assets/wasm-BnjxR4X6.js', 622_325)
 
     expect(deduplicateBundles([smaller, larger])).toEqual(deduplicateBundles([larger, smaller]))
+  })
+})
+
+describe('initial renderer graph', () => {
+  it('finds scripts, module preloads, and stylesheets in index.html', () => {
+    const html = `
+      <script type="module" src="./assets/index-abc12345.js"></script>
+      <link rel="modulepreload" href="./assets/vendor-def67890.js">
+      <link rel="stylesheet" href="./assets/index-fedcba98.css">
+      <link rel="icon" href="./icon.svg">
+    `
+
+    expect(parseInitialHtmlAssets(html)).toEqual([
+      'assets/index-abc12345.js',
+      'assets/index-fedcba98.css',
+      'assets/vendor-def67890.js',
+    ])
+  })
+
+  it('traces static imports without pulling dynamic route chunks into startup', () => {
+    const sources = new Map([
+      [
+        'assets/index.js',
+        `import{shell}from'./shell.js';import('./settings.js');export{value}from'./shared.js'`,
+      ],
+      ['assets/shell.js', `import './shell.css'; export const shell = true`],
+      ['assets/shared.js', 'export const value = true'],
+      ['assets/shell.css', 'body { color: white }'],
+    ])
+
+    expect(parseStaticModuleImports(sources.get('assets/index.js') ?? '')).toEqual([
+      './shell.js',
+      './shared.js',
+    ])
+    expect(
+      traceInitialAssetGraph(['assets/index.js'], asset => {
+        const source = sources.get(asset)
+        if (source === undefined) throw new Error(`missing ${asset}`)
+        return source
+      })
+    ).toEqual(['assets/index.js', 'assets/shared.js', 'assets/shell.css', 'assets/shell.js'])
+  })
+
+  it('resolves root-relative and sibling imports inside the renderer output', () => {
+    expect(resolveInitialAssetImport('assets/app/index.js', '../vendor.js')).toBe(
+      'assets/vendor.js'
+    )
+    expect(resolveInitialAssetImport('assets/app/index.js', '/assets/base.css?x=1')).toBe(
+      'assets/base.css'
+    )
   })
 })

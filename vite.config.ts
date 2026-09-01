@@ -27,15 +27,13 @@ const requireShim = [
   'const require = __createRequire(import.meta.url);',
 ].join('\n')
 
-// Keep splittable application and dependency chunks below Vite's default
-// 500 kB budget. Shiki ships a few individual grammar modules that are larger
-// than that threshold and cannot be split further, so the renderer warning
-// limit is set just above the largest grammar while every multi-module group
-// remains capped below 500 kB.
+// Keep splittable Electron chunks below Vite's default 500 kB budget. Shiki
+// ships a few individual grammar modules that are larger than that threshold,
+// so the renderer warning limit sits just above the largest grammar.
 const MAX_SPLIT_CHUNK_SIZE = 450 * 1024
 const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
 
-function codeSplittingGroups(sourcePattern: RegExp, preserveRendererLazyChunks = false) {
+function codeSplittingGroups(sourcePattern: RegExp) {
   return {
     minSize: 20 * 1024,
     groups: [
@@ -43,14 +41,7 @@ function codeSplittingGroups(sourcePattern: RegExp, preserveRendererLazyChunks =
         name: 'vendor',
         test: (id: string) => {
           if (!/[\\/]node_modules[\\/]/.test(id)) return false
-          if (!preserveRendererLazyChunks) return true
-
-          const normalizedId = id.replaceAll('\\', '/')
-          return (
-            !normalizedId.includes('/node_modules/shiki/') &&
-            !normalizedId.includes('/node_modules/@shikijs/') &&
-            !normalizedId.includes('/node_modules/@xterm/')
-          )
+          return true
         },
         maxSize: MAX_SPLIT_CHUNK_SIZE,
         priority: 20,
@@ -59,11 +50,30 @@ function codeSplittingGroups(sourcePattern: RegExp, preserveRendererLazyChunks =
         name: 'app',
         test: (id: string) => {
           if (!sourcePattern.test(id)) return false
-          if (!preserveRendererLazyChunks) return true
-
-          return !id.replaceAll('\\', '/').includes('/src/components/terminal/TerminalPane.')
+          return true
         },
         maxSize: MAX_SPLIT_CHUNK_SIZE,
+        priority: 10,
+      },
+    ],
+  }
+}
+
+function rendererCodeSplitting() {
+  return {
+    groups: [
+      {
+        name: 'markdown-emoji',
+        test: /[\\/]node_modules[\\/].*[\\/]gemoji[\\/]/,
+        maxSize: MAX_SPLIT_CHUNK_SIZE,
+        includeDependenciesRecursively: false,
+        priority: 20,
+      },
+      {
+        name: 'markdown-parser',
+        test: /[\\/]node_modules[\\/].*[\\/](?:parse5|entities|refractor)[\\/]/,
+        maxSize: MAX_SPLIT_CHUNK_SIZE,
+        includeDependenciesRecursively: false,
         priority: 10,
       },
     ],
@@ -93,10 +103,14 @@ export default defineConfig(({ mode }) => {
         }
       : {}),
     build: {
+      manifest: true,
       chunkSizeWarningLimit: SHIKI_GRAMMAR_WARNING_LIMIT_KB,
       rolldownOptions: {
         output: {
-          codeSplitting: codeSplittingGroups(/[\\/]src[\\/]/, true),
+          // Let Rolldown's automatic chunking preserve every route-level
+          // dynamic import. Broad app/vendor groups merge lazy modules back
+          // into the entry graph because group matches include dependencies.
+          codeSplitting: rendererCodeSplitting(),
           strictExecutionOrder: true,
         },
       },

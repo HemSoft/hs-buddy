@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { Suspense, useState, useCallback } from 'react'
 import { Allotment } from 'allotment'
 import 'allotment/dist/style.css'
 import { TitleBar } from './components/TitleBar'
@@ -9,7 +9,7 @@ import { StatusBar } from './components/StatusBar'
 import { AppErrorBoundary } from './components/AppErrorBoundary'
 import { AppContentRouter } from './components/AppContentRouter'
 import { TerminalPanel } from './components/terminal/TerminalPanel'
-import { AssistantPanel } from './components/AssistantPanel'
+import { LazyAssistantPanel } from './components/AppLazyPanels'
 import { useSchedules, useJobs } from './hooks/useConvex'
 import { useMigrateToConvex } from './hooks/useMigration'
 import { usePrefetch } from './hooks/usePrefetch'
@@ -347,7 +347,11 @@ function App() {
               </Allotment.Pane>
               {assistantOpen && (
                 <Allotment.Pane minSize={280} maxSize={600} preferredSize={assistantPaneSize}>
-                  <AssistantPanel context={assistantContext} />
+                  <AppErrorBoundary resetKey="assistant-panel">
+                    <Suspense fallback={<div className="assistant-panel">Loading assistant…</div>}>
+                      <LazyAssistantPanel context={assistantContext} />
+                    </Suspense>
+                  </AppErrorBoundary>
                 </Allotment.Pane>
               )}
             </Allotment>

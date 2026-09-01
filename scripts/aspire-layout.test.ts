@@ -45,6 +45,11 @@ describe('Aspire AppHost isolation', () => {
     expect(launcher).toContain('if (-not $FullBuild)')
     expect(launcher).toContain('Bootstrap with:')
     expect(launcher).toContain('ERROR: Application dependencies not found.')
+    expect(launcher).toContain("@('scripts/checkApplicationDependencies.ts')")
+    expect(launcher).toContain("$dependencyCheckArgs += '--repair'")
+    expect(launcher.indexOf('& $bunCmd.Source @dependencyCheckArgs')).toBeLessThan(
+      launcher.indexOf('# -- Kill orphaned Convex processes --')
+    )
   })
 
   it('provides one-time setup with a fast typecheck preflight', async () => {

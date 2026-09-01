@@ -115,16 +115,16 @@ if (-not (Test-Path $appHostSdk) -or -not (Test-Path $appHostDependency)) {
 }
 
 # -- Preflight: application dependencies --
-if (-not (Test-Path "node_modules")) {
-    $bunCmd = Get-Command bun -ErrorAction SilentlyContinue
-    if (-not $bunCmd) {
-        Write-Information ""
-        Write-Information "${Red}ERROR: Bun not found and node_modules is missing.${Reset}"
-        Write-Information "Install dependencies with: ${Yellow}bun install --frozen-lockfile${Reset}"
-        Write-Information ""
-        exit 1
-    }
+$bunCmd = Get-Command bun -ErrorAction SilentlyContinue
+if (-not $bunCmd) {
+    Write-Information ""
+    Write-Information "${Red}ERROR: Bun not found.${Reset}"
+    Write-Information "Install Bun, then bootstrap with: ${Yellow}bun run setup${Reset}"
+    Write-Information ""
+    exit 1
+}
 
+if (-not (Test-Path "node_modules")) {
     if (-not $FullBuild) {
         Write-Information ""
         Write-Information "${Red}ERROR: Application dependencies not found.${Reset}"
@@ -140,6 +140,17 @@ if (-not (Test-Path "node_modules")) {
         Write-Information "${Red}ERROR: bun install --frozen-lockfile failed.${Reset}"
         exit 1
     }
+}
+
+$dependencyCheckArgs = @('scripts/checkApplicationDependencies.ts')
+if ($FullBuild) {
+    $dependencyCheckArgs += '--repair'
+}
+
+& $bunCmd.Source @dependencyCheckArgs
+if ($LASTEXITCODE -ne 0) {
+    Write-Information "${Red}ERROR: Application dependency preflight failed.${Reset}"
+    exit 1
 }
 
 # -- Kill orphaned Convex processes --

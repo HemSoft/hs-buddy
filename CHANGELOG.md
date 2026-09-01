@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1068] - 2026-09-01
+
+### Fixed
+
+- Require macOS 13 for Electron 44
+
+## [0.1.1067] - 2026-09-01
+
+### Fixed
+
+- Support Electron 44 native rebuilds
+
+## [0.1.1066] - 2026-09-01
+
+### Fixed
+
+- Use one active repositories refresh indicator
+
+## [0.1.1065] - 2026-08-31
+
+### Fixed
+
+- Validate Convex dependencies before debug startup (#617)
+
+### Added
+
+- Add active repositories refresh (#619)
+
 ## [0.1.1064] - 2026-08-30
 
 ### Changed

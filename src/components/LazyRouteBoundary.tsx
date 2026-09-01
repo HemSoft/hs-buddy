@@ -1,5 +1,6 @@
 import { Suspense, type ReactNode } from 'react'
 import { AppErrorBoundary } from './AppErrorBoundary'
+import { LazyLoadErrorFallback } from './LazyLoadErrorFallback'
 
 type LazyRouteBoundaryProps = {
   routeKey: string
@@ -8,7 +9,7 @@ type LazyRouteBoundaryProps = {
 
 export function LazyRouteBoundary({ routeKey, children }: LazyRouteBoundaryProps) {
   return (
-    <AppErrorBoundary resetKey={routeKey}>
+    <AppErrorBoundary resetKey={routeKey} fallback={LazyLoadErrorFallback}>
       <Suspense
         fallback={
           <div className="content-placeholder" role="status" aria-live="polite">

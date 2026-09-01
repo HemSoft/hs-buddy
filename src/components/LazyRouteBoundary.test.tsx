@@ -1,5 +1,5 @@
 import { lazy } from 'react'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { LazyRouteBoundary } from './LazyRouteBoundary'
 
@@ -31,5 +31,6 @@ describe('LazyRouteBoundary', () => {
 
     expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText('route failed')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Reload Buddy' }))
   })
 })

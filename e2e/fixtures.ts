@@ -17,13 +17,24 @@ export const test = base.extend({
     // The electron-cdp project connects to a real Electron app with preload APIs.
     if (testInfo.project.name === 'electron-cdp') {
       const electronBrowser = await chromium.connectOverCDP('http://127.0.0.1:9222')
-      const appPage = electronBrowser
-        .contexts()
-        .flatMap(context => context.pages())
-        .find(candidate => candidate.url().startsWith('file:'))
-      if (!appPage) throw new Error('Electron app page was not available over CDP')
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      await use(appPage)
+      try {
+        const appPage = electronBrowser
+          .contexts()
+          .flatMap(context => context.pages())
+          .find(candidate => {
+            const url = new URL(candidate.url())
+            return (
+              url.protocol === 'file:' ||
+              ((url.protocol === 'http:' || url.protocol === 'https:') &&
+                (url.hostname === 'localhost' || url.hostname === '127.0.0.1'))
+            )
+          })
+        if (!appPage) throw new Error('Electron development or packaged app page was unavailable')
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        await use(appPage)
+      } finally {
+        await electronBrowser.close()
+      }
       return
     }
 

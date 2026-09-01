@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1077] - 2026-09-01
+
+### Changed
+
+- Guarantee listener spy cleanup (#625)
+
 ## [0.1.1076] - 2026-09-01
 
 ### Fixed

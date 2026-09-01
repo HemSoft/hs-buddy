@@ -91,14 +91,17 @@ describe('TaskQueue subscription lifecycle', () => {
     })
     queue.subscribe(healthyListener)
 
-    const { promise } = queue.enqueue(async () => 'completed')
+    try {
+      const { promise } = queue.enqueue(async () => 'completed')
 
-    await expect(promise).resolves.toBe('completed')
-    expect(healthyListener).toHaveBeenCalledTimes(3)
-    expect(queue.getSnapshot().stats.completed).toBe(1)
-    expect(consoleError).toHaveBeenCalledTimes(3)
-    expect(consoleError).toHaveBeenCalledWith('[TaskQueue] Listener error:', listenerError)
-    consoleError.mockRestore()
+      await expect(promise).resolves.toBe('completed')
+      expect(healthyListener).toHaveBeenCalledTimes(3)
+      expect(queue.getSnapshot().stats.completed).toBe(1)
+      expect(consoleError).toHaveBeenCalledTimes(3)
+      expect(consoleError).toHaveBeenCalledWith('[TaskQueue] Listener error:', listenerError)
+    } finally {
+      consoleError.mockRestore()
+    }
   })
 
   it('does not notify when cancelling an empty queue', () => {

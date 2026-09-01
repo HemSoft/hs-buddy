@@ -11,12 +11,14 @@
  * - When data was last refreshed
  */
 
-import { useState, useEffect } from 'react'
-import { getTaskQueue } from '../services/taskQueue'
+import { useEffect, useMemo, useState } from 'react'
+import type { QueueSnapshot } from '../services/taskQueue'
 import { dataCache } from '../services/dataCache'
-import { usePRSettings } from './useConfig'
+import { useGitHubAccounts, usePRSettings } from './useConfig'
 import { PR_MODES, MS_PER_MINUTE } from '../constants'
 import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
+import { useTaskQueueSelector } from './useTaskQueue'
+import { getPRCacheKey } from '../utils/prCacheKey'
 
 type SyncPhase = 'idle' | 'syncing' | 'error'
 
@@ -37,25 +39,29 @@ export interface BackgroundStatus {
   lastRefreshedAt: number | null
 }
 
+interface BackgroundQueueFacts {
+  runningTasks: number
+  queuedTasks: number
+  runningTaskName: string | null
+}
+
 /**
- * Hook that provides real-time background sync status.
- * Polls queue and cache facts once per second, but preserves object identity
- * until one of those stable facts changes. Ticking labels belong in the leaf
- * component that renders them.
+ * Hook that provides real-time background sync status. Queue and cache changes
+ * drive updates; ticking labels belong in the leaf component that renders them.
  */
 function computeActiveLabel(activeTasks: number, runningTaskName: string | null): string | null {
   if (activeTasks <= 0) return null
   return getFriendlyGitHubTaskLabel(runningTaskName) ?? 'GitHub data'
 }
 
-function computeCacheTimes(modes: readonly string[]): {
+function computeCacheTimes(cacheKeys: readonly string[]): {
   oldestRefresh: number
   latestRefresh: number
 } {
   let oldestRefresh = 0
   let latestRefresh = 0
-  for (const mode of modes) {
-    const entry = dataCache.get(mode)
+  for (const cacheKey of cacheKeys) {
+    const entry = dataCache.get(cacheKey)
     if (entry) {
       if (!oldestRefresh || entry.fetchedAt < oldestRefresh) oldestRefresh = entry.fetchedAt
       if (entry.fetchedAt > latestRefresh) latestRefresh = entry.fetchedAt
@@ -73,13 +79,16 @@ function resolveNextRefreshAt(
   return oldestRefresh + intervalMs
 }
 
-function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
-  const queue = getTaskQueue('github')
-  const running = queue.runningCount
-  const pending = queue.pendingCount
+function buildBackgroundStatus(
+  intervalMs: number,
+  queueFacts: BackgroundQueueFacts,
+  cacheKeys: readonly string[]
+): BackgroundStatus {
+  const running = queueFacts.runningTasks
+  const pending = queueFacts.queuedTasks
   const activeTasks = running + pending
-  const activeLabel = computeActiveLabel(activeTasks, queue.getRunningTaskName())
-  const { oldestRefresh, latestRefresh } = computeCacheTimes(PR_MODES)
+  const activeLabel = computeActiveLabel(activeTasks, queueFacts.runningTaskName)
+  const { oldestRefresh, latestRefresh } = computeCacheTimes(cacheKeys)
   const phase: SyncPhase = activeTasks > 0 ? 'syncing' : 'idle'
 
   return {
@@ -93,7 +102,26 @@ function buildBackgroundStatus(intervalMs: number): BackgroundStatus {
   }
 }
 
-function hasSameBackgroundFacts(current: BackgroundStatus, next: BackgroundStatus): boolean {
+function selectBackgroundQueueFacts(snapshot: QueueSnapshot): BackgroundQueueFacts {
+  return {
+    runningTasks: snapshot.runningCount,
+    queuedTasks: snapshot.pendingCount,
+    runningTaskName: snapshot.runningTaskName,
+  }
+}
+
+function hasSameBackgroundQueueFacts(
+  current: BackgroundQueueFacts,
+  next: BackgroundQueueFacts
+): boolean {
+  return (
+    current.runningTasks === next.runningTasks &&
+    current.queuedTasks === next.queuedTasks &&
+    current.runningTaskName === next.runningTaskName
+  )
+}
+
+function hasSameBackgroundStatus(current: BackgroundStatus, next: BackgroundStatus): boolean {
   return (
     current.phase === next.phase &&
     current.activeLabel === next.activeLabel &&
@@ -107,28 +135,32 @@ function hasSameBackgroundFacts(current: BackgroundStatus, next: BackgroundStatu
 
 export function useBackgroundStatus(): BackgroundStatus {
   const { refreshInterval } = usePRSettings()
-  const [status, setStatus] = useState<BackgroundStatus>({
-    phase: 'idle',
-    activeLabel: null,
-    activeTasks: 0,
-    runningTasks: 0,
-    queuedTasks: 0,
-    nextRefreshAt: null,
-    lastRefreshedAt: null,
-  })
+  const { accounts } = useGitHubAccounts()
+  const cacheKeys = useMemo(() => PR_MODES.map(mode => getPRCacheKey(mode, accounts)), [accounts])
+  const queueFacts = useTaskQueueSelector(
+    'github',
+    selectBackgroundQueueFacts,
+    hasSameBackgroundQueueFacts
+  )
+  const [cacheRevision, setCacheRevision] = useState(0)
+  const statusCache = useMemo(() => ({ current: null as BackgroundStatus | null }), [])
 
   useEffect(() => {
-    const intervalMs = refreshInterval * MS_PER_MINUTE
+    const cacheKeySet = new Set(cacheKeys)
+    return dataCache.subscribe(key => {
+      if (cacheKeySet.has(key)) {
+        setCacheRevision(revision => revision + 1)
+      }
+    })
+  }, [cacheKeys])
 
-    const compute = () => {
-      const next = buildBackgroundStatus(intervalMs)
-      setStatus(current => (hasSameBackgroundFacts(current, next) ? current : next))
+  return useMemo(() => {
+    void cacheRevision
+    const next = buildBackgroundStatus(refreshInterval * MS_PER_MINUTE, queueFacts, cacheKeys)
+    if (statusCache.current && hasSameBackgroundStatus(statusCache.current, next)) {
+      return statusCache.current
     }
-
-    compute()
-    const timer = setInterval(compute, 1000)
-    return () => clearInterval(timer)
-  }, [refreshInterval])
-
-  return status
+    statusCache.current = next
+    return next
+  }, [cacheKeys, cacheRevision, queueFacts, refreshInterval, statusCache])
 }

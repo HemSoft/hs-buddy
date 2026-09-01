@@ -10,6 +10,11 @@ const orgMocks = vi.hoisted(() => ({
   useGitHubAccounts: vi.fn(),
   usePRSettings: vi.fn(),
   useTaskQueue: vi.fn(),
+  useTaskQueueSelector: vi.fn(),
+  queueSnapshot: {
+    runningTaskNames: [] as string[],
+    pendingTaskNames: [] as string[],
+  },
   useCopilotUsage: vi.fn(),
   useCodexUsage: vi.fn(),
   formatDistanceToNow: vi.fn(),
@@ -38,6 +43,7 @@ vi.mock('../hooks/useConfig', () => ({
 
 vi.mock('../hooks/useTaskQueue', () => ({
   useTaskQueue: orgMocks.useTaskQueue,
+  useTaskQueueSelector: orgMocks.useTaskQueueSelector,
 }))
 
 vi.mock('../hooks/useCopilotUsage', () => ({
@@ -194,6 +200,13 @@ beforeEach(() => {
     ),
     stats: { active: 0, completed: 0, failed: 0 },
     cancelAll: vi.fn(),
+  })
+  orgMocks.queueSnapshot.runningTaskNames = []
+  orgMocks.queueSnapshot.pendingTaskNames = []
+  orgMocks.useTaskQueueSelector.mockImplementation((_name, selector, isEqual) => {
+    const selection = selector(orgMocks.queueSnapshot)
+    expect(isEqual(selection, selection)).toBe(true)
+    return selection
   })
   orgMocks.useCopilotUsage.mockReturnValue({
     quotas: {},
@@ -1481,6 +1494,11 @@ describe('OrgDetailPanel', () => {
       orgMocks.getTaskQueue.mockReturnValue({
         hasTaskWithName: vi.fn((name: string) => name.includes('overview') && overviewEnqueued),
       })
+      orgMocks.useTaskQueueSelector.mockImplementation(() => ({
+        overview: overviewEnqueued,
+        members: false,
+        copilot: false,
+      }))
       orgMocks.dataCacheIsFresh.mockReturnValue(false)
       orgMocks.useTaskQueue.mockReturnValue({
         enqueue: vi.fn(

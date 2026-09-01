@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1078] - 2026-09-01
+
+### Changed
+
+- Guarantee listener spy cleanup (#625)
+- Replace task queue polling (#625)
+- Consolidate issue 625 entries
+
+### Fixed
+
+- Address current-head review feedback (#625)
+- Isolate subscription failures (#625)
+- Pin patched browserslist for audit (#625)
+
 ## [0.1.1072] - 2026-09-01
 
 ### Fixed

@@ -1,7 +1,7 @@
 /**
  * Refresh Indicators Hook
  *
- * Polls the task queue to provide per-data-source refresh state:
+ * Subscribes to the task queue to provide per-data-source refresh state:
  *   - 'idle'    — not refreshing
  *   - 'pending' — queued, waiting for another task to finish
  *   - 'active'  — currently fetching
@@ -12,15 +12,15 @@
  *   Org detail: 'org-detail-overview-{org}', 'org-detail-members-{org}', etc.
  */
 
-import { useState, useEffect } from 'react'
-import { getTaskQueue } from '../services/taskQueue'
+import type { QueueSnapshot } from '../services/taskQueue'
 import { getGitHubTaskDataSourceKey } from '../utils/githubTaskNames'
+import { useTaskQueueSelector } from './useTaskQueue'
 
 type RefreshState = 'idle' | 'pending' | 'active'
 
 export type RefreshIndicators = Record<string, RefreshState>
 
-function buildActiveRefreshIndicators(running: string[]): RefreshIndicators {
+function buildActiveRefreshIndicators(running: readonly string[]): RefreshIndicators {
   const next: RefreshIndicators = {}
 
   for (const name of running) {
@@ -31,7 +31,7 @@ function buildActiveRefreshIndicators(running: string[]): RefreshIndicators {
   return next
 }
 
-function applyPendingRefreshIndicators(next: RefreshIndicators, pending: string[]): void {
+function applyPendingRefreshIndicators(next: RefreshIndicators, pending: readonly string[]): void {
   for (const name of pending) {
     const key = getGitHubTaskDataSourceKey(name)
     if (!next[key]) {
@@ -40,7 +40,10 @@ function applyPendingRefreshIndicators(next: RefreshIndicators, pending: string[
   }
 }
 
-function buildRefreshIndicators(running: string[], pending: string[]): RefreshIndicators {
+function buildRefreshIndicators(
+  running: readonly string[],
+  pending: readonly string[]
+): RefreshIndicators {
   if (running.length === 0 && pending.length === 0) return {}
 
   const next = buildActiveRefreshIndicators(running)
@@ -56,24 +59,11 @@ function refreshIndicatorsEqual(left: RefreshIndicators, right: RefreshIndicator
 
 /**
  * Returns a map of data-source keys to their current refresh state.
- * Polls every 200ms while mounted.
  */
 export function useRefreshIndicators(): RefreshIndicators {
-  const [indicators, setIndicators] = useState<RefreshIndicators>({})
+  return useTaskQueueSelector('github', selectRefreshIndicators, refreshIndicatorsEqual)
+}
 
-  useEffect(() => {
-    const compute = () => {
-      const queue = getTaskQueue('github')
-      const running = queue.getRunningTaskNames()
-      const pending = queue.getPendingTaskNames()
-      const next = buildRefreshIndicators(running, pending)
-      setIndicators(prev => (refreshIndicatorsEqual(prev, next) ? prev : next))
-    }
-
-    compute()
-    const timer = setInterval(compute, 200)
-    return () => clearInterval(timer)
-  }, [])
-
-  return indicators
+function selectRefreshIndicators(snapshot: QueueSnapshot): RefreshIndicators {
+  return buildRefreshIndicators(snapshot.runningTaskNames, snapshot.pendingTaskNames)
 }

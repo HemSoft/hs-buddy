@@ -4,16 +4,16 @@
  * Provides easy access to task queues with automatic cleanup on unmount.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import {
   getTaskQueue,
   type TaskId,
   type TaskOptions,
   type QueueOptions,
-  type QueueStats,
+  type QueueSnapshot,
 } from '../services/taskQueue'
 
-interface UseTaskQueueResult {
+export interface UseTaskQueueResult {
   /**
    * Enqueue a task for execution.
    * The task will be automatically cancelled on component unmount.
@@ -29,27 +29,16 @@ interface UseTaskQueueResult {
    * Cancel all tasks enqueued by this hook instance.
    */
   cancelAll: () => void
-
-  /**
-   * Current queue statistics.
-   */
-  stats: QueueStats
-
-  /**
-   * Whether any tasks are currently running or pending in this hook's tracked tasks.
-   */
-  isLoading: boolean
-
-  /**
-   * Number of pending tasks in the queue.
-   */
-  pendingCount: number
-
-  /**
-   * Number of running tasks in the queue.
-   */
-  runningCount: number
 }
+
+type EqualityFn<T> = (left: T, right: T) => boolean
+
+interface SelectionInstance<T> {
+  hasSelection: boolean
+  selection: T | undefined
+}
+
+const objectIs: EqualityFn<unknown> = Object.is
 
 /**
  * Hook for interacting with a named task queue.
@@ -60,7 +49,7 @@ interface UseTaskQueueResult {
  * @example
  * ```tsx
  * function MyComponent() {
- *   const { enqueue, isLoading, cancelAll } = useTaskQueue('github');
+ *   const { enqueue, cancelAll } = useTaskQueue('github');
  *
  *   useEffect(() => {
  *     enqueue(async (signal) => {
@@ -77,33 +66,11 @@ interface UseTaskQueueResult {
 export function useTaskQueue(queueName: string, options?: QueueOptions): UseTaskQueueResult {
   const queue = getTaskQueue(queueName, options)
   const trackedTaskIds = useMemo(() => new Set<TaskId>(), [])
-  const [stats, setStats] = useState<QueueStats>(() => queue.getStats())
-  const mountedRef = useRef(true)
-
-  // Update stats periodically while there are tracked tasks
-  useEffect(() => {
-    const updateStats = () => {
-      setStats(queue.getStats())
-    }
-
-    // Update stats on an interval when there are pending/running tasks
-    const interval = setInterval(() => {
-      if (trackedTaskIds.size > 0) {
-        updateStats()
-      }
-    }, 100)
-
-    return () => {
-      clearInterval(interval)
-    }
-  }, [queue, trackedTaskIds])
 
   // Cancel all tracked tasks on unmount
   useEffect(() => {
     const trackedTasks = trackedTaskIds
-    const mounted = mountedRef
     return () => {
-      mounted.current = false
       for (const taskId of trackedTasks) {
         queue.cancel(taskId)
       }
@@ -116,15 +83,9 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
       const { taskId, promise } = queue.enqueue(execute, taskOptions)
       trackedTaskIds.add(taskId)
 
-      // Update stats immediately
-      setStats(queue.getStats())
-
       // Clean up tracking when task completes
       return promise.finally(() => {
         trackedTaskIds.delete(taskId)
-        if (mountedRef.current) {
-          setStats(queue.getStats())
-        }
       })
     },
     [queue, trackedTaskIds]
@@ -134,7 +95,6 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
     (taskId: TaskId): boolean => {
       const result = queue.cancel(taskId)
       trackedTaskIds.delete(taskId)
-      setStats(queue.getStats())
       return result
     },
     [queue, trackedTaskIds]
@@ -145,16 +105,63 @@ export function useTaskQueue(queueName: string, options?: QueueOptions): UseTask
       queue.cancel(taskId)
     }
     trackedTaskIds.clear()
-    setStats(queue.getStats())
   }, [queue, trackedTaskIds])
 
-  return {
-    enqueue,
-    cancel,
-    cancelAll,
-    stats,
-    isLoading: queue.runningCount > 0,
-    pendingCount: queue.pendingCount,
-    runningCount: queue.runningCount,
-  }
+  return useMemo(() => ({ enqueue, cancel, cancelAll }), [cancel, cancelAll, enqueue])
+}
+
+/**
+ * Subscribe to only the queue fields a component renders. Equal selections
+ * retain their previous identity and do not rerender the consumer.
+ */
+export function useTaskQueueSelector<T>(
+  queueName: string,
+  selector: (snapshot: QueueSnapshot) => T,
+  isEqual: EqualityFn<T> = objectIs as EqualityFn<T>
+): T {
+  const queue = getTaskQueue(queueName)
+  const selectionInstance = useRef<SelectionInstance<T>>({
+    hasSelection: false,
+    selection: undefined,
+  }).current
+  const subscribe = useCallback((listener: () => void) => queue.subscribe(listener), [queue])
+  const getSelection = useMemo(() => {
+    let hasMemo = false
+    let memoizedSnapshot: QueueSnapshot
+    let memoizedSelection: T
+
+    return () => {
+      const snapshot = queue.getSnapshot()
+      if (hasMemo && Object.is(memoizedSnapshot, snapshot)) {
+        return memoizedSelection
+      }
+
+      const nextSelection = selector(snapshot)
+      if (!hasMemo && selectionInstance.hasSelection) {
+        const currentSelection = selectionInstance.selection as T
+        if (isEqual(currentSelection, nextSelection)) {
+          hasMemo = true
+          memoizedSnapshot = snapshot
+          memoizedSelection = currentSelection
+          return currentSelection
+        }
+      } else if (hasMemo && isEqual(memoizedSelection, nextSelection)) {
+        memoizedSnapshot = snapshot
+        return memoizedSelection
+      }
+
+      hasMemo = true
+      memoizedSnapshot = snapshot
+      memoizedSelection = nextSelection
+      return nextSelection
+    }
+  }, [isEqual, queue, selectionInstance, selector])
+  const selection = useSyncExternalStore(subscribe, getSelection, getSelection)
+
+  useEffect(() => {
+    selectionInstance.hasSelection = true
+    selectionInstance.selection = selection
+  }, [selection, selectionInstance])
+
+  return selection
 }

@@ -2,26 +2,75 @@ import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useBackgroundStatus } from './useBackgroundStatus'
 import { getFriendlyGitHubTaskLabel } from '../utils/githubTaskNames'
+import type { QueueSnapshot } from '../services/taskQueue'
+import { getPRCacheKey } from '../utils/prCacheKey'
 
 // Mock dependencies for hook tests
+const queueListeners = new Set<() => void>()
+let queueSnapshot: QueueSnapshot
 const mockQueue = {
   runningCount: 0,
   pendingCount: 0,
   getRunningTaskName: vi.fn((): string | null => null),
   getStats: vi.fn(() => ({ pending: 0, running: 0, completed: 0, failed: 0, cancelled: 0 })),
+  getSnapshot: () => queueSnapshot,
+  subscribe: (listener: () => void) => {
+    queueListeners.add(listener)
+    return () => queueListeners.delete(listener)
+  },
+}
+
+function makeQueueSnapshot(): QueueSnapshot {
+  const runningTaskName = mockQueue.getRunningTaskName()
+  const runningTaskNames = runningTaskName ? [runningTaskName] : []
+  return {
+    stats: {
+      pending: mockQueue.pendingCount,
+      running: mockQueue.runningCount,
+      completed: 0,
+      failed: 0,
+      cancelled: 0,
+    },
+    pendingCount: mockQueue.pendingCount,
+    runningCount: mockQueue.runningCount,
+    isEmpty: mockQueue.pendingCount === 0 && mockQueue.runningCount === 0,
+    runningTaskName,
+    runningTaskNames,
+    pendingTaskNames: [],
+  }
+}
+
+function refreshQueueSnapshot(): void {
+  queueSnapshot = makeQueueSnapshot()
+}
+
+function emitQueueChange(): void {
+  refreshQueueSnapshot()
+  act(() => {
+    for (const listener of queueListeners) listener()
+  })
 }
 
 vi.mock('../services/taskQueue', () => ({
   getTaskQueue: vi.fn(() => mockQueue),
 }))
 
+const { mockUseGitHubAccounts } = vi.hoisted(() => ({ mockUseGitHubAccounts: vi.fn() }))
 vi.mock('./useConfig', () => ({
   usePRSettings: vi.fn(() => ({ refreshInterval: 5, loading: false })),
+  useGitHubAccounts: mockUseGitHubAccounts,
 }))
 
 const mockDataCacheGet = vi.fn()
+const cacheListeners = new Set<(key: string) => void>()
 vi.mock('../services/dataCache', () => ({
-  dataCache: { get: (...args: unknown[]) => mockDataCacheGet(...args) },
+  dataCache: {
+    get: (...args: unknown[]) => mockDataCacheGet(...args),
+    subscribe: (listener: (key: string) => void) => {
+      cacheListeners.add(listener)
+      return () => cacheListeners.delete(listener)
+    },
+  },
 }))
 
 describe('getFriendlyGitHubTaskLabel', () => {
@@ -60,21 +109,28 @@ describe('getFriendlyGitHubTaskLabel', () => {
   })
 })
 
-describe('useBackgroundStatus', () => {
-  beforeEach(() => {
-    vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'))
-    vi.clearAllMocks()
-    mockQueue.runningCount = 0
-    mockQueue.pendingCount = 0
-    mockQueue.getRunningTaskName.mockReturnValue(null)
-    mockDataCacheGet.mockReturnValue(null)
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date('2026-06-15T12:00:00.000Z'))
+  vi.clearAllMocks()
+  mockQueue.runningCount = 0
+  mockQueue.pendingCount = 0
+  mockQueue.getRunningTaskName.mockReturnValue(null)
+  queueListeners.clear()
+  cacheListeners.clear()
+  refreshQueueSnapshot()
+  mockDataCacheGet.mockReturnValue(null)
+  mockUseGitHubAccounts.mockReturnValue({
+    accounts: [{ username: 'alice', org: 'hemsoft' }],
+    loading: false,
   })
+})
 
-  afterEach(() => {
-    vi.useRealTimers()
-  })
+afterEach(() => {
+  vi.useRealTimers()
+})
 
+describe('useBackgroundStatus derivation', () => {
   it('returns idle phase when no tasks running', () => {
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.phase).toBe('idle')
@@ -88,6 +144,7 @@ describe('useBackgroundStatus', () => {
     mockQueue.runningCount = 1
     mockQueue.pendingCount = 2
     mockQueue.getRunningTaskName.mockReturnValue('my-prs')
+    refreshQueueSnapshot()
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.phase).toBe('syncing')
     expect(result.current.activeTasks).toBe(3)
@@ -107,6 +164,7 @@ describe('useBackgroundStatus', () => {
     mockQueue.runningCount = 0
     mockQueue.pendingCount = 1
     mockQueue.getRunningTaskName.mockReturnValue(null)
+    refreshQueueSnapshot()
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.activeTasks).toBe(1)
     expect(result.current.activeLabel).toBe('GitHub data')
@@ -115,10 +173,13 @@ describe('useBackgroundStatus', () => {
   it('shows null countdown when syncing', () => {
     mockQueue.runningCount = 1
     mockQueue.getRunningTaskName.mockReturnValue('needs-review')
+    refreshQueueSnapshot()
     const { result } = renderHook(() => useBackgroundStatus())
     expect(result.current.nextRefreshAt).toBeNull()
   })
+})
 
+describe('useBackgroundStatus subscriptions', () => {
   it('preserves stable status identity while only wall-clock time advances', () => {
     mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
     const { result } = renderHook(() => useBackgroundStatus())
@@ -129,5 +190,62 @@ describe('useBackgroundStatus', () => {
     })
 
     expect(result.current).toBe(initialStatus)
+  })
+
+  it('updates immediately when queue facts change', () => {
+    const { result } = renderHook(() => useBackgroundStatus())
+
+    mockQueue.runningCount = 1
+    mockQueue.getRunningTaskName.mockReturnValue('my-prs')
+    emitQueueChange()
+
+    expect(result.current).toMatchObject({
+      phase: 'syncing',
+      activeLabel: 'My PRs',
+      activeTasks: 1,
+      runningTasks: 1,
+    })
+  })
+
+  it('updates cache timestamps only for displayed PR cache keys', () => {
+    let fetchedAt = Date.now() - 120_000
+    mockDataCacheGet.mockImplementation(() => ({ fetchedAt, data: [] }))
+    const { result } = renderHook(() => useBackgroundStatus())
+    const initialStatus = result.current
+
+    fetchedAt = Date.now() - 60_000
+    act(() => {
+      for (const listener of cacheListeners) listener('unrelated-key')
+    })
+    expect(result.current).toBe(initialStatus)
+
+    const displayedKey = getPRCacheKey('my-prs', [{ username: 'alice', org: 'hemsoft' }])
+    act(() => {
+      for (const listener of cacheListeners) listener(displayedKey)
+    })
+    expect(result.current.lastRefreshedAt).toBe(fetchedAt)
+  })
+
+  it('preserves status identity when a cache event does not change displayed facts', () => {
+    mockDataCacheGet.mockReturnValue({ fetchedAt: Date.now() - 120_000, data: [] })
+    const { result } = renderHook(() => useBackgroundStatus())
+    const initialStatus = result.current
+
+    const displayedKey = getPRCacheKey('my-prs', [{ username: 'alice', org: 'hemsoft' }])
+    act(() => {
+      for (const listener of cacheListeners) listener(displayedKey)
+    })
+
+    expect(result.current).toBe(initialStatus)
+  })
+
+  it('does not create a polling interval', () => {
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval')
+    try {
+      renderHook(() => useBackgroundStatus())
+      expect(intervalSpy).not.toHaveBeenCalled()
+    } finally {
+      intervalSpy.mockRestore()
+    }
   })
 })

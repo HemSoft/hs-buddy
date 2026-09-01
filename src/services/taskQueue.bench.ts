@@ -31,6 +31,17 @@ describe('TaskQueue enqueue + drain', () => {
     }
     await Promise.all(promises)
   })
+
+  bench('enqueue 10 sync-resolving tasks (one subscriber)', async () => {
+    const q = new TaskQueue('bench', { concurrency: 1 })
+    const promises: Promise<unknown>[] = []
+    q.subscribe(() => q.getSnapshot())
+    for (let i = 0; i < 10; i++) {
+      const { promise } = q.enqueue(async () => i)
+      promises.push(promise)
+    }
+    await Promise.all(promises)
+  })
 })
 
 describe('TaskQueue cancel', () => {

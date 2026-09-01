@@ -26,6 +26,16 @@ const memoryCache: Record<string, CacheEntry> = {}
 const listeners: Set<CacheListener> = new Set()
 let initialized = false
 
+function notifyListeners(key: string): void {
+  for (const listener of listeners) {
+    try {
+      listener(key)
+    } catch (err: unknown) {
+      console.error('[DataCache] Listener error:', err)
+    }
+  }
+}
+
 export const dataCache = {
   /**
    * Initialize the cache by loading persisted data from disk.
@@ -66,14 +76,7 @@ export const dataCache = {
   set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
     memoryCache[key] = { data, fetchedAt }
 
-    // Notify listeners (for components that need to react to cache updates)
-    for (const listener of listeners) {
-      try {
-        listener(key)
-      } catch (err: unknown) {
-        console.error('[DataCache] Listener error:', err)
-      }
-    }
+    notifyListeners(key)
 
     // Persist to disk asynchronously (fire and forget)
     window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt }).catch(err => {
@@ -111,7 +114,9 @@ export const dataCache = {
    */
   delete(key: string): void {
     delete memoryCache[key]
-    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key).catch(err => {
+    const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
+    notifyListeners(key)
+    deleteRequest.catch(err => {
       console.error('[DataCache] Failed to delete from disk:', err)
     })
   },
@@ -120,13 +125,17 @@ export const dataCache = {
    * Clear all cached data (memory + disk).
    */
   async clear(): Promise<void> {
-    for (const key of Object.keys(memoryCache)) {
+    const keys = Object.keys(memoryCache)
+    for (const key of keys) {
       delete memoryCache[key]
     }
     try {
       await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
+    }
+    for (const key of keys) {
+      notifyListeners(key)
     }
   },
 

@@ -1,27 +1,58 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { QueueSnapshot } from '../services/taskQueue'
 
-const mockGetRunning = vi.fn<() => string[]>().mockReturnValue([])
-const mockGetPending = vi.fn<() => string[]>().mockReturnValue([])
+const queueStore = vi.hoisted(() => ({
+  listeners: new Set<() => void>(),
+  snapshot: null as QueueSnapshot | null,
+}))
 
 vi.mock('../services/taskQueue', () => ({
   getTaskQueue: () => ({
-    getRunningTaskNames: mockGetRunning,
-    getPendingTaskNames: mockGetPending,
+    getSnapshot: () => queueStore.snapshot,
+    subscribe: (listener: () => void) => {
+      queueStore.listeners.add(listener)
+      return () => queueStore.listeners.delete(listener)
+    },
   }),
 }))
 
 import { useRefreshIndicators } from './useRefreshIndicators'
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  vi.useFakeTimers()
-  mockGetRunning.mockReturnValue([])
-  mockGetPending.mockReturnValue([])
-})
+function makeSnapshot(
+  runningTaskNames: readonly string[] = [],
+  pendingTaskNames: readonly string[] = []
+): QueueSnapshot {
+  return {
+    stats: {
+      pending: pendingTaskNames.length,
+      running: runningTaskNames.length,
+      completed: 0,
+      cancelled: 0,
+      failed: 0,
+    },
+    pendingCount: pendingTaskNames.length,
+    runningCount: runningTaskNames.length,
+    isEmpty: runningTaskNames.length === 0 && pendingTaskNames.length === 0,
+    runningTaskName: runningTaskNames[0] ?? null,
+    runningTaskNames,
+    pendingTaskNames,
+  }
+}
 
-afterEach(() => {
-  vi.useRealTimers()
+function emitQueueSnapshot(
+  runningTaskNames: readonly string[] = [],
+  pendingTaskNames: readonly string[] = []
+): void {
+  queueStore.snapshot = makeSnapshot(runningTaskNames, pendingTaskNames)
+  act(() => {
+    for (const listener of queueStore.listeners) listener()
+  })
+}
+
+beforeEach(() => {
+  queueStore.listeners.clear()
+  queueStore.snapshot = makeSnapshot()
 })
 
 describe('useRefreshIndicators', () => {
@@ -30,99 +61,74 @@ describe('useRefreshIndicators', () => {
     expect(result.current).toEqual({})
   })
 
-  it('returns object type', () => {
+  it('marks running tasks as active and pending tasks as pending', () => {
+    queueStore.snapshot = makeSnapshot(['prefetch-my-prs'], ['autorefresh-needs-review'])
+
     const { result } = renderHook(() => useRefreshIndicators())
-    expect(typeof result.current).toBe('object')
+
+    expect(result.current).toEqual({ 'my-prs': 'active', 'needs-review': 'pending' })
   })
 
-  it('marks running tasks as active', () => {
-    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
+  it('lets active tasks override pending tasks for the same key', () => {
+    queueStore.snapshot = makeSnapshot(['prefetch-my-prs'], ['autorefresh-my-prs'])
+
     const { result } = renderHook(() => useRefreshIndicators())
+
     expect(result.current['my-prs']).toBe('active')
   })
 
-  it('marks pending tasks as pending', () => {
-    mockGetPending.mockReturnValue(['autorefresh-needs-review'])
+  it('normalizes account scopes and known task prefixes', () => {
+    queueStore.snapshot = makeSnapshot(
+      ['prefetch-my-prs:%5Bscope%5D', 'fetch-needs-review'],
+      ['autorefresh-org-repos:relias-engineering']
+    )
+
     const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['needs-review']).toBe('pending')
+
+    expect(result.current).toEqual({
+      'my-prs': 'active',
+      'needs-review': 'active',
+      'org-repos:relias-engineering': 'pending',
+    })
   })
 
-  it('active overrides pending for the same key', () => {
-    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
-    mockGetPending.mockReturnValue(['autorefresh-my-prs'])
-    const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['my-prs']).toBe('active')
-  })
+  it('passes through task names without a known prefix', () => {
+    queueStore.snapshot = makeSnapshot(['unknown-task'])
 
-  it('maps account-scoped PR task names back to their mode', () => {
-    mockGetRunning.mockReturnValue(['prefetch-my-prs:%5Bscope%5D'])
     const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['my-prs']).toBe('active')
-  })
 
-  it('strips prefetch- prefix from task names', () => {
-    mockGetRunning.mockReturnValue(['prefetch-org-repos:hemsoft'])
-    const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['org-repos:hemsoft']).toBe('active')
-  })
-
-  it('strips autorefresh- prefix from task names', () => {
-    mockGetPending.mockReturnValue(['autorefresh-org-repos:relias-engineering'])
-    const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['org-repos:relias-engineering']).toBe('pending')
-  })
-
-  it('passes through task names without known prefix', () => {
-    mockGetRunning.mockReturnValue(['unknown-task'])
-    const { result } = renderHook(() => useRefreshIndicators())
     expect(result.current['unknown-task']).toBe('active')
   })
 
-  it('updates indicators on timer tick', () => {
+  it('updates immediately on semantic queue transitions', () => {
     const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current).toEqual({})
 
-    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-    expect(result.current['my-prs']).toBe('active')
+    emitQueueSnapshot(['prefetch-my-prs'])
+    expect(result.current).toEqual({ 'my-prs': 'active' })
+
+    emitQueueSnapshot([], ['prefetch-my-prs'])
+    expect(result.current).toEqual({ 'my-prs': 'pending' })
+
+    emitQueueSnapshot()
+    expect(result.current).toEqual({})
   })
 
-  it('preserves state identity when the queue is unchanged', () => {
-    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
+  it('preserves state identity when displayed indicators are unchanged', () => {
+    queueStore.snapshot = makeSnapshot(['prefetch-my-prs'])
     const { result } = renderHook(() => useRefreshIndicators())
     const initialIndicators = result.current
-    act(() => vi.advanceTimersByTime(200))
+
+    emitQueueSnapshot(['prefetch-my-prs'])
+
     expect(result.current).toBe(initialIndicators)
   })
 
-  it('clears indicators when queue becomes empty', () => {
-    mockGetRunning.mockReturnValue(['prefetch-my-prs'])
-    const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['my-prs']).toBe('active')
-
-    mockGetRunning.mockReturnValue([])
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-    expect(result.current).toEqual({})
-  })
-
-  it('cleans up interval on unmount', () => {
+  it('unsubscribes on unmount', () => {
     const { unmount } = renderHook(() => useRefreshIndicators())
-    unmount()
-    // No error after unmount + timer tick
-    act(() => {
-      vi.advanceTimersByTime(200)
-    })
-  })
-})
+    expect(queueStore.listeners.size).toBe(1)
 
-describe('interactive PR task normalization', () => {
-  it('maps an interactive PR fetch to its mode', () => {
-    mockGetRunning.mockReturnValue(['fetch-needs-review'])
-    const { result } = renderHook(() => useRefreshIndicators())
-    expect(result.current['needs-review']).toBe('active')
+    unmount()
+
+    expect(queueStore.listeners.size).toBe(0)
   })
 })

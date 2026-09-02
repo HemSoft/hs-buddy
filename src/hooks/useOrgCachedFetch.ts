@@ -23,13 +23,11 @@ function handleOrgFetchError(
   setError(getErrorMessage(error))
 }
 
-/** Resolve cached data, returning null when forceRefresh is requested. */
+/** Resolve cached data before deciding whether a network refresh is still needed. */
 async function resolveCachedData<T>(
   cacheKey: string,
-  normalize: (d: T | null) => T | null,
-  forceRefresh: boolean
+  normalize: (d: T | null) => T | null
 ): Promise<T | null> {
-  if (forceRefresh) return null
   const cached = await dataCache.getOrLoad<T>(cacheKey)
   return normalize(cached?.data ?? null)
 }
@@ -185,20 +183,14 @@ export function useOrgCachedFetch<T>({
     async (forceRefresh = false) => {
       const activeCacheKey = cacheKeyRef.current
       const queue = getTaskQueue('github')
-      const cached = await resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
+      const cached = await resolveCachedData<T>(activeCacheKey, normalizeRef.current)
       /* v8 ignore start */
-      if (
-        applyResolvedOrgCacheIfCurrent(
-          activeCacheKey,
-          cacheKeyRef,
-          cached,
-          setData,
-          setError,
-          setPhase
-        )
-      ) {
-        return
-        /* v8 ignore stop */
+      if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return
+      /* v8 ignore stop */
+      const hydrated = applyResolvedOrgCache(cached, setData, setError, setPhase)
+      if (hydrated) {
+        hasDataRef.current = true
+        if (!forceRefresh) return
       }
 
       if (queue.hasTaskWithName(taskName)) {

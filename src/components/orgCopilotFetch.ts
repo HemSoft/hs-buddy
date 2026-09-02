@@ -62,17 +62,28 @@ function handleCopilotCatchError(error: unknown, dispatch: CopilotDispatch) {
 
 async function hydrateCachedCopilot(
   cacheKey: string,
-  forceRefresh: boolean,
   dispatchCopilot: CopilotDispatch,
   isCurrent?: () => boolean
-): Promise<boolean> {
-  const cached = forceRefresh
-    ? null
-    : (await dataCache.getOrLoad<OrgCopilotUsageData>(cacheKey))?.data
-  if (isCurrent?.() === false) return true
-  if (!cached || forceRefresh) return false
+): Promise<'stale' | 'hydrated' | 'miss'> {
+  const cached = (await dataCache.getOrLoad<OrgCopilotUsageData>(cacheKey))?.data
+  if (isCurrent?.() === false) return 'stale'
+  if (!cached) return 'miss'
   dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-  return true
+  return 'hydrated'
+}
+
+function shouldStopAfterCacheHydration(
+  result: 'stale' | 'hydrated' | 'miss',
+  forceRefresh: boolean
+): boolean {
+  return result === 'stale' || (result === 'hydrated' && !forceRefresh)
+}
+
+function resolveCopilotHasUsage(
+  hasUsage: boolean,
+  cacheResult: 'stale' | 'hydrated' | 'miss'
+): boolean {
+  return hasUsage || cacheResult === 'hydrated'
 }
 
 export async function runCopilotFetch({
@@ -99,10 +110,14 @@ export async function runCopilotFetch({
   isCurrent?: () => boolean
 }): Promise<void> {
   if (isUserNamespace) return
-  if (await hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot, isCurrent)) return
+  const cacheResult = await hydrateCachedCopilot(copilotCacheKey, dispatchCopilot, isCurrent)
+  if (shouldStopAfterCacheHydration(cacheResult, forceRefresh)) return
   const queue = getTaskQueue('github')
   if (queue.hasTaskWithName(copilotTaskName)) return
-  dispatchCopilot({ type: 'start-loading', hasUsage })
+  dispatchCopilot({
+    type: 'start-loading',
+    hasUsage: resolveCopilotHasUsage(hasUsage, cacheResult),
+  })
   try {
     const result = await enqueue(
       async signal => {

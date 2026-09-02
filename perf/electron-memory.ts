@@ -7,13 +7,10 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Page } from 'puppeteer-core'
 import {
-  evaluateAbsoluteBudgets,
-  evaluateCleanupBudget,
   evaluateRuns,
   formatBytes,
   PACKAGED_MEMORY_BUDGETS,
   type BudgetFailure,
-  type BudgetScenarioMetrics,
   type CleanupMetric,
   type MedianScenarioMetrics,
   type ProcessKind,
@@ -55,7 +52,6 @@ interface HarnessRun {
   appVersion: string
   profilePath: string
   scenarios: Record<string, ScenarioMetrics>
-  failures: BudgetFailure[]
   observedProcessKinds: ProcessKind[]
 }
 
@@ -321,32 +317,14 @@ function scaledBudgets(scale: number) {
   }
 }
 
-function collectFailures(
-  mode: HarnessMode,
-  scenarios: Record<string, BudgetScenarioMetrics>,
-  budgetScale: number
-): BudgetFailure[] {
-  if (mode === 'development') return []
-  const budgets = scaledBudgets(budgetScale)
-  const warm = scenarios['dashboard-warm']
-  return [
-    ...evaluateAbsoluteBudgets(warm, budgets),
-    ...evaluateCleanupBudget(
-      'navigation-cleanup',
-      scenarios['navigation-baseline'],
-      scenarios['navigation-cleanup']
-    ),
-    ...evaluateCleanupBudget(
-      'terminal-cleanup',
-      scenarios['terminal-baseline'],
-      scenarios['terminal-cleanup']
-    ),
-    ...evaluateCleanupBudget(
-      'browser-cleanup',
-      scenarios['browser-baseline'],
-      scenarios['browser-cleanup']
-    ),
-  ]
+export function requireProcessKind(
+  scenarioName: string,
+  scenario: ScenarioMetrics,
+  kind: ProcessKind
+): void {
+  if (!scenario.processes.some(process => process.kind === kind)) {
+    throw new Error(`${scenarioName} did not observe the required ${kind} process`)
+  }
 }
 
 async function runFreshProfile(
@@ -390,7 +368,10 @@ async function runFreshProfile(
 
     for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
       await openTerminal(page)
-      if (cycle === 0) scenarios['terminal-open'] = await collectScenario('terminal-open', runtime)
+      if (cycle === 0) {
+        scenarios['terminal-open'] = await collectScenario('terminal-open', runtime)
+        requireProcessKind('terminal-open', scenarios['terminal-open'], 'spawned-child')
+      }
       await closeTerminal(page)
     }
     await waitWithProgress(options.settleMs, 'terminal cleanup')
@@ -411,6 +392,7 @@ async function runFreshProfile(
           runtime,
           scenarios['browser-baseline']
         )
+        requireProcessKind('browser-open', scenarios['browser-open'], 'webview')
       }
       await closeActiveTab(page)
     }
@@ -427,7 +409,6 @@ async function runFreshProfile(
       appVersion: state.appVersion,
       profilePath,
       scenarios,
-      failures: collectFailures(options.mode, scenarios, options.budgetScale),
       observedProcessKinds,
     }
   } finally {
@@ -463,7 +444,7 @@ async function recordBaseline(
 
 function printFailures(failures: BudgetFailure[]): void {
   for (const failure of failures) {
-    const isRatio = failure.scenario.endsWith('-cleanup')
+    const isRatio = failure.scenario.endsWith('-cleanup') || failure.scenario.endsWith('-growth')
     const isBytes = !isRatio && failure.metric.toLowerCase().includes('bytes')
     const actual = isRatio
       ? `${(failure.actual * 100).toFixed(1)}% of baseline`

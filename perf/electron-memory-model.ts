@@ -207,8 +207,18 @@ export function evaluateRuns(
       cleanupRatio
     ),
     ...evaluateMedianCleanupBudget(
+      'terminal-warmup-growth',
+      pairedCleanup('navigation-cleanup', 'terminal-baseline'),
+      cleanupRatio
+    ),
+    ...evaluateMedianCleanupBudget(
       'browser-cleanup',
       pairedCleanup('browser-baseline', 'browser-cleanup'),
+      cleanupRatio
+    ),
+    ...evaluateMedianCleanupBudget(
+      'browser-warmup-growth',
+      pairedCleanup('terminal-cleanup', 'browser-baseline'),
       cleanupRatio
     ),
   ]

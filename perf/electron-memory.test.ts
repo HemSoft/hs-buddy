@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseArgs } from './electron-memory'
+import { parseArgs, requireProcessKind } from './electron-memory'
 import { evaluateRuns, MEBIBYTE, type ScenarioMetrics } from './electron-memory-model'
 
 function scenario(totalWorkingSetMiB: number): ScenarioMetrics {
@@ -39,6 +39,24 @@ function pairedNavigationRun(
     ...scenarioRun(500),
     'navigation-baseline': scenario(baselineWorkingSetMiB),
     'navigation-cleanup': scenario(cleanupWorkingSetMiB),
+  }
+}
+
+function terminalWarmupGrowthRun(
+  baselineWorkingSetMiB: number,
+  postWarmupWorkingSetMiB: number
+): Record<string, ScenarioMetrics> {
+  const run = scenarioRun(500)
+  const baseline = scenario(baselineWorkingSetMiB)
+  const postWarmup = scenario(postWarmupWorkingSetMiB)
+  return {
+    ...run,
+    'navigation-baseline': baseline,
+    'navigation-cleanup': baseline,
+    'terminal-baseline': postWarmup,
+    'terminal-cleanup': postWarmup,
+    'browser-baseline': postWarmup,
+    'browser-cleanup': postWarmup,
   }
 }
 
@@ -90,7 +108,9 @@ describe('Electron memory CLI', () => {
     expect(() => parseArgs(['--runs', '0'])).toThrow('positive integer')
     expect(() => parseArgs(['--mode', 'browser'])).toThrow('packaged or development')
   })
+})
 
+describe('Electron memory gating', () => {
   it('gates repeated profiles on median scenarios rather than one noisy run', () => {
     const result = evaluateRuns(
       'packaged',
@@ -114,6 +134,24 @@ describe('Electron memory CLI', () => {
         metric: 'totalWorkingSetBytes',
         scenario: 'navigation-cleanup',
       })
+    )
+  })
+
+  it('rejects lifecycle warmup growth above ten percent', () => {
+    const run = terminalWarmupGrowthRun(100, 112)
+    const result = evaluateRuns('packaged', [run, run, run], 1)
+
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'totalWorkingSetBytes',
+        scenario: 'terminal-warmup-growth',
+      })
+    )
+  })
+
+  it('rejects scenarios that never create their required process kind', () => {
+    expect(() => requireProcessKind('terminal-open', scenario(500), 'spawned-child')).toThrow(
+      'terminal-open did not observe the required spawned-child process'
     )
   })
 })

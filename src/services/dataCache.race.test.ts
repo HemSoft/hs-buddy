@@ -31,6 +31,8 @@ describe('dataCache mutation ordering races', () => {
   beforeEach(resetCache)
 
   it('ignores an older eviction response after the key is recreated', async () => {
+    dataCache.set('unchanged-eviction', 'remove-me')
+    await Promise.resolve()
     const firstWrite = deferred<unknown>()
     mockInvoke.mockReset()
     mockInvoke
@@ -47,11 +49,12 @@ describe('dataCache mutation ordering races', () => {
     firstWrite.resolve({
       success: true,
       stats: { entryCount: 0, totalBytes: 0 },
-      removedKeys: ['recreated'],
+      removedKeys: ['recreated', 'unchanged-eviction'],
     })
     await Promise.resolve()
 
     expect(dataCache.get('recreated')?.data).toBe('new')
+    expect(dataCache.get('unchanged-eviction')).toBeNull()
   })
 
   it('tracks overlapping exact-key reads until both complete', async () => {

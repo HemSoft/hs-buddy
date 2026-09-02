@@ -55,6 +55,18 @@ export function applyResolvedOrgCache<T>(
   return true
 }
 
+export function applyResolvedOrgCacheIfCurrent<T>(
+  activeCacheKey: string,
+  cacheKeyRef: { current: string },
+  cached: T | null,
+  setData: (value: T) => void,
+  setError: (value: string | null) => void,
+  setPhase: (value: LoadPhase) => void
+): boolean {
+  if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return true
+  return applyResolvedOrgCache(cached, setData, setError, setPhase)
+}
+
 export function isStaleOrgFetch(activeCacheKey: string, cacheKeyRef: { current: string }): boolean {
   return cacheKeyRef.current !== activeCacheKey
 }
@@ -175,7 +187,16 @@ export function useOrgCachedFetch<T>({
       const queue = getTaskQueue('github')
       const cached = await resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
       /* v8 ignore start */
-      if (applyResolvedOrgCache(cached, setData, setError, setPhase)) {
+      if (
+        applyResolvedOrgCacheIfCurrent(
+          activeCacheKey,
+          cacheKeyRef,
+          cached,
+          setData,
+          setError,
+          setPhase
+        )
+      ) {
         return
         /* v8 ignore stop */
       }

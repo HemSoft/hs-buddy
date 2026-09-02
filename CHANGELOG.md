@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1094] - 2026-09-02
+
+### Fixed
+
+- Order async cache mutations
+
 ## [0.1.1093] - 2026-09-02
 
 ### Fixed

@@ -50,6 +50,7 @@ let initialized = false
 let storageStats: DataCacheStorageStats = { entryCount: 0, totalBytes: 0 }
 const pendingTouchKeys = new Set<string>()
 let touchTimer: ReturnType<typeof setTimeout> | null = null
+let touchFlushPromise: Promise<void> | null = null
 const keyRevisions = new Map<string, number>()
 const pendingLoadCounts = new Map<string, number>()
 let nextKeyRevision = 0
@@ -97,16 +98,22 @@ function createMutationContext(): MutationContext {
   return { sequence: ++mutationSequence, keyRevisions: new Map(keyRevisions) }
 }
 
-function flushPendingTouches(): void {
+async function flushPendingTouches(): Promise<void> {
   touchTimer = null
+  if (touchFlushPromise) {
+    await touchFlushPromise
+    await flushPendingTouches()
+    return
+  }
   const keys = Array.from(pendingTouchKeys)
   pendingTouchKeys.clear()
+  if (keys.length === 0) return
   const context = createMutationContext()
   const touchClearRevision = clearRevision
-  window.ipcRenderer
+  const operation = window.ipcRenderer
     .invoke(IPC_INVOKE.CACHE_TOUCH, keys)
     .then(result => {
-      applyMutationResult(result, context)
+      if (touchClearRevision === clearRevision) applyMutationResult(result, context)
     })
     .catch(err => {
       if (touchClearRevision === clearRevision) {
@@ -116,11 +123,16 @@ function flushPendingTouches(): void {
       }
       console.error('[DataCache] Failed to persist access times:', err)
     })
+    .finally(() => {
+      touchFlushPromise = null
+    })
+  touchFlushPromise = operation
+  await operation
 }
 
 function scheduleTouch(key: string): void {
   pendingTouchKeys.add(key)
-  touchTimer ??= setTimeout(flushPendingTouches, 1000)
+  touchTimer ??= setTimeout(() => void flushPendingTouches(), 1000)
 }
 
 function cancelPendingTouches(): void {
@@ -174,10 +186,10 @@ function removeMemoryKeys(keys: readonly string[]): void {
 
 function applyMutationResult(result: unknown, context?: MutationContext): void {
   if (!isRecord(result)) return
-  if (context && context.sequence < lastAppliedMutationSequence) return
-  if (context) lastAppliedMutationSequence = context.sequence
+  const isStale = context && context.sequence < lastAppliedMutationSequence
+  if (context && !isStale) lastAppliedMutationSequence = context.sequence
   const mutation = result as unknown as CacheMutationResult
-  if (mutation.stats) storageStats = mutation.stats
+  if (!isStale && mutation.stats) storageStats = mutation.stats
   if (Array.isArray(mutation.removedKeys)) {
     const removableKeys = context
       ? mutation.removedKeys.filter(
@@ -272,6 +284,9 @@ export const dataCache = {
     const persistWrite = async () => {
       const activeClear = clearGate
       if (activeClear) await activeClear
+      const touchBarrier =
+        touchFlushPromise || pendingTouchKeys.size > 0 ? flushPendingTouches() : null
+      if (touchBarrier) await touchBarrier
       const context = createMutationContext()
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, {
         data,

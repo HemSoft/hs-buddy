@@ -166,22 +166,32 @@ export async function launchRuntime(
   child.stderr.on('data', chunk => retainOutput(output, chunk as Buffer))
   const endpoint = `http://127.0.0.1:${port}`
   console.log(`Launching Electron pid=${child.pid} CDP=${endpoint}`)
-  const cdp = await waitForCdp(endpoint, child, output)
-  console.log('Electron CDP browser endpoint is ready')
-  await waitForRendererTarget(endpoint)
-  console.log('Electron renderer target is ready')
-  const browser = await connect({ browserWSEndpoint: cdp.webSocketUrl })
-  console.log('Connected Puppeteer to Electron CDP')
-  const page = await firstPage(browser)
-  console.log('Connected to Electron renderer page')
-  const electronVersion = /Electron\/([^\s]+)/.exec(cdp.userAgent)?.[1] ?? 'unknown'
-  return {
-    browser,
-    child,
-    page,
-    output,
-    electronVersion,
-    appVersion: await readPackageVersion(),
+  let browser: Browser | null = null
+  try {
+    const cdp = await waitForCdp(endpoint, child, output)
+    console.log('Electron CDP browser endpoint is ready')
+    await waitForRendererTarget(endpoint)
+    console.log('Electron renderer target is ready')
+    browser = await connect({ browserWSEndpoint: cdp.webSocketUrl })
+    console.log('Connected Puppeteer to Electron CDP')
+    const page = await firstPage(browser)
+    console.log('Connected to Electron renderer page')
+    const electronVersion = /Electron\/([^\s]+)/.exec(cdp.userAgent)?.[1] ?? 'unknown'
+    return {
+      browser,
+      child,
+      page,
+      output,
+      electronVersion,
+      appVersion: await readPackageVersion(),
+    }
+  } catch (error: unknown) {
+    browser?.disconnect()
+    if (child.exitCode === null) {
+      child.kill()
+      await waitForExit(child, 5_000)
+    }
+    throw error
   }
 }
 

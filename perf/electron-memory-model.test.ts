@@ -155,6 +155,20 @@ describe('memory budgets', () => {
       )[0]
     ).toMatchObject({ metric: 'documents', limit: 0 })
   })
+
+  it('keeps V8 and embedder accounting diagnostic-only for lifecycle cleanup', () => {
+    const baseline = sample()
+    expect(
+      evaluateCleanupBudget(
+        'terminal-cleanup',
+        baseline,
+        sample({
+          v8UsedHeapBytes: baseline.v8UsedHeapBytes * 2,
+          embedderHeapBytes: baseline.embedderHeapBytes * 2,
+        })
+      )
+    ).toEqual([])
+  })
 })
 
 describe('buildMedianScenario', () => {

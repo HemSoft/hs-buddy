@@ -26,10 +26,10 @@ Compare two benchmark runs side-by-side. Pass two sets of results and report:
 - Benchmarks that regressed (red, >5% drop below baseline)
 - Benchmarks within noise (≤5% variance)
 
-For same-runner base/candidate comparisons, interleave samples and alternate
-which revision runs first. If a flagged benchmark's implementation and fixture
-hashes are identical, rerun that benchmark in balanced alternating order before
-classifying the result as a code regression.
+For manual same-runner base/candidate comparisons, interleave samples and
+alternate which revision runs first. If a flagged benchmark's implementation
+and fixture hashes are identical, rerun that benchmark in balanced alternating
+order before classifying the result as a code regression.
 
 ### CI Gating
 
@@ -266,26 +266,26 @@ TaskQueue rows use the core baseline (Vitest 4.1.5).
 
 ### networkSecurity
 
-| Benchmark                                      | ops/sec (hz) | mean (ms) |
-| ---------------------------------------------- | ------------ | --------- |
-| validateUrl — public HTTPS URL                 | 1,772,553    | 0.0005642 |
-| validateUrl — public IPv4 URL                  | 1,827,696    | 0.0005471 |
-| validateUrl — public IPv6 URL                  | 1,402,559    | 0.0007130 |
-| validateUrl — private URL rejection            | 110,801      | 0.0090252 |
-| validateUrl — malformed URL rejection          | 40,245       | 0.0248477 |
-| isInternalHostname — mixed hostnames           | 2,864,022    | 0.0003492 |
-| isPrivateIP — IPv4 batch                       | 2,273,372    | 0.0004399 |
-| isPrivateIP — IPv6 batch                       | 3,627,356    | 0.0002757 |
+| Benchmark                             | ops/sec (hz) | mean (ms) |
+| ------------------------------------- | ------------ | --------- |
+| validateUrl — public HTTPS URL        | 1,772,553    | 0.0005642 |
+| validateUrl — public IPv4 URL         | 1,827,696    | 0.0005471 |
+| validateUrl — public IPv6 URL         | 1,402,559    | 0.0007130 |
+| validateUrl — private URL rejection   | 110,801      | 0.0090252 |
+| validateUrl — malformed URL rejection | 40,245       | 0.0248477 |
+| isInternalHostname — mixed hostnames  | 2,864,022    | 0.0003492 |
+| isPrivateIP — IPv4 batch              | 2,273,372    | 0.0004399 |
+| isPrivateIP — IPv6 batch              | 3,627,356    | 0.0002757 |
 
 ## Known Coverage Gaps
 
 Functions that should have benchmarks but don't yet. Address these when touching the related code.
 
-| File                              | Priority | Notes                                                                                             |
-| --------------------------------- | -------- | ------------------------------------------------------------------------------------------------- |
-| `src/utils/terminalPathUtils.ts`  | Low      | Path parsing helpers are pure and currently lower throughput risk.                                |
-| `src/utils/featureIntakeUtils.ts` | Low      | Intake formatting helpers are pure and lower frequency.                                           |
-| `src/utils/scheduleUtils.ts`      | Low      | Schedule display helpers are pure and lower frequency.                                            |
+| File                              | Priority | Notes                                                              |
+| --------------------------------- | -------- | ------------------------------------------------------------------ |
+| `src/utils/terminalPathUtils.ts`  | Low      | Path parsing helpers are pure and currently lower throughput risk. |
+| `src/utils/featureIntakeUtils.ts` | Low      | Intake formatting helpers are pure and lower frequency.            |
+| `src/utils/scheduleUtils.ts`      | Low      | Schedule display helpers are pure and lower frequency.             |
 
 ## Updating the Baseline
 

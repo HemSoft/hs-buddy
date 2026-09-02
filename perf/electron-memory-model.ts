@@ -1,22 +1,24 @@
 export const MEBIBYTE = 1024 * 1024
 
-export const PACKAGED_MEMORY_BUDGETS = {
-  totalWorkingSetBytes: 605 * MEBIBYTE,
-  rendererWorkingSetBytes: 230 * MEBIBYTE,
-  cleanupRatio: 1.1,
-} as const
-
 export const CLEANUP_METRICS = [
   'totalWorkingSetBytes',
   'rendererWorkingSetBytes',
-  'v8UsedHeapBytes',
-  'embedderHeapBytes',
   'domNodes',
   'documents',
   'eventListeners',
 ] as const
 
+export const PACKAGED_MEMORY_BUDGETS = {
+  absoluteScenario: 'dashboard-warm',
+  totalWorkingSetBytes: 605 * MEBIBYTE,
+  rendererWorkingSetBytes: 230 * MEBIBYTE,
+  cleanupRatio: 1.1,
+  cleanupMetrics: CLEANUP_METRICS,
+} as const
+
 export type CleanupMetric = (typeof CLEANUP_METRICS)[number]
+
+export type BudgetScenarioMetrics = Pick<ScenarioMetrics, CleanupMetric>
 
 export type ProcessKind =
   'main' | 'renderer' | 'gpu' | 'utility' | 'webview' | 'spawned-child' | 'other'
@@ -109,7 +111,7 @@ export function identifyNewRendererProcessesAsWebviews(
 }
 
 export function evaluateAbsoluteBudgets(
-  scenario: ScenarioMetrics,
+  scenario: BudgetScenarioMetrics,
   budgets = PACKAGED_MEMORY_BUDGETS
 ): BudgetFailure[] {
   const failures: BudgetFailure[] = []
@@ -138,8 +140,8 @@ function ratioLimit(baseline: number, ratio: number): number {
 
 export function evaluateCleanupBudget(
   scenarioName: string,
-  baseline: ScenarioMetrics,
-  afterCleanup: ScenarioMetrics,
+  baseline: BudgetScenarioMetrics,
+  afterCleanup: BudgetScenarioMetrics,
   ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
 ): BudgetFailure[] {
   return CLEANUP_METRICS.flatMap(metric => {

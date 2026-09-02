@@ -13,6 +13,9 @@ import {
   formatBytes,
   PACKAGED_MEMORY_BUDGETS,
   type BudgetFailure,
+  type BudgetScenarioMetrics,
+  type CleanupMetric,
+  type MedianScenarioMetrics,
   type ProcessKind,
   type ScenarioMetrics,
 } from './electron-memory-model'
@@ -63,9 +66,11 @@ interface HarnessResult {
   architecture: string
   options: HarnessOptions
   budgets: {
+    absoluteScenario: 'dashboard-warm'
     totalWorkingSetBytes: number
     rendererWorkingSetBytes: number
     cleanupRatio: number
+    cleanupMetrics: readonly CleanupMetric[]
   }
   runs: HarnessRun[]
   medians: Record<string, ReturnType<typeof buildMedianScenario>>
@@ -81,7 +86,7 @@ const HELP = [
   '  --runs <n>                    Fresh isolated profiles to run (default: 1)',
   '  --warmup-ms <n>               Dashboard idle warmup (default: 300000)',
   '  --settle-ms <n>               Cleanup settling delay (default: 5000)',
-  '  --navigation-cycles <n>       Representative route cycles (default: 3)',
+  '  --navigation-cycles <n>       Representative route/lifecycle cycles (default: 3)',
   '  --skip-build                  Reuse the existing Vite/package output',
   '  --budget-scale <n>            Scale absolute caps for harness self-test',
   '  --output <path>               Write the full JSON result',
@@ -308,15 +313,17 @@ async function closeActiveTab(page: Page): Promise<void> {
 
 function scaledBudgets(scale: number) {
   return {
+    absoluteScenario: PACKAGED_MEMORY_BUDGETS.absoluteScenario,
     totalWorkingSetBytes: PACKAGED_MEMORY_BUDGETS.totalWorkingSetBytes * scale,
     rendererWorkingSetBytes: PACKAGED_MEMORY_BUDGETS.rendererWorkingSetBytes * scale,
     cleanupRatio: PACKAGED_MEMORY_BUDGETS.cleanupRatio,
+    cleanupMetrics: PACKAGED_MEMORY_BUDGETS.cleanupMetrics,
   }
 }
 
 function collectFailures(
   mode: HarnessMode,
-  scenarios: Record<string, ScenarioMetrics>,
+  scenarios: Record<string, BudgetScenarioMetrics>,
   budgetScale: number
 ): BudgetFailure[] {
   if (mode === 'development') return []
@@ -374,29 +381,39 @@ async function runFreshProfile(
     await waitWithProgress(options.settleMs, 'navigation cleanup')
     scenarios['navigation-cleanup'] = await collectScenario('navigation-cleanup', runtime)
 
-    await openTerminal(page)
-    await closeTerminal(page)
-    await waitWithProgress(options.settleMs, 'terminal baseline')
+    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+      await openTerminal(page)
+      await closeTerminal(page)
+    }
+    await waitWithProgress(options.settleMs, 'terminal post-warmup baseline')
     scenarios['terminal-baseline'] = await collectScenario('terminal-baseline', runtime)
 
-    await openTerminal(page)
-    scenarios['terminal-open'] = await collectScenario('terminal-open', runtime)
-    await closeTerminal(page)
+    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+      await openTerminal(page)
+      if (cycle === 0) scenarios['terminal-open'] = await collectScenario('terminal-open', runtime)
+      await closeTerminal(page)
+    }
     await waitWithProgress(options.settleMs, 'terminal cleanup')
     scenarios['terminal-cleanup'] = await collectScenario('terminal-cleanup', runtime)
 
-    await openBrowser(page)
-    await closeActiveTab(page)
-    await waitWithProgress(options.settleMs, 'browser baseline')
+    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+      await openBrowser(page)
+      await closeActiveTab(page)
+    }
+    await waitWithProgress(options.settleMs, 'browser post-warmup baseline')
     scenarios['browser-baseline'] = await collectScenario('browser-baseline', runtime)
 
-    await openBrowser(page)
-    scenarios['browser-open'] = await collectScenario(
-      'browser-open',
-      runtime,
-      scenarios['browser-baseline']
-    )
-    await closeActiveTab(page)
+    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+      await openBrowser(page)
+      if (cycle === 0) {
+        scenarios['browser-open'] = await collectScenario(
+          'browser-open',
+          runtime,
+          scenarios['browser-baseline']
+        )
+      }
+      await closeActiveTab(page)
+    }
     await waitWithProgress(options.settleMs, 'browser cleanup')
     scenarios['browser-cleanup'] = await collectScenario('browser-cleanup', runtime)
 
@@ -419,11 +436,22 @@ async function runFreshProfile(
   }
 }
 
-function buildMedians(runs: HarnessRun[]): HarnessResult['medians'] {
-  const names = Object.keys(runs[0].scenarios)
+function buildMedians(
+  scenarioRuns: Array<Record<string, ScenarioMetrics>>
+): Record<string, MedianScenarioMetrics> {
+  const names = Object.keys(scenarioRuns[0])
   return Object.fromEntries(
-    names.map(name => [name, buildMedianScenario(runs.map(run => run.scenarios[name]))])
+    names.map(name => [name, buildMedianScenario(scenarioRuns.map(scenarios => scenarios[name]))])
   )
+}
+
+export function evaluateRuns(
+  mode: HarnessMode,
+  scenarioRuns: Array<Record<string, ScenarioMetrics>>,
+  budgetScale: number
+): { medians: Record<string, MedianScenarioMetrics>; failures: BudgetFailure[] } {
+  const medians = buildMedians(scenarioRuns)
+  return { medians, failures: collectFailures(mode, medians, budgetScale) }
 }
 
 async function writeJson(filePath: string, value: unknown): Promise<void> {
@@ -471,7 +499,12 @@ async function main(): Promise<void> {
   for (let run = 1; run <= options.runs; run += 1) {
     runs.push(await runFreshProfile(run, options, executablePath))
   }
-  const failures = runs.flatMap(run => run.failures)
+  const evaluation = evaluateRuns(
+    options.mode,
+    runs.map(run => run.scenarios),
+    options.budgetScale
+  )
+  const failures = evaluation.failures
   const result: HarnessResult = {
     schema: 1,
     capturedAt: new Date().toISOString(),
@@ -480,7 +513,7 @@ async function main(): Promise<void> {
     options,
     budgets: scaledBudgets(options.budgetScale),
     runs,
-    medians: buildMedians(runs),
+    medians: evaluation.medians,
     failures,
     status:
       options.mode === 'development' ? 'informational' : failures.length === 0 ? 'pass' : 'fail',

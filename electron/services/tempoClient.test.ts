@@ -740,9 +740,13 @@ describe('tempoClient', () => {
 
     it('fetches missing issue metadata from Jira and caches the result', async () => {
       const { getWorklogsForRange } = await import('./tempoClient')
+      mockReadDataCache.mockReturnValue({
+        'tempo:accountId': { data: 'cached-user', fetchedAt: Date.now() },
+      })
       mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ accountId: 'user-123' }),
+        ok: false,
+        status: 500,
+        statusText: 'error',
       })
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -766,6 +770,10 @@ describe('tempoClient', () => {
       expect(mockWriteDataCacheEntry).toHaveBeenCalledWith(
         'tempo:issue:42',
         expect.objectContaining({ data: { key: 'PROJ-42', summary: 'Answer' } })
+      )
+      expect(mockTouchDataCacheEntries).toHaveBeenCalledWith(['tempo:accountId'])
+      expect(mockTouchDataCacheEntries.mock.invocationCallOrder[0]).toBeLessThan(
+        mockWriteDataCacheEntry.mock.invocationCallOrder.at(-1)!
       )
     })
 

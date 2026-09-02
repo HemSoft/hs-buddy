@@ -242,6 +242,8 @@ export const dataCache = {
 
   /** Load one persisted entry on demand when it was not part of startup hydration. */
   async getOrLoad<T = unknown>(key: string): Promise<CacheEntry<T> | null> {
+    const activeClear = clearGate
+    if (activeClear) await activeClear
     evictExpiredMemoryEntry(key)
     const existing = this.get<T>(key)
     if (existing) return existing
@@ -280,6 +282,7 @@ export const dataCache = {
     removeMemoryKeys(replacedKeys)
     memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
+    const writeClearRevision = clearRevision
 
     const persistWrite = async () => {
       const activeClear = clearGate
@@ -287,6 +290,9 @@ export const dataCache = {
       const touchBarrier =
         touchFlushPromise || pendingTouchKeys.size > 0 ? flushPendingTouches() : null
       if (touchBarrier) await touchBarrier
+      const currentClear = clearGate
+      if (currentClear) await currentClear
+      if (writeClearRevision !== clearRevision) return
       const context = createMutationContext()
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, {
         data,
@@ -342,9 +348,9 @@ export const dataCache = {
     clearGate = new Promise<void>(resolve => {
       releaseClear = resolve
     })
+    clearRevision += 1
     try {
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
-      clearRevision += 1
       const keys = Array.from(revisionsAtStart)
         .filter(([key, revision]) => keyRevisions.get(key)! === revision)
         .map(([key]) => key)

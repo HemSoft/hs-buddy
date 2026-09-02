@@ -20,7 +20,7 @@ import type { OrgRepoResult } from '../api/github'
 import { dataCache } from '../services/dataCache'
 import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
-import { isAbortError } from '../utils/errorUtils'
+import { isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { getAccountSetFingerprint, getPRCacheKey, getPRTaskName } from '../utils/prCacheKey'
 
 async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
@@ -59,13 +59,16 @@ type EnqueueIfStaleFn = (
 function enqueuePRModes(
   enqueueIfStale: EnqueueIfStaleFn,
   label: string,
-  accounts: { username: string; org: string }[]
+  accounts: { username: string; org: string }[],
+  isCurrentCacheKey: (cacheKey: string) => boolean
 ): void {
   for (const mode of PR_MODES) {
     const cacheKey = getPRCacheKey(mode, accounts)
     const taskName = getPRTaskName(label, mode, accounts)
-    enqueueIfStale(cacheKey, taskName, async (_signal, client) => {
+    enqueueIfStale(cacheKey, taskName, async (signal, client) => {
       const prs = await fetchPrefetchPRs(client, mode)
+      throwIfAborted(signal)
+      if (!isCurrentCacheKey(cacheKey)) return
       sortPrefetchPRs(mode, prs)
       dataCache.set(cacheKey, prs)
       console.log(`[${label}] ${cacheKey}: fetched ${prs.length} PRs`)
@@ -89,6 +92,37 @@ function enqueueOrgRepos(
   }
 }
 
+function useInitialPrefetch({
+  accounts,
+  accountsLoading,
+  settingsLoading,
+  refreshInterval,
+  refreshStaleData,
+}: {
+  accounts: { username: string; org: string }[]
+  accountsLoading: boolean
+  settingsLoading: boolean
+  refreshInterval: number
+  refreshStaleData: (intervalMs: number, label: string) => void
+}): void {
+  const prefetchedAccountSetRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (accountsLoading || settingsLoading || accounts.length === 0) return
+    const accountSetFingerprint = getAccountSetFingerprint(accounts)
+    /* v8 ignore start */
+    if (prefetchedAccountSetRef.current === accountSetFingerprint) return
+    /* v8 ignore stop */
+    prefetchedAccountSetRef.current = accountSetFingerprint
+    const intervalMs = refreshInterval * MS_PER_MINUTE
+    console.log('[Prefetch] Starting initial prefetch…', {
+      accounts: accounts.length,
+      refreshInterval: `${refreshInterval}m`,
+      cacheStats: dataCache.getStats(),
+    })
+    refreshStaleData(intervalMs, 'Prefetch')
+  }, [accounts, accountsLoading, settingsLoading, refreshInterval, refreshStaleData])
+}
+
 /**
  * Hook that prefetches all PR data in the background on app startup
  * and auto-refreshes on the configured interval.
@@ -102,7 +136,8 @@ export function usePrefetch(): void {
     loading: settingsLoading,
   } = usePRSettings()
   const { enqueue } = useTaskQueue('github')
-  const prefetchedAccountSetRef = useRef<string | null>(null)
+  const activePRCacheKeysRef = useRef(new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts))))
+  activePRCacheKeysRef.current = new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts)))
 
   // Stable refs to avoid re-triggering effects
   const enqueueRef = useRef(enqueue)
@@ -150,31 +185,21 @@ export function usePrefetch(): void {
           })
       }
 
-      enqueuePRModes(enqueueIfStale, label, accounts)
+      enqueuePRModes(enqueueIfStale, label, accounts, cacheKey =>
+        activePRCacheKeysRef.current.has(cacheKey)
+      )
       enqueueOrgRepos(enqueueIfStale, label, accounts)
     },
     [accounts, recentlyMergedDays]
   )
 
-  // --- Initial prefetch (runs once on startup) ---
-  useEffect(() => {
-    if (accountsLoading || settingsLoading || accounts.length === 0) return
-    const accountSetFingerprint = getAccountSetFingerprint(accounts)
-    /* v8 ignore start */
-    if (prefetchedAccountSetRef.current === accountSetFingerprint) return
-    /* v8 ignore stop */
-    prefetchedAccountSetRef.current = accountSetFingerprint
-
-    const intervalMs = refreshInterval * MS_PER_MINUTE
-
-    console.log('[Prefetch] Starting initial prefetch…', {
-      accounts: accounts.length,
-      refreshInterval: `${refreshInterval}m`,
-      cacheStats: dataCache.getStats(),
-    })
-
-    refreshStaleData(intervalMs, 'Prefetch')
-  }, [accounts, accountsLoading, settingsLoading, refreshInterval, refreshStaleData])
+  useInitialPrefetch({
+    accounts,
+    accountsLoading,
+    settingsLoading,
+    refreshInterval,
+    refreshStaleData,
+  })
 
   // --- Auto-refresh timer (checks every 30s for stale data) ---
   useEffect(() => {

@@ -30,6 +30,7 @@ const pendingTempoTouchKeys = new Set<string>()
 let tempoTouchTimer: ReturnType<typeof setTimeout> | null = null
 
 function flushTempoCacheTouches(): void {
+  if (tempoTouchTimer) clearTimeout(tempoTouchTimer)
   tempoTouchTimer = null
   const keys = Array.from(pendingTempoTouchKeys)
   pendingTempoTouchKeys.clear()
@@ -52,6 +53,7 @@ function readTempoCacheEntry(key: string) {
 
 function cacheTempoResult(key: string, data: unknown): void {
   try {
+    flushTempoCacheTouches()
     writeDataCacheEntry(key, { data, fetchedAt: Date.now() })
   } catch (err: unknown) {
     console.warn('[Tempo] Failed to persist cache entry:', key, err)

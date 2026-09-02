@@ -570,6 +570,41 @@ describe('OrgDetailPanel', () => {
       expect(enqueue).not.toHaveBeenCalled()
     })
 
+    it('discards persisted Copilot usage after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      orgMocks.dataCacheGet.mockImplementation((key: string) =>
+        key === 'org-copilot:old-org'
+          ? {
+              data: {
+                org: 'old-org',
+                premiumRequests: 12,
+                grossCost: 10,
+                discount: 1,
+                netCost: 9,
+                businessSeats: 2,
+                fetchedAt: Date.now(),
+              },
+              fetchedAt: Date.now(),
+            }
+          : null
+      )
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: false,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent: () => false,
+      })
+
+      expect(dispatchCopilot).not.toHaveBeenCalled()
+    })
+
     it('handles a completed response without Copilot usage data', async () => {
       const getCopilotUsage = vi.fn().mockResolvedValue({ success: false })
       window.github = { getCopilotUsage } as unknown as typeof window.github
@@ -579,6 +614,56 @@ describe('OrgDetailPanel', () => {
       await waitFor(() => {
         expect(getCopilotUsage).toHaveBeenCalledWith('test-org', 'alice')
       })
+    })
+  })
+
+  describe('stale copilot fetch completion', () => {
+    it('discards a successful response after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+      window.github = {
+        getCopilotUsage: vi.fn().mockResolvedValue({ success: false }),
+      } as unknown as typeof window.github
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: true,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent,
+      })
+
+      expect(dispatchCopilot).toHaveBeenCalledTimes(1)
+      expect(dispatchCopilot).toHaveBeenCalledWith({ type: 'start-loading', hasUsage: false })
+    })
+
+    it('discards a failed response after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+      window.github = {
+        getCopilotUsage: vi.fn().mockRejectedValue(new Error('old failure')),
+      } as unknown as typeof window.github
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: true,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent,
+      })
+
+      expect(dispatchCopilot).toHaveBeenCalledTimes(1)
+      expect(dispatchCopilot).toHaveBeenCalledWith({ type: 'start-loading', hasUsage: false })
     })
   })
 

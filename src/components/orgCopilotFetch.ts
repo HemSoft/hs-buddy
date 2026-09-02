@@ -63,11 +63,13 @@ function handleCopilotCatchError(error: unknown, dispatch: CopilotDispatch) {
 async function hydrateCachedCopilot(
   cacheKey: string,
   forceRefresh: boolean,
-  dispatchCopilot: CopilotDispatch
+  dispatchCopilot: CopilotDispatch,
+  isCurrent?: () => boolean
 ): Promise<boolean> {
   const cached = forceRefresh
     ? null
     : (await dataCache.getOrLoad<OrgCopilotUsageData>(cacheKey))?.data
+  if (isCurrent?.() === false) return true
   if (!cached || forceRefresh) return false
   dispatchCopilot({ type: 'hydrate-cache', usage: cached })
   return true
@@ -83,6 +85,7 @@ export async function runCopilotFetch({
   enqueue,
   hasUsage,
   dispatchCopilot,
+  isCurrent,
 }: {
   org: string
   preferredAccount?: string
@@ -93,9 +96,10 @@ export async function runCopilotFetch({
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
   hasUsage: boolean
   dispatchCopilot: CopilotDispatch
+  isCurrent?: () => boolean
 }): Promise<void> {
   if (isUserNamespace) return
-  if (await hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
+  if (await hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot, isCurrent)) return
   const queue = getTaskQueue('github')
   if (queue.hasTaskWithName(copilotTaskName)) return
   dispatchCopilot({ type: 'start-loading', hasUsage })
@@ -107,8 +111,10 @@ export async function runCopilotFetch({
       },
       { name: copilotTaskName, priority: -1 }
     )
+    if (isCurrent?.() === false) return
     handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
   } catch (fetchError: unknown) {
+    if (isCurrent?.() === false) return
     handleCopilotCatchError(fetchError, dispatchCopilot)
   }
 }

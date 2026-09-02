@@ -133,6 +133,40 @@ describe('dataCache clear ordering races', () => {
     expect(dataCache.get('post-clear')?.data).toBe('fresh')
   })
 
+  it('rejects a pre-clear lazy read that resolves while clear is pending', async () => {
+    const read = deferred<{
+      data: string
+      fetchedAt: number
+      schemaVersion: number
+      lastAccessedAt: number
+      serializedBytes: number
+    }>()
+    const clearing = deferred<unknown>()
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => read.promise)
+      .mockImplementationOnce(() => clearing.promise)
+
+    const loading = dataCache.getOrLoad<string>('pending-before-clear')
+    const clearResult = dataCache.clear()
+    read.resolve({
+      data: 'stale',
+      fetchedAt: Date.now(),
+      schemaVersion: 1,
+      lastAccessedAt: Date.now(),
+      serializedBytes: 7,
+    })
+
+    await expect(loading).resolves.toBeNull()
+    clearing.resolve(undefined)
+    await expect(clearResult).resolves.toBe(true)
+    expect(dataCache.get('pending-before-clear')).toBeNull()
+  })
+})
+
+describe('dataCache clear mutation barriers', () => {
+  beforeEach(resetCache)
+
   it('preserves an existing entry refreshed while clear is in flight', async () => {
     dataCache.set('refreshed-during-clear', 'old')
     const clearing = deferred<unknown>()
@@ -146,6 +180,67 @@ describe('dataCache clear ordering races', () => {
     await expect(clearResult).resolves.toBe(true)
     await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(2))
     expect(dataCache.get('refreshed-during-clear')?.data).toBe('new')
+  })
+
+  it('does not persist a pre-clear write after its touch barrier resolves', async () => {
+    const touch = deferred<unknown>()
+    dataCache.set('touch-before-clear', 'value')
+    await Promise.resolve()
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementationOnce(() => touch.promise).mockResolvedValueOnce(undefined)
+
+    dataCache.get('touch-before-clear')
+    dataCache.set('write-before-clear', 'value')
+    await expect(dataCache.clear()).resolves.toBe(true)
+    touch.resolve(undefined)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:touch', 'cache:clear'])
+    expect(dataCache.get('write-before-clear')).toBeNull()
+  })
+
+  it('waits for an active clear before starting a lazy read', async () => {
+    const clearing = deferred<unknown>()
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementationOnce(() => clearing.promise).mockResolvedValueOnce(null)
+
+    const clearResult = dataCache.clear()
+    const loading = dataCache.getOrLoad('read-during-clear')
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+    clearing.resolve(undefined)
+
+    await expect(clearResult).resolves.toBe(true)
+    await expect(loading).resolves.toBeNull()
+    expect(mockInvoke.mock.calls[1]).toEqual(['cache:read', 'read-during-clear'])
+  })
+})
+
+describe('dataCache clear and touch barriers', () => {
+  beforeEach(resetCache)
+
+  it('waits for a clear that starts during the touch barrier', async () => {
+    const touch = deferred<unknown>()
+    const clearing = deferred<unknown>()
+    dataCache.set('touch-crossing-clear', 'value')
+    await Promise.resolve()
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => touch.promise)
+      .mockImplementationOnce(() => clearing.promise)
+
+    dataCache.get('touch-crossing-clear')
+    dataCache.set('write-crossing-clear', 'value')
+    const clearResult = dataCache.clear()
+    touch.resolve(undefined)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(mockInvoke).toHaveBeenCalledTimes(2)
+
+    clearing.resolve(undefined)
+    await expect(clearResult).resolves.toBe(true)
+    await Promise.resolve()
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:touch', 'cache:clear'])
   })
 
   it('discards only the deleted entry from queued access touches', async () => {

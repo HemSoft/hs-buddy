@@ -833,6 +833,8 @@ function useOrgCopilotData({
   copilotTaskName: string
 }) {
   const enqueueRef = useRef(enqueue)
+  const copilotCacheKeyRef = useRef(copilotCacheKey)
+  copilotCacheKeyRef.current = copilotCacheKey
   const cachedCopilot = getCachedCopilotData(copilotCacheKey)
   const [copilotState, dispatchCopilot] = useReducer(
     orgCopilotReducer,
@@ -869,6 +871,7 @@ function useOrgCopilotData({
         enqueue: enqueueRef.current,
         hasUsage: hasCopilotRef.current,
         dispatchCopilot,
+        isCurrent: () => copilotCacheKeyRef.current === copilotCacheKey,
       })
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]

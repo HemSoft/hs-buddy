@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "capturedAt": "2026-09-02T20:32:54.010Z",
+  "mode": "packaged",
+  "platform": "win32",
+  "architecture": "x64",
+  "electronVersion": "44.0.0",
+  "appVersion": "0.1.1103",
+  "runs": 3,
+  "warmupMs": 300000,
+  "budgets": {
+    "totalWorkingSetBytes": 634388480,
+    "rendererWorkingSetBytes": 241172480,
+    "cleanupRatio": 1.1
+  },
+  "medians": {
+    "dashboard-cold": {
+      "totalWorkingSetBytes": 590966784,
+      "totalPrivateBytes": 406241280,
+      "rendererWorkingSetBytes": 215085056,
+      "rendererPrivateBytes": 75874304,
+      "v8UsedHeapBytes": 5667900,
+      "embedderHeapBytes": 2608952,
+      "domNodes": 1010,
+      "documents": 1,
+      "eventListeners": 285,
+      "runs": 3
+    },
+    "dashboard-warm": {
+      "totalWorkingSetBytes": 569393152,
+      "totalPrivateBytes": 341278720,
+      "rendererWorkingSetBytes": 210120704,
+      "rendererPrivateBytes": 72626176,
+      "v8UsedHeapBytes": 5686528,
+      "embedderHeapBytes": 2388512,
+      "domNodes": 1010,
+      "documents": 1,
+      "eventListeners": 238,
+      "runs": 3
+    },
+    "settings-idle": {
+      "totalWorkingSetBytes": 577269760,
+      "totalPrivateBytes": 350355456,
+      "rendererWorkingSetBytes": 211910656,
+      "rendererPrivateBytes": 73101312,
+      "v8UsedHeapBytes": 5564340,
+      "embedderHeapBytes": 1733336,
+      "domNodes": 500,
+      "documents": 1,
+      "eventListeners": 223,
+      "runs": 3
+    },
+    "navigation-baseline": {
+      "totalWorkingSetBytes": 577122304,
+      "totalPrivateBytes": 350347264,
+      "rendererWorkingSetBytes": 212348928,
+      "rendererPrivateBytes": 73232384,
+      "v8UsedHeapBytes": 5796380,
+      "embedderHeapBytes": 2433032,
+      "domNodes": 1014,
+      "documents": 1,
+      "eventListeners": 240,
+      "runs": 3
+    },
+    "navigation-cleanup": {
+      "totalWorkingSetBytes": 583294976,
+      "totalPrivateBytes": 353054720,
+      "rendererWorkingSetBytes": 217784320,
+      "rendererPrivateBytes": 78565376,
+      "v8UsedHeapBytes": 6153296,
+      "embedderHeapBytes": 2483320,
+      "domNodes": 1019,
+      "documents": 1,
+      "eventListeners": 244,
+      "runs": 3
+    },
+    "terminal-baseline": {
+      "totalWorkingSetBytes": 595693568,
+      "totalPrivateBytes": 363950080,
+      "rendererWorkingSetBytes": 220745728,
+      "rendererPrivateBytes": 80699392,
+      "v8UsedHeapBytes": 7416652,
+      "embedderHeapBytes": 2574016,
+      "domNodes": 1040,
+      "documents": 1,
+      "eventListeners": 248,
+      "runs": 3
+    },
+    "terminal-open": {
+      "totalWorkingSetBytes": 743559168,
+      "totalPrivateBytes": 434450432,
+      "rendererWorkingSetBytes": 222416896,
+      "rendererPrivateBytes": 81977344,
+      "v8UsedHeapBytes": 7638140,
+      "embedderHeapBytes": 3195832,
+      "domNodes": 1097,
+      "documents": 1,
+      "eventListeners": 284,
+      "runs": 3
+    },
+    "terminal-cleanup": {
+      "totalWorkingSetBytes": 595443712,
+      "totalPrivateBytes": 361463808,
+      "rendererWorkingSetBytes": 219934720,
+      "rendererPrivateBytes": 79384576,
+      "v8UsedHeapBytes": 7645536,
+      "embedderHeapBytes": 2660784,
+      "domNodes": 1058,
+      "documents": 1,
+      "eventListeners": 248,
+      "runs": 3
+    },
+    "browser-baseline": {
+      "totalWorkingSetBytes": 502165504,
+      "totalPrivateBytes": 339787776,
+      "rendererWorkingSetBytes": 128282624,
+      "rendererPrivateBytes": 59437056,
+      "v8UsedHeapBytes": 7774260,
+      "embedderHeapBytes": 2629080,
+      "domNodes": 1082,
+      "documents": 1,
+      "eventListeners": 256,
+      "runs": 3
+    },
+    "browser-open": {
+      "totalWorkingSetBytes": 617594880,
+      "totalPrivateBytes": 363012096,
+      "rendererWorkingSetBytes": 240820224,
+      "rendererPrivateBytes": 83841024,
+      "v8UsedHeapBytes": 7556848,
+      "embedderHeapBytes": 1932240,
+      "domNodes": 510,
+      "documents": 1,
+      "eventListeners": 244,
+      "runs": 3
+    },
+    "browser-cleanup": {
+      "totalWorkingSetBytes": 502894592,
+      "totalPrivateBytes": 338210816,
+      "rendererWorkingSetBytes": 128774144,
+      "rendererPrivateBytes": 60395520,
+      "v8UsedHeapBytes": 7811680,
+      "embedderHeapBytes": 2707824,
+      "domNodes": 1104,
+      "documents": 1,
+      "eventListeners": 262,
+      "runs": 3
+    }
+  }
+}

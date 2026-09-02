@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { linearRegression, detectMemoryLeak } from './memory-monitor'
+import { linearRegression, detectMemoryLeak } from './node-memory-monitor'
 
 describe('linearRegression', () => {
   it('returns zero slope for constant values', () => {

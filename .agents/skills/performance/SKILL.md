@@ -26,6 +26,11 @@ Compare two benchmark runs side-by-side. Pass two sets of results and report:
 - Benchmarks that regressed (red, >5% drop below baseline)
 - Benchmarks within noise (≤5% variance)
 
+For same-runner base/candidate comparisons, interleave samples and alternate
+which revision runs first. If a flagged benchmark's implementation and fixture
+hashes are identical, rerun that benchmark in balanced alternating order before
+classifying the result as a code regression.
+
 ### CI Gating
 
 - Never gate hosted CI against a cached benchmark result from another runner.

@@ -327,6 +327,48 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  test-electron-memory:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.12.0
+
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: ${{ runner.os }}-bun-
+
+      - name: Install dependencies
+        timeout-minutes: 10
+        run: bun install --frozen-lockfile
+
+      - name: Run packaged Electron memory budget
+        run: bun run perf:memory:electron --runs 1 --output electron-memory-result.json
+        env:
+          VITE_CONVEX_URL: https://placeholder-memory-ci.convex.cloud
+
+      - name: Upload Electron memory result
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: electron-memory-result
+          path: electron-memory-result.json
+          if-no-files-found: warn
+          retention-days: 30
+
   build:
     runs-on: ubuntu-latest
     needs: typecheck
@@ -431,7 +473,18 @@ jobs:
 
   ci-complete:
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, test-electron, test-ipc-contracts, test-convex, test-e2e, build]
+    needs:
+      [
+        lint,
+        typecheck,
+        test,
+        test-electron,
+        test-ipc-contracts,
+        test-convex,
+        test-e2e,
+        test-electron-memory,
+        build,
+      ]
     if: always()
     steps:
       - name: Check job results
@@ -443,6 +496,7 @@ jobs:
              [ "${{ needs.test-ipc-contracts.result }}" != "success" ] || \
              [ "${{ needs.test-convex.result }}" != "success" ] || \
              [ "${{ needs.test-e2e.result }}" != "success" ] || \
+             [ "${{ needs.test-electron-memory.result }}" != "success" ] || \
              [ "${{ needs.build.result }}" != "success" ]; then
             echo "::error::One or more CI jobs failed"
             echo "lint: ${{ needs.lint.result }}"
@@ -452,6 +506,7 @@ jobs:
             echo "test-ipc-contracts: ${{ needs.test-ipc-contracts.result }}"
             echo "test-convex: ${{ needs.test-convex.result }}"
             echo "test-e2e: ${{ needs.test-e2e.result }}"
+            echo "test-electron-memory: ${{ needs.test-electron-memory.result }}"
             echo "build: ${{ needs.build.result }}"
             exit 1
           fi

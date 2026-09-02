@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1092] - 2026-09-02
+
+### Fixed
+
+- Serialize clear and lazy cache operations
+
 ## [0.1.1091] - 2026-09-02
 
 ### Fixed

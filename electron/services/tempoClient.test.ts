@@ -15,11 +15,13 @@ vi.mock('../../src/utils/envLookup', () => ({
 
 const mockReadDataCache = vi.fn().mockReturnValue({})
 const mockWriteDataCacheEntry = vi.fn()
+const mockTouchDataCacheEntries = vi.fn()
 vi.mock('../cache', () => ({
-  readDataCacheEntry: (key: string) => {
+  loadDataCacheEntry: (key: string) => {
     const cache = mockReadDataCache(key) as Record<string, unknown>
     return cache[key] ?? null
   },
+  touchDataCacheEntries: (...args: unknown[]) => mockTouchDataCacheEntries(...args),
   writeDataCacheEntry: (...args: unknown[]) => mockWriteDataCacheEntry(...args),
 }))
 

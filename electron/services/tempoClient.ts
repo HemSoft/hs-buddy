@@ -1,5 +1,5 @@
 import { execSync } from 'child_process'
-import { readDataCacheEntry, writeDataCacheEntry } from '../cache'
+import { loadDataCacheEntry, touchDataCacheEntries, writeDataCacheEntry } from '../cache'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { DAY } from '../../src/utils/dateUtils'
 import { createEnvResolver } from '../../src/utils/envLookup'
@@ -26,6 +26,29 @@ import type {
 const TEMPO_BASE = 'https://api.tempo.io/4'
 const JIRA_BASE = 'https://relias.atlassian.net'
 const API_REQUEST_TIMEOUT_MS = 15_000
+const pendingTempoTouchKeys = new Set<string>()
+let tempoTouchTimer: ReturnType<typeof setTimeout> | null = null
+
+function flushTempoCacheTouches(): void {
+  tempoTouchTimer = null
+  const keys = Array.from(pendingTempoTouchKeys)
+  pendingTempoTouchKeys.clear()
+  if (keys.length === 0) return
+  try {
+    touchDataCacheEntries(keys)
+  } catch (err: unknown) {
+    console.warn('[Tempo] Failed to persist cache access times:', err)
+  }
+}
+
+function readTempoCacheEntry(key: string) {
+  const entry = loadDataCacheEntry(key)
+  if (entry) {
+    pendingTempoTouchKeys.add(key)
+    tempoTouchTimer ??= setTimeout(flushTempoCacheTouches, 1000)
+  }
+  return entry
+}
 
 function cacheTempoResult(key: string, data: unknown): void {
   try {
@@ -142,7 +165,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
 }
 
 function readCachedAccountId(): string | null {
-  const cached = readDataCacheEntry('tempo:accountId')
+  const cached = readTempoCacheEntry('tempo:accountId')
   if (cached?.data && typeof cached.data === 'string') return cached.data
   return null
 }
@@ -174,7 +197,7 @@ async function resolveIssueKey(issueId: number): Promise<{ key: string; summary:
   const memCached = issueKeyCache.get(issueId)
   if (memCached) return memCached
 
-  const diskEntry = readDataCacheEntry(`tempo:issue:${issueId}`)
+  const diskEntry = readTempoCacheEntry(`tempo:issue:${issueId}`)
   if (diskEntry?.data) {
     const entry = diskEntry.data as { key: string; summary: string }
     issueKeyCache.set(issueId, entry)
@@ -418,7 +441,7 @@ const capexCache = new Map<string, boolean>()
 
 /** Check disk cache for a valid (within 24h TTL) capex entry */
 function resolveCapexFromDiskCache(issueKey: string): boolean | null {
-  const diskEntry = readDataCacheEntry(`tempo:capex:${issueKey}`)
+  const diskEntry = readTempoCacheEntry(`tempo:capex:${issueKey}`)
   if (isCacheEntryValid(diskEntry ?? undefined, DAY)) {
     return diskEntry!.data as boolean
   }

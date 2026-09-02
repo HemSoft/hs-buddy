@@ -24,13 +24,14 @@ function handleOrgFetchError(
 }
 
 /** Resolve cached data, returning null when forceRefresh is requested. */
-function resolveCachedData<T>(
+async function resolveCachedData<T>(
   cacheKey: string,
   normalize: (d: T | null) => T | null,
   forceRefresh: boolean
-): T | null {
+): Promise<T | null> {
   if (forceRefresh) return null
-  return normalize(tryGetCached<T>(cacheKey))
+  const cached = await dataCache.getOrLoad<T>(cacheKey)
+  return normalize(cached?.data ?? null)
 }
 
 /** Pick the appropriate loading phase based on whether data already exists. */
@@ -172,7 +173,7 @@ export function useOrgCachedFetch<T>({
     async (forceRefresh = false) => {
       const activeCacheKey = cacheKeyRef.current
       const queue = getTaskQueue('github')
-      const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
+      const cached = await resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
       /* v8 ignore start */
       if (applyResolvedOrgCache(cached, setData, setError, setPhase)) {
         return

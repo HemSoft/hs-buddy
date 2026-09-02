@@ -1341,6 +1341,25 @@ describe('useGitHubSidebarData', () => {
     expect(mockFetchRepoCommits).not.toHaveBeenCalled()
   })
 
+  it('coalesces concurrent lazy reads for the same repository cache key', async () => {
+    let resolveCache!: (value: null) => void
+    const cacheRead = new Promise<null>(resolve => {
+      resolveCache = resolve
+    })
+    mockGetOrLoad.mockReturnValueOnce(cacheRead)
+    const { result } = renderHook(() => useGitHubSidebarData())
+
+    await act(async () => {
+      const first = result.current.fetchRepoCommitsForRepo('acme', 'my-repo')
+      const second = result.current.fetchRepoCommitsForRepo('acme', 'my-repo')
+      resolveCache(null)
+      await Promise.all([first, second])
+    })
+
+    expect(mockGetOrLoad).toHaveBeenCalledTimes(1)
+    expect(mockFetchRepoCommits).toHaveBeenCalledTimes(1)
+  })
+
   it('fetchOrgOverview uses cached overview data', async () => {
     const overviewData = {
       metrics: {

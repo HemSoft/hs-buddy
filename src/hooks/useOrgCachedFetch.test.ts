@@ -7,7 +7,7 @@ import {
 } from './useOrgCachedFetch'
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: { set: vi.fn() },
+  dataCache: { get: vi.fn(() => null), getOrLoad: vi.fn(async () => null), set: vi.fn() },
 }))
 
 vi.mock('../api/github', () => ({

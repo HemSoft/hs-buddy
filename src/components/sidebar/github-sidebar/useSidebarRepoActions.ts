@@ -22,6 +22,7 @@ type EnqueueFn = (
 ) => Promise<unknown>
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
+const pendingRepoFetches = new Map<string, Promise<void>>()
 
 function addToLoadingSet(setter: LoadingSetSetter, key: string) {
   setter(prev => new Set(prev).add(key))
@@ -53,6 +54,35 @@ async function shouldUseCachedData<TRaw>(
 }
 
 async function fetchCachedRepoData<TRaw>(opts: {
+  key: string
+  cacheKey: string
+  loadingSetter: LoadingSetSetter
+  enqueue: EnqueueFn
+  taskName: string
+  logLabel: string
+  apiFn: () => Promise<TRaw>
+  onData: (data: TRaw) => void
+  afterFetch?: (result: TRaw) => void
+  forceRefresh?: boolean
+  maxAgeMs?: number | null
+}): Promise<void> {
+  const pending = pendingRepoFetches.get(opts.cacheKey)
+  if (pending) {
+    await pending
+    return
+  }
+  const operation = runCachedRepoDataFetch(opts)
+  pendingRepoFetches.set(opts.cacheKey, operation)
+  try {
+    await operation
+  } finally {
+    if (pendingRepoFetches.get(opts.cacheKey) === operation) {
+      pendingRepoFetches.delete(opts.cacheKey)
+    }
+  }
+}
+
+async function runCachedRepoDataFetch<TRaw>(opts: {
   key: string
   cacheKey: string
   loadingSetter: LoadingSetSetter

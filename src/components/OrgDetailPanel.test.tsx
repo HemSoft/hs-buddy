@@ -73,6 +73,7 @@ vi.mock('../api/github/client', async () => {
 vi.mock('../services/dataCache', () => ({
   dataCache: {
     get: orgMocks.dataCacheGet,
+    getOrLoad: async (key: string) => orgMocks.dataCacheGet(key),
     set: orgMocks.dataCacheSet,
     delete: orgMocks.dataCacheDelete,
     isFresh: orgMocks.dataCacheIsFresh,

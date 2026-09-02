@@ -60,12 +60,14 @@ function handleCopilotCatchError(error: unknown, dispatch: CopilotDispatch) {
 }
 /* v8 ignore stop */
 
-function hydrateCachedCopilot(
+async function hydrateCachedCopilot(
   cacheKey: string,
   forceRefresh: boolean,
   dispatchCopilot: CopilotDispatch
-): boolean {
-  const cached = getCachedCopilotData(cacheKey)
+): Promise<boolean> {
+  const cached = forceRefresh
+    ? null
+    : (await dataCache.getOrLoad<OrgCopilotUsageData>(cacheKey))?.data
   if (!cached || forceRefresh) return false
   dispatchCopilot({ type: 'hydrate-cache', usage: cached })
   return true
@@ -93,7 +95,7 @@ export async function runCopilotFetch({
   dispatchCopilot: CopilotDispatch
 }): Promise<void> {
   if (isUserNamespace) return
-  if (hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
+  if (await hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
   const queue = getTaskQueue('github')
   if (queue.hasTaskWithName(copilotTaskName)) return
   dispatchCopilot({ type: 'start-loading', hasUsage })

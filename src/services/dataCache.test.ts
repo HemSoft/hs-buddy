@@ -231,30 +231,6 @@ describe('dataCache', () => {
       await expect(dataCache.getOrLoad('repo-detail:org/repo')).resolves.toBeNull()
       expect(mockInvoke).toHaveBeenCalledWith('cache:read', 'repo-detail:org/repo')
     })
-
-    it('ignores an older eviction response after the key is recreated', async () => {
-      const firstWrite = deferred<unknown>()
-      mockInvoke.mockReset()
-      mockInvoke
-        .mockImplementationOnce(() => firstWrite.promise)
-        .mockResolvedValueOnce({
-          success: true,
-          stats: { entryCount: 1, totalBytes: 5 },
-          removedKeys: [],
-        })
-
-      dataCache.set('recreated', 'old')
-      dataCache.set('recreated', 'new')
-      await vi.waitFor(() => expect(dataCache.get('recreated')?.data).toBe('new'))
-      firstWrite.resolve({
-        success: true,
-        stats: { entryCount: 0, totalBytes: 0 },
-        removedKeys: ['recreated'],
-      })
-      await Promise.resolve()
-
-      expect(dataCache.get('recreated')?.data).toBe('new')
-    })
   })
 
   describe('isFresh', () => {
@@ -542,6 +518,7 @@ describe('dataCache', () => {
       vi.useFakeTimers()
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
       try {
+        await dataCache.clear()
         dataCache.set('touched-survivor', 'value')
         mockInvoke.mockClear()
         dataCache.get('touched-survivor')

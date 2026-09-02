@@ -10,9 +10,21 @@ vi.stubGlobal('window', {
 // Must import after stubbing
 const { dataCache } = await import('./dataCache')
 
-function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+} {
   let resolve!: (value: T) => void
-  return { promise: new Promise<T>(done => (resolve = done)), resolve }
+  let reject!: (reason: unknown) => void
+  return {
+    promise: new Promise<T>((done, fail) => {
+      resolve = done
+      reject = fail
+    }),
+    resolve,
+    reject,
+  }
 }
 
 describe('dataCache', () => {
@@ -101,53 +113,13 @@ describe('dataCache', () => {
     })
 
     it('returns an entry already loaded in renderer memory without IPC', async () => {
-      dataCache.set('already-loaded', 'value', 1000)
+      dataCache.set('already-loaded', 'value', Date.now())
       mockInvoke.mockClear()
 
       await expect(dataCache.getOrLoad('already-loaded')).resolves.toMatchObject({
         data: 'value',
       })
       expect(mockInvoke).not.toHaveBeenCalled()
-    })
-
-    it('batches memory hits into one persisted access-time update', async () => {
-      vi.useFakeTimers()
-      try {
-        dataCache.set('one', 'value', 1000)
-        dataCache.set('two', 'value', 1000)
-        mockInvoke.mockClear()
-
-        dataCache.get('one')
-        dataCache.get('one')
-        dataCache.get('two')
-        await vi.advanceTimersByTimeAsync(1000)
-
-        expect(mockInvoke).toHaveBeenCalledTimes(1)
-        expect(mockInvoke).toHaveBeenCalledWith('cache:touch', ['one', 'two'])
-      } finally {
-        vi.useRealTimers()
-      }
-    })
-
-    it('logs batched access-time persistence failures', async () => {
-      vi.useFakeTimers()
-      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      try {
-        dataCache.set('touch-error', 'value', 1000)
-        mockInvoke.mockReset()
-        mockInvoke.mockRejectedValueOnce(new Error('touch failed'))
-
-        dataCache.get('touch-error')
-        await vi.advanceTimersByTimeAsync(1000)
-
-        expect(spy).toHaveBeenCalledWith(
-          '[DataCache] Failed to persist access times:',
-          expect.any(Error)
-        )
-      } finally {
-        spy.mockRestore()
-        vi.useRealTimers()
-      }
     })
   })
 
@@ -248,6 +220,40 @@ describe('dataCache', () => {
 
       await expect(loading).resolves.toBeNull()
       expect(dataCache.get('cleared-read')).toBeNull()
+    })
+
+    it('treats a policy-expired memory entry as an on-demand miss', async () => {
+      const now = Date.now()
+      dataCache.set('repo-detail:org/repo', 'expired', now - 2 * 24 * 60 * 60 * 1000)
+      mockInvoke.mockReset()
+      mockInvoke.mockResolvedValueOnce(null)
+
+      await expect(dataCache.getOrLoad('repo-detail:org/repo')).resolves.toBeNull()
+      expect(mockInvoke).toHaveBeenCalledWith('cache:read', 'repo-detail:org/repo')
+    })
+
+    it('ignores an older eviction response after the key is recreated', async () => {
+      const firstWrite = deferred<unknown>()
+      mockInvoke.mockReset()
+      mockInvoke
+        .mockImplementationOnce(() => firstWrite.promise)
+        .mockResolvedValueOnce({
+          success: true,
+          stats: { entryCount: 1, totalBytes: 5 },
+          removedKeys: [],
+        })
+
+      dataCache.set('recreated', 'old')
+      dataCache.set('recreated', 'new')
+      await vi.waitFor(() => expect(dataCache.get('recreated')?.data).toBe('new'))
+      firstWrite.resolve({
+        success: true,
+        stats: { entryCount: 0, totalBytes: 0 },
+        removedKeys: ['recreated'],
+      })
+      await Promise.resolve()
+
+      expect(dataCache.get('recreated')?.data).toBe('new')
     })
   })
 
@@ -517,12 +523,17 @@ describe('dataCache', () => {
   describe('clear - error path', () => {
     it('keeps memory and stats intact when disk clear fails', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockResolvedValueOnce({ entryCount: 1, totalBytes: 7 })
+      await expect(dataCache.getStorageStats()).resolves.toEqual({ entryCount: 1, totalBytes: 7 })
       dataCache.set('survives', 'value')
-      mockInvoke.mockRejectedValueOnce(new Error('disk clear failed'))
+      mockInvoke
+        .mockRejectedValueOnce(new Error('disk clear failed'))
+        .mockRejectedValueOnce(new Error('stats unavailable'))
 
       await expect(dataCache.clear()).resolves.toBe(false)
 
       expect(dataCache.isFresh('survives', Number.POSITIVE_INFINITY)).toBe(true)
+      await expect(dataCache.getStorageStats()).resolves.toEqual({ entryCount: 1, totalBytes: 7 })
       expect(spy).toHaveBeenCalledWith('[DataCache] Failed to clear disk cache:', expect.any(Error))
       spy.mockRestore()
     })

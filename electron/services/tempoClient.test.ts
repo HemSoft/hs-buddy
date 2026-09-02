@@ -960,6 +960,31 @@ describe('tempoClient', () => {
       )
     })
 
+    it('returns live capex data when cache persistence fails', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { parseCapitalizationField } = await import('../../src/utils/tempoUtils')
+      vi.mocked(parseCapitalizationField).mockReturnValue(true)
+      mockWriteDataCacheEntry.mockImplementation(() => {
+        throw new Error('read-only disk')
+      })
+      const { getCapexMap } = await import('./tempoClient')
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ fields: {} }),
+      })
+
+      await expect(getCapexMap(['PROJ-1'])).resolves.toMatchObject({
+        success: true,
+        data: { 'PROJ-1': true },
+      })
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Tempo] Failed to persist cache entry:',
+        'tempo:capex:PROJ-1',
+        expect.any(Error)
+      )
+      warnSpy.mockRestore()
+    })
+
     it('falls back to the parent issue when the capitalization field is not present on the child', async () => {
       const { parseCapitalizationField } = await import('../../src/utils/tempoUtils')
       vi.mocked(parseCapitalizationField).mockReturnValueOnce(null).mockReturnValueOnce(true)

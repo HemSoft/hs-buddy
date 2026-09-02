@@ -208,7 +208,7 @@ describe('cache', () => {
     expect(disk).toEqual({})
   })
 
-  it('returns safe fallbacks when storage operations fail', () => {
+  it('propagates mutation storage failures while reads fail safe', () => {
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     vi.mocked(readJsonFile).mockImplementation(() => {
       throw new Error('read error')

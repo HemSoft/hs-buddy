@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1091] - 2026-09-02
+
+### Fixed
+
+- Harden long-session cache consistency
+
 ## [0.1.1090] - 2026-09-02
 
 ### Fixed

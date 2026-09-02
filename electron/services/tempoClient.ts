@@ -27,6 +27,14 @@ const TEMPO_BASE = 'https://api.tempo.io/4'
 const JIRA_BASE = 'https://relias.atlassian.net'
 const API_REQUEST_TIMEOUT_MS = 15_000
 
+function cacheTempoResult(key: string, data: unknown): void {
+  try {
+    writeDataCacheEntry(key, { data, fetchedAt: Date.now() })
+  } catch (err: unknown) {
+    console.warn('[Tempo] Failed to persist cache entry:', key, err)
+  }
+}
+
 // --- In-memory caches ---
 let cachedAccountId: string | null = null
 let cachedAccounts: TempoAccount[] | null = null
@@ -122,7 +130,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
       `${JIRA_BASE}/rest/api/3/myself`,
       jiraHeaders
     )
-    writeDataCacheEntry('tempo:accountId', { data: user.accountId, fetchedAt: Date.now() })
+    cacheTempoResult('tempo:accountId', user.accountId)
     return user.accountId
   } catch (err: unknown) {
     console.warn(
@@ -186,7 +194,7 @@ async function fetchIssueKeyLive(issueId: number): Promise<{ key: string; summar
     )
     const result = { key: issue.key, summary: issue.fields.summary }
     issueKeyCache.set(issueId, result)
-    writeDataCacheEntry(`tempo:issue:${issueId}`, { data: result, fetchedAt: Date.now() })
+    cacheTempoResult(`tempo:issue:${issueId}`, result)
     return result
   } catch (_: unknown) {
     return { key: `#${issueId}`, summary: '' }
@@ -420,7 +428,7 @@ function resolveCapexFromDiskCache(issueKey: string): boolean | null {
 /** Set both in-memory and disk cache for a capex result */
 function cacheCapexResult(issueKey: string, value: boolean): void {
   capexCache.set(issueKey, value)
-  writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: value, fetchedAt: Date.now() })
+  cacheTempoResult(`tempo:capex:${issueKey}`, value)
 }
 
 /** Fetch Capitalization from Jira for an issue, with parent-epic fallback. */

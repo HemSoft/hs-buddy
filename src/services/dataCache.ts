@@ -9,6 +9,7 @@ import { MS_PER_MINUTE } from '../constants'
 import { IPC_INVOKE } from '../ipc/contracts'
 import {
   createPersistedCacheEntry,
+  getCacheTtlMs,
   getReplacementSiblingKeys,
   isIncomingCacheVersionSuperseded,
   type DataCacheStorageStats,
@@ -38,6 +39,11 @@ interface CacheMutationResult {
   removedKeys?: string[]
 }
 
+interface MutationContext {
+  sequence: number
+  keyRevisions: Map<string, number>
+}
+
 const memoryCache: PersistedDataCache = {}
 const listeners: Set<CacheListener> = new Set()
 let initialized = false
@@ -46,9 +52,24 @@ const pendingTouchKeys = new Set<string>()
 let touchTimer: ReturnType<typeof setTimeout> | null = null
 const keyRevisions = new Map<string, number>()
 let clearRevision = 0
+let mutationSequence = 0
+let lastAppliedMutationSequence = 0
 
 function advanceKeyRevision(key: string): void {
   keyRevisions.set(key, (keyRevisions.get(key) ?? 0) + 1)
+}
+
+function evictExpiredMemoryEntry(key: string): void {
+  const entry = memoryCache[key]
+  if (!entry || Date.now() - entry.fetchedAt < getCacheTtlMs(key)) return
+  advanceKeyRevision(key)
+  pendingTouchKeys.delete(key)
+  delete memoryCache[key]
+  notifyListeners(key)
+}
+
+function createMutationContext(): MutationContext {
+  return { sequence: ++mutationSequence, keyRevisions: new Map(keyRevisions) }
 }
 
 function flushPendingTouches(): void {
@@ -56,10 +77,19 @@ function flushPendingTouches(): void {
   const keys = Array.from(pendingTouchKeys)
   pendingTouchKeys.clear()
   if (keys.length === 0) return
+  const context = createMutationContext()
+  const touchClearRevision = clearRevision
   window.ipcRenderer
     .invoke(IPC_INVOKE.CACHE_TOUCH, keys)
-    .then(applyMutationResult)
+    .then(result => {
+      applyMutationResult(result, context)
+    })
     .catch(err => {
+      if (touchClearRevision === clearRevision) {
+        for (const key of keys) {
+          if (Object.hasOwn(memoryCache, key)) scheduleTouch(key)
+        }
+      }
       console.error('[DataCache] Failed to persist access times:', err)
     })
 }
@@ -103,16 +133,26 @@ function isCacheEntry(value: unknown): value is PersistedCacheEntry {
 function removeMemoryKeys(keys: readonly string[]): void {
   for (const key of keys) {
     if (!(key in memoryCache)) continue
+    advanceKeyRevision(key)
     delete memoryCache[key]
     notifyListeners(key)
   }
 }
 
-function applyMutationResult(result: unknown): void {
+function applyMutationResult(result: unknown, context?: MutationContext): void {
   if (!isRecord(result)) return
+  if (context && context.sequence < lastAppliedMutationSequence) return
+  if (context) lastAppliedMutationSequence = context.sequence
   const mutation = result as unknown as CacheMutationResult
   if (mutation.stats) storageStats = mutation.stats
-  if (Array.isArray(mutation.removedKeys)) removeMemoryKeys(mutation.removedKeys)
+  if (Array.isArray(mutation.removedKeys)) {
+    const removableKeys = context
+      ? mutation.removedKeys.filter(
+          key => (context.keyRevisions.get(key) ?? 0) === (keyRevisions.get(key) ?? 0)
+        )
+      : mutation.removedKeys
+    removeMemoryKeys(removableKeys)
+  }
 }
 
 export const dataCache = {
@@ -145,13 +185,15 @@ export const dataCache = {
   get<T = unknown>(key: string): CacheEntry<T> | null {
     const entry = memoryCache[key] as CacheEntry<T> | undefined
     if (!entry) return null
-    entry.lastAccessedAt = Date.now()
+    const now = Date.now()
+    entry.lastAccessedAt = now
     scheduleTouch(key)
     return entry
   },
 
   /** Load one persisted entry on demand when it was not part of startup hydration. */
   async getOrLoad<T = unknown>(key: string): Promise<CacheEntry<T> | null> {
+    evictExpiredMemoryEntry(key)
     const existing = this.get<T>(key)
     if (existing) return existing
     const loadKeyRevision = keyRevisions.get(key) ?? 0
@@ -163,6 +205,7 @@ export const dataCache = {
         return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
       }
       loaded.lastAccessedAt = Date.now()
+      advanceKeyRevision(key)
       memoryCache[key] = loaded
       scheduleTouch(key)
       return loaded as CacheEntry<T>
@@ -182,9 +225,12 @@ export const dataCache = {
     memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
 
+    const context = createMutationContext()
     window.ipcRenderer
       .invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt })
-      .then(applyMutationResult)
+      .then(result => {
+        applyMutationResult(result, context)
+      })
       .catch(err => {
         console.error('[DataCache] Failed to persist to disk:', err)
       })
@@ -208,11 +254,16 @@ export const dataCache = {
   delete(key: string): void {
     advanceKeyRevision(key)
     delete memoryCache[key]
+    const context = createMutationContext()
     const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
     notifyListeners(key)
-    deleteRequest.then(applyMutationResult).catch(err => {
-      console.error('[DataCache] Failed to delete from disk:', err)
-    })
+    deleteRequest
+      .then(result => {
+        applyMutationResult(result, context)
+      })
+      .catch(err => {
+        console.error('[DataCache] Failed to delete from disk:', err)
+      })
   },
 
   async clear(): Promise<boolean> {

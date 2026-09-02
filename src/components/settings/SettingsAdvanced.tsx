@@ -57,6 +57,7 @@ export function SettingsAdvanced() {
   const [isResetting, setIsResetting] = useState(false)
   const [cacheStats, setCacheStats] = useState<DataCacheStorageStats | null>(null)
   const [isClearingCache, setIsClearingCache] = useState(false)
+  const [cacheClearError, setCacheClearError] = useState<string | null>(null)
 
   useEffect(() => {
     api.getStorePath().then(setStorePath)
@@ -82,8 +83,10 @@ export function SettingsAdvanced() {
   }
   const handleClearCache = async () => {
     setIsClearingCache(true)
+    setCacheClearError(null)
     try {
       if (await dataCache.clear()) setCacheStats(await dataCache.getStorageStats())
+      else setCacheClearError('Failed to clear cached data. Please try again.')
     } finally {
       setIsClearingCache(false)
     }
@@ -173,6 +176,11 @@ export function SettingsAdvanced() {
               {isClearingCache ? 'Clearing…' : 'Clear Cached Data'}
             </button>
           </div>
+          {cacheClearError ? (
+            <p className="hint" role="alert">
+              {cacheClearError}
+            </p>
+          ) : null}
         </div>
         <div className="settings-section">
           <div className="section-header">

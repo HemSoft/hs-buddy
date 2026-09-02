@@ -114,6 +114,7 @@ describe('SettingsAdvanced', () => {
     await waitFor(() => expect(mockClearCache).toHaveBeenCalledTimes(1))
     expect(mockGetStorageStats).toHaveBeenCalledTimes(1)
     expect(screen.getByText('42 entries · 3.00 MiB')).toBeTruthy()
+    expect(screen.getByRole('alert')).toHaveTextContent('Failed to clear cached data')
   })
 
   it('shows security note about keychain', () => {

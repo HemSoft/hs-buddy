@@ -565,9 +565,18 @@ function useUserActivity(org: string, memberLogin: string) {
   useEffect(() => {
     const forceRefresh = refreshKey > 0
     let cancelled = false
+    const memoryCached = forceRefresh ? null : dataCache.get<UserActivitySummary>(cacheKey)
+
+    if (memoryCached?.data) {
+      dispatch({ type: 'RESET_FROM_CACHE', payload: memoryCached.data })
+      return () => {
+        cancelled = true
+      }
+    }
 
     const loadActivity = async () => {
       if (!forceRefresh) {
+        if (!cancelled) dispatch({ type: 'FETCH_START' })
         const cached = await dataCache.getOrLoad<UserActivitySummary>(cacheKey)
         if (cached?.data) {
           if (!cancelled) dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
@@ -575,7 +584,7 @@ function useUserActivity(org: string, memberLogin: string) {
         }
       }
 
-      if (!cancelled) dispatch({ type: 'FETCH_START' })
+      if (forceRefresh && !cancelled) dispatch({ type: 'FETCH_START' })
       const client = new GitHubClient({ accounts }, 7)
       const result = await client.fetchUserActivity(org, memberLogin)
       dataCache.set(cacheKey, result)

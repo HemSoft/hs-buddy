@@ -218,6 +218,46 @@ describe('dataCache clear mutation barriers', () => {
     expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:touch', 'cache:clear'])
     expect(dataCache.get('write-before-clear')).toBeNull()
   })
+})
+
+describe('dataCache post-barrier mutation validation', () => {
+  beforeEach(resetCache)
+
+  it('does not persist a write deleted while its touch barrier is pending', async () => {
+    const touch = deferred<unknown>()
+    dataCache.set('deleted-during-write', 'old')
+    await Promise.resolve()
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementationOnce(() => touch.promise).mockResolvedValueOnce(undefined)
+
+    dataCache.get('deleted-during-write')
+    dataCache.set('deleted-during-write', 'new')
+    dataCache.delete('deleted-during-write')
+    touch.resolve(undefined)
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:touch', 'cache:delete'])
+    expect(dataCache.get('deleted-during-write')).toBeNull()
+  })
+
+  it('does not persist a write cleared re-entrantly by its subscriber', async () => {
+    mockInvoke.mockReset()
+    mockInvoke.mockResolvedValueOnce(undefined)
+    let reentrantClear: Promise<boolean> | undefined
+    const unsubscribe = dataCache.subscribe(key => {
+      if (key !== 'reentrant-clear') return
+      unsubscribe()
+      reentrantClear = dataCache.clear()
+    })
+
+    dataCache.set('reentrant-clear', 'value')
+    await expect(reentrantClear).resolves.toBe(true)
+    await Promise.resolve()
+
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:clear'])
+    expect(dataCache.get('reentrant-clear')).toBeNull()
+  })
 
   it('persists a pre-clear write after a failed clear releases its touch barrier', async () => {
     const touch = deferred<unknown>()

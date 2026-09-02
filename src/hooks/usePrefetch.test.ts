@@ -133,10 +133,18 @@ describe('usePrefetch', () => {
 
   it('queues stale cached data for refresh', () => {
     mockDataCacheGet.mockReturnValue({ data: [], fetchedAt: Date.now() })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     renderHook(() => usePrefetch())
 
     expect(mockEnqueue).toHaveBeenCalledTimes(5)
+    expect(
+      log.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes(': stale, queueing background fetch')
+      )
+    ).toHaveLength(5)
+    log.mockRestore()
   })
 
   it('prefetches org repos based on unique orgs', () => {

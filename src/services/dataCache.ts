@@ -285,6 +285,8 @@ export const dataCache = {
   set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
     if (isIncomingCacheVersionSuperseded(memoryCache, key)) return
     advanceKeyRevision(key)
+    const writeKeyRevision = keyRevisions.get(key)!
+    const writeClearAttemptRevision = clearAttemptRevision
     const accessedAt = Date.now()
     const knownKeys = Object.fromEntries([
       ...Object.keys(memoryCache).map(knownKey => [knownKey, null]),
@@ -294,7 +296,6 @@ export const dataCache = {
     removeMemoryKeys(replacedKeys)
     memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
-    const writeClearAttemptRevision = clearAttemptRevision
 
     const persistWrite = async () => {
       if (clearGate) await waitForActiveClear()
@@ -303,6 +304,7 @@ export const dataCache = {
       if (touchBarrier) await touchBarrier
       if (clearGate) await waitForActiveClear()
       if (lastSuccessfulClearAttemptRevision > writeClearAttemptRevision) return
+      if (keyRevisions.get(key) !== writeKeyRevision) return
       const context = createMutationContext()
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, {
         data,

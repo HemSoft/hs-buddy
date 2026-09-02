@@ -59,7 +59,7 @@ export function applyResolvedOrgCacheIfCurrent<T>(
   activeCacheKey: string,
   cacheKeyRef: { current: string },
   cached: T | null,
-  setData: (value: T) => void,
+  setData: (value: T | null) => void,
   setError: (value: string | null) => void,
   setPhase: (value: LoadPhase) => void
 ): boolean {

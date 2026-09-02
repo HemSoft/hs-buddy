@@ -574,9 +574,10 @@ function useUserActivity(org: string, memberLogin: string) {
       }
     }
 
+    dispatch({ type: 'RESET_FOR_NAVIGATION' })
+
     const loadActivity = async () => {
       if (!forceRefresh) {
-        if (!cancelled) dispatch({ type: 'FETCH_START' })
         const cached = await dataCache.getOrLoad<UserActivitySummary>(cacheKey)
         if (cached?.data) {
           if (!cancelled) dispatch({ type: 'RESET_FROM_CACHE', payload: cached.data })
@@ -584,7 +585,7 @@ function useUserActivity(org: string, memberLogin: string) {
         }
       }
 
-      if (forceRefresh && !cancelled) dispatch({ type: 'FETCH_START' })
+      if (!cancelled) dispatch({ type: 'FETCH_START' })
       const client = new GitHubClient({ accounts }, 7)
       const result = await client.fetchUserActivity(org, memberLogin)
       dataCache.set(cacheKey, result)

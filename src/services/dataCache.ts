@@ -101,7 +101,6 @@ function flushPendingTouches(): void {
   touchTimer = null
   const keys = Array.from(pendingTouchKeys)
   pendingTouchKeys.clear()
-  if (keys.length === 0) return
   const context = createMutationContext()
   const touchClearRevision = clearRevision
   window.ipcRenderer
@@ -220,6 +219,7 @@ export const dataCache = {
 
   /** Return an entry already loaded into renderer memory. */
   get<T = unknown>(key: string): CacheEntry<T> | null {
+    evictExpiredMemoryEntry(key)
     const entry = memoryCache[key] as CacheEntry<T> | undefined
     if (!entry) return null
     const now = Date.now()

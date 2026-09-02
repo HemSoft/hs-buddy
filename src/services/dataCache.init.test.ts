@@ -19,6 +19,7 @@ describe('dataCache – initialize()', () => {
   }
 
   it('hydrates memory cache from persisted disk data', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(3000)
     const mockInvoke = vi.fn().mockResolvedValueOnce({
       entries: {
         'pr:my-prs:account': {

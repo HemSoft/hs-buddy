@@ -10,6 +10,7 @@ export interface ActivityState {
 
 type ActivityAction =
   | { type: 'RESET_FROM_CACHE'; payload: UserActivitySummary }
+  | { type: 'RESET_FOR_NAVIGATION' }
   | { type: 'FETCH_START' }
   | { type: 'FETCH_SUCCESS'; payload: UserActivitySummary }
   | { type: 'FETCH_ERROR'; payload: string }
@@ -36,6 +37,8 @@ export function activityReducer(state: ActivityState, action: ActivityAction): A
     case 'RESET_FROM_CACHE':
     case 'FETCH_SUCCESS':
       return { activity: action.payload, phase: 'ready', error: null }
+    case 'RESET_FOR_NAVIGATION':
+      return { activity: null, phase: 'idle', error: null }
     case 'FETCH_START':
       return { activity: null, phase: 'loading', error: null }
     case 'FETCH_ERROR':

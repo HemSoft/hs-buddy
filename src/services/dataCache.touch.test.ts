@@ -29,8 +29,8 @@ describe('dataCache touch batching', () => {
   it('batches memory hits into one persisted access-time update', async () => {
     vi.useFakeTimers()
     try {
-      dataCache.set('one', 'value', 1000)
-      dataCache.set('two', 'value', 1000)
+      dataCache.set('one', 'value')
+      dataCache.set('two', 'value')
       mockInvoke.mockClear()
 
       dataCache.get('one')
@@ -49,7 +49,7 @@ describe('dataCache touch batching', () => {
     vi.useFakeTimers()
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      dataCache.set('touch-error', 'value', 1000)
+      dataCache.set('touch-error', 'value')
       mockInvoke.mockReset()
       mockInvoke.mockRejectedValueOnce(new Error('touch failed')).mockResolvedValue(undefined)
 

@@ -159,6 +159,17 @@ describe('activityReducer', () => {
     })
   })
 
+  it('clears stale activity without entering loading while persisted data resolves', () => {
+    const stale = makeActivity({ name: 'Previous User' })
+    const state: ActivityState = { activity: stale, phase: 'ready', error: 'old error' }
+
+    expect(activityReducer(state, { type: 'RESET_FOR_NAVIGATION' })).toEqual({
+      activity: null,
+      phase: 'idle',
+      error: null,
+    })
+  })
+
   describe('FETCH_SUCCESS sets new activity data', () => {
     it('replaces activity with the new payload', () => {
       const loadingState: ActivityState = {

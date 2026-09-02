@@ -40,24 +40,34 @@ describe('dataCache', () => {
       expect(dataCache.get('nonexistent')).toBeNull()
     })
 
+    it('evicts a policy-expired entry before a synchronous read', () => {
+      dataCache.set('user-activity:v3:org/stale', 'expired', Date.now() - 2 * 24 * 60 * 60 * 1000)
+      mockInvoke.mockClear()
+
+      expect(dataCache.get('user-activity:v3:org/stale')).toBeNull()
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+
     it('stores and retrieves data', () => {
       mockInvoke.mockResolvedValue(undefined) // cache:write
-      dataCache.set('my-key', { foo: 'bar' }, 1000)
+      const fetchedAt = Date.now()
+      dataCache.set('my-key', { foo: 'bar' }, fetchedAt)
 
       const entry = dataCache.get('my-key')
       expect(entry).not.toBeNull()
       expect(entry!.data).toEqual({ foo: 'bar' })
-      expect(entry!.fetchedAt).toBe(1000)
+      expect(entry!.fetchedAt).toBe(fetchedAt)
     })
 
     it('overwrites existing entries', () => {
       mockInvoke.mockResolvedValue(undefined)
-      dataCache.set('key', 'v1', 100)
-      dataCache.set('key', 'v2', 200)
+      const fetchedAt = Date.now()
+      dataCache.set('key', 'v1', fetchedAt - 1)
+      dataCache.set('key', 'v2', fetchedAt)
 
       const entry = dataCache.get('key')
       expect(entry!.data).toBe('v2')
-      expect(entry!.fetchedAt).toBe(200)
+      expect(entry!.fetchedAt).toBe(fetchedAt)
     })
 
     it('persists to disk via IPC on set', () => {
@@ -68,10 +78,11 @@ describe('dataCache', () => {
     })
 
     it('tracks metadata for new entries', () => {
-      dataCache.set('metadata', { value: true }, 500)
+      const fetchedAt = Date.now()
+      dataCache.set('metadata', { value: true }, fetchedAt)
 
       expect(dataCache.get('metadata')).toMatchObject({
-        fetchedAt: 500,
+        fetchedAt,
         schemaVersion: 1,
         serializedBytes: 14,
       })
@@ -151,7 +162,7 @@ describe('dataCache', () => {
         removedKeys: ['mutation-key', 'not-loaded'],
       })
 
-      dataCache.set('mutation-key', 'value', 1000)
+      dataCache.set('mutation-key', 'value')
 
       await vi.waitFor(() => expect(dataCache.get('mutation-key')).toBeNull())
       mockInvoke.mockResolvedValueOnce({ invalid: true })
@@ -164,7 +175,7 @@ describe('dataCache', () => {
     it('accepts a successful mutation response without optional details', async () => {
       mockInvoke.mockResolvedValueOnce({ success: true })
 
-      dataCache.set('plain-mutation', 'value', 1000)
+      dataCache.set('plain-mutation', 'value')
       await vi.waitFor(() => expect(dataCache.get('plain-mutation')?.data).toBe('value'))
     })
 
@@ -203,11 +214,12 @@ describe('dataCache', () => {
       mockInvoke.mockImplementationOnce(() => read.promise)
 
       const loading = dataCache.getOrLoad<string>('race-key')
-      dataCache.set('race-key', 'fresh', 2000)
+      const fetchedAt = Date.now()
+      dataCache.set('race-key', 'fresh', fetchedAt)
       read.resolve(persisted)
 
-      await expect(loading).resolves.toMatchObject({ data: 'fresh', fetchedAt: 2000 })
-      expect(dataCache.get('race-key')).toMatchObject({ data: 'fresh', fetchedAt: 2000 })
+      await expect(loading).resolves.toMatchObject({ data: 'fresh', fetchedAt })
+      expect(dataCache.get('race-key')).toMatchObject({ data: 'fresh', fetchedAt })
     })
 
     it('does not restore a pending disk read after a successful clear', async () => {
@@ -323,7 +335,7 @@ describe('dataCache', () => {
   describe('delete', () => {
     it('removes from memory', () => {
       mockInvoke.mockResolvedValue(undefined)
-      dataCache.set('del-me', 'data', 1)
+      dataCache.set('del-me', 'data')
       expect(dataCache.get('del-me')).not.toBeNull()
 
       dataCache.delete('del-me')

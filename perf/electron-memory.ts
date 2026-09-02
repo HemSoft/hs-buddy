@@ -7,9 +7,9 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Page } from 'puppeteer-core'
 import {
-  buildMedianScenario,
   evaluateAbsoluteBudgets,
   evaluateCleanupBudget,
+  evaluateRuns,
   formatBytes,
   PACKAGED_MEMORY_BUDGETS,
   type BudgetFailure,
@@ -73,7 +73,7 @@ interface HarnessResult {
     cleanupMetrics: readonly CleanupMetric[]
   }
   runs: HarnessRun[]
-  medians: Record<string, ReturnType<typeof buildMedianScenario>>
+  medians: Record<string, MedianScenarioMetrics>
   failures: BudgetFailure[]
   status: 'pass' | 'fail' | 'informational'
 }
@@ -436,24 +436,6 @@ async function runFreshProfile(
   }
 }
 
-function buildMedians(
-  scenarioRuns: Array<Record<string, ScenarioMetrics>>
-): Record<string, MedianScenarioMetrics> {
-  const names = Object.keys(scenarioRuns[0])
-  return Object.fromEntries(
-    names.map(name => [name, buildMedianScenario(scenarioRuns.map(scenarios => scenarios[name]))])
-  )
-}
-
-export function evaluateRuns(
-  mode: HarnessMode,
-  scenarioRuns: Array<Record<string, ScenarioMetrics>>,
-  budgetScale: number
-): { medians: Record<string, MedianScenarioMetrics>; failures: BudgetFailure[] } {
-  const medians = buildMedians(scenarioRuns)
-  return { medians, failures: collectFailures(mode, medians, budgetScale) }
-}
-
 async function writeJson(filePath: string, value: unknown): Promise<void> {
   await writeFile(filePath, `${JSON.stringify(value, null, 2)}\n`, 'utf8')
   console.log(`Wrote ${filePath}`)
@@ -481,9 +463,18 @@ async function recordBaseline(
 
 function printFailures(failures: BudgetFailure[]): void {
   for (const failure of failures) {
-    const isBytes = failure.metric.toLowerCase().includes('bytes')
-    const actual = isBytes ? formatBytes(failure.actual) : failure.actual.toFixed(1)
-    const limit = isBytes ? formatBytes(failure.limit) : failure.limit.toFixed(1)
+    const isRatio = failure.scenario.endsWith('-cleanup')
+    const isBytes = !isRatio && failure.metric.toLowerCase().includes('bytes')
+    const actual = isRatio
+      ? `${(failure.actual * 100).toFixed(1)}% of baseline`
+      : isBytes
+        ? formatBytes(failure.actual)
+        : failure.actual.toFixed(1)
+    const limit = isRatio
+      ? `${(failure.limit * 100).toFixed(1)}%`
+      : isBytes
+        ? formatBytes(failure.limit)
+        : failure.limit.toFixed(1)
     console.error(`${failure.scenario}: ${failure.metric} ${actual} exceeds ${limit}`)
   }
 }

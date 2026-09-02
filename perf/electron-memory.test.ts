@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { evaluateRuns, parseArgs } from './electron-memory'
-import { MEBIBYTE, type ScenarioMetrics } from './electron-memory-model'
+import { parseArgs } from './electron-memory'
+import { evaluateRuns, MEBIBYTE, type ScenarioMetrics } from './electron-memory-model'
 
 function scenario(totalWorkingSetMiB: number): ScenarioMetrics {
   return {
@@ -28,6 +28,17 @@ function scenarioRun(totalWorkingSetMiB: number): Record<string, ScenarioMetrics
     'terminal-cleanup': baseline,
     'browser-baseline': baseline,
     'browser-cleanup': baseline,
+  }
+}
+
+function pairedNavigationRun(
+  baselineWorkingSetMiB: number,
+  cleanupWorkingSetMiB: number
+): Record<string, ScenarioMetrics> {
+  return {
+    ...scenarioRun(500),
+    'navigation-baseline': scenario(baselineWorkingSetMiB),
+    'navigation-cleanup': scenario(cleanupWorkingSetMiB),
   }
 }
 
@@ -89,5 +100,20 @@ describe('Electron memory CLI', () => {
 
     expect(result.medians['dashboard-warm'].totalWorkingSetBytes).toBe(500 * MEBIBYTE)
     expect(result.failures).toEqual([])
+  })
+
+  it('preserves baseline and cleanup pairing when medianizing lifecycle ratios', () => {
+    const result = evaluateRuns(
+      'packaged',
+      [pairedNavigationRun(100, 112), pairedNavigationRun(110, 124), pairedNavigationRun(120, 100)],
+      1
+    )
+
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'totalWorkingSetBytes',
+        scenario: 'navigation-cleanup',
+      })
+    )
   })
 })

@@ -59,6 +59,11 @@ export interface BudgetFailure {
   scenario: string
 }
 
+export interface CleanupPair {
+  baseline: BudgetScenarioMetrics
+  afterCleanup: BudgetScenarioMetrics
+}
+
 export interface MedianScenarioMetrics extends Omit<ScenarioMetrics, 'processes' | 'capturedAt'> {
   runs: number
 }
@@ -150,6 +155,64 @@ export function evaluateCleanupBudget(
       ? []
       : [{ metric, actual: afterCleanup[metric], limit, scenario: scenarioName }]
   })
+}
+
+export function evaluateMedianCleanupBudget(
+  scenarioName: string,
+  pairs: CleanupPair[],
+  ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+): BudgetFailure[] {
+  if (pairs.length === 0) throw new Error('evaluateMedianCleanupBudget requires at least one pair')
+  return CLEANUP_METRICS.flatMap(metric => {
+    const actual = median(
+      pairs.map(({ baseline, afterCleanup }) => {
+        if (baseline[metric] === 0) return afterCleanup[metric] === 0 ? 0 : Number.POSITIVE_INFINITY
+        return afterCleanup[metric] / baseline[metric]
+      })
+    )
+    return actual <= ratio ? [] : [{ metric, actual, limit: ratio, scenario: scenarioName }]
+  })
+}
+
+export function evaluateRuns(
+  mode: 'packaged' | 'development',
+  scenarioRuns: Array<Record<string, ScenarioMetrics>>,
+  budgetScale: number
+): { medians: Record<string, MedianScenarioMetrics>; failures: BudgetFailure[] } {
+  const names = Object.keys(scenarioRuns[0])
+  const medians = Object.fromEntries(
+    names.map(name => [name, buildMedianScenario(scenarioRuns.map(scenarios => scenarios[name]))])
+  )
+  if (mode === 'development') return { medians, failures: [] }
+  const pairedCleanup = (baseline: string, afterCleanup: string) =>
+    scenarioRuns.map(scenarios => ({
+      baseline: scenarios[baseline],
+      afterCleanup: scenarios[afterCleanup],
+    }))
+  const cleanupRatio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+  const failures = [
+    ...evaluateAbsoluteBudgets(medians['dashboard-warm'], {
+      ...PACKAGED_MEMORY_BUDGETS,
+      totalWorkingSetBytes: PACKAGED_MEMORY_BUDGETS.totalWorkingSetBytes * budgetScale,
+      rendererWorkingSetBytes: PACKAGED_MEMORY_BUDGETS.rendererWorkingSetBytes * budgetScale,
+    }),
+    ...evaluateMedianCleanupBudget(
+      'navigation-cleanup',
+      pairedCleanup('navigation-baseline', 'navigation-cleanup'),
+      cleanupRatio
+    ),
+    ...evaluateMedianCleanupBudget(
+      'terminal-cleanup',
+      pairedCleanup('terminal-baseline', 'terminal-cleanup'),
+      cleanupRatio
+    ),
+    ...evaluateMedianCleanupBudget(
+      'browser-cleanup',
+      pairedCleanup('browser-baseline', 'browser-cleanup'),
+      cleanupRatio
+    ),
+  ]
+  return { medians, failures }
 }
 
 export function buildMedianScenario(samples: ScenarioMetrics[]): MedianScenarioMetrics {

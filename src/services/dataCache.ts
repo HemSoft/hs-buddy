@@ -220,14 +220,25 @@ function canApplyRemovalForKey(key: string, context: MutationContext): boolean {
   return appliedLoadId !== undefined && context.pendingLoadIds.get(key)?.has(appliedLoadId) === true
 }
 
-async function isPendingLoadCurrent(
+async function applyPendingLoad<T>(
   key: string,
+  loaded: PersistedCacheEntry<T>,
   loadKeyRevision: number,
-  loadClearAttemptRevision: number
-): Promise<boolean> {
-  if (clearGate) await waitForActiveClear()
-  if (lastSuccessfulClearAttemptRevision > loadClearAttemptRevision) return false
-  return loadKeyRevision === (keyRevisions.get(key) ?? 0)
+  loadClearAttemptRevision: number,
+  loadId: number
+): Promise<CacheEntry<T> | null> {
+  while (clearGate) await waitForActiveClear()
+  if (
+    lastSuccessfulClearAttemptRevision > loadClearAttemptRevision ||
+    loadKeyRevision !== (keyRevisions.get(key) ?? 0)
+  ) {
+    return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
+  }
+  loaded.lastAccessedAt = Date.now()
+  advanceKeyRevision(key, loadId)
+  memoryCache[key] = loaded
+  scheduleTouch(key)
+  return loaded
 }
 
 function applyMutationResult(result: unknown, context?: MutationContext): void {
@@ -297,14 +308,13 @@ export const dataCache = {
     try {
       const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
       if (!isCacheEntry(loaded)) return null
-      if (!(await isPendingLoadCurrent(key, loadKeyRevision, loadClearAttemptRevision))) {
-        return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
-      }
-      loaded.lastAccessedAt = Date.now()
-      advanceKeyRevision(key, loadId)
-      memoryCache[key] = loaded
-      scheduleTouch(key)
-      return loaded as CacheEntry<T>
+      return await applyPendingLoad(
+        key,
+        loaded as PersistedCacheEntry<T>,
+        loadKeyRevision,
+        loadClearAttemptRevision,
+        loadId
+      )
     } catch (err: unknown) {
       console.error('[DataCache] Failed to load cache entry:', err)
       return null

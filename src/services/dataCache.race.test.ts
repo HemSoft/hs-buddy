@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mockInvoke = vi.fn()
 vi.stubGlobal('window', {
@@ -30,6 +30,10 @@ async function resetCache(): Promise<void> {
   mockInvoke.mockResolvedValue(undefined)
   await dataCache.clear()
 }
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('dataCache mutation ordering races', () => {
   beforeEach(resetCache)
@@ -238,6 +242,31 @@ describe('dataCache clear and lazy-read outcomes', () => {
     await expect(clearResult).resolves.toBe(false)
     await expect(loading).resolves.toEqual(expect.objectContaining({ data: 'still-persisted' }))
     spy.mockRestore()
+  })
+
+  it('does not install a load after a clear starts between validation continuations', async () => {
+    const read = deferred<unknown>()
+    const clearing = deferred<unknown>()
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => read.promise)
+      .mockImplementationOnce(() => clearing.promise)
+
+    const loading = dataCache.getOrLoad<string>('validated-before-clear')
+    read.resolve({
+      data: 'stale',
+      fetchedAt: Date.now(),
+      schemaVersion: 1,
+      lastAccessedAt: Date.now(),
+      serializedBytes: 7,
+    })
+    await Promise.resolve()
+    const clearResult = dataCache.clear()
+    clearing.resolve(undefined)
+
+    await expect(clearResult).resolves.toBe(true)
+    await loading
+    expect(dataCache.get('validated-before-clear')).toBeNull()
   })
 })
 

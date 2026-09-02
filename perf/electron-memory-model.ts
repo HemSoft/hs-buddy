@@ -160,10 +160,11 @@ export function evaluateCleanupBudget(
 export function evaluateMedianCleanupBudget(
   scenarioName: string,
   pairs: CleanupPair[],
-  ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+  ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio,
+  metrics: readonly CleanupMetric[] = CLEANUP_METRICS
 ): BudgetFailure[] {
   if (pairs.length === 0) throw new Error('evaluateMedianCleanupBudget requires at least one pair')
-  return CLEANUP_METRICS.flatMap(metric => {
+  return metrics.flatMap(metric => {
     const actual = median(
       pairs.map(({ baseline, afterCleanup }) => {
         if (baseline[metric] === 0) return afterCleanup[metric] === 0 ? 0 : Number.POSITIVE_INFINITY
@@ -190,6 +191,10 @@ export function evaluateRuns(
       afterCleanup: scenarios[afterCleanup],
     }))
   const cleanupRatio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+  const processGrowthMetrics: readonly CleanupMetric[] = [
+    'totalWorkingSetBytes',
+    'rendererWorkingSetBytes',
+  ]
   const failures = [
     ...evaluateAbsoluteBudgets(medians['dashboard-warm'], {
       ...PACKAGED_MEMORY_BUDGETS,
@@ -212,6 +217,12 @@ export function evaluateRuns(
       cleanupRatio
     ),
     ...evaluateMedianCleanupBudget(
+      'terminal-total-growth',
+      pairedCleanup('navigation-cleanup', 'terminal-cleanup'),
+      cleanupRatio,
+      processGrowthMetrics
+    ),
+    ...evaluateMedianCleanupBudget(
       'browser-cleanup',
       pairedCleanup('browser-baseline', 'browser-cleanup'),
       cleanupRatio
@@ -220,6 +231,12 @@ export function evaluateRuns(
       'browser-warmup-growth',
       pairedCleanup('terminal-cleanup', 'browser-baseline'),
       cleanupRatio
+    ),
+    ...evaluateMedianCleanupBudget(
+      'browser-total-growth',
+      pairedCleanup('terminal-cleanup', 'browser-cleanup'),
+      cleanupRatio,
+      processGrowthMetrics
     ),
   ]
   return { medians, failures }

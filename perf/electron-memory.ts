@@ -5,7 +5,6 @@ import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { Page } from 'puppeteer-core'
 import {
   evaluateRuns,
   formatBytes,
@@ -25,6 +24,14 @@ import {
   type HarnessMode,
   type LaunchedRuntime,
 } from './electron-memory-runtime'
+import {
+  closeNonDashboardTabs,
+  navigate,
+  runBrowserLifecycle,
+  runNavigationScenario,
+  runTerminalLifecycle,
+  waitWithProgress,
+} from './electron-memory-scenarios'
 
 const require = createRequire(import.meta.url)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
@@ -211,102 +218,6 @@ function cleanEnvironment(): Record<string, string> {
   )
 }
 
-async function waitWithProgress(milliseconds: number, label: string): Promise<void> {
-  if (milliseconds === 0) return
-  const started = Date.now()
-  while (Date.now() - started < milliseconds) {
-    const remaining = milliseconds - (Date.now() - started)
-    await new Promise(resolve => setTimeout(resolve, Math.min(60_000, remaining)))
-    const elapsed = Math.min(milliseconds, Date.now() - started)
-    console.log(`${label}: ${Math.round(elapsed / 1_000)}s/${Math.round(milliseconds / 1_000)}s`)
-  }
-}
-
-async function navigate(page: Page, viewId: string): Promise<void> {
-  await page.evaluate(nextViewId => {
-    window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: nextViewId } }))
-  }, viewId)
-  await new Promise(resolve => setTimeout(resolve, 500))
-}
-
-async function closeNonDashboardTabs(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const dashboard = [...document.querySelectorAll<HTMLButtonElement>('.tab-select')].find(
-      button => button.textContent?.trim() === 'Dashboard'
-    )
-    dashboard?.click()
-  })
-  while (
-    await page.evaluate(() => {
-      const closeButton = document.querySelector<HTMLButtonElement>(
-        '.tab-close:not([aria-label="Close Dashboard"])'
-      )
-      closeButton?.click()
-      return Boolean(closeButton)
-    })
-  ) {
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-}
-
-async function runNavigationScenario(page: Page, cycles: number): Promise<void> {
-  const views = ['settings-accounts', 'bookmarks-all', 'terminal-workspace', 'dashboard']
-  for (let cycle = 0; cycle < cycles; cycle += 1) {
-    for (const view of views) await navigate(page, view)
-  }
-  await closeNonDashboardTabs(page)
-}
-
-async function openTerminal(page: Page): Promise<void> {
-  await page.evaluate(() =>
-    document.querySelector<HTMLButtonElement>('button[aria-label^="Toggle Terminal"]')?.click()
-  )
-  await page.waitForSelector('.terminal-panel', { visible: true })
-  const automaticTerminal = await page
-    .waitForSelector('.xterm', { visible: true, timeout: 30_000 })
-    .catch(() => null)
-  if (!automaticTerminal) {
-    await page.evaluate(() =>
-      document.querySelector<HTMLButtonElement>('button[aria-label="New Terminal"]')?.click()
-    )
-    await page.waitForSelector('.xterm', { visible: true, timeout: 30_000 })
-  }
-  const textarea = await page.$('.xterm-helper-textarea')
-  if (textarea) {
-    await textarea.focus()
-    await page.keyboard.type('echo buddy-memory-probe')
-    await page.keyboard.press('Enter')
-  }
-  await new Promise(resolve => setTimeout(resolve, 1_000))
-}
-
-async function closeTerminal(page: Page): Promise<void> {
-  while (
-    await page.evaluate(() => {
-      const closeButton = document.querySelector<HTMLButtonElement>('.terminal-panel-tab-close')
-      closeButton?.click()
-      return Boolean(closeButton)
-    })
-  ) {
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  await new Promise(resolve => setTimeout(resolve, 1_000))
-}
-
-async function openBrowser(page: Page): Promise<void> {
-  const route = `browser:${encodeURIComponent('https://example.com')}|${encodeURIComponent('Memory Probe')}`
-  await navigate(page, route)
-  await page.waitForSelector('webview', { timeout: 30_000 })
-  await new Promise(resolve => setTimeout(resolve, 3_000))
-}
-
-async function closeActiveTab(page: Page): Promise<void> {
-  await page.evaluate(() =>
-    document.querySelector<HTMLButtonElement>('.tab.active .tab-close')?.click()
-  )
-  await closeNonDashboardTabs(page)
-}
-
 function scaledBudgets(scale: number) {
   return {
     absoluteScenario: PACKAGED_MEMORY_BUDGETS.absoluteScenario,
@@ -314,16 +225,6 @@ function scaledBudgets(scale: number) {
     rendererWorkingSetBytes: PACKAGED_MEMORY_BUDGETS.rendererWorkingSetBytes * scale,
     cleanupRatio: PACKAGED_MEMORY_BUDGETS.cleanupRatio,
     cleanupMetrics: PACKAGED_MEMORY_BUDGETS.cleanupMetrics,
-  }
-}
-
-export function requireProcessKind(
-  scenarioName: string,
-  scenario: ScenarioMetrics,
-  kind: ProcessKind
-): void {
-  if (!scenario.processes.some(process => process.kind === kind)) {
-    throw new Error(`${scenarioName} did not observe the required ${kind} process`)
   }
 }
 
@@ -359,45 +260,8 @@ async function runFreshProfile(
     await waitWithProgress(options.settleMs, 'navigation cleanup')
     scenarios['navigation-cleanup'] = await collectScenario('navigation-cleanup', runtime)
 
-    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
-      await openTerminal(page)
-      await closeTerminal(page)
-    }
-    await waitWithProgress(options.settleMs, 'terminal post-warmup baseline')
-    scenarios['terminal-baseline'] = await collectScenario('terminal-baseline', runtime)
-
-    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
-      await openTerminal(page)
-      if (cycle === 0) {
-        scenarios['terminal-open'] = await collectScenario('terminal-open', runtime)
-        requireProcessKind('terminal-open', scenarios['terminal-open'], 'spawned-child')
-      }
-      await closeTerminal(page)
-    }
-    await waitWithProgress(options.settleMs, 'terminal cleanup')
-    scenarios['terminal-cleanup'] = await collectScenario('terminal-cleanup', runtime)
-
-    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
-      await openBrowser(page)
-      await closeActiveTab(page)
-    }
-    await waitWithProgress(options.settleMs, 'browser post-warmup baseline')
-    scenarios['browser-baseline'] = await collectScenario('browser-baseline', runtime)
-
-    for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
-      await openBrowser(page)
-      if (cycle === 0) {
-        scenarios['browser-open'] = await collectScenario(
-          'browser-open',
-          runtime,
-          scenarios['browser-baseline']
-        )
-        requireProcessKind('browser-open', scenarios['browser-open'], 'webview')
-      }
-      await closeActiveTab(page)
-    }
-    await waitWithProgress(options.settleMs, 'browser cleanup')
-    scenarios['browser-cleanup'] = await collectScenario('browser-cleanup', runtime)
+    await runTerminalLifecycle(page, runtime, options, scenarios)
+    await runBrowserLifecycle(page, runtime, options, scenarios)
 
     const observedProcessKinds = [
       ...new Set(Object.values(scenarios).flatMap(scenario => scenario.processes.map(p => p.kind))),

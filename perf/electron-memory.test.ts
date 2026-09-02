@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { parseArgs, requireProcessKind } from './electron-memory'
-import { evaluateRuns, MEBIBYTE, type ScenarioMetrics } from './electron-memory-model'
+import { parseArgs } from './electron-memory'
+import {
+  evaluateRuns,
+  MEBIBYTE,
+  type ProcessMemorySample,
+  type ScenarioMetrics,
+} from './electron-memory-model'
+import { requireNewProcessKind } from './electron-memory-scenarios'
 
-function scenario(totalWorkingSetMiB: number): ScenarioMetrics {
+function scenario(
+  totalWorkingSetMiB: number,
+  processes: ProcessMemorySample[] = []
+): ScenarioMetrics {
   return {
     totalWorkingSetBytes: totalWorkingSetMiB * MEBIBYTE,
     totalPrivateBytes: 300 * MEBIBYTE,
@@ -13,7 +22,7 @@ function scenario(totalWorkingSetMiB: number): ScenarioMetrics {
     domNodes: 1_000,
     documents: 10,
     eventListeners: 500,
-    processes: [],
+    processes,
     capturedAt: '2026-09-02T00:00:00.000Z',
   }
 }
@@ -57,6 +66,36 @@ function terminalWarmupGrowthRun(
     'terminal-cleanup': postWarmup,
     'browser-baseline': postWarmup,
     'browser-cleanup': postWarmup,
+  }
+}
+
+function browserWarmupGrowthRun(
+  baselineWorkingSetMiB: number,
+  postWarmupWorkingSetMiB: number
+): Record<string, ScenarioMetrics> {
+  const run = scenarioRun(500)
+  const baseline = scenario(baselineWorkingSetMiB)
+  const postWarmup = scenario(postWarmupWorkingSetMiB)
+  return {
+    ...run,
+    'terminal-baseline': baseline,
+    'terminal-cleanup': baseline,
+    'browser-baseline': postWarmup,
+    'browser-cleanup': postWarmup,
+  }
+}
+
+function processSample(pid: number, kind: ProcessMemorySample['kind']): ProcessMemorySample {
+  return {
+    pid,
+    parentPid: 1,
+    kind,
+    electronType: null,
+    name: null,
+    serviceName: null,
+    workingSetBytes: 1,
+    privateBytes: 1,
+    source: 'os',
   }
 }
 
@@ -149,9 +188,61 @@ describe('Electron memory gating', () => {
     )
   })
 
-  it('rejects scenarios that never create their required process kind', () => {
-    expect(() => requireProcessKind('terminal-open', scenario(500), 'spawned-child')).toThrow(
-      'terminal-open did not observe the required spawned-child process'
+  it('rejects browser warmup growth above ten percent', () => {
+    const run = browserWarmupGrowthRun(100, 112)
+    const result = evaluateRuns('packaged', [run, run, run], 1)
+
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'totalWorkingSetBytes',
+        scenario: 'browser-warmup-growth',
+      })
     )
+  })
+
+  it('rejects cumulative process growth across warmup and cleanup phases', () => {
+    const run = terminalWarmupGrowthRun(100, 105)
+    run['terminal-cleanup'] = scenario(110.25)
+    const result = evaluateRuns('packaged', [run, run, run], 1)
+
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'totalWorkingSetBytes',
+        scenario: 'terminal-total-growth',
+      })
+    )
+  })
+})
+
+describe('Electron memory process evidence', () => {
+  it('rejects a required process kind that already existed at baseline', () => {
+    const existing = processSample(7, 'spawned-child')
+    expect(() =>
+      requireNewProcessKind(
+        'terminal-open',
+        scenario(500, [existing]),
+        scenario(500, [existing]),
+        'spawned-child'
+      )
+    ).toThrow('terminal-open did not observe a new spawned-child process')
+  })
+
+  it('accepts a newly observed process of the required kind', () => {
+    const existing = processSample(7, 'spawned-child')
+    const created = processSample(8, 'spawned-child')
+    expect(() =>
+      requireNewProcessKind(
+        'terminal-open',
+        scenario(500, [existing]),
+        scenario(500, [existing, created]),
+        'spawned-child'
+      )
+    ).not.toThrow()
+  })
+
+  it('rejects scenarios that never create their required process kind', () => {
+    expect(() =>
+      requireNewProcessKind('terminal-open', scenario(500), scenario(500), 'spawned-child')
+    ).toThrow('terminal-open did not observe a new spawned-child process')
   })
 })

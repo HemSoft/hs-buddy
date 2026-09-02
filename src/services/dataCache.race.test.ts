@@ -11,13 +11,17 @@ const { dataCache } = await import('./dataCache')
 function deferred<T>(): {
   promise: Promise<T>
   resolve: (value: T) => void
+  reject: (reason?: unknown) => void
 } {
   let resolve!: (value: T) => void
+  let reject!: (reason?: unknown) => void
   return {
-    promise: new Promise<T>(done => {
+    promise: new Promise<T>((done, fail) => {
       resolve = done
+      reject = fail
     }),
     resolve,
+    reject,
   }
 }
 
@@ -102,6 +106,21 @@ describe('dataCache mutation ordering races', () => {
 
 describe('dataCache clear ordering races', () => {
   beforeEach(resetCache)
+
+  it('serializes overlapping clear requests', async () => {
+    const firstClear = deferred<unknown>()
+    mockInvoke.mockReset()
+    mockInvoke.mockImplementationOnce(() => firstClear.promise).mockResolvedValueOnce(undefined)
+
+    const firstResult = dataCache.clear()
+    const secondResult = dataCache.clear()
+    expect(mockInvoke).toHaveBeenCalledTimes(1)
+
+    firstClear.resolve(undefined)
+    await expect(firstResult).resolves.toBe(true)
+    await expect(secondResult).resolves.toBe(true)
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual(['cache:clear', 'cache:clear'])
+  })
 
   it('preserves and persists an entry created while clear is in flight', async () => {
     const clearing = deferred<unknown>()
@@ -200,6 +219,31 @@ describe('dataCache clear mutation barriers', () => {
     expect(dataCache.get('write-before-clear')).toBeNull()
   })
 
+  it('persists a pre-clear write after a failed clear releases its touch barrier', async () => {
+    const touch = deferred<unknown>()
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    dataCache.set('touch-before-failed-clear', 'value')
+    await Promise.resolve()
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => touch.promise)
+      .mockRejectedValueOnce(new Error('disk clear failed'))
+      .mockResolvedValueOnce(undefined)
+
+    dataCache.get('touch-before-failed-clear')
+    dataCache.set('write-before-failed-clear', 'value')
+    await expect(dataCache.clear()).resolves.toBe(false)
+    touch.resolve(undefined)
+
+    await vi.waitFor(() => expect(mockInvoke).toHaveBeenCalledTimes(3))
+    expect(mockInvoke.mock.calls.map(call => call[0])).toEqual([
+      'cache:touch',
+      'cache:clear',
+      'cache:write',
+    ])
+    spy.mockRestore()
+  })
+
   it('waits for an active clear before starting a lazy read', async () => {
     const clearing = deferred<unknown>()
     mockInvoke.mockReset()
@@ -259,6 +303,40 @@ describe('dataCache clear and touch barriers', () => {
       expect(mockInvoke).toHaveBeenCalledWith('cache:delete', 'deleted-touch')
       expect(mockInvoke).toHaveBeenCalledWith('cache:touch', ['retained-touch'])
     } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('retries an in-flight touch that fails while a failed clear is pending', async () => {
+    vi.useFakeTimers()
+    const touch = deferred<unknown>()
+    const clear = deferred<unknown>()
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      await resetCache()
+      dataCache.set('touch-after-failed-clear', 'value')
+      await Promise.resolve()
+      mockInvoke.mockReset()
+      mockInvoke
+        .mockImplementationOnce(() => touch.promise)
+        .mockImplementationOnce(() => clear.promise)
+        .mockResolvedValueOnce(undefined)
+
+      dataCache.get('touch-after-failed-clear')
+      await vi.advanceTimersByTimeAsync(1000)
+      const clearResult = dataCache.clear()
+      touch.reject(new Error('touch failed'))
+      await Promise.resolve()
+      expect(mockInvoke).toHaveBeenCalledTimes(2)
+
+      clear.reject(new Error('disk clear failed'))
+      await expect(clearResult).resolves.toBe(false)
+      await vi.advanceTimersByTimeAsync(1000)
+
+      expect(mockInvoke).toHaveBeenCalledTimes(3)
+      expect(mockInvoke.mock.calls[2]).toEqual(['cache:touch', ['touch-after-failed-clear']])
+    } finally {
+      spy.mockRestore()
       vi.useRealTimers()
     }
   })

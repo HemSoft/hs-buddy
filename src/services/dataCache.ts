@@ -54,10 +54,15 @@ let touchFlushPromise: Promise<void> | null = null
 const keyRevisions = new Map<string, number>()
 const pendingLoadCounts = new Map<string, number>()
 let nextKeyRevision = 0
-let clearRevision = 0
+let clearAttemptRevision = 0
+let lastSuccessfulClearAttemptRevision = 0
 let mutationSequence = 0
 let lastAppliedMutationSequence = 0
 let clearGate: Promise<void> | null = null
+
+async function waitForActiveClear(): Promise<void> {
+  while (clearGate) await clearGate
+}
 
 function advanceKeyRevision(key: string): void {
   keyRevisions.set(key, ++nextKeyRevision)
@@ -109,14 +114,18 @@ async function flushPendingTouches(): Promise<void> {
   pendingTouchKeys.clear()
   if (keys.length === 0) return
   const context = createMutationContext()
-  const touchClearRevision = clearRevision
+  const touchClearAttemptRevision = clearAttemptRevision
   const operation = window.ipcRenderer
     .invoke(IPC_INVOKE.CACHE_TOUCH, keys)
-    .then(result => {
-      if (touchClearRevision === clearRevision) applyMutationResult(result, context)
+    .then(async result => {
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision <= touchClearAttemptRevision) {
+        applyMutationResult(result, context)
+      }
     })
-    .catch(err => {
-      if (touchClearRevision === clearRevision) {
+    .catch(async err => {
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision <= touchClearAttemptRevision) {
         for (const key of keys) {
           if (Object.hasOwn(memoryCache, key)) scheduleTouch(key)
         }
@@ -248,12 +257,15 @@ export const dataCache = {
     const existing = this.get<T>(key)
     if (existing) return existing
     const loadKeyRevision = keyRevisions.get(key) ?? 0
-    const loadClearRevision = clearRevision
+    const loadClearAttemptRevision = clearAttemptRevision
     retainPendingLoad(key)
     try {
       const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
       if (!isCacheEntry(loaded)) return null
-      if (loadClearRevision !== clearRevision || loadKeyRevision !== (keyRevisions.get(key) ?? 0)) {
+      if (
+        loadClearAttemptRevision !== clearAttemptRevision ||
+        loadKeyRevision !== (keyRevisions.get(key) ?? 0)
+      ) {
         return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
       }
       loaded.lastAccessedAt = Date.now()
@@ -282,17 +294,15 @@ export const dataCache = {
     removeMemoryKeys(replacedKeys)
     memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
-    const writeClearRevision = clearRevision
+    const writeClearAttemptRevision = clearAttemptRevision
 
     const persistWrite = async () => {
-      const activeClear = clearGate
-      if (activeClear) await activeClear
+      if (clearGate) await waitForActiveClear()
       const touchBarrier =
         touchFlushPromise || pendingTouchKeys.size > 0 ? flushPendingTouches() : null
       if (touchBarrier) await touchBarrier
-      const currentClear = clearGate
-      if (currentClear) await currentClear
-      if (writeClearRevision !== clearRevision) return
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision > writeClearAttemptRevision) return
       const context = createMutationContext()
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, {
         data,
@@ -338,6 +348,7 @@ export const dataCache = {
   },
 
   async clear(): Promise<boolean> {
+    if (clearGate) await waitForActiveClear()
     const revisionsAtStart = new Map(
       Object.keys(memoryCache).map(key => [key, keyRevisions.get(key)!] as const)
     )
@@ -348,9 +359,10 @@ export const dataCache = {
     clearGate = new Promise<void>(resolve => {
       releaseClear = resolve
     })
-    clearRevision += 1
+    const clearAttempt = ++clearAttemptRevision
     try {
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      lastSuccessfulClearAttemptRevision = clearAttempt
       const keys = Array.from(revisionsAtStart)
         .filter(([key, revision]) => keyRevisions.get(key)! === revision)
         .map(([key]) => key)

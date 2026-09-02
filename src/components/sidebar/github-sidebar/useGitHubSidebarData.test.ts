@@ -1271,6 +1271,7 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
     expect(result.current.sflStatusData['acme/my-repo']).toEqual(sflData)
+    expect(mockGetOrLoad).toHaveBeenCalledWith('sfl-status:acme/my-repo')
     expect(mockFetchSFLStatus).not.toHaveBeenCalled()
   })
 
@@ -1304,6 +1305,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-prs:open:acme/my-repo')
     expect(mockFetchRepoPRs).not.toHaveBeenCalled()
   })
 
@@ -1319,6 +1321,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-issues:open:acme/my-repo')
     expect(mockFetchRepoIssues).not.toHaveBeenCalled()
   })
 
@@ -1334,6 +1337,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-commits:acme/my-repo')
     expect(mockFetchRepoCommits).not.toHaveBeenCalled()
   })
 

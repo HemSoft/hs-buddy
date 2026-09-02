@@ -30,10 +30,18 @@ function emptyMutationResult(): DataCacheMutationResult {
   return { stats: { entryCount: 0, totalBytes: 0 }, removedKeys: [] }
 }
 
+function persistNormalizedCache(cache: PersistedDataCache): void {
+  try {
+    writeJsonFile(getDataCachePath(), cache)
+  } catch (err: unknown) {
+    console.error('[DataCache] Failed to persist normalized cache:', err)
+  }
+}
+
 function readPrunedDataCache(now: number): ReturnType<typeof normalizeAndPruneDataCache> {
   const raw = readJsonFile<unknown>(getDataCachePath(), {})
   const result = normalizeAndPruneDataCache(raw, now)
-  if (result.changed) writeJsonFile(getDataCachePath(), result.cache)
+  if (result.changed) persistNormalizedCache(result.cache)
   return result
 }
 
@@ -63,23 +71,45 @@ export function readDataCache(now: number = Date.now()): PersistedDataCache {
   }
 }
 
+function loadExactDataCacheEntry(
+  key: string,
+  now: number,
+  updateAccessTime: boolean
+): PersistedCacheEntry | null {
+  try {
+    const raw = readJsonFile<unknown>(getDataCachePath(), {})
+    const pruned = normalizeAndPruneDataCache(raw, now)
+    if (!Object.hasOwn(pruned.cache, key)) {
+      if (pruned.changed) persistNormalizedCache(pruned.cache)
+      return null
+    }
+    const result = updateAccessTime
+      ? { ...pruned.cache[key], lastAccessedAt: now }
+      : pruned.cache[key]
+    if (pruned.changed || updateAccessTime) {
+      persistNormalizedCache({ ...pruned.cache, [key]: result })
+    }
+    return result
+  } catch (err: unknown) {
+    console.error('[DataCache] Failed to read cache entry:', err)
+    return null
+  }
+}
+
+/** Renderer load path; its access timestamp is persisted through the batched touch channel. */
+export function loadDataCacheEntry(
+  key: string,
+  now: number = Date.now()
+): PersistedCacheEntry | null {
+  return loadExactDataCacheEntry(key, now, false)
+}
+
+/** Main-process load path for callers that cannot use the renderer touch batch. */
 export function readDataCacheEntry(
   key: string,
   now: number = Date.now()
 ): PersistedCacheEntry | null {
-  let result: PersistedCacheEntry | null = null
-  try {
-    updateJsonFile<unknown>(getDataCachePath(), {}, raw => {
-      const pruned = normalizeAndPruneDataCache(raw, now)
-      if (!Object.hasOwn(pruned.cache, key)) return pruned.cache
-      const entry = pruned.cache[key]
-      result = { ...entry, lastAccessedAt: now }
-      return { ...pruned.cache, [key]: result }
-    })
-  } catch (err: unknown) {
-    console.error('[DataCache] Failed to read cache entry:', err)
-  }
-  return result
+  return loadExactDataCacheEntry(key, now, true)
 }
 
 export function getDataCacheStats(now: number = Date.now()): DataCacheStorageStats {

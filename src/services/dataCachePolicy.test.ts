@@ -64,7 +64,7 @@ describe('data cache normalization', () => {
     expect(result.cache).not.toHaveProperty('repo-commit:org/repo/old')
     expect(result.cache).toHaveProperty('org-overview:org')
     expect(getCacheTtlMs('repo-commits:org/repo')).toBe(3 * 24 * 60 * 60 * 1000)
-    expect(getCacheTtlMs('seen:my-prs')).toBe(30 * 24 * 60 * 60 * 1000)
+    expect(getCacheTtlMs('seen-prs:my-prs')).toBe(30 * 24 * 60 * 60 * 1000)
   })
 
   it('drops invalid entries and accepts non-object cache input', () => {
@@ -173,6 +173,7 @@ describe('data cache replacement and startup behavior', () => {
     const raw: Record<string, unknown> = {
       'pr:my-prs:current': entry('pr:my-prs:current', [{ id: 1 }]),
       'org-overview:HemSoft': entry('org-overview:HemSoft', { repos: 10 }),
+      'seen-prs:my-prs': entry('seen-prs:my-prs', ['pr-1']),
     }
     for (let index = 0; index < 3_000; index += 1) {
       const key = `repo-commit:HemSoft/hs-buddy/${index}`
@@ -184,8 +185,12 @@ describe('data cache replacement and startup behavior', () => {
       Object.entries(result.cache).filter(([key]) => isStartupCriticalCacheKey(key))
     )
 
-    expect(result.stats.entryCount).toBe(2)
-    expect(Object.keys(startup)).toEqual(['pr:my-prs:current', 'org-overview:HemSoft'])
+    expect(result.stats.entryCount).toBe(3)
+    expect(Object.keys(startup)).toEqual([
+      'pr:my-prs:current',
+      'org-overview:HemSoft',
+      'seen-prs:my-prs',
+    ])
     expect(JSON.stringify(startup).length).toBeLessThan(10_000)
   })
 

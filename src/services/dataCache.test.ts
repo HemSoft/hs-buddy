@@ -10,6 +10,11 @@ vi.stubGlobal('window', {
 // Must import after stubbing
 const { dataCache } = await import('./dataCache')
 
+function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
+  let resolve!: (value: T) => void
+  return { promise: new Promise<T>(done => (resolve = done)), resolve }
+}
+
 describe('dataCache', () => {
   beforeEach(async () => {
     mockInvoke.mockReset()
@@ -209,6 +214,40 @@ describe('dataCache', () => {
         expect.any(Error)
       )
       spy.mockRestore()
+    })
+  })
+
+  describe('on-demand load races', () => {
+    const persisted = {
+      data: 'stale',
+      fetchedAt: 1000,
+      schemaVersion: 1,
+      lastAccessedAt: 1000,
+      serializedBytes: 7,
+    }
+
+    it('does not overwrite a newer renderer write with a pending disk read', async () => {
+      const read = deferred<typeof persisted>()
+      mockInvoke.mockImplementationOnce(() => read.promise)
+
+      const loading = dataCache.getOrLoad<string>('race-key')
+      dataCache.set('race-key', 'fresh', 2000)
+      read.resolve(persisted)
+
+      await expect(loading).resolves.toMatchObject({ data: 'fresh', fetchedAt: 2000 })
+      expect(dataCache.get('race-key')).toMatchObject({ data: 'fresh', fetchedAt: 2000 })
+    })
+
+    it('does not restore a pending disk read after a successful clear', async () => {
+      const read = deferred<typeof persisted>()
+      mockInvoke.mockImplementationOnce(() => read.promise).mockResolvedValueOnce(undefined)
+
+      const loading = dataCache.getOrLoad<string>('cleared-read')
+      await expect(dataCache.clear()).resolves.toBe(true)
+      read.resolve(persisted)
+
+      await expect(loading).resolves.toBeNull()
+      expect(dataCache.get('cleared-read')).toBeNull()
     })
   })
 
@@ -486,6 +525,27 @@ describe('dataCache', () => {
       expect(dataCache.isFresh('survives', Number.POSITIVE_INFINITY)).toBe(true)
       expect(spy).toHaveBeenCalledWith('[DataCache] Failed to clear disk cache:', expect.any(Error))
       spy.mockRestore()
+    })
+
+    it('retains queued access-time updates when disk clear fails', async () => {
+      vi.useFakeTimers()
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        dataCache.set('touched-survivor', 'value')
+        mockInvoke.mockClear()
+        dataCache.get('touched-survivor')
+        mockInvoke
+          .mockRejectedValueOnce(new Error('disk clear failed'))
+          .mockResolvedValue(undefined)
+
+        await expect(dataCache.clear()).resolves.toBe(false)
+        await vi.advanceTimersByTimeAsync(1000)
+
+        expect(mockInvoke).toHaveBeenCalledWith('cache:touch', ['touched-survivor'])
+      } finally {
+        spy.mockRestore()
+        vi.useRealTimers()
+      }
     })
   })
 })

@@ -15,6 +15,7 @@ import {
   deleteDataCacheEntry,
   getDataCacheStats,
   initializeDataCache,
+  loadDataCacheEntry,
   readDataCache,
   readDataCacheEntry,
   touchDataCacheEntries,
@@ -82,6 +83,46 @@ describe('cache', () => {
 
     expect(result).toMatchObject({ data: { files: [] }, lastAccessedAt: NOW + 50 })
     expect(readDataCacheEntry('missing', NOW + 100)).toBeNull()
+  })
+
+  it('does not rewrite an unchanged cache when an exact key is missing', () => {
+    disk = { one: { data: 1, fetchedAt: NOW } }
+    initializeDataCache(NOW)
+    vi.mocked(writeJsonFile).mockClear()
+
+    expect(readDataCacheEntry('missing', NOW + 50)).toBeNull()
+    expect(writeJsonFile).not.toHaveBeenCalled()
+  })
+
+  it('loads renderer entries without an immediate whole-file rewrite', () => {
+    writeDataCacheEntry('repo-detail:org/repo', { data: 'detail', fetchedAt: NOW }, NOW)
+    vi.mocked(writeJsonFile).mockClear()
+
+    expect(loadDataCacheEntry('repo-detail:org/repo', NOW + 50)).toMatchObject({ data: 'detail' })
+    expect(writeJsonFile).not.toHaveBeenCalled()
+  })
+
+  it('returns normalized data when best-effort migration persistence fails', () => {
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    disk = { 'pr:my-prs:account': { data: [1], fetchedAt: NOW } }
+    vi.mocked(writeJsonFile).mockImplementation(() => {
+      throw new Error('read-only disk')
+    })
+
+    expect(initializeDataCache(NOW).entries).toHaveProperty('pr:my-prs:account')
+    expect(readDataCacheEntry('pr:my-prs:account', NOW + 1)).toMatchObject({ data: [1] })
+    expect(errorSpy).toHaveBeenCalledWith(
+      '[DataCache] Failed to persist normalized cache:',
+      expect.any(Error)
+    )
+    errorSpy.mockRestore()
+  })
+
+  it('repairs a corrupt top-level cache value', () => {
+    disk = null as unknown as Record<string, unknown>
+
+    expect(initializeDataCache(NOW).entries).toEqual({})
+    expect(writeJsonFile).toHaveBeenCalledWith(expect.stringContaining('data-cache.json'), {})
   })
 
   it('persists a deduplicated batch of cache access times', () => {

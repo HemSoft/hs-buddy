@@ -40,13 +40,13 @@ function isCacheHitFresh(maxAgeMs: number | null | undefined, cacheKey: string):
   return typeof maxAgeMs === 'number' && dataCache.isFresh(cacheKey, maxAgeMs)
 }
 
-function shouldUseCachedData<TRaw>(
+async function shouldUseCachedData<TRaw>(
   cacheKey: string,
   forceRefresh: boolean | undefined,
   maxAgeMs: number | null | undefined,
   onData: (data: TRaw) => void
-): boolean {
-  const cached = dataCache.get<TRaw>(cacheKey)
+): Promise<boolean> {
+  const cached = await dataCache.getOrLoad<TRaw>(cacheKey)
   if (!cached?.data || forceRefresh) return false
   onData(cached.data)
   return isCacheHitFresh(maxAgeMs, cacheKey)
@@ -65,7 +65,8 @@ async function fetchCachedRepoData<TRaw>(opts: {
   forceRefresh?: boolean
   maxAgeMs?: number | null
 }): Promise<void> {
-  if (shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData)) return
+  if (await shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData))
+    return
   addToLoadingSet(opts.loadingSetter, opts.key)
   try {
     const result = (await opts.enqueue(

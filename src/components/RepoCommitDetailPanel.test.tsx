@@ -26,7 +26,12 @@ vi.mock('../hooks/useTaskQueue', () => ({
 }))
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: { get: mockCacheGet, set: mockCacheSet, isFresh: vi.fn() },
+  dataCache: {
+    get: mockCacheGet,
+    getOrLoad: async (key: string) => mockCacheGet(key),
+    set: mockCacheSet,
+    isFresh: vi.fn(),
+  },
 }))
 
 vi.mock('../api/github', () => ({

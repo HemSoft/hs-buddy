@@ -41,7 +41,7 @@ vi.mock('../utils/errorUtils', () => ({
 }))
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: { get: () => null, set: vi.fn() },
+  dataCache: { get: () => null, getOrLoad: async () => null, set: vi.fn() },
 }))
 
 const makePR = (overrides: Partial<PRDetailInfo> = {}): PRDetailInfo => ({

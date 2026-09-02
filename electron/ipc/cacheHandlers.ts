@@ -1,7 +1,7 @@
 import { ipcMain } from 'electron'
 import {
   initializeDataCache,
-  readDataCacheEntry,
+  loadDataCacheEntry,
   touchDataCacheEntries,
   getDataCacheStats,
   writeDataCacheEntry,
@@ -13,7 +13,7 @@ import { IPC_INVOKE } from '../../src/ipc/contracts'
 export function registerCacheHandlers(): void {
   ipcMain.handle(IPC_INVOKE.CACHE_INITIALIZE, () => initializeDataCache())
 
-  ipcMain.handle(IPC_INVOKE.CACHE_READ, (_event, key: string) => readDataCacheEntry(key))
+  ipcMain.handle(IPC_INVOKE.CACHE_READ, (_event, key: string) => loadDataCacheEntry(key))
 
   ipcMain.handle(IPC_INVOKE.CACHE_TOUCH, (_event, keys: string[]) => {
     return { success: true, ...touchDataCacheEntries(keys) }

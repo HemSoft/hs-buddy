@@ -31,11 +31,7 @@ function resolveNextCacheState<T>(cacheKey: string | null): { data: T | null; ha
 }
 
 async function getCachedData<T>(cacheKey: string) {
-  const loader: unknown = Reflect.get(dataCache, 'getOrLoad')
-  if (typeof loader !== 'function') return dataCache.get<T>(cacheKey)
-  return await (
-    loader as (this: typeof dataCache, key: string) => Promise<ReturnType<typeof dataCache.get<T>>>
-  ).call(dataCache, cacheKey)
+  return await dataCache.getOrLoad<T>(cacheKey)
 }
 
 function isActiveGitHubRequest(requestId: number, requestIdRef: { current: number }): boolean {

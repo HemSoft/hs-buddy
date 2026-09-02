@@ -27,7 +27,13 @@ export interface PrunedDataCache {
   stats: DataCacheStorageStats
 }
 
-const STARTUP_PREFIXES = ['pr:', 'org-overview:', 'org-repos:', 'repo-counts:'] as const
+const STARTUP_PREFIXES = [
+  'pr:',
+  'org-overview:',
+  'org-repos:',
+  'repo-counts:',
+  'seen-prs:',
+] as const
 const DETAIL_PREFIXES = [
   'repo-commit:',
   'pr-files:',
@@ -56,7 +62,7 @@ export function isStartupCriticalCacheKey(key: string): boolean {
 export function getCacheTtlMs(key: string): number {
   if (startsWithOneOf(key, DETAIL_PREFIXES)) return DAY_MS
   if (startsWithOneOf(key, LIST_PREFIXES)) return 3 * DAY_MS
-  if (key.startsWith('seen:')) return 30 * DAY_MS
+  if (key.startsWith('seen-prs:')) return 30 * DAY_MS
   return 7 * DAY_MS
 }
 
@@ -211,7 +217,7 @@ export function normalizeAndPruneDataCache(
   }
 
   const normalizedJson = JSON.stringify(cache)
-  const rawJson = JSON.stringify(rawRecord)
+  const rawJson = JSON.stringify(rawCache)
   return {
     cache,
     removedKeys: Array.from(removed).sort(),

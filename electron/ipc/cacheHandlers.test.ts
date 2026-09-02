@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 vi.mock('../cache', () => ({
   initializeDataCache: mocks.initialize,
-  readDataCacheEntry: mocks.read,
+  loadDataCacheEntry: mocks.read,
   touchDataCacheEntries: mocks.touch,
   getDataCacheStats: mocks.stats,
   writeDataCacheEntry: mocks.write,

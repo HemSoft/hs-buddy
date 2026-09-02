@@ -1,5 +1,5 @@
 import { execSync } from 'child_process'
-import { readDataCache, writeDataCacheEntry } from '../cache'
+import { readDataCacheEntry, writeDataCacheEntry } from '../cache'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { DAY } from '../../src/utils/dateUtils'
 import { createEnvResolver } from '../../src/utils/envLookup'
@@ -134,8 +134,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
 }
 
 function readCachedAccountId(): string | null {
-  const diskCache = readDataCache()
-  const cached = diskCache['tempo:accountId']
+  const cached = readDataCacheEntry('tempo:accountId')
   if (cached?.data && typeof cached.data === 'string') return cached.data
   return null
 }
@@ -167,7 +166,7 @@ async function resolveIssueKey(issueId: number): Promise<{ key: string; summary:
   const memCached = issueKeyCache.get(issueId)
   if (memCached) return memCached
 
-  const diskEntry = readDataCache()[`tempo:issue:${issueId}`]
+  const diskEntry = readDataCacheEntry(`tempo:issue:${issueId}`)
   if (diskEntry?.data) {
     const entry = diskEntry.data as { key: string; summary: string }
     issueKeyCache.set(issueId, entry)
@@ -411,9 +410,8 @@ const capexCache = new Map<string, boolean>()
 
 /** Check disk cache for a valid (within 24h TTL) capex entry */
 function resolveCapexFromDiskCache(issueKey: string): boolean | null {
-  const diskCache = readDataCache()
-  const diskEntry = diskCache[`tempo:capex:${issueKey}`]
-  if (isCacheEntryValid(diskEntry, DAY)) {
+  const diskEntry = readDataCacheEntry(`tempo:capex:${issueKey}`)
+  if (isCacheEntryValid(diskEntry ?? undefined, DAY)) {
     return diskEntry!.data as boolean
   }
   return null

@@ -44,6 +44,12 @@ let initialized = false
 let storageStats: DataCacheStorageStats = { entryCount: 0, totalBytes: 0 }
 const pendingTouchKeys = new Set<string>()
 let touchTimer: ReturnType<typeof setTimeout> | null = null
+const keyRevisions = new Map<string, number>()
+let clearRevision = 0
+
+function advanceKeyRevision(key: string): void {
+  keyRevisions.set(key, (keyRevisions.get(key) ?? 0) + 1)
+}
 
 function flushPendingTouches(): void {
   touchTimer = null
@@ -148,10 +154,17 @@ export const dataCache = {
   async getOrLoad<T = unknown>(key: string): Promise<CacheEntry<T> | null> {
     const existing = this.get<T>(key)
     if (existing) return existing
+    const loadKeyRevision = keyRevisions.get(key) ?? 0
+    const loadClearRevision = clearRevision
     try {
       const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
       if (!isCacheEntry(loaded)) return null
+      if (loadClearRevision !== clearRevision || loadKeyRevision !== (keyRevisions.get(key) ?? 0)) {
+        return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
+      }
+      loaded.lastAccessedAt = Date.now()
       memoryCache[key] = loaded
+      scheduleTouch(key)
       return loaded as CacheEntry<T>
     } catch (err: unknown) {
       console.error('[DataCache] Failed to load cache entry:', err)
@@ -162,6 +175,7 @@ export const dataCache = {
   /** Store data in memory immediately and persist it through the bounded main-process cache. */
   set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
     if (isIncomingCacheVersionSuperseded(memoryCache, key)) return
+    advanceKeyRevision(key)
     const accessedAt = Date.now()
     const replacedKeys = getReplacementSiblingKeys(memoryCache, key)
     removeMemoryKeys(replacedKeys)
@@ -192,6 +206,7 @@ export const dataCache = {
   },
 
   delete(key: string): void {
+    advanceKeyRevision(key)
     delete memoryCache[key]
     const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
     notifyListeners(key)
@@ -201,10 +216,11 @@ export const dataCache = {
   },
 
   async clear(): Promise<boolean> {
-    const keys = Object.keys(memoryCache)
-    cancelPendingTouches()
     try {
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      clearRevision += 1
+      cancelPendingTouches()
+      const keys = Object.keys(memoryCache)
       for (const key of keys) delete memoryCache[key]
       applyMutationResult(result)
       storageStats = { entryCount: 0, totalBytes: 0 }

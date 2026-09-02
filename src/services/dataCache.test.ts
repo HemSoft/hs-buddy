@@ -144,7 +144,9 @@ describe('dataCache', () => {
         vi.useRealTimers()
       }
     })
+  })
 
+  describe('persistence metadata and errors', () => {
     it('rejects malformed persisted entries and handles read failures', async () => {
       mockInvoke.mockResolvedValueOnce({ data: 'missing metadata', fetchedAt: 1000 })
       await expect(dataCache.getOrLoad('malformed')).resolves.toBeNull()

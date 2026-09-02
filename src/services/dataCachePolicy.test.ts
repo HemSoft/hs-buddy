@@ -17,7 +17,7 @@ function entry(key: string, data: unknown, fetchedAt = NOW, accessedAt = fetched
   return createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
 }
 
-describe('dataCachePolicy', () => {
+describe('data cache normalization', () => {
   it('migrates legacy entries and repairs corrupted metadata', () => {
     const result = normalizeAndPruneDataCache(
       {
@@ -85,7 +85,9 @@ describe('dataCachePolicy', () => {
   it('measures undefined data as serialized null', () => {
     expect(createPersistedCacheEntry('undefined', undefined, NOW, NOW).serializedBytes).toBe(4)
   })
+})
 
+describe('data cache limits and versioning', () => {
   it('keeps only the highest key schema version in each family', () => {
     const result = normalizeAndPruneDataCache(
       {
@@ -146,7 +148,9 @@ describe('dataCachePolicy', () => {
     expect(result.cache).not.toHaveProperty('blob-00')
     expect(result.cache).toHaveProperty('blob-19')
   })
+})
 
+describe('data cache replacement and startup behavior', () => {
   it('identifies version and account-fingerprint siblings replaced by writes', () => {
     const cache = {
       'user-activity:v2:org/alice': {},

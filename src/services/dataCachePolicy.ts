@@ -66,8 +66,8 @@ function getCacheKeySchemaVersion(key: string): number {
 }
 
 function getSerializedBytes(data: unknown): number {
-  const serialized = JSON.stringify(data)
-  return new TextEncoder().encode(serialized ?? 'null').byteLength
+  const serialized: unknown = JSON.stringify(data)
+  return new TextEncoder().encode(typeof serialized === 'string' ? serialized : 'null').byteLength
 }
 
 export function createPersistedCacheEntry<T>(

@@ -71,8 +71,8 @@ export function readDataCacheEntry(
   try {
     updateJsonFile<unknown>(getDataCachePath(), {}, raw => {
       const pruned = normalizeAndPruneDataCache(raw, now)
+      if (!Object.hasOwn(pruned.cache, key)) return pruned.cache
       const entry = pruned.cache[key]
-      if (!entry) return pruned.cache
       result = { ...entry, lastAccessedAt: now }
       return { ...pruned.cache, [key]: result }
     })
@@ -138,8 +138,9 @@ export function touchDataCacheEntries(
       const pruned = normalizeAndPruneDataCache(raw, now)
       const next: PersistedDataCache = { ...pruned.cache }
       for (const key of new Set(keys)) {
+        if (!Object.hasOwn(next, key)) continue
         const entry = next[key]
-        if (entry) next[key] = { ...entry, lastAccessedAt: now }
+        next[key] = { ...entry, lastAccessedAt: now }
       }
       const bounded = normalizeAndPruneDataCache(next, now)
       result = {

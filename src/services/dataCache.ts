@@ -42,6 +42,7 @@ interface CacheMutationResult {
 interface MutationContext {
   sequence: number
   keyRevisions: Map<string, number>
+  pendingLoadIds: Map<string, Set<number>>
 }
 
 const memoryCache: PersistedDataCache = {}
@@ -53,7 +54,10 @@ let touchTimer: ReturnType<typeof setTimeout> | null = null
 let touchFlushPromise: Promise<void> | null = null
 const keyRevisions = new Map<string, number>()
 const pendingLoadCounts = new Map<string, number>()
+const pendingLoadIds = new Map<string, Set<number>>()
+const lastAppliedLoadIds = new Map<string, number>()
 let nextKeyRevision = 0
+let nextLoadId = 0
 let clearAttemptRevision = 0
 let lastSuccessfulClearAttemptRevision = 0
 let mutationSequence = 0
@@ -64,18 +68,28 @@ async function waitForActiveClear(): Promise<void> {
   while (clearGate) await clearGate
 }
 
-function advanceKeyRevision(key: string): void {
+function advanceKeyRevision(key: string, appliedLoadId?: number): void {
   keyRevisions.set(key, ++nextKeyRevision)
+  if (appliedLoadId === undefined) lastAppliedLoadIds.delete(key)
+  else lastAppliedLoadIds.set(key, appliedLoadId)
 }
 
-function retainPendingLoad(key: string): void {
+function retainPendingLoad(key: string): number {
+  const loadId = ++nextLoadId
   pendingLoadCounts.set(key, (pendingLoadCounts.get(key) ?? 0) + 1)
+  const ids = pendingLoadIds.get(key) ?? new Set<number>()
+  ids.add(loadId)
+  pendingLoadIds.set(key, ids)
+  return loadId
 }
 
-function releasePendingLoad(key: string): void {
+function releasePendingLoad(key: string, loadId: number): void {
   const remaining = pendingLoadCounts.get(key)! - 1
   if (remaining > 0) pendingLoadCounts.set(key, remaining)
   else pendingLoadCounts.delete(key)
+  const ids = pendingLoadIds.get(key)
+  ids?.delete(loadId)
+  if (ids?.size === 0) pendingLoadIds.delete(key)
   cleanKeyRevision(key)
 }
 
@@ -86,6 +100,7 @@ function cleanKeyRevision(key: string): void {
     !pendingTouchKeys.has(key)
   ) {
     keyRevisions.delete(key)
+    lastAppliedLoadIds.delete(key)
   }
 }
 
@@ -100,7 +115,13 @@ function evictExpiredMemoryEntry(key: string): void {
 }
 
 function createMutationContext(): MutationContext {
-  return { sequence: ++mutationSequence, keyRevisions: new Map(keyRevisions) }
+  return {
+    sequence: ++mutationSequence,
+    keyRevisions: new Map(keyRevisions),
+    pendingLoadIds: new Map(
+      Array.from(pendingLoadIds, ([key, ids]) => [key, new Set(ids)] as const)
+    ),
+  }
 }
 
 async function flushPendingTouches(): Promise<void> {
@@ -193,6 +214,22 @@ function removeMemoryKeys(keys: readonly string[]): void {
   }
 }
 
+function canApplyRemovalForKey(key: string, context: MutationContext): boolean {
+  if ((context.keyRevisions.get(key) ?? 0) === (keyRevisions.get(key) ?? 0)) return true
+  const appliedLoadId = lastAppliedLoadIds.get(key)
+  return appliedLoadId !== undefined && context.pendingLoadIds.get(key)?.has(appliedLoadId) === true
+}
+
+async function isPendingLoadCurrent(
+  key: string,
+  loadKeyRevision: number,
+  loadClearAttemptRevision: number
+): Promise<boolean> {
+  if (clearGate) await waitForActiveClear()
+  if (lastSuccessfulClearAttemptRevision > loadClearAttemptRevision) return false
+  return loadKeyRevision === (keyRevisions.get(key) ?? 0)
+}
+
 function applyMutationResult(result: unknown, context?: MutationContext): void {
   if (!isRecord(result)) return
   const isStale = context && context.sequence < lastAppliedMutationSequence
@@ -201,9 +238,7 @@ function applyMutationResult(result: unknown, context?: MutationContext): void {
   if (!isStale && mutation.stats) storageStats = mutation.stats
   if (Array.isArray(mutation.removedKeys)) {
     const removableKeys = context
-      ? mutation.removedKeys.filter(
-          key => (context.keyRevisions.get(key) ?? 0) === (keyRevisions.get(key) ?? 0)
-        )
+      ? mutation.removedKeys.filter(key => canApplyRemovalForKey(key, context))
       : mutation.removedKeys
     removeMemoryKeys(removableKeys)
   }
@@ -258,18 +293,15 @@ export const dataCache = {
     if (existing) return existing
     const loadKeyRevision = keyRevisions.get(key) ?? 0
     const loadClearAttemptRevision = clearAttemptRevision
-    retainPendingLoad(key)
+    const loadId = retainPendingLoad(key)
     try {
       const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
       if (!isCacheEntry(loaded)) return null
-      if (
-        loadClearAttemptRevision !== clearAttemptRevision ||
-        loadKeyRevision !== (keyRevisions.get(key) ?? 0)
-      ) {
+      if (!(await isPendingLoadCurrent(key, loadKeyRevision, loadClearAttemptRevision))) {
         return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
       }
       loaded.lastAccessedAt = Date.now()
-      advanceKeyRevision(key)
+      advanceKeyRevision(key, loadId)
       memoryCache[key] = loaded
       scheduleTouch(key)
       return loaded as CacheEntry<T>
@@ -277,7 +309,7 @@ export const dataCache = {
       console.error('[DataCache] Failed to load cache entry:', err)
       return null
     } finally {
-      releasePendingLoad(key)
+      releasePendingLoad(key, loadId)
     }
   },
 

@@ -76,6 +76,35 @@ describe('dataCache mutation ordering races', () => {
     secondRead.resolve(null)
     await expect(second).resolves.toBeNull()
   })
+})
+
+describe('dataCache pending-load mutation races', () => {
+  beforeEach(resetCache)
+
+  it('applies an eviction to a load that began before the evicting mutation', async () => {
+    const read = deferred<unknown>()
+    const write = deferred<unknown>()
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => read.promise)
+      .mockImplementationOnce(() => write.promise)
+
+    const loading = dataCache.getOrLoad<string>('evicted-pending-load')
+    dataCache.set('eviction-trigger', 'value')
+    read.resolve({
+      data: 'loaded-before-eviction',
+      fetchedAt: Date.now(),
+      schemaVersion: 1,
+      lastAccessedAt: Date.now(),
+      serializedBytes: 22,
+    })
+    await expect(loading).resolves.toEqual(
+      expect.objectContaining({ data: 'loaded-before-eviction' })
+    )
+
+    write.resolve({ success: true, removedKeys: ['evicted-pending-load'] })
+    await vi.waitFor(() => expect(dataCache.get('evicted-pending-load')).toBeNull())
+  })
 
   it('does not restore a pending schema sibling after replacement', async () => {
     const oldRead = deferred<{
@@ -151,6 +180,10 @@ describe('dataCache clear ordering races', () => {
     ])
     expect(dataCache.get('post-clear')?.data).toBe('fresh')
   })
+})
+
+describe('dataCache clear and lazy-read outcomes', () => {
+  beforeEach(resetCache)
 
   it('rejects a pre-clear lazy read that resolves while clear is pending', async () => {
     const read = deferred<{
@@ -176,10 +209,35 @@ describe('dataCache clear ordering races', () => {
       serializedBytes: 7,
     })
 
-    await expect(loading).resolves.toBeNull()
     clearing.resolve(undefined)
     await expect(clearResult).resolves.toBe(true)
+    await expect(loading).resolves.toBeNull()
     expect(dataCache.get('pending-before-clear')).toBeNull()
+  })
+
+  it('accepts a pre-clear lazy read after the clear fails', async () => {
+    const read = deferred<unknown>()
+    const clearing = deferred<unknown>()
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockInvoke.mockReset()
+    mockInvoke
+      .mockImplementationOnce(() => read.promise)
+      .mockImplementationOnce(() => clearing.promise)
+
+    const loading = dataCache.getOrLoad<string>('pending-before-failed-clear')
+    const clearResult = dataCache.clear()
+    read.resolve({
+      data: 'still-persisted',
+      fetchedAt: Date.now(),
+      schemaVersion: 1,
+      lastAccessedAt: Date.now(),
+      serializedBytes: 15,
+    })
+    clearing.reject(new Error('disk clear failed'))
+
+    await expect(clearResult).resolves.toBe(false)
+    await expect(loading).resolves.toEqual(expect.objectContaining({ data: 'still-persisted' }))
+    spy.mockRestore()
   })
 })
 

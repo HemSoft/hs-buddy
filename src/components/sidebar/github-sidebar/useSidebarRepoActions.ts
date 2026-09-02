@@ -22,6 +22,7 @@ type EnqueueFn = (
 ) => Promise<unknown>
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
+const pendingRepoFetches = new Map<string, Promise<void>>()
 
 function addToLoadingSet(setter: LoadingSetSetter, key: string) {
   setter(prev => new Set(prev).add(key))
@@ -40,13 +41,13 @@ function isCacheHitFresh(maxAgeMs: number | null | undefined, cacheKey: string):
   return typeof maxAgeMs === 'number' && dataCache.isFresh(cacheKey, maxAgeMs)
 }
 
-function shouldUseCachedData<TRaw>(
+async function shouldUseCachedData<TRaw>(
   cacheKey: string,
   forceRefresh: boolean | undefined,
   maxAgeMs: number | null | undefined,
   onData: (data: TRaw) => void
-): boolean {
-  const cached = dataCache.get<TRaw>(cacheKey)
+): Promise<boolean> {
+  const cached = await dataCache.getOrLoad<TRaw>(cacheKey)
   if (!cached?.data || forceRefresh) return false
   onData(cached.data)
   return isCacheHitFresh(maxAgeMs, cacheKey)
@@ -65,7 +66,37 @@ async function fetchCachedRepoData<TRaw>(opts: {
   forceRefresh?: boolean
   maxAgeMs?: number | null
 }): Promise<void> {
-  if (shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData)) return
+  const pending = pendingRepoFetches.get(opts.cacheKey)
+  if (pending) {
+    await pending
+    return
+  }
+  const operation = runCachedRepoDataFetch(opts)
+  pendingRepoFetches.set(opts.cacheKey, operation)
+  try {
+    await operation
+  } finally {
+    if (pendingRepoFetches.get(opts.cacheKey) === operation) {
+      pendingRepoFetches.delete(opts.cacheKey)
+    }
+  }
+}
+
+async function runCachedRepoDataFetch<TRaw>(opts: {
+  key: string
+  cacheKey: string
+  loadingSetter: LoadingSetSetter
+  enqueue: EnqueueFn
+  taskName: string
+  logLabel: string
+  apiFn: () => Promise<TRaw>
+  onData: (data: TRaw) => void
+  afterFetch?: (result: TRaw) => void
+  forceRefresh?: boolean
+  maxAgeMs?: number | null
+}): Promise<void> {
+  if (await shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData))
+    return
   addToLoadingSet(opts.loadingSetter, opts.key)
   try {
     const result = (await opts.enqueue(

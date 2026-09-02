@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-01T21:45:39.254Z",
+  "updatedAt": "2026-09-01T23:33:25.856Z",
   "bundles": [
     {
       "file": "dist/assets/emacs-lisp.js",
@@ -8,8 +8,8 @@
     },
     {
       "file": "dist/assets/app.js",
-      "sizeBytes": 717024,
-      "sizeHuman": "700.22 kB"
+      "sizeBytes": 719036,
+      "sizeHuman": "702.18 kB"
     },
     {
       "file": "dist/assets/cpp.js",
@@ -23,7 +23,7 @@
     },
     {
       "file": "dist/assets/TerminalPane.js",
-      "sizeBytes": 375470,
+      "sizeBytes": 375472,
       "sizeHuman": "366.67 kB"
     },
     {
@@ -57,6 +57,11 @@
       "sizeHuman": "179.68 kB"
     },
     {
+      "file": "dist-electron/app.js",
+      "sizeBytes": 182577,
+      "sizeHuman": "178.30 kB"
+    },
+    {
       "file": "dist/assets/typescript.js",
       "sizeBytes": 181204,
       "sizeHuman": "176.96 kB"
@@ -65,11 +70,6 @@
       "file": "dist/assets/jsx.js",
       "sizeBytes": 177916,
       "sizeHuman": "173.75 kB"
-    },
-    {
-      "file": "dist-electron/app.js",
-      "sizeBytes": 177518,
-      "sizeHuman": "173.36 kB"
     },
     {
       "file": "dist/assets/tsx.js",
@@ -88,7 +88,7 @@
     },
     {
       "file": "dist/assets/FolderExplorerView.js",
-      "sizeBytes": 154581,
+      "sizeBytes": 154583,
       "sizeHuman": "150.96 kB"
     },
     {
@@ -118,7 +118,7 @@
     },
     {
       "file": "dist/assets/ScheduleOverviewPanel.js",
-      "sizeBytes": 104159,
+      "sizeBytes": 104161,
       "sizeHuman": "101.72 kB"
     },
     {
@@ -148,7 +148,7 @@
     },
     {
       "file": "dist/assets/PullRequestDetailPanel.js",
-      "sizeBytes": 83957,
+      "sizeBytes": 83959,
       "sizeHuman": "81.99 kB"
     },
     {
@@ -308,7 +308,7 @@
     },
     {
       "file": "dist/assets/OrgDetailPanel.js",
-      "sizeBytes": 39902,
+      "sizeBytes": 39904,
       "sizeHuman": "38.97 kB"
     },
     {
@@ -368,7 +368,7 @@
     },
     {
       "file": "dist/assets/TempoDashboard.js",
-      "sizeBytes": 32538,
+      "sizeBytes": 32540,
       "sizeHuman": "31.78 kB"
     },
     {
@@ -478,8 +478,8 @@
     },
     {
       "file": "dist/assets/RalphDashboard.js",
-      "sizeBytes": 24980,
-      "sizeHuman": "24.39 kB"
+      "sizeBytes": 24982,
+      "sizeHuman": "24.40 kB"
     },
     {
       "file": "dist/assets/vue.js",
@@ -493,8 +493,8 @@
     },
     {
       "file": "dist/assets/UserDetailPanel.js",
-      "sizeBytes": 24602,
-      "sizeHuman": "24.03 kB"
+      "sizeBytes": 24600,
+      "sizeHuman": "24.02 kB"
     },
     {
       "file": "dist/assets/angular-html.js",
@@ -538,7 +538,7 @@
     },
     {
       "file": "dist/assets/PullRequestList.js",
-      "sizeBytes": 22967,
+      "sizeBytes": 22969,
       "sizeHuman": "22.43 kB"
     },
     {
@@ -588,7 +588,7 @@
     },
     {
       "file": "dist/assets/JobDetailPanel.js",
-      "sizeBytes": 22126,
+      "sizeBytes": 22128,
       "sizeHuman": "21.61 kB"
     },
     {
@@ -613,8 +613,8 @@
     },
     {
       "file": "dist/assets/ScheduleDetailPanel.js",
-      "sizeBytes": 21304,
-      "sizeHuman": "20.80 kB"
+      "sizeBytes": 21306,
+      "sizeHuman": "20.81 kB"
     },
     {
       "file": "dist/assets/dracula-soft.js",
@@ -643,7 +643,7 @@
     },
     {
       "file": "dist/assets/CopilotUsagePanel.js",
-      "sizeBytes": 20524,
+      "sizeBytes": 20526,
       "sizeHuman": "20.04 kB"
     },
     {
@@ -833,8 +833,8 @@
     },
     {
       "file": "dist/assets/SettingsAccounts.js",
-      "sizeBytes": 15262,
-      "sizeHuman": "14.90 kB"
+      "sizeBytes": 15264,
+      "sizeHuman": "14.91 kB"
     },
     {
       "file": "dist/assets/TempoDashboard.css",
@@ -892,14 +892,14 @@
       "sizeHuman": "13.79 kB"
     },
     {
+      "file": "dist-electron/preload.mjs",
+      "sizeBytes": 14013,
+      "sizeHuman": "13.68 kB"
+    },
+    {
       "file": "dist/assets/pug.js",
       "sizeBytes": 13977,
       "sizeHuman": "13.65 kB"
-    },
-    {
-      "file": "dist-electron/preload.mjs",
-      "sizeBytes": 13959,
-      "sizeHuman": "13.63 kB"
     },
     {
       "file": "dist/assets/vitesse-dark.js",
@@ -938,7 +938,7 @@
     },
     {
       "file": "dist/assets/RepoDetailPanel.js",
-      "sizeBytes": 12966,
+      "sizeBytes": 12968,
       "sizeHuman": "12.66 kB"
     },
     {
@@ -1003,7 +1003,7 @@
     },
     {
       "file": "dist/assets/BookmarkList.js",
-      "sizeBytes": 11379,
+      "sizeBytes": 11381,
       "sizeHuman": "11.11 kB"
     },
     {
@@ -1013,12 +1013,12 @@
     },
     {
       "file": "dist/assets/RunList.js",
-      "sizeBytes": 11194,
+      "sizeBytes": 11196,
       "sizeHuman": "10.93 kB"
     },
     {
       "file": "dist/assets/PRReviewPanel.js",
-      "sizeBytes": 11081,
+      "sizeBytes": 11083,
       "sizeHuman": "10.82 kB"
     },
     {
@@ -1033,7 +1033,7 @@
     },
     {
       "file": "dist/assets/SettingsAppearance.js",
-      "sizeBytes": 10657,
+      "sizeBytes": 10659,
       "sizeHuman": "10.41 kB"
     },
     {
@@ -1183,7 +1183,7 @@
     },
     {
       "file": "dist/assets/TaskPlannerView.js",
-      "sizeBytes": 8519,
+      "sizeBytes": 8521,
       "sizeHuman": "8.32 kB"
     },
     {
@@ -1193,7 +1193,7 @@
     },
     {
       "file": "dist/assets/RepoIssueList.js",
-      "sizeBytes": 8430,
+      "sizeBytes": 8432,
       "sizeHuman": "8.23 kB"
     },
     {
@@ -1233,7 +1233,7 @@
     },
     {
       "file": "dist/assets/RepoIssueDetailPanel.js",
-      "sizeBytes": 7905,
+      "sizeBytes": 7907,
       "sizeHuman": "7.72 kB"
     },
     {
@@ -1247,18 +1247,18 @@
       "sizeHuman": "7.59 kB"
     },
     {
+      "file": "dist/assets/contracts.js",
+      "sizeBytes": 7728,
+      "sizeHuman": "7.55 kB"
+    },
+    {
       "file": "dist/assets/SessionDetail.js",
-      "sizeBytes": 7723,
+      "sizeBytes": 7725,
       "sizeHuman": "7.54 kB"
     },
     {
-      "file": "dist/assets/contracts.js",
-      "sizeBytes": 7674,
-      "sizeHuman": "7.49 kB"
-    },
-    {
       "file": "dist/assets/CrewProjectView.js",
-      "sizeBytes": 7601,
+      "sizeBytes": 7603,
       "sizeHuman": "7.42 kB"
     },
     {
@@ -1273,7 +1273,7 @@
     },
     {
       "file": "dist/assets/RalphRunDetailPanel.js",
-      "sizeBytes": 7292,
+      "sizeBytes": 7294,
       "sizeHuman": "7.12 kB"
     },
     {
@@ -1288,7 +1288,7 @@
     },
     {
       "file": "dist/assets/CopilotResultPanel.js",
-      "sizeBytes": 7022,
+      "sizeBytes": 7024,
       "sizeHuman": "6.86 kB"
     },
     {
@@ -1313,12 +1313,12 @@
     },
     {
       "file": "dist/assets/ModelPicker.js",
-      "sizeBytes": 6837,
+      "sizeBytes": 6839,
       "sizeHuman": "6.68 kB"
     },
     {
       "file": "dist/assets/RepoPullRequestList.js",
-      "sizeBytes": 6788,
+      "sizeBytes": 6790,
       "sizeHuman": "6.63 kB"
     },
     {
@@ -1348,8 +1348,8 @@
     },
     {
       "file": "dist/assets/SettingsCopilot.js",
-      "sizeBytes": 6548,
-      "sizeHuman": "6.39 kB"
+      "sizeBytes": 6550,
+      "sizeHuman": "6.40 kB"
     },
     {
       "file": "dist/assets/postcss.js",
@@ -1392,11 +1392,6 @@
       "sizeHuman": "6.20 kB"
     },
     {
-      "file": "dist/assets/SessionExplorer.js",
-      "sizeBytes": 6320,
-      "sizeHuman": "6.17 kB"
-    },
-    {
       "file": "dist/assets/RepoIssueDetailPanel.css",
       "sizeBytes": 6255,
       "sizeHuman": "6.11 kB"
@@ -1437,6 +1432,11 @@
       "sizeHuman": "5.85 kB"
     },
     {
+      "file": "dist/assets/SessionExplorer.js",
+      "sizeBytes": 5941,
+      "sizeHuman": "5.80 kB"
+    },
+    {
       "file": "dist/assets/lean.js",
       "sizeBytes": 5876,
       "sizeHuman": "5.74 kB"
@@ -1463,8 +1463,13 @@
     },
     {
       "file": "dist/assets/AssistantPanel.js",
-      "sizeBytes": 5595,
-      "sizeHuman": "5.46 kB"
+      "sizeBytes": 5597,
+      "sizeHuman": "5.47 kB"
+    },
+    {
+      "file": "dist/assets/SettingsAdvanced.js",
+      "sizeBytes": 5570,
+      "sizeHuman": "5.44 kB"
     },
     {
       "file": "dist/assets/awk.js",
@@ -1488,8 +1493,8 @@
     },
     {
       "file": "dist/assets/CopilotPromptBox.js",
-      "sizeBytes": 5441,
-      "sizeHuman": "5.31 kB"
+      "sizeBytes": 5443,
+      "sizeHuman": "5.32 kB"
     },
     {
       "file": "dist/assets/qml.js",
@@ -1508,8 +1513,8 @@
     },
     {
       "file": "dist/assets/SettingsNotifications.js",
-      "sizeBytes": 5359,
-      "sizeHuman": "5.23 kB"
+      "sizeBytes": 5361,
+      "sizeHuman": "5.24 kB"
     },
     {
       "file": "dist/assets/wgsl.js",
@@ -1523,12 +1528,12 @@
     },
     {
       "file": "dist/assets/SettingsWeather.js",
-      "sizeBytes": 5107,
+      "sizeBytes": 5109,
       "sizeHuman": "4.99 kB"
     },
     {
       "file": "dist/assets/RepoCommitDetailPanel.js",
-      "sizeBytes": 5015,
+      "sizeBytes": 5017,
       "sizeHuman": "4.90 kB"
     },
     {
@@ -1543,8 +1548,8 @@
     },
     {
       "file": "dist/assets/InlineDropdown.js",
-      "sizeBytes": 4837,
-      "sizeHuman": "4.72 kB"
+      "sizeBytes": 4839,
+      "sizeHuman": "4.73 kB"
     },
     {
       "file": "dist/assets/sdbl.js",
@@ -1597,11 +1602,6 @@
       "sizeHuman": "4.42 kB"
     },
     {
-      "file": "dist/assets/SettingsAdvanced.js",
-      "sizeBytes": 4430,
-      "sizeHuman": "4.33 kB"
-    },
-    {
       "file": "dist/assets/CopilotResultPanel.css",
       "sizeBytes": 4402,
       "sizeHuman": "4.30 kB"
@@ -1618,12 +1618,12 @@
     },
     {
       "file": "dist/assets/TerminalWorkspaceView.js",
-      "sizeBytes": 4157,
-      "sizeHuman": "4.06 kB"
+      "sizeBytes": 4163,
+      "sizeHuman": "4.07 kB"
     },
     {
       "file": "dist/assets/CopilotResultsList.js",
-      "sizeBytes": 4102,
+      "sizeBytes": 4104,
       "sizeHuman": "4.01 kB"
     },
     {
@@ -1723,8 +1723,8 @@
     },
     {
       "file": "dist/assets/SettingsPullRequests.js",
-      "sizeBytes": 3393,
-      "sizeHuman": "3.31 kB"
+      "sizeBytes": 3395,
+      "sizeHuman": "3.32 kB"
     },
     {
       "file": "dist/assets/tasl.js",
@@ -1763,12 +1763,12 @@
     },
     {
       "file": "dist/assets/RepoCommitListPanel.js",
-      "sizeBytes": 3184,
+      "sizeBytes": 3186,
       "sizeHuman": "3.11 kB"
     },
     {
       "file": "dist/assets/ExpandableFileList.js",
-      "sizeBytes": 3177,
+      "sizeBytes": 3179,
       "sizeHuman": "3.10 kB"
     },
     {
@@ -1888,7 +1888,7 @@
     },
     {
       "file": "dist/assets/PremiumUsageBadge.js",
-      "sizeBytes": 1865,
+      "sizeBytes": 1867,
       "sizeHuman": "1.82 kB"
     },
     {
@@ -1917,13 +1917,13 @@
       "sizeHuman": "1.58 kB"
     },
     {
-      "file": "dist/assets/sparql.js",
-      "sizeBytes": 1578,
-      "sizeHuman": "1.54 kB"
+      "file": "dist/assets/useGitHubData.js",
+      "sizeBytes": 1593,
+      "sizeHuman": "1.56 kB"
     },
     {
-      "file": "dist/assets/useGitHubData.js",
-      "sizeBytes": 1577,
+      "file": "dist/assets/sparql.js",
+      "sizeBytes": 1578,
       "sizeHuman": "1.54 kB"
     },
     {
@@ -1938,7 +1938,7 @@
     },
     {
       "file": "dist/assets/useViewMode.js",
-      "sizeBytes": 1379,
+      "sizeBytes": 1381,
       "sizeHuman": "1.35 kB"
     },
     {
@@ -1973,7 +1973,7 @@
     },
     {
       "file": "dist/assets/useCopilotSessions.js",
-      "sizeBytes": 1083,
+      "sizeBytes": 1085,
       "sizeHuman": "1.06 kB"
     },
     {
@@ -1983,8 +1983,8 @@
     },
     {
       "file": "dist/assets/PRStateIcon.js",
-      "sizeBytes": 1000,
-      "sizeHuman": "1000 B"
+      "sizeBytes": 1002,
+      "sizeHuman": "1002 B"
     },
     {
       "file": "dist/assets/html-derivative.js",
@@ -2038,8 +2038,8 @@
     },
     {
       "file": "dist/assets/jobRowUtils.js",
-      "sizeBytes": 542,
-      "sizeHuman": "542 B"
+      "sizeBytes": 544,
+      "sizeHuman": "544 B"
     },
     {
       "file": "dist/assets/copilotFormatUtils.js",
@@ -2050,6 +2050,11 @@
       "file": "dist/assets/toggle-right.js",
       "sizeBytes": 509,
       "sizeHuman": "509 B"
+    },
+    {
+      "file": "dist/assets/hard-drive.js",
+      "sizeBytes": 496,
+      "sizeHuman": "496 B"
     },
     {
       "file": "dist/assets/calendar-clock.js",
@@ -2178,8 +2183,8 @@
     },
     {
       "file": "dist/assets/index.js",
-      "sizeBytes": 73,
-      "sizeHuman": "73 B"
+      "sizeBytes": 75,
+      "sizeHuman": "75 B"
     }
   ]
 }

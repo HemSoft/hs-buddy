@@ -51,6 +51,7 @@ describeFeature(feature, ({ Scenario }) => {
   Scenario('Store and retrieve data', ({ Given, When, Then, And }) => {
     Given('an empty cache', async () => {
       await resetCache()
+      vi.spyOn(Date, 'now').mockReturnValue(1000)
     })
     When('setting key "my-prs" with data "hello" at timestamp 1000', () => {
       dataCache.set('my-prs', 'hello', 1000)
@@ -66,6 +67,7 @@ describeFeature(feature, ({ Scenario }) => {
   Scenario('Overwrite existing entries', ({ Given, When, Then, And }) => {
     Given('an empty cache', async () => {
       await resetCache()
+      vi.spyOn(Date, 'now').mockReturnValue(200)
     })
     When('setting key "k" with data "v1" at timestamp 100', () => {
       dataCache.set('k', 'v1', 100)

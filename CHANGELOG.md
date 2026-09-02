@@ -9,6 +9,114 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1103] - 2026-09-02
+
+### Fixed
+
+- Install lazy loads atomically
+
+## [0.1.1102] - 2026-09-02
+
+### Fixed
+
+- Retain stable Tempo account identity
+
+## [0.1.1101] - 2026-09-02
+
+### Fixed
+
+- Reconcile pending loads with mutations
+
+## [0.1.1100] - 2026-09-02
+
+### Fixed
+
+- Hydrate before forced org refresh
+
+## [0.1.1099] - 2026-09-02
+
+### Fixed
+
+- Cancel stale deferred mutations
+
+## [0.1.1098] - 2026-09-02
+
+### Fixed
+
+- Preserve mutations after failed clear
+
+## [0.1.1097] - 2026-09-02
+
+### Fixed
+
+- Close final async ordering races
+
+## [0.1.1096] - 2026-09-02
+
+### Changed
+
+- Split touch cleanup coverage
+
+## [0.1.1095] - 2026-09-02
+
+### Fixed
+
+- Align org cache setter type
+
+## [0.1.1094] - 2026-09-02
+
+### Fixed
+
+- Order async cache mutations
+
+## [0.1.1093] - 2026-09-02
+
+### Fixed
+
+- Expire synchronous renderer reads
+
+## [0.1.1092] - 2026-09-02
+
+### Fixed
+
+- Serialize clear and lazy cache operations
+
+## [0.1.1091] - 2026-09-02
+
+### Fixed
+
+- Harden long-session cache consistency
+
+## [0.1.1090] - 2026-09-02
+
+### Fixed
+
+- Resolve current-head consistency findings
+
+## [0.1.1089] - 2026-09-02
+
+### Changed
+
+- Satisfy strict quality gate
+
+## [0.1.1088] - 2026-09-01
+
+### Fixed
+
+- Address current-head review findings
+
+## [0.1.1087] - 2026-09-01
+
+### Changed
+
+- Accept cache settings bundle size
+
+## [0.1.1086] - 2026-09-01
+
+### Added
+
+- Bound persistent renderer data cache (#627)
+
 ## [0.1.1085] - 2026-09-01
 
 ### Changed

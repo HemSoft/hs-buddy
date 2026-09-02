@@ -1,21 +1,24 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mockReadDataCache = vi.fn()
-const mockWriteDataCacheEntry = vi.fn()
-const mockDeleteDataCacheEntry = vi.fn()
-const mockClearDataCache = vi.fn()
-
-vi.mock('electron', () => ({
-  ipcMain: {
-    handle: vi.fn(),
-  },
+const mocks = vi.hoisted(() => ({
+  initialize: vi.fn(),
+  read: vi.fn(),
+  touch: vi.fn(),
+  stats: vi.fn(),
+  write: vi.fn(),
+  delete: vi.fn(),
+  clear: vi.fn(),
 }))
 
+vi.mock('electron', () => ({ ipcMain: { handle: vi.fn() } }))
 vi.mock('../cache', () => ({
-  readDataCache: (...args: unknown[]) => mockReadDataCache(...args),
-  writeDataCacheEntry: (...args: unknown[]) => mockWriteDataCacheEntry(...args),
-  deleteDataCacheEntry: (...args: unknown[]) => mockDeleteDataCacheEntry(...args),
-  clearDataCache: (...args: unknown[]) => mockClearDataCache(...args),
+  initializeDataCache: mocks.initialize,
+  loadDataCacheEntry: mocks.read,
+  touchDataCacheEntries: mocks.touch,
+  getDataCacheStats: mocks.stats,
+  writeDataCacheEntry: mocks.write,
+  deleteDataCacheEntry: mocks.delete,
+  clearDataCache: mocks.clear,
 }))
 
 import { ipcMain } from 'electron'
@@ -31,47 +34,68 @@ describe('cacheHandlers', () => {
     vi.mocked(ipcMain.handle).mockImplementation((channel, handler) => {
       handlers.set(channel, handler)
     })
+    mocks.write.mockReturnValue({ stats: { entryCount: 1, totalBytes: 4 }, removedKeys: [] })
+    mocks.touch.mockReturnValue({ stats: { entryCount: 1, totalBytes: 4 }, removedKeys: [] })
+    mocks.delete.mockReturnValue({ stats: { entryCount: 0, totalBytes: 0 }, removedKeys: ['key'] })
+    mocks.clear.mockReturnValue({ stats: { entryCount: 0, totalBytes: 0 }, removedKeys: [] })
     registerCacheHandlers()
   })
 
-  it('registers all expected IPC channels', () => {
-    expect(handlers.has('cache:read-all')).toBe(true)
-    expect(handlers.has('cache:write')).toBe(true)
-    expect(handlers.has('cache:delete')).toBe(true)
-    expect(handlers.has('cache:clear')).toBe(true)
+  it('registers bounded cache IPC channels', () => {
+    expect(Array.from(handlers.keys()).sort()).toEqual(
+      [
+        'cache:initialize',
+        'cache:read',
+        'cache:touch',
+        'cache:stats',
+        'cache:write',
+        'cache:delete',
+        'cache:clear',
+      ].sort()
+    )
   })
 
-  describe('cache:read-all', () => {
-    it('returns the full cache contents', () => {
-      const mockData = { key1: { data: 'val', fetchedAt: 1000 } }
-      mockReadDataCache.mockReturnValue(mockData)
-      const result = handlers.get('cache:read-all')!()
-      expect(result).toEqual(mockData)
+  it('returns pruned startup entries', () => {
+    const initialization = { entries: {}, stats: { entryCount: 0, totalBytes: 0 } }
+    mocks.initialize.mockReturnValue(initialization)
+    expect(handlers.get('cache:initialize')!()).toBe(initialization)
+  })
+
+  it('reads one entry and storage stats', () => {
+    const entry = { data: 'value', fetchedAt: 1 }
+    const stats = { entryCount: 1, totalBytes: 7 }
+    mocks.read.mockReturnValue(entry)
+    mocks.stats.mockReturnValue(stats)
+
+    expect(handlers.get('cache:read')!({}, 'key')).toBe(entry)
+    expect(mocks.read).toHaveBeenCalledWith('key')
+    expect(handlers.get('cache:stats')!()).toBe(stats)
+  })
+
+  it('persists batched access timestamps', () => {
+    expect(handlers.get('cache:touch')!({}, ['one', 'two'])).toMatchObject({
+      success: true,
+      stats: { entryCount: 1, totalBytes: 4 },
     })
+    expect(mocks.touch).toHaveBeenCalledWith(['one', 'two'])
   })
 
-  describe('cache:write', () => {
-    it('writes the entry and returns success', () => {
-      const entry = { data: 'test', fetchedAt: 1000 }
-      const result = handlers.get('cache:write')!({}, 'myKey', entry)
-      expect(mockWriteDataCacheEntry).toHaveBeenCalledWith('myKey', entry)
-      expect(result).toEqual({ success: true })
+  it('returns write, delete, and clear mutation details', () => {
+    const entry = { data: 'test', fetchedAt: 1000 }
+
+    expect(handlers.get('cache:write')!({}, 'key', entry)).toMatchObject({
+      success: true,
+      stats: { entryCount: 1, totalBytes: 4 },
     })
-  })
-
-  describe('cache:delete', () => {
-    it('deletes the entry and returns success', () => {
-      const result = handlers.get('cache:delete')!({}, 'myKey')
-      expect(mockDeleteDataCacheEntry).toHaveBeenCalledWith('myKey')
-      expect(result).toEqual({ success: true })
+    expect(mocks.write).toHaveBeenCalledWith('key', entry)
+    expect(handlers.get('cache:delete')!({}, 'key')).toMatchObject({
+      success: true,
+      removedKeys: ['key'],
     })
-  })
-
-  describe('cache:clear', () => {
-    it('clears the cache and returns success', () => {
-      const result = handlers.get('cache:clear')!()
-      expect(mockClearDataCache).toHaveBeenCalled()
-      expect(result).toEqual({ success: true })
+    expect(handlers.get('cache:clear')!()).toEqual({
+      success: true,
+      stats: { entryCount: 0, totalBytes: 0 },
+      removedKeys: [],
     })
   })
 })

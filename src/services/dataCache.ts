@@ -1,30 +1,180 @@
 /**
- * Persistent Data Cache Service
+ * Bounded persistent data cache.
  *
- * Provides in-memory caching with automatic disk persistence via electron-store IPC.
- * Data survives app restarts — hydrated from disk on initialization, written through
- * on every set operation.
- *
- * Usage:
- *   await dataCache.initialize()  // Call once before rendering
- *   dataCache.get('my-prs')       // Read (sync, from memory)
- *   dataCache.set('my-prs', data) // Write (sync in memory, async to disk)
- *   dataCache.isFresh('my-prs', 15 * 60 * 1000)  // Check staleness
+ * Startup hydrates only critical PR and organization summaries. Large list and detail
+ * payloads remain on disk until getOrLoad() requests their exact key.
  */
 
 import { MS_PER_MINUTE } from '../constants'
 import { IPC_INVOKE } from '../ipc/contracts'
+import {
+  createPersistedCacheEntry,
+  getCacheTtlMs,
+  getReplacementSiblingKeys,
+  isIncomingCacheVersionSuperseded,
+  type DataCacheStorageStats,
+  type PersistedCacheEntry,
+  type PersistedDataCache,
+} from './dataCachePolicy'
 
-interface CacheEntry<T = unknown> {
+export interface CacheEntry<T = unknown> {
   data: T
   fetchedAt: number
+  schemaVersion?: number
+  lastAccessedAt?: number
+  serializedBytes?: number
 }
 
 type CacheListener = (key: string) => void
 
-const memoryCache: Record<string, CacheEntry> = {}
+interface CacheInitializationResult {
+  entries: PersistedDataCache
+  stats: DataCacheStorageStats
+  removedKeys: string[]
+}
+
+interface CacheMutationResult {
+  success: boolean
+  stats?: DataCacheStorageStats
+  removedKeys?: string[]
+}
+
+interface MutationContext {
+  sequence: number
+  keyRevisions: Map<string, number>
+  pendingLoadIds: Map<string, Set<number>>
+}
+
+const memoryCache: PersistedDataCache = {}
 const listeners: Set<CacheListener> = new Set()
 let initialized = false
+let storageStats: DataCacheStorageStats = { entryCount: 0, totalBytes: 0 }
+const pendingTouchKeys = new Set<string>()
+let touchTimer: ReturnType<typeof setTimeout> | null = null
+let touchFlushPromise: Promise<void> | null = null
+const keyRevisions = new Map<string, number>()
+const pendingLoadCounts = new Map<string, number>()
+const pendingLoadIds = new Map<string, Set<number>>()
+const lastAppliedLoadIds = new Map<string, number>()
+let nextKeyRevision = 0
+let nextLoadId = 0
+let clearAttemptRevision = 0
+let lastSuccessfulClearAttemptRevision = 0
+let mutationSequence = 0
+let lastAppliedMutationSequence = 0
+let clearGate: Promise<void> | null = null
+
+async function waitForActiveClear(): Promise<void> {
+  while (clearGate) await clearGate
+}
+
+function advanceKeyRevision(key: string, appliedLoadId?: number): void {
+  keyRevisions.set(key, ++nextKeyRevision)
+  if (appliedLoadId === undefined) lastAppliedLoadIds.delete(key)
+  else lastAppliedLoadIds.set(key, appliedLoadId)
+}
+
+function retainPendingLoad(key: string): number {
+  const loadId = ++nextLoadId
+  pendingLoadCounts.set(key, (pendingLoadCounts.get(key) ?? 0) + 1)
+  const ids = pendingLoadIds.get(key) ?? new Set<number>()
+  ids.add(loadId)
+  pendingLoadIds.set(key, ids)
+  return loadId
+}
+
+function releasePendingLoad(key: string, loadId: number): void {
+  const remaining = pendingLoadCounts.get(key)! - 1
+  if (remaining > 0) pendingLoadCounts.set(key, remaining)
+  else pendingLoadCounts.delete(key)
+  const ids = pendingLoadIds.get(key)
+  ids?.delete(loadId)
+  if (ids?.size === 0) pendingLoadIds.delete(key)
+  cleanKeyRevision(key)
+}
+
+function cleanKeyRevision(key: string): void {
+  if (
+    !Object.hasOwn(memoryCache, key) &&
+    !pendingLoadCounts.has(key) &&
+    !pendingTouchKeys.has(key)
+  ) {
+    keyRevisions.delete(key)
+    lastAppliedLoadIds.delete(key)
+  }
+}
+
+function evictExpiredMemoryEntry(key: string): void {
+  const entry = memoryCache[key]
+  if (!entry || Date.now() - entry.fetchedAt < getCacheTtlMs(key)) return
+  advanceKeyRevision(key)
+  pendingTouchKeys.delete(key)
+  delete memoryCache[key]
+  notifyListeners(key)
+  cleanKeyRevision(key)
+}
+
+function createMutationContext(): MutationContext {
+  return {
+    sequence: ++mutationSequence,
+    keyRevisions: new Map(keyRevisions),
+    pendingLoadIds: new Map(
+      Array.from(pendingLoadIds, ([key, ids]) => [key, new Set(ids)] as const)
+    ),
+  }
+}
+
+async function flushPendingTouches(): Promise<void> {
+  touchTimer = null
+  if (touchFlushPromise) {
+    await touchFlushPromise
+    await flushPendingTouches()
+    return
+  }
+  const keys = Array.from(pendingTouchKeys)
+  pendingTouchKeys.clear()
+  if (keys.length === 0) return
+  const context = createMutationContext()
+  const touchClearAttemptRevision = clearAttemptRevision
+  const operation = window.ipcRenderer
+    .invoke(IPC_INVOKE.CACHE_TOUCH, keys)
+    .then(async result => {
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision <= touchClearAttemptRevision) {
+        applyMutationResult(result, context)
+      }
+    })
+    .catch(async err => {
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision <= touchClearAttemptRevision) {
+        for (const key of keys) {
+          if (Object.hasOwn(memoryCache, key)) scheduleTouch(key)
+        }
+      }
+      console.error('[DataCache] Failed to persist access times:', err)
+    })
+    .finally(() => {
+      touchFlushPromise = null
+    })
+  touchFlushPromise = operation
+  await operation
+}
+
+function scheduleTouch(key: string): void {
+  pendingTouchKeys.add(key)
+  touchTimer ??= setTimeout(() => void flushPendingTouches(), 1000)
+}
+
+function cancelPendingTouches(): void {
+  pendingTouchKeys.clear()
+  if (touchTimer) clearTimeout(touchTimer)
+  touchTimer = null
+}
+
+function discardPendingTouches(keys: readonly string[]): void {
+  for (const key of keys) pendingTouchKeys.delete(key)
+  if (pendingTouchKeys.size === 0) cancelPendingTouches()
+}
 
 function notifyListeners(key: string): void {
   for (const listener of listeners) {
@@ -36,112 +186,268 @@ function notifyListeners(key: string): void {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isCacheEntry(value: unknown): value is PersistedCacheEntry {
+  return (
+    isRecord(value) &&
+    'data' in value &&
+    typeof value.fetchedAt === 'number' &&
+    typeof value.schemaVersion === 'number' &&
+    typeof value.lastAccessedAt === 'number' &&
+    typeof value.serializedBytes === 'number'
+  )
+}
+
+function removeMemoryKeys(keys: readonly string[]): void {
+  for (const key of keys) {
+    const existed = Object.hasOwn(memoryCache, key)
+    advanceKeyRevision(key)
+    if (existed) {
+      delete memoryCache[key]
+      discardPendingTouches([key])
+      notifyListeners(key)
+    }
+    cleanKeyRevision(key)
+  }
+}
+
+function canApplyRemovalForKey(key: string, context: MutationContext): boolean {
+  if ((context.keyRevisions.get(key) ?? 0) === (keyRevisions.get(key) ?? 0)) return true
+  const appliedLoadId = lastAppliedLoadIds.get(key)
+  return appliedLoadId !== undefined && context.pendingLoadIds.get(key)?.has(appliedLoadId) === true
+}
+
+async function applyPendingLoad<T>(
+  key: string,
+  loaded: PersistedCacheEntry<T>,
+  loadKeyRevision: number,
+  loadClearAttemptRevision: number,
+  loadId: number
+): Promise<CacheEntry<T> | null> {
+  while (clearGate) await waitForActiveClear()
+  if (
+    lastSuccessfulClearAttemptRevision > loadClearAttemptRevision ||
+    loadKeyRevision !== (keyRevisions.get(key) ?? 0)
+  ) {
+    return (memoryCache[key] as CacheEntry<T> | undefined) ?? null
+  }
+  loaded.lastAccessedAt = Date.now()
+  advanceKeyRevision(key, loadId)
+  memoryCache[key] = loaded
+  scheduleTouch(key)
+  return loaded
+}
+
+function applyMutationResult(result: unknown, context?: MutationContext): void {
+  if (!isRecord(result)) return
+  const isStale = context && context.sequence < lastAppliedMutationSequence
+  if (context && !isStale) lastAppliedMutationSequence = context.sequence
+  const mutation = result as unknown as CacheMutationResult
+  if (!isStale && mutation.stats) storageStats = mutation.stats
+  if (Array.isArray(mutation.removedKeys)) {
+    const removableKeys = context
+      ? mutation.removedKeys.filter(key => canApplyRemovalForKey(key, context))
+      : mutation.removedKeys
+    removeMemoryKeys(removableKeys)
+  }
+}
+
 export const dataCache = {
-  /**
-   * Initialize the cache by loading persisted data from disk.
-   * Must be called once before any component mounts.
-   */
+  /** Initialize critical startup entries after main-process pruning. */
   async initialize(): Promise<void> {
     if (initialized) return
     try {
-      const cached = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ_ALL)
-      if (cached && typeof cached === 'object') {
-        Object.assign(memoryCache, cached)
+      const result = (await window.ipcRenderer.invoke(
+        IPC_INVOKE.CACHE_INITIALIZE
+      )) as CacheInitializationResult | null
+      if (result && isRecord(result.entries)) {
+        for (const [key, entry] of Object.entries(result.entries)) {
+          advanceKeyRevision(key)
+          memoryCache[key] = entry
+        }
+        storageStats = result.stats
       }
       initialized = true
       console.log(
         '[DataCache] Initialized with',
         Object.keys(memoryCache).length,
-        'cached entries:',
-        Object.keys(memoryCache).join(', ')
+        'startup entries from',
+        storageStats.entryCount,
+        'persisted entries'
       )
     } catch (err: unknown) {
       console.error('[DataCache] Failed to initialize:', err)
-      initialized = true // Mark as init'd to avoid blocking app startup
+      initialized = true
     }
   },
 
-  /**
-   * Get a cached entry by key. Returns null if not found.
-   * This is a synchronous read from the in-memory cache.
-   */
+  /** Return an entry already loaded into renderer memory. */
   get<T = unknown>(key: string): CacheEntry<T> | null {
-    return (memoryCache[key] as CacheEntry<T>) || null
+    evictExpiredMemoryEntry(key)
+    const entry = memoryCache[key] as CacheEntry<T> | undefined
+    if (!entry) return null
+    const now = Date.now()
+    entry.lastAccessedAt = now
+    scheduleTouch(key)
+    return entry
   },
 
-  /**
-   * Store data in the cache. Updates memory immediately and persists to disk async.
-   * Notifies all subscribers of the update.
-   */
-  set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
-    memoryCache[key] = { data, fetchedAt }
+  /** Load one persisted entry on demand when it was not part of startup hydration. */
+  async getOrLoad<T = unknown>(key: string): Promise<CacheEntry<T> | null> {
+    const activeClear = clearGate
+    if (activeClear) await activeClear
+    evictExpiredMemoryEntry(key)
+    const existing = this.get<T>(key)
+    if (existing) return existing
+    const loadKeyRevision = keyRevisions.get(key) ?? 0
+    const loadClearAttemptRevision = clearAttemptRevision
+    const loadId = retainPendingLoad(key)
+    try {
+      const loaded = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_READ, key)
+      if (!isCacheEntry(loaded)) return null
+      return await applyPendingLoad(
+        key,
+        loaded as PersistedCacheEntry<T>,
+        loadKeyRevision,
+        loadClearAttemptRevision,
+        loadId
+      )
+    } catch (err: unknown) {
+      console.error('[DataCache] Failed to load cache entry:', err)
+      return null
+    } finally {
+      releasePendingLoad(key, loadId)
+    }
+  },
 
+  /** Store data in memory immediately and persist it through the bounded main-process cache. */
+  set<T>(key: string, data: T, fetchedAt: number = Date.now()): void {
+    if (isIncomingCacheVersionSuperseded(memoryCache, key)) return
+    advanceKeyRevision(key)
+    const writeKeyRevision = keyRevisions.get(key)!
+    const writeClearAttemptRevision = clearAttemptRevision
+    const accessedAt = Date.now()
+    const knownKeys = Object.fromEntries([
+      ...Object.keys(memoryCache).map(knownKey => [knownKey, null]),
+      ...Array.from(pendingLoadCounts.keys()).map(knownKey => [knownKey, null]),
+    ])
+    const replacedKeys = getReplacementSiblingKeys(knownKeys, key)
+    removeMemoryKeys(replacedKeys)
+    memoryCache[key] = createPersistedCacheEntry(key, data, fetchedAt, accessedAt)
     notifyListeners(key)
 
-    // Persist to disk asynchronously (fire and forget)
-    window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, { data, fetchedAt }).catch(err => {
+    const persistWrite = async () => {
+      if (clearGate) await waitForActiveClear()
+      const touchBarrier =
+        touchFlushPromise || pendingTouchKeys.size > 0 ? flushPendingTouches() : null
+      if (touchBarrier) await touchBarrier
+      if (clearGate) await waitForActiveClear()
+      if (lastSuccessfulClearAttemptRevision > writeClearAttemptRevision) return
+      if (keyRevisions.get(key) !== writeKeyRevision) return
+      const context = createMutationContext()
+      const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_WRITE, key, {
+        data,
+        fetchedAt,
+      })
+      applyMutationResult(result, context)
+    }
+    persistWrite().catch(err => {
       console.error('[DataCache] Failed to persist to disk:', err)
     })
   },
 
-  /**
-   * Check if a cache entry exists and is within the max age.
-   */
   isFresh(key: string, maxAgeMs: number): boolean {
     const entry = memoryCache[key]
     if (!entry) return false
     return Date.now() - entry.fetchedAt < maxAgeMs
   },
 
-  /**
-   * Subscribe to cache updates. Returns an unsubscribe function.
-   * Listener is called with the cache key that was updated.
-   */
   subscribe(listener: CacheListener): () => void {
     listeners.add(listener)
     return () => listeners.delete(listener)
   },
 
-  /**
-   * Check if the cache has been initialized from disk.
-   */
   isInitialized(): boolean {
     return initialized
   },
 
-  /**
-   * Delete a single cache entry by key (memory + disk).
-   */
   delete(key: string): void {
+    advanceKeyRevision(key)
     delete memoryCache[key]
+    discardPendingTouches([key])
+    cleanKeyRevision(key)
+    const context = createMutationContext()
     const deleteRequest = window.ipcRenderer.invoke(IPC_INVOKE.CACHE_DELETE, key)
     notifyListeners(key)
-    deleteRequest.catch(err => {
-      console.error('[DataCache] Failed to delete from disk:', err)
-    })
+    deleteRequest
+      .then(result => {
+        applyMutationResult(result, context)
+      })
+      .catch(err => {
+        console.error('[DataCache] Failed to delete from disk:', err)
+      })
   },
 
-  /**
-   * Clear all cached data (memory + disk).
-   */
-  async clear(): Promise<void> {
-    const keys = Object.keys(memoryCache)
-    for (const key of keys) {
-      delete memoryCache[key]
-    }
+  async clear(): Promise<boolean> {
+    if (clearGate) await waitForActiveClear()
+    const revisionsAtStart = new Map(
+      Object.keys(memoryCache).map(key => [key, keyRevisions.get(key)!] as const)
+    )
+    const pendingTouchesAtStart = new Map(
+      Array.from(pendingTouchKeys, key => [key, keyRevisions.get(key)!] as const)
+    )
+    let releaseClear!: () => void
+    clearGate = new Promise<void>(resolve => {
+      releaseClear = resolve
+    })
+    const clearAttempt = ++clearAttemptRevision
     try {
-      await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
+      lastSuccessfulClearAttemptRevision = clearAttempt
+      const keys = Array.from(revisionsAtStart)
+        .filter(([key, revision]) => keyRevisions.get(key)! === revision)
+        .map(([key]) => key)
+      const touchKeys = Array.from(pendingTouchesAtStart)
+        .filter(([key, revision]) => keyRevisions.get(key)! === revision)
+        .map(([key]) => key)
+      discardPendingTouches(touchKeys)
+      for (const key of keys) {
+        advanceKeyRevision(key)
+        delete memoryCache[key]
+        cleanKeyRevision(key)
+      }
+      applyMutationResult(result)
+      storageStats = { entryCount: 0, totalBytes: 0 }
+      for (const key of keys) notifyListeners(key)
+      return true
     } catch (err: unknown) {
       console.error('[DataCache] Failed to clear disk cache:', err)
-    }
-    for (const key of keys) {
-      notifyListeners(key)
+      return false
+    } finally {
+      clearGate = null
+      releaseClear()
     }
   },
 
-  /**
-   * Get all cache keys and their ages (useful for debugging).
-   */
+  async getStorageStats(): Promise<DataCacheStorageStats> {
+    try {
+      const stats = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_STATS)
+      if (
+        isRecord(stats) &&
+        typeof stats.entryCount === 'number' &&
+        typeof stats.totalBytes === 'number'
+      ) {
+        storageStats = stats as unknown as DataCacheStorageStats
+      }
+    } catch (err: unknown) {
+      console.error('[DataCache] Failed to read storage stats:', err)
+    }
+    return storageStats
+  },
+
   getStats(): Record<string, { ageMs: number; ageFormatted: string }> {
     const now = Date.now()
     const stats: Record<string, { ageMs: number; ageFormatted: string }> = {}

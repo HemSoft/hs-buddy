@@ -60,15 +60,30 @@ function handleCopilotCatchError(error: unknown, dispatch: CopilotDispatch) {
 }
 /* v8 ignore stop */
 
-function hydrateCachedCopilot(
+async function hydrateCachedCopilot(
   cacheKey: string,
-  forceRefresh: boolean,
-  dispatchCopilot: CopilotDispatch
-): boolean {
-  const cached = getCachedCopilotData(cacheKey)
-  if (!cached || forceRefresh) return false
+  dispatchCopilot: CopilotDispatch,
+  isCurrent?: () => boolean
+): Promise<'stale' | 'hydrated' | 'miss'> {
+  const cached = (await dataCache.getOrLoad<OrgCopilotUsageData>(cacheKey))?.data
+  if (isCurrent?.() === false) return 'stale'
+  if (!cached) return 'miss'
   dispatchCopilot({ type: 'hydrate-cache', usage: cached })
-  return true
+  return 'hydrated'
+}
+
+function shouldStopAfterCacheHydration(
+  result: 'stale' | 'hydrated' | 'miss',
+  forceRefresh: boolean
+): boolean {
+  return result === 'stale' || (result === 'hydrated' && !forceRefresh)
+}
+
+function resolveCopilotHasUsage(
+  hasUsage: boolean,
+  cacheResult: 'stale' | 'hydrated' | 'miss'
+): boolean {
+  return hasUsage || cacheResult === 'hydrated'
 }
 
 export async function runCopilotFetch({
@@ -81,6 +96,7 @@ export async function runCopilotFetch({
   enqueue,
   hasUsage,
   dispatchCopilot,
+  isCurrent,
 }: {
   org: string
   preferredAccount?: string
@@ -91,12 +107,17 @@ export async function runCopilotFetch({
   enqueue: ReturnType<typeof useTaskQueue>['enqueue']
   hasUsage: boolean
   dispatchCopilot: CopilotDispatch
+  isCurrent?: () => boolean
 }): Promise<void> {
   if (isUserNamespace) return
-  if (hydrateCachedCopilot(copilotCacheKey, forceRefresh, dispatchCopilot)) return
+  const cacheResult = await hydrateCachedCopilot(copilotCacheKey, dispatchCopilot, isCurrent)
+  if (shouldStopAfterCacheHydration(cacheResult, forceRefresh)) return
   const queue = getTaskQueue('github')
   if (queue.hasTaskWithName(copilotTaskName)) return
-  dispatchCopilot({ type: 'start-loading', hasUsage })
+  dispatchCopilot({
+    type: 'start-loading',
+    hasUsage: resolveCopilotHasUsage(hasUsage, cacheResult),
+  })
   try {
     const result = await enqueue(
       async signal => {
@@ -105,8 +126,10 @@ export async function runCopilotFetch({
       },
       { name: copilotTaskName, priority: -1 }
     )
+    if (isCurrent?.() === false) return
     handleCopilotFetchResult(result, dispatchCopilot, copilotCacheKey)
   } catch (fetchError: unknown) {
+    if (isCurrent?.() === false) return
     handleCopilotCatchError(fetchError, dispatchCopilot)
   }
 }

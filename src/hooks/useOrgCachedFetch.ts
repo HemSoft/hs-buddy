@@ -23,14 +23,13 @@ function handleOrgFetchError(
   setError(getErrorMessage(error))
 }
 
-/** Resolve cached data, returning null when forceRefresh is requested. */
-function resolveCachedData<T>(
+/** Resolve cached data before deciding whether a network refresh is still needed. */
+async function resolveCachedData<T>(
   cacheKey: string,
-  normalize: (d: T | null) => T | null,
-  forceRefresh: boolean
-): T | null {
-  if (forceRefresh) return null
-  return normalize(tryGetCached<T>(cacheKey))
+  normalize: (d: T | null) => T | null
+): Promise<T | null> {
+  const cached = await dataCache.getOrLoad<T>(cacheKey)
+  return normalize(cached?.data ?? null)
 }
 
 /** Pick the appropriate loading phase based on whether data already exists. */
@@ -52,6 +51,18 @@ export function applyResolvedOrgCache<T>(
   setError(null)
   setPhase('ready')
   return true
+}
+
+export function applyResolvedOrgCacheIfCurrent<T>(
+  activeCacheKey: string,
+  cacheKeyRef: { current: string },
+  cached: T | null,
+  setData: (value: T | null) => void,
+  setError: (value: string | null) => void,
+  setPhase: (value: LoadPhase) => void
+): boolean {
+  if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return true
+  return applyResolvedOrgCache(cached, setData, setError, setPhase)
 }
 
 export function isStaleOrgFetch(activeCacheKey: string, cacheKeyRef: { current: string }): boolean {
@@ -172,11 +183,14 @@ export function useOrgCachedFetch<T>({
     async (forceRefresh = false) => {
       const activeCacheKey = cacheKeyRef.current
       const queue = getTaskQueue('github')
-      const cached = resolveCachedData<T>(activeCacheKey, normalizeRef.current, forceRefresh)
+      const cached = await resolveCachedData<T>(activeCacheKey, normalizeRef.current)
       /* v8 ignore start */
-      if (applyResolvedOrgCache(cached, setData, setError, setPhase)) {
-        return
-        /* v8 ignore stop */
+      if (isStaleOrgFetch(activeCacheKey, cacheKeyRef)) return
+      /* v8 ignore stop */
+      const hydrated = applyResolvedOrgCache(cached, setData, setError, setPhase)
+      if (hydrated) {
+        hasDataRef.current = true
+        if (!forceRefresh) return
       }
 
       if (queue.hasTaskWithName(taskName)) {

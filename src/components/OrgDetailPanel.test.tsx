@@ -23,6 +23,7 @@ const orgMocks = vi.hoisted(() => ({
   isAbortError: vi.fn().mockReturnValue(false),
   throwIfAborted: vi.fn(),
   dataCacheGet: vi.fn().mockReturnValue(null),
+  dataCacheGetOrLoad: vi.fn(),
   dataCacheSet: vi.fn(),
   dataCacheDelete: vi.fn(),
   dataCacheIsFresh: vi.fn().mockReturnValue(false),
@@ -73,6 +74,7 @@ vi.mock('../api/github/client', async () => {
 vi.mock('../services/dataCache', () => ({
   dataCache: {
     get: orgMocks.dataCacheGet,
+    getOrLoad: orgMocks.dataCacheGetOrLoad,
     set: orgMocks.dataCacheSet,
     delete: orgMocks.dataCacheDelete,
     isFresh: orgMocks.dataCacheIsFresh,
@@ -174,6 +176,47 @@ function makeMembersWithUnnamedFirst() {
   }
 }
 
+function makeCachedCopilotUsage() {
+  return {
+    org: 'test-org',
+    premiumRequests: 42,
+    grossCost: 20,
+    discount: 2,
+    netCost: 18,
+    businessSeats: 3,
+    fetchedAt: Date.now(),
+  }
+}
+
+function mockPersistedMembersWithFailedRefresh(): void {
+  const overview = makeOverview()
+  orgMocks.dataCacheGet.mockImplementation((key: string) =>
+    key === 'org-overview:test-org' ? { data: overview, fetchedAt: Date.now() } : null
+  )
+  orgMocks.dataCacheGetOrLoad.mockImplementation(async (key: string) => {
+    if (key === 'org-overview:test-org') return { data: overview, fetchedAt: Date.now() }
+    if (key === 'org-members:test-org') return { data: makeMembers(), fetchedAt: Date.now() }
+    return null
+  })
+  orgMocks.mockClient.fetchOrgMembers.mockRejectedValue(new Error('Members API error'))
+}
+
+async function runForcedTestCopilotFetch(
+  dispatchCopilot: Parameters<typeof runCopilotFetch>[0]['dispatchCopilot']
+): Promise<void> {
+  await runCopilotFetch({
+    org: 'test-org',
+    preferredAccount: 'alice',
+    forceRefresh: true,
+    isUserNamespace: false,
+    copilotCacheKey: 'org-copilot:test-org',
+    copilotTaskName: 'org-detail-copilot-test-org',
+    enqueue: orgMocks.useTaskQueue().enqueue,
+    hasUsage: false,
+    dispatchCopilot,
+  })
+}
+
 /* ── setup / teardown ─────────────────────────────────────────────── */
 
 let originalGitHub: typeof window.github
@@ -226,6 +269,7 @@ beforeEach(() => {
     if (key === 'org-members:test-org') return { data: members, fetchedAt: Date.now() }
     return null
   })
+  orgMocks.dataCacheGetOrLoad.mockImplementation(async (key: string) => orgMocks.dataCacheGet(key))
   orgMocks.dataCacheIsFresh.mockReturnValue(true)
 
   orgMocks.mockClient.fetchOrgOverview.mockResolvedValue(overview)
@@ -267,6 +311,17 @@ describe('OrgDetailPanel', () => {
       expect(screen.getAllByText('Loading…').length).toBeGreaterThanOrEqual(1)
       expect(screen.getByText('test-org')).toBeInTheDocument()
     })
+
+    it('hydrates persisted members without a redundant unforced fetch', async () => {
+      orgMocks.dataCacheGet.mockReturnValue(null)
+      orgMocks.dataCacheGetOrLoad.mockImplementation(async (key: string) =>
+        key === 'org-members:test-org' ? { data: makeMembers(), fetchedAt: Date.now() } : null
+      )
+
+      render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => expect(screen.getByText('Alice Smith (alice)')).toBeInTheDocument())
+      expect(orgMocks.mockClient.fetchOrgMembers).not.toHaveBeenCalled()
+    })
   })
 
   describe('error state', () => {
@@ -299,6 +354,16 @@ describe('OrgDetailPanel', () => {
       })
 
       fireEvent.click(screen.getByText('Retry'))
+    })
+
+    it('shows persisted members while a forced mount refresh fails', async () => {
+      mockPersistedMembersWithFailedRefresh()
+      render(<OrgDetailPanel org="test-org" />)
+      await waitFor(() => {
+        expect(screen.getByText('Alice Smith (alice)')).toBeInTheDocument()
+      })
+      expect(orgMocks.dataCacheGetOrLoad).toHaveBeenCalledWith('org-members:test-org')
+      expect(orgMocks.mockClient.fetchOrgMembers).toHaveBeenCalled()
     })
   })
 
@@ -569,6 +634,60 @@ describe('OrgDetailPanel', () => {
       expect(enqueue).not.toHaveBeenCalled()
     })
 
+    it('discards persisted Copilot usage after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      orgMocks.dataCacheGet.mockImplementation((key: string) =>
+        key === 'org-copilot:old-org'
+          ? {
+              data: {
+                org: 'old-org',
+                premiumRequests: 12,
+                grossCost: 10,
+                discount: 1,
+                netCost: 9,
+                businessSeats: 2,
+                fetchedAt: Date.now(),
+              },
+              fetchedAt: Date.now(),
+            }
+          : null
+      )
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: false,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent: () => false,
+      })
+
+      expect(dispatchCopilot).not.toHaveBeenCalled()
+    })
+
+    it('hydrates persisted Copilot usage before a forced refresh fails', async () => {
+      const dispatchCopilot = vi.fn()
+      const cachedCopilot = makeCachedCopilotUsage()
+      orgMocks.dataCacheGetOrLoad.mockResolvedValue({
+        data: cachedCopilot,
+        fetchedAt: Date.now(),
+      })
+      window.github = {
+        getCopilotUsage: vi.fn().mockRejectedValue(new Error('network unavailable')),
+      } as unknown as typeof window.github
+
+      await runForcedTestCopilotFetch(dispatchCopilot)
+      expect(dispatchCopilot.mock.calls).toEqual([
+        [{ type: 'hydrate-cache', usage: cachedCopilot }],
+        [{ type: 'start-loading', hasUsage: true }],
+        [{ type: 'error', error: 'network unavailable' }],
+      ])
+    })
+
     it('handles a completed response without Copilot usage data', async () => {
       const getCopilotUsage = vi.fn().mockResolvedValue({ success: false })
       window.github = { getCopilotUsage } as unknown as typeof window.github
@@ -578,6 +697,56 @@ describe('OrgDetailPanel', () => {
       await waitFor(() => {
         expect(getCopilotUsage).toHaveBeenCalledWith('test-org', 'alice')
       })
+    })
+  })
+
+  describe('stale copilot fetch completion', () => {
+    it('discards a successful response after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+      window.github = {
+        getCopilotUsage: vi.fn().mockResolvedValue({ success: false }),
+      } as unknown as typeof window.github
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: true,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent,
+      })
+
+      expect(dispatchCopilot).toHaveBeenCalledTimes(1)
+      expect(dispatchCopilot).toHaveBeenCalledWith({ type: 'start-loading', hasUsage: false })
+    })
+
+    it('discards a failed response after organization navigation', async () => {
+      const dispatchCopilot = vi.fn()
+      const isCurrent = vi.fn().mockReturnValueOnce(true).mockReturnValue(false)
+      window.github = {
+        getCopilotUsage: vi.fn().mockRejectedValue(new Error('old failure')),
+      } as unknown as typeof window.github
+
+      await runCopilotFetch({
+        org: 'old-org',
+        preferredAccount: 'alice',
+        forceRefresh: true,
+        isUserNamespace: false,
+        copilotCacheKey: 'org-copilot:old-org',
+        copilotTaskName: 'org-detail-copilot-old-org',
+        enqueue: orgMocks.useTaskQueue().enqueue,
+        hasUsage: false,
+        dispatchCopilot,
+        isCurrent,
+      })
+
+      expect(dispatchCopilot).toHaveBeenCalledTimes(1)
+      expect(dispatchCopilot).toHaveBeenCalledWith({ type: 'start-loading', hasUsage: false })
     })
   })
 

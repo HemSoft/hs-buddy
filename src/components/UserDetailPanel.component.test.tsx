@@ -67,6 +67,7 @@ vi.mock('../hooks/useConfig', () => ({
 vi.mock('../services/dataCache', () => ({
   dataCache: {
     get: (key: string) => dataCacheStore[key] ?? null,
+    getOrLoad: async (key: string) => dataCacheStore[key] ?? null,
     set: (key: string, data: unknown) => {
       dataCacheStore[key] = { data, fetchedAt: Date.now() }
     },
@@ -232,5 +233,14 @@ describe('UserDetailPanel (component)', () => {
     render(<UserDetailPanel org="test-org" memberLogin="charlie" />)
     // In loading state, metrics show '—' placeholders
     expect(screen.queryByText('Active Repositories')).not.toBeInTheDocument()
+  })
+
+  it('clears the previous member activity before awaiting a lazy load', () => {
+    const { rerender } = render(<UserDetailPanel org="test-org" memberLogin="alice" />)
+    expect(screen.getByText(/Alice Smith/)).toBeInTheDocument()
+
+    rerender(<UserDetailPanel org="test-org" memberLogin="charlie" />)
+
+    expect(screen.queryByText(/Alice Smith/)).not.toBeInTheDocument()
   })
 })

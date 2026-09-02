@@ -1,5 +1,5 @@
 import { execSync } from 'child_process'
-import { readDataCache, writeDataCacheEntry } from '../cache'
+import { loadDataCacheEntry, touchDataCacheEntries, writeDataCacheEntry } from '../cache'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { DAY } from '../../src/utils/dateUtils'
 import { createEnvResolver } from '../../src/utils/envLookup'
@@ -26,6 +26,39 @@ import type {
 const TEMPO_BASE = 'https://api.tempo.io/4'
 const JIRA_BASE = 'https://relias.atlassian.net'
 const API_REQUEST_TIMEOUT_MS = 15_000
+const pendingTempoTouchKeys = new Set<string>()
+let tempoTouchTimer: ReturnType<typeof setTimeout> | null = null
+
+function flushTempoCacheTouches(): void {
+  if (tempoTouchTimer) clearTimeout(tempoTouchTimer)
+  tempoTouchTimer = null
+  const keys = Array.from(pendingTempoTouchKeys)
+  pendingTempoTouchKeys.clear()
+  if (keys.length === 0) return
+  try {
+    touchDataCacheEntries(keys)
+  } catch (err: unknown) {
+    console.warn('[Tempo] Failed to persist cache access times:', err)
+  }
+}
+
+function readTempoCacheEntry(key: string) {
+  const entry = loadDataCacheEntry(key)
+  if (entry) {
+    pendingTempoTouchKeys.add(key)
+    tempoTouchTimer ??= setTimeout(flushTempoCacheTouches, 1000)
+  }
+  return entry
+}
+
+function cacheTempoResult(key: string, data: unknown): void {
+  try {
+    flushTempoCacheTouches()
+    writeDataCacheEntry(key, { data, fetchedAt: Date.now() })
+  } catch (err: unknown) {
+    console.warn('[Tempo] Failed to persist cache entry:', key, err)
+  }
+}
 
 // --- In-memory caches ---
 let cachedAccountId: string | null = null
@@ -122,7 +155,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
       `${JIRA_BASE}/rest/api/3/myself`,
       jiraHeaders
     )
-    writeDataCacheEntry('tempo:accountId', { data: user.accountId, fetchedAt: Date.now() })
+    cacheTempoResult('tempo:accountId', user.accountId)
     return user.accountId
   } catch (err: unknown) {
     console.warn(
@@ -134,8 +167,7 @@ async function fetchAccountIdFromJira(): Promise<string | null> {
 }
 
 function readCachedAccountId(): string | null {
-  const diskCache = readDataCache()
-  const cached = diskCache['tempo:accountId']
+  const cached = readTempoCacheEntry('tempo:accountId')
   if (cached?.data && typeof cached.data === 'string') return cached.data
   return null
 }
@@ -167,7 +199,7 @@ async function resolveIssueKey(issueId: number): Promise<{ key: string; summary:
   const memCached = issueKeyCache.get(issueId)
   if (memCached) return memCached
 
-  const diskEntry = readDataCache()[`tempo:issue:${issueId}`]
+  const diskEntry = readTempoCacheEntry(`tempo:issue:${issueId}`)
   if (diskEntry?.data) {
     const entry = diskEntry.data as { key: string; summary: string }
     issueKeyCache.set(issueId, entry)
@@ -187,7 +219,7 @@ async function fetchIssueKeyLive(issueId: number): Promise<{ key: string; summar
     )
     const result = { key: issue.key, summary: issue.fields.summary }
     issueKeyCache.set(issueId, result)
-    writeDataCacheEntry(`tempo:issue:${issueId}`, { data: result, fetchedAt: Date.now() })
+    cacheTempoResult(`tempo:issue:${issueId}`, result)
     return result
   } catch (_: unknown) {
     return { key: `#${issueId}`, summary: '' }
@@ -411,9 +443,8 @@ const capexCache = new Map<string, boolean>()
 
 /** Check disk cache for a valid (within 24h TTL) capex entry */
 function resolveCapexFromDiskCache(issueKey: string): boolean | null {
-  const diskCache = readDataCache()
-  const diskEntry = diskCache[`tempo:capex:${issueKey}`]
-  if (isCacheEntryValid(diskEntry, DAY)) {
+  const diskEntry = readTempoCacheEntry(`tempo:capex:${issueKey}`)
+  if (isCacheEntryValid(diskEntry ?? undefined, DAY)) {
     return diskEntry!.data as boolean
   }
   return null
@@ -422,7 +453,7 @@ function resolveCapexFromDiskCache(issueKey: string): boolean | null {
 /** Set both in-memory and disk cache for a capex result */
 function cacheCapexResult(issueKey: string, value: boolean): void {
   capexCache.set(issueKey, value)
-  writeDataCacheEntry(`tempo:capex:${issueKey}`, { data: value, fetchedAt: Date.now() })
+  cacheTempoResult(`tempo:capex:${issueKey}`, value)
 }
 
 /** Fetch Capitalization from Jira for an issue, with parent-epic fallback. */

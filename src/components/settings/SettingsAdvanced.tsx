@@ -7,8 +7,18 @@ import {
   CheckCircle,
   AlertTriangle,
   FolderOpen,
+  HardDrive,
+  Trash2,
 } from 'lucide-react'
+import { dataCache } from '../../services/dataCache'
+import type { DataCacheStorageStats } from '../../services/dataCachePolicy'
 import './SettingsShared.css'
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`
+}
 
 function ResetButtonLabel({
   isResetting,
@@ -45,9 +55,13 @@ export function SettingsAdvanced() {
   const [openSuccess, setOpenSuccess] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
   const [isResetting, setIsResetting] = useState(false)
+  const [cacheStats, setCacheStats] = useState<DataCacheStorageStats | null>(null)
+  const [isClearingCache, setIsClearingCache] = useState(false)
+  const [cacheClearError, setCacheClearError] = useState<string | null>(null)
 
   useEffect(() => {
     api.getStorePath().then(setStorePath)
+    dataCache.getStorageStats().then(setCacheStats)
   }, [api])
 
   const handleOpenConfig = async () => {
@@ -66,6 +80,16 @@ export function SettingsAdvanced() {
     await refresh()
     setIsResetting(false)
     setResetConfirm(false)
+  }
+  const handleClearCache = async () => {
+    setIsClearingCache(true)
+    setCacheClearError(null)
+    try {
+      if (await dataCache.clear()) setCacheStats(await dataCache.getStorageStats())
+      else setCacheClearError('Failed to clear cached data. Please try again.')
+    } finally {
+      setIsClearingCache(false)
+    }
   }
 
   if (loading) {
@@ -122,6 +146,41 @@ export function SettingsAdvanced() {
           <p className="hint">
             The configuration file uses JSON Schema validation to ensure correctness.
           </p>
+        </div>
+        <div className="settings-section">
+          <div className="section-header">
+            <h3>
+              <HardDrive size={16} />
+              Cached Data
+            </h3>
+          </div>
+          <p className="section-description">
+            Buddy keeps a bounded local cache for faster startup and navigation.
+          </p>
+          <div className="config-path-box" aria-live="polite">
+            <HardDrive size={16} />
+            <span>
+              {cacheStats
+                ? `${cacheStats.entryCount} entries · ${formatBytes(cacheStats.totalBytes)}`
+                : 'Loading cache size…'}
+            </span>
+          </div>
+          <div className="button-group">
+            <button
+              type="button"
+              className="settings-btn settings-btn-secondary"
+              onClick={handleClearCache}
+              disabled={isClearingCache}
+            >
+              {isClearingCache ? <RefreshCw className="spin" size={14} /> : <Trash2 size={14} />}
+              {isClearingCache ? 'Clearing…' : 'Clear Cached Data'}
+            </button>
+          </div>
+          {cacheClearError ? (
+            <p className="hint" role="alert">
+              {cacheClearError}
+            </p>
+          ) : null}
         </div>
         <div className="settings-section">
           <div className="section-header">

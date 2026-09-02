@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react'
 import {
   AlertCircle,
   ArrowUpDown,
@@ -833,6 +841,7 @@ function useOrgCopilotData({
   copilotTaskName: string
 }) {
   const enqueueRef = useRef(enqueue)
+  const copilotCacheKeyRef = useRef(copilotCacheKey)
   const cachedCopilot = getCachedCopilotData(copilotCacheKey)
   const [copilotState, dispatchCopilot] = useReducer(
     orgCopilotReducer,
@@ -844,6 +853,10 @@ function useOrgCopilotData({
   useEffect(() => {
     enqueueRef.current = enqueue
   }, [enqueue])
+
+  useLayoutEffect(() => {
+    copilotCacheKeyRef.current = copilotCacheKey
+  }, [copilotCacheKey])
 
   useEffect(() => {
     hasCopilotRef.current = Boolean(copilotState.usage)
@@ -869,6 +882,7 @@ function useOrgCopilotData({
         enqueue: enqueueRef.current,
         hasUsage: hasCopilotRef.current,
         dispatchCopilot,
+        isCurrent: () => copilotCacheKeyRef.current === copilotCacheKey,
       })
     },
     [copilotCacheKey, copilotTaskName, isUserNamespace, org, preferredAccount]

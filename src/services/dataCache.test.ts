@@ -10,6 +10,23 @@ vi.stubGlobal('window', {
 // Must import after stubbing
 const { dataCache } = await import('./dataCache')
 
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T) => void
+  reject: (reason: unknown) => void
+} {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  return {
+    promise: new Promise<T>((done, fail) => {
+      resolve = done
+      reject = fail
+    }),
+    resolve,
+    reject,
+  }
+}
+
 describe('dataCache', () => {
   beforeEach(async () => {
     mockInvoke.mockReset()
@@ -23,24 +40,34 @@ describe('dataCache', () => {
       expect(dataCache.get('nonexistent')).toBeNull()
     })
 
+    it('evicts a policy-expired entry before a synchronous read', () => {
+      dataCache.set('user-activity:v3:org/stale', 'expired', Date.now() - 2 * 24 * 60 * 60 * 1000)
+      mockInvoke.mockClear()
+
+      expect(dataCache.get('user-activity:v3:org/stale')).toBeNull()
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+
     it('stores and retrieves data', () => {
       mockInvoke.mockResolvedValue(undefined) // cache:write
-      dataCache.set('my-key', { foo: 'bar' }, 1000)
+      const fetchedAt = Date.now()
+      dataCache.set('my-key', { foo: 'bar' }, fetchedAt)
 
       const entry = dataCache.get('my-key')
       expect(entry).not.toBeNull()
       expect(entry!.data).toEqual({ foo: 'bar' })
-      expect(entry!.fetchedAt).toBe(1000)
+      expect(entry!.fetchedAt).toBe(fetchedAt)
     })
 
     it('overwrites existing entries', () => {
       mockInvoke.mockResolvedValue(undefined)
-      dataCache.set('key', 'v1', 100)
-      dataCache.set('key', 'v2', 200)
+      const fetchedAt = Date.now()
+      dataCache.set('key', 'v1', fetchedAt - 1)
+      dataCache.set('key', 'v2', fetchedAt)
 
       const entry = dataCache.get('key')
       expect(entry!.data).toBe('v2')
-      expect(entry!.fetchedAt).toBe(200)
+      expect(entry!.fetchedAt).toBe(fetchedAt)
     })
 
     it('persists to disk via IPC on set', () => {
@@ -48,6 +75,173 @@ describe('dataCache', () => {
       dataCache.set('k', 'data', 500)
 
       expect(mockInvoke).toHaveBeenCalledWith('cache:write', 'k', { data: 'data', fetchedAt: 500 })
+    })
+
+    it('tracks metadata for new entries', () => {
+      const fetchedAt = Date.now()
+      dataCache.set('metadata', { value: true }, fetchedAt)
+
+      expect(dataCache.get('metadata')).toMatchObject({
+        fetchedAt,
+        schemaVersion: 1,
+        serializedBytes: 14,
+      })
+    })
+
+    it('removes superseded schema siblings from renderer memory', () => {
+      dataCache.set('user-activity:v2:org/alice', 'old', Date.now())
+      dataCache.set('user-activity:v3:org/alice', 'new', Date.now())
+
+      expect(dataCache.get('user-activity:v2:org/alice')).toBeNull()
+      expect(dataCache.get('user-activity:v3:org/alice')?.data).toBe('new')
+    })
+
+    it('ignores writes from an older schema when a newer entry is loaded', () => {
+      dataCache.set('user-activity:v3:org/bob', 'new', Date.now())
+      mockInvoke.mockClear()
+
+      dataCache.set('user-activity:v2:org/bob', 'old', Date.now())
+
+      expect(dataCache.get('user-activity:v3:org/bob')?.data).toBe('new')
+      expect(dataCache.get('user-activity:v2:org/bob')).toBeNull()
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('on-demand persistence', () => {
+    it('loads a non-startup detail entry by exact key', async () => {
+      const persisted = {
+        data: { files: ['a.ts'] },
+        fetchedAt: 1000,
+        schemaVersion: 1,
+        lastAccessedAt: 2000,
+        serializedBytes: 18,
+      }
+      mockInvoke.mockResolvedValueOnce(persisted)
+
+      await expect(dataCache.getOrLoad('repo-commit:org/repo/sha')).resolves.toEqual(persisted)
+      expect(mockInvoke).toHaveBeenCalledWith('cache:read', 'repo-commit:org/repo/sha')
+    })
+
+    it('returns an entry already loaded in renderer memory without IPC', async () => {
+      dataCache.set('already-loaded', 'value', Date.now())
+      mockInvoke.mockClear()
+
+      await expect(dataCache.getOrLoad('already-loaded')).resolves.toMatchObject({
+        data: 'value',
+      })
+      expect(mockInvoke).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('persistence metadata and errors', () => {
+    it('rejects malformed persisted entries and handles read failures', async () => {
+      mockInvoke.mockResolvedValueOnce({ data: 'missing metadata', fetchedAt: 1000 })
+      await expect(dataCache.getOrLoad('malformed')).resolves.toBeNull()
+
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockRejectedValueOnce(new Error('read failed'))
+      await expect(dataCache.getOrLoad('read-error')).resolves.toBeNull()
+      expect(spy).toHaveBeenCalledWith('[DataCache] Failed to load cache entry:', expect.any(Error))
+      spy.mockRestore()
+    })
+
+    it('returns persisted storage counts and bytes', async () => {
+      mockInvoke.mockResolvedValueOnce({ entryCount: 12, totalBytes: 4096 })
+
+      await expect(dataCache.getStorageStats()).resolves.toEqual({
+        entryCount: 12,
+        totalBytes: 4096,
+      })
+    })
+
+    it('applies eviction metadata returned by a write', async () => {
+      mockInvoke.mockResolvedValueOnce({
+        success: true,
+        stats: { entryCount: 7, totalBytes: 2048 },
+        removedKeys: ['mutation-key', 'not-loaded'],
+      })
+
+      dataCache.set('mutation-key', 'value')
+
+      await vi.waitFor(() => expect(dataCache.get('mutation-key')).toBeNull())
+      mockInvoke.mockResolvedValueOnce({ invalid: true })
+      await expect(dataCache.getStorageStats()).resolves.toEqual({
+        entryCount: 7,
+        totalBytes: 2048,
+      })
+    })
+
+    it('accepts a successful mutation response without optional details', async () => {
+      mockInvoke.mockResolvedValueOnce({ success: true })
+
+      dataCache.set('plain-mutation', 'value')
+      await vi.waitFor(() => expect(dataCache.get('plain-mutation')?.data).toBe('value'))
+    })
+
+    it('keeps prior stats for malformed responses and logs IPC failures', async () => {
+      mockInvoke.mockResolvedValueOnce({ entryCount: 'bad', totalBytes: 0 })
+      await expect(dataCache.getStorageStats()).resolves.toEqual({
+        entryCount: 0,
+        totalBytes: 0,
+      })
+
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      mockInvoke.mockRejectedValueOnce(new Error('stats failed'))
+      await expect(dataCache.getStorageStats()).resolves.toEqual({
+        entryCount: 0,
+        totalBytes: 0,
+      })
+      expect(spy).toHaveBeenCalledWith(
+        '[DataCache] Failed to read storage stats:',
+        expect.any(Error)
+      )
+      spy.mockRestore()
+    })
+  })
+
+  describe('on-demand load races', () => {
+    const persisted = {
+      data: 'stale',
+      fetchedAt: 1000,
+      schemaVersion: 1,
+      lastAccessedAt: 1000,
+      serializedBytes: 7,
+    }
+
+    it('does not overwrite a newer renderer write with a pending disk read', async () => {
+      const read = deferred<typeof persisted>()
+      mockInvoke.mockImplementationOnce(() => read.promise)
+
+      const loading = dataCache.getOrLoad<string>('race-key')
+      const fetchedAt = Date.now()
+      dataCache.set('race-key', 'fresh', fetchedAt)
+      read.resolve(persisted)
+
+      await expect(loading).resolves.toMatchObject({ data: 'fresh', fetchedAt })
+      expect(dataCache.get('race-key')).toMatchObject({ data: 'fresh', fetchedAt })
+    })
+
+    it('does not restore a pending disk read after a successful clear', async () => {
+      const read = deferred<typeof persisted>()
+      mockInvoke.mockImplementationOnce(() => read.promise).mockResolvedValueOnce(undefined)
+
+      const loading = dataCache.getOrLoad<string>('cleared-read')
+      await expect(dataCache.clear()).resolves.toBe(true)
+      read.resolve(persisted)
+
+      await expect(loading).resolves.toBeNull()
+      expect(dataCache.get('cleared-read')).toBeNull()
+    })
+
+    it('treats a policy-expired memory entry as an on-demand miss', async () => {
+      const now = Date.now()
+      dataCache.set('repo-detail:org/repo', 'expired', now - 2 * 24 * 60 * 60 * 1000)
+      mockInvoke.mockReset()
+      mockInvoke.mockResolvedValueOnce(null)
+
+      await expect(dataCache.getOrLoad('repo-detail:org/repo')).resolves.toBeNull()
+      expect(mockInvoke).toHaveBeenCalledWith('cache:read', 'repo-detail:org/repo')
     })
   })
 
@@ -141,7 +335,7 @@ describe('dataCache', () => {
   describe('delete', () => {
     it('removes from memory', () => {
       mockInvoke.mockResolvedValue(undefined)
-      dataCache.set('del-me', 'data', 1)
+      dataCache.set('del-me', 'data')
       expect(dataCache.get('del-me')).not.toBeNull()
 
       dataCache.delete('del-me')
@@ -247,7 +441,7 @@ describe('dataCache', () => {
 
   describe('initialize', () => {
     it('loads cached data from disk', async () => {
-      // We test that initialize calls cache:read-all
+      // Initialization is covered with fresh module instances in dataCache.init.test.ts.
       // Note: initialized flag is already set from the module load,
       // so this mainly validates the IPC call happened during module setup
       expect(mockInvoke).toHaveBeenCalledWith('cache:clear') // from beforeEach
@@ -256,7 +450,7 @@ describe('dataCache', () => {
 
   describe('isInitialized', () => {
     it('returns true after initialize() is called', async () => {
-      mockInvoke.mockResolvedValueOnce({}) // cache:read-all
+      mockInvoke.mockResolvedValueOnce({}) // cache:initialize
       await dataCache.initialize()
       expect(dataCache.isInitialized()).toBe(true)
     })
@@ -315,14 +509,43 @@ describe('dataCache', () => {
   })
 
   describe('clear - error path', () => {
-    it('logs error when disk clear fails', async () => {
+    it('keeps memory and stats intact when disk clear fails', async () => {
       const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
-      mockInvoke.mockRejectedValueOnce(new Error('disk clear failed'))
+      mockInvoke.mockResolvedValueOnce({ entryCount: 1, totalBytes: 7 })
+      await expect(dataCache.getStorageStats()).resolves.toEqual({ entryCount: 1, totalBytes: 7 })
+      dataCache.set('survives', 'value')
+      mockInvoke
+        .mockRejectedValueOnce(new Error('disk clear failed'))
+        .mockRejectedValueOnce(new Error('stats unavailable'))
 
-      await dataCache.clear()
+      await expect(dataCache.clear()).resolves.toBe(false)
 
+      expect(dataCache.isFresh('survives', Number.POSITIVE_INFINITY)).toBe(true)
+      await expect(dataCache.getStorageStats()).resolves.toEqual({ entryCount: 1, totalBytes: 7 })
       expect(spy).toHaveBeenCalledWith('[DataCache] Failed to clear disk cache:', expect.any(Error))
       spy.mockRestore()
+    })
+
+    it('retains queued access-time updates when disk clear fails', async () => {
+      vi.useFakeTimers()
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+      try {
+        await dataCache.clear()
+        dataCache.set('touched-survivor', 'value')
+        mockInvoke.mockClear()
+        dataCache.get('touched-survivor')
+        mockInvoke
+          .mockRejectedValueOnce(new Error('disk clear failed'))
+          .mockResolvedValue(undefined)
+
+        await expect(dataCache.clear()).resolves.toBe(false)
+        await vi.advanceTimersByTimeAsync(1000)
+
+        expect(mockInvoke).toHaveBeenCalledWith('cache:touch', ['touched-survivor'])
+      } finally {
+        spy.mockRestore()
+        vi.useRealTimers()
+      }
     })
   })
 })

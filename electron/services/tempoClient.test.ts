@@ -15,8 +15,13 @@ vi.mock('../../src/utils/envLookup', () => ({
 
 const mockReadDataCache = vi.fn().mockReturnValue({})
 const mockWriteDataCacheEntry = vi.fn()
+const mockTouchDataCacheEntries = vi.fn()
 vi.mock('../cache', () => ({
-  readDataCache: (...args: unknown[]) => mockReadDataCache(...args),
+  loadDataCacheEntry: (key: string) => {
+    const cache = mockReadDataCache(key) as Record<string, unknown>
+    return cache[key] ?? null
+  },
+  touchDataCacheEntries: (...args: unknown[]) => mockTouchDataCacheEntries(...args),
   writeDataCacheEntry: (...args: unknown[]) => mockWriteDataCacheEntry(...args),
 }))
 
@@ -735,9 +740,13 @@ describe('tempoClient', () => {
 
     it('fetches missing issue metadata from Jira and caches the result', async () => {
       const { getWorklogsForRange } = await import('./tempoClient')
+      mockReadDataCache.mockReturnValue({
+        'tempo:accountId': { data: 'cached-user', fetchedAt: Date.now() },
+      })
       mockFetch.mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve({ accountId: 'user-123' }),
+        ok: false,
+        status: 500,
+        statusText: 'error',
       })
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -761,6 +770,10 @@ describe('tempoClient', () => {
       expect(mockWriteDataCacheEntry).toHaveBeenCalledWith(
         'tempo:issue:42',
         expect.objectContaining({ data: { key: 'PROJ-42', summary: 'Answer' } })
+      )
+      expect(mockTouchDataCacheEntries).toHaveBeenCalledWith(['tempo:accountId'])
+      expect(mockTouchDataCacheEntries.mock.invocationCallOrder[0]).toBeLessThan(
+        mockWriteDataCacheEntry.mock.invocationCallOrder.at(-1)!
       )
     })
 
@@ -955,6 +968,31 @@ describe('tempoClient', () => {
         'tempo:capex:PROJ-1',
         expect.objectContaining({ data: true })
       )
+    })
+
+    it('returns live capex data when cache persistence fails', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const { parseCapitalizationField } = await import('../../src/utils/tempoUtils')
+      vi.mocked(parseCapitalizationField).mockReturnValue(true)
+      mockWriteDataCacheEntry.mockImplementation(() => {
+        throw new Error('read-only disk')
+      })
+      const { getCapexMap } = await import('./tempoClient')
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ fields: {} }),
+      })
+
+      await expect(getCapexMap(['PROJ-1'])).resolves.toMatchObject({
+        success: true,
+        data: { 'PROJ-1': true },
+      })
+      expect(warnSpy).toHaveBeenCalledWith(
+        '[Tempo] Failed to persist cache entry:',
+        'tempo:capex:PROJ-1',
+        expect.any(Error)
+      )
+      warnSpy.mockRestore()
     })
 
     it('falls back to the parent issue when the capitalization field is not present on the child', async () => {

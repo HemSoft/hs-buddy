@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { renderHook } from '@testing-library/react'
+import { act, renderHook } from '@testing-library/react'
 import { usePrefetch } from './usePrefetch'
 import { getPRCacheKey } from '../utils/prCacheKey'
 
@@ -131,6 +131,22 @@ describe('usePrefetch', () => {
     expect(mockEnqueue).toHaveBeenCalledTimes(5)
   })
 
+  it('queues stale cached data for refresh', () => {
+    mockDataCacheGet.mockReturnValue({ data: [], fetchedAt: Date.now() })
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    renderHook(() => usePrefetch())
+
+    expect(mockEnqueue).toHaveBeenCalledTimes(5)
+    expect(
+      log.mock.calls.filter(
+        ([message]) =>
+          typeof message === 'string' && message.includes(': stale, queueing background fetch')
+      )
+    ).toHaveLength(5)
+    log.mockRestore()
+  })
+
   it('prefetches org repos based on unique orgs', () => {
     mockUseGitHubAccounts.mockReturnValue({
       accounts: [
@@ -182,6 +198,34 @@ describe('usePrefetch', () => {
 
     // 4 PR modes + 2 unique orgs = 6
     expect(mockEnqueue).toHaveBeenCalledTimes(6)
+  })
+
+  it('discards a queued PR result for an obsolete account fingerprint', async () => {
+    let resolveOld!: (value: never[]) => void
+    const oldResult = new Promise<never[]>(resolve => {
+      resolveOld = resolve
+    })
+    mockGitHubClientFactory.mockReturnValue({
+      fetchMyPRs: vi.fn(() => oldResult),
+      fetchNeedsReview: vi.fn().mockResolvedValue([]),
+      fetchRecentlyMerged: vi.fn().mockResolvedValue([]),
+      fetchNeedANudge: vi.fn().mockResolvedValue([]),
+      fetchOrgRepos: vi.fn().mockResolvedValue({ repos: [] }),
+    })
+    const oldCacheKey = getPRCacheKey('my-prs', [account])
+    const { rerender } = renderHook(() => usePrefetch())
+
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    rerender()
+    await act(async () => {
+      resolveOld([])
+      await oldResult
+    })
+
+    expect(mockDataCacheSet.mock.calls.some(([key]) => key === oldCacheKey)).toBe(false)
   })
 
   it('enqueues fetch with low priority options', () => {

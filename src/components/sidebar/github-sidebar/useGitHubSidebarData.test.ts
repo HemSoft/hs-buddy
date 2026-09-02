@@ -4,6 +4,7 @@ import type { Id } from '../../../../convex/_generated/dataModel'
 
 // --- Mock services ---
 const mockGet = vi.fn()
+const mockGetOrLoad = vi.fn((...args: unknown[]) => Promise.resolve(mockGet(...args)))
 const mockSet = vi.fn()
 const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
@@ -12,6 +13,7 @@ const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
     get: (...args: unknown[]) => mockGet(...args),
+    getOrLoad: (...args: unknown[]) => mockGetOrLoad(...args),
     set: (...args: unknown[]) => mockSet(...args),
     delete: (...args: unknown[]) => mockDelete(...args),
     subscribe: (listener: (key: string) => void) => mockSubscribe(listener),
@@ -1269,6 +1271,7 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
     expect(result.current.sflStatusData['acme/my-repo']).toEqual(sflData)
+    expect(mockGetOrLoad).toHaveBeenCalledWith('sfl-status:acme/my-repo')
     expect(mockFetchSFLStatus).not.toHaveBeenCalled()
   })
 
@@ -1302,6 +1305,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-prs:open:acme/my-repo')
     expect(mockFetchRepoPRs).not.toHaveBeenCalled()
   })
 
@@ -1317,6 +1321,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-issues:open:acme/my-repo')
     expect(mockFetchRepoIssues).not.toHaveBeenCalled()
   })
 
@@ -1332,7 +1337,27 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
+    expect(mockGetOrLoad).toHaveBeenCalledWith('repo-commits:acme/my-repo')
     expect(mockFetchRepoCommits).not.toHaveBeenCalled()
+  })
+
+  it('coalesces concurrent lazy reads for the same repository cache key', async () => {
+    let resolveCache!: (value: null) => void
+    const cacheRead = new Promise<null>(resolve => {
+      resolveCache = resolve
+    })
+    mockGetOrLoad.mockReturnValueOnce(cacheRead)
+    const { result } = renderHook(() => useGitHubSidebarData())
+
+    await act(async () => {
+      const first = result.current.fetchRepoCommitsForRepo('acme', 'my-repo')
+      const second = result.current.fetchRepoCommitsForRepo('acme', 'my-repo')
+      resolveCache(null)
+      await Promise.all([first, second])
+    })
+
+    expect(mockGetOrLoad).toHaveBeenCalledTimes(1)
+    expect(mockFetchRepoCommits).toHaveBeenCalledTimes(1)
   })
 
   it('fetchOrgOverview uses cached overview data', async () => {
@@ -1456,6 +1481,7 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrgUserGroup('acme')
     })
     expect(result.current.orgMembers['acme']).toEqual(membersData.members)
+    expect(mockGetOrLoad).toHaveBeenCalledWith('org-members:acme')
     expect(mockFetchOrgMembers).not.toHaveBeenCalled()
   })
 

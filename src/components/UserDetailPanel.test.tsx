@@ -2,18 +2,26 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, waitFor, fireEvent } from '@testing-library/react'
 
 /* ── module mocks (dataCache must be mocked before importing the component) ── */
-const { dataCacheStore, mockFetchUserActivity, stableAccounts } = vi.hoisted(() => {
-  const store: Record<string, { data: unknown; fetchedAt: number }> = {}
-  const mockFetchUserActivity = vi.fn()
-  const stableAccounts = {
-    accounts: [{ token: 'fake_token', org: 'acme', type: 'oauth' }],
-  }
-  return { dataCacheStore: store, mockFetchUserActivity, stableAccounts }
-})
+const { dataCacheStore, persistedDataCacheStore, mockFetchUserActivity, stableAccounts } =
+  vi.hoisted(() => {
+    const store: Record<string, { data: unknown; fetchedAt: number }> = {}
+    const persistedStore: Record<string, { data: unknown; fetchedAt: number }> = {}
+    const mockFetchUserActivity = vi.fn()
+    const stableAccounts = {
+      accounts: [{ token: 'fake_token', org: 'acme', type: 'oauth' }],
+    }
+    return {
+      dataCacheStore: store,
+      persistedDataCacheStore: persistedStore,
+      mockFetchUserActivity,
+      stableAccounts,
+    }
+  })
 
 vi.mock('../services/dataCache', () => ({
   dataCache: {
     get: (key: string) => dataCacheStore[key] ?? null,
+    getOrLoad: async (key: string) => dataCacheStore[key] ?? persistedDataCacheStore[key] ?? null,
     set: (key: string, data: unknown, fetchedAt: number = Date.now()) => {
       dataCacheStore[key] = { data, fetchedAt }
     },
@@ -148,6 +156,17 @@ describe('activityReducer', () => {
 
       expect(nextState.error).toBeNull()
       expect(nextState.phase).toBe('loading')
+    })
+  })
+
+  it('clears stale activity without entering loading while persisted data resolves', () => {
+    const stale = makeActivity({ name: 'Previous User' })
+    const state: ActivityState = { activity: stale, phase: 'ready', error: 'old error' }
+
+    expect(activityReducer(state, { type: 'RESET_FOR_NAVIGATION' })).toEqual({
+      activity: null,
+      phase: 'idle',
+      error: null,
     })
   })
 
@@ -310,6 +329,7 @@ describe('User switching scenario (reducer-level)', () => {
 describe('UserDetailPanel (component)', () => {
   beforeEach(() => {
     for (const key of Object.keys(dataCacheStore)) delete dataCacheStore[key]
+    for (const key of Object.keys(persistedDataCacheStore)) delete persistedDataCacheStore[key]
     mockFetchUserActivity.mockReset()
     mockFetchUserActivity.mockResolvedValue(makeActivity())
     window.shell = { openExternal: vi.fn() } as never
@@ -344,6 +364,19 @@ describe('UserDetailPanel (component)', () => {
     render(<UserDetailPanel org="acme" memberLogin="dana" />)
     expect(screen.getByText(/Dana Dev/)).toBeTruthy()
     expect(screen.getByText(/5 commits today/)).toBeTruthy()
+  })
+
+  it('loads persisted activity on demand before fetching from GitHub', async () => {
+    const persisted = makeActivity({ name: 'Persisted User', commitsToday: 4 })
+    persistedDataCacheStore['user-activity:v3:acme/persisted'] = {
+      data: persisted,
+      fetchedAt: Date.now(),
+    }
+
+    render(<UserDetailPanel org="acme" memberLogin="persisted" />)
+
+    expect(await screen.findByText(/Persisted User/)).toBeTruthy()
+    expect(mockFetchUserActivity).not.toHaveBeenCalled()
   })
 
   it('shows error banner when fetch fails', async () => {

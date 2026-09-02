@@ -1,13 +1,14 @@
 import { describe, it, expect, vi } from 'vitest'
 import {
   applyResolvedOrgCache,
+  applyResolvedOrgCacheIfCurrent,
   isStaleOrgFetch,
   applyOrgFetchResult,
   handleOrgFetchErrorIfCurrent,
 } from './useOrgCachedFetch'
 
 vi.mock('../services/dataCache', () => ({
-  dataCache: { set: vi.fn() },
+  dataCache: { get: vi.fn(() => null), getOrLoad: vi.fn(async () => null), set: vi.fn() },
 }))
 
 vi.mock('../api/github', () => ({
@@ -43,6 +44,45 @@ describe('applyResolvedOrgCache', () => {
     expect(setData).toHaveBeenCalledWith(data)
     expect(setError).toHaveBeenCalledWith(null)
     expect(setPhase).toHaveBeenCalledWith('ready')
+  })
+})
+
+describe('applyResolvedOrgCacheIfCurrent', () => {
+  it('discards a cached result after navigation changes the key', () => {
+    const setData = vi.fn()
+    const setError = vi.fn()
+    const setPhase = vi.fn()
+
+    expect(
+      applyResolvedOrgCacheIfCurrent(
+        'org-members:old',
+        { current: 'org-members:new' },
+        { members: ['stale'] },
+        setData,
+        setError,
+        setPhase
+      )
+    ).toBe(true)
+    expect(setData).not.toHaveBeenCalled()
+  })
+
+  it('applies a cached result when the key is still current', () => {
+    const setData = vi.fn()
+    const setError = vi.fn()
+    const setPhase = vi.fn()
+    const cached = { members: ['current'] }
+
+    expect(
+      applyResolvedOrgCacheIfCurrent(
+        'org-members:current',
+        { current: 'org-members:current' },
+        cached,
+        setData,
+        setError,
+        setPhase
+      )
+    ).toBe(true)
+    expect(setData).toHaveBeenCalledWith(cached)
   })
 })
 

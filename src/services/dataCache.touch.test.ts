@@ -155,7 +155,9 @@ describe('dataCache touch retry cancellation', () => {
       vi.useRealTimers()
     }
   })
+})
 
+describe('dataCache touch cleanup', () => {
   it('does not retry a failed touch for a deleted key', async () => {
     vi.useFakeTimers()
     const touch = deferred<unknown>()

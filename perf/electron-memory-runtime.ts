@@ -21,7 +21,6 @@ import {
 
 const execFile = promisify(execFileCallback)
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const DEFAULT_CONVEX_URL = 'https://placeholder-memory-harness.convex.cloud'
 
 export type HarnessMode = 'packaged' | 'development'
 
@@ -154,7 +153,6 @@ export async function launchRuntime(
     cwd: ROOT,
     env: {
       ...cleanEnvironment(),
-      VITE_CONVEX_URL: process.env.VITE_CONVEX_URL ?? DEFAULT_CONVEX_URL,
       BUDDY_DEBUG_PORT: String(port),
       BUDDY_MEMORY_HARNESS: '1',
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
@@ -187,10 +185,7 @@ export async function launchRuntime(
     }
   } catch (error: unknown) {
     browser?.disconnect()
-    if (child.exitCode === null) {
-      child.kill()
-      await waitForExit(child, 5_000)
-    }
+    await terminateProcessTree(child)
     throw error
   }
 }
@@ -383,6 +378,19 @@ async function waitForExit(
   ])
 }
 
+async function terminateProcessTree(child: ChildProcessWithoutNullStreams): Promise<void> {
+  if (child.exitCode !== null) return
+  if (process.platform === 'win32' && child.pid) {
+    const taskkill = process.env.SystemRoot
+      ? path.join(process.env.SystemRoot, 'System32', 'taskkill.exe')
+      : 'taskkill.exe'
+    await execFile(taskkill, ['/PID', String(child.pid), '/T', '/F']).catch(() => {})
+  } else {
+    child.kill()
+  }
+  await waitForExit(child, 5_000)
+}
+
 export async function closeRuntime(runtime: LaunchedRuntime): Promise<void> {
   await runtime.page
     .evaluate(() =>
@@ -391,7 +399,6 @@ export async function closeRuntime(runtime: LaunchedRuntime): Promise<void> {
     .catch(() => {})
   runtime.browser.disconnect()
   if (!(await waitForExit(runtime.child, 10_000))) {
-    runtime.child.kill()
-    await waitForExit(runtime.child, 5_000)
+    await terminateProcessTree(runtime.child)
   }
 }

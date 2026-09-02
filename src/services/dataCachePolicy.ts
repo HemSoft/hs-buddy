@@ -4,6 +4,7 @@ export const DATA_CACHE_BYTE_LIMIT = 10 * 1024 * 1024
 
 const HOUR_MS = 60 * 60 * 1000
 const DAY_MS = 24 * HOUR_MS
+const NON_EXPIRING_KEYS = new Set(['tempo:accountId'])
 
 export interface PersistedCacheEntry<T = unknown> {
   data: T
@@ -60,6 +61,7 @@ export function isStartupCriticalCacheKey(key: string): boolean {
 }
 
 export function getCacheTtlMs(key: string): number {
+  if (NON_EXPIRING_KEYS.has(key)) return Number.POSITIVE_INFINITY
   if (startsWithOneOf(key, DETAIL_PREFIXES)) return DAY_MS
   if (startsWithOneOf(key, LIST_PREFIXES)) return 3 * DAY_MS
   if (key.startsWith('seen-prs:')) return 30 * DAY_MS

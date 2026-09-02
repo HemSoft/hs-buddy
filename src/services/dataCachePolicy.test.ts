@@ -87,6 +87,19 @@ describe('data cache normalization', () => {
   })
 })
 
+describe('Tempo account identity cache policy', () => {
+  it('keeps the stable account ID without a time-based expiry', () => {
+    const key = 'tempo:accountId'
+    const result = normalizeAndPruneDataCache(
+      { [key]: entry(key, 'cached-user', NOW - 10 * 365 * 24 * 60 * 60 * 1000) },
+      NOW
+    )
+
+    expect(getCacheTtlMs(key)).toBe(Number.POSITIVE_INFINITY)
+    expect(result.cache[key]?.data).toBe('cached-user')
+  })
+})
+
 describe('data cache limits and versioning', () => {
   it('keeps only the highest key schema version in each family', () => {
     const result = normalizeAndPruneDataCache(

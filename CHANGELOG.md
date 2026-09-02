@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1102] - 2026-09-02
+
+### Fixed
+
+- Retain stable Tempo account identity
+
 ## [0.1.1101] - 2026-09-02
 
 ### Fixed

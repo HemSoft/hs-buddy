@@ -199,7 +199,9 @@ describe('Electron memory gating', () => {
       })
     )
   })
+})
 
+describe('Electron memory cumulative gating', () => {
   it('rejects cumulative process growth across warmup and cleanup phases', () => {
     const run = terminalWarmupGrowthRun(100, 105)
     run['terminal-cleanup'] = scenario(110.25)

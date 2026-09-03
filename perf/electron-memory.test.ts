@@ -213,6 +213,24 @@ describe('Electron memory gating', () => {
     )
   })
 
+  it('rejects cumulative renderer resource growth across warmup and cleanup phases', () => {
+    const run = scenarioRun(500)
+    run['terminal-first-cleanup'] = scenario(100)
+    run['terminal-first-cleanup'].domNodes = 1_000
+    run['terminal-baseline'] = scenario(100)
+    run['terminal-baseline'].domNodes = 1_050
+    run['terminal-cleanup'] = scenario(100)
+    run['terminal-cleanup'].domNodes = 1_103
+    const result = evaluateRuns('packaged', [run, run, run], 1)
+
+    expect(result.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'domNodes',
+        scenario: 'terminal-total-growth',
+      })
+    )
+  })
+
   it('allows stable cleanup after one-time lifecycle initialization', () => {
     const run = scenarioRun(500)
     run['navigation-cleanup'] = scenario(100)

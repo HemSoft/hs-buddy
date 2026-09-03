@@ -191,10 +191,6 @@ export function evaluateRuns(
       afterCleanup: scenarios[afterCleanup],
     }))
   const cleanupRatio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
-  const processGrowthMetrics: readonly CleanupMetric[] = [
-    'totalWorkingSetBytes',
-    'rendererWorkingSetBytes',
-  ]
   const failures = [
     ...evaluateAbsoluteBudgets(medians['dashboard-warm'], {
       ...PACKAGED_MEMORY_BUDGETS,
@@ -219,8 +215,7 @@ export function evaluateRuns(
     ...evaluateMedianCleanupBudget(
       'terminal-total-growth',
       pairedCleanup('terminal-first-cleanup', 'terminal-cleanup'),
-      cleanupRatio,
-      processGrowthMetrics
+      cleanupRatio
     ),
     ...evaluateMedianCleanupBudget(
       'browser-cleanup',
@@ -235,8 +230,7 @@ export function evaluateRuns(
     ...evaluateMedianCleanupBudget(
       'browser-total-growth',
       pairedCleanup('browser-first-cleanup', 'browser-cleanup'),
-      cleanupRatio,
-      processGrowthMetrics
+      cleanupRatio
     ),
   ]
   return { medians, failures }

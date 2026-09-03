@@ -7,7 +7,7 @@
  * Scope: Node.js main process memory only. Does NOT monitor renderer/Chromium memory.
  *
  * Usage:
- *   import { detectMemoryLeak } from '../perf/memory-monitor'
+ *   import { detectMemoryLeak } from '../perf/node-memory-monitor'
  *
  *   const result = await detectMemoryLeak({
  *     operation: async () => { ... },
@@ -265,7 +265,7 @@ function requireNumericArg(args: string[], index: number, flag: string, min: num
 }
 
 const HELP_TEXT = [
-  'Usage: bun perf/memory-monitor.ts [options]',
+  'Usage: bun perf/node-memory-monitor.ts [options]',
   '',
   'Options:',
   '  --cycles <n>     Number of measurement cycles (default: 50)',

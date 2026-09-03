@@ -46,7 +46,14 @@ export async function closeNonDashboardTabs(page: Page): Promise<void> {
 }
 
 export async function runNavigationScenario(page: Page, cycles: number): Promise<void> {
-  const views = ['settings-accounts', 'bookmarks-all', 'terminal-workspace', 'dashboard']
+  const views = [
+    'settings-accounts',
+    'bookmarks-all',
+    'automation-schedules',
+    'pr-my-prs',
+    'terminal-workspace',
+    'dashboard',
+  ]
   for (let cycle = 0; cycle < cycles; cycle += 1) {
     for (const view of views) await navigate(page, view)
   }
@@ -175,10 +182,6 @@ export async function runBrowserLifecycle(
   await waitWithProgress(options.settleMs, 'browser first cleanup')
   scenarios['browser-first-cleanup'] = await collectScenario('browser-first-cleanup', runtime)
 
-  for (let cycle = 1; cycle < options.navigationCycles; cycle += 1) {
-    await openBrowser(page)
-    await closeActiveTab(page)
-  }
   await waitWithProgress(options.settleMs, 'browser post-warmup baseline')
   scenarios['browser-baseline'] = await collectScenario('browser-baseline', runtime)
 

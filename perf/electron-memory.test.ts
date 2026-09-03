@@ -233,27 +233,17 @@ describe('Electron memory cumulative gating', () => {
     )
   })
 
-  it('gates cumulative browser listeners beyond the measured Electron teardown cost', () => {
-    const measuredRun = scenarioRun(500)
-    measuredRun['browser-first-cleanup'] = scenario(500)
-    measuredRun['browser-first-cleanup'].eventListeners = 256
-    measuredRun['browser-baseline'] = scenario(500)
-    measuredRun['browser-baseline'].eventListeners = 268
-    measuredRun['browser-cleanup'] = scenario(500)
-    measuredRun['browser-cleanup'].eventListeners = 286
+  it('rejects cumulative browser listener growth above ten percent', () => {
+    const run = scenarioRun(500)
+    run['browser-first-cleanup'] = scenario(500)
+    run['browser-first-cleanup'].eventListeners = 100
+    run['browser-baseline'] = scenario(500)
+    run['browser-baseline'].eventListeners = 100
+    run['browser-cleanup'] = scenario(500)
+    run['browser-cleanup'].eventListeners = 111
+    const result = evaluateRuns('packaged', [run, run, run], 1)
 
-    const measuredResult = evaluateRuns('packaged', [measuredRun, measuredRun, measuredRun], 1)
-    expect(
-      measuredResult.failures.filter(
-        failure =>
-          failure.scenario === 'browser-total-growth' && failure.metric === 'eventListeners'
-      )
-    ).toEqual([])
-
-    const regressedRun = structuredClone(measuredRun)
-    regressedRun['browser-cleanup'].eventListeners = 287
-    const regressedResult = evaluateRuns('packaged', [regressedRun, regressedRun, regressedRun], 1)
-    expect(regressedResult.failures).toContainEqual(
+    expect(result.failures).toContainEqual(
       expect.objectContaining({
         metric: 'eventListeners',
         scenario: 'browser-total-growth',

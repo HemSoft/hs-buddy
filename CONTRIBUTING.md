@@ -57,7 +57,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 ## PR Conventions
 
-### Required merge checks
+### Required Merge Checks
 
 The active [default-branch ruleset](https://github.com/HemSoft/hs-buddy/rules/15947577)
 requires these GitHub Actions checks before a pull request can merge into `main`:

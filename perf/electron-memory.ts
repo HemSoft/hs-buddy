@@ -25,7 +25,6 @@ import {
   type LaunchedRuntime,
 } from './electron-memory-runtime'
 import {
-  closeNonDashboardTabs,
   navigate,
   runBrowserLifecycle,
   runNavigationScenario,
@@ -252,8 +251,8 @@ async function runFreshProfile(
     await new Promise(resolve => setTimeout(resolve, options.settleMs))
     scenarios['settings-idle'] = await collectScenario('settings-idle', runtime)
 
-    await closeNonDashboardTabs(page)
-    await waitWithProgress(options.settleMs, 'navigation baseline')
+    await runNavigationScenario(page, 1)
+    await waitWithProgress(options.settleMs, 'navigation post-warmup baseline')
     scenarios['navigation-baseline'] = await collectScenario('navigation-baseline', runtime)
 
     await runNavigationScenario(page, options.navigationCycles)

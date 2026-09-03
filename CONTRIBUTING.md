@@ -40,22 +40,44 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 ## Development Scripts
 
-| Command | Purpose |
-|---------|---------|
-| `bun run setup` | Install root dependencies and restore the Aspire AppHost |
-| `bun run dev` | Start Electron in dev mode |
-| `bun run test` | Run all unit tests |
-| `bun run test:watch` | Run tests in watch mode |
-| `bun run test:coverage` | Run tests with coverage (must be 100%) |
-| `bun run test:electron` | Run Electron main-process tests |
-| `bun run test:convex` | Run Convex server function tests |
-| `bun run test:e2e` | Run Playwright E2E tests |
-| `bun run lint` | ESLint (zero warnings allowed) |
-| `bun run typecheck` | TypeScript across all tsconfigs |
-| `bun run knip` | Dead code & unused dependency detection |
-| `bun run format:check` | Prettier format verification |
+| Command                 | Purpose                                                  |
+| ----------------------- | -------------------------------------------------------- |
+| `bun run setup`         | Install root dependencies and restore the Aspire AppHost |
+| `bun run dev`           | Start Electron in dev mode                               |
+| `bun run test`          | Run all unit tests                                       |
+| `bun run test:watch`    | Run tests in watch mode                                  |
+| `bun run test:coverage` | Run tests with coverage (must be 100%)                   |
+| `bun run test:electron` | Run Electron main-process tests                          |
+| `bun run test:convex`   | Run Convex server function tests                         |
+| `bun run test:e2e`      | Run Playwright E2E tests                                 |
+| `bun run lint`          | ESLint (zero warnings allowed)                           |
+| `bun run typecheck`     | TypeScript across all tsconfigs                          |
+| `bun run knip`          | Dead code & unused dependency detection                  |
+| `bun run format:check`  | Prettier format verification                             |
 
 ## PR Conventions
+
+### Required merge checks
+
+The active [default-branch ruleset](https://github.com/HemSoft/hs-buddy/rules/15947577)
+requires these GitHub Actions checks before a pull request can merge into `main`:
+
+| Check context | Workflow            | Purpose                                                                         |
+| ------------- | ------------------- | ------------------------------------------------------------------------------- |
+| `ci-complete` | `CI`                | Aggregates lint, type, unit, Electron, IPC, Convex, E2E, memory, and build jobs |
+| `npm audit`   | `Security Scanning` | Rejects high-severity dependency vulnerabilities                                |
+
+Both checks must come from the GitHub Actions app (`integration_id: 15368`). The
+ruleset has no bypass actors, does not exempt branch creation, and does not
+require a pull request branch to be updated with the latest `main` commit. Any
+policy change must document its bypass behavior here.
+
+Repository administrators can inspect the enforced policy with:
+
+```bash
+gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
+  --jq '.rules[] | select(.type == "required_status_checks")'
+```
 
 ### Commit Messages
 

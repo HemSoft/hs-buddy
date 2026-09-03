@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Upgrade fast-uri past vulnerable range (#633)
+- Document required merge checks (#634)
 
 ## [0.1.1102] - 2026-09-02
 

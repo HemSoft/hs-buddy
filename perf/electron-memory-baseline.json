@@ -13,6 +13,7 @@
     "totalWorkingSetBytes": 634388480,
     "rendererWorkingSetBytes": 241172480,
     "cleanupRatio": 1.1,
+    "browserCumulativeEventListenerRatio": 1.12,
     "cleanupMetrics": [
       "totalWorkingSetBytes",
       "rendererWorkingSetBytes",

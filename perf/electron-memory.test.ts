@@ -231,6 +231,34 @@ describe('Electron memory gating', () => {
     )
   })
 
+  it('gates cumulative browser listeners beyond the measured Electron teardown cost', () => {
+    const measuredRun = scenarioRun(500)
+    measuredRun['browser-first-cleanup'] = scenario(500)
+    measuredRun['browser-first-cleanup'].eventListeners = 256
+    measuredRun['browser-baseline'] = scenario(500)
+    measuredRun['browser-baseline'].eventListeners = 268
+    measuredRun['browser-cleanup'] = scenario(500)
+    measuredRun['browser-cleanup'].eventListeners = 286
+
+    const measuredResult = evaluateRuns('packaged', [measuredRun, measuredRun, measuredRun], 1)
+    expect(
+      measuredResult.failures.filter(
+        failure =>
+          failure.scenario === 'browser-total-growth' && failure.metric === 'eventListeners'
+      )
+    ).toEqual([])
+
+    const regressedRun = structuredClone(measuredRun)
+    regressedRun['browser-cleanup'].eventListeners = 287
+    const regressedResult = evaluateRuns('packaged', [regressedRun, regressedRun, regressedRun], 1)
+    expect(regressedResult.failures).toContainEqual(
+      expect.objectContaining({
+        metric: 'eventListeners',
+        scenario: 'browser-total-growth',
+      })
+    )
+  })
+
   it('allows stable cleanup after one-time lifecycle initialization', () => {
     const run = scenarioRun(500)
     run['navigation-cleanup'] = scenario(100)

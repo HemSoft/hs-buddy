@@ -13,6 +13,7 @@ export const PACKAGED_MEMORY_BUDGETS = {
   totalWorkingSetBytes: 605 * MEBIBYTE,
   rendererWorkingSetBytes: 230 * MEBIBYTE,
   cleanupRatio: 1.1,
+  browserCumulativeEventListenerRatio: 1.12,
   cleanupMetrics: CLEANUP_METRICS,
 } as const
 
@@ -147,7 +148,7 @@ export function evaluateCleanupBudget(
   scenarioName: string,
   baseline: BudgetScenarioMetrics,
   afterCleanup: BudgetScenarioMetrics,
-  ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+  ratio: number = PACKAGED_MEMORY_BUDGETS.cleanupRatio
 ): BudgetFailure[] {
   return CLEANUP_METRICS.flatMap(metric => {
     const limit = ratioLimit(baseline[metric], ratio)
@@ -160,7 +161,7 @@ export function evaluateCleanupBudget(
 export function evaluateMedianCleanupBudget(
   scenarioName: string,
   pairs: CleanupPair[],
-  ratio = PACKAGED_MEMORY_BUDGETS.cleanupRatio,
+  ratio: number = PACKAGED_MEMORY_BUDGETS.cleanupRatio,
   metrics: readonly CleanupMetric[] = CLEANUP_METRICS
 ): BudgetFailure[] {
   if (pairs.length === 0) throw new Error('evaluateMedianCleanupBudget requires at least one pair')
@@ -191,6 +192,12 @@ export function evaluateRuns(
       afterCleanup: scenarios[afterCleanup],
     }))
   const cleanupRatio = PACKAGED_MEMORY_BUDGETS.cleanupRatio
+  const browserCumulativeMetrics: readonly CleanupMetric[] = [
+    'totalWorkingSetBytes',
+    'rendererWorkingSetBytes',
+    'domNodes',
+    'documents',
+  ]
   const failures = [
     ...evaluateAbsoluteBudgets(medians['dashboard-warm'], {
       ...PACKAGED_MEMORY_BUDGETS,
@@ -230,7 +237,14 @@ export function evaluateRuns(
     ...evaluateMedianCleanupBudget(
       'browser-total-growth',
       pairedCleanup('browser-first-cleanup', 'browser-cleanup'),
-      cleanupRatio
+      cleanupRatio,
+      browserCumulativeMetrics
+    ),
+    ...evaluateMedianCleanupBudget(
+      'browser-total-growth',
+      pairedCleanup('browser-first-cleanup', 'browser-cleanup'),
+      PACKAGED_MEMORY_BUDGETS.browserCumulativeEventListenerRatio,
+      ['eventListeners']
     ),
   ]
   return { medians, failures }

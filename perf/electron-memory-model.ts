@@ -213,12 +213,12 @@ export function evaluateRuns(
     ),
     ...evaluateMedianCleanupBudget(
       'terminal-warmup-growth',
-      pairedCleanup('navigation-cleanup', 'terminal-baseline'),
+      pairedCleanup('terminal-first-cleanup', 'terminal-baseline'),
       cleanupRatio
     ),
     ...evaluateMedianCleanupBudget(
       'terminal-total-growth',
-      pairedCleanup('navigation-cleanup', 'terminal-cleanup'),
+      pairedCleanup('terminal-first-cleanup', 'terminal-cleanup'),
       cleanupRatio,
       processGrowthMetrics
     ),
@@ -229,12 +229,12 @@ export function evaluateRuns(
     ),
     ...evaluateMedianCleanupBudget(
       'browser-warmup-growth',
-      pairedCleanup('terminal-cleanup', 'browser-baseline'),
+      pairedCleanup('browser-first-cleanup', 'browser-baseline'),
       cleanupRatio
     ),
     ...evaluateMedianCleanupBudget(
       'browser-total-growth',
-      pairedCleanup('terminal-cleanup', 'browser-cleanup'),
+      pairedCleanup('browser-first-cleanup', 'browser-cleanup'),
       cleanupRatio,
       processGrowthMetrics
     ),

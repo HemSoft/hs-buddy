@@ -33,8 +33,10 @@ function scenarioRun(totalWorkingSetMiB: number): Record<string, ScenarioMetrics
     'dashboard-warm': scenario(totalWorkingSetMiB),
     'navigation-baseline': baseline,
     'navigation-cleanup': baseline,
+    'terminal-first-cleanup': baseline,
     'terminal-baseline': baseline,
     'terminal-cleanup': baseline,
+    'browser-first-cleanup': baseline,
     'browser-baseline': baseline,
     'browser-cleanup': baseline,
   }
@@ -60,8 +62,7 @@ function terminalWarmupGrowthRun(
   const postWarmup = scenario(postWarmupWorkingSetMiB)
   return {
     ...run,
-    'navigation-baseline': baseline,
-    'navigation-cleanup': baseline,
+    'terminal-first-cleanup': baseline,
     'terminal-baseline': postWarmup,
     'terminal-cleanup': postWarmup,
     'browser-baseline': postWarmup,
@@ -78,8 +79,7 @@ function browserWarmupGrowthRun(
   const postWarmup = scenario(postWarmupWorkingSetMiB)
   return {
     ...run,
-    'terminal-baseline': baseline,
-    'terminal-cleanup': baseline,
+    'browser-first-cleanup': baseline,
     'browser-baseline': postWarmup,
     'browser-cleanup': postWarmup,
   }
@@ -211,6 +211,17 @@ describe('Electron memory gating', () => {
         scenario: 'terminal-total-growth',
       })
     )
+  })
+
+  it('allows stable cleanup after one-time lifecycle initialization', () => {
+    const run = scenarioRun(500)
+    run['navigation-cleanup'] = scenario(100)
+    run['terminal-first-cleanup'] = scenario(113)
+    run['terminal-baseline'] = scenario(113)
+    run['terminal-cleanup'] = scenario(113)
+    const result = evaluateRuns('packaged', [run, run, run], 1)
+
+    expect(result.failures.filter(failure => failure.scenario.startsWith('terminal-'))).toEqual([])
   })
 })
 

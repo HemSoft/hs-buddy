@@ -134,7 +134,12 @@ export async function runTerminalLifecycle(
   options: LifecycleOptions,
   scenarios: Record<string, ScenarioMetrics>
 ): Promise<void> {
-  for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+  await openTerminal(page)
+  await closeTerminal(page)
+  await waitWithProgress(options.settleMs, 'terminal first cleanup')
+  scenarios['terminal-first-cleanup'] = await collectScenario('terminal-first-cleanup', runtime)
+
+  for (let cycle = 1; cycle < options.navigationCycles; cycle += 1) {
     await openTerminal(page)
     await closeTerminal(page)
   }
@@ -165,7 +170,12 @@ export async function runBrowserLifecycle(
   options: LifecycleOptions,
   scenarios: Record<string, ScenarioMetrics>
 ): Promise<void> {
-  for (let cycle = 0; cycle < options.navigationCycles; cycle += 1) {
+  await openBrowser(page)
+  await closeActiveTab(page)
+  await waitWithProgress(options.settleMs, 'browser first cleanup')
+  scenarios['browser-first-cleanup'] = await collectScenario('browser-first-cleanup', runtime)
+
+  for (let cycle = 1; cycle < options.navigationCycles; cycle += 1) {
     await openBrowser(page)
     await closeActiveTab(page)
   }

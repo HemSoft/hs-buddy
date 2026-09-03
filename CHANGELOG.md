@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Install lazy loads atomically
 
+### Changed
+
+- Upgrade fast-uri past vulnerable range (#633)
+
 ## [0.1.1102] - 2026-09-02
 
 ### Fixed

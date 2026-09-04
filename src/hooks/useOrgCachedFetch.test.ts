@@ -128,6 +128,49 @@ describe('useOrgCachedFetch', () => {
 
     expect(cacheWasUpdatedInsideTask).toBe(true)
   })
+
+  it('publishes a shared result to its original cache after the owning hook navigates', async () => {
+    let resolveFetch: ((value: { repositories: string[] }) => void) | undefined
+    const fetchResult = new Promise<{ repositories: string[] }>(resolve => {
+      resolveFetch = resolve
+    })
+    vi.mocked(dataCache.set).mockClear()
+    vi.mocked(getTaskQueue).mockReturnValue({
+      hasTaskWithName: vi.fn().mockReturnValue(false),
+    } as unknown as ReturnType<typeof getTaskQueue>)
+    const enqueue = vi.fn(async (task: (signal: AbortSignal) => Promise<unknown>) =>
+      task(new AbortController().signal)
+    )
+    const { result, rerender } = renderHook(
+      ({ org, cacheKey }) =>
+        useOrgCachedFetch({
+          accounts: [],
+          org,
+          enqueue: enqueue as ReturnType<typeof useTaskQueue>['enqueue'],
+          cacheKey,
+          taskName: `org-detail-overview-${org}`,
+          fetchFn: vi.fn().mockReturnValue(fetchResult),
+        }),
+      { initialProps: { org: 'HemSoft', cacheKey: 'org-overview:HemSoft' } }
+    )
+
+    let pendingFetch: Promise<void> | undefined
+    await act(async () => {
+      pendingFetch = result.current.fetch()
+      await Promise.resolve()
+    })
+    rerender({ org: 'other-org', cacheKey: 'org-overview:other-org' })
+
+    await act(async () => {
+      resolveFetch!({ repositories: ['hs-buddy'] })
+      await pendingFetch
+    })
+
+    expect(dataCache.set).toHaveBeenCalledWith('org-overview:HemSoft', {
+      repositories: ['hs-buddy'],
+    })
+    expect(result.current.data).toBeNull()
+  })
 })
 
 describe('applyResolvedOrgCacheIfCurrent', () => {

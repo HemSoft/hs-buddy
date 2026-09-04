@@ -215,9 +215,7 @@ export function useOrgCachedFetch<T>({
             const client = new GitHubClient({ accounts: accountsRef.current }, 7)
             const result = await fetchFnRef.current(client, org)
             throwIfAborted(signal)
-            if (!isStaleOrgFetch(activeCacheKey, cacheKeyRef)) {
-              dataCache.set(activeCacheKey, normalizeRef.current(result))
-            }
+            dataCache.set(activeCacheKey, normalizeRef.current(result))
             return result
           },
           { name: taskName, priority: forceRefresh ? 1 : 0, deduplicate: true }

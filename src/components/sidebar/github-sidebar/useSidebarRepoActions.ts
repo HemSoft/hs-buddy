@@ -15,7 +15,12 @@ import { throwIfAborted } from '../../../utils/errorUtils'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { mapRepoPRToPullRequest } from './githubSidebarUtils'
-import { GITHUB_PR_SERIALIZATION_KEY } from '../../../utils/githubTaskNames'
+import {
+  GITHUB_PR_SERIALIZATION_KEY,
+  getRepoCommitsSerializationKey,
+  getRepoCountsSerializationKey,
+  getRepoIssuesSerializationKey,
+} from '../../../utils/githubTaskNames'
 
 type EnqueueFn = (
   fn: (signal?: AbortSignal) => Promise<unknown>,
@@ -247,6 +252,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: result => setRepoCounts(prev => ({ ...prev, [key]: result })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoCountsSerializationKey(org, repoName),
       })
     },
     [accounts, enqueueRef, refreshInterval]
@@ -340,6 +346,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: issues => setRepoIssueTreeData(prev => ({ ...prev, [key]: issues })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoIssuesSerializationKey(org, repoName, state),
       })
     },
     [accounts, refreshInterval, enqueueRef]
@@ -373,6 +380,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: commits => setRepoCommitTreeData(prev => ({ ...prev, [key]: commits })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoCommitsSerializationKey(org, repoName),
       })
     },
     [accounts, refreshInterval, enqueueRef]

@@ -5,6 +5,7 @@ import { useGitHubData } from '../hooks/useGitHubData'
 import type { RepoCommit } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { onKeyboardActivate } from '../utils/keyboard'
+import { getRepoCommitsSerializationKey } from '../utils/githubTaskNames'
 import {
   PanelLoadingState,
   PanelErrorState,
@@ -96,6 +97,7 @@ export function RepoCommitListPanel({ owner, repo, onOpenCommit }: RepoCommitLis
   const { data, loading, error, refresh } = useGitHubData<RepoCommit[]>({
     cacheKey: `repo-commits:${owner}/${repo}`,
     taskName: `repo-commits-${owner}-${repo}`,
+    serializationKey: getRepoCommitsSerializationKey(owner, repo),
     fetchFn: client => client.fetchRepoCommits(owner, repo),
   })
   const commits = data ?? []

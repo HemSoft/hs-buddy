@@ -11,6 +11,7 @@ import { PanelLoadingState, PanelErrorState, PanelEmptyState } from './shared/Pa
 import { useViewMode, type ViewMode } from '../hooks/useViewMode'
 import { IssueContextMenu } from './IssueContextMenu'
 import { onKeyboardActivate } from '../utils/keyboard'
+import { getRepoIssuesSerializationKey } from '../utils/githubTaskNames'
 import './RepoIssueList.css'
 import './shared/ListView.css'
 
@@ -415,6 +416,7 @@ export function RepoIssueList(props: RepoIssueListProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoIssue[]>({
     cacheKey: `repo-issues:${issueState}:${owner}/${repo}`,
     taskName: `repo-issues-${issueState}-${owner}-${repo}`,
+    serializationKey: getRepoIssuesSerializationKey(owner, repo, issueState),
     /* v8 ignore start */
     fetchFn: client => client.fetchRepoIssues(owner, repo, issueState),
     /* v8 ignore stop */

@@ -94,6 +94,18 @@ describe('RepoCommitListPanel', () => {
     })
   })
 
+  it('serializes detail reads with repository-tree commit reads', async () => {
+    setupEnqueue([])
+    render(<RepoCommitListPanel owner="acme" repo="webapp" />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+        name: 'repo-commits-acme-webapp',
+        serializationKey: 'repository-commits:acme/webapp',
+      })
+    })
+  })
+
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoCommitListPanel owner="acme" repo="webapp" />)

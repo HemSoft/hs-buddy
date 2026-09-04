@@ -16,7 +16,10 @@ import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 import { MS_PER_MINUTE } from '../../../constants'
 import { getUniqueOrgs } from './githubSidebarUtils'
-import { getOrgReposSerializationKey } from '../../../utils/githubTaskNames'
+import {
+  getOrgReposSerializationKey,
+  getRepoCountsSerializationKey,
+} from '../../../utils/githubTaskNames'
 import { useSidebarUserMenu } from './useSidebarUserMenu'
 import { useSidebarPRTree } from './useSidebarPRTree'
 import { useSidebarRepoActions } from './useSidebarRepoActions'
@@ -402,9 +405,14 @@ export function useGitHubSidebarData() {
               throwIfAborted(signal)
               const client = new GitHubClient({ accounts }, 7)
               const result = await client.fetchRepoCounts(parsed.owner, parsed.repo)
+              throwIfAborted(signal)
               dataCache.set(cacheKey, result)
             },
-            { name: `refresh-repo-counts-${key}`, priority: -1 }
+            {
+              name: `refresh-repo-counts-${key}`,
+              priority: -1,
+              serializationKey: getRepoCountsSerializationKey(parsed.owner, parsed.repo),
+            }
           )
           .catch(error => {
             /* v8 ignore start */

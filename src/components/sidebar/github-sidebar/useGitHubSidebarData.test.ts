@@ -316,6 +316,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
     expect(result.current.expandedRepos.has('acme/my-repo')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-counts-acme/my-repo',
+      priority: -1,
+      serializationKey: 'repository-counts:acme/my-repo',
+    })
     await act(async () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
@@ -344,6 +349,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
     expect(result.current.expandedRepoCommitGroups.has('acme/my-repo')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-commit-tree-acme-my-repo',
+      priority: -1,
+      serializationKey: 'repository-commits:acme/my-repo',
+    })
   })
 
   it('toggleSFLGroup toggles', async () => {
@@ -373,6 +383,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
     })
     expect(result.current.expandedRepoIssueStateGroups.has('acme/my-repo:open')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-issues-tree-open-acme-my-repo',
+      priority: -1,
+      serializationKey: 'repository-issues:open:acme/my-repo',
+    })
   })
 
   it('prTreeData initializes from cache', () => {
@@ -2079,6 +2094,11 @@ describe('useGitHubSidebarData', () => {
     })
 
     expect(mockFetchRepoCounts).toHaveBeenCalled()
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'refresh-repo-counts-acme/my-repo',
+      priority: -1,
+      serializationKey: 'repository-counts:acme/my-repo',
+    })
     unmount()
     vi.useRealTimers()
   })

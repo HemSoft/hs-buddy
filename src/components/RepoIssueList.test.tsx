@@ -109,6 +109,18 @@ describe('RepoIssueList', () => {
     })
   })
 
+  it('serializes detail reads with repository-tree issue reads', async () => {
+    mockEnqueue.mockResolvedValue([])
+    render(<RepoIssueList owner="test-org" repo="hs-buddy" issueState="closed" />)
+
+    await waitFor(() => {
+      expect(mockEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+        name: 'repo-issues-closed-test-org-hs-buddy',
+        serializationKey: 'repository-issues:closed:test-org/hs-buddy',
+      })
+    })
+  })
+
   it('shows loading state initially', () => {
     mockEnqueue.mockReturnValue(new Promise(() => {}))
     render(<RepoIssueList owner="test-org" repo="hs-buddy" />)

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1118] - 2026-09-04
+
+### Fixed
+
+- Serialize repository count, issue, and commit cache writers
+- Serialize remaining repository cache writers
+
 ## [0.1.1117] - 2026-09-04
 
 ### Changed

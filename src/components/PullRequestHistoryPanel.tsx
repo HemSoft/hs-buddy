@@ -20,6 +20,7 @@ import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl, PR_URL_PARSE_ERROR } from '../utils/githubUrl'
 import { getErrorMessage, isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { buildAddressCommentsPrompt } from '../utils/assistantPrompts'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../utils/githubTaskNames'
 import { PanelLoadingState, PanelErrorState } from './shared/PanelStates'
 import './PullRequestHistoryPanel.css'
 
@@ -460,7 +461,10 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
           const client = new GitHubClient({ accounts }, 7)
           return await client.fetchPRHistory(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
-        { name: `pr-history-${pr.repository}-${pr.id}` }
+        {
+          name: `pr-history-${pr.repository}-${pr.id}`,
+          serializationKey: GITHUB_PR_SERIALIZATION_KEY,
+        }
       )
 
       applyFetchedHistory(result, requestId, latestRequestRef, setHistory, onLoaded)

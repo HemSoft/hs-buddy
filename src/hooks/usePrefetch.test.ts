@@ -228,13 +228,14 @@ describe('usePrefetch', () => {
     expect(mockDataCacheSet.mock.calls.some(([key]) => key === oldCacheKey)).toBe(false)
   })
 
-  it('enqueues fetch with low priority options', () => {
+  it('enqueues PR fetches with low priority and shared serialization', () => {
     renderHook(() => usePrefetch())
 
-    // Check that enqueue is called with correct options (priority: -1)
     const callArgs = mockEnqueue.mock.calls[0]
     expect(callArgs[0]).toBeTypeOf('function')
-    expect(callArgs[1]).toEqual(expect.objectContaining({ priority: -1 }))
+    expect(callArgs[1]).toEqual(
+      expect.objectContaining({ priority: -1, serializationKey: 'pull-request-list' })
+    )
   })
 
   it('auto-refresh timer checks for stale data every 30s', () => {

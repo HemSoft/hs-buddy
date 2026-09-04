@@ -13,10 +13,11 @@ import {
 import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
+import { getOrgMembersTaskName, getOrgOverviewTaskName } from '../../../utils/githubTaskNames'
 
 type EnqueueFn = (
   fn: (signal?: AbortSignal) => Promise<unknown>,
-  meta: { name: string; priority?: number }
+  meta: { name: string; priority?: number; deduplicate?: boolean }
 ) => Promise<unknown>
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
@@ -51,7 +52,7 @@ async function executeFetchWithLoading<TRaw>(opts: {
         /* v8 ignore stop */
         return await opts.apiFn()
       },
-      { name: opts.taskName, priority: -1 }
+      { name: opts.taskName, priority: -1, deduplicate: true }
     )) as TRaw
     opts.onData(result)
     dataCache.set(opts.cacheKey, result)
@@ -128,7 +129,7 @@ export function useSidebarOrgActions(opts: UseSidebarOrgActionsOptions) {
         cacheKey: `org-members:${org}`,
         loadingSetter: setLoadingOrgMembers,
         enqueue: enqueueRef.current as EnqueueFn,
-        taskName: `org-members-${org}`,
+        taskName: getOrgMembersTaskName(org),
         logLabel: 'OrgMembers',
         apiFn: () => new GitHubClient({ accounts }, 7).fetchOrgMembers(org),
         onData: result => setOrgMembers(prev => ({ ...prev, [org]: result.members })),
@@ -157,7 +158,7 @@ export function useSidebarOrgActions(opts: UseSidebarOrgActionsOptions) {
             return await client.fetchOrgOverview(org)
           },
           /* v8 ignore stop */
-          { name: `org-overview-${org}`, priority: -1 }
+          { name: getOrgOverviewTaskName(org), priority: 0, deduplicate: true }
         )) as OrgOverviewResult
         setOrgContributorCounts(prev => ({ ...prev, [org]: toContributorMap(result) }))
         dataCache.set(cacheKey, result)

@@ -16,6 +16,7 @@ import { MS_PER_MINUTE } from '../../constants'
 import { isAbortError, throwIfAborted, getUserFacingErrorMessage } from '../../utils/errorUtils'
 import { dispatchPRReviewOpen } from '../../utils/prReviewEvents'
 import { getPRCacheKey } from '../../utils/prCacheKey'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../../utils/githubTaskNames'
 
 function applyCachedPRs(
   data: PullRequest[],
@@ -231,7 +232,7 @@ async function enqueuePRListFetch({
       throwIfAborted(signal)
       return fetchPRsByMode(githubClient, mode, handleProgress)
     },
-    { name: `fetch-${mode}` }
+    { name: `fetch-${mode}`, serializationKey: GITHUB_PR_SERIALIZATION_KEY }
   )
 }
 
@@ -544,7 +545,10 @@ async function enqueueApprovalTask(
       const client = new GitHubClient({ accounts }, recentlyMergedDays)
       await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
     },
-    { name: `approve-pr-${pr.repository}-${pr.id}` }
+    {
+      name: `approve-pr-${pr.repository}-${pr.id}`,
+      serializationKey: GITHUB_PR_SERIALIZATION_KEY,
+    }
   )
 }
 

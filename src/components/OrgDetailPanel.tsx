@@ -41,6 +41,7 @@ import { sumBy } from '../utils/arrayUtils'
 import { RateLimitGauge } from './RateLimitGauge'
 import { ActiveRepositoriesSection } from './ActiveRepositoriesSection'
 import { useOrgCachedFetch } from '../hooks/useOrgCachedFetch'
+import { getOrgMembersTaskName, getOrgOverviewTaskName } from '../utils/githubTaskNames'
 import { getCachedCopilotData, runCopilotFetch } from './orgCopilotFetch'
 import './CopilotUsagePanel.css'
 import './OrgDetailPanel.css'
@@ -1132,8 +1133,8 @@ function useOrgDetailData(org: string, memberLogin?: string) {
   const overviewCacheKey = `org-overview:${org}`
   const membersCacheKey = `org-members:${org}`
   const copilotCacheKey = `org-copilot:${org}`
-  const overviewTaskName = `org-detail-overview-${org}`
-  const membersTaskName = `org-detail-members-${org}`
+  const overviewTaskName = getOrgOverviewTaskName(org)
+  const membersTaskName = getOrgMembersTaskName(org)
   const copilotTaskName = `org-detail-copilot-${org}`
   const selectTaskActivity = useCallback(
     (snapshot: QueueSnapshot): OrgTaskActivity => ({
@@ -1844,6 +1845,7 @@ export function OrgDetailPanel({ org, memberLogin }: OrgDetailPanelProps) {
           org={org}
           activity={overview.repositoryActivity ?? null}
           phase={liveOverviewPhase}
+          error={overviewError}
           onRefresh={() => {
             void fetchOverview(true)
           }}

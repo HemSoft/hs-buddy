@@ -1557,6 +1557,13 @@ describe('approve PR functionality (lines 649-664)', () => {
       'test-repo',
       42
     )
+    expect(prDetailMocks.useTaskQueue.mock.results[0]?.value.enqueue).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        name: 'pr-approve-test-repo-42',
+        serializationKey: 'pull-request-list',
+      }
+    )
 
     await waitFor(() => {
       expect(screen.getByTitle('You approved this PR')).toBeInTheDocument()

@@ -1,5 +1,8 @@
 const TASK_PREFIXES = ['prefetch-', 'autorefresh-', 'fetch-'] as const
 
+/** Keep PR-list cache readers and mutations ordered while other GitHub work proceeds. */
+export const GITHUB_PR_SERIALIZATION_KEY = 'pull-request-list'
+
 const PR_TASK_LABELS: Readonly<Record<string, string>> = {
   'my-prs': 'My PRs',
   'needs-review': 'Needs Review',
@@ -14,6 +17,14 @@ const PREFIX_LABELS: ReadonlyArray<readonly [string, string]> = [
   ['org-detail-copilot-', 'Org Copilot'],
   ['refresh-org-', 'Organizations'],
 ]
+
+export function getOrgOverviewTaskName(org: string): string {
+  return `org-detail-overview-${org}`
+}
+
+export function getOrgMembersTaskName(org: string): string {
+  return `org-detail-members-${org}`
+}
 
 /**
  * Removes queue-only prefixes and account-scope payloads from GitHub task names.

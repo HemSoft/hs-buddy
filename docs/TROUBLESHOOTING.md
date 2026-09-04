@@ -164,7 +164,27 @@ gh search prs --owner=YourOrg --author=@me --state=open
 
 ---
 
-### 6. Rate Limiting
+### 6. Stale GitHub Data or a Refresh That Does Not Finish
+
+Each GitHub REST or GraphQL HTTP attempt fails after 15 seconds instead of occupying the shared
+task queue indefinitely. Server-requested rate-limit waits longer than 15 seconds fail instead of
+sleeping in the queue; shorter waits remain bounded by the retry count. The GitHub queue runs two unrelated
+tasks concurrently, so one stalled pull-request mode cannot block an organization overview
+refresh. Requests remain rate-limited per GitHub account, authentication failures (`401`) are not
+retried, and overlapping requests for the same organization overview share one queued operation
+with one subscriber per mounted consumer. Organization member requests from the sidebar and detail
+panel also share one operation. Foreground and background pull-request list and history reads
+remain serialized with approvals from the list, sidebar, and detail panel so an older fetch cannot
+overwrite a newer mutation or reset the visible approval state.
+
+When an Active repositories refresh fails, Buddy keeps the last usable cached result visible and
+shows the GitHub error above it. Correct the reported authentication or connectivity problem, then
+use **Refresh** again. While that refresh is queued or running, the button stays disabled and shows
+its busy state.
+
+---
+
+### 7. Rate Limiting
 
 **Issue**: Console shows "Rate limit hit" errors
 

@@ -35,6 +35,7 @@ import { resolveHeadBranch, parseIssueFromBranch } from '../utils/prDetailView'
 import { formatDistanceToNow, formatDateFull } from '../utils/dateUtils'
 import { parseOwnerRepoFromUrl } from '../utils/githubUrl'
 import { throwIfAborted } from '../utils/errorUtils'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../utils/githubTaskNames'
 import { onKeyboardActivate } from '../utils/keyboard'
 import { MarkdownContent } from './shared/MarkdownContent'
 import { PullRequestHistoryPanel } from './PullRequestHistoryPanel'
@@ -920,7 +921,10 @@ async function fetchPRHistoryFromGitHub({
       const client = new GitHubClient({ accounts }, 7)
       return await client.fetchPRHistory(ownerRepo.owner, ownerRepo.repo, prId)
     },
-    { name: `pr-review-state-${repository}-${prId}` }
+    {
+      name: `pr-review-state-${repository}-${prId}`,
+      serializationKey: GITHUB_PR_SERIALIZATION_KEY,
+    }
   )
 }
 
@@ -1223,7 +1227,10 @@ export function PullRequestDetailPanel(props: PullRequestDetailPanelProps) {
           const client = new GitHubClient({ accounts }, 7)
           await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
         },
-        { name: `pr-approve-${pr.repository}-${pr.id}` }
+        {
+          name: `pr-approve-${pr.repository}-${pr.id}`,
+          serializationKey: GITHUB_PR_SERIALIZATION_KEY,
+        }
       )
       setYouApproved(true)
     } finally {

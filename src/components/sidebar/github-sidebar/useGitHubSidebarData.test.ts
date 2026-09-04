@@ -9,6 +9,7 @@ const mockSet = vi.fn()
 const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
 const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
+const mockTaskEnqueue = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
@@ -38,15 +39,14 @@ vi.mock('../../../hooks/useConfig', () => {
   }
 })
 vi.mock('../../../hooks/useTaskQueue', () => {
-  const enqueue = vi.fn().mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) => {
-    const controller = new AbortController()
-    return fn(controller.signal)
-  })
+  mockTaskEnqueue.mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) =>
+    fn(new AbortController().signal)
+  )
   const cancel = vi.fn().mockReturnValue(false)
   const cancelAll = vi.fn()
   const stats = { pending: 0, running: 0, completed: 0, failed: 0, cancelled: 0 }
   return {
-    useTaskQueue: () => ({ enqueue, cancel, cancelAll, stats }),
+    useTaskQueue: () => ({ enqueue: mockTaskEnqueue, cancel, cancelAll, stats }),
   }
 })
 vi.mock('../../../hooks/useConvex', () => ({
@@ -1493,6 +1493,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrgUserGroup('acme')
     })
     expect(consoleSpy).toHaveBeenCalledWith('[OrgMembers] acme failed:', expect.any(Error))
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'org-detail-members-acme',
+      priority: -1,
+      deduplicate: true,
+    })
     consoleSpy.mockRestore()
   })
 
@@ -1678,6 +1683,10 @@ describe('useGitHubSidebarData', () => {
 
     expect(result.current.prTreeData['pr-my-prs'][0]?.iApproved).toBe(true)
     expect(result.current.prTreeData['pr-my-prs'][0]?.approvalCount).toBe(1)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'approve-sidebar-pr-acme-my-repo-42',
+      serializationKey: 'pull-request-list',
+    })
   })
 
   it('handleApprovePR does not update non-matching PRs', async () => {

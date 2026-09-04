@@ -1,3 +1,4 @@
+import { act, renderHook } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import {
   applyResolvedOrgCache,
@@ -5,7 +6,9 @@ import {
   isStaleOrgFetch,
   applyOrgFetchResult,
   handleOrgFetchErrorIfCurrent,
+  useOrgCachedFetch,
 } from './useOrgCachedFetch'
+import { getTaskQueue } from '../services/taskQueue'
 
 vi.mock('../services/dataCache', () => ({
   dataCache: { get: vi.fn(() => null), getOrLoad: vi.fn(async () => null), set: vi.fn() },
@@ -44,6 +47,50 @@ describe('applyResolvedOrgCache', () => {
     expect(setData).toHaveBeenCalledWith(data)
     expect(setError).toHaveBeenCalledWith(null)
     expect(setPhase).toHaveBeenCalledWith('ready')
+  })
+})
+
+describe('useOrgCachedFetch', () => {
+  it('keeps a cached refresh visibly busy while its task is queued', async () => {
+    let resolveEnqueue: ((value: { repositories: never[] }) => void) | undefined
+    const enqueuePromise = new Promise<{ repositories: never[] }>(resolve => {
+      resolveEnqueue = resolve
+    })
+    const enqueue = vi.fn().mockReturnValue(enqueuePromise)
+    vi.mocked(getTaskQueue).mockReturnValue({
+      hasTaskWithName: vi.fn().mockReturnValue(true),
+    } as unknown as ReturnType<typeof getTaskQueue>)
+    const { result } = renderHook(() =>
+      useOrgCachedFetch({
+        accounts: [],
+        org: 'HemSoft',
+        enqueue,
+        cacheKey: 'org-overview:HemSoft',
+        taskName: 'org-detail-overview-HemSoft',
+        initialData: { repositories: [] },
+        fetchFn: vi.fn(),
+      })
+    )
+
+    let fetchPromise: Promise<void> | undefined
+    await act(async () => {
+      fetchPromise = result.current.fetch(true)
+      await Promise.resolve()
+    })
+
+    expect(result.current.phase).toBe('refreshing')
+    expect(result.current.error).toBeNull()
+    expect(enqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'org-detail-overview-HemSoft',
+      priority: 1,
+      deduplicate: true,
+    })
+
+    await act(async () => {
+      resolveEnqueue!({ repositories: [] })
+      await fetchPromise
+    })
+    expect(result.current.phase).toBe('ready')
   })
 })
 

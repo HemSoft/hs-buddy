@@ -222,6 +222,10 @@ describe('usePRListData', () => {
     expect(onCountChange).toHaveBeenCalledWith(3)
     expect(mockGitHubClient).toHaveBeenCalledWith({ accounts: [account] }, 14)
     expect(dataCache.get<PullRequest[]>(cacheKey('my-prs'))?.data).toHaveLength(3)
+    expect(mockUseTaskQueue.mock.results[0]?.value.enqueue).toHaveBeenCalledWith(
+      expect.any(Function),
+      { name: 'fetch-my-prs', serializationKey: 'pull-request-list' }
+    )
   })
 
   it('uses data that becomes fresh while the fetch is queued', async () => {
@@ -487,6 +491,13 @@ describe('usePRListData', () => {
     })
 
     expect(mockApprovePullRequest).toHaveBeenCalledWith('relias-engineering', 'hs-buddy', 420)
+    expect(mockUseTaskQueue.mock.results[0]?.value.enqueue).toHaveBeenCalledWith(
+      expect.any(Function),
+      {
+        name: 'approve-pr-hs-buddy-420',
+        serializationKey: 'pull-request-list',
+      }
+    )
     expect(result.current.prs[0]).toEqual(
       expect.objectContaining({
         iApproved: true,

@@ -165,6 +165,17 @@ it('renders loading, empty, and unavailable states without affecting surrounding
       'Repository activity is unavailable. The rest of the overview is still current.'
     )
   ).toBeInTheDocument()
+
+  rerender(
+    <ActiveRepositoriesSection
+      org="HemSoft"
+      activity={null}
+      phase="error"
+      error="Authentication failed"
+      onRefresh={onRefresh}
+    />
+  )
+  expect(screen.getByText(/GitHub reported: Authentication failed/)).toBeInTheDocument()
 })
 
 it('refreshes repository activity and disables the control while refreshing', () => {
@@ -190,4 +201,36 @@ it('refreshes repository activity and disables the control while refreshing', ()
   expect(container.querySelectorAll('.active-repos-header-meta .spin')).toHaveLength(1)
   expect(screen.queryByText('Refreshing')).not.toBeInTheDocument()
   expect(screen.getByText(/^Updated /)).toBe(updatedTimestamp)
+})
+
+it('keeps cached activity visible and explains a failed refresh', () => {
+  const { rerender } = render(
+    <ActiveRepositoriesSection
+      org="HemSoft"
+      activity={makeActivity()}
+      phase="error"
+      error="Request timed out after 15000ms"
+      onRefresh={onRefresh}
+    />
+  )
+
+  expect(
+    screen.getByText(
+      'Could not refresh repository activity: Request timed out after 15000ms. Showing cached data.'
+    )
+  ).toBeInTheDocument()
+  expect(screen.getByText('hs-buddy')).toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Refresh active repositories' })).toBeEnabled()
+
+  rerender(
+    <ActiveRepositoriesSection
+      org="HemSoft"
+      activity={makeActivity()}
+      phase="error"
+      onRefresh={onRefresh}
+    />
+  )
+  expect(
+    screen.getByText('Could not refresh repository activity. Showing cached data.')
+  ).toBeInTheDocument()
 })

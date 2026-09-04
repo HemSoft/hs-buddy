@@ -37,6 +37,15 @@ function resolveLoadPhase(hasData: boolean): LoadPhase {
   return hasData ? 'refreshing' : 'loading'
 }
 
+function applyQueuedOrgFetchState(
+  hasData: boolean,
+  setError: (error: string | null) => void,
+  setPhase: (phase: LoadPhase) => void
+): void {
+  setError(null)
+  setPhase(resolveLoadPhase(hasData))
+}
+
 export function applyResolvedOrgCache<T>(
   cached: T | null,
   setData: (data: T | null) => void,
@@ -194,11 +203,11 @@ export function useOrgCachedFetch<T>({
       }
 
       if (queue.hasTaskWithName(taskName)) {
-        return
+        applyQueuedOrgFetchState(hasDataRef.current, setError, setPhase)
+      } else {
+        setError(null)
+        setPhase(resolveLoadPhase(hasDataRef.current))
       }
-
-      setError(null)
-      setPhase(resolveLoadPhase(hasDataRef.current))
 
       try {
         const result = await enqueueRef.current(
@@ -207,7 +216,7 @@ export function useOrgCachedFetch<T>({
             const client = new GitHubClient({ accounts: accountsRef.current }, 7)
             return await fetchFnRef.current(client, org)
           },
-          { name: taskName, priority: -1 }
+          { name: taskName, priority: forceRefresh ? 1 : 0, deduplicate: true }
         )
 
         applyOrgFetchResult(

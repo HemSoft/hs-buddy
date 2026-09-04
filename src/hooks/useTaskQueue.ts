@@ -65,47 +65,53 @@ const objectIs: EqualityFn<unknown> = Object.is
  */
 export function useTaskQueue(queueName: string, options?: QueueOptions): UseTaskQueueResult {
   const queue = getTaskQueue(queueName, options)
-  const trackedTaskIds = useMemo(() => new Set<TaskId>(), [])
+  const trackedReleases = useMemo(() => new Map<TaskId, Set<() => boolean>>(), [])
 
   // Cancel all tracked tasks on unmount
   useEffect(() => {
-    const trackedTasks = trackedTaskIds
+    const trackedTasks = trackedReleases
     return () => {
-      for (const taskId of trackedTasks) {
-        queue.cancel(taskId)
+      for (const releases of trackedTasks.values()) {
+        for (const release of releases) release()
       }
       trackedTasks.clear()
     }
-  }, [queue, trackedTaskIds])
+  }, [trackedReleases])
 
   const enqueue = useCallback(
     <T>(execute: (signal: AbortSignal) => Promise<T>, taskOptions?: TaskOptions): Promise<T> => {
-      const { taskId, promise } = queue.enqueue(execute, taskOptions)
-      trackedTaskIds.add(taskId)
+      const { taskId, promise, release } = queue.enqueue(execute, taskOptions)
+      const releases = trackedReleases.get(taskId) ?? new Set<() => boolean>()
+      releases.add(release)
+      trackedReleases.set(taskId, releases)
 
       // Clean up tracking when task completes
       return promise.finally(() => {
-        trackedTaskIds.delete(taskId)
+        releases.delete(release)
+        if (releases.size === 0) trackedReleases.delete(taskId)
       })
     },
-    [queue, trackedTaskIds]
+    [queue, trackedReleases]
   )
 
   const cancel = useCallback(
     (taskId: TaskId): boolean => {
-      const result = queue.cancel(taskId)
-      trackedTaskIds.delete(taskId)
-      return result
+      const releases = trackedReleases.get(taskId)
+      if (!releases) return queue.cancel(taskId)
+      let released = false
+      for (const release of releases) released = release() || released
+      trackedReleases.delete(taskId)
+      return released
     },
-    [queue, trackedTaskIds]
+    [queue, trackedReleases]
   )
 
   const cancelAll = useCallback(() => {
-    for (const taskId of trackedTaskIds) {
-      queue.cancel(taskId)
+    for (const releases of trackedReleases.values()) {
+      for (const release of releases) release()
     }
-    trackedTaskIds.clear()
-  }, [queue, trackedTaskIds])
+    trackedReleases.clear()
+  }, [trackedReleases])
 
   return useMemo(() => ({ enqueue, cancel, cancelAll }), [cancel, cancelAll, enqueue])
 }

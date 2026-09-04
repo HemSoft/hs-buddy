@@ -26,6 +26,11 @@ export function getOrgMembersTaskName(org: string): string {
   return `org-detail-members-${org}`
 }
 
+/** Keep repository-list cache writers ordered per organization. */
+export function getOrgReposSerializationKey(org: string): string {
+  return `organization-repositories:${org}`
+}
+
 /**
  * Removes queue-only prefixes and account-scope payloads from GitHub task names.
  * The returned key is suitable for matching UI data sources, not for display.

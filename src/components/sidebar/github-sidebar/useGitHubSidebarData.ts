@@ -16,6 +16,7 @@ import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 import { MS_PER_MINUTE } from '../../../constants'
 import { getUniqueOrgs } from './githubSidebarUtils'
+import { getOrgReposSerializationKey } from '../../../utils/githubTaskNames'
 import { useSidebarUserMenu } from './useSidebarUserMenu'
 import { useSidebarPRTree } from './useSidebarPRTree'
 import { useSidebarRepoActions } from './useSidebarRepoActions'
@@ -307,7 +308,10 @@ export function useGitHubSidebarData() {
             const client = new GitHubClient(config, 7)
             return await client.fetchOrgRepos(org)
           },
-          { name: `fetch-org-${org}` }
+          {
+            name: `fetch-org-${org}`,
+            serializationKey: getOrgReposSerializationKey(org),
+          }
         )
         applyOrgRepoResult(org, result)
         dataCache.set(`org-repos:${org}`, result)

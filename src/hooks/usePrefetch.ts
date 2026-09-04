@@ -22,7 +22,7 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { getAccountSetFingerprint, getPRCacheKey, getPRTaskName } from '../utils/prCacheKey'
-import { GITHUB_PR_SERIALIZATION_KEY } from '../utils/githubTaskNames'
+import { GITHUB_PR_SERIALIZATION_KEY, getOrgReposSerializationKey } from '../utils/githubTaskNames'
 
 async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
   switch (mode) {
@@ -91,11 +91,16 @@ function enqueueOrgRepos(
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
   for (const org of uniqueOrgs) {
     const cacheKey = `org-repos:${org}`
-    enqueueIfStale(cacheKey, `${label.toLowerCase()}-${cacheKey}`, async (_signal, client) => {
-      const result: OrgRepoResult = await client.fetchOrgRepos(org)
-      dataCache.set(cacheKey, result)
-      console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
-    })
+    enqueueIfStale(
+      cacheKey,
+      `${label.toLowerCase()}-${cacheKey}`,
+      async (_signal, client) => {
+        const result: OrgRepoResult = await client.fetchOrgRepos(org)
+        dataCache.set(cacheKey, result)
+        console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
+      },
+      getOrgReposSerializationKey(org)
+    )
   }
 }
 

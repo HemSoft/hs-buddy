@@ -238,6 +238,20 @@ describe('usePrefetch', () => {
     )
   })
 
+  it('serializes organization repository prefetches with interactive cache writers', () => {
+    renderHook(() => usePrefetch())
+
+    const orgReposCall = mockEnqueue.mock.calls.find(
+      call => call[1]?.name === 'prefetch-org-repos:test-org'
+    )
+    expect(orgReposCall?.[1]).toEqual(
+      expect.objectContaining({
+        priority: -1,
+        serializationKey: 'organization-repositories:test-org',
+      })
+    )
+  })
+
   it('auto-refresh timer checks for stale data every 30s', () => {
     mockDataCacheIsFresh.mockReturnValue(true) // Fresh initially
     renderHook(() => usePrefetch())

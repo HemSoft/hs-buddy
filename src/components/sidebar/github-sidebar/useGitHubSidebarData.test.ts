@@ -266,6 +266,10 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrg('acme')
     })
     expect(result.current.expandedOrgs.has('acme')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'fetch-org-acme',
+      serializationKey: 'organization-repositories:acme',
+    })
   })
 
   it('toggleOrg collapses on second call', async () => {
@@ -354,6 +358,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
     expect(result.current.expandedRepoPRStateGroups.has('acme/my-repo:open')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-pr-tree-open-acme-my-repo',
+      priority: -1,
+      serializationKey: 'pull-request-list',
+    })
   })
 
   it('toggleRepoIssueStateGroup toggles and fetches', async () => {

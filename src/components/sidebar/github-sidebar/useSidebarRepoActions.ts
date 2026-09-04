@@ -15,10 +15,11 @@ import { throwIfAborted } from '../../../utils/errorUtils'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { mapRepoPRToPullRequest } from './githubSidebarUtils'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../../../utils/githubTaskNames'
 
 type EnqueueFn = (
   fn: (signal?: AbortSignal) => Promise<unknown>,
-  meta: { name: string; priority?: number }
+  meta: { name: string; priority?: number; serializationKey?: string }
 ) => Promise<unknown>
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
@@ -65,6 +66,7 @@ async function fetchCachedRepoData<TRaw>(opts: {
   afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
+  serializationKey?: string
 }): Promise<void> {
   const pending = pendingRepoFetches.get(opts.cacheKey)
   if (pending) {
@@ -94,6 +96,7 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
   afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
+  serializationKey?: string
 }): Promise<void> {
   if (await shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData))
     return
@@ -106,7 +109,7 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
         /* v8 ignore stop */
         return await opts.apiFn()
       },
-      { name: opts.taskName, priority: -1 }
+      { name: opts.taskName, priority: -1, serializationKey: opts.serializationKey }
     )) as TRaw
     opts.onData(result)
     dataCache.set(opts.cacheKey, result)
@@ -311,6 +314,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         },
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: GITHUB_PR_SERIALIZATION_KEY,
       })
     },
     [accounts, refreshInterval, enqueueRef]

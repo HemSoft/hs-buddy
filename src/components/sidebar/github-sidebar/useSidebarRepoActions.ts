@@ -107,12 +107,16 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
         /* v8 ignore start */
         if (signal) throwIfAborted(signal)
         /* v8 ignore stop */
-        return await opts.apiFn()
+        const result = await opts.apiFn()
+        /* v8 ignore start */
+        if (signal) throwIfAborted(signal)
+        /* v8 ignore stop */
+        dataCache.set(opts.cacheKey, result)
+        return result
       },
       { name: opts.taskName, priority: -1, serializationKey: opts.serializationKey }
     )) as TRaw
     opts.onData(result)
-    dataCache.set(opts.cacheKey, result)
     opts.afterFetch?.(result)
   } catch (error: unknown) {
     console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)

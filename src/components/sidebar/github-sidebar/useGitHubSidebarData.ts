@@ -267,6 +267,7 @@ export function useGitHubSidebarData() {
               const config = { accounts }
               const client = new GitHubClient(config, 7)
               const result = await client.fetchOrgRepos(org)
+              throwIfAborted(signal)
               dataCache.set(cacheKey, result)
               console.log(`[OrgRefresh] ${String(org)}: refreshed ${result.repos.length} repos`)
             },
@@ -311,6 +312,7 @@ export function useGitHubSidebarData() {
             const config = { accounts }
             const client = new GitHubClient(config, 7)
             const result = await client.fetchOrgRepos(org)
+            throwIfAborted(signal)
             dataCache.set(`org-repos:${org}`, result)
             return result
           },

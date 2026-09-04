@@ -568,4 +568,20 @@ describe('usePrefetch', () => {
     expect(orgReposCall).toBeTruthy()
     expect(orgReposCall![1]).toEqual({ repos: [{ name: 'my-repo' }] })
   })
+
+  it('does not cache org repos after cancellation during the request', async () => {
+    mockEnqueue.mockImplementation(
+      async (fn: (signal: AbortSignal) => Promise<void>, options: { name?: string }) => {
+        const controller = new AbortController()
+        const result = fn(controller.signal)
+        if (options.name === 'prefetch-org-repos:test-org') controller.abort()
+        return result
+      }
+    )
+
+    renderHook(() => usePrefetch())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(mockDataCacheSet.mock.calls.some(([key]) => key === 'org-repos:test-org')).toBe(false)
+  })
 })

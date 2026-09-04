@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1112] - 2026-09-04
+## [0.1.1113] - 2026-09-04
 
 ### Fixed
 
-- Serialize standalone repository PR reads
+- Discard cancelled repository results
 
-## [0.1.1111] - 2026-09-04
+## [0.1.1112] - 2026-09-04
 
 ### Fixed
 

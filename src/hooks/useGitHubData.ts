@@ -146,6 +146,7 @@ export function useGitHubData<T>({
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
             const result = await fetchFnRef.current(client, signal)
+            throwIfAborted(signal)
             if (isActiveGitHubRequest(requestId, requestIdRef)) {
               dataCache.set(cacheKey, result)
             }

@@ -10,6 +10,7 @@ const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
 const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
 const mockTaskEnqueue = vi.hoisted(() => vi.fn())
+const mockThrowIfAborted = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
@@ -120,7 +121,7 @@ vi.mock('../../../utils/githubUrl', () => ({
 const mockIsAbortError = vi.fn().mockReturnValue(false)
 vi.mock('../../../utils/errorUtils', () => ({
   isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
-  throwIfAborted: vi.fn(),
+  throwIfAborted: mockThrowIfAborted,
 }))
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
@@ -270,6 +271,7 @@ describe('useGitHubSidebarData', () => {
       name: 'fetch-org-acme',
       serializationKey: 'organization-repositories:acme',
     })
+    expect(mockThrowIfAborted).toHaveBeenCalledTimes(2)
   })
 
   it('toggleOrg collapses on second call', async () => {

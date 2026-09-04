@@ -94,8 +94,9 @@ function enqueueOrgRepos(
     enqueueIfStale(
       cacheKey,
       `${label.toLowerCase()}-${cacheKey}`,
-      async (_signal, client) => {
+      async (signal, client) => {
         const result: OrgRepoResult = await client.fetchOrgRepos(org)
+        throwIfAborted(signal)
         dataCache.set(cacheKey, result)
         console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
       },

@@ -2043,6 +2043,26 @@ describe('useGitHubSidebarData', () => {
     vi.useRealTimers()
   })
 
+  it('serializes periodic organization repository refreshes', async () => {
+    vi.useFakeTimers()
+    mockRefreshInterval = 1
+    mockIsFresh.mockReturnValue(false)
+    const { unmount } = renderHook(() => useGitHubSidebarData())
+    mockTaskEnqueue.mockClear()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1 * 60_000 + 100)
+    })
+
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'refresh-org-acme',
+      priority: -1,
+      serializationKey: 'organization-repositories:acme',
+    })
+    unmount()
+    vi.useRealTimers()
+  })
+
   it('refresh interval fires for repo counts', async () => {
     vi.useFakeTimers()
     mockRefreshInterval = 1

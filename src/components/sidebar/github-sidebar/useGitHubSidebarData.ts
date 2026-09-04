@@ -270,7 +270,11 @@ export function useGitHubSidebarData() {
               dataCache.set(cacheKey, result)
               console.log(`[OrgRefresh] ${String(org)}: refreshed ${result.repos.length} repos`)
             },
-            { name: `refresh-org-${org}`, priority: -1 }
+            {
+              name: `refresh-org-${org}`,
+              priority: -1,
+              serializationKey: getOrgReposSerializationKey(org),
+            }
           )
           .catch(err => {
             /* v8 ignore start */
@@ -306,7 +310,9 @@ export function useGitHubSidebarData() {
             throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
-            return await client.fetchOrgRepos(org)
+            const result = await client.fetchOrgRepos(org)
+            dataCache.set(`org-repos:${org}`, result)
+            return result
           },
           {
             name: `fetch-org-${org}`,
@@ -314,7 +320,6 @@ export function useGitHubSidebarData() {
           }
         )
         applyOrgRepoResult(org, result)
-        dataCache.set(`org-repos:${org}`, result)
       } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return

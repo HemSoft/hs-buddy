@@ -63,7 +63,6 @@ async function fetchCachedRepoData<TRaw>(opts: {
   logLabel: string
   apiFn: () => Promise<TRaw>
   onData: (data: TRaw) => void
-  afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
   serializationKey?: string
@@ -93,7 +92,6 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
   logLabel: string
   apiFn: () => Promise<TRaw>
   onData: (data: TRaw) => void
-  afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
   serializationKey?: string
@@ -117,7 +115,6 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
       { name: opts.taskName, priority: -1, serializationKey: opts.serializationKey }
     )) as TRaw
     opts.onData(result)
-    opts.afterFetch?.(result)
   } catch (error: unknown) {
     console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)
   } finally {
@@ -307,15 +304,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
             ...prev,
             [key]: prs.map(pr => mapRepoPRToPullRequest(pr, org)),
           })),
-        afterFetch: result => {
-          if (state !== 'open') return
-          const countsCacheKey = `repo-counts:${org}/${repoName}`
-          const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
-          dataCache.set(countsCacheKey, {
-            issues: existingCounts?.data?.issues ?? 0,
-            prs: result.length,
-          })
-        },
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
         serializationKey: GITHUB_PR_SERIALIZATION_KEY,

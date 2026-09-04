@@ -1527,7 +1527,7 @@ describe('useGitHubSidebarData', () => {
     consoleSpy.mockRestore()
   })
 
-  it('fetchRepoPRsForRepo updates counts cache for open PRs', async () => {
+  it('leaves repository counts to the dedicated count fetch', async () => {
     mockFetchRepoPRs.mockResolvedValue([
       {
         number: 1,
@@ -1568,11 +1568,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
-    // Should set counts cache with PR count
-    expect(mockSet).toHaveBeenCalledWith(
-      'repo-counts:acme/my-repo',
-      expect.objectContaining({ prs: 2 })
-    )
+    expect(mockSet).not.toHaveBeenCalledWith('repo-counts:acme/my-repo', expect.anything())
   })
 
   // ── Toggle function branch coverage ──

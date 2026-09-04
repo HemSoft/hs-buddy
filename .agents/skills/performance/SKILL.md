@@ -12,11 +12,12 @@ Run `bun run bench` to execute vitest benchmarks. Compare results against the ba
 ### Run (default)
 
 1. Run `bun install --frozen-lockfile`, then record `bun --version`, `node --version`, and `bun pm ls --all` entries for `vitest` and `@vitest/coverage-v8` before benchmarking.
-2. Run `bun run bench` **five times** and take the **median** hz for each benchmark. This filters CPU jitter and GC noise.
-3. Compare each median ops/sec (hz) against the baseline table below only when Bun, Node, and Vitest match the captured baseline toolchain. If they differ, refresh the baseline or run a same-runner base/candidate comparison instead.
-4. **Regression threshold**: Any benchmark whose median hz drops **more than 5%** below baseline is a failure. Fix every regression before proceeding.
-5. If all benchmarks pass, report a summary table showing current median vs baseline with pass/fail per row.
-6. Run the **Gaps** check automatically after every Run.
+2. Verify `.stryker-tmp` is absent before benchmark discovery. A failed mutation run can leave generated sandboxes with duplicate `*.bench.ts` trees; remove only verified generated sandboxes, never source or dependency directories.
+3. Run `bun run bench` **five times** and take the **median** hz for each benchmark. This filters CPU jitter and GC noise.
+4. Compare each median ops/sec (hz) against the baseline table below only when Bun, Node, and Vitest match the captured baseline toolchain. If they differ, refresh the baseline or run a same-runner base/candidate comparison instead.
+5. **Regression threshold**: Any benchmark whose median hz drops **more than 5%** below baseline is a failure. Fix every regression before proceeding.
+6. If all benchmarks pass, report a summary table showing current median vs baseline with pass/fail per row.
+7. Run the **Gaps** check automatically after every Run.
 
 ### Compare
 

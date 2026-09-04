@@ -6,6 +6,7 @@
       "entry": [
         "electron/main.ts",
         "electron/preload.ts",
+        "vitest.mutation.config.ts",
         "scripts/*.ts",
         "perf/*.ts",
         "generate-icons.ts",

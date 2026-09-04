@@ -214,8 +214,24 @@ describe('extractOgTitle', () => {
     expect(extractOgTitle('<meta property="og:title" content="OG Title">')).toBe('OG Title')
   })
 
+  it('handles other attributes around property-first og:title fields', () => {
+    expect(
+      extractOgTitle(
+        '<meta data-source="github" property="og:title" data-kind="page" content="  OG Title  ">'
+      )
+    ).toBe('OG Title')
+  })
+
   it('extracts og:title from content-first meta tag', () => {
     expect(extractOgTitle('<meta content="OG Title" property="og:title">')).toBe('OG Title')
+  })
+
+  it('handles other attributes around content-first og:title fields', () => {
+    expect(
+      extractOgTitle(
+        '<meta data-source="github" content="OG Title" data-kind="page" property="og:title">'
+      )
+    ).toBe('OG Title')
   })
 
   it('returns null when no og:title', () => {

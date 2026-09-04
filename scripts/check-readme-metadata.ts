@@ -3,8 +3,6 @@ import { resolve } from 'node:path'
 
 const CI_BADGE =
   '[![CI](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
-const ELECTRON_BADGE =
-  '[![Electron](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2FHemSoft%2Fhs-buddy%2Fmain%2Fpackage.json&query=%24.devDependencies.electron&label=Electron&color=47848F&logo=electron)](https://www.electronjs.org/)'
 
 type PackageMetadata = {
   devDependencies?: Record<string, string>
@@ -19,13 +17,14 @@ export function validateReadmeMetadata(readme: string, packageJson: string): str
     errors.push('README.md must include the main-branch status badge for .github/workflows/ci.yml.')
   }
 
-  if (!readme.includes(ELECTRON_BADGE)) {
-    errors.push('README.md must derive its Electron badge from package.json on main.')
-  }
-
   const electron = readElectronMajor(packageJson)
   if (electron.error !== undefined) {
     return [...errors, electron.error]
+  }
+
+  const electronBadge = `[![Electron](https://img.shields.io/badge/Electron-${electron.major}-47848F.svg)](https://www.electronjs.org/)`
+  if (!readme.includes(electronBadge)) {
+    errors.push(`README.md Electron badge must declare Electron ${electron.major}.`)
   }
 
   const documentedMajor = readme.match(/^- \*\*Electron (\d+)\*\*/m)?.[1]

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1106] - 2026-09-04
+
+### Fixed
+
+- Enforce major-only Electron badge (#636)
+
 ## [0.1.1105] - 2026-09-04
 
 ### Changed

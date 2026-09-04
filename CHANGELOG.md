@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1104] - 2026-09-04
+
+### Changed
+
+- Add mutation quality gate (#635)
+
 ## [0.1.1103] - 2026-09-02
 
 ### Fixed

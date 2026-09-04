@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  PR_URL_PARSE_ERROR,
   parseOwnerRepoFromUrl,
   formatFileStatus,
   getRepoShortName,
@@ -9,6 +10,10 @@ import {
 } from './githubUrl'
 
 describe('parseOwnerRepoFromUrl', () => {
+  it('exposes the shared parse error message', () => {
+    expect(PR_URL_PARSE_ERROR).toBe('Could not parse owner/repo from PR URL')
+  })
+
   it('extracts owner and repo from a PR URL', () => {
     const result = parseOwnerRepoFromUrl('https://github.com/acme/widget/pull/42')
     expect(result).toEqual({ owner: 'acme', repo: 'widget' })
@@ -100,6 +105,10 @@ describe('parseGitRemote', () => {
     expect(result).toEqual({ host: 'github.com', slug: 'acme/widget', scheme: 'https' })
   })
 
+  it('rejects text prefixed to an HTTPS remote', () => {
+    expect(parseGitRemote('prefixhttps://github.com/acme/widget.git')).toBeNull()
+  })
+
   it('parses SSH colon-separated URL', () => {
     const result = parseGitRemote('git@github.com:acme/widget.git')
     expect(result).toEqual({ host: 'github.com', slug: 'acme/widget', scheme: 'ssh' })
@@ -107,6 +116,16 @@ describe('parseGitRemote', () => {
 
   it('parses SSH protocol URL', () => {
     const result = parseGitRemote('ssh://git@github.com/acme/widget.git')
+    expect(result).toEqual({ host: 'github.com', slug: 'acme/widget', scheme: 'ssh' })
+  })
+
+  it('parses SSH protocol URL without a username', () => {
+    const result = parseGitRemote('ssh://github.com/acme/widget.git')
+    expect(result).toEqual({ host: 'github.com', slug: 'acme/widget', scheme: 'ssh' })
+  })
+
+  it('parses SSH URL without a .git suffix', () => {
+    const result = parseGitRemote('git@github.com:acme/widget')
     expect(result).toEqual({ host: 'github.com', slug: 'acme/widget', scheme: 'ssh' })
   })
 

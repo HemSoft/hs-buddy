@@ -47,6 +47,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 | `bun run test`          | Run all unit tests                                       |
 | `bun run test:watch`    | Run tests in watch mode                                  |
 | `bun run test:coverage` | Run tests with coverage (must be 100%)                   |
+| `bun run test:mutation` | Run the blocking Stryker mutation-quality gate           |
 | `bun run test:electron` | Run Electron main-process tests                          |
 | `bun run test:convex`   | Run Convex server function tests                         |
 | `bun run test:e2e`      | Run Playwright E2E tests                                 |
@@ -124,6 +125,13 @@ Husky runs automatically on commit:
 - **Vitest** with happy-dom environment
 - **React Testing Library** for component tests
 - **Playwright** for E2E tests
+
+### Mutation testing
+
+Run `bun run test:mutation` before changing the mutation scope or threshold.
+See [Mutation testing](docs/MUTATION-TESTING.md) for the maintained baseline,
+exclusion reasons, report locations, runtime budget, and threshold-update
+rules.
 
 ## Code Quality
 

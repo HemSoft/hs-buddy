@@ -132,6 +132,14 @@ describe('calculateMarketOpen', () => {
         },
       })
     ).toBe(true)
+
+    expect(
+      calculateMarketOpen({
+        currentTradingPeriod: {
+          regular: { start: 0, end: 'bad' as unknown as number },
+        },
+      })
+    ).toBe(true)
   })
 
   it('returns true during trading hours', () => {

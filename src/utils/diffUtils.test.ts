@@ -23,6 +23,7 @@ describe('getDiffLineClass', () => {
   it('returns base class for context lines', () => {
     expect(getDiffLineClass(' context line')).toBe('repo-commit-diff-line')
     expect(getDiffLineClass('plain text')).toBe('repo-commit-diff-line')
+    expect(getDiffLineClass('context ending in @@')).toBe('repo-commit-diff-line')
     expect(getDiffLineClass('')).toBe('repo-commit-diff-line')
   })
 })

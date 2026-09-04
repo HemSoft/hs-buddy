@@ -164,4 +164,16 @@ describe('trimDiffHunk', () => {
     expect(result.wasTrimmed).toBe(false)
     expect(result.lines).toEqual(['@@ -1,2 +1,2 @@', ' line1', ' line2'])
   })
+
+  it('does not treat a content line ending in @@ as the hunk header', () => {
+    const hunk = [' context@@', '@@ -10,7 +10,7 @@', ' a', ' b', ' c', ' d', ' e', ' f', ' g'].join(
+      '\n'
+    )
+
+    const result = trimDiffHunk(hunk)
+
+    expect(result.wasTrimmed).toBe(true)
+    expect(result.skippedLines).toEqual([' a'])
+    expect(result.lines).toEqual(['@@ -10,7 +10,7 @@', ' b', ' c', ' d', ' e', ' f', ' g'])
+  })
 })

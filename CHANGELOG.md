@@ -9,6 +9,72 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1119] - 2026-09-04
+
+### Changed
+
+- Remove redundant changelog entry
+
+## [0.1.1118] - 2026-09-04
+
+### Fixed
+
+- Serialize repository count, issue, and commit cache writers
+
+## [0.1.1117] - 2026-09-04
+
+### Changed
+
+- Keep shared-cache regression scoped
+
+## [0.1.1116] - 2026-09-04
+
+### Fixed
+
+- Publish shared org results after navigation
+
+## [0.1.1115] - 2026-09-04
+
+### Fixed
+
+- Hold shared cache lanes through writes
+
+## [0.1.1114] - 2026-09-04
+
+### Fixed
+
+- Keep repository counts single-writer
+
+## [0.1.1113] - 2026-09-04
+
+### Fixed
+
+- Discard cancelled repository results
+
+## [0.1.1112] - 2026-09-04
+
+### Fixed
+
+- Serialize standalone repository PR reads
+
+## [0.1.1110] - 2026-09-04
+
+### Fixed
+
+- Hold org cache lane through writes
+
+## [0.1.1109] - 2026-09-04
+
+### Fixed
+
+- Serialize remaining cache writers
+
+## [0.1.1108] - 2026-09-04
+
+### Fixed
+
+- Keep stalled syncs from blocking refreshes
+
 ## [0.1.1107] - 2026-09-04
 
 ### Changed

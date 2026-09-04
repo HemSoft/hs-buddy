@@ -16,6 +16,10 @@ import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
 import { MS_PER_MINUTE } from '../../../constants'
 import { getUniqueOrgs } from './githubSidebarUtils'
+import {
+  getOrgReposSerializationKey,
+  getRepoCountsSerializationKey,
+} from '../../../utils/githubTaskNames'
 import { useSidebarUserMenu } from './useSidebarUserMenu'
 import { useSidebarPRTree } from './useSidebarPRTree'
 import { useSidebarRepoActions } from './useSidebarRepoActions'
@@ -266,10 +270,15 @@ export function useGitHubSidebarData() {
               const config = { accounts }
               const client = new GitHubClient(config, 7)
               const result = await client.fetchOrgRepos(org)
+              throwIfAborted(signal)
               dataCache.set(cacheKey, result)
               console.log(`[OrgRefresh] ${String(org)}: refreshed ${result.repos.length} repos`)
             },
-            { name: `refresh-org-${org}`, priority: -1 }
+            {
+              name: `refresh-org-${org}`,
+              priority: -1,
+              serializationKey: getOrgReposSerializationKey(org),
+            }
           )
           .catch(err => {
             /* v8 ignore start */
@@ -305,12 +314,17 @@ export function useGitHubSidebarData() {
             throwIfAborted(signal)
             const config = { accounts }
             const client = new GitHubClient(config, 7)
-            return await client.fetchOrgRepos(org)
+            const result = await client.fetchOrgRepos(org)
+            throwIfAborted(signal)
+            dataCache.set(`org-repos:${org}`, result)
+            return result
           },
-          { name: `fetch-org-${org}` }
+          {
+            name: `fetch-org-${org}`,
+            serializationKey: getOrgReposSerializationKey(org),
+          }
         )
         applyOrgRepoResult(org, result)
-        dataCache.set(`org-repos:${org}`, result)
       } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return
@@ -391,9 +405,14 @@ export function useGitHubSidebarData() {
               throwIfAborted(signal)
               const client = new GitHubClient({ accounts }, 7)
               const result = await client.fetchRepoCounts(parsed.owner, parsed.repo)
+              throwIfAborted(signal)
               dataCache.set(cacheKey, result)
             },
-            { name: `refresh-repo-counts-${key}`, priority: -1 }
+            {
+              name: `refresh-repo-counts-${key}`,
+              priority: -1,
+              serializationKey: getRepoCountsSerializationKey(parsed.owner, parsed.repo),
+            }
           )
           .catch(error => {
             /* v8 ignore start */

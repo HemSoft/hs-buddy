@@ -82,9 +82,10 @@ vi.mock('@octokit/rest', () => ({
 
 // Mock graphql
 const mockGraphql = vi.fn()
-vi.mock('@octokit/graphql', () => ({
-  graphql: (...args: unknown[]) => mockGraphql(...args),
-}))
+vi.mock('@octokit/graphql', () => {
+  const graphql = (...args: unknown[]) => mockGraphql(...args)
+  return { graphql: Object.assign(graphql, { defaults: () => graphql }) }
+})
 
 // Mock retry + throttling plugins
 vi.mock('@octokit/plugin-retry', () => ({ retry: {} }))

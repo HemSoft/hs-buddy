@@ -15,7 +15,9 @@ vi.mock('./useTaskQueue', () => ({
 }))
 
 vi.mock('../api/github', () => ({
-  GitHubClient: vi.fn().mockImplementation(() => ({})),
+  GitHubClient: vi.fn(function () {
+    return {}
+  }),
 }))
 
 vi.mock('../api/github/client', async () => {
@@ -34,15 +36,16 @@ vi.mock('../utils/errorUtils', () => ({
 
 const stableAccounts = [{ username: 'user1', org: 'myorg' }]
 
-describe('useGitHubData', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockAccounts.mockReturnValue({ accounts: stableAccounts })
-    // Clear dataCache internal state
-    vi.spyOn(dataCache, 'get').mockReturnValue(null)
-    vi.spyOn(dataCache, 'set').mockImplementation(() => {})
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockAccounts.mockReturnValue({ accounts: stableAccounts })
+  // Clear dataCache internal state
+  vi.spyOn(dataCache, 'get').mockReturnValue(null)
+  vi.spyOn(dataCache, 'getOrLoad').mockImplementation(async key => dataCache.get(key))
+  vi.spyOn(dataCache, 'set').mockImplementation(() => {})
+})
 
+describe('useGitHubData state', () => {
   it('clears error when serving cached data on re-fetch', async () => {
     // Start: no cache, fetch fails → error state set
     mockEnqueue.mockRejectedValueOnce(new Error('Network fail'))
@@ -92,5 +95,90 @@ describe('useGitHubData', () => {
       expect(result.current.data).toBeNull()
       expect(result.current.loading).toBe(false)
     })
+  })
+})
+
+describe('useGitHubData serialization', () => {
+  it('holds serialization through the cache write', async () => {
+    const fetchFn = vi.fn().mockResolvedValue('fresh-data')
+    mockEnqueue.mockImplementation(
+      async (
+        execute: (signal: AbortSignal) => Promise<unknown>,
+        options: { name: string; serializationKey?: string }
+      ) => {
+        expect(options).toEqual({ name: 'test', serializationKey: 'shared-resource' })
+        const result = await execute(new AbortController().signal)
+        expect(dataCache.set).toHaveBeenCalledWith('key-1', 'fresh-data')
+        return result
+      }
+    )
+
+    const { result } = renderHook(() =>
+      useGitHubData({
+        cacheKey: 'key-1',
+        taskName: 'test',
+        serializationKey: 'shared-resource',
+        fetchFn,
+      })
+    )
+
+    await waitFor(() => {
+      expect(result.current.data).toBe('fresh-data')
+    })
+  })
+
+  it('ignores a cache lookup that resolves after the cache key changes', async () => {
+    let resolveOldLookup!: (value: { data: string; fetchedAt: number }) => void
+    const oldLookup = new Promise<{ data: string; fetchedAt: number }>(resolve => {
+      resolveOldLookup = resolve
+    })
+    vi.mocked(dataCache.getOrLoad).mockImplementation(async key => {
+      if (key === 'key-1') return oldLookup
+      return { data: 'current-data', fetchedAt: Date.now() }
+    })
+
+    const fetchFn = vi.fn()
+    const { result, rerender } = renderHook(
+      ({ cacheKey }: { cacheKey: string }) =>
+        useGitHubData({ cacheKey, taskName: 'test', fetchFn }),
+      { initialProps: { cacheKey: 'key-1' } }
+    )
+    await waitFor(() => expect(dataCache.getOrLoad).toHaveBeenCalledWith('key-1'))
+
+    rerender({ cacheKey: 'key-2' })
+    resolveOldLookup({ data: 'obsolete-data', fetchedAt: Date.now() })
+
+    await waitFor(() => {
+      expect(result.current.data).toBe('current-data')
+    })
+    expect(fetchFn).not.toHaveBeenCalled()
+  })
+
+  it('does not cache a GitHub result after the cache key changes', async () => {
+    let resolveOldFetch!: (value: string) => void
+    const oldFetch = new Promise<string>(resolve => {
+      resolveOldFetch = resolve
+    })
+    vi.mocked(dataCache.getOrLoad).mockImplementation(async key => {
+      if (key === 'key-2') return { data: 'current-data', fetchedAt: Date.now() }
+      return null
+    })
+    mockEnqueue.mockImplementation(async execute => execute(new AbortController().signal))
+    const fetchFn = vi.fn().mockReturnValue(oldFetch)
+
+    const { result, rerender } = renderHook(
+      ({ cacheKey }: { cacheKey: string }) =>
+        useGitHubData({ cacheKey, taskName: 'test', fetchFn }),
+      { initialProps: { cacheKey: 'key-1' } }
+    )
+    await waitFor(() => expect(fetchFn).toHaveBeenCalledOnce())
+
+    rerender({ cacheKey: 'key-2' })
+    resolveOldFetch('obsolete-data')
+
+    await waitFor(() => {
+      expect(result.current.data).toBe('current-data')
+    })
+    expect(dataCache.set).not.toHaveBeenCalledWith('key-1', 'obsolete-data')
   })
 })

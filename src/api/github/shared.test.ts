@@ -16,7 +16,50 @@ import {
   mapCommitFileToDiffFile,
   mapReviewCommentFields,
   resolveOrgAvatar,
+  buildOctokitOptions,
+  buildGraphqlOptions,
 } from './shared'
+
+describe('buildOctokitOptions', () => {
+  it('bounds requests and does not retry authentication failures', () => {
+    const options = buildOctokitOptions('HemSoft', 'token')
+
+    expect(options.request?.timeout).toBe(15_000)
+    expect(options.retry?.doNotRetry).toContain(401)
+  })
+
+  it('uses a distinct throttle group for each GitHub account', () => {
+    const hemSoft = buildOctokitOptions('HemSoft', 'token')
+    const secondAccount = buildOctokitOptions('second-account', 'token')
+
+    expect(hemSoft.throttle?.id).toBe('hs-buddy:hemsoft')
+    expect(secondAccount.throttle?.id).toBe('hs-buddy:second-account')
+    expect(hemSoft.throttle?.id).not.toBe(secondAccount.throttle?.id)
+  })
+
+  it('rejects server-directed throttle waits beyond the request budget', () => {
+    const options = buildOctokitOptions('HemSoft', 'token')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const requestOptions = { method: 'GET', url: '/rate_limit' }
+    const onRateLimit = options.throttle?.onRateLimit
+    const onSecondaryRateLimit = options.throttle?.onSecondaryRateLimit
+
+    if (!onRateLimit || !onSecondaryRateLimit) throw new Error('Missing throttle callbacks')
+
+    try {
+      expect(onRateLimit(16, requestOptions as never, {} as never, 0)).toBe(false)
+      expect(onSecondaryRateLimit(16, requestOptions as never, {} as never, 0)).toBe(false)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
+
+describe('buildGraphqlOptions', () => {
+  it('bounds standalone GraphQL requests', () => {
+    expect(buildGraphqlOptions().request.timeout).toBe(15_000)
+  })
+})
 
 describe('mapPRLabel', () => {
   it('maps a plain string to a label with default color', () => {

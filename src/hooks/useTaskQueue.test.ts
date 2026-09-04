@@ -46,6 +46,38 @@ describe('useTaskQueue', () => {
     await expect(taskPromise).rejects.toThrow('cancelled')
   })
 
+  it('keeps a deduplicated task alive while another hook still subscribes', async () => {
+    const first = renderHook(() => useTaskQueue('action-shared-unmount'))
+    const second = renderHook(() => useTaskQueue('action-shared-unmount'))
+    let completeTask: (() => void) | undefined
+    let sharedSignal: AbortSignal | undefined
+    const blocker = new Promise<void>(resolve => {
+      completeTask = resolve
+    })
+
+    const firstPromise = first.result.current.enqueue(
+      async signal => {
+        sharedSignal = signal
+        await blocker
+        return 'done'
+      },
+      { name: 'overview', deduplicate: true }
+    )
+    const duplicateExecutor = vi.fn().mockResolvedValue('duplicate')
+    const secondPromise = second.result.current.enqueue(duplicateExecutor, {
+      name: 'overview',
+      deduplicate: true,
+    })
+
+    first.unmount()
+    expect(sharedSignal?.aborted).toBe(false)
+    completeTask!()
+    await expect(secondPromise).resolves.toBe('done')
+    await expect(firstPromise).resolves.toBe('done')
+    expect(duplicateExecutor).not.toHaveBeenCalled()
+    second.unmount()
+  })
+
   it('cancelAll cancels every tracked task', async () => {
     const { result } = renderHook(() => useTaskQueue('action-cancel-all', { concurrency: 0 }))
     const first = result.current.enqueue(async () => 'first')
@@ -65,6 +97,47 @@ describe('useTaskQueue', () => {
     expect(result.current.cancel(taskId)).toBe(true)
 
     await expect(promise).rejects.toThrow('Task cancelled')
+  })
+
+  it('releases a task tracked by the hook when cancelled by ID', async () => {
+    const queue = getTaskQueue('action-cancel-tracked')
+    const enqueueSpy = vi.spyOn(queue, 'enqueue')
+    const { result } = renderHook(() => useTaskQueue('action-cancel-tracked'))
+    const promise = result.current.enqueue(
+      signal =>
+        new Promise((_resolve, reject) => {
+          signal.addEventListener('abort', () =>
+            reject(new DOMException('cancelled', 'AbortError'))
+          )
+        })
+    )
+    const taskId = enqueueSpy.mock.results[0]?.value.taskId
+
+    expect(taskId).toBeDefined()
+    expect(result.current.cancel(taskId!)).toBe(true)
+    await expect(promise).rejects.toThrow('cancelled')
+  })
+
+  it('releases every same-hook subscription for a deduplicated task', async () => {
+    const queue = getTaskQueue('action-cancel-shared-tracked')
+    const enqueueSpy = vi.spyOn(queue, 'enqueue')
+    const { result } = renderHook(() => useTaskQueue('action-cancel-shared-tracked'))
+    const execute = (signal: AbortSignal) =>
+      new Promise<string>((_resolve, reject) => {
+        signal.addEventListener('abort', () => reject(new DOMException('cancelled', 'AbortError')))
+      })
+    const first = result.current.enqueue(execute, { name: 'overview', deduplicate: true })
+    const duplicateExecutor = vi.fn(execute)
+    const second = result.current.enqueue(duplicateExecutor, {
+      name: 'overview',
+      deduplicate: true,
+    })
+    const taskId = enqueueSpy.mock.results[0]?.value.taskId
+
+    expect(result.current.cancel(taskId!)).toBe(true)
+    const outcomes = await Promise.allSettled([first, second])
+    expect(outcomes.every(outcome => outcome.status === 'rejected')).toBe(true)
+    expect(duplicateExecutor).not.toHaveBeenCalled()
   })
 
   it('does not rerender its caller as queue state changes', async () => {

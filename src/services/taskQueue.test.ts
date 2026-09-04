@@ -497,4 +497,74 @@ describe('getTaskQueue', () => {
     const q2 = getTaskQueue('queue-b')
     expect(q1).not.toBe(q2)
   })
+
+  it('lets an unrelated GitHub task progress while one request never settles', async () => {
+    const queue = getTaskQueue('github')
+    let releaseStalledTask: (() => void) | undefined
+    const stalled = new Promise<void>(resolve => {
+      releaseStalledTask = resolve
+    })
+    const { promise: stalledPromise } = queue.enqueue(async () => stalled, {
+      name: 'prefetch-recently-merged',
+    })
+    const overview = vi.fn().mockResolvedValue('fresh')
+    const { promise: overviewPromise } = queue.enqueue(overview, {
+      name: 'org-detail-overview-hemsoft',
+    })
+
+    try {
+      await expect(overviewPromise).resolves.toBe('fresh')
+      expect(overview).toHaveBeenCalledOnce()
+      expect(queue.hasTaskWithName('prefetch-recently-merged')).toBe(true)
+    } finally {
+      releaseStalledTask!()
+      await stalledPromise
+    }
+  })
+
+  it('shares and promotes a deduplicated pending task', async () => {
+    const queue = new TaskQueue('deduplicated')
+    const order: string[] = []
+    let releaseBlocker: (() => void) | undefined
+    const blocker = new Promise<void>(resolve => {
+      releaseBlocker = resolve
+    })
+    const { promise: blockerPromise } = queue.enqueue(async () => blocker)
+    const original = queue.enqueue(
+      async () => {
+        order.push('overview')
+        return 'fresh'
+      },
+      { name: 'org-detail-overview-hemsoft', priority: -1, deduplicate: true }
+    )
+    const { promise: normalPriorityPromise } = queue.enqueue(async () => {
+      order.push('normal')
+    })
+    const duplicateExecutor = vi.fn().mockResolvedValue('duplicate')
+    const duplicate = queue.enqueue(duplicateExecutor, {
+      name: 'org-detail-overview-hemsoft',
+      priority: 1,
+      deduplicate: true,
+    })
+    const unprioritizedDuplicateExecutor = vi.fn().mockResolvedValue('duplicate')
+    const unprioritizedDuplicate = queue.enqueue(unprioritizedDuplicateExecutor, {
+      name: 'org-detail-overview-hemsoft',
+      deduplicate: true,
+    })
+
+    try {
+      expect(duplicate.taskId).toBe(original.taskId)
+      expect(duplicate.promise).toBe(original.promise)
+      expect(unprioritizedDuplicate.taskId).toBe(original.taskId)
+      releaseBlocker!()
+      await expect(duplicate.promise).resolves.toBe('fresh')
+      await normalPriorityPromise
+      expect(order).toEqual(['overview', 'normal'])
+      expect(duplicateExecutor).not.toHaveBeenCalled()
+      expect(unprioritizedDuplicateExecutor).not.toHaveBeenCalled()
+    } finally {
+      releaseBlocker!()
+      await blockerPromise
+    }
+  })
 })

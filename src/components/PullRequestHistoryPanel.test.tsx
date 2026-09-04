@@ -171,6 +171,10 @@ describe('PullRequestHistoryPanel', () => {
     await waitFor(() => {
       expect(screen.getByText('PR History')).toBeInTheDocument()
     })
+    expect(mockEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'pr-history-hs-buddy-42',
+      serializationKey: 'pull-request-list',
+    })
   })
 
   it('shows commit count', async () => {

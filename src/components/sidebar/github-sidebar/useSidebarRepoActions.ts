@@ -15,10 +15,16 @@ import { throwIfAborted } from '../../../utils/errorUtils'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { mapRepoPRToPullRequest } from './githubSidebarUtils'
+import {
+  GITHUB_PR_SERIALIZATION_KEY,
+  getRepoCommitsSerializationKey,
+  getRepoCountsSerializationKey,
+  getRepoIssuesSerializationKey,
+} from '../../../utils/githubTaskNames'
 
 type EnqueueFn = (
   fn: (signal?: AbortSignal) => Promise<unknown>,
-  meta: { name: string; priority?: number }
+  meta: { name: string; priority?: number; serializationKey?: string }
 ) => Promise<unknown>
 
 type LoadingSetSetter = React.Dispatch<React.SetStateAction<Set<string>>>
@@ -62,9 +68,9 @@ async function fetchCachedRepoData<TRaw>(opts: {
   logLabel: string
   apiFn: () => Promise<TRaw>
   onData: (data: TRaw) => void
-  afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
+  serializationKey?: string
 }): Promise<void> {
   const pending = pendingRepoFetches.get(opts.cacheKey)
   if (pending) {
@@ -91,9 +97,9 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
   logLabel: string
   apiFn: () => Promise<TRaw>
   onData: (data: TRaw) => void
-  afterFetch?: (result: TRaw) => void
   forceRefresh?: boolean
   maxAgeMs?: number | null
+  serializationKey?: string
 }): Promise<void> {
   if (await shouldUseCachedData(opts.cacheKey, opts.forceRefresh, opts.maxAgeMs, opts.onData))
     return
@@ -104,13 +110,16 @@ async function runCachedRepoDataFetch<TRaw>(opts: {
         /* v8 ignore start */
         if (signal) throwIfAborted(signal)
         /* v8 ignore stop */
-        return await opts.apiFn()
+        const result = await opts.apiFn()
+        /* v8 ignore start */
+        if (signal) throwIfAborted(signal)
+        /* v8 ignore stop */
+        dataCache.set(opts.cacheKey, result)
+        return result
       },
-      { name: opts.taskName, priority: -1 }
+      { name: opts.taskName, priority: -1, serializationKey: opts.serializationKey }
     )) as TRaw
     opts.onData(result)
-    dataCache.set(opts.cacheKey, result)
-    opts.afterFetch?.(result)
   } catch (error: unknown) {
     console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)
   } finally {
@@ -243,6 +252,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: result => setRepoCounts(prev => ({ ...prev, [key]: result })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoCountsSerializationKey(org, repoName),
       })
     },
     [accounts, enqueueRef, refreshInterval]
@@ -300,17 +310,9 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
             ...prev,
             [key]: prs.map(pr => mapRepoPRToPullRequest(pr, org)),
           })),
-        afterFetch: result => {
-          if (state !== 'open') return
-          const countsCacheKey = `repo-counts:${org}/${repoName}`
-          const existingCounts = dataCache.get<RepoCounts>(countsCacheKey)
-          dataCache.set(countsCacheKey, {
-            issues: existingCounts?.data?.issues ?? 0,
-            prs: result.length,
-          })
-        },
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: GITHUB_PR_SERIALIZATION_KEY,
       })
     },
     [accounts, refreshInterval, enqueueRef]
@@ -344,6 +346,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: issues => setRepoIssueTreeData(prev => ({ ...prev, [key]: issues })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoIssuesSerializationKey(org, repoName, state),
       })
     },
     [accounts, refreshInterval, enqueueRef]
@@ -377,6 +380,7 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
         onData: commits => setRepoCommitTreeData(prev => ({ ...prev, [key]: commits })),
         forceRefresh,
         maxAgeMs: getMaxAgeMs(refreshInterval),
+        serializationKey: getRepoCommitsSerializationKey(org, repoName),
       })
     },
     [accounts, refreshInterval, enqueueRef]

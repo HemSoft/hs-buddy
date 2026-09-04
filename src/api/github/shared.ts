@@ -1,12 +1,11 @@
 import { Octokit } from '@octokit/rest'
 import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
-import { graphql } from '@octokit/graphql'
+import { graphql as octokitGraphql } from '@octokit/graphql'
 import type { PRConfig } from '../../types/pullRequest'
 import { IPC_INVOKE } from '../../ipc/contracts'
 
 // ── Re-exports for domain modules ──────────────────────────────────────────
-export { graphql }
 export type { Octokit }
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -20,8 +19,18 @@ const SECONDARY_RATE_LIMIT_RETRIES = 2
 /** Total automatic retries for transient errors. */
 const TOTAL_RETRIES = 3
 
+/** Keep one slow GitHub request from occupying a task-queue worker indefinitely. */
+const GITHUB_REQUEST_TIMEOUT_MS = 15_000
+
+export function buildGraphqlOptions(): { request: { timeout: number } } {
+  return { request: { timeout: GITHUB_REQUEST_TIMEOUT_MS } }
+}
+
+/** Standalone GraphQL calls use the same bounded transport as REST calls. */
+export const graphql = octokitGraphql.defaults(buildGraphqlOptions())
+
 /** Status codes that should never be retried. */
-const DO_NOT_RETRY_CODES = [404, 429]
+const DO_NOT_RETRY_CODES = [401, 404, 429]
 
 const DEFAULT_LABEL_COLOR = '808080'
 
@@ -197,6 +206,59 @@ export function includesLoginIgnoreCase(logins: string[], target: string | null)
 /** Octokit class with retry + throttling plugins baked in. */
 const OctokitWithPlugins = Octokit.plugin(retry, throttling)
 
+export function buildOctokitOptions(
+  username: string,
+  token: string
+): NonNullable<ConstructorParameters<typeof OctokitWithPlugins>[0]> {
+  return {
+    auth: token,
+    request: {
+      timeout: GITHUB_REQUEST_TIMEOUT_MS,
+    },
+    /* v8 ignore start -- Octokit throttle callbacks; invoked by plugin internals */
+    throttle: {
+      // The throttling plugin shares Bottleneck groups by id. Keep accounts
+      // independent while retaining serialization for each account's requests.
+      id: `hs-buddy:${username.toLowerCase()}`,
+      onRateLimit: (retryAfter, options, _octokit, retryCount) => {
+        console.warn(`Rate limit hit for ${options.method} ${options.url}`)
+        if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {
+          console.warn(`Rate limit retry delay of ${retryAfter}s exceeds the request time budget`)
+          return false
+        }
+        if (retryCount < PRIMARY_RATE_LIMIT_RETRIES) {
+          console.info(
+            `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${PRIMARY_RATE_LIMIT_RETRIES})`
+          )
+          return true
+        }
+        return false
+      },
+      onSecondaryRateLimit: (retryAfter, options, _octokit, retryCount) => {
+        console.warn(`Secondary rate limit hit for ${options.method} ${options.url}`)
+        if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {
+          console.warn(
+            `Secondary rate limit retry delay of ${retryAfter}s exceeds the request time budget`
+          )
+          return false
+        }
+        if (retryCount < SECONDARY_RATE_LIMIT_RETRIES) {
+          console.info(
+            `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${SECONDARY_RATE_LIMIT_RETRIES})`
+          )
+          return true
+        }
+        return false
+      },
+    },
+    /* v8 ignore stop */
+    retry: {
+      doNotRetry: DO_NOT_RETRY_CODES,
+      retries: TOTAL_RETRIES,
+    },
+  }
+}
+
 // Module-level caches (persist across calls)
 const tokenCache: Map<string, string> = new Map()
 const orgAvatarCache: Map<string, string | null> = new Map() // null = tried and failed
@@ -285,37 +347,7 @@ export async function getOctokit(username: string): Promise<Octokit | null> {
     return null
   }
 
-  return new OctokitWithPlugins({
-    auth: token,
-    /* v8 ignore start -- Octokit throttle callbacks; invoked by plugin internals */
-    throttle: {
-      onRateLimit: (retryAfter, options, _octokit, retryCount) => {
-        console.warn(`Rate limit hit for ${options.method} ${options.url}`)
-        if (retryCount < PRIMARY_RATE_LIMIT_RETRIES) {
-          console.info(
-            `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${PRIMARY_RATE_LIMIT_RETRIES})`
-          )
-          return true
-        }
-        return false
-      },
-      onSecondaryRateLimit: (retryAfter, options, _octokit, retryCount) => {
-        console.warn(`Secondary rate limit hit for ${options.method} ${options.url}`)
-        if (retryCount < SECONDARY_RATE_LIMIT_RETRIES) {
-          console.info(
-            `Retrying after ${retryAfter} seconds (attempt ${retryCount + 1}/${SECONDARY_RATE_LIMIT_RETRIES})`
-          )
-          return true
-        }
-        return false
-      },
-    },
-    /* v8 ignore stop */
-    retry: {
-      doNotRetry: DO_NOT_RETRY_CODES,
-      retries: TOTAL_RETRIES,
-    },
-  })
+  return new OctokitWithPlugins(buildOctokitOptions(username, token))
 }
 
 /**

@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect, type Dispatch, type SetStateAction } from 'react'
 import { GitHubClient } from '../../../api/github/client'
 import { dataCache } from '../../../services/dataCache'
+import type { TaskOptions } from '../../../services/taskQueue'
 import { parseOwnerRepoFromUrl } from '../../../utils/githubUrl'
 import { isAbortError, throwIfAborted } from '../../../utils/errorUtils'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../../../utils/githubTaskNames'
 import { dispatchPRReviewOpen } from '../../../utils/prReviewEvents'
 import type { PullRequest } from '../../../types/pullRequest'
 import type { GitHubAccount } from '../../../types/config'
@@ -50,10 +52,7 @@ function toOwnerRepo(owner: string | undefined, repo: string | undefined) {
 interface UseSidebarPRTreeOptions {
   accounts: GitHubAccount[]
   enqueueRef: React.MutableRefObject<
-    (
-      fn: (signal?: AbortSignal) => Promise<unknown>,
-      meta: { name: string; priority?: number }
-    ) => Promise<unknown>
+    (fn: (signal?: AbortSignal) => Promise<unknown>, meta: TaskOptions) => Promise<unknown>
   >
 }
 
@@ -236,7 +235,10 @@ async function enqueueApprovePR(
       const client = new GitHubClient({ accounts }, 7)
       await client.approvePullRequest(owner, repo, pr.id)
     },
-    { name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}` }
+    {
+      name: `approve-sidebar-pr-${owner}-${repo}-${pr.id}`,
+      serializationKey: GITHUB_PR_SERIALIZATION_KEY,
+    }
   )
 }
 

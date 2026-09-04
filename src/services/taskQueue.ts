@@ -15,6 +15,17 @@ export interface TaskOptions {
   priority?: number
   /** Optional task name for debugging */
   name?: string
+  /** Reuse a pending or running task with the same name. */
+  deduplicate?: boolean
+  /** Serialize tasks that read or mutate the same resource. */
+  serializationKey?: string
+}
+
+export interface EnqueuedTask<T> {
+  taskId: TaskId
+  promise: Promise<T>
+  /** Release this caller's interest, cancelling only when no callers remain. */
+  release: () => boolean
 }
 
 interface Task<T = unknown> {
@@ -24,6 +35,9 @@ interface Task<T = unknown> {
   status: TaskStatus
   abortController: AbortController
   execute: (signal: AbortSignal) => Promise<T>
+  promise: Promise<T>
+  serializationKey?: string
+  subscriberCount: number
   resolve: (value: T) => void
   reject: (reason: unknown) => void
   createdAt: number
@@ -96,7 +110,20 @@ export class TaskQueue {
   enqueue<T>(
     execute: (signal: AbortSignal) => Promise<T>,
     options: TaskOptions = {}
-  ): { taskId: TaskId; promise: Promise<T> } {
+  ): EnqueuedTask<T> {
+    if (options.deduplicate && options.name) {
+      const existingTask = this.findTaskWithName(options.name)
+      if (existingTask) {
+        existingTask.subscriberCount++
+        this.promotePendingTask(existingTask, options.priority ?? 0)
+        return {
+          taskId: existingTask.id,
+          promise: existingTask.promise as Promise<T>,
+          release: this.createRelease(existingTask.id),
+        }
+      }
+    }
+
     const taskId = `${this.name}-${++this.taskCounter}-${Date.now()}`
     const abortController = new AbortController()
 
@@ -115,6 +142,9 @@ export class TaskQueue {
       status: 'pending',
       abortController,
       execute,
+      promise,
+      serializationKey: options.serializationKey,
+      subscriberCount: 1,
       resolve: resolve!,
       reject: reject!,
       createdAt: Date.now(),
@@ -132,7 +162,7 @@ export class TaskQueue {
     this.emitChange()
     this.processQueue()
 
-    return { taskId, promise }
+    return { taskId, promise, release: this.createRelease(taskId) }
   }
 
   /**
@@ -308,13 +338,38 @@ export class TaskQueue {
    * Check if a task with the given name is already pending or running.
    */
   hasTaskWithName(name: string): boolean {
-    for (const task of this.pendingTasks) {
-      if (task.name === name) return true
+    return this.findTaskWithName(name) != null
+  }
+
+  private findTaskWithName(name: string): Task | undefined {
+    return (
+      this.pendingTasks.find(task => task.name === name) ??
+      Array.from(this.runningTasks.values()).find(
+        task => task.name === name && task.status === 'running'
+      )
+    )
+  }
+
+  private createRelease(taskId: TaskId): () => boolean {
+    let released = false
+    return () => {
+      if (released) return false
+      released = true
+      const task =
+        this.pendingTasks.find(candidate => candidate.id === taskId) ??
+        this.runningTasks.get(taskId)
+      if (!task || task.subscriberCount <= 0) return false
+      task.subscriberCount--
+      if (task.subscriberCount === 0) this.cancel(taskId)
+      return true
     }
-    for (const task of this.runningTasks.values()) {
-      if (task.name === name) return true
-    }
-    return false
+  }
+
+  private promotePendingTask(task: Task, priority: number): void {
+    if (task.status !== 'pending' || priority <= task.priority) return
+    task.priority = priority
+    this.pendingTasks.sort((left, right) => right.priority - left.priority)
+    this.emitChange()
   }
 
   /**
@@ -322,7 +377,14 @@ export class TaskQueue {
    */
   private processQueue(): void {
     while (this.pendingTasks.length > 0 && this.runningTasks.size < this.concurrency) {
-      const task = this.pendingTasks.shift()!
+      const nextTaskIndex = this.pendingTasks.findIndex(task => {
+        if (!task.serializationKey) return true
+        return !Array.from(this.runningTasks.values()).some(
+          runningTask => runningTask.serializationKey === task.serializationKey
+        )
+      })
+      if (nextTaskIndex === -1) return
+      const [task] = this.pendingTasks.splice(nextTaskIndex, 1)
       this.stats.pending--
       this.runTask(task)
     }
@@ -387,10 +449,16 @@ export class TaskQueue {
 
 const queues = new Map<string, TaskQueue>()
 
+function getDefaultQueueOptions(name: string): QueueOptions {
+  // GitHub requests retain per-account throttling in the shared API client. Two
+  // workers prevent one stalled PR mode from freezing an unrelated org refresh.
+  return { concurrency: name === 'github' ? 2 : 1 }
+}
+
 export function getTaskQueue(name: string, options?: QueueOptions): TaskQueue {
   let queue = queues.get(name)
   if (!queue) {
-    queue = new TaskQueue(name, options ?? { concurrency: 1 })
+    queue = new TaskQueue(name, options ?? getDefaultQueueOptions(name))
     queues.set(name, queue)
   }
   return queue

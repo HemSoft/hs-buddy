@@ -9,6 +9,8 @@ const mockSet = vi.fn()
 const mockDelete = vi.fn()
 const mockSubscribe = vi.fn((_listener: (key: string) => void) => () => {})
 const mockIsFresh = vi.fn((_key: string, _maxAgeMs: number) => false)
+const mockTaskEnqueue = vi.hoisted(() => vi.fn())
+const mockThrowIfAborted = vi.hoisted(() => vi.fn())
 
 vi.mock('../../../services/dataCache', () => ({
   dataCache: {
@@ -38,15 +40,14 @@ vi.mock('../../../hooks/useConfig', () => {
   }
 })
 vi.mock('../../../hooks/useTaskQueue', () => {
-  const enqueue = vi.fn().mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) => {
-    const controller = new AbortController()
-    return fn(controller.signal)
-  })
+  mockTaskEnqueue.mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) =>
+    fn(new AbortController().signal)
+  )
   const cancel = vi.fn().mockReturnValue(false)
   const cancelAll = vi.fn()
   const stats = { pending: 0, running: 0, completed: 0, failed: 0, cancelled: 0 }
   return {
-    useTaskQueue: () => ({ enqueue, cancel, cancelAll, stats }),
+    useTaskQueue: () => ({ enqueue: mockTaskEnqueue, cancel, cancelAll, stats }),
   }
 })
 vi.mock('../../../hooks/useConvex', () => ({
@@ -120,7 +121,7 @@ vi.mock('../../../utils/githubUrl', () => ({
 const mockIsAbortError = vi.fn().mockReturnValue(false)
 vi.mock('../../../utils/errorUtils', () => ({
   isAbortError: (...args: unknown[]) => mockIsAbortError(...args),
-  throwIfAborted: vi.fn(),
+  throwIfAborted: mockThrowIfAborted,
 }))
 
 import { useGitHubSidebarData } from './useGitHubSidebarData'
@@ -266,6 +267,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrg('acme')
     })
     expect(result.current.expandedOrgs.has('acme')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'fetch-org-acme',
+      serializationKey: 'organization-repositories:acme',
+    })
+    expect(mockThrowIfAborted).toHaveBeenCalledTimes(2)
   })
 
   it('toggleOrg collapses on second call', async () => {
@@ -310,6 +316,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
     expect(result.current.expandedRepos.has('acme/my-repo')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-counts-acme/my-repo',
+      priority: -1,
+      serializationKey: 'repository-counts:acme/my-repo',
+    })
     await act(async () => {
       result.current.toggleRepo('acme', 'my-repo')
     })
@@ -338,6 +349,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
     expect(result.current.expandedRepoCommitGroups.has('acme/my-repo')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-commit-tree-acme-my-repo',
+      priority: -1,
+      serializationKey: 'repository-commits:acme/my-repo',
+    })
   })
 
   it('toggleSFLGroup toggles', async () => {
@@ -354,6 +370,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
     expect(result.current.expandedRepoPRStateGroups.has('acme/my-repo:open')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-pr-tree-open-acme-my-repo',
+      priority: -1,
+      serializationKey: 'pull-request-list',
+    })
   })
 
   it('toggleRepoIssueStateGroup toggles and fetches', async () => {
@@ -362,6 +383,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
     })
     expect(result.current.expandedRepoIssueStateGroups.has('acme/my-repo:open')).toBe(true)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'repo-issues-tree-open-acme-my-repo',
+      priority: -1,
+      serializationKey: 'repository-issues:open:acme/my-repo',
+    })
   })
 
   it('prTreeData initializes from cache', () => {
@@ -1493,6 +1519,11 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleOrgUserGroup('acme')
     })
     expect(consoleSpy).toHaveBeenCalledWith('[OrgMembers] acme failed:', expect.any(Error))
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'org-detail-members-acme',
+      priority: -1,
+      deduplicate: true,
+    })
     consoleSpy.mockRestore()
   })
 
@@ -1511,7 +1542,7 @@ describe('useGitHubSidebarData', () => {
     consoleSpy.mockRestore()
   })
 
-  it('fetchRepoPRsForRepo updates counts cache for open PRs', async () => {
+  it('leaves repository counts to the dedicated count fetch', async () => {
     mockFetchRepoPRs.mockResolvedValue([
       {
         number: 1,
@@ -1552,11 +1583,7 @@ describe('useGitHubSidebarData', () => {
     await act(async () => {
       result.current.toggleRepoPRStateGroup('acme', 'my-repo', 'open')
     })
-    // Should set counts cache with PR count
-    expect(mockSet).toHaveBeenCalledWith(
-      'repo-counts:acme/my-repo',
-      expect.objectContaining({ prs: 2 })
-    )
+    expect(mockSet).not.toHaveBeenCalledWith('repo-counts:acme/my-repo', expect.anything())
   })
 
   // ── Toggle function branch coverage ──
@@ -1678,6 +1705,10 @@ describe('useGitHubSidebarData', () => {
 
     expect(result.current.prTreeData['pr-my-prs'][0]?.iApproved).toBe(true)
     expect(result.current.prTreeData['pr-my-prs'][0]?.approvalCount).toBe(1)
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'approve-sidebar-pr-acme-my-repo-42',
+      serializationKey: 'pull-request-list',
+    })
   })
 
   it('handleApprovePR does not update non-matching PRs', async () => {
@@ -2025,6 +2056,26 @@ describe('useGitHubSidebarData', () => {
     vi.useRealTimers()
   })
 
+  it('serializes periodic organization repository refreshes', async () => {
+    vi.useFakeTimers()
+    mockRefreshInterval = 1
+    mockIsFresh.mockReturnValue(false)
+    const { unmount } = renderHook(() => useGitHubSidebarData())
+    mockTaskEnqueue.mockClear()
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1 * 60_000 + 100)
+    })
+
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'refresh-org-acme',
+      priority: -1,
+      serializationKey: 'organization-repositories:acme',
+    })
+    unmount()
+    vi.useRealTimers()
+  })
+
   it('refresh interval fires for repo counts', async () => {
     vi.useFakeTimers()
     mockRefreshInterval = 1
@@ -2043,6 +2094,11 @@ describe('useGitHubSidebarData', () => {
     })
 
     expect(mockFetchRepoCounts).toHaveBeenCalled()
+    expect(mockTaskEnqueue).toHaveBeenCalledWith(expect.any(Function), {
+      name: 'refresh-repo-counts-acme/my-repo',
+      priority: -1,
+      serializationKey: 'repository-counts:acme/my-repo',
+    })
     unmount()
     vi.useRealTimers()
   })

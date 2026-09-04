@@ -1692,23 +1692,27 @@ describe('OrgDetailPanel', () => {
   })
 
   describe('task queue deduplication', () => {
-    it('skips fetch when task is already queued', async () => {
+    it('attaches to a queued fetch and requests priority promotion', async () => {
       orgMocks.dataCacheGet.mockReturnValue(null)
       orgMocks.dataCacheIsFresh.mockReturnValue(false)
-      // hasTaskWithName returns true → fetch should be skipped
       orgMocks.getTaskQueue.mockReturnValue({
         hasTaskWithName: vi.fn().mockReturnValue(true),
       })
 
       render(<OrgDetailPanel org="test-org" />)
-      await vi.advanceTimersByTimeAsync(100)
-
-      // enqueue should NOT have been called since hasTaskWithName returned true
-      // and the cache was empty, so it returns early
       const enqueue = orgMocks.useTaskQueue.mock.results[0]?.value?.enqueue
-      if (enqueue) {
-        expect(enqueue).not.toHaveBeenCalled()
-      }
+      await waitFor(() => expect(enqueue).toHaveBeenCalled())
+
+      expect(enqueue).toHaveBeenCalledWith(expect.any(Function), {
+        name: 'org-detail-overview-test-org',
+        priority: 0,
+        deduplicate: true,
+      })
+      expect(enqueue).toHaveBeenCalledWith(expect.any(Function), {
+        name: 'org-detail-members-test-org',
+        priority: 0,
+        deduplicate: true,
+      })
     })
   })
 

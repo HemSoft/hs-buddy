@@ -22,6 +22,7 @@ import type { PullRequest } from '../types/pullRequest'
 import { MS_PER_MINUTE, PR_MODES } from '../constants'
 import { isAbortError, throwIfAborted } from '../utils/errorUtils'
 import { getAccountSetFingerprint, getPRCacheKey, getPRTaskName } from '../utils/prCacheKey'
+import { GITHUB_PR_SERIALIZATION_KEY, getOrgReposSerializationKey } from '../utils/githubTaskNames'
 
 async function fetchPrefetchPRs(client: GitHubClient, mode: string): Promise<PullRequest[]> {
   switch (mode) {
@@ -53,7 +54,8 @@ function sortPrefetchPRs(mode: string, prs: PullRequest[]): void {
 type EnqueueIfStaleFn = (
   cacheKey: string,
   taskName: string,
-  fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
+  fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>,
+  serializationKey?: string
 ) => void
 
 function enqueuePRModes(
@@ -65,14 +67,19 @@ function enqueuePRModes(
   for (const mode of PR_MODES) {
     const cacheKey = getPRCacheKey(mode, accounts)
     const taskName = getPRTaskName(label, mode, accounts)
-    enqueueIfStale(cacheKey, taskName, async (signal, client) => {
-      const prs = await fetchPrefetchPRs(client, mode)
-      throwIfAborted(signal)
-      if (!isCurrentCacheKey(cacheKey)) return
-      sortPrefetchPRs(mode, prs)
-      dataCache.set(cacheKey, prs)
-      console.log(`[${label}] ${cacheKey}: fetched ${prs.length} PRs`)
-    })
+    enqueueIfStale(
+      cacheKey,
+      taskName,
+      async (signal, client) => {
+        const prs = await fetchPrefetchPRs(client, mode)
+        throwIfAborted(signal)
+        if (!isCurrentCacheKey(cacheKey)) return
+        sortPrefetchPRs(mode, prs)
+        dataCache.set(cacheKey, prs)
+        console.log(`[${label}] ${cacheKey}: fetched ${prs.length} PRs`)
+      },
+      GITHUB_PR_SERIALIZATION_KEY
+    )
   }
 }
 
@@ -84,11 +91,17 @@ function enqueueOrgRepos(
   const uniqueOrgs = Array.from(new Set(accounts.map(a => a.org))).sort()
   for (const org of uniqueOrgs) {
     const cacheKey = `org-repos:${org}`
-    enqueueIfStale(cacheKey, `${label.toLowerCase()}-${cacheKey}`, async (_signal, client) => {
-      const result: OrgRepoResult = await client.fetchOrgRepos(org)
-      dataCache.set(cacheKey, result)
-      console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
-    })
+    enqueueIfStale(
+      cacheKey,
+      `${label.toLowerCase()}-${cacheKey}`,
+      async (signal, client) => {
+        const result: OrgRepoResult = await client.fetchOrgRepos(org)
+        throwIfAborted(signal)
+        dataCache.set(cacheKey, result)
+        console.log(`[${label}] ${cacheKey}: fetched ${result.repos.length} repos`)
+      },
+      getOrgReposSerializationKey(org)
+    )
   }
 }
 
@@ -157,7 +170,8 @@ export function usePrefetch(): void {
       const enqueueIfStale = (
         cacheKey: string,
         taskName: string,
-        fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>
+        fetchFn: (signal: AbortSignal, client: GitHubClient) => Promise<void>,
+        serializationKey?: string
       ) => {
         if (dataCache.isFresh(cacheKey, intervalMs) || queue.hasTaskWithName(taskName)) return
         const cachedEntry = dataCache.get(cacheKey)
@@ -175,7 +189,7 @@ export function usePrefetch(): void {
               const client = new GitHubClient(config, recentlyMergedDays)
               await fetchFn(signal, client)
             },
-            { name: taskName, priority: -1 }
+            { name: taskName, priority: -1, serializationKey }
           )
           .catch(err => {
             /* v8 ignore start */

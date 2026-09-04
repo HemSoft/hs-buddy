@@ -228,13 +228,28 @@ describe('usePrefetch', () => {
     expect(mockDataCacheSet.mock.calls.some(([key]) => key === oldCacheKey)).toBe(false)
   })
 
-  it('enqueues fetch with low priority options', () => {
+  it('enqueues PR fetches with low priority and shared serialization', () => {
     renderHook(() => usePrefetch())
 
-    // Check that enqueue is called with correct options (priority: -1)
     const callArgs = mockEnqueue.mock.calls[0]
     expect(callArgs[0]).toBeTypeOf('function')
-    expect(callArgs[1]).toEqual(expect.objectContaining({ priority: -1 }))
+    expect(callArgs[1]).toEqual(
+      expect.objectContaining({ priority: -1, serializationKey: 'pull-request-list' })
+    )
+  })
+
+  it('serializes organization repository prefetches with interactive cache writers', () => {
+    renderHook(() => usePrefetch())
+
+    const orgReposCall = mockEnqueue.mock.calls.find(
+      call => call[1]?.name === 'prefetch-org-repos:test-org'
+    )
+    expect(orgReposCall?.[1]).toEqual(
+      expect.objectContaining({
+        priority: -1,
+        serializationKey: 'organization-repositories:test-org',
+      })
+    )
   })
 
   it('auto-refresh timer checks for stale data every 30s', () => {
@@ -552,5 +567,21 @@ describe('usePrefetch', () => {
     )
     expect(orgReposCall).toBeTruthy()
     expect(orgReposCall![1]).toEqual({ repos: [{ name: 'my-repo' }] })
+  })
+
+  it('does not cache org repos after cancellation during the request', async () => {
+    mockEnqueue.mockImplementation(
+      async (fn: (signal: AbortSignal) => Promise<void>, options: { name?: string }) => {
+        const controller = new AbortController()
+        const result = fn(controller.signal)
+        if (options.name === 'prefetch-org-repos:test-org') controller.abort()
+        return result
+      }
+    )
+
+    renderHook(() => usePrefetch())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(mockDataCacheSet.mock.calls.some(([key]) => key === 'org-repos:test-org')).toBe(false)
   })
 })

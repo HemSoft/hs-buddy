@@ -19,6 +19,7 @@ interface ActiveRepositoriesSectionProps {
   org: string
   activity: RepositoryActivitySummary | null
   phase: LoadPhase
+  error?: string | null
   onRefresh: () => void
 }
 
@@ -162,16 +163,21 @@ function ActivitySkeleton() {
 function ActivityContent({
   activity,
   phase,
+  error,
 }: {
   activity: RepositoryActivitySummary | null
   phase: LoadPhase
+  error?: string | null
 }) {
   if (!activity) {
     if (phase === 'error') {
       return (
         <div className="active-repos-status active-repos-status-error">
           <AlertCircle aria-hidden="true" size={15} />
-          Repository activity is unavailable. The rest of the overview is still current.
+          <span>
+            Repository activity is unavailable. The rest of the overview is still current.
+            {error ? ` GitHub reported: ${error}` : ''}
+          </span>
         </div>
       )
     }
@@ -181,6 +187,14 @@ function ActivityContent({
   const hasPartialError = !activity.issuesAvailable || !activity.pullRequestsAvailable
   return (
     <>
+      {phase === 'error' ? (
+        <div className="active-repos-status active-repos-status-error">
+          <AlertCircle aria-hidden="true" size={15} />
+          <span>
+            Could not refresh repository activity{error ? `: ${error}` : ''}. Showing cached data.
+          </span>
+        </div>
+      ) : null}
       {hasPartialError ? (
         <div className="active-repos-status active-repos-status-warning">
           <AlertCircle aria-hidden="true" size={15} />
@@ -212,6 +226,7 @@ export function ActiveRepositoriesSection({
   org,
   activity,
   phase,
+  error,
   onRefresh,
 }: ActiveRepositoriesSectionProps) {
   const isRefreshing = phase === 'refreshing'
@@ -260,7 +275,7 @@ export function ActiveRepositoriesSection({
           ) : null}
         </div>
       </div>
-      <ActivityContent activity={activity} phase={phase} />
+      <ActivityContent activity={activity} phase={phase} error={error} />
     </section>
   )
 }

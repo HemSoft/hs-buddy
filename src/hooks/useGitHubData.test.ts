@@ -36,16 +36,16 @@ vi.mock('../utils/errorUtils', () => ({
 
 const stableAccounts = [{ username: 'user1', org: 'myorg' }]
 
-describe('useGitHubData', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    mockAccounts.mockReturnValue({ accounts: stableAccounts })
-    // Clear dataCache internal state
-    vi.spyOn(dataCache, 'get').mockReturnValue(null)
-    vi.spyOn(dataCache, 'getOrLoad').mockImplementation(async key => dataCache.get(key))
-    vi.spyOn(dataCache, 'set').mockImplementation(() => {})
-  })
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockAccounts.mockReturnValue({ accounts: stableAccounts })
+  // Clear dataCache internal state
+  vi.spyOn(dataCache, 'get').mockReturnValue(null)
+  vi.spyOn(dataCache, 'getOrLoad').mockImplementation(async key => dataCache.get(key))
+  vi.spyOn(dataCache, 'set').mockImplementation(() => {})
+})
 
+describe('useGitHubData state', () => {
   it('clears error when serving cached data on re-fetch', async () => {
     // Start: no cache, fetch fails → error state set
     mockEnqueue.mockRejectedValueOnce(new Error('Network fail'))
@@ -96,7 +96,9 @@ describe('useGitHubData', () => {
       expect(result.current.loading).toBe(false)
     })
   })
+})
 
+describe('useGitHubData serialization', () => {
   it('holds serialization through the cache write', async () => {
     const fetchFn = vi.fn().mockResolvedValue('fresh-data')
     mockEnqueue.mockImplementation(

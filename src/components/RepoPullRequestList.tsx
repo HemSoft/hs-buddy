@@ -10,6 +10,7 @@ import {
   MessageSquare,
 } from 'lucide-react'
 import { useGitHubData } from '../hooks/useGitHubData'
+import { GITHUB_PR_SERIALIZATION_KEY } from '../utils/githubTaskNames'
 import type { RepoPullRequest } from '../api/github'
 import { formatDistanceToNow } from '../utils/dateUtils'
 import { createPRDetailViewId } from '../utils/prDetailView'
@@ -344,6 +345,7 @@ export function RepoPullRequestList(props: RepoPullRequestListProps) {
   const { data, loading, error, refresh } = useGitHubData<RepoPullRequest[]>({
     cacheKey: `repo-prs:${prState}:${owner}/${repo}`,
     taskName: `repo-prs-${prState}-${owner}-${repo}`,
+    serializationKey: GITHUB_PR_SERIALIZATION_KEY,
     fetchFn: client => client.fetchRepoPRs(owner, repo, prState),
   })
   const prs = data ?? []

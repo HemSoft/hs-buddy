@@ -38,16 +38,14 @@ function isActiveGitHubRequest(requestId: number, requestIdRef: { current: numbe
   return requestId === requestIdRef.current
 }
 
-function storeGitHubDataResult<T>(
+function applyGitHubDataResult<T>(
   requestId: number,
   requestIdRef: { current: number },
-  cacheKey: string,
   result: T,
   setData: (data: T) => void
 ): void {
   if (!isActiveGitHubRequest(requestId, requestIdRef)) return
   setData(result)
-  dataCache.set(cacheKey, result)
 }
 
 function finishGitHubLoading(
@@ -70,6 +68,9 @@ interface UseGitHubDataOptions<T> {
   /** Task queue job name (for debugging/deduplication). */
   taskName: string
 
+  /** Serialize work that reads or mutates the same cache-backed resource. */
+  serializationKey?: string
+
   /**
    * The fetch function. Receives a pre-authenticated GitHubClient and an AbortSignal.
    * Kept in a ref internally — does not need to be memoized by the caller.
@@ -88,6 +89,7 @@ interface UseGitHubDataResult<T> {
 export function useGitHubData<T>({
   cacheKey,
   taskName,
+  serializationKey,
   fetchFn,
 }: UseGitHubDataOptions<T>): UseGitHubDataResult<T> {
   const { accounts } = useGitHubAccounts()
@@ -143,19 +145,23 @@ export function useGitHubData<T>({
           async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
-            return await fetchFnRef.current(client, signal)
+            const result = await fetchFnRef.current(client, signal)
+            if (isActiveGitHubRequest(requestId, requestIdRef)) {
+              dataCache.set(cacheKey, result)
+            }
+            return result
           },
-          { name: taskName }
+          { name: taskName, serializationKey }
         )
 
-        storeGitHubDataResult(requestId, requestIdRef, cacheKey, result, setData)
+        applyGitHubDataResult(requestId, requestIdRef, result, setData)
       } catch (err: unknown) {
         handleFetchError(err, requestId, requestIdRef.current, setError)
       } finally {
         finishGitHubLoading(requestId, requestIdRef, setLoading)
       }
     },
-    [accounts, cacheKey, taskName, enqueueRef, fetchFnRef]
+    [accounts, cacheKey, taskName, serializationKey, enqueueRef, fetchFnRef]
   )
 
   // Initial fetch (and re-fetch when deps change)

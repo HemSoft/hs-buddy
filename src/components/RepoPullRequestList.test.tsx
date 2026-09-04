@@ -282,6 +282,7 @@ describe('RepoPullRequestList', () => {
       expect.objectContaining({
         cacheKey: 'repo-prs:open:test-org/hs-buddy',
         taskName: 'repo-prs-open-test-org-hs-buddy',
+        serializationKey: 'pull-request-list',
       })
     )
   })

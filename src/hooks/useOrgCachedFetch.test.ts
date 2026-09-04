@@ -128,7 +128,9 @@ describe('useOrgCachedFetch', () => {
 
     expect(cacheWasUpdatedInsideTask).toBe(true)
   })
+})
 
+describe('useOrgCachedFetch shared task ownership', () => {
   it('publishes a shared result to its original cache after the owning hook navigates', async () => {
     let resolveFetch: ((value: { repositories: string[] }) => void) | undefined
     const fetchResult = new Promise<{ repositories: string[] }>(resolve => {

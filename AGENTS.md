@@ -26,13 +26,7 @@ body so the reviewer knows what to scrutinize.
 Such issues must have the appropriate `risk:medium` or `risk:high` label and
 include a **Risk Acknowledgment** line in the issue body.
 
-### 3. Capture Lessons in Skills
-
-When an interactive session produces a new insight, instruction, or correction
-that would improve future runs, update the relevant skill file — not just
-this document. AGENTS.md is for standing orders; skills carry domain knowledge.
-
-### 4. Never Edit `.lock.yml` Files Directly
+### 3. Never Edit `.lock.yml` Files Directly
 
 Files matching `.github/workflows/*.lock.yml` are **auto-generated** by the
 gh-aw compiler from their corresponding `.md` source files. Any manual edits

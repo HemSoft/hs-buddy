@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1104",
+  "version": "0.1.1106",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -15,7 +15,7 @@
     "build": "bun run bump && tsc && vite build && electron-builder",
     "bump": "bun scripts/bump-revision.ts",
     "lint": "eslint . --max-warnings 0",
-    "lint:quality": "bun scripts/lint-quality.ts",
+    "lint:quality": "bun scripts/check-readme-metadata.ts && bun scripts/lint-quality.ts",
     "lint:fix": "eslint . --fix",
     "lint:md": "markdownlint-cli2 \"**/*.md\"",
     "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",

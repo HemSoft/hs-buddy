@@ -201,6 +201,8 @@ async function enqueuePRListFetch({
   recentlyMergedDays,
   accounts,
   handleProgress,
+  fetchIdRef,
+  currentFetchId,
 }: Pick<
   FetchLifecycleParams,
   | 'mode'
@@ -211,7 +213,8 @@ async function enqueuePRListFetch({
   | 'recentlyMergedDays'
   | 'accounts'
   | 'handleProgress'
->): Promise<PullRequest[]> {
+  | 'fetchIdRef'
+> & { currentFetchId: number }): Promise<PullRequest[]> {
   const githubClient = new GitHubClient({ accounts }, recentlyMergedDays)
   console.log(
     'Fetching PRs for',
@@ -230,7 +233,12 @@ async function enqueuePRListFetch({
         return freshData
       }
       throwIfAborted(signal)
-      return fetchPRsByMode(githubClient, mode, handleProgress)
+      const results = await fetchPRsByMode(githubClient, mode, handleProgress)
+      throwIfAborted(signal)
+      if (currentFetchId !== fetchIdRef.current) return results
+      sortPRResults(results, mode)
+      dataCache.set(cacheKey, results)
+      return results
     },
     { name: `fetch-${mode}`, serializationKey: GITHUB_PR_SERIALIZATION_KEY }
   )
@@ -239,10 +247,7 @@ async function enqueuePRListFetch({
 function applyPRFetchSuccess(
   results: PullRequest[],
   currentFetchId: number,
-  params: Pick<
-    FetchLifecycleParams,
-    'fetchIdRef' | 'mode' | 'cacheKey' | 'setPrs' | 'onCountChangeRef'
-  >
+  params: Pick<FetchLifecycleParams, 'fetchIdRef' | 'mode' | 'setPrs' | 'onCountChangeRef'>
 ): void {
   if (currentFetchId !== params.fetchIdRef.current) {
     console.log('Ignoring stale fetch result for', params.mode)
@@ -251,7 +256,6 @@ function applyPRFetchSuccess(
   console.log('Found PRs:', results.length)
   sortPRResults(results, params.mode)
   applyFetchResults(results, params.setPrs, params.onCountChangeRef)
-  dataCache.set(params.cacheKey, results)
 }
 
 function finishPRFetch(
@@ -281,7 +285,7 @@ async function runPRListFetch(params: FetchLifecycleParams, currentFetchId: numb
       params.setLoading(false)
       return
     }
-    const results = await enqueuePRListFetch(params)
+    const results = await enqueuePRListFetch({ ...params, currentFetchId })
     applyPRFetchSuccess(results, currentFetchId, params)
   } catch (err: unknown) {
     handlePRFetchError(err, currentFetchId, params.fetchIdRef, params.mode, params.setError)
@@ -523,8 +527,15 @@ async function approveListPullRequest(
 
   setApproving(`${pr.repository}-${pr.id}`)
   try {
-    await enqueueApprovalTask(pr, ownerRepo, accounts, recentlyMergedDays, enqueueRef)
-    markPRApprovedInState(pr, cacheKey, setPrs)
+    await enqueueApprovalTask(
+      pr,
+      ownerRepo,
+      accounts,
+      recentlyMergedDays,
+      cacheKey,
+      enqueueRef,
+      setPrs
+    )
   } catch (error: unknown) {
     console.error('Failed to approve PR:', error)
   } finally {
@@ -537,13 +548,17 @@ async function enqueueApprovalTask(
   ownerRepo: { owner: string; repo: string },
   accounts: ReturnType<typeof useGitHubAccounts>['accounts'],
   recentlyMergedDays: number,
-  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] }
+  cacheKey: string,
+  enqueueRef: { current: ReturnType<typeof useTaskQueue>['enqueue'] },
+  setPrs: Dispatch<SetStateAction<PullRequest[]>>
 ): Promise<void> {
   await enqueueRef.current(
     async signal => {
       throwIfAborted(signal)
       const client = new GitHubClient({ accounts }, recentlyMergedDays)
       await client.approvePullRequest(ownerRepo.owner, ownerRepo.repo, pr.id)
+      throwIfAborted(signal)
+      markPRApprovedInState(pr, cacheKey, setPrs)
     },
     {
       name: `approve-pr-${pr.repository}-${pr.id}`,

@@ -93,7 +93,6 @@ export function applyOrgFetchResult<T>(
     setData(normalized)
     setPhase('ready')
   })
-  dataCache.set(activeCacheKey, normalized)
 }
 
 export function handleOrgFetchErrorIfCurrent(
@@ -214,7 +213,12 @@ export function useOrgCachedFetch<T>({
           async signal => {
             throwIfAborted(signal)
             const client = new GitHubClient({ accounts: accountsRef.current }, 7)
-            return await fetchFnRef.current(client, org)
+            const result = await fetchFnRef.current(client, org)
+            throwIfAborted(signal)
+            if (!isStaleOrgFetch(activeCacheKey, cacheKeyRef)) {
+              dataCache.set(activeCacheKey, normalizeRef.current(result))
+            }
+            return result
           },
           { name: taskName, priority: forceRefresh ? 1 : 0, deduplicate: true }
         )

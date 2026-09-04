@@ -50,12 +50,16 @@ async function executeFetchWithLoading<TRaw>(opts: {
         /* v8 ignore start */
         if (signal) throwIfAborted(signal)
         /* v8 ignore stop */
-        return await opts.apiFn()
+        const result = await opts.apiFn()
+        /* v8 ignore start */
+        if (signal) throwIfAborted(signal)
+        /* v8 ignore stop */
+        dataCache.set(opts.cacheKey, result)
+        return result
       },
       { name: opts.taskName, priority: -1, deduplicate: true }
     )) as TRaw
     opts.onData(result)
-    dataCache.set(opts.cacheKey, result)
   } catch (error: unknown) {
     if (isAbortError(error)) return
     console.warn(`[${opts.logLabel}] ${opts.key} failed:`, error)
@@ -155,13 +159,15 @@ export function useSidebarOrgActions(opts: UseSidebarOrgActionsOptions) {
           async signal => {
             if (signal) throwIfAborted(signal)
             const client = new GitHubClient({ accounts }, 7)
-            return await client.fetchOrgOverview(org)
+            const result = await client.fetchOrgOverview(org)
+            if (signal) throwIfAborted(signal)
+            dataCache.set(cacheKey, result)
+            return result
           },
           /* v8 ignore stop */
           { name: getOrgOverviewTaskName(org), priority: 0, deduplicate: true }
         )) as OrgOverviewResult
         setOrgContributorCounts(prev => ({ ...prev, [org]: toContributorMap(result) }))
-        dataCache.set(cacheKey, result)
       } catch (error: unknown) {
         /* v8 ignore start */
         if (isAbortError(error)) return

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1115] - 2026-09-04
+
+### Fixed
+
+- Hold shared cache lanes through writes
+
 ## [0.1.1114] - 2026-09-04
 
 ### Fixed

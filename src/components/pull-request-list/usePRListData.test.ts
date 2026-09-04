@@ -228,6 +228,26 @@ describe('usePRListData', () => {
     )
   })
 
+  it('updates the PR cache before releasing the serialized fetch task', async () => {
+    const fetchedPr = makePR({ id: 10, repository: 'serialized-fetch' })
+    let cacheWasUpdatedInsideTask = false
+    mockFetchMyPRs.mockResolvedValue([fetchedPr])
+    mockUseTaskQueue.mockReturnValue({
+      enqueue: vi.fn(async (task: (signal: AbortSignal) => Promise<unknown>) => {
+        const result = await task(new AbortController().signal)
+        cacheWasUpdatedInsideTask =
+          dataCache.get<PullRequest[]>(cacheKey('my-prs'))?.data[0]?.id === fetchedPr.id
+        return result
+      }),
+      cancelAll: vi.fn(),
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await waitFor(() => expect(result.current.prs[0]?.id).toBe(fetchedPr.id))
+    expect(cacheWasUpdatedInsideTask).toBe(true)
+  })
+
   it('uses data that becomes fresh while the fetch is queued', async () => {
     const cachedPr = makePR({ id: 11, repository: 'queued-cache' })
     let runQueuedTask: (() => Promise<void>) | undefined
@@ -534,6 +554,29 @@ describe('usePRListData', () => {
 
     expect(mockApprovePullRequest).toHaveBeenCalledWith('org', 'other-repo', 421)
     expect(result.current.contextMenu).toBeNull()
+  })
+
+  it('updates approval state before releasing the serialized approval task', async () => {
+    const cachedPr = makePR()
+    let cacheWasUpdatedInsideTask = false
+    dataCache.set(cacheKey('my-prs'), [cachedPr], Date.now())
+    mockUseTaskQueue.mockReturnValue({
+      enqueue: vi.fn(async (task: (signal: AbortSignal) => Promise<unknown>) => {
+        const result = await task(new AbortController().signal)
+        cacheWasUpdatedInsideTask =
+          dataCache.get<PullRequest[]>(cacheKey('my-prs'))?.data[0]?.iApproved === true
+        return result
+      }),
+      cancelAll: vi.fn(),
+    })
+
+    const { result } = renderHook(() => usePRListData('my-prs'))
+
+    await act(async () => {
+      await result.current.handleApprove(cachedPr)
+    })
+
+    expect(cacheWasUpdatedInsideTask).toBe(true)
   })
 
   it('fetches recently-merged PRs and uses the correct title', async () => {

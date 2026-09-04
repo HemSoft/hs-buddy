@@ -9,6 +9,8 @@ import {
   useOrgCachedFetch,
 } from './useOrgCachedFetch'
 import { getTaskQueue } from '../services/taskQueue'
+import { dataCache } from '../services/dataCache'
+import type { useTaskQueue } from './useTaskQueue'
 
 vi.mock('../services/dataCache', () => ({
   dataCache: { get: vi.fn(() => null), getOrLoad: vi.fn(async () => null), set: vi.fn() },
@@ -64,7 +66,7 @@ describe('useOrgCachedFetch', () => {
       useOrgCachedFetch({
         accounts: [],
         org: 'HemSoft',
-        enqueue,
+        enqueue: enqueue as ReturnType<typeof useTaskQueue>['enqueue'],
         cacheKey: 'org-overview:HemSoft',
         taskName: 'org-detail-overview-HemSoft',
         initialData: { repositories: [] },
@@ -91,6 +93,40 @@ describe('useOrgCachedFetch', () => {
       await fetchPromise
     })
     expect(result.current.phase).toBe('ready')
+  })
+
+  it('updates the shared cache before releasing a deduplicated task', async () => {
+    const fetched = { repositories: ['hs-buddy'] }
+    let cacheWasUpdatedInsideTask = false
+    vi.mocked(dataCache.set).mockClear()
+    vi.mocked(getTaskQueue).mockReturnValue({
+      hasTaskWithName: vi.fn().mockReturnValue(false),
+    } as unknown as ReturnType<typeof getTaskQueue>)
+    const enqueue = vi.fn(
+      async (task: (signal: AbortSignal) => Promise<{ repositories: string[] }>) => {
+        const result = await task(new AbortController().signal)
+        cacheWasUpdatedInsideTask = vi
+          .mocked(dataCache.set)
+          .mock.calls.some(call => call[0] === 'org-overview:HemSoft' && call[1] === fetched)
+        return result
+      }
+    )
+    const { result } = renderHook(() =>
+      useOrgCachedFetch({
+        accounts: [],
+        org: 'HemSoft',
+        enqueue: enqueue as ReturnType<typeof useTaskQueue>['enqueue'],
+        cacheKey: 'org-overview:HemSoft',
+        taskName: 'org-detail-overview-HemSoft',
+        fetchFn: vi.fn().mockResolvedValue(fetched),
+      })
+    )
+
+    await act(async () => {
+      await result.current.fetch()
+    })
+
+    expect(cacheWasUpdatedInsideTask).toBe(true)
   })
 })
 

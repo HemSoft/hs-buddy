@@ -202,7 +202,9 @@ export function useTempoActions(onMutated?: () => void) {
 
   useEffect(() => {
     const requests = activeRequests.current
-    return () => requests.clear()
+    return () => {
+      requests.clear()
+    }
   }, [])
 
   const run = useCallback(

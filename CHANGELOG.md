@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1135] - 2026-09-05
+
+### Changed
+
+- Split tempo recovery coverage into bounded suites (#652)
+
 ## [0.1.1134] - 2026-09-05
 
 ### Fixed

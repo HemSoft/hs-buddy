@@ -12,7 +12,9 @@ authorized maintainer reviews alerts in **Security > Dependabot alerts** or with
 the repository alert API:
 
 ```bash
-gh api --method GET repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
+gh auth status # Confirm that HemSoft is the active account before continuing.
+gh api --paginate --slurp --method GET \
+  repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
 ```
 
 On first review, assign the alert to `HemSoft`. Every high or critical alert
@@ -67,13 +69,18 @@ review, and closure without adding a vulnerable dependency to `main`.
 
 ```bash
 # Expect HTTP 204.
+gh auth status # Confirm that HemSoft is the active account before continuing.
 gh api -i --method GET repos/HemSoft/hs-buddy/vulnerability-alerts
 
 # Expect {"enabled":true,"paused":false}.
+gh auth status # Confirm that HemSoft is the active account before continuing.
 gh api --method GET repos/HemSoft/hs-buddy/automated-security-fixes
 
-# Expect an array, including an empty array when no alerts are open.
-gh api --method GET repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
+# Expect one array containing every page, including an empty page when no
+# alerts are open.
+gh auth status # Confirm that HemSoft is the active account before continuing.
+gh api --paginate --slurp --method GET \
+  repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
 
 # Expect no high-severity advisories and exit code 0.
 bun audit --audit-level=high

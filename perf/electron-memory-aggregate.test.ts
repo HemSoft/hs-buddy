@@ -76,6 +76,9 @@ describe('parallel Electron memory qualification', () => {
       expect.objectContaining({ scenario: 'browser-cleanup', metric: 'eventListeners' })
     )
   })
+})
+
+describe('parallel memory evidence validation', () => {
   it('rejects missing, duplicate, extra, and stale samples', () => {
     const input = samples()
     expect(() => aggregateSamples(input.slice(0, 2), 'reviewed-revision')).toThrow('Exactly three')

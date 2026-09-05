@@ -16,10 +16,10 @@ module.exports = {
     },
     assert: {
       assertions: {
-        // Informational initially — promote to error once baselines are stable
-        'categories:performance': ['warn', { minScore: 0.6 }],
-        'categories:accessibility': ['warn', { minScore: 0.8 }],
-        'categories:best-practices': ['warn', { minScore: 0.8 }],
+        // Preserve the maintained floors; median aggregation limits single-run noise.
+        'categories:performance': ['error', { minScore: 0.6, aggregationMethod: 'median' }],
+        'categories:accessibility': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
+        'categories:best-practices': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
       },
     },
     upload: {

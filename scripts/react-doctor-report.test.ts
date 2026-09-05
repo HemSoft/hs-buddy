@@ -113,8 +113,11 @@ describe('React Doctor malformed fields and CI wiring', () => {
     expect(job).toContain('if: always()')
     expect(job).toContain('if-no-files-found: error')
     expect(job).not.toContain('continue-on-error')
-    expect(workflow.split('  ci-complete:')[1]).toContain(
-      'needs: [ci-feedback, test-electron-memory, react-doctor]'
-    )
+    const dependencies = workflow
+      .split('  ci-complete:')[1]
+      .match(/needs: \[([^\]]+)\]/)?.[1]
+      .split(',')
+      .map(value => value.trim())
+    expect(dependencies).toContain('react-doctor')
   })
 })

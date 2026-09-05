@@ -107,6 +107,14 @@ gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
   }'
 ```
 
+### Dependency vulnerability response
+
+Dependabot alerts and security-update pull requests are enabled. `HemSoft` owns
+alert triage, and every high or critical alert must become assigned, tracked
+work within the response times in
+[Dependabot security response](docs/DEPENDABOT-SECURITY.md). The policy also
+documents the required remediation checks and a safe tabletop verification.
+
 ### Commit Messages
 
 We use [Conventional Commits](https://www.conventionalcommits.org/) enforced by commitlint:

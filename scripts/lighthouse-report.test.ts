@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it } from 'vitest'
-import { lighthouseSummary } from './lighthouse-report'
+import { lighthouseReport } from './lighthouse-report'
 
 const directories: string[] = []
 function fixture() {
@@ -42,7 +42,8 @@ describe('Lighthouse report evidence', () => {
     // Raw collector files and manifests must not double-count filesystem reports.
     writeFileSync(join(directory, 'lhr-123.json'), JSON.stringify(report(0.01)))
     writeFileSync(join(directory, 'stale.report.json'), JSON.stringify(report(0.01)))
-    const summary = lighthouseSummary(directory)
+    const { summary, errors } = lighthouseReport(directory)
+    expect(errors).toEqual([])
     expect(summary).toContain('| Median | 68.0 | 94.0 | 100.0 |')
     expect(summary.match(/\.report\.json/g)).toHaveLength(3)
     expect(summary).not.toContain('lhr-123')
@@ -52,24 +53,37 @@ describe('Lighthouse report evidence', () => {
     for (const [index, score] of [0.6, 0.8].entries()) {
       writeReport(directory, `${index}.report.json`, report(score))
     }
-    expect(lighthouseSummary(directory)).toContain('| Median | 70.0 | 94.0 | 100.0 |')
+    expect(lighthouseReport(directory).summary).toContain('| Median | 70.0 | 94.0 | 100.0 |')
   })
   it.each([null, -1, 2])('rejects an invalid score: %s', score => {
     const directory = fixture()
     writeReport(directory, 'bad.report.json', report(score))
-    expect(() => lighthouseSummary(directory)).toThrow('invalid performance')
+    expect(lighthouseReport(directory).errors.join(' ')).toContain('invalid performance')
   })
   it('rejects missing files, malformed reports, and Lighthouse runtime errors', () => {
     const directory = fixture()
-    expect(() => lighthouseSummary(directory)).toThrow('No Lighthouse filesystem reports')
+    expect(lighthouseReport(directory).errors.join(' ')).toContain(
+      'No Lighthouse filesystem reports'
+    )
     writeReport(directory, 'bad.report.json', {})
     const file = join(directory, 'bad.report.json')
     writeFileSync(file, '{')
-    expect(() => lighthouseSummary(directory)).toThrow()
+    expect(lighthouseReport(directory).errors.length).toBeGreaterThan(0)
     writeFileSync(file, JSON.stringify({ runtimeError: { code: 'NO_FCP' } }))
-    expect(() => lighthouseSummary(directory)).toThrow('runtime error')
+    expect(lighthouseReport(directory).errors.join(' ')).toContain('runtime error')
     writeFileSync(file, '{}')
-    expect(() => lighthouseSummary(directory)).toThrow('invalid performance')
+    expect(lighthouseReport(directory).errors.join(' ')).toContain('invalid performance')
+  })
+  it('preserves valid scores without a misleading median when another report is broken', () => {
+    const directory = fixture()
+    writeReport(directory, 'good.report.json', report(0.97))
+    writeReport(directory, 'broken.report.json', report(null))
+    const { summary, errors } = lighthouseReport(directory)
+    expect(summary).toContain('| good.report.json | 97.0 | 94.0 | 100.0 |')
+    expect(summary).not.toContain('| Median |')
+    expect(summary).toContain('Median unavailable')
+    expect(summary).toContain('broken.report.json')
+    expect(errors).toHaveLength(1)
   })
 })
 
@@ -83,7 +97,7 @@ describe('blocking Lighthouse workflow', () => {
   ])('rejects an invalid upload manifest: %j', manifest => {
     const directory = fixture()
     writeFileSync(join(directory, 'manifest.json'), JSON.stringify(manifest))
-    expect(() => lighthouseSummary(directory)).toThrow()
+    expect(lighthouseReport(directory).errors.length).toBeGreaterThan(0)
   })
   it('uses error-level median assertions at the maintained thresholds', () => {
     const config = createRequire(import.meta.url)('../lighthouserc.cjs')
@@ -102,6 +116,11 @@ describe('blocking Lighthouse workflow', () => {
     expect(job).toContain('include-hidden-files: true')
     expect(job).toContain('if-no-files-found: error')
     expect(job.match(/if: always\(\)/g)).toHaveLength(2)
-    expect(workflow.split('  ci-complete:')[1]).toMatch(/needs: \[[^\]]*\blighthouse\b/)
+    const dependencies = workflow
+      .split('  ci-complete:')[1]
+      .match(/needs: \[([^\]]+)\]/)?.[1]
+      .split(',')
+      .map(value => value.trim())
+    expect(dependencies).toContain('lighthouse')
   })
 })

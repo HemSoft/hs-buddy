@@ -558,8 +558,7 @@ jobs:
           VITE_CONVEX_URL: https://placeholder-lhci.convex.cloud
 
       - name: Run Lighthouse CI
-        # Temporary validation probe for #654; removed after proving ci-complete rejects it.
-        run: bun run lhci --config=.github/lighthouse-regression-probe.json
+        run: bun run lhci
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 

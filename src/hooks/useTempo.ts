@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react'
 import type {
   TempoDaySummary,
   TempoWorklog,
@@ -194,6 +194,11 @@ export function useUserSchedule(from: string, to: string) {
 export function useTempoActions(onMutated?: () => void) {
   const [pending, setPending] = useState(false)
   const activeRequests = useRef(new Set<symbol>())
+  const onMutatedRef = useRef(onMutated)
+
+  useLayoutEffect(() => {
+    onMutatedRef.current = onMutated
+  }, [onMutated])
 
   useEffect(() => {
     const requests = activeRequests.current
@@ -207,7 +212,7 @@ export function useTempoActions(onMutated?: () => void) {
       setPending(true)
       try {
         const result = await runTempoOperation(operation, 'Failed to save worklog changes')
-        if (activeRequests.current.has(request) && result.success) onMutated?.()
+        if (activeRequests.current.has(request) && result.success) onMutatedRef.current?.()
         return result
       } finally {
         if (activeRequests.current.delete(request)) {
@@ -215,7 +220,7 @@ export function useTempoActions(onMutated?: () => void) {
         }
       }
     },
-    [onMutated]
+    []
   )
 
   const create = useCallback(

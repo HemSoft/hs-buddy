@@ -567,6 +567,28 @@ describe.each(actionCases)('$name IPC recovery', ({ mock, invoke }) => {
     expect(onMutated).toHaveBeenCalledTimes(1)
   })
 
+  it('notifies the current date-range callback when a write finishes after rerender', async () => {
+    const request = deferred<unknown>()
+    mock.mockReturnValueOnce(request.promise)
+    const previousCallback = vi.fn()
+    const currentCallback = vi.fn()
+    const { result, rerender } = renderHook(({ onMutated }) => useTempoActions(onMutated), {
+      initialProps: { onMutated: previousCallback },
+    })
+    let operation!: ReturnType<typeof invoke>
+    act(() => {
+      operation = invoke(result.current)
+    })
+    rerender({ onMutated: currentCallback })
+    await act(async () => {
+      request.resolve({ success: true })
+      await operation
+    })
+    expect(previousCallback).not.toHaveBeenCalled()
+    expect(currentCallback).toHaveBeenCalledTimes(1)
+    expect(result.current.pending).toBe(false)
+  })
+
   it('keeps pending while another write is outstanding', async () => {
     const first = deferred<unknown>()
     const second = deferred<unknown>()

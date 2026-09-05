@@ -65,7 +65,9 @@ describe('React Doctor gate', () => {
   ])('rejects incomplete or incompatible reports: %j', override => {
     expect(() => validateReactDoctorReport({ ...cleanReport(), ...override }, '0.9.13')).toThrow()
   })
+})
 
+describe('React Doctor malformed fields and CI wiring', () => {
   it('rejects malformed diagnostics instead of losing rule names', () => {
     const report = cleanReport()
     report.diagnostics = [{ ruleId: 'old-schema' }]

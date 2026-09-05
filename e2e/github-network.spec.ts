@@ -1,4 +1,5 @@
 import { test, expect, waitForAppReady } from './fixtures'
+import { installGitHubNetwork } from './github-network'
 
 test.beforeEach(async ({ page }, testInfo) => {
   test.skip(testInfo.project.name === 'electron-cdp', 'Browser network fixture contract')
@@ -72,3 +73,50 @@ for (const failure of ['401', 'network'] as const) {
     await expect(page.locator('.activity-bar')).toBeVisible()
   })
 }
+
+test('blocks malformed GraphQL bodies without losing the URL diagnostic', async ({
+  browser,
+  baseURL,
+  proxy,
+}) => {
+  const isolated = await browser.newContext({ serviceWorkers: 'block', proxy })
+  try {
+    const unexpected = await installGitHubNetwork(isolated, baseURL!)
+    const page = await isolated.newPage()
+    const bodies = [
+      undefined,
+      'not-json',
+      'null',
+      '{"query":42}',
+      '{"query":"query Unknown { viewer { login } }"}',
+    ]
+    for (const body of bodies) {
+      await page.evaluate(
+        body =>
+          fetch('https://api.github.com/graphql', {
+            method: 'POST',
+            body,
+          }).catch(() => null),
+        body
+      )
+    }
+    expect(unexpected).toEqual(bodies.map(() => 'POST https://api.github.com/graphql'))
+  } finally {
+    await isolated.close()
+  }
+})
+
+test('blocks popup requests and redacts query values', async ({ browser, baseURL, proxy }) => {
+  const isolated = await browser.newContext({ serviceWorkers: 'block', proxy })
+  try {
+    const unexpected = await installGitHubNetwork(isolated, baseURL!)
+    const page = await isolated.newPage()
+    const popup = page.waitForEvent('popup')
+    await page.evaluate(() => window.open('https://api.github.com/unhandled?code=fixture-secret'))
+    await popup
+    await expect.poll(() => unexpected).toEqual(['GET https://api.github.com/unhandled?[redacted]'])
+    expect(unexpected.join()).not.toContain('fixture-secret')
+  } finally {
+    await isolated.close()
+  }
+})

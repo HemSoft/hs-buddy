@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Isolate browser e2e from external network traffic (#650)
 
+### Changed
+
+- Harden browser network failure diagnostics (#650)
+
 ## [0.1.1126] - 2026-09-05
 
 ### Fixed

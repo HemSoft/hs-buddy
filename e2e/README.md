@@ -5,7 +5,8 @@ Run `bun run test:e2e` for the browser project. Its context fixture installs
 the `ViewerPRs` GraphQL fallback receive deterministic responses. The dashboard's
 weather request also receives fixture data. All other external HTTP requests and
 WebSockets are blocked and fail the test at teardown with their URLs, even when
-the application catches the network error. Popups share the same boundary.
+the application catches the network error. Diagnostics retain the URL host and
+path but redact query values, credentials, and fragments. Popups share the same boundary.
 
 Only the configured Vite origin can reach a server. Browser contexts also use a
 dead proxy with a loopback bypass, and block service workers so they cannot evade

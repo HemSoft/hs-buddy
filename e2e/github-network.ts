@@ -22,13 +22,26 @@ const repository = {
   updated_at: '2020-01-01T00:00:00Z',
 }
 
+function isViewerPRs(request: Request): boolean {
+  try {
+    const body = request.postDataJSON() as { query?: unknown } | null
+    return typeof body?.query === 'string' && /^\s*query ViewerPRs\(/.test(body.query)
+  } catch (_: unknown) {
+    return false
+  }
+}
+
+function diagnosticUrl(rawUrl: string): string {
+  const url = new URL(rawUrl)
+  return `${url.origin}${url.pathname}${url.search ? '?[redacted]' : ''}`
+}
+
 function githubResponse(request: Request): unknown {
   const url = new URL(request.url())
   if (url.origin !== 'https://api.github.com') return undefined
   if (request.method() === 'POST' && url.pathname === '/graphql') {
-    const body = request.postDataJSON() as { query?: string }
     // Only the application's empty-search fallback is part of this fixture.
-    if (body.query?.includes('query ViewerPRs(')) {
+    if (isViewerPRs(request)) {
       return {
         data: {
           viewer: {
@@ -90,7 +103,7 @@ export async function installGitHubNetwork(context: BrowserContext, baseURL: str
       await route.fulfill({ json })
       return
     }
-    unexpected.push(`${request.method()} ${request.url()}`)
+    unexpected.push(`${request.method()} ${diagnosticUrl(request.url())}`)
     await route.abort('blockedbyclient')
   })
   await context.routeWebSocket('**/*', socket => {
@@ -100,7 +113,7 @@ export async function installGitHubNetwork(context: BrowserContext, baseURL: str
       socket.connectToServer()
       return
     }
-    unexpected.push(`WebSocket ${socket.url()}`)
+    unexpected.push(`WebSocket ${diagnosticUrl(socket.url())}`)
     socket.close()
   })
   return unexpected

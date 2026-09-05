@@ -22,8 +22,8 @@ export const test = base.extend({
     const unexpected = await installGitHubNetwork(context, baseURL!)
     // eslint-disable-next-line react-hooks/rules-of-hooks
     await use(context)
-    // Stop background requests before checking, including requests from popup pages.
-    await context.close()
+    // Stop pages while context interception is still active, then let Playwright close it.
+    await Promise.all(context.pages().map(page => page.close()))
     expect(unexpected, 'Unhandled external requests').toEqual([])
   },
   page: async ({ page }, use, testInfo) => {

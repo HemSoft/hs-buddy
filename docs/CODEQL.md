@@ -14,11 +14,13 @@ The repository uses:
 - a standard GitHub-hosted runner; and
 - GitHub's pull-request, default-branch, and weekly scan schedule.
 
-Default setup scans repository-owned code under `src/`, `electron/`, `convex/`,
-`shared/`, `scripts/`, `e2e/`, and `perf/`. No repository-owned path or query is
-excluded. CodeQL omits dependency directories such as `node_modules/` by
-default. Untracked build, coverage, Aspire SDK, release, and test-result output
-is absent from the Git checkout and therefore absent from analysis.
+Default setup scans all tracked JavaScript and TypeScript. The main source is
+under `src/`, `electron/`, `convex/`, `shared/`, `scripts/`, `e2e/`, and `perf/`,
+but root configuration and generator files plus helpers under `testing/` are
+also in scope. No repository-owned path or query is excluded. CodeQL omits
+dependency directories such as `node_modules/` by default. Untracked build,
+coverage, Aspire SDK, release, and test-result output is absent from the Git
+checkout and therefore absent from analysis.
 
 Do not add a path exclusion merely to remove an alert. Exclude a path only when
 the repository does not own it or another tracked source deterministically

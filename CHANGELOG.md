@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1124] - 2026-09-05
+
+### Changed
+
+- Clarify CodeQL scan scope (#648)
+
 ## [0.1.1123] - 2026-09-05
 
 ### Changed

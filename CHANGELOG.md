@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1136] - 2026-09-05
+
+### Fixed
+
+- Invalidate tempo requests during layout cleanup (#652)
+
+## [0.1.1135] - 2026-09-05
+
+### Changed
+
+- Split tempo recovery coverage into bounded suites (#652)
+
+## [0.1.1134] - 2026-09-05
+
+### Fixed
+
+- Refresh the current tempo range after mutations (#652)
+
+## [0.1.1133] - 2026-09-05
+
+### Fixed
+
+- Recover tempo requests after ipc rejection (#652)
+
 ## [0.1.1132] - 2026-09-05
 
 ### Fixed

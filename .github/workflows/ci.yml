@@ -527,7 +527,6 @@ jobs:
 
   lighthouse:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -559,30 +558,14 @@ jobs:
           VITE_CONVEX_URL: https://placeholder-lhci.convex.cloud
 
       - name: Run Lighthouse CI
-        run: bun run lhci
+        # Temporary validation probe for #654; removed after proving ci-complete rejects it.
+        run: bun run lhci --config=.github/lighthouse-regression-probe.json
         env:
           LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
 
       - name: Report Lighthouse scores
         if: always()
-        run: |
-          if [ -d .lighthouseci ]; then
-            echo "## Lighthouse CI Results" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            for f in .lighthouseci/lhr-*.json; do
-              [ -f "$f" ] || continue
-              node -e "
-                const lhr = require('./' + '$f');
-                const cats = lhr.categories;
-                console.log('| Category | Score |');
-                console.log('|----------|-------|');
-                Object.values(cats).forEach(c => {
-                  console.log('| ' + c.title + ' | ' + Math.round(c.score * 100) + ' |');
-                });
-              " >> "$GITHUB_STEP_SUMMARY"
-              break
-            done
-          fi
+        run: bun scripts/lighthouse-report.ts
 
       - name: Upload Lighthouse results
         if: always()
@@ -590,7 +573,8 @@ jobs:
         with:
           name: lighthouse-results
           path: .lighthouseci/
-          if-no-files-found: warn
+          include-hidden-files: true
+          if-no-files-found: error
           retention-days: 30
 
   ci-feedback:
@@ -665,7 +649,7 @@ jobs:
 
   ci-complete:
     runs-on: ubuntu-latest
-    needs: [ci-feedback, test-electron-memory, react-doctor]
+    needs: [ci-feedback, test-electron-memory, react-doctor, lighthouse]
     if: always()
     steps:
       - name: Check final qualification

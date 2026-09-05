@@ -6,12 +6,26 @@
  * without requiring the Electron preload script.
  */
 import { chromium, test as base, expect } from '@playwright/test'
+import { installGitHubNetwork } from './github-network'
 
 /**
  * Extend Playwright's base test with automatic IPC mocking.
  * All E2E specs should import { test, expect } from this file.
  */
 export const test = base.extend({
+  context: async ({ context, baseURL }, use, testInfo) => {
+    if (testInfo.project.name === 'electron-cdp') {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      await use(context)
+      return
+    }
+    const unexpected = await installGitHubNetwork(context, baseURL!)
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    await use(context)
+    // Stop background requests before checking, including requests from popup pages.
+    await context.close()
+    expect(unexpected, 'Unhandled external requests').toEqual([])
+  },
   page: async ({ page }, use, testInfo) => {
     // Only inject mocks for browser-e2e project.
     // The electron-cdp project connects to a real Electron app with preload APIs.

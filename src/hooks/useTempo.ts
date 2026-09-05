@@ -64,7 +64,7 @@ export function useTempoToday(date?: string) {
     }
   }, [date])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mountedRef.current = true
     void load()
     return () => {
@@ -109,7 +109,7 @@ export function useTempoMonth(from: string, to: string) {
     }
   }, [from, to])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mountedRef.current = true
     void load()
     return () => {
@@ -178,7 +178,7 @@ export function useUserSchedule(from: string, to: string) {
     }
   }, [from, to])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     mountedRef.current = true
     void load()
     return () => {
@@ -200,7 +200,7 @@ export function useTempoActions(onMutated?: () => void) {
     onMutatedRef.current = onMutated
   }, [onMutated])
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const requests = activeRequests.current
     return () => {
       requests.clear()

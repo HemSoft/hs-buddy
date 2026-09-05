@@ -1,3 +1,4 @@
+import { useLayoutEffect } from 'react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
@@ -140,20 +141,53 @@ describe.each(readCases)('$name IPC recovery', ({ mock, useRead, data, fallback 
   })
 })
 
+describe.each(readCases)('$name committed range', ({ mock, useRead }) => {
+  beforeEach(() => vi.resetAllMocks())
+
+  it('starts the committed range before later layout effects can observe old requests', () => {
+    mock.mockReturnValue(new Promise(() => {}))
+    const committedRequests: unknown[] = []
+    const { rerender } = renderHook(
+      ({ date }) => {
+        useRead(date)
+        useLayoutEffect(() => {
+          committedRequests.push(mock.mock.lastCall?.[0])
+        }, [date])
+      },
+      { initialProps: { date: '2026-04-01' } }
+    )
+    rerender({ date: '2026-05-01' })
+    expect(committedRequests).toEqual(['2026-04-01', '2026-05-01'])
+  })
+})
+
 describe.each(readCases)('$name unmount recovery', ({ mock, useRead, data }) => {
   beforeEach(() => vi.resetAllMocks())
 
-  it.each(['success', 'rejection'])('ignores %s after unmount', async outcome => {
+  it('does not consume the response payload after unmount', async () => {
+    const request = deferred<unknown>()
+    const readData = vi.fn(() => data)
+    mock.mockReturnValueOnce(request.promise)
+    const { unmount } = renderHook(() => useRead('2026-04-01'))
+    unmount()
+    await act(async () =>
+      request.resolve({
+        success: true,
+        get data() {
+          return readData()
+        },
+      })
+    )
+    expect(readData).not.toHaveBeenCalled()
+  })
+
+  it('handles a rejection after unmount without an unhandled rejection', async () => {
     const request = deferred<unknown>()
     mock.mockReturnValueOnce(request.promise)
-    const { result, unmount } = renderHook(() => useRead('2026-04-01'))
-    const before = result.current
+    const { unmount } = renderHook(() => useRead('2026-04-01'))
     unmount()
-    await act(async () => {
-      if (outcome === 'rejection') request.reject(new Error('unmounted'))
-      else request.resolve({ success: true, data })
-    })
-    expect(result.current).toBe(before)
+    // Vitest fails this smoke test if the bridge rejection escapes the hook.
+    await act(async () => request.reject(new Error('unmounted')))
   })
 })
 

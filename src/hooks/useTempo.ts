@@ -6,8 +6,20 @@ import type {
   TempoScheduleDay,
   CreateWorklogPayload,
   UpdateWorklogPayload,
+  TempoResult,
 } from '../types/tempo'
 import { formatDateKey } from '../utils/dateUtils'
+
+async function runTempoOperation<T>(
+  operation: () => Promise<TempoResult<T>>,
+  fallback: string
+): Promise<TempoResult<T>> {
+  try {
+    return await operation()
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : fallback }
+  }
+}
 
 function todayStr(): string {
   return formatDateKey(new Date())
@@ -29,20 +41,35 @@ export function useTempoToday(date?: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const requestIdRef = useRef(0)
+  const mountedRef = useRef(false)
+
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
-    const result = await window.tempo.getToday(date || todayStr())
-    if (result.success && result.data) {
-      setData(result.data)
-    } else {
-      setError(result.error || 'Failed to load worklogs')
+    try {
+      const result = await runTempoOperation(
+        () => window.tempo.getToday(date || todayStr()),
+        'Failed to load worklogs'
+      )
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
+      if (result.success && result.data) {
+        setData(result.data)
+      } else {
+        setError(result.error || 'Failed to load worklogs')
+      }
+    } finally {
+      if (mountedRef.current && requestId === requestIdRef.current) setLoading(false)
     }
-    setLoading(false)
   }, [date])
 
   useEffect(() => {
-    load()
+    mountedRef.current = true
+    void load()
+    return () => {
+      mountedRef.current = false
+    }
   }, [load])
 
   return { data, loading, error, refresh: load }
@@ -57,22 +84,37 @@ export function useTempoMonth(from: string, to: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const requestIdRef = useRef(0)
+  const mountedRef = useRef(false)
+
   const load = useCallback(async () => {
+    const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
-    const result = await window.tempo.getWeek(from, to)
-    if (result.success && result.data) {
-      setWorklogs(result.data.worklogs)
-      setIssueSummaries(result.data.issueSummaries)
-      setTotalHours(result.data.totalHours)
-    } else {
-      setError(result.error || 'Failed to load month data')
+    try {
+      const result = await runTempoOperation(
+        () => window.tempo.getWeek(from, to),
+        'Failed to load month data'
+      )
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
+      if (result.success && result.data) {
+        setWorklogs(result.data.worklogs)
+        setIssueSummaries(result.data.issueSummaries)
+        setTotalHours(result.data.totalHours)
+      } else {
+        setError(result.error || 'Failed to load month data')
+      }
+    } finally {
+      if (mountedRef.current && requestId === requestIdRef.current) setLoading(false)
     }
-    setLoading(false)
   }, [from, to])
 
   useEffect(() => {
-    load()
+    mountedRef.current = true
+    void load()
+    return () => {
+      mountedRef.current = false
+    }
   }, [load])
 
   return { worklogs, issueSummaries, totalHours, loading, error, refresh: load }
@@ -114,28 +156,35 @@ export function useUserSchedule(from: string, to: string) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const requestIdRef = useRef(0)
-  const invalidateRequests = useCallback(() => {
-    requestIdRef.current++
-  }, [])
+  const mountedRef = useRef(false)
 
   const load = useCallback(async () => {
     const requestId = ++requestIdRef.current
     setLoading(true)
     setError(null)
-    const result = await window.tempo.getSchedule(from, to)
-    if (requestId !== requestIdRef.current) return
-    if (result.success && result.data) {
-      setSchedule(result.data)
-    } else {
-      setError(result.error || 'Failed to load schedule')
+    try {
+      const result = await runTempoOperation(
+        () => window.tempo.getSchedule(from, to),
+        'Failed to load schedule'
+      )
+      if (!mountedRef.current || requestId !== requestIdRef.current) return
+      if (result.success && result.data) {
+        setSchedule(result.data)
+      } else {
+        setError(result.error || 'Failed to load schedule')
+      }
+    } finally {
+      if (mountedRef.current && requestId === requestIdRef.current) setLoading(false)
     }
-    setLoading(false)
   }, [from, to])
 
   useEffect(() => {
+    mountedRef.current = true
     void load()
-    return invalidateRequests
-  }, [invalidateRequests, load])
+    return () => {
+      mountedRef.current = false
+    }
+  }, [load])
 
   return { schedule, loading, error, refresh: load }
 }
@@ -144,38 +193,43 @@ export function useUserSchedule(from: string, to: string) {
 
 export function useTempoActions(onMutated?: () => void) {
   const [pending, setPending] = useState(false)
+  const activeRequests = useRef(new Set<symbol>())
+
+  useEffect(() => {
+    const requests = activeRequests.current
+    return () => requests.clear()
+  }, [])
+
+  const run = useCallback(
+    async <T>(operation: () => Promise<TempoResult<T>>): Promise<TempoResult<T>> => {
+      const request = Symbol()
+      activeRequests.current.add(request)
+      setPending(true)
+      try {
+        const result = await runTempoOperation(operation, 'Failed to save worklog changes')
+        if (activeRequests.current.has(request) && result.success) onMutated?.()
+        return result
+      } finally {
+        if (activeRequests.current.delete(request)) {
+          setPending(activeRequests.current.size > 0)
+        }
+      }
+    },
+    [onMutated]
+  )
 
   const create = useCallback(
-    async (payload: CreateWorklogPayload) => {
-      setPending(true)
-      const result = await window.tempo.createWorklog(payload)
-      setPending(false)
-      if (result.success) onMutated?.()
-      return result
-    },
-    [onMutated]
+    (payload: CreateWorklogPayload) => run(() => window.tempo.createWorklog(payload)),
+    [run]
   )
-
   const update = useCallback(
-    async (worklogId: number, payload: UpdateWorklogPayload) => {
-      setPending(true)
-      const result = await window.tempo.updateWorklog(worklogId, payload)
-      setPending(false)
-      if (result.success) onMutated?.()
-      return result
-    },
-    [onMutated]
+    (worklogId: number, payload: UpdateWorklogPayload) =>
+      run(() => window.tempo.updateWorklog(worklogId, payload)),
+    [run]
   )
-
   const remove = useCallback(
-    async (worklogId: number) => {
-      setPending(true)
-      const result = await window.tempo.deleteWorklog(worklogId)
-      setPending(false)
-      if (result.success) onMutated?.()
-      return result
-    },
-    [onMutated]
+    (worklogId: number) => run(() => window.tempo.deleteWorklog(worklogId)),
+    [run]
   )
 
   return { create, update, remove, pending }

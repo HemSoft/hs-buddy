@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1122] - 2026-09-05
+
+### Changed
+
+- Enable CodeQL merge protection (#648)
+
 ## [0.1.1121] - 2026-09-05
 
 ### Changed

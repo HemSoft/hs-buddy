@@ -92,6 +92,12 @@ temporarily change the ruleset, make only the required repair, then immediately
 restore and verify the ruleset. Any permanent bypass or policy change must be
 documented here through a pull request.
 
+The same ruleset requires CodeQL results for JavaScript and TypeScript. A
+missing or running analysis blocks the update, as does a high or critical
+security alert introduced by the proposed change. The CodeQL configuration,
+scope, alert ownership, dismissal rules, and verification commands are in
+[CodeQL scanning](docs/CODEQL.md).
+
 Repository administrators can inspect the enforced policy with:
 
 ```bash
@@ -102,7 +108,9 @@ gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
     bypass_actors,
     current_user_can_bypass,
     rules: [.rules[] | select(
-      .type == "required_status_checks" or .type == "pull_request"
+      .type == "required_status_checks" or
+      .type == "pull_request" or
+      .type == "code_scanning"
     )]
   }'
 ```

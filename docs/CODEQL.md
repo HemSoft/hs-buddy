@@ -63,6 +63,16 @@ The 15 findings from the first analysis are tracked in
 [issue #661](https://github.com/HemSoft/hs-buddy/issues/661). Merge protection
 was enabled only after that issue recorded every baseline alert.
 
+## Enforcement proof
+
+Pull request
+[#662](https://github.com/HemSoft/hs-buddy/pull/662) tested the rule with a
+disposable command-injection fixture on its initial head, `73db8108`. CodeQL
+analysis `1728778633` reported critical alert `#16`
+(`js/command-line-injection`), the ruleset emitted a failing required `CodeQL`
+check, and GitHub reported the pull request as blocked. The fixture was then
+removed; it is not part of the final change.
+
 ## Verification
 
 Before every GitHub CLI operation, confirm that `HemSoft` is the active account.

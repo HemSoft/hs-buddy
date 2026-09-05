@@ -16,6 +16,7 @@ entry point. It audits performance, accessibility, and best practices.
   summary, and saved as `.lighthouseci/scores.md`.
 - Missing or malformed reports produce a failure summary alongside any valid
   scores. The reporter exits with an error and omits the incomplete median.
+  Exactly three readable reports are required, matching the collection count.
 - CI uploads the hidden `.lighthouseci/` directory with `include-hidden-files`
   enabled and fails if the artifact is empty. Reports upload after failed
   assertions too. `ci-complete` requires the Lighthouse job.

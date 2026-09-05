@@ -14,11 +14,11 @@ function readScores(directory: string, file: string): LighthouseScores {
     runtimeError?: unknown
     categories?: Record<string, { score?: unknown }>
   }
-  if (report.runtimeError) throw new Error(`${file}: Lighthouse runtime error`)
+  if (report.runtimeError) throw new Error('Lighthouse runtime error')
   const scores = categories.map(category => {
     const score = report.categories?.[category]?.score
     if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 1) {
-      throw new Error(`${file}: missing or invalid ${category} score`)
+      throw new Error(`missing or invalid ${category} score`)
     }
     return score
   })
@@ -66,13 +66,13 @@ function availableReports(directory: string): { reports: LighthouseScores[]; err
 function medianScores(reports: LighthouseScores[]): number[] {
   return categories.map((_, index) => {
     const scores = reports.map(report => report.scores[index]).sort((a, b) => a - b)
-    const middle = Math.floor(scores.length / 2)
-    return scores.length % 2 ? scores[middle] : (scores[middle - 1] + scores[middle]) / 2
+    return scores[1]
   })
 }
 
 export function lighthouseReport(directory: string): { summary: string; errors: string[] } {
   const { reports, errors } = availableReports(directory)
+  if (reports.length !== 3) errors.push(`Expected 3 Lighthouse reports, found ${reports.length}`)
   const row = (label: string, scores: number[]) =>
     `| ${label} | ${scores.map(score => (score * 100).toFixed(1)).join(' | ')} |`
   const summary = [

@@ -48,12 +48,15 @@ describe('Lighthouse report evidence', () => {
     expect(summary.match(/\.report\.json/g)).toHaveLength(3)
     expect(summary).not.toContain('lhr-123')
   })
-  it('averages the middle pair when comparing an even number of samples', () => {
+  it.each([1, 2, 4])('rejects a report count other than three: %s', count => {
     const directory = fixture()
-    for (const [index, score] of [0.6, 0.8].entries()) {
-      writeReport(directory, `${index}.report.json`, report(score))
+    for (let index = 0; index < count; index++) {
+      writeReport(directory, `${index}.report.json`, report(0.8))
     }
-    expect(lighthouseReport(directory).summary).toContain('| Median | 70.0 | 94.0 | 100.0 |')
+    const { summary, errors } = lighthouseReport(directory)
+    expect(errors).toContain(`Expected 3 Lighthouse reports, found ${count}`)
+    expect(summary).not.toContain('| Median |')
+    expect(summary.match(/\| \d\.report\.json/g)).toHaveLength(count)
   })
   it.each([null, -1, 2])('rejects an invalid score: %s', score => {
     const directory = fixture()
@@ -83,7 +86,7 @@ describe('Lighthouse report evidence', () => {
     expect(summary).not.toContain('| Median |')
     expect(summary).toContain('Median unavailable')
     expect(summary).toContain('broken.report.json')
-    expect(errors).toHaveLength(1)
+    expect(errors).toContain('broken.report.json: missing or invalid performance score')
   })
 })
 

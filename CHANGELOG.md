@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1142] - 2026-09-05
+
+### Changed
+
+- Reject incomplete Lighthouse sample sets
+
 ## [0.1.1141] - 2026-09-05
 
 ### Changed

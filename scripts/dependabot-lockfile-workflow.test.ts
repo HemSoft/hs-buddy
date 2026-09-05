@@ -20,7 +20,7 @@ const convexJob = ciWorkflow.slice(
   ciWorkflow.indexOf('\n  test-e2e:\n')
 )
 
-describe('Dependabot Lockfile Fix workflow', () => {
+describe('workflow text normalization', () => {
   it.each([
     ['LF', '\n'],
     ['CRLF', '\r\n'],
@@ -43,7 +43,9 @@ describe('Dependabot Lockfile Fix workflow', () => {
     expect(convexFixture).toContain('run: bun run test:convex:coverage')
     expect(normalized).toContain('--exit-status\n      watch_exit=$?')
   })
+})
 
+describe('Dependabot Lockfile Fix workflow', () => {
   it('keeps the lockfile update and generated-commit CI path', () => {
     expect(stepNames).toEqual(
       expect.arrayContaining([

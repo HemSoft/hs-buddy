@@ -27,11 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Isolate migration purity tests and keep describe blocks under quality limit
 
+### Fixed
+
+- Remove render-phase ref mutations from account and prefetch hooks (#651)
+
 ## [0.1.1127] - 2026-09-05
 
 ### Fixed
 
-- Remove render-phase ref mutations from account and prefetch hooks (#651)
+- Isolate browser e2e from external network traffic (#650)
+
+### Changed
+
+- Harden browser network failure diagnostics (#650)
 
 ## [0.1.1126] - 2026-09-05
 

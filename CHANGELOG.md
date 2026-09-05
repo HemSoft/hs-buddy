@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Document required pull request policy (#646)
 - Clarify human merge authorization (#646)
 - Make merge authorization tool-neutral (#646)
+- Expose full branch policy state (#646)
 
 ## [0.1.1118] - 2026-09-04
 

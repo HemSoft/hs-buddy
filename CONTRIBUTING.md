@@ -96,7 +96,15 @@ Repository administrators can inspect the enforced policy with:
 
 ```bash
 gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
-  --jq '.rules[] | select(.type == "required_status_checks" or .type == "pull_request")'
+  --jq '{
+    enforcement,
+    conditions,
+    bypass_actors,
+    current_user_can_bypass,
+    rules: [.rules[] | select(
+      .type == "required_status_checks" or .type == "pull_request"
+    )]
+  }'
 ```
 
 ### Commit Messages

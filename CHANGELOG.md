@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1127] - 2026-09-05
+
+### Fixed
+
+- Remove render-phase ref mutations from account and prefetch hooks (#651)
+
 ## [0.1.1126] - 2026-09-05
 
 ### Fixed

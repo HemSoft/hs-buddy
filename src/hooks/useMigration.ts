@@ -262,7 +262,9 @@ export function useMigrateToConvex() {
   const existingAccounts = useQuery(api.githubAccounts.list)
   const existingSettings = useQuery(api.settings.get)
   const existingAccountsRef = useRef(existingAccounts)
-  existingAccountsRef.current = existingAccounts
+  useEffect(() => {
+    existingAccountsRef.current = existingAccounts
+  }, [existingAccounts])
 
   // Loading until Convex queries resolve OR timeout
   const isLoading = (existingAccounts === undefined || existingSettings === undefined) && !timedOut

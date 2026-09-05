@@ -150,7 +150,9 @@ export function usePrefetch(): void {
   } = usePRSettings()
   const { enqueue } = useTaskQueue('github')
   const activePRCacheKeysRef = useRef(new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts))))
-  activePRCacheKeysRef.current = new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts)))
+  useEffect(() => {
+    activePRCacheKeysRef.current = new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts)))
+  }, [accounts])
 
   // Stable refs to avoid re-triggering effects
   const enqueueRef = useRef(enqueue)

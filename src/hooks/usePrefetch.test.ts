@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { usePrefetch } from './usePrefetch'
@@ -583,5 +584,35 @@ describe('usePrefetch', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(mockDataCacheSet.mock.calls.some(([key]) => key === 'org-repos:test-org')).toBe(false)
+  })
+
+  it('handles React Strict Mode double-render and unmounts cleanly without stale cache writes', async () => {
+    let resolveOld!: (value: never[]) => void
+    const oldResult = new Promise<never[]>(resolve => {
+      resolveOld = resolve
+    })
+    mockGitHubClientFactory.mockReturnValue({
+      fetchMyPRs: vi.fn(() => oldResult),
+      fetchNeedsReview: vi.fn().mockResolvedValue([]),
+      fetchRecentlyMerged: vi.fn().mockResolvedValue([]),
+      fetchNeedANudge: vi.fn().mockResolvedValue([]),
+      fetchOrgRepos: vi.fn().mockResolvedValue({ repos: [] }),
+    })
+    const oldCacheKey = getPRCacheKey('my-prs', [account])
+    const { rerender, unmount } = renderHook(() => usePrefetch(), { wrapper: StrictMode })
+
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    rerender()
+    unmount()
+
+    await act(async () => {
+      resolveOld([])
+      await oldResult
+    })
+
+    expect(mockDataCacheSet.mock.calls.some(([key]) => key === oldCacheKey)).toBe(false)
   })
 })

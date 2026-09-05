@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMigrateToConvex } from './useMigration'
@@ -613,5 +614,52 @@ describe('useMigrateToConvex', () => {
 
     // Call count should not increase
     expect(mockBulkImportAccounts).toHaveBeenCalledTimes(callCount)
+  })
+
+  it('runs safely under React Strict Mode replay and unmounts cleanly', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, unmount } = renderHook(() => useMigrateToConvex(), { wrapper: StrictMode })
+
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
+    expect(mockBulkImportAccounts).toHaveBeenCalledTimes(1)
+    expect(mockInitSettings).toHaveBeenCalledTimes(1)
+
+    unmount()
+  })
+
+  it('evaluates accountPlanIsReady against latest committed accounts when query updates during migration', async () => {
+    mockExistingAccounts = []
+    mockExistingSettings = {}
+    let resolveImport!: (value: Array<{ id: string; username: string }>) => void
+    mockBulkImportAccounts.mockReturnValue(
+      new Promise(resolve => {
+        resolveImport = resolve
+      })
+    )
+    mockInitSettings.mockResolvedValue(undefined)
+
+    const { result, rerender } = renderHook(
+      () => ({
+        ...useMigrateToConvex(),
+        accountsReady: useAccountMigrationReady(),
+      }),
+      { wrapper: StrictMode }
+    )
+
+    // While bulkImport is in flight, Convex list query resolves with the imported accounts
+    mockExistingAccounts = [{ _id: '1', username: 'user1', org: 'org1' }]
+    rerender()
+
+    await act(async () => {
+      resolveImport([{ id: '1', username: 'user1' }])
+      await Promise.resolve()
+    })
+
+    await waitFor(() => expect(result.current.isComplete).toBe(true))
+    expect(result.current.accountsReady).toBe(true)
   })
 })

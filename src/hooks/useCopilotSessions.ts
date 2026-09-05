@@ -24,6 +24,7 @@ export function useCopilotSessions() {
         setError(getErrorMessageWithFallback(err, 'Failed to scan sessions'))
       }
     } finally {
+      // react-doctor-disable-next-line react-doctor/no-loading-flag-reset-outside-finally -- This reset is inside finally; the mount guard prevents updating an unmounted component.
       if (mountedRef.current) setIsLoading(false)
     }
   }, [mountedRef])

@@ -9,14 +9,16 @@ import type { Id } from './_generated/dataModel'
 async function transferCodexOwnership(ctx: MutationCtx, ownerId?: Id<'githubAccounts'>) {
   const accounts = await ctx.db.query('githubAccounts').collect()
   await Promise.all(
-    accounts
-      .filter(account => account._id !== ownerId && account.usageProvider === 'codex')
-      .map(account =>
-        ctx.db.patch('githubAccounts', account._id, {
-          usageProvider: 'copilot',
-          updatedAt: Date.now(),
-        })
-      )
+    accounts.flatMap(account =>
+      account._id !== ownerId && account.usageProvider === 'codex'
+        ? [
+            ctx.db.patch('githubAccounts', account._id, {
+              usageProvider: 'copilot',
+              updatedAt: Date.now(),
+            }),
+          ]
+        : []
+    )
   )
 }
 

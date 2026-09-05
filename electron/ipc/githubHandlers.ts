@@ -554,8 +554,8 @@ async function probeDateActivity(
 
   for (let i = 0; i < remaining.length; i += BATCH_CONCURRENCY) {
     const batch = remaining.slice(i, i + BATCH_CONCURRENCY)
-    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-user day probes.
     foundThisDay.push(
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Batches intentionally cap concurrent per-user day probes.
       ...(await probeBatchDayActivity(batch, year, month, day, enterpriseSlug, execEnv))
     )
   }

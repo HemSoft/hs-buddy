@@ -39,6 +39,7 @@ function handleAudioSuccess(
     return
   }
   const blob = createNotificationSoundBlob(sound)
+  // react-doctor-disable-next-line react-doctor/no-create-object-url-without-revoke -- revokePreviewUrl releases this ref-held URL on completion, playback failure, replacement, and unmount.
   const url = URL.createObjectURL(blob)
   previewUrlRef.current = url
   const audio = new Audio(url)

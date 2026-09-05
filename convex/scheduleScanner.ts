@@ -183,6 +183,7 @@ async function reapStaleRuns(ctx: RunWriteCtx, now: number): Promise<number> {
   let reaped = 0
 
   for (const status of ['pending', 'running'] as const) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Process two bounded status batches sequentially to limit database work in each reaper transaction.
     const candidates = await ctx.db
       .query('runs')
       .withIndex('by_status', q => q.eq('status', status))

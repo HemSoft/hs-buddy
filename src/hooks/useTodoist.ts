@@ -95,6 +95,7 @@ export function useTodoistUpcoming(days: number = 7) {
         setError(getUserFacingErrorMessage(err, 'Failed to fetch tasks'))
       }
     } finally {
+      // react-doctor-disable-next-line react-doctor/no-loading-flag-reset-outside-finally -- This reset is inside finally; the mount guard prevents updating an unmounted component.
       if (mountedRef.current) setIsLoading(false)
     }
   }, [days, mountedRef])

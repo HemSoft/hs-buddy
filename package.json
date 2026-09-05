@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1136",
+  "version": "0.1.1137",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -30,6 +30,7 @@
     "test:electron:coverage": "vitest run --config vitest.electron.config.ts --coverage",
     "test:convex": "vitest run --config vitest.convex.config.ts",
     "test:convex:coverage": "vitest run --config vitest.convex.config.ts --coverage",
+    "react-doctor": "bun scripts/run-react-doctor.ts",
     "lhci": "lhci autorun",
     "bench": "vitest bench",
     "bench:json": "vitest bench --outputJson bench-results.json",
@@ -146,6 +147,7 @@
     "png-to-ico": "^3.0.1",
     "prettier": "^3.9.4",
     "puppeteer-core": "25.7.0",
+    "react-doctor": "0.9.13",
     "react-scan": "^0.5.7",
     "sharp": "^0.35.3",
     "typescript": "~6.0.3",
@@ -162,6 +164,7 @@
     "@github/copilot-win32-x64": "^1.0.68"
   },
   "overrides": {
+    "react-doctor": "$react-doctor",
     "@babel/core": "^7.29.1",
     "body-parser": "^1.20.6",
     "brace-expansion": "^5.0.9",

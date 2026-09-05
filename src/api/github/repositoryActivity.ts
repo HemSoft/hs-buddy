@@ -117,7 +117,7 @@ export function buildRepositoryActivity(
   fetchedAt = new Date().toISOString()
 ): RepositoryActivitySummary {
   const activeRepos = new Map(
-    repos.filter(repo => !repo.isArchived).map(repo => [repo.fullName.toLowerCase(), repo])
+    repos.flatMap(repo => (repo.isArchived ? [] : [[repo.fullName.toLowerCase(), repo] as const]))
   )
   const grouped = new Map<string, ActiveRepositoryActivity>()
 

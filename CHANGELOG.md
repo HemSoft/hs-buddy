@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1137] - 2026-09-05
+
+### Changed
+
+- Upgrade and gate react doctor (#653)
+
 ## [0.1.1136] - 2026-09-05
 
 ### Fixed

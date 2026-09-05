@@ -80,3 +80,4 @@ bench-results.json
 
 # Per-developer hooks settings (audio toggle, etc.)
 .github/hooks/hooks-settings.json
+/reports/react-doctor/

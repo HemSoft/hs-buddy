@@ -88,6 +88,37 @@ jobs:
       - name: Electron security check
         run: bun scripts/check-electron-security.ts
 
+  react-doctor:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Setup Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 24.12.0
+      - name: Setup Bun
+        uses: ./.github/actions/setup-bun
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Check React Doctor
+        run: bun run react-doctor
+      - name: Upload React Doctor report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: react-doctor-${{ matrix.os }}
+          path: reports/react-doctor/
+          if-no-files-found: error
+          retention-days: 30
+
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -628,7 +659,7 @@ jobs:
 
   ci-complete:
     runs-on: ubuntu-latest
-    needs: [ci-feedback, test-electron-memory]
+    needs: [ci-feedback, test-electron-memory, react-doctor]
     if: always()
     steps:
       - name: Check final qualification

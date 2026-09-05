@@ -241,12 +241,14 @@ contextBridge.exposeInMainWorld('ralph', {
     const wrapper = (_event: Electron.IpcRendererEvent, ...rest: unknown[]) => callback(...rest)
     if (!ipcListenerWrappers.has(IPC_PUSH.RALPH_STATUS_UPDATE))
       ipcListenerWrappers.set(IPC_PUSH.RALPH_STATUS_UPDATE, new Map())
+    // react-doctor-disable-next-line react-doctor/no-non-null-assertion-on-maybe-undefined-result -- The map is populated or its entry checked immediately above, with no asynchronous boundary before this access.
     ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)!.set(callback, wrapper)
     ipcRenderer.on(IPC_PUSH.RALPH_STATUS_UPDATE, wrapper)
   },
   offStatusChange: (callback: (...args: unknown[]) => void) => {
     const wrapper = ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)?.get(callback)
     if (wrapper) {
+      // react-doctor-disable-next-line react-doctor/no-non-null-assertion-on-maybe-undefined-result -- The map is populated or its entry checked immediately above, with no asynchronous boundary before this access.
       ipcListenerWrappers.get(IPC_PUSH.RALPH_STATUS_UPDATE)!.delete(callback)
       ipcRenderer.off(IPC_PUSH.RALPH_STATUS_UPDATE, wrapper)
     }

@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Harden browser network failure diagnostics (#650)
+- Shorten pr feedback with selective parallel memory qualification
 
 ## [0.1.1126] - 2026-09-05
 

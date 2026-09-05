@@ -46,6 +46,7 @@ interface HarnessOptions {
   settleMs: number
   navigationCycles: number
   skipBuild: boolean
+  collectOnly: boolean
   budgetScale: number
   outputPath: string | null
   recordBaselinePath: string | null
@@ -61,11 +62,14 @@ interface HarnessRun {
   observedProcessKinds: ProcessKind[]
 }
 
-interface HarnessResult {
+export interface HarnessResult {
   schema: 1
   capturedAt: string
   platform: string
   architecture: string
+  sourceRevision: string | null
+  sampleId: string | null
+  runnerImage: string | null
   options: HarnessOptions
   budgets: {
     absoluteScenario: 'dashboard-warm'
@@ -90,6 +94,7 @@ const HELP = [
   '  --settle-ms <n>               Cleanup settling delay (default: 5000)',
   '  --navigation-cycles <n>       Representative route/lifecycle cycles (default: 3)',
   '  --skip-build                  Reuse the existing Vite/package output',
+  '  --collect-only                Collect a CI sample; aggregate before enforcing budgets',
   '  --budget-scale <n>            Scale absolute caps for harness self-test',
   '  --output <path>               Write the full JSON result',
   '  --record-baseline <path>      Write median baseline JSON',
@@ -130,6 +135,7 @@ export function parseArgs(args: string[]): HarnessOptions | null {
     settleMs: DEFAULT_SETTLE_MS,
     navigationCycles: DEFAULT_NAVIGATION_CYCLES,
     skipBuild: false,
+    collectOnly: false,
     budgetScale: 1,
     outputPath: null,
     recordBaselinePath: null,
@@ -140,6 +146,10 @@ export function parseArgs(args: string[]): HarnessOptions | null {
     if (flag === '--help') return null
     if (flag === '--skip-build') {
       options.skipBuild = true
+      continue
+    }
+    if (flag === '--collect-only') {
+      options.collectOnly = true
       continue
     }
     const value = readValue(args, index, flag)
@@ -323,6 +333,14 @@ function printFailures(failures: BudgetFailure[]): void {
   }
 }
 
+function ciSampleIdentity() {
+  return {
+    sourceRevision: process.env.GITHUB_SHA ?? null,
+    sampleId: process.env.MEMORY_SAMPLE_ID ?? null,
+    runnerImage: process.env.ImageVersion ?? null,
+  }
+}
+
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2))
   if (!options) {
@@ -345,6 +363,7 @@ async function main(): Promise<void> {
     capturedAt: new Date().toISOString(),
     platform: process.platform,
     architecture: process.arch,
+    ...ciSampleIdentity(),
     options,
     budgets: scaledBudgets(options.budgetScale),
     runs,
@@ -358,7 +377,7 @@ async function main(): Promise<void> {
   console.log(`Electron memory result: ${result.status}`)
   if (failures.length > 0) {
     printFailures(failures)
-    process.exitCode = 1
+    if (!options.collectOnly) process.exitCode = 1
   }
 }
 

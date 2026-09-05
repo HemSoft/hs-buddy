@@ -115,6 +115,12 @@ gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
   }'
 ```
 
+### PR feedback cycle
+
+Use `ci-feedback` during draft review and `ci-complete` for final merge
+qualification. See [CI feedback and memory qualification](docs/CI-FEEDBACK.md)
+for draft deferral, selective execution, parallel samples, and scheduled coverage.
+
 ### Dependency vulnerability response
 
 Dependabot alerts and security-update pull requests are enabled. `HemSoft` owns

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1128] - 2026-09-05
+
+### Changed
+
+- Isolate migration purity tests and keep describe blocks under quality limit
+
 ## [0.1.1127] - 2026-09-05
 
 ### Fixed

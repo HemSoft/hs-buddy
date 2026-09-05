@@ -61,6 +61,7 @@ export async function getRunCountsByJob(
   // counted aggregates, because the aggregate component only contains
   // migrated runs.
   for (const jobId of jobIds) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Stop at the first unmigrated job before issuing aggregate queries; readiness checks are intentionally sequential.
     const unbackfilledRun = await ctx.db
       .query('runs')
       .withIndex('by_job_count_version', query =>

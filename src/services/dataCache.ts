@@ -65,6 +65,7 @@ let lastAppliedMutationSequence = 0
 let clearGate: Promise<void> | null = null
 
 async function waitForActiveClear(): Promise<void> {
+  // react-doctor-disable-next-line react-doctor/async-await-in-loop -- A replacement clear can start while awaiting the prior clear; recheck the gate before applying cached data.
   while (clearGate) await clearGate
 }
 
@@ -227,6 +228,7 @@ async function applyPendingLoad<T>(
   loadClearAttemptRevision: number,
   loadId: number
 ): Promise<CacheEntry<T> | null> {
+  // react-doctor-disable-next-line react-doctor/async-await-in-loop -- A replacement clear can start while awaiting the prior clear; recheck the gate before applying cached data.
   while (clearGate) await waitForActiveClear()
   if (
     lastSuccessfulClearAttemptRevision > loadClearAttemptRevision ||
@@ -407,12 +409,12 @@ export const dataCache = {
     try {
       const result = await window.ipcRenderer.invoke(IPC_INVOKE.CACHE_CLEAR)
       lastSuccessfulClearAttemptRevision = clearAttempt
-      const keys = Array.from(revisionsAtStart)
-        .filter(([key, revision]) => keyRevisions.get(key)! === revision)
-        .map(([key]) => key)
-      const touchKeys = Array.from(pendingTouchesAtStart)
-        .filter(([key, revision]) => keyRevisions.get(key)! === revision)
-        .map(([key]) => key)
+      const keys = Array.from(revisionsAtStart).flatMap(([key, revision]) =>
+        keyRevisions.get(key)! === revision ? [key] : []
+      )
+      const touchKeys = Array.from(pendingTouchesAtStart).flatMap(([key, revision]) =>
+        keyRevisions.get(key)! === revision ? [key] : []
+      )
       discardPendingTouches(touchKeys)
       for (const key of keys) {
         advanceKeyRevision(key)

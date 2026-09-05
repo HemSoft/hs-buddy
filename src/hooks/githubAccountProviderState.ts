@@ -46,11 +46,11 @@ export function toDurableAccounts(accounts: ConvexGitHubAccount[]): GitHubAccoun
       return updatedDifference || (left._id ?? '').localeCompare(right._id ?? '')
     })
     return ordered.reduce<GitHubAccount>(
-      (durable, account) => ({
-        ...durable,
-        ...(account.repoRoot === undefined ? {} : { repoRoot: account.repoRoot }),
-        ...(account.usageProvider === undefined ? {} : { usageProvider: account.usageProvider }),
-      }),
+      (durable, account) => {
+        if (account.repoRoot !== undefined) durable.repoRoot = account.repoRoot
+        if (account.usageProvider !== undefined) durable.usageProvider = account.usageProvider
+        return durable
+      },
       { username: canonical.username, org: canonical.org }
     )
   })

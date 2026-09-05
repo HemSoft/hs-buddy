@@ -472,6 +472,7 @@ function usePRHistoryFetch(pr: PRDetailInfo, onLoaded?: (history: PRHistorySumma
       handleHistoryFetchError(err, requestId, latestRequestRef, setError)
     } finally {
       if (shouldFinalizeHistoryRequest(requestId, latestRequestRef)) {
+        // react-doctor-disable-next-line react-doctor/no-loading-flag-reset-outside-finally -- This reset is inside finally; only the latest request may clear the current loading state.
         setLoading(false)
       }
     }

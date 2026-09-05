@@ -11,7 +11,7 @@
  * data stays fresh without manual intervention.
  */
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useLayoutEffect, useRef, useCallback } from 'react'
 import { useGitHubAccounts, usePRSettings } from './useConfig'
 import { useTaskQueue } from './useTaskQueue'
 import { getTaskQueue } from '../services/taskQueue'
@@ -150,7 +150,9 @@ export function usePrefetch(): void {
   } = usePRSettings()
   const { enqueue } = useTaskQueue('github')
   const activePRCacheKeysRef = useRef(new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts))))
-  activePRCacheKeysRef.current = new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts)))
+  useLayoutEffect(() => {
+    activePRCacheKeysRef.current = new Set(PR_MODES.map(mode => getPRCacheKey(mode, accounts)))
+  }, [accounts])
 
   // Stable refs to avoid re-triggering effects
   const enqueueRef = useRef(enqueue)

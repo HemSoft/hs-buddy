@@ -156,13 +156,9 @@ export function useResolvedAccounts(
       account.usageProvider,
     ])
   )
-  const previousKey = useRef('')
-  const accounts = useRef<GitHubAccount[]>([])
-  if (previousKey.current !== contentKey) {
-    previousKey.current = contentKey
-    accounts.current = resolved
-  }
-  return accounts.current
+  // Stabilize the returned array reference when the resolved accounts content is unchanged.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => resolved, [contentKey])
 }
 
 async function settleOverrideResult(operation: () => Promise<OverrideResult>) {

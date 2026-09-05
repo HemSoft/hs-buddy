@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
 import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
@@ -324,16 +324,19 @@ export function useGitHubAccountActions(
 ) {
   const { create, update, remove } = useGitHubAccountMutations()
   const accountsRef = useRef(convexAccounts)
-  accountsRef.current = convexAccounts
   const removedAccountsRef = useRef(new Map<string, RemovalTombstone>())
-  if (convexAccounts) {
-    const currentIds = new Set(convexAccounts.map(account => account._id))
-    for (const [key, tombstone] of removedAccountsRef.current) {
-      if (tombstone.cleanupSettled && !currentIds.has(tombstone.id)) {
-        removedAccountsRef.current.delete(key)
+
+  useLayoutEffect(() => {
+    accountsRef.current = convexAccounts
+    if (convexAccounts) {
+      const currentIds = new Set(convexAccounts.map(account => account._id))
+      for (const [key, tombstone] of removedAccountsRef.current) {
+        if (tombstone.cleanupSettled && !currentIds.has(tombstone.id)) {
+          removedAccountsRef.current.delete(key)
+        }
       }
     }
-  }
+  }, [convexAccounts])
 
   const reconcileUsageProvider = useCallback(
     async (

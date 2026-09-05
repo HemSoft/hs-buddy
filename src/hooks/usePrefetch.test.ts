@@ -1,3 +1,4 @@
+import { StrictMode } from 'react'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { usePrefetch } from './usePrefetch'
@@ -583,5 +584,39 @@ describe('usePrefetch', () => {
     await vi.advanceTimersByTimeAsync(0)
 
     expect(mockDataCacheSet.mock.calls.some(([key]) => key === 'org-repos:test-org')).toBe(false)
+  })
+
+  it('does not duplicate prefetch tasks under React Strict Mode double-mount', () => {
+    renderHook(() => usePrefetch(), { wrapper: StrictMode })
+    expect(mockEnqueue).toHaveBeenCalledTimes(5)
+  })
+
+  it('discards in-flight prefetch results when accounts change before completion', async () => {
+    let resolveOld!: (value: never[]) => void
+    const oldResult = new Promise<never[]>(resolve => {
+      resolveOld = resolve
+    })
+    mockGitHubClientFactory.mockReturnValue({
+      fetchMyPRs: vi.fn(() => oldResult),
+      fetchNeedsReview: vi.fn().mockResolvedValue([]),
+      fetchRecentlyMerged: vi.fn().mockResolvedValue([]),
+      fetchNeedANudge: vi.fn().mockResolvedValue([]),
+      fetchOrgRepos: vi.fn().mockResolvedValue({ repos: [] }),
+    })
+    const oldCacheKey = getPRCacheKey('my-prs', [account])
+    const { rerender } = renderHook(() => usePrefetch())
+
+    mockUseGitHubAccounts.mockReturnValue({
+      accounts: [{ username: 'bob', org: 'other-org' }],
+      loading: false,
+    })
+    rerender()
+
+    await act(async () => {
+      resolveOld([])
+      await oldResult
+    })
+
+    expect(mockDataCacheSet.mock.calls.some(([key]) => key === oldCacheKey)).toBe(false)
   })
 })

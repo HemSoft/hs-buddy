@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1130] - 2026-09-05
+
+### Changed
+
+- Share useMigration mock harness and guard async plan readiness
+
 ## [0.1.1129] - 2026-09-05
 
 ### Fixed

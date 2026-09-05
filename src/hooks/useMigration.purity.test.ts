@@ -1,46 +1,21 @@
+import '../test/useMigrationHarness'
 import { StrictMode } from 'react'
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, waitFor, act } from '@testing-library/react'
 import { useMigrateToConvex } from './useMigration'
 import { markAccountMigrationPending, useAccountMigrationReady } from './useAccountMigrationState'
-
-const mockBulkImportAccounts = vi.fn()
-const mockInitSettings = vi.fn()
-let mockExistingAccounts: Array<Record<string, unknown>> | undefined
-let mockExistingSettings: Record<string, unknown> | undefined
-
-function refNameIncludes(ref: unknown, value: string) {
-  const name = (ref as { name?: string } | undefined)?.name
-  return String(name ?? '').includes(value) || String(ref).includes(value)
-}
-
-vi.mock('convex/react', () => ({
-  useConvexConnectionState: () => ({ connectionCount: 1, isWebSocketConnected: true }),
-  useMutation: (ref: unknown) =>
-    refNameIncludes(ref, 'bulkImport') ? mockBulkImportAccounts : mockInitSettings,
-  useQuery: (ref: unknown) =>
-    refNameIncludes(ref, 'list') ? mockExistingAccounts : mockExistingSettings,
-}))
-
-vi.mock('../../convex/_generated/api', () => ({
-  api: {
-    githubAccounts: { bulkImport: { name: 'bulkImport' }, list: { name: 'list' } },
-    settings: { initFromMigration: { name: 'initFromMigration' }, get: { name: 'get' } },
-  },
-}))
-
-const mockInvoke = vi.fn()
-Object.defineProperty(window, 'ipcRenderer', {
-  value: { invoke: mockInvoke },
-  writable: true,
-  configurable: true,
-})
+import {
+  mockBulkImportAccounts,
+  mockInitSettings,
+  mockInvoke,
+  migrationState,
+} from '../test/useMigrationHarness'
 
 describe('useMigrateToConvex render purity', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockExistingAccounts = undefined
-    mockExistingSettings = undefined
+    migrationState.existingAccounts = undefined
+    migrationState.existingSettings = undefined
     markAccountMigrationPending()
     mockInvoke.mockResolvedValue({
       github: { accounts: [{ username: 'user1', org: 'org1' }] },
@@ -53,8 +28,8 @@ describe('useMigrateToConvex render purity', () => {
   })
 
   it('runs safely under React Strict Mode replay and unmounts cleanly', async () => {
-    mockExistingAccounts = []
-    mockExistingSettings = {}
+    migrationState.existingAccounts = []
+    migrationState.existingSettings = {}
     mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
     mockInitSettings.mockResolvedValue(undefined)
 
@@ -68,14 +43,15 @@ describe('useMigrateToConvex render purity', () => {
   })
 
   it('evaluates accountPlanIsReady against latest committed accounts during migration', async () => {
-    mockExistingAccounts = []
-    mockExistingSettings = {}
-    let resolveImport!: (value: Array<{ id: string; username: string }>) => void
-    mockBulkImportAccounts.mockReturnValue(
+    migrationState.existingAccounts = []
+    migrationState.existingSettings = {}
+    let resolveInvoke!: (value: unknown) => void
+    mockInvoke.mockReturnValue(
       new Promise(resolve => {
-        resolveImport = resolve
+        resolveInvoke = resolve
       })
     )
+    mockBulkImportAccounts.mockResolvedValue([{ id: '1', username: 'user1' }])
     mockInitSettings.mockResolvedValue(undefined)
 
     const { result, rerender } = renderHook(
@@ -83,12 +59,16 @@ describe('useMigrateToConvex render purity', () => {
       { wrapper: StrictMode }
     )
 
-    mockExistingAccounts = [{ _id: '1', username: 'user1', org: 'org1' }]
+    migrationState.existingAccounts = [{ _id: '1', username: 'user1', org: 'org1' }]
     rerender()
 
+    expect(result.current.accountsReady).toBe(false)
+
     await act(async () => {
-      resolveImport([{ id: '1', username: 'user1' }])
-      await Promise.resolve()
+      resolveInvoke({
+        github: { accounts: [{ username: 'user1', org: 'org1' }] },
+        pr: { refreshInterval: 10, autoRefresh: true },
+      })
     })
 
     await waitFor(() => expect(result.current.isComplete).toBe(true))

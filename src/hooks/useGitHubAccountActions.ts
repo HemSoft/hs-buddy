@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useLayoutEffect, useRef } from 'react'
 import type { GitHubAccount, UsageProvider } from '../types/config'
 import { getErrorMessage } from '../utils/errorUtils'
 import { getUsageProviderOverrideKey } from '../utils/usageProviderOverrides'
@@ -326,7 +326,7 @@ export function useGitHubAccountActions(
   const accountsRef = useRef(convexAccounts)
   const removedAccountsRef = useRef(new Map<string, RemovalTombstone>())
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     accountsRef.current = convexAccounts
     if (convexAccounts) {
       const currentIds = new Set(convexAccounts.map(account => account._id))

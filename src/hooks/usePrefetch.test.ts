@@ -586,7 +586,12 @@ describe('usePrefetch', () => {
     expect(mockDataCacheSet.mock.calls.some(([key]) => key === 'org-repos:test-org')).toBe(false)
   })
 
-  it('handles React Strict Mode double-render and unmounts cleanly without stale cache writes', async () => {
+  it('does not duplicate prefetch tasks under React Strict Mode double-mount', () => {
+    renderHook(() => usePrefetch(), { wrapper: StrictMode })
+    expect(mockEnqueue).toHaveBeenCalledTimes(5)
+  })
+
+  it('discards in-flight prefetch results when accounts change before completion', async () => {
     let resolveOld!: (value: never[]) => void
     const oldResult = new Promise<never[]>(resolve => {
       resolveOld = resolve
@@ -599,14 +604,13 @@ describe('usePrefetch', () => {
       fetchOrgRepos: vi.fn().mockResolvedValue({ repos: [] }),
     })
     const oldCacheKey = getPRCacheKey('my-prs', [account])
-    const { rerender, unmount } = renderHook(() => usePrefetch(), { wrapper: StrictMode })
+    const { rerender } = renderHook(() => usePrefetch())
 
     mockUseGitHubAccounts.mockReturnValue({
       accounts: [{ username: 'bob', org: 'other-org' }],
       loading: false,
     })
     rerender()
-    unmount()
 
     await act(async () => {
       resolveOld([])

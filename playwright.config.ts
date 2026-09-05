@@ -42,6 +42,9 @@ export default defineConfig({
       name: 'browser-e2e',
       use: {
         ...(process.env.CI ? { channel: 'chrome' } : {}),
+        serviceWorkers: 'block',
+        // Even an accidental route.continue() cannot reach an external server.
+        proxy: { server: 'http://127.0.0.1:9', bypass: 'localhost,127.0.0.1' },
         // Tests run in Chromium with IPC mocks (from e2e/fixtures.ts)
       },
     },

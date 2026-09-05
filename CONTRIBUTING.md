@@ -69,15 +69,33 @@ requires these GitHub Actions checks before a pull request can merge into `main`
 | `npm audit`   | `Security Scanning` | Rejects high-severity dependency vulnerabilities                                |
 
 Both checks must come from the GitHub Actions app (`integration_id: 15368`). The
-ruleset has no bypass actors, does not exempt branch creation, and does not
-require a pull request branch to be updated with the latest `main` commit. Any
-policy change must document its bypass behavior here.
+ruleset also requires every change to the existing `main` branch to arrive
+through a pull request. Its pull-request rule requires all review conversations
+to be resolved and uses zero required approving reviews. Zero is intentional:
+GitHub does not count an approval from the pull-request author, and this
+repository currently uses the same `HemSoft` identity for authorship and merge
+authorization.
+
+A human authorizes a merge by explicitly selecting the exact pull request for
+the repository's guarded `mergepr` workflow or by using GitHub's merge control
+after checking the required statuses and reviewer feedback. An issue label,
+automated comment, workflow result, or general instruction does not authorize a
+merge.
+
+The ruleset has no bypass actors, does not exempt branch creation, does not
+require a pull request branch to be updated with the latest `main` commit, and
+allows the repository's configured merge, squash, and rebase methods. There is
+no standing emergency bypass. If an urgent repair cannot use a pull request, a
+repository administrator must record the reason in an issue or incident,
+temporarily change the ruleset, make only the required repair, then immediately
+restore and verify the ruleset. Any permanent bypass or policy change must be
+documented here through a pull request.
 
 Repository administrators can inspect the enforced policy with:
 
 ```bash
 gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
-  --jq '.rules[] | select(.type == "required_status_checks")'
+  --jq '.rules[] | select(.type == "required_status_checks" or .type == "pull_request")'
 ```
 
 ### Commit Messages

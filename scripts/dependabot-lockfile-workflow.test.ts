@@ -2,15 +2,17 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
-const workflow = readFileSync(
-  resolve(process.cwd(), '.github/workflows/dependabot-lockfile.yml'),
-  'utf8'
-)
-const ciWorkflow = readFileSync(resolve(process.cwd(), '.github/workflows/ci.yml'), 'utf8')
+const normalizeLineEndings = (text: string): string => text.replaceAll('\r\n', '\n')
+
+const readRepositoryText = (path: string): string =>
+  normalizeLineEndings(readFileSync(resolve(process.cwd(), path), 'utf8'))
+
+const workflow = readRepositoryText('.github/workflows/dependabot-lockfile.yml')
+const ciWorkflow = readRepositoryText('.github/workflows/ci.yml')
 const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json'), 'utf8')) as {
   scripts: Record<string, string>
 }
-const convexConfig = readFileSync(resolve(process.cwd(), 'vitest.convex.config.ts'), 'utf8')
+const convexConfig = readRepositoryText('vitest.convex.config.ts')
 
 const stepNames = [...workflow.matchAll(/^\s+- name: (.+)$/gm)].map(match => match[1])
 const convexJob = ciWorkflow.slice(
@@ -19,6 +21,29 @@ const convexJob = ciWorkflow.slice(
 )
 
 describe('Dependabot Lockfile Fix workflow', () => {
+  it.each([
+    ['LF', '\n'],
+    ['CRLF', '\r\n'],
+  ])('normalizes %s text before section and multiline assertions', (_label, lineEnding) => {
+    const fixture = [
+      'jobs:',
+      '  test-convex:',
+      '    run: bun run test:convex:coverage',
+      '  test-e2e:',
+      '    run: |',
+      '      gh run watch "$RUN_ID" --exit-status',
+      '      watch_exit=$?',
+    ].join(lineEnding)
+    const normalized = normalizeLineEndings(fixture)
+    const convexFixture = normalized.slice(
+      normalized.indexOf('\n  test-convex:\n'),
+      normalized.indexOf('\n  test-e2e:\n')
+    )
+
+    expect(convexFixture).toContain('run: bun run test:convex:coverage')
+    expect(normalized).toContain('--exit-status\n      watch_exit=$?')
+  })
+
   it('keeps the lockfile update and generated-commit CI path', () => {
     expect(stepNames).toEqual(
       expect.arrayContaining([

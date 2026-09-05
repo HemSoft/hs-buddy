@@ -33,6 +33,10 @@ function validateScan(report: Record<string, unknown>, version: string): void {
   rejectSkippedChecks(report)
 }
 
+function isPositiveInteger(value: unknown): boolean {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0
+}
+
 /** Fail closed on an incomplete scan or any unsuppressed error or warning. */
 export function validateReactDoctorReport(value: unknown, version: string): string[] {
   const report = record(value)
@@ -41,7 +45,7 @@ export function validateReactDoctorReport(value: unknown, version: string): stri
     throw new Error('Expected exactly one scanned repository project')
   }
   const project = record(report.projects[0])
-  if (project.complete !== true || !(Number(project.scannedFileCount) > 0)) {
+  if (project.complete !== true || !isPositiveInteger(project.scannedFileCount)) {
     throw new Error('React Doctor project scan is incomplete or empty')
   }
   if (!Array.isArray(report.diagnostics) || !Array.isArray(project.diagnostics)) {
@@ -58,6 +62,8 @@ export function validateReactDoctorReport(value: unknown, version: string): stri
     const diagnostic = record(value)
     if (
       typeof diagnostic.rule !== 'string' ||
+      typeof diagnostic.plugin !== 'string' ||
+      typeof diagnostic.message !== 'string' ||
       typeof diagnostic.filePath !== 'string' ||
       !Number.isInteger(diagnostic.line) ||
       !['error', 'warning'].includes(String(diagnostic.severity))

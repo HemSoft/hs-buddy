@@ -75,6 +75,34 @@ describe('React Doctor gate', () => {
     expect(() => validateReactDoctorReport(null, '0.9.13')).toThrow()
   })
 
+  it.each([true, '10', 1.5, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects a non-positive-integer scan count: %s',
+    scannedFileCount => {
+      const report = {
+        ...cleanReport(),
+        projects: [{ complete: true, scannedFileCount, diagnostics: [] }],
+      }
+      expect(() => validateReactDoctorReport(report, '0.9.13')).toThrow('incomplete or empty')
+    }
+  )
+
+  it.each(['plugin', 'message'])('rejects missing diagnostic %s', field => {
+    const report = cleanReport()
+    const diagnostic: Record<string, unknown> = {
+      rule: 'refs',
+      plugin: 'react-hooks',
+      message: 'Ref write',
+      severity: 'error',
+      filePath: 'src/Probe.tsx',
+      line: 4,
+    }
+    delete diagnostic[field]
+    report.diagnostics = [diagnostic]
+    report.projects[0].diagnostics = report.diagnostics
+    report.summary.totalDiagnosticCount = 1
+    expect(() => validateReactDoctorReport(report, '0.9.13')).toThrow('Malformed')
+  })
+
   it('requires both platforms and includes the job in final CI qualification', () => {
     const workflow = readFileSync('.github/workflows/ci.yml', 'utf8')
     const job = workflow.split('  react-doctor:')[1].split('  typecheck:')[0]

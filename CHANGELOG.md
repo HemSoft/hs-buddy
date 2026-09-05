@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1126] - 2026-09-05
+
+### Fixed
+
+- Keep workflow tests within quality limits (#649)
+
+## [0.1.1125] - 2026-09-05
+
+### Fixed
+
+- Normalize workflow test line endings (#649)
+
 ## [0.1.1124] - 2026-09-05
 
 ### Changed

@@ -76,11 +76,12 @@ GitHub does not count an approval from the pull-request author, and this
 repository currently uses the same `HemSoft` identity for authorship and merge
 authorization.
 
-A human authorizes a merge by explicitly selecting the exact pull request for
-the repository's guarded `mergepr` workflow or by using GitHub's merge control
-after checking the required statuses and reviewer feedback. An issue label,
-automated comment, workflow result, or general instruction does not authorize a
-merge.
+A human authorizes a merge by explicitly selecting the exact pull request after
+checking the required statuses and reviewer feedback. A person can then use
+GitHub's merge control. When an agent performs the merge, it must receive that
+exact pull-request authorization and use the locally installed `mergepr`
+command. An issue label, automated comment, workflow result, or general
+instruction does not authorize a merge.
 
 The ruleset has no bypass actors, does not exempt branch creation, does not
 require a pull request branch to be updated with the latest `main` commit, and

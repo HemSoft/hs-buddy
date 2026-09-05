@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Remove redundant changelog entry
 - Document required pull request policy (#646)
+- Clarify human merge authorization (#646)
 
 ## [0.1.1118] - 2026-09-04
 

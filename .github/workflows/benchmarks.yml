@@ -30,9 +30,6 @@ jobs:
         id: policy
         run: bun scripts/bench-policy.ts
 
-      - name: Enable controlled regression proof
-        run: bun scripts/bench-regression-probe.ts
-
       - name: Cache Bun dependencies
         if: steps.policy.outputs.mode != 'skip'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
@@ -57,7 +54,7 @@ jobs:
           cd "$RUNNER_TEMP/bench-baseline"
           if ! bun install --frozen-lockfile; then
             if [[ "$MODE" == "advisory" ]]; then
-              echo "Baseline install failed; comparison unavailable for the harness/toolchain reasons above." | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "Benchmark comparison unavailable: baseline install failed. Advisory reasons are retained in bench-policy.json." | tee "$GITHUB_WORKSPACE/bench-summary.md" | tee -a "$GITHUB_STEP_SUMMARY"
               echo "unavailable=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi

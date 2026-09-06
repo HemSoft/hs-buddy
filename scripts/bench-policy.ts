@@ -33,15 +33,10 @@ function benchmarkScripts(pkg: Package): unknown {
   )
 }
 
-export function benchmarkPolicy(
-  files: string[],
-  before: Package,
-  after: Package,
-  event: string
-): BenchmarkPolicy {
+function advisoryReasons(files: string[], before: Package, after: Package): string[] {
   const reasons = files
     .filter(file =>
-      /(?:\.bench\.[cm]?[jt]sx?$|^scripts\/bench.*\.ts$|^vitest.*config\.|^vite\.config\.|^src\/test\/setup\.ts$|^\.github\/workflows\/benchmarks\.yml$|^\.github\/actions\/setup-bun\/|^\.(?:bun|node)-version$)/.test(
+      /(?:\.bench\.[cm]?[jt]sx?$|^scripts\/bench.*\.ts$|^vitest.*config\.|^vite\.config\.|^tsconfig[^/]*\.json$|^bunfig\.toml$|^src\/test\/setup\.ts$|^\.github\/workflows\/benchmarks\.yml$|^\.github\/actions\/setup-bun\/|^\.(?:bun|node)-version$)/.test(
         file
       )
     )
@@ -56,6 +51,23 @@ export function benchmarkPolicy(
   }
   if (!isDeepStrictEqual(benchmarkScripts(before), benchmarkScripts(after)))
     reasons.push('Benchmark package scripts changed')
+  return reasons
+}
+
+export function benchmarkPolicy(
+  files: string[],
+  before: Package,
+  after: Package,
+  event: string
+): BenchmarkPolicy {
+  if (
+    event === 'push' &&
+    files.length &&
+    files.every(file => ['.sfl/sfl.json', 'sfl.json'].includes(file))
+  ) {
+    return { mode: 'skip', reasons: ['Only SFL deployment metadata changed'] }
+  }
+  const reasons = advisoryReasons(files, before, after)
   if (reasons.length) return { mode: 'advisory', reasons }
   const dependenciesChanged = dependencyFields.some(
     field => !isDeepStrictEqual(before[field], after[field])
@@ -85,7 +97,9 @@ if (import.meta.main) {
   const base =
     event.pull_request?.base?.sha ??
     event.merge_group?.base_sha ??
-    (event.before && !/^0+$/.test(event.before) ? event.before : git('rev-parse', 'HEAD^'))
+    (event.before && !/^0+$/.test(event.before)
+      ? event.before
+      : (git('rev-list', '--parents', '-n', '1', 'HEAD').split(' ')[1] ?? git('rev-parse', 'HEAD')))
   if (!/^[0-9a-f]{40}$/.test(base)) throw new Error('Invalid benchmark baseline SHA')
   const files = git('diff', '--no-renames', '--name-only', '-z', base, 'HEAD')
     .split('\0')
@@ -96,6 +110,10 @@ if (import.meta.main) {
     JSON.parse(readFileSync('package.json', 'utf8')),
     process.env.GITHUB_EVENT_NAME ?? ''
   )
+  if (base === git('rev-parse', 'HEAD')) {
+    policy.mode = 'advisory'
+    policy.reasons = ['No earlier revision; initial trend measurements only']
+  }
   writeFileSync(
     'bench-policy.json',
     JSON.stringify({ ...policy, base, candidate: git('rev-parse', 'HEAD') }, null, 2) + '\n'

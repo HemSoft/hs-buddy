@@ -14,6 +14,8 @@ changes before dependency installation or measurements:
   changes, dependency changes, and CI wiring changes run a blocking comparison.
 - Documentation and ordinary test-only changes succeed with an explicit skip
   reason. A package version bump does not change dependency or harness policy.
+  Main pushes containing only SFL deployment metadata retain their exclusion
+  through the same successful skip result.
 - Benchmark definitions, benchmark scripts/configuration, setup fixtures, and
   toolchain changes run an advisory comparison. The summary and `bench-policy.json`
   list the exact paths or package fields responsible. Changing an ordinary
@@ -23,6 +25,10 @@ An advisory comparison records measured regressions without failing the job.
 An unavailable baseline dependency installation is also explicitly reported
 for advisory changes. Other execution failures and incomplete measurement files
 fail qualification, so missing evidence cannot silently pass.
+Reported relative margins of error at or above 100% are unusable and fail
+qualification. Advisory runs with no matching benchmark identities retain both
+measured revisions and explicitly report that comparison is unavailable.
+An initial revision without a parent records advisory trend measurements.
 
 ## Measurements and decision
 
@@ -52,9 +58,11 @@ sample count or benchmark definitions; do not silently increase the budget.
 
 ## Evidence and reproduction
 
-The `bench-results` artifact retains policy, all six samples, both median files,
-and `bench-summary.md` for 30 days. The same comparison is printed in the job log
-and Actions step summary, including the advisory reason when applicable.
+For completed comparison runs, the `bench-results` artifact retains policy, all
+six samples, both median files, and `bench-summary.md` for 30 days. The same
+comparison is printed in the job log and Actions step summary, including the
+advisory reason when applicable. Skip-mode runs retain the policy file only;
+advisory baseline-install failures retain policy and an unavailable summary.
 
 - Run `bun run test -- scripts/bench-policy.test.ts scripts/bench-qualify.test.ts
   scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
@@ -72,5 +80,14 @@ and Actions step summary, including the advisory reason when applicable.
   harness, explicitly record any temporary enforce-mode override used for this
   proof and remove it before final review.
 
-The initial #655 hosted failure/success proof and measured duration will be
-recorded in its pull request before merge.
+## Initial hosted failure proof
+
+[PR #669](https://github.com/HemSoft/hs-buddy/pull/669), implementing
+[issue #655](https://github.com/HemSoft/hs-buddy/issues/655), measured the controlled
+slowdown in [CI run 34000524452](https://github.com/HemSoft/hs-buddy/actions/runs/34000524452).
+Its benchmark job completed in 14m 4s, within the 15-minute budget. All four
+projection benchmarks regressed by 99.9%; no other benchmark failed. The
+199,119-byte artifact retained all six samples, policy, medians, and summary.
+`ci-complete` failed with benchmarks as its only failed dependency. The temporary
+slowdown and enforce override were removed after this proof. The pull request
+records final no-regression CI evidence before merge.

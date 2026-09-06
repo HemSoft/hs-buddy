@@ -24,7 +24,8 @@ function validateSamples(runs: BenchmarkOutput[]) {
           !Number.isFinite(value.hz) ||
           value.hz <= 0 ||
           !Number.isFinite(value.rme) ||
-          value.rme < 0
+          value.rme < 0 ||
+          value.rme >= 100
       )
     )
       throw new Error('Missing or invalid benchmark measurements')
@@ -37,12 +38,11 @@ export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: Be
   const baseline = buildMedianBenchmarkOutput(baseRuns)
   const candidate = buildMedianBenchmarkOutput(candidateRuns)
   const result = compareBenchmarks(baseline, candidate, CI_REGRESSION_THRESHOLD)
-  if (!result.entries.length) throw new Error('No comparable benchmarks')
   // Reject only drops beyond the maintained floor and both reported uncertainty bounds.
   const base = parseBenchOutput(baseline)
   for (const entry of result.entries) {
     const baselineLower = entry.baselineHz / (1 + base.get(entry.key)!.rme / 100)
-    const candidateUpper = entry.rme >= 100 ? Infinity : entry.currentHz / (1 - entry.rme / 100)
+    const candidateUpper = entry.currentHz / (1 - entry.rme / 100)
     entry.passed ||= candidateUpper >= baselineLower
   }
   result.passed = result.entries.every(entry => entry.passed)
@@ -79,7 +79,10 @@ if (import.meta.main) {
       (result.newBenchmarks.length || result.removedBenchmarks.length)
     )
       throw new Error('Benchmark set changed without an advisory harness policy')
-    const summary = `${formatResults(result)}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and nonoverlapping reported uncertainty bounds.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
+    const comparison = result.entries.length
+      ? formatResults(result)
+      : `## Benchmark comparison unavailable\n\nNo matching benchmark identities; ${result.newBenchmarks.length} new and ${result.removedBenchmarks.length} removed. Both measured revisions are retained for this advisory run.`
+    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and nonoverlapping reported uncertainty bounds.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
     console.log(summary)
     writeFileSync('bench-summary.md', summary)
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary)

@@ -41,17 +41,22 @@ function samples(rates: number[], rme = 1): BenchmarkOutput[] {
 
 describe('pre-merge benchmark qualification', () => {
   it.each([
-    ['enforce', 100, ['Runtime changed'], 0],
-    ['enforce', 50, ['Runtime changed'], 1],
-    ['advisory', 50, ['Benchmark definition changed'], 0],
-    ['advisory', 50, [], 1],
-  ])('CLI policy %s with throughput %s exits correctly', (mode, hz, reasons, expected) => {
+    ['enforce', 100, ['Runtime changed'], 0, false],
+    ['enforce', 50, ['Runtime changed'], 1, false],
+    ['advisory', 50, ['Benchmark definition changed'], 0, false],
+    ['advisory', 50, [], 1, false],
+    ['advisory', 50, ['Benchmark identities changed'], 0, true],
+    ['enforce', 50, ['Runtime changed'], 1, true],
+  ])('CLI policy %s with throughput %s exits correctly', (mode, hz, reasons, expected, renamed) => {
     const directory = mkdtempSync(join(tmpdir(), 'bench-gate-test-'))
     try {
       for (const [prefix, runs] of [
         ['bench-baseline', samples([100, 100, 100])],
         ['bench-results', samples([hz, hz, hz])],
       ] as const) {
+        if (prefix === 'bench-results' && renamed) {
+          for (const run of runs) run.files[0].groups[0].benchmarks[0].name = 'new identity'
+        }
         runs.forEach((run, index) =>
           writeFileSync(join(directory, `${prefix}-run-${index + 1}.json`), JSON.stringify(run))
         )
@@ -71,6 +76,9 @@ describe('pre-merge benchmark qualification', () => {
       rmSync(directory, { recursive: true })
     }
   })
+})
+
+describe('benchmark sample decisions', () => {
   it('keeps three-run medians and the maintained 20 percent threshold', () => {
     expect(CI_SAMPLE_COUNT).toBe(3)
     expect(CI_REGRESSION_THRESHOLD).toBe(20)
@@ -101,6 +109,14 @@ describe('pre-merge benchmark qualification', () => {
   })
   it.each([0, -1, NaN, Infinity])('rejects invalid throughput %s', hz => {
     expect(() => qualifyBenchmarks(samples([100, 100, 100]), samples([hz, hz, hz]))).toThrow(
+      'invalid'
+    )
+  })
+  it.each([100, 150, Infinity])('rejects unusable relative error %s on either revision', rme => {
+    expect(() => qualifyBenchmarks(samples([100, 100, 100], rme), samples([50, 50, 50]))).toThrow(
+      'invalid'
+    )
+    expect(() => qualifyBenchmarks(samples([100, 100, 100]), samples([50, 50, 50], rme))).toThrow(
       'invalid'
     )
   })

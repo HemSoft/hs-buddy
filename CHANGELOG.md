@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1144] - 2026-09-06
+
+### Changed
+
+- Finalize benchmark gate after hosted regression proof
+
 ## [0.1.1143] - 2026-09-06
 
 ### Changed

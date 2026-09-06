@@ -1,3 +1,7 @@
+import { execFileSync, spawnSync } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { benchmarkPolicy } from './bench-policy'
 
@@ -8,7 +12,87 @@ const pkg = {
   scripts: { bench: 'vitest bench' },
 }
 
+// Hooks export repository-local Git variables. Temporary repositories must not
+// inherit them, including when the policy CLI launches Git itself.
+const fixtureEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
+)
+
 describe('benchmark impact policy', () => {
+  it('preserves the deployment-only main push exclusion as a successful skip', () => {
+    expect(benchmarkPolicy(['.sfl/sfl.json', 'sfl.json'], pkg, pkg, 'push').mode).toBe('skip')
+    expect(
+      benchmarkPolicy(['.sfl/sfl.json', 'src/utils/dateUtils.ts'], pkg, pkg, 'push').mode
+    ).toBe('enforce')
+  })
+})
+
+describe('benchmark policy CLI', () => {
+  it.each(['documentation', 'initial history'])(
+    'handles %s through the real Git/event CLI',
+    kind => {
+      const directory = mkdtempSync(join(tmpdir(), 'bench-policy-test-'))
+      const git = (...args: string[]) =>
+        execFileSync('git', args, { cwd: directory, encoding: 'utf8', env: fixtureEnv }).trim()
+      const commit = () => {
+        git('add', '.')
+        git(
+          '-c',
+          'user.name=Benchmark Test',
+          '-c',
+          'user.email=benchmark@example.test',
+          'commit',
+          '-qm',
+          'fixture'
+        )
+      }
+      try {
+        git('init', '-q')
+        git('config', 'core.autocrlf', 'false')
+        writeFileSync(join(directory, 'package.json'), JSON.stringify(pkg))
+        commit()
+        const base = git('rev-parse', 'HEAD')
+        if (kind === 'documentation') {
+          writeFileSync(join(directory, 'README.md'), 'Documentation only\n')
+          writeFileSync(
+            join(directory, 'package.json'),
+            JSON.stringify({ ...pkg, version: '1.0.1' })
+          )
+          commit()
+        }
+        const eventPath = join(directory, 'event.json')
+        writeFileSync(
+          eventPath,
+          JSON.stringify(kind === 'documentation' ? { pull_request: { base: { sha: base } } } : {})
+        )
+        const result = spawnSync('bun', [resolve('scripts/bench-policy.ts')], {
+          cwd: directory,
+          encoding: 'utf8',
+          env: {
+            ...fixtureEnv,
+            GITHUB_EVENT_NAME: kind === 'documentation' ? 'pull_request' : 'workflow_dispatch',
+            GITHUB_EVENT_PATH: eventPath,
+            GITHUB_OUTPUT: join(directory, 'output.txt'),
+            GITHUB_STEP_SUMMARY: join(directory, 'summary.md'),
+          },
+        })
+        expect(result.status, result.stderr).toBe(0)
+        const mode = kind === 'documentation' ? 'skip' : 'advisory'
+        expect(JSON.parse(readFileSync(join(directory, 'bench-policy.json'), 'utf8')).mode).toBe(
+          mode
+        )
+        expect(readFileSync(join(directory, 'output.txt'), 'utf8')).toContain(`mode=${mode}`)
+        expect(readFileSync(join(directory, 'summary.md'), 'utf8')).toContain(
+          kind === 'documentation' ? 'No benchmarked runtime' : 'No earlier revision'
+        )
+      } finally {
+        rmSync(directory, { recursive: true })
+      }
+    }
+  )
+})
+
+describe('benchmark runtime and harness classification', () => {
   it('skips documentation and automatic package metadata bumps', () => {
     expect(
       benchmarkPolicy(
@@ -43,6 +127,9 @@ describe('benchmark impact policy', () => {
     'src/utils/dateUtils.bench.ts',
     'scripts/bench-median.ts',
     'vitest.config.ts',
+    'tsconfig.json',
+    'tsconfig.node.json',
+    'bunfig.toml',
     '.github/workflows/benchmarks.yml',
     '.github/actions/setup-bun/action.yml',
     'src/test/setup.ts',

@@ -22,6 +22,9 @@ describe('Benchmarks workflow', () => {
     expect(workflow).toContain('run: bun scripts/bench-policy.ts')
     expect(workflow).toContain("if: steps.policy.outputs.mode != 'skip'")
     expect(workflow).toContain('bench-policy.json')
+    expect(workflow).toContain(
+      'tee "$GITHUB_WORKSPACE/bench-summary.md" | tee -a "$GITHUB_STEP_SUMMARY"'
+    )
     expect(workflow).toContain('if: always()')
     expect(workflow).not.toContain('paths-ignore:')
     expect(workflow).not.toContain('continue-on-error:')

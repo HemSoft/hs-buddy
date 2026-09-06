@@ -33,6 +33,14 @@ Drafts, requests for changes, and `automerge:hold` block acceptance. Only
 same-repository PRs targeting `main` can enroll. Fork PRs require manual merge
 after satisfying the same required review check.
 
+Acceptance and enrollment are separate decisions. A clean, unlabeled PR can
+pass the acceptance check for a maintainer's manual merge. The `automerge`
+label and master switch authorize the controller to enroll a PR; they do not
+revoke a maintainer's GitHub merge permissions. A maintainer can directly enable
+native auto-merge on a reviewed PR, and GitHub may complete that explicitly
+requested merge before the controller handles the resulting event. The required
+review check, CI, and native conversation protections still apply.
+
 ## Operation
 
 [The workflow](../.github/workflows/ai-review-automerge.yml) responds to PR
@@ -58,9 +66,10 @@ four independent PRs concurrently. CI completion targets its associated PR when
 GitHub supplies one; the scheduled pass covers the complete open PR set.
 
 The controller also withdraws existing native auto-merge when the PR loses its
-opt-in label, becomes ineligible, or the master switch is disabled. Native
-auto-merge requests in this repository therefore follow this policy, including
-requests originally enabled by hand.
+opt-in label, becomes ineligible, or the master switch is disabled. At each
+reconciliation it also withdraws requests originally enabled by hand when they
+do not qualify for controller enrollment. This is eventual reconciliation, not
+an atomic restriction on a maintainer's direct GitHub action.
 
 Use `automerge:hold` before beginning a discussion or removing an opt-in.
 Label changes and comments are asynchronous events, so they cannot recall a

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1151] - 2026-09-06
+
+### Fixed
+
+- Preserve exact bytes in CRAP input fingerprints
+
 ## [0.1.1150] - 2026-09-06
 
 ### Fixed

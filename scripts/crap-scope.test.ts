@@ -32,11 +32,11 @@ describe('CRAP source freshness', () => {
       expect(sourceFingerprint('renderer')).not.toBe(added)
     }
   )
-  it('includes test helpers and normalizes checkout newlines', () => {
+  it('invalidates test helpers when checkout newlines or content change', () => {
     files.set('scripts/helper.ts', 'one\r\ntwo')
     const fingerprint = sourceFingerprint('renderer')
     files.set('scripts/helper.ts', 'one\ntwo')
-    expect(sourceFingerprint('renderer')).toBe(fingerprint)
+    expect(sourceFingerprint('renderer')).not.toBe(fingerprint)
     files.set('scripts/helper.ts', 'changed')
     expect(sourceFingerprint('renderer')).not.toBe(fingerprint)
   })
@@ -65,6 +65,13 @@ describe('CRAP source freshness', () => {
 })
 
 describe('CRAP configuration and binary freshness', () => {
+  it('preserves CRLF bytes in a binary fixture that is valid UTF-8', () => {
+    files.clear()
+    files.set('fixtures/input.bin', Buffer.from('header\r\npayload'))
+    const initial = sourceFingerprint('renderer')
+    files.set('fixtures/input.bin', Buffer.from('header\npayload'))
+    expect(sourceFingerprint('renderer')).not.toBe(initial)
+  })
   it('distinguishes binary inputs that decode to the same replacement character', () => {
     files.clear()
     files.set('fixtures/input.bin', Buffer.from([255]))

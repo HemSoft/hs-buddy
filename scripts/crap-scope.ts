@@ -40,12 +40,9 @@ export function sourceFingerprint(suite: CrapSuite): string {
   const hash = createHash('sha256')
   hash.update(suite + '\0')
   for (const file of [...new Set(repositoryFiles([]))].sort()) {
-    const bytes = readFileSync(file)
-    const text = bytes.toString('utf8')
-    const content = Buffer.from(text, 'utf8').equals(bytes) ? text.replaceAll('\r\n', '\n') : bytes
     hash
       .update(file + '\0')
-      .update(content)
+      .update(readFileSync(file))
       .update('\0')
   }
   return hash.digest('hex')

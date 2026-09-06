@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1165] - 2026-09-06
+
+### Changed
+
+- Clarify maintainer merge authority
+
+## [0.1.1164] - 2026-09-06
+
+### Fixed
+
+- Reconcile native auto-merge activity promptly
+
+## [0.1.1163] - 2026-09-06
+
+### Fixed
+
+- Use trusted workflow definitions for merge automation
+
+## [0.1.1162] - 2026-09-06
+
+### Fixed
+
+- Handle concurrent and uncertain auto-merge enrollment
+
+## [0.1.1161] - 2026-09-06
+
+### Fixed
+
+- Withdraw auto-merge when pending check creation fails
+
+## [0.1.1160] - 2026-09-06
+
+### Added
+
+- Gate native auto-merge on current-head AI acceptance
+
 ## [0.1.1159] - 2026-09-06
 
 ### Fixed

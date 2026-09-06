@@ -23,8 +23,9 @@ about the code*. The two concerns never bleed into each other.
   downstream deterministic logic can parse reliably.
 - If the pipeline stalls, the cause is always traceable to a specific workflow
   step, never a vague "the model didn't feel like it."
-- Human review is the final gate. Everything before it is automated, auditable,
-  and repeatable.
+- Human review is the default final gate. Maintainer-authorized PRs may use
+  [AI review auto-merge](AI-AUTO-MERGE.md), with current-head Codex acceptance,
+  resolved review threads, and required GitHub checks enforced before merge.
 
 ---
 

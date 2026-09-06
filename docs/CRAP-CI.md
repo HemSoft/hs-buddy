@@ -82,9 +82,14 @@ accepted function requires `bun run crap:ratchet` to prune its old exception.
 Restoring that function later is checked as new debt. Coverage freshness includes
 the root, Node, Convex, and script TypeScript configurations for every suite.
 
-Every suite fingerprints all TypeScript under `src`, `shared`, `electron`,
-`convex`, `scripts`, and `perf` because tests import code across those roots.
-An unrelated edit there may require recollection of every suite. Function
+Every suite fingerprints every tracked or non-ignored untracked repository file.
+This covers cross-root imports, feature specifications, JSON fixtures, workflow
+scripts, compiler configuration and binary inputs. UTF-8 text uses normalized
+newlines; other bytes are hashed unchanged. Ignored generated reports and installed
+dependencies are outside this set; dependency identity comes from the lockfile.
+Any repository edit may require recollection of every suite, including a baseline
+update or a commit hook's version bump. Run `bun run crap:check` after those edits.
+Function
 identities include lexical owners, including class
 fields and constructor calls. Renaming or moving an owner changes its descendants'
 identities; accepted debt must be reduced rather than automatically transferred

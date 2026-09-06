@@ -24,37 +24,29 @@ function repositoryFiles(roots: string[]): string[] {
     { encoding: 'utf8' }
   )
     .split('\0')
-    .filter(file => /\.tsx?$/.test(file))
+    .filter(Boolean)
     .sort()
 }
 
 export function ownedFiles(suite: CrapSuite): string[] {
-  return repositoryFiles(suite === 'renderer' ? ['src', 'shared'] : [suite])
+  return repositoryFiles(suite === 'renderer' ? ['src', 'shared'] : [suite]).filter(file =>
+    /\.tsx?$/.test(file)
+  )
 }
 
 export function sourceFingerprint(suite: CrapSuite): string {
-  const config = [
-    'vitest.config.ts',
-    'vitest.electron.config.ts',
-    'vitest.convex.config.ts',
-    'vitest.crap.config.ts',
-    'tsconfig.json',
-    'tsconfig.node.json',
-    'tsconfig.convex.json',
-    'tsconfig.scripts.json',
-    'bun.lock',
-    'scripts/crap-source.ts',
-    'scripts/crap-scope.ts',
-    'scripts/crap-instrumenter.ts',
-    'scripts/crap-coverage.ts',
-  ]
-  // Tests cross production-root boundaries, so partial recollection must not
-  // qualify counters from any older maintained source or test helper.
-  const inputs = repositoryFiles(['src', 'shared', 'electron', 'convex', 'scripts', 'perf'])
+  // Tests import source across roots and load features, fixtures and workflows.
+  // Hash every Git-visible input so an extension allowlist cannot omit one.
   const hash = createHash('sha256')
   hash.update(suite + '\0')
-  for (const file of [...new Set([...inputs, ...config])].sort()) {
-    hash.update(file + '\0' + readFileSync(file, 'utf8').replaceAll('\r\n', '\n') + '\0')
+  for (const file of [...new Set(repositoryFiles([]))].sort()) {
+    const bytes = readFileSync(file)
+    const text = bytes.toString('utf8')
+    const content = Buffer.from(text, 'utf8').equals(bytes) ? text.replaceAll('\r\n', '\n') : bytes
+    hash
+      .update(file + '\0')
+      .update(content)
+      .update('\0')
   }
   return hash.digest('hex')
 }

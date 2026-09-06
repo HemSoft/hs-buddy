@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const { files } = vi.hoisted(() => ({ files: new Map<string, string>() }))
+const { files } = vi.hoisted(() => ({ files: new Map<string, string | Buffer>() }))
 vi.mock('node:child_process', () => {
   const execFileSync = (_command: string, args: string[]) => {
     const roots = args.slice(args.indexOf('--') + 1)
     return [...files.keys()]
-      .filter(file => roots.some(root => file.startsWith(`${root}/`)))
+      .filter(file => !roots.length || roots.some(root => file.startsWith(`${root}/`)))
       .join('\0')
   }
   return { execFileSync, default: { execFileSync } }
 })
 vi.mock('node:fs', () => {
-  const readFileSync = (file: string) => files.get(file) ?? 'configuration'
+  const readFileSync = (file: string) => Buffer.from(files.get(file) ?? 'configuration')
   return { readFileSync, default: { readFileSync } }
 })
 import { isMeasuredFile, sourceFingerprint } from './crap-scope'
@@ -47,6 +47,10 @@ describe('CRAP source freshness', () => {
     'convex/cross-suite.ts',
     'scripts/cross-suite.ts',
     'perf/cross-suite.ts',
+    'src/features/pr-mapper.feature',
+    'fixtures/test-data.json',
+    '.github/workflows/sfl-auditor.yml',
+    'fixtures/test-data.bin',
   ])('invalidates every suite when cross-suite input %s is added or changed', file => {
     const suites = ['renderer', 'electron', 'convex'] as const
     const initial = suites.map(sourceFingerprint)
@@ -57,6 +61,16 @@ describe('CRAP source freshness', () => {
       expect(added[index]).not.toBe(initial[index])
       expect(sourceFingerprint(suite)).not.toBe(added[index])
     }
+  })
+})
+
+describe('CRAP configuration and binary freshness', () => {
+  it('distinguishes binary inputs that decode to the same replacement character', () => {
+    files.clear()
+    files.set('fixtures/input.bin', Buffer.from([255]))
+    const initial = sourceFingerprint('renderer')
+    files.set('fixtures/input.bin', Buffer.from([254]))
+    expect(sourceFingerprint('renderer')).not.toBe(initial)
   })
   it.each(['tsconfig.json', 'tsconfig.node.json', 'tsconfig.convex.json', 'tsconfig.scripts.json'])(
     'invalidates every suite when compiler configuration %s changes',

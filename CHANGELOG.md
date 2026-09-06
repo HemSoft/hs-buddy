@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1150] - 2026-09-06
+
+### Fixed
+
+- Fingerprint all repository CRAP test inputs
+
 ## [0.1.1149] - 2026-09-06
 
 ### Fixed

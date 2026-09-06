@@ -5,7 +5,7 @@
  * hook amends the commit to include the generated CHANGELOG.md entry.
  *
  * This script is responsible for BOTH creating the version header AND inserting
- * the changelog entry atomically.
+ * the changelog entry through the same opened file descriptor.
  *
  * Maps Conventional Commits prefixes to Keep a Changelog categories:
  *   feat     → Added
@@ -26,12 +26,21 @@
  *        (typically .git/COMMIT_EDITMSG from post-commit hook)
  */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readFileSync, openSync, writeSync, ftruncateSync, closeSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const ROOT = resolve(import.meta.dirname, '..')
 const changelogPath = resolve(ROOT, 'CHANGELOG.md')
 const pkgPath = resolve(ROOT, 'package.json')
+
+function readExistingText(filePath: string): string | null {
+  try {
+    return readFileSync(filePath, 'utf8')
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
 
 // Read commit message file (passed by git as $1)
 const commitMsgFile = process.argv[2]
@@ -40,12 +49,13 @@ if (!commitMsgFile) {
   process.exit(0)
 }
 
-if (!existsSync(commitMsgFile)) {
+const commitText = readExistingText(commitMsgFile)
+if (commitText === null) {
   console.warn(`⚠ changelog-from-commit: ${commitMsgFile} not found`)
   process.exit(0)
 }
 
-const commitMsg = readFileSync(commitMsgFile, 'utf-8').trim()
+const commitMsg = commitText.trim()
 
 // Extract subject line (first non-comment, non-empty line)
 const subject = commitMsg.split('\n').find(line => line.trim() && !line.startsWith('#'))
@@ -85,16 +95,31 @@ if (!category) {
   process.exit(0)
 }
 
-if (!existsSync(changelogPath) || !existsSync(pkgPath)) {
-  process.exit(0)
-}
-
-let changelog = readFileSync(changelogPath, 'utf-8').replace(/\r\n/g, '\n')
-
 // Read the current version from package.json (already bumped by pre-commit hook)
-const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+const packageText = readExistingText(pkgPath)
+if (packageText === null) process.exit(0)
+const pkg = JSON.parse(packageText)
 const version: string = pkg.version
 const today = new Date().toISOString().slice(0, 10)
+
+let changelogFd: number
+try {
+  changelogFd = openSync(changelogPath, 'r+')
+} catch (error: unknown) {
+  if ((error as NodeJS.ErrnoException).code === 'ENOENT') process.exit(0)
+  throw error
+}
+process.on('exit', () => closeSync(changelogFd))
+let changelog = readFileSync(changelogFd, 'utf8').replace(/\r\n/g, '\n')
+
+function writeChangelog(): void {
+  const bytes = Buffer.from(changelog, 'utf8')
+  let offset = 0
+  while (offset < bytes.length) {
+    offset += writeSync(changelogFd, bytes, offset, bytes.length - offset, offset)
+  }
+  ftruncateSync(changelogFd, bytes.length)
+}
 
 // --- Step 1: Ensure the version header exists ---
 if (!changelog.includes(`## [${version}]`)) {
@@ -138,7 +163,7 @@ if (removedVersions.length > 0) {
 // --- Step 3: Insert the changelog entry under the current version ---
 const targetHeader = `## [${version}]`
 const targetHeaderRegex = new RegExp(
-  `## \\[${version.replace(/\./g, '\\.')}\\] - \\d{4}-\\d{2}-\\d{2}\n`
+  `## \\[${version.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\] - \\d{4}-\\d{2}-\\d{2}\n`
 )
 const versionMatch = changelog.match(targetHeaderRegex)
 
@@ -162,7 +187,7 @@ const entryLine = `- ${description.charAt(0).toUpperCase() + description.slice(1
 if (versionBlock.split('\n').some(line => line.trimEnd() === entryLine)) {
   // Steps 1/2 may have created the version header or cleaned empty headers —
   // write those changes before exiting.
-  writeFileSync(changelogPath, changelog, 'utf-8')
+  writeChangelog()
   console.log(`✓ CHANGELOG.md   (already has: ${description})`)
   process.exit(0)
 }
@@ -210,5 +235,5 @@ if (versionBlock.includes(`### ${category}`)) {
   }
 }
 
-writeFileSync(changelogPath, changelog, 'utf-8')
+writeChangelog()
 console.log(`✓ CHANGELOG.md   ${category}: ${description}`)

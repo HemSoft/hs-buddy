@@ -148,6 +148,8 @@ describe('fetchCodexUsage', () => {
       JSON.stringify({ tokens: { access_token: 'secret-access', account_id: 'account-123' } })
     )
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(_input).toBe('https://chatgpt.com/backend-api/wham/usage')
+      expect(init?.redirect).toBe('error')
       expect(init?.headers).toMatchObject({
         Authorization: 'Bearer secret-access',
         'ChatGPT-Account-Id': 'account-123',

@@ -11,9 +11,11 @@
  * The baseline is stored in bundle-size-baseline.json (committed to repo).
  */
 import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
-import { basename, dirname, relative, resolve } from 'node:path'
+import { basename, resolve } from 'node:path'
+import { collectElectronMainChunks } from './bundle-size-electron'
 import {
   deduplicateBundles,
+  humanSize,
   normalizeBundleFile,
   normalizeRendererEntryFile,
   parseInitialHtmlAssets,
@@ -39,13 +41,6 @@ interface RendererManifestEntry {
   file: string
   css?: string[]
   isDynamicEntry?: boolean
-}
-
-function humanSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`
-  const kb = bytes / 1024
-  if (kb < 1024) return `${kb.toFixed(2)} kB`
-  return `${(kb / 1024).toFixed(2)} MB`
 }
 
 function collectRendererAssets(distDir: string): BundleEntry[] {
@@ -138,42 +133,6 @@ function verifyDynamicEntriesStayLazy(
   return false
 }
 
-function collectElectronMainChunks(distElectronDir: string): BundleEntry[] {
-  const mainPath = resolve(distElectronDir, 'main.js')
-  if (!existsSync(mainPath)) return []
-
-  const chunks: BundleEntry[] = []
-  const pending = [mainPath]
-  const visited = new Set<string>()
-  const importPattern = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)(["'])(\.[^"']+\.js)\1/g
-
-  while (pending.length > 0) {
-    const filePath = pending.pop()
-    if (!filePath || visited.has(filePath)) continue
-    visited.add(filePath)
-
-    const size = statSync(filePath).size
-    chunks.push({
-      file: `dist-electron/${relative(distElectronDir, filePath).replaceAll('\\', '/')}`,
-      sizeBytes: size,
-      sizeHuman: humanSize(size),
-    })
-
-    const source = readFileSync(filePath, 'utf-8')
-    for (const match of source.matchAll(importPattern)) {
-      const importedPath = resolve(dirname(filePath), match[2])
-      if (!existsSync(importedPath)) {
-        throw new Error(
-          `Missing Electron chunk ${basename(importedPath)} imported by ${basename(filePath)}.`
-        )
-      }
-      pending.push(importedPath)
-    }
-  }
-
-  return chunks
-}
-
 function collectBundles(): BundleEntry[] {
   const distDir = resolve(root, 'dist')
   const distElectronDir = resolve(root, 'dist-electron')
@@ -187,11 +146,6 @@ function collectBundles(): BundleEntry[] {
   }
 
   const mainChunks = collectElectronMainChunks(distElectronDir)
-  if (mainChunks.length === 0) {
-    throw new Error(
-      'Missing dist-electron/main.js. Run a clean Electron build before bundle-size check.'
-    )
-  }
   bundles.push(...mainChunks)
 
   return bundles.sort((a, b) => b.sizeBytes - a.sizeBytes)

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
+import { safeRemoveItem } from '../utils/storage'
+import {
+  locationSessionStorage,
+  readLocationSessionJson,
+  writeLocationSessionJson,
+} from '../utils/locationSessionStorage'
 import { getErrorMessageWithFallback } from '../utils/errorUtils'
 import { IPC_INVOKE } from '../ipc/contracts'
 
@@ -79,7 +84,11 @@ export function weatherCodeToDescription(code: number): string {
 }
 
 function readCache(): { data: WeatherData; timestamp: number } | null {
-  const parsed = safeGetJson<{ data: WeatherData; timestamp: number; version?: number }>(CACHE_KEY)
+  const parsed = readLocationSessionJson<{
+    data: WeatherData
+    timestamp: number
+    version?: number
+  }>(CACHE_KEY)
   if (parsed) {
     if ((parsed.version ?? 0) < CACHE_VERSION) return null // stale schema
     if (Date.now() - parsed.timestamp < CACHE_TTL_MS) return parsed
@@ -88,23 +97,23 @@ function readCache(): { data: WeatherData; timestamp: number } | null {
 }
 
 function writeCache(data: WeatherData) {
-  safeSetJson(CACHE_KEY, { data, timestamp: Date.now(), version: CACHE_VERSION })
+  writeLocationSessionJson(CACHE_KEY, { data, timestamp: Date.now(), version: CACHE_VERSION })
 }
 
 function readSavedLocation(): GeoLocation | null {
-  return safeGetJson<GeoLocation>(LOCATION_KEY)
+  return readLocationSessionJson<GeoLocation>(LOCATION_KEY)
 }
 
 function writeSavedLocation(loc: GeoLocation) {
-  safeSetJson(LOCATION_KEY, loc)
+  writeLocationSessionJson(LOCATION_KEY, loc)
 }
 
-/** Persist location to electron-store (survives app restarts). */
+/** Persist location through the main process OS-backed encrypted store. */
 async function persistLocationToStore(loc: GeoLocation): Promise<void> {
   try {
     await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_SET_WEATHER_LOCATION, loc)
   } catch (_: unknown) {
-    // localStorage still has the value; IPC failure is recoverable
+    // The current session retains the location if secure persistence is unavailable.
   }
 }
 
@@ -116,7 +125,7 @@ function isGeoLocation(val: unknown): val is GeoLocation {
   return typeof obj.name === 'string'
 }
 
-/** Load saved location from electron-store. Returns null when unavailable. */
+/** Load the decrypted saved location from the main process. Returns null when unavailable. */
 async function loadLocationFromStore(): Promise<GeoLocation | null> {
   try {
     const loc = await window.ipcRenderer.invoke(IPC_INVOKE.CONFIG_GET_WEATHER_LOCATION)
@@ -238,6 +247,11 @@ async function fetchWeather(loc: GeoLocation, signal: AbortSignal): Promise<Weat
 }
 
 export function useWeather() {
+  useEffect(() => {
+    safeRemoveItem(LOCATION_KEY)
+    safeRemoveItem(CACHE_KEY)
+    safeRemoveItem('pollen:cache')
+  }, [])
   const [state, setState] = useState<WeatherState>(() => {
     const cached = readCache()
     return cached
@@ -294,7 +308,7 @@ export function useWeather() {
         await reverseGeocodeLocation(loc)
         writeSavedLocation(loc)
         await persistLocationToStore(loc)
-        safeRemoveItem(CACHE_KEY)
+        locationSessionStorage.removeItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
           /* error already handled in state */
@@ -331,7 +345,7 @@ export function useWeather() {
         const loc = parseGeocodingResult(results[0], query)
         writeSavedLocation(loc)
         await persistLocationToStore(loc)
-        safeRemoveItem(CACHE_KEY)
+        locationSessionStorage.removeItem(CACHE_KEY)
         setState({ data: null, loading: true, error: null })
         refresh().catch(() => {
           /* error already handled in state */
@@ -349,7 +363,7 @@ export function useWeather() {
 
   const savedLocation = readSavedLocation()?.name ?? DEFAULT_LOCATION.name
 
-  // Hydrate location from electron-store on mount (survives app restarts)
+  // Hydrate the session from encrypted main-process storage on mount
   useEffect(() => {
     let cancelled = false
 
@@ -357,8 +371,8 @@ export function useWeather() {
       .then(storeLoc => {
         if (cancelled) return
         if (storeLoc) {
-          // Sync electron-store → localStorage so all sync reads pick it up
-          safeSetJson(LOCATION_KEY, storeLoc)
+          // Keep decrypted coordinates in renderer memory only
+          writeLocationSessionJson(LOCATION_KEY, storeLoc)
         }
       })
       .finally(() => {

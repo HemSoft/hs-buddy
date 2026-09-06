@@ -55,10 +55,15 @@ function readSmallSessionDetail(
   workspaceHash: string
 ): CopilotSession | null | undefined {
   try {
-    if (fs.statSync(filePath).size > SMALL_SESSION_FILE_BYTES) return undefined
-
-    return parseSessionContent(fs.readFileSync(filePath, 'utf8'), workspaceHash, filePath)
-  } catch (_: unknown) {
+    const fd = fs.openSync(filePath, 'r')
+    try {
+      if (fs.fstatSync(fd).size > SMALL_SESSION_FILE_BYTES) return undefined
+      return parseSessionContent(fs.readFileSync(fd, 'utf8'), workspaceHash, filePath)
+    } finally {
+      fs.closeSync(fd)
+    }
+  } catch (error: unknown) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     return undefined
   }
 }
@@ -181,8 +186,6 @@ export function scanCopilotSessions(): SessionScanResult {
 // ─── Detail: parse one JSONL file (streaming) ─────────────
 
 export async function getSessionDetail(filePath: string): Promise<CopilotSession | null> {
-  if (!fs.existsSync(filePath)) return null
-
   const workspaceHash = path.basename(path.dirname(path.dirname(filePath)))
   const smallSession = readSmallSessionDetail(filePath, workspaceHash)
   if (smallSession !== undefined) return smallSession

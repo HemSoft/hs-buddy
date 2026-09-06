@@ -24,9 +24,10 @@ interface DisplayRect {
 
 /**
  * Application configuration stored in electron-store
- * NOTE: No secrets stored! Authentication uses GitHub CLI (gh auth).
+ * Authentication uses GitHub CLI (gh auth). Remembered location is OS-encrypted.
  */
 export interface AppConfig {
+  weatherLocationCiphertext?: string // OS-encrypted value, never plaintext coordinates
   github: {
     accounts: GitHubAccount[]
     usageProviderOverrides?: Partial<Record<string, UsageProvider>>
@@ -85,6 +86,7 @@ export interface AppConfig {
  * JSON Schema for configuration validation
  */
 export const configSchema: Schema<AppConfig> = {
+  weatherLocationCiphertext: { type: 'string', default: '' },
   github: {
     type: 'object',
     properties: {

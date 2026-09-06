@@ -34,16 +34,21 @@ export function isInternalHostname(hostname: string): boolean {
   return INTERNAL_PATTERN.test(hostname)
 }
 
+const HTML_ENTITIES = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&apos;': "'",
+  '&nbsp;': ' ',
+}
+
 export function decodeHtmlEntities(s: string): string {
-  return s
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n))
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&nbsp;/g, ' ')
+  return s.replace(/&#(?:\d+|[xX][\da-fA-F]+);|&(?:amp|lt|gt|quot|apos|nbsp);/g, entity => {
+    if (entity[1] !== '#') return HTML_ENTITIES[entity as keyof typeof HTML_ENTITIES]
+    const isHex = entity[2].toLowerCase() === 'x'
+    return String.fromCharCode(parseInt(entity.slice(isHex ? 3 : 2, -1), isHex ? 16 : 10))
+  })
 }
 
 export function extractTitleTag(html: string): string | null {

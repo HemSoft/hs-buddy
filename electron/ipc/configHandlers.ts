@@ -1,5 +1,4 @@
 import { dialog, ipcMain, shell, type IpcMainInvokeEvent } from 'electron'
-import { readFile, stat } from 'node:fs/promises'
 import type { AppConfig, GitHubAccount } from '../../src/types/config'
 import {
   getNotificationSoundMimeType,
@@ -10,6 +9,7 @@ import { getErrorMessage } from '../../src/utils/errorUtils'
 import { assertValidGitHubAccountSlug } from '../../src/utils/githubAuthUtils'
 import { CONFIG_UI_KEYS, IPC_INVOKE } from '../../src/ipc/contracts'
 import { configManager } from '../config'
+import { readFileSnapshot } from '../services/fileSnapshots'
 
 type UiConfigKey = keyof AppConfig['ui']
 type ConfigUiChannelKey = (typeof CONFIG_UI_KEYS)[number]
@@ -111,10 +111,7 @@ async function readNotificationSoundAsBase64(
   soundPath: string
 ): Promise<{ base64: string; mimeType: string } | null> {
   try {
-    const soundFile = await stat(soundPath)
-    if (!soundFile.isFile() || soundFile.size > MAX_NOTIFICATION_SOUND_BYTES) return null
-    const buffer = await readFile(soundPath)
-    if (buffer.length > MAX_NOTIFICATION_SOUND_BYTES) return null
+    const { data: buffer } = await readFileSnapshot(soundPath, MAX_NOTIFICATION_SOUND_BYTES)
     return {
       base64: buffer.toString('base64'),
       mimeType: getNotificationSoundMimeType(soundPath),

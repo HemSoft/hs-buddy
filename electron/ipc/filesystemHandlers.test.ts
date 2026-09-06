@@ -8,8 +8,12 @@ vi.mock('electron', () => ({
 
 vi.mock('node:fs/promises', () => ({
   readdir: vi.fn(),
-  readFile: vi.fn(),
   stat: vi.fn(),
+}))
+
+vi.mock('../services/fileSnapshots', async importOriginal => ({
+  ...(await importOriginal<typeof import('../services/fileSnapshots')>()),
+  readFileSnapshot: vi.fn(),
 }))
 
 vi.mock('../../src/utils/detectLanguage', () => ({
@@ -30,8 +34,9 @@ vi.mock('../../src/utils/dirEntryUtils', () => ({
 }))
 
 import { ipcMain } from 'electron'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { registerFilesystemHandlers } from './filesystemHandlers'
+import { FileTooLargeError, readFileSnapshot } from '../services/fileSnapshots'
 
 describe('filesystemHandlers', () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -112,13 +117,16 @@ describe('filesystemHandlers', () => {
     const invoke = (filePath: string) => handlers.get('fs:read-file')!({}, filePath)
 
     it('reads file content and detects language', async () => {
-      vi.mocked(stat).mockResolvedValue({ size: 50, isFile: () => true } as never)
-      vi.mocked(readFile).mockResolvedValue('const x = 1;')
+      vi.mocked(readFileSnapshot).mockResolvedValue({
+        data: Buffer.from('const x = 1;'),
+        stats: { size: 50 } as never,
+      })
 
       const result = await invoke('/some/file.ts')
       expect(result.content).toBe('const x = 1;')
       expect(result.language).toBe('typescript')
-      expect(result.size).toBe(50)
+      expect(result.size).toBe(Buffer.byteLength('const x = 1;'))
+      expect(readFileSnapshot).toHaveBeenCalledWith(expect.stringContaining('file.ts'), 1_048_576)
       expect(result.error).toBeUndefined()
     })
 
@@ -130,14 +138,14 @@ describe('filesystemHandlers', () => {
     })
 
     it('returns error for files exceeding 1MB', async () => {
-      vi.mocked(stat).mockResolvedValue({ size: 2_000_000, isFile: () => true } as never)
+      vi.mocked(readFileSnapshot).mockRejectedValue(new FileTooLargeError(2_000_000))
       const result = await invoke('/some/large.ts')
       expect(result.content).toBe('')
       expect(result.error).toContain('File too large')
     })
 
-    it('returns error when stat fails', async () => {
-      vi.mocked(stat).mockRejectedValue(new Error('Permission denied'))
+    it('returns error when the opened-file read fails', async () => {
+      vi.mocked(readFileSnapshot).mockRejectedValue(new Error('Permission denied'))
       const result = await invoke('/no/access.ts')
       expect(result.content).toBe('')
       expect(result.error).toBe('Permission denied')

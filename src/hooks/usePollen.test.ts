@@ -1,3 +1,4 @@
+import { locationSessionStorage } from '../utils/locationSessionStorage'
 import { renderHook, act, waitFor } from '@testing-library/react'
 import { useLayoutEffect } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,7 +26,7 @@ const mockInvoke = vi.fn()
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   mockInvoke.mockReset()
-  localStorage.clear()
+  locationSessionStorage.clear()
   clearPollenCache()
   window.ipcRenderer = { invoke: mockInvoke } as never
 })
@@ -162,7 +163,7 @@ describe('usePollen', () => {
 
   it('ignores cache with outdated version', async () => {
     // Pre-seed cache with version 0 (older than POLLEN_CACHE_VERSION=1)
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'pollen:cache',
       JSON.stringify({
         data: MOCK_POLLEN,
@@ -191,7 +192,7 @@ describe('usePollen', () => {
 
   it('ignores cache with missing version field', async () => {
     // Pre-seed cache with no version field → (cached.version ?? 0) < 1
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'pollen:cache',
       JSON.stringify({
         data: MOCK_POLLEN,
@@ -219,7 +220,7 @@ describe('usePollen', () => {
 
   it('ignores expired cache', async () => {
     // Pre-seed cache with timestamp older than 2 hours
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'pollen:cache',
       JSON.stringify({
         data: MOCK_POLLEN,

@@ -162,6 +162,16 @@ describe('isInternalHostname', () => {
 // --- decodeHtmlEntities ---
 
 describe('decodeHtmlEntities', () => {
+  it('decodes only the original entity layer', () => {
+    expect(decodeHtmlEntities('&amp;lt;script&amp;gt;')).toBe('&lt;script&gt;')
+    expect(decodeHtmlEntities('&#38;lt;&#x26;gt;')).toBe('&lt;&gt;')
+    expect(decodeHtmlEntities('&#38;amp; &#x26;quot; &amp;#65;')).toBe('&amp; &quot; &#65;')
+  })
+
+  it('preserves unsupported entities and accepts uppercase hexadecimal notation', () => {
+    expect(decodeHtmlEntities('&#X4a; &#x4B; &AMP; &unknown;')).toBe('J K &AMP; &unknown;')
+  })
+
   it('decodes numeric entities', () => {
     expect(decodeHtmlEntities('&#65;&#66;')).toBe('AB')
   })

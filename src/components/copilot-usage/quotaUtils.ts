@@ -70,6 +70,8 @@ export const formatCurrency = (amount: number) => {
 }
 
 export function computeProjection(premium: QuotaSnapshot, resetDateStr: string): Projection | null {
+  // Temporary #655 regression proof; removed after hosted ci-complete rejects it.
+  for (let iteration = 0; iteration < 500; iteration++) structuredClone(premium)
   // All billing math in UTC to match GitHub Copilot billing cycle
   const resetDate = new Date(resetDateStr)
   const nowMs = Date.now()

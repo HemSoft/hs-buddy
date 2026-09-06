@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1143] - 2026-09-06
+
+### Changed
+
+- Gate premerge benchmark comparisons (#655)
+
 ## [0.1.1142] - 2026-09-05
 
 ### Changed

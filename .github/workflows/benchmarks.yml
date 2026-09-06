@@ -1,29 +1,21 @@
 name: Benchmarks
 
 on:
+  workflow_call:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '.sfl/sfl.json'
-      - 'sfl.json'
 
 permissions:
   contents: read
-
-concurrency:
-  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
 
 jobs:
   benchmarks:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - name: Checkout repository
+      - name: Checkout repository and comparison history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          fetch-depth: 2
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup Node.js
@@ -34,119 +26,79 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      - name: Classify benchmark impact
+        id: policy
+        run: bun scripts/bench-policy.ts
+
       - name: Cache Bun dependencies
+        if: steps.policy.outputs.mode != 'skip'
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
         with:
           path: ~/.bun/install/cache
           key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
           restore-keys: ${{ runner.os }}-bun-
 
-      - name: Install dependencies
+      - name: Install candidate dependencies
+        if: steps.policy.outputs.mode != 'skip'
         run: bun install --frozen-lockfile
 
-      - name: Determine comparison baseline
+      - name: Install comparison baseline
+        if: steps.policy.outputs.mode != 'skip'
         id: baseline
         shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            baseline_ref="${{ github.event.pull_request.base.sha }}"
-          elif [[ "${{ github.event_name }}" == "push" && "${{ github.event.before }}" != "0000000000000000000000000000000000000000" ]]; then
-            baseline_ref="${{ github.event.before }}"
-          else
-            baseline_ref="$(git rev-parse HEAD^)"
-          fi
-          echo "ref=${baseline_ref}" >> "$GITHUB_OUTPUT"
-
-      - name: Checkout comparison baseline
-        shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_SHA: ${{ steps.policy.outputs.base }}
+          MODE: ${{ steps.policy.outputs.mode }}
         run: |
-          auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-          git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth_header" \
-            fetch --no-tags --depth=1 origin "${{ steps.baseline.outputs.ref }}"
-          git worktree add --detach "$RUNNER_TEMP/bench-baseline" FETCH_HEAD
-
-      - name: Determine benchmark gate mode
-        id: gate
-        shell: bash
-        run: |
-          changed_files="$(git diff --name-only FETCH_HEAD HEAD)"
-          printf '%s\n' "$changed_files"
-          if printf '%s\n' "$changed_files" | grep -Eq '^(package\.json|bun\.lock|\.github/workflows/benchmarks\.yml|scripts/bench-.*\.ts)$'; then
-            echo "advisory=true" >> "$GITHUB_OUTPUT"
-            echo "Benchmark harness or toolchain changed; comparison failures will be advisory."
-          else
-            echo "advisory=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run baseline benchmarks on this runner
-        id: baseline_benchmarks
-        shell: bash
-        env:
-          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
-        run: |
+          git worktree add --detach "$RUNNER_TEMP/bench-baseline" "$BASE_SHA"
           cd "$RUNNER_TEMP/bench-baseline"
           if ! bun install --frozen-lockfile; then
-            if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
-              echo "::warning::Baseline dependency install failed, but this run is advisory because the benchmark harness or toolchain changed."
-              echo "skip_compare=true" >> "$GITHUB_OUTPUT"
+            if [[ "$MODE" == "advisory" ]]; then
+              echo "Benchmark comparison unavailable: baseline install failed. Advisory reasons are retained in bench-policy.json." | tee "$GITHUB_WORKSPACE/bench-summary.md" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "unavailable=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
             exit 1
           fi
-          echo "skip_compare=false" >> "$GITHUB_OUTPUT"
-          for run in 1 2 3; do
-            echo "Baseline benchmark run ${run}/3"
-            bunx vitest bench --outputJson "$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
-          done
 
-      - name: Run benchmarks on this runner
-        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
+      - name: Collect interleaved benchmark samples
+        if: steps.policy.outputs.mode != 'skip' && steps.baseline.outputs.unavailable != 'true'
         shell: bash
         run: |
           for run in 1 2 3; do
-            echo "Candidate benchmark run ${run}/3"
-            bunx vitest bench --outputJson "bench-results-run-${run}.json"
+            if (( run % 2 == 1 )); then
+              order="baseline candidate"
+            else
+              order="candidate baseline"
+            fi
+            for revision in $order; do
+              if [[ "$revision" == "baseline" ]]; then
+                directory="$RUNNER_TEMP/bench-baseline"
+                output="$GITHUB_WORKSPACE/bench-baseline-run-${run}.json"
+              else
+                directory="$GITHUB_WORKSPACE"
+                output="$GITHUB_WORKSPACE/bench-results-run-${run}.json"
+              fi
+              echo "$revision sample ${run}/3"
+              (cd "$directory" && bunx vitest bench --run --outputJson "$output")
+            done
           done
 
-      - name: Build median benchmark outputs
-        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
-        shell: bash
-        run: |
-          bun scripts/bench-median.ts --output bench-baseline.json \
-            bench-baseline-run-1.json \
-            bench-baseline-run-2.json \
-            bench-baseline-run-3.json
-          bun scripts/bench-median.ts --output bench-results.json \
-            bench-results-run-1.json \
-            bench-results-run-2.json \
-            bench-results-run-3.json
+      - name: Qualify benchmark comparison
+        if: steps.policy.outputs.mode != 'skip' && steps.baseline.outputs.unavailable != 'true'
+        run: bun scripts/bench-qualify.ts
 
-      - name: Compare against baseline
-        if: steps.baseline_benchmarks.outputs.skip_compare != 'true'
-        shell: bash
-        env:
-          BENCHMARK_COMPARISON_ADVISORY: ${{ steps.gate.outputs.advisory }}
-        run: |
-          if bun run bench:compare; then
-            exit 0
-          fi
-          if [[ "$BENCHMARK_COMPARISON_ADVISORY" == "true" ]]; then
-            echo "::warning::Benchmark comparison failed, but this run is advisory because the benchmark harness or toolchain changed."
-            exit 0
-          fi
-          exit 1
-
-      - name: Upload benchmark results
+      - name: Upload benchmark evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: bench-results
           path: |
+            bench-policy.json
+            bench-summary.md
             bench-baseline.json
             bench-results.json
             bench-baseline-run-*.json
             bench-results-run-*.json
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 30

@@ -46,7 +46,7 @@ export class ProtectedWeatherLocation {
     }
   }
 
-  private persist(): void {
+  persistPending(): void {
     if (!this.dirty || !canProtectLocation()) return
     try {
       const ciphertext = safeStorage.encryptString(JSON.stringify(this.location))
@@ -58,7 +58,7 @@ export class ProtectedWeatherLocation {
   }
 
   get(): WeatherLocation {
-    this.persist()
+    this.persistPending()
     if (this.loaded || !canProtectLocation()) return this.location
     try {
       const ciphertext = this.store.read()
@@ -82,6 +82,6 @@ export class ProtectedWeatherLocation {
     this.location = value
     this.loaded = true
     this.dirty = value !== null
-    this.persist()
+    this.persistPending()
   }
 }

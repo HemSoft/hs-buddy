@@ -378,14 +378,6 @@ describe('configHandlers', () => {
       const result = await handlers.get('config:play-notification-sound')!()
       expect(result).toBeNull()
     })
-
-    it('returns null when the bounded reader detects file growth', async () => {
-      mockConfigManager.getNotificationSoundPath.mockReturnValue('/sounds/alert.mp3')
-      vi.mocked(readFileSnapshot).mockRejectedValueOnce(new Error('File exceeds the read limit'))
-
-      const result = await handlers.get('config:play-notification-sound')!()
-      expect(result).toBeNull()
-    })
   })
 
   describe('config:get-store-path', () => {

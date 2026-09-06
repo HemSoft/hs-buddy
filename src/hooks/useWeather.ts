@@ -250,7 +250,6 @@ export function useWeather() {
   useEffect(() => {
     safeRemoveItem(LOCATION_KEY)
     safeRemoveItem(CACHE_KEY)
-    safeRemoveItem('pollen:cache')
   }, [])
   const [state, setState] = useState<WeatherState>(() => {
     const cached = readCache()

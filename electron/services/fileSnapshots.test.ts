@@ -65,8 +65,8 @@ it('stops at limit plus one when the same file grows after its size check', asyn
   const file = descriptor('a much larger file', 1, 100)
   mocks.open.mockResolvedValue(file)
   await expect(readFileSnapshot('/selected/file', 4)).rejects.toBeInstanceOf(FileTooLargeError)
-  expect(file.read.mock.calls[0][2]).toBe(5)
-  expect(file.read).toHaveBeenCalledOnce()
+  expect(file.read.mock.calls.map(call => call[2])).toEqual([2, 2, 1])
+  expect(file.read).toHaveBeenCalledTimes(3)
   expect(file.readFile).not.toHaveBeenCalled()
   expect(file.close).toHaveBeenCalledOnce()
 })
@@ -75,6 +75,14 @@ it('supports an empty file with a zero-byte limit', async () => {
   const file = descriptor('')
   mocks.open.mockResolvedValue(file)
   expect((await readFileSnapshot('/selected/file', 0)).data.length).toBe(0)
+  expect(file.close).toHaveBeenCalledOnce()
+})
+
+it('allocates only the small file size plus one byte despite a large configured limit', async () => {
+  const file = descriptor('hi')
+  mocks.open.mockResolvedValue(file)
+  expect((await readFileSnapshot('/selected/file', 10_000_000)).data.toString()).toBe('hi')
+  expect(file.read.mock.calls[0][0].length).toBe(3)
   expect(file.close).toHaveBeenCalledOnce()
 })
 

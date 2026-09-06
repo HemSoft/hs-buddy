@@ -31,12 +31,12 @@ describe('useWeather', () => {
   })
 
   it('removes legacy plaintext locations and derived forecasts on mount', async () => {
-    for (const key of ['weather:location', 'weather:cache', 'pollen:cache']) {
+    for (const key of ['weather:location', 'weather:cache']) {
       localStorage.setItem(key, JSON.stringify({ latitude: 12.3456, longitude: -65.4321 }))
     }
     const { result } = renderHook(() => useWeather())
     await waitFor(() => expect(result.current.loading).toBe(false))
-    for (const key of ['weather:location', 'weather:cache', 'pollen:cache']) {
+    for (const key of ['weather:location', 'weather:cache']) {
       expect(localStorage.getItem(key)).toBeNull()
     }
     expect(locationSessionStorage.getItem('weather:cache')).not.toBeNull()

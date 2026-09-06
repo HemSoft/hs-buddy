@@ -137,6 +137,34 @@ describe('config', () => {
     }
   })
 
+  it('persists the legacy location at startup without a Weather card read and restores it after restart', async () => {
+    const location = { latitude: 12.3456, longitude: -65.4321, name: 'Private place' }
+    configFixture.initial = {
+      ui: { weatherLocation: location, dashboardCards: { weather: false } },
+      github: { accounts: [] },
+    }
+    try {
+      vi.resetModules()
+      const { configManager: migrated } = await import('./config')
+      expect(safeStorage.encryptString).not.toHaveBeenCalled()
+      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true)
+      migrated.migrateWeatherLocation()
+      const persisted = migrated.getConfig()
+      expect(persisted.ui.weatherLocation).toBeNull()
+      expect(persisted.weatherLocationCiphertext).toBe(
+        Buffer.from('opaque-ciphertext').toString('base64')
+      )
+      expect(JSON.stringify(persisted)).not.toContain('Private place')
+      configFixture.initial = structuredClone(persisted) as unknown as Record<string, unknown>
+      vi.mocked(safeStorage.decryptString).mockReturnValue(JSON.stringify(location))
+      vi.resetModules()
+      const { configManager: restarted } = await import('./config')
+      expect(restarted.getUiValue('weatherLocation')).toEqual(location)
+    } finally {
+      configFixture.initial = {}
+    }
+  })
+
   it('configManager is defined', () => {
     expect(configManager).toBeDefined()
   })

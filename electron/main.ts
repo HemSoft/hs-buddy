@@ -285,6 +285,7 @@ app.whenReady().then(() => {
 
   // Initialize config manager and attempt migration from env vars
   configManager.migrateFromEnv()
+  configManager.migrateWeatherLocation()
 
   // Register process-wide IPC exactly once. Window-scoped handlers resolve the
   // live sender/current window instead of capturing the first BrowserWindow.

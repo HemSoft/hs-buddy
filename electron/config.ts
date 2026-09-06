@@ -275,6 +275,11 @@ class ConfigManager {
     this.persistUsageProviderState(overrides, defaultOverrides)
   }
 
+  /** Called after Electron is ready, even when the Weather card is hidden. */
+  migrateWeatherLocation(): void {
+    this.weatherLocation.persistPending()
+  }
+
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
     if (key === 'weatherLocation') return this.weatherLocation.get() as AppConfig['ui'][K]
     return this.store.get(

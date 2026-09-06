@@ -100,6 +100,7 @@ vi.mock('./telemetry', () => ({
 vi.mock('./config', () => ({
   configManager: {
     migrateFromEnv: vi.fn(),
+    migrateWeatherLocation: vi.fn(),
     getUiValue: vi.fn(() => undefined),
     setUiValue: vi.fn(),
   },
@@ -170,6 +171,10 @@ describe('main process lifecycle', () => {
 
     // Verify the boot sequence ran: config migration, window behavior, IPC, ralph
     expect(configManager.migrateFromEnv).toHaveBeenCalled()
+    expect(configManager.migrateWeatherLocation).toHaveBeenCalled()
+    expect(
+      vi.mocked(configManager.migrateWeatherLocation).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(registerAllHandlers).mock.invocationCallOrder[0])
     expect(bindWindowBehavior).toHaveBeenCalledWith(mockWin)
     expect(registerAllHandlers).toHaveBeenCalled()
     expect(initRalphService).toHaveBeenCalled()

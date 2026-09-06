@@ -7,10 +7,19 @@ export class FileTooLargeError extends Error {
   }
 }
 
-async function readBounded(file: FileHandle, maxBytes: number): Promise<Buffer> {
-  const buffer = Buffer.alloc(maxBytes + 1)
+async function readBounded(
+  file: FileHandle,
+  maxBytes: number,
+  initialSize: number
+): Promise<Buffer> {
+  let buffer = Buffer.alloc(Math.min(initialSize + 1, maxBytes + 1))
   let length = 0
   while (length <= maxBytes) {
+    if (length === buffer.length) {
+      const grown = Buffer.alloc(Math.min(buffer.length * 2, maxBytes + 1))
+      buffer.copy(grown)
+      buffer = grown
+    }
     const { bytesRead } = await file.read(buffer, length, buffer.length - length, null)
     if (bytesRead === 0) return buffer.subarray(0, length)
     length += bytesRead
@@ -28,7 +37,8 @@ export async function readFileSnapshot(
     const stats = await file.stat()
     if (!stats.isFile()) throw new Error('Not a regular file')
     if (maxBytes !== undefined && stats.size > maxBytes) throw new FileTooLargeError(stats.size)
-    const data = maxBytes === undefined ? await file.readFile() : await readBounded(file, maxBytes)
+    const data =
+      maxBytes === undefined ? await file.readFile() : await readBounded(file, maxBytes, stats.size)
     return { data, stats }
   } finally {
     await file.close()

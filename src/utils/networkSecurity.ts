@@ -43,11 +43,18 @@ const HTML_ENTITIES = {
   '&nbsp;': ' ',
 }
 
+function decodeCodePoint(codePoint: number): string {
+  if (codePoint === 0 || codePoint > 0x10ffff || (codePoint >= 0xd800 && codePoint <= 0xdfff)) {
+    return '\uFFFD'
+  }
+  return String.fromCodePoint(codePoint)
+}
+
 export function decodeHtmlEntities(s: string): string {
   return s.replace(/&#(?:\d+|[xX][\da-fA-F]+);|&(?:amp|lt|gt|quot|apos|nbsp);/g, entity => {
     if (entity[1] !== '#') return HTML_ENTITIES[entity as keyof typeof HTML_ENTITIES]
     const isHex = entity[2].toLowerCase() === 'x'
-    return String.fromCharCode(parseInt(entity.slice(isHex ? 3 : 2, -1), isHex ? 16 : 10))
+    return decodeCodePoint(parseInt(entity.slice(isHex ? 3 : 2, -1), isHex ? 16 : 10))
   })
 }
 

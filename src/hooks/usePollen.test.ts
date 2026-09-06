@@ -27,6 +27,7 @@ beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true })
   mockInvoke.mockReset()
   locationSessionStorage.clear()
+  localStorage.clear()
   clearPollenCache()
   window.ipcRenderer = { invoke: mockInvoke } as never
 })
@@ -587,4 +588,13 @@ describe('usePollen', () => {
       rejectIpc(new Error('Network error'))
     })
   })
+})
+
+it('removes legacy plaintext pollen coordinates and caches new data only in memory', async () => {
+  localStorage.setItem('pollen:cache', JSON.stringify({ location: MOCK_LOCATION }))
+  mockInvoke.mockResolvedValue({ success: true, data: MOCK_POLLEN })
+  const { result } = renderHook(() => usePollen(MOCK_LOCATION))
+  await waitFor(() => expect(result.current.data).toEqual(MOCK_POLLEN))
+  expect(localStorage.getItem('pollen:cache')).toBeNull()
+  expect(locationSessionStorage.getItem('pollen:cache')).not.toBeNull()
 })

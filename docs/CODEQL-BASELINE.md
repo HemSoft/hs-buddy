@@ -12,15 +12,15 @@ severity is excluded from analysis.
 | --- | --- | --- |
 | [1](https://github.com/HemSoft/hs-buddy/security/code-scanning/1) | Encrypt remembered weather location; remove plaintext caches | [Protected location storage](../electron/services/protectedWeatherLocation.ts), [tests](../electron/services/protectedWeatherLocation.test.ts), [config integration test](../electron/config.test.ts), and [renderer memory storage tests](../src/utils/locationSessionStorage.test.ts). Weather and pollen hooks keep coordinates and derived forecasts in memory. |
 | [2](https://github.com/HemSoft/hs-buddy/security/code-scanning/2) | Escape every regular-expression metacharacter in the version | [Changelog CLI tests](../scripts/changelog-from-commit.test.ts) exercise build metadata, backslashes, brackets, quantifiers, anchors, alternation, idempotency, and UTF-8. |
-| [3](https://github.com/HemSoft/hs-buddy/security/code-scanning/3) | Decode each original HTML entity once | [Decoder tests](../src/utils/networkSecurity.test.ts) preserve nested entities for subsequent consumers instead of decoding newly produced ampersands again. |
+| [3](https://github.com/HemSoft/hs-buddy/security/code-scanning/3) | Decode each original HTML entity once | [Decoder tests](../src/utils/networkSecurity.test.ts) preserve nested entities, decode valid Unicode scalar values, and replace invalid references instead of decoding newly produced ampersands again. |
 | [4](https://github.com/HemSoft/hs-buddy/security/code-scanning/4) | Intentional benchmark report, dismissal reason `used in tests` | The data flow and destination are described below. |
-| [5](https://github.com/HemSoft/hs-buddy/security/code-scanning/5) | Read notification audio through one bounded file handle | [Handler tests](../electron/ipc/configHandlers.test.ts) cover oversize, growth, unreadable, and non-regular files. |
+| [5](https://github.com/HemSoft/hs-buddy/security/code-scanning/5) | Read notification audio through one bounded file handle | [Handler tests](../electron/ipc/configHandlers.test.ts) cover oversized, unreadable, and non-regular files; the shared reader tests cover growth. |
 | [6](https://github.com/HemSoft/hs-buddy/security/code-scanning/6) | Read metrics metadata and bytes from the same opened file | [Metrics handler tests](../electron/ipc/copilotMetricsHandlers.test.ts) cover data, modification time, and read failures. |
 | [7](https://github.com/HemSoft/hs-buddy/security/code-scanning/7) | Enforce the file-viewer limit during the read | [File-viewer tests](../electron/ipc/filesystemHandlers.test.ts) and [shared file tests](../electron/services/fileSnapshots.test.ts) cover exact limits, partial UTF-8 reads, growth, path replacement, and handle closure. |
 | [8](https://github.com/HemSoft/hs-buddy/security/code-scanning/8) | Open session detail once, then inspect and read that descriptor | [Session tests](../electron/services/copilotSessionService.test.ts) cover missing files, small-file reads, and descriptor closure before large-file or metadata-error streaming fallback. |
 | [9](https://github.com/HemSoft/hs-buddy/security/code-scanning/9) | Open the changelog directly and retain its descriptor | [Changelog CLI tests](../scripts/changelog-from-commit.test.ts) verify missing files do not get created and repeat runs are idempotent. |
 | [10](https://github.com/HemSoft/hs-buddy/security/code-scanning/10) | Write and truncate through the descriptor used to read the changelog | The same CLI tests verify removed trailing headings leave no old bytes. |
-| [11](https://github.com/HemSoft/hs-buddy/security/code-scanning/11) | Measure and parse the same bundle byte buffer | [Bundle tests](../scripts/bundle-size-electron.test.ts) exercise UTF-8 byte counts, cyclic imports, and missing main or imported files. |
+| [11](https://github.com/HemSoft/hs-buddy/security/code-scanning/11) | Measure and parse the same bundle byte buffer | [Bundle tests](../scripts/bundle-size-electron.test.ts) exercise UTF-8 byte counts, parsed module imports, comment/string false positives, cyclic imports, and descriptive missing-file errors. |
 | [12](https://github.com/HemSoft/hs-buddy/security/code-scanning/12) | Create the e18e placeholder with exclusive `wx` creation | [Placeholder tests](../scripts/e18e-placeholder.test.ts) verify an existing bundle cannot be truncated and unrelated filesystem errors propagate. |
 | [13](https://github.com/HemSoft/hs-buddy/security/code-scanning/13) | Create a unique temporary directory for each parsing benchmark run | [Parsing benchmark](../electron/services/copilotSessionParsing.bench.ts) uses `mkdtempSync` and removes only its own generated fixture directory. |
 | [14](https://github.com/HemSoft/hs-buddy/security/code-scanning/14) | Create a unique temporary directory for each workspace benchmark run | [Workspace benchmark](../electron/services/copilotSessionService.bench.ts) uses `mkdtempSync`; fixture contents are synthetic. |
@@ -36,8 +36,9 @@ Weather and pollen requests still send the selected coordinates to their
 configured service endpoints as required to obtain local forecasts.
 
 At startup, the config manager removes the legacy `ui.weatherLocation`
-plaintext value and retains it in memory for encrypted migration. When the
-weather location is next read, secure storage protects that value. The renderer
+plaintext value and retains it in memory for encrypted migration. After Electron
+is ready, startup encrypts that pending value before opening a window, regardless
+of whether the Weather card is enabled. The renderer
 also removes the legacy `weather:location`, `weather:cache`, and `pollen:cache`
 keys before rendering, including when the weather card is hidden. The hooks
 perform the same cleanup when mounted independently. Browser-only legacy
@@ -99,7 +100,8 @@ result with synthetic credentials.
 File-handle operations prevent a pathname replacement between a check and
 a later open from selecting a different file. The shared reader checks file
 type and reads at most the caller's byte limit plus one, including when the
-opened file grows. It always closes the handle. This does not lock out
+opened file grows. Its buffer starts at the reported file size plus one and
+grows only as needed, up to that limit. It always closes the handle. This does not lock out
 concurrent writers to the same inode or make metadata and content an atomic
 snapshot. The session parser's small-file cutoff selects its parsing path;
 large sessions retain the existing streaming path.

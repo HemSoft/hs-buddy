@@ -21,4 +21,6 @@ it('keeps the privileged controller off automatic PR-owned workflow definitions'
   expect(workflow).toContain("github.ref == 'refs/heads/main'")
   expect(workflow).toContain('ref: refs/heads/main')
   expect(workflow).toContain('persist-credentials: false')
+  expect(triggerBlock).toContain('auto_merge_enabled')
+  expect(triggerBlock).toContain('auto_merge_disabled')
 })

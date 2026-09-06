@@ -2,7 +2,7 @@ name: AI review auto-merge
 
 on:
   pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled, edited]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled, edited, auto_merge_enabled, auto_merge_disabled]
   issue_comment:
     types: [created, edited, deleted]
   workflow_run:

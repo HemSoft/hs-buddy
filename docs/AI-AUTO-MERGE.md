@@ -64,8 +64,9 @@ requests originally enabled by hand.
 
 Use `automerge:hold` before beginning a discussion or removing an opt-in.
 Label changes and comments are asynchronous events, so they cannot recall a
-merge that GitHub has already started. For an immediate intervention, disable
-native auto-merge on the PR. Review threads have native resolution enforcement;
+merge that GitHub has already started. To intervene, apply the hold and disable
+native auto-merge on the PR. Disabling alone leaves the opt-in in place, so the
+controller can enroll it again. Review threads have native resolution enforcement;
 ordinary conversation comments have no resolved state and are not treated as
 unresolved review threads. The controller cannot make the last timeline event
 an atomic merge condition.

@@ -1,14 +1,24 @@
+## Current measurement
+
+Use [the per-function CRAP gate](CRAP-CI.md) and `bun run crap:check` for current
+results. The maintained initial baseline at commit
+`3d5e565159cfa1dc341ce9831b0d6f6107a74183` measures 6,713 functions, 44 above 10,
+and a worst score of 20. The historical snapshots below used a different,
+non-authoritative coverage approximation and are not comparable.
+
+---
+
 ## 2026-06-13 — CRAP Score Snapshot (TypeScript)
 
-| Metric | Value |
-|--------|-------|
-| Methods Analyzed | 2,659 (src/) |
-| Methods > 30 (Critical) | 0 |
-| Methods 16–30 (High) | 0 |
-| Methods 6–15 (Moderate) | 62 |
-| Methods >= 10 (Repo Threshold) | 0 |
-| Highest CRAP | 7.0 (multiple fully covered complexity-only functions) |
-| Overall Coverage | 99.90% lines / 99.35% branches / 99.97% functions / 99.82% statements |
+| Metric                         | Value                                                                 |
+| ------------------------------ | --------------------------------------------------------------------- |
+| Methods Analyzed               | 2,659 (src/)                                                          |
+| Methods > 30 (Critical)        | 0                                                                     |
+| Methods 16–30 (High)           | 0                                                                     |
+| Methods 6–15 (Moderate)        | 62                                                                    |
+| Methods >= 10 (Repo Threshold) | 0                                                                     |
+| Highest CRAP                   | 7.0 (multiple fully covered complexity-only functions)                |
+| Overall Coverage               | 99.90% lines / 99.35% branches / 99.97% functions / 99.82% statements |
 
 **Critical Methods (CRAP > 30):** None — repo passes Gold scorecard rule.
 
@@ -38,15 +48,15 @@
 
 ## 2026-06-07 — CRAP Score Snapshot (TypeScript)
 
-| Metric | Value |
-|--------|-------|
-| Methods Analyzed | 2,619 (src/) |
-| Methods > 30 (Critical) | 0 |
-| Methods 16–30 (High) | 0 |
-| Methods 6–15 (Moderate) | 70 |
-| Highest CRAP | 9.3 (`src/utils/copilotEnterpriseUsers.ts` :: `totalsFromUsageItems`) |
-| Average CRAP | Not reported by `crap-report.ps1` |
-| Overall Coverage | 99.89% lines / 99.44% branches / 99.97% functions / 99.84% statements |
+| Metric                  | Value                                                                 |
+| ----------------------- | --------------------------------------------------------------------- |
+| Methods Analyzed        | 2,619 (src/)                                                          |
+| Methods > 30 (Critical) | 0                                                                     |
+| Methods 16–30 (High)    | 0                                                                     |
+| Methods 6–15 (Moderate) | 70                                                                    |
+| Highest CRAP            | 9.3 (`src/utils/copilotEnterpriseUsers.ts` :: `totalsFromUsageItems`) |
+| Average CRAP            | Not reported by `crap-report.ps1`                                     |
+| Overall Coverage        | 99.89% lines / 99.44% branches / 99.97% functions / 99.84% statements |
 
 **Critical Methods (CRAP > 30):** None — repo passes Gold scorecard rule.
 
@@ -67,14 +77,14 @@
 
 ## 2026-05-23 — CRAP Score Snapshot (Electron)
 
-| Metric | Value |
-|--------|-------|
-| Methods Analyzed | ~450 (electron/) |
-| Methods > 30 (Critical) | 0 |
-| Methods 16–30 (High) | 0 |
-| Methods 6–15 (Moderate) | 7 |
-| Highest CRAP | 10.5 (electron/main.ts :: createWindow) |
-| Average CRAP | ~2.1 |
+| Metric                  | Value                                   |
+| ----------------------- | --------------------------------------- |
+| Methods Analyzed        | ~450 (electron/)                        |
+| Methods > 30 (Critical) | 0                                       |
+| Methods 16–30 (High)    | 0                                       |
+| Methods 6–15 (Moderate) | 7                                       |
+| Highest CRAP            | 10.5 (electron/main.ts :: createWindow) |
+| Average CRAP            | ~2.1                                    |
 
 **Critical Methods (CRAP > 30):** None — repo passes Gold scorecard rule.
 
@@ -94,20 +104,20 @@
 
 ## 2026-05-07 - CRAP Score Snapshot
 
-| Metric | Value |
-|--------|-------|
-| Methods Analyzed | 1837 |
-| Methods > 30 (Critical) | 0 |
-| Methods 16-30 (High) | 0 |
-| Methods 6-15 (Moderate) | 169 |
-| Highest CRAP | 10 (src/components/PullRequestDetailPanel.tsx :: PullRequestDetailPanel) |
-| Average CRAP | 2.76 |
+| Metric                  | Value                                                                    |
+| ----------------------- | ------------------------------------------------------------------------ |
+| Methods Analyzed        | 1837                                                                     |
+| Methods > 30 (Critical) | 0                                                                        |
+| Methods 16-30 (High)    | 0                                                                        |
+| Methods 6-15 (Moderate) | 169                                                                      |
+| Highest CRAP            | 10 (src/components/PullRequestDetailPanel.tsx :: PullRequestDetailPanel) |
+| Average CRAP            | 2.76                                                                     |
 
 ### Critical Methods (CRAP > 30)
 
 | Class/Module | Method | CRAP | Coverage | Complexity | Change from Last |
-|--------------|--------|------|----------|------------|------------------|
-| - | - | none | - | - | - |
+| ------------ | ------ | ---- | -------- | ---------- | ---------------- |
+| -            | -      | none | -        | -          | -                |
 
 ### Improvements Since Last Snapshot
 

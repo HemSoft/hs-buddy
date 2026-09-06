@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1151] - 2026-09-06
+
+### Fixed
+
+- Preserve exact bytes in CRAP input fingerprints
+
+## [0.1.1150] - 2026-09-06
+
+### Fixed
+
+- Fingerprint all repository CRAP test inputs
+
+## [0.1.1149] - 2026-09-06
+
+### Fixed
+
+- Prevent CRAP cross-suite staleness and duplicate aliasing
+
+## [0.1.1148] - 2026-09-06
+
+### Fixed
+
+- Distinguish CRAP class and constructor callbacks
+
+## [0.1.1147] - 2026-09-06
+
+### Fixed
+
+- Invalidate stale CRAP policy and compiler inputs
+
+## [0.1.1146] - 2026-09-06
+
+### Fixed
+
+- Harden CRAP evidence and function identities
+
+## [0.1.1145] - 2026-09-06
+
+### Changed
+
+- Measure and gate per-function CRAP (#656)
+
 ## [0.1.1144] - 2026-09-06
 
 ### Changed

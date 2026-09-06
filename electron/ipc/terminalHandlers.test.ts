@@ -619,6 +619,20 @@ describe('terminalHandlers', () => {
         expect.any(Array),
         expect.any(Object)
       )
+      const probes = vi
+        .mocked(existsSync)
+        .mock.calls.filter(([candidate]) => String(candidate).endsWith('pwsh.exe')).length
+      const repeated = await spawnHandler(
+        { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
+        { cols: 80, rows: 24 }
+      )
+      expect(repeated.success).toBe(true)
+      expect(ptyHarness.spawn).toHaveBeenCalledTimes(2)
+      expect(
+        vi
+          .mocked(existsSync)
+          .mock.calls.filter(([candidate]) => String(candidate).endsWith('pwsh.exe'))
+      ).toHaveLength(probes)
     } finally {
       process.env.PATH = originalPath
       Object.defineProperty(process, 'platform', { value: originalPlatform, configurable: true })

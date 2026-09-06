@@ -1,5 +1,6 @@
 import { openPullNumbers, reconcilePull } from './ai-review-controller'
 import { githubApi } from './ai-review-github'
+import { reconcileBatch } from './ai-review-batch'
 
 const repository = process.env.GITHUB_REPOSITORY ?? 'HemSoft/hs-buddy'
 if (repository !== 'HemSoft/hs-buddy') throw new Error('This policy is scoped to HemSoft/hs-buddy')
@@ -14,13 +15,13 @@ const options = {
   apply: process.argv.includes('--apply'),
   enabled: process.env.AI_AUTOMERGE_ENABLED === 'true',
 }
-let failed = false
-for (const number of numbers) {
-  try {
+const failed = await reconcileBatch(
+  numbers,
+  async number => {
     console.log(await reconcilePull(api, repository, number, options))
-  } catch (error: unknown) {
-    failed = true
+  },
+  (number, error) => {
     console.error(`PR #${number}: ${error instanceof Error ? error.message : 'evaluation failed'}`)
   }
-}
+)
 if (failed) process.exitCode = 1

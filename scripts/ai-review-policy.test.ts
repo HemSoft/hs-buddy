@@ -186,6 +186,9 @@ describe('required AI acceptance', () => {
     data.comments[0].body = `Codex Review: Didn't find any major issues. Chef's kiss.\n\n**Reviewed commit:** \`${head}\``
     data.reactions = []
     expect(evaluateReview(data).accepted).toBe(true)
+    data.comments[0].created_at = 'invalid'
+    expect(evaluateReview(data).accepted).toBe(false)
+    data.comments[0].created_at = completed
     data.comments[0].body = "Codex Review: Didn't find any major issues."
     expect(evaluateReview(data).accepted).toBe(false)
   })

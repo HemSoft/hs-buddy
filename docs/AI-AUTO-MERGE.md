@@ -24,8 +24,8 @@ head SHA within the complete PR commit list. A running, stale, ambiguous,
 unknown, or missing receipt blocks acceptance. A newer Codex review invalidates
 an older clean receipt even when its threads have since been resolved.
 
-The evaluator reads every comments, reviews, reactions, commits, and review
-threads page, including outdated unresolved threads. API failures and pagination
+The evaluator reads every page of comments, reviews, reactions, commits, and
+review threads, including outdated unresolved threads. API failures and pagination
 limits fail closed. Open PRs sharing a head commit are blocked because GitHub
 check contexts belong to commits, not individual PRs.
 
@@ -48,8 +48,10 @@ workflow adds no AI calls and no reviewer-trigger comments.
 Each run publishes a pending check before reading evidence, rereads that
 evidence before enrollment, and uses `expectedHeadOid` when enabling native
 auto-merge. It checks the evidence again before publishing success. Failures
-publish a failed check and attempt to withdraw enrollment. Runs are serialized
-without canceling an active evaluation.
+publish a failed check and attempt to withdraw enrollment. Workflow runs are
+serialized without canceling an active evaluation. Each batch processes at most
+four independent PRs concurrently. CI completion targets its associated PR when
+GitHub supplies one; the scheduled pass covers the complete open PR set.
 
 The controller also withdraws existing native auto-merge when the PR loses its
 opt-in label, becomes ineligible, or the master switch is disabled. Native

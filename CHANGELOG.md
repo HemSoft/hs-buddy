@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1162] - 2026-09-06
+
+### Fixed
+
+- Handle concurrent and uncertain auto-merge enrollment
+
 ## [0.1.1161] - 2026-09-06
 
 ### Fixed

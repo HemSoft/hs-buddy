@@ -33,6 +33,7 @@ function fixture() {
     failDisable: false,
     failEnable: false,
     failPending: false,
+    loseEnableResponse: false,
     enforced: true,
     appId: MERGE_APP_ID,
     threadPages: false,
@@ -109,6 +110,7 @@ function graph(data: ReturnType<typeof fixture>, body: Record<string, unknown>):
     if (data.failEnable) return { errors: [{ message: 'expected head changed' }] }
     data.pull.auto_merge = { merge_method: 'squash' }
     data.onArm()
+    if (data.loseEnableResponse) throw new Error('Enable response lost')
     return { data: { enablePullRequestAutoMerge: { pullRequest: { id: 'PR_1' } } } }
   }
   if (query.includes('disablePullRequestAutoMerge')) {
@@ -169,7 +171,11 @@ describe('GitHub review controller', () => {
     data.pull.state = 'closed'
     expect(await reconcilePull(fakeApi(data), repo, 1, options)).toContain('closed')
     expect(writes(data)).toEqual([])
+    data.pull.state = 'open'
     expect(await openPullNumbers(fakeApi(data), repo)).toEqual([1])
+    expect(data.calls.at(-1)?.path).toBe(
+      `/repos/${repo}/pulls?state=open&base=main&per_page=100&page=1`
+    )
   })
 
   it.each(['disabled', 'unlabelled', 'missing rules', 'hold', 'shared head', 'second-page thread'])(
@@ -317,8 +323,38 @@ describe('pending-check failure recovery', () => {
         writes(data).some(call => String(call.body.query).includes('disablePullRequestAutoMerge'))
       ).toBe(true)
       expect(writes(data).some(call => call.body.conclusion === 'success')).toBe(false)
+      if (failure === 'wrong App') expect(writes(data).at(-1)?.body.conclusion).toBe('failure')
     }
   )
+})
+
+describe('concurrent enrollment changes', () => {
+  it('withdraws enrollment that became active after the initial PR read', async () => {
+    const data = fixture()
+    data.pull.labels = []
+    const source = fakeApi(data)
+    let reads = 0
+    const api: GitHubApi = {
+      async request<T>(path: string, method?: string, body?: unknown) {
+        if (path.endsWith('/pulls/1') && ++reads === 2)
+          data.pull.auto_merge = { merge_method: 'squash' }
+        return source.request<T>(path, method, body)
+      },
+    }
+    await reconcilePull(api, repo, 1, options)
+    expect(data.pull.auto_merge).toBeNull()
+    expect(
+      writes(data).some(call => String(call.body.query).includes('disablePullRequestAutoMerge'))
+    ).toBe(true)
+  })
+
+  it('withdraws a successful enable whose response was lost', async () => {
+    const data = fixture()
+    data.loseEnableResponse = true
+    await expect(reconcilePull(fakeApi(data), repo, 1, options)).rejects.toThrow('response lost')
+    expect(data.pull.auto_merge).toBeNull()
+    expect(writes(data).at(-1)?.body.conclusion).toBe('failure')
+  })
 })
 
 describe('restricted GitHub transport', () => {

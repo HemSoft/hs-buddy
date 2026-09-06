@@ -18,7 +18,7 @@ interface Rule {
 }
 
 export async function hasRequiredGate(api: GitHubApi, repository: string): Promise<boolean> {
-  const rules = await api.request<Rule[]>(`/repos/${repository}/rules/branches/main`)
+  const rules = await allPages<Rule>(api, `/repos/${repository}/rules/branches/main`)
   const check = rules.some(
     rule =>
       rule.parameters?.strict_required_status_checks_policy &&
@@ -64,8 +64,6 @@ async function pendingCheck(api: GitHubApi, repository: string, pull: Pull): Pro
       summary: 'Reading live review evidence before publishing acceptance.',
     },
   })
-  if (check.app.id !== MERGE_APP_ID)
-    throw new Error('Review check was not created by the configured GitHub App')
   return check
 }
 
@@ -115,8 +113,9 @@ async function updateEnrollment(
     enrollment.armed = false
   }
   if (canArm && !enrollment.armed) {
-    await autoMerge(api, snapshot.pull, true)
+    // A lost response can hide a successful server-side mutation.
     enrollment.armed = true
+    await autoMerge(api, snapshot.pull, true)
   }
 }
 
@@ -136,11 +135,14 @@ export async function reconcilePull(
   let check: CheckRun | undefined
   try {
     check = await pendingCheck(api, repository, pull)
+    if (check.app.id !== MERGE_APP_ID)
+      throw new Error('Review check was not created by the configured GitHub App')
     const snapshot = await readSnapshot(api, repository, number)
     if (snapshot.pull.head.sha !== pull.head.sha)
       throw new Error('Head changed after pending check')
     const decision = evaluateReview(snapshot)
     const fresh = await rereadEvidence(api, repository, snapshot, 'during evaluation')
+    enrollment.armed = fresh.pull.auto_merge !== null
     await updateEnrollment(api, repository, fresh, options.enabled, enrollment)
     await rereadEvidence(api, repository, fresh, 'before acceptance')
     await finishCheck(api, repository, check, decision.accepted, decision.reason)

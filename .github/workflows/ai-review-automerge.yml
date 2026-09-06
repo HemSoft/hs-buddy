@@ -1,0 +1,69 @@
+name: AI review auto-merge
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled, edited]
+  issue_comment:
+    types: [created, edited, deleted]
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+  pull_request_review_comment:
+    types: [created, edited, deleted]
+  workflow_run:
+    workflows: [CI, Security Scanning]
+    types: [completed]
+  schedule:
+    - cron: '7,17,27,37,47,57 * * * *'
+  workflow_dispatch:
+    inputs:
+      pr-number:
+        description: PR number, or blank to reconcile all open PRs targeting main
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+# One writer per repository. Never cancel a run between enrollment and its final check.
+concurrency:
+  group: ai-review-automerge
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    if: >-
+      github.repository == 'HemSoft/hs-buddy' &&
+      (github.event_name != 'issue_comment' || github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Every trigger runs trusted main code, including fork metadata and manual dispatch.
+      # Never check out a PR head, execute a PR script, or download a PR artifact here.
+      - name: Check out trusted controller
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: refs/heads/main
+          persist-credentials: false
+
+      - name: Set up pinned Bun
+        uses: ./.github/actions/setup-bun
+
+      - name: Mint repository-scoped merge token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: 4448946
+          private-key: ${{ secrets.SFL_APP_PRIVATE_KEY }}
+          owner: HemSoft
+          repositories: hs-buddy
+          permission-checks: write
+          permission-contents: write
+          permission-issues: read
+          permission-pull-requests: write
+
+      - name: Reconcile acceptance and native auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          AI_AUTOMERGE_ENABLED: ${{ vars.AI_AUTOMERGE_ENABLED }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || inputs.pr-number || '' }}
+        run: bun scripts/run-ai-review-automerge.ts --apply

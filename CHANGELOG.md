@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1160] - 2026-09-06
+
+### Added
+
+- Gate native auto-merge on current-head AI acceptance
+
 ## [0.1.1159] - 2026-09-06
 
 ### Fixed

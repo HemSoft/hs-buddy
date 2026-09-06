@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import { ProtectedWeatherLocation } from './services/protectedWeatherLocation'
 import {
   configSchema,
   defaultConfig,
@@ -116,9 +117,11 @@ function seedInitialOverrides(
  * SECURITY NOTE: Uses GitHub CLI (gh) for authentication.
  * No tokens are stored in config or environment variables!
  * Authentication is handled securely by GitHub CLI in system keychain.
+ * Remembered weather coordinates are stored only as OS-encrypted ciphertext.
  */
 class ConfigManager {
   private store: Store<AppConfig>
+  private weatherLocation: ProtectedWeatherLocation
 
   constructor() {
     this.store = new Store<AppConfig>({
@@ -128,6 +131,19 @@ class ConfigManager {
       clearInvalidConfig: false, // Preserve config even if validation fails
       watch: true, // Watch for external changes
     })
+
+    const legacyLocation = this.store.get('ui', defaultConfig.ui).weatherLocation ?? null
+    // Remove plaintext before any further config writes, including before app ready.
+    if (legacyLocation !== null) this.store.set('ui.weatherLocation', null)
+    this.weatherLocation = new ProtectedWeatherLocation(
+      {
+        read: () => this.store.get('weatherLocationCiphertext', ''),
+        write: ciphertext => {
+          this.store.set('weatherLocationCiphertext', ciphertext)
+        },
+      },
+      legacyLocation
+    )
 
     this.store.onDidChange('github.accounts', () => {
       this.reconcileUsageProviderOverrides()
@@ -259,14 +275,24 @@ class ConfigManager {
     this.persistUsageProviderState(overrides, defaultOverrides)
   }
 
+  /** Called after Electron is ready, even when the Weather card is hidden. */
+  migrateWeatherLocation(): void {
+    this.weatherLocation.persistPending()
+  }
+
   getUiValue<K extends keyof AppConfig['ui']>(key: K): AppConfig['ui'][K] {
+    if (key === 'weatherLocation') return this.weatherLocation.get() as AppConfig['ui'][K]
     return this.store.get(
       `ui.${key}` as keyof AppConfig,
-      defaultConfig.ui[key] as unknown as AppConfig[keyof AppConfig]
+      defaultConfig.ui[key] as unknown as NonNullable<AppConfig[keyof AppConfig]>
     ) as unknown as AppConfig['ui'][K]
   }
 
   setUiValue<K extends keyof AppConfig['ui']>(key: K, value: AppConfig['ui'][K]): void {
+    if (key === 'weatherLocation') {
+      this.weatherLocation.set(value as AppConfig['ui']['weatherLocation'])
+      return
+    }
     this.store.set(`ui.${key}`, value)
   }
 
@@ -363,6 +389,7 @@ class ConfigManager {
   }
 
   reset(): void {
+    this.weatherLocation.set(null)
     this.store.clear()
     console.log('[ConfigManager] Configuration reset to defaults')
   }

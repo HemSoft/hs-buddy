@@ -148,6 +148,8 @@ describe('fetchCodexUsage', () => {
       JSON.stringify({ tokens: { access_token: 'secret-access', account_id: 'account-123' } })
     )
     const fetchImpl = vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      expect(_input).toBe('https://chatgpt.com/backend-api/wham/usage')
+      expect(init?.redirect).toBe('error')
       expect(init?.headers).toMatchObject({
         Authorization: 'Bearer secret-access',
         'ChatGPT-Account-Id': 'account-123',
@@ -178,6 +180,36 @@ describe('fetchCodexUsage', () => {
       error: "Codex ChatGPT login expired. Run 'codex' and sign in again.",
     })
   })
+})
+
+it('uses the selected CLI profile and fixed endpoint through the production defaults', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hs-buddy-codex-defaults-'))
+  const previousHome = process.env.CODEX_HOME
+  const previousFetch = globalThis.fetch
+  const request = vi.fn(async () => new Response(usagePayload(), { status: 200 }))
+  try {
+    await writeFile(
+      join(directory, 'auth.json'),
+      JSON.stringify({ tokens: { access_token: 'synthetic-default-token' } })
+    )
+    process.env.CODEX_HOME = directory
+    globalThis.fetch = request
+    const result = await fetchCodexUsage()
+    expect(result.success).toBe(true)
+    expect(JSON.stringify(result)).not.toContain('synthetic-default-token')
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      'https://chatgpt.com/backend-api/wham/usage',
+      expect.objectContaining({
+        redirect: 'error',
+        headers: expect.objectContaining({ Authorization: 'Bearer synthetic-default-token' }),
+      })
+    )
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousHome === undefined) delete process.env.CODEX_HOME
+    else process.env.CODEX_HOME = previousHome
+    await rm(directory, { recursive: true, force: true })
+  }
 })
 
 describe('fetchCodexUsage failure handling', () => {

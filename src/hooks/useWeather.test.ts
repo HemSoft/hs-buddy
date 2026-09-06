@@ -1,3 +1,4 @@
+import { locationSessionStorage } from '../utils/locationSessionStorage'
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { renderHook, act, waitFor } from '@testing-library/react'
 
@@ -24,8 +25,21 @@ function makeApiResponse() {
 describe('useWeather', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    locationSessionStorage.clear()
     localStorage.clear()
     mockFetch.mockResolvedValue(makeApiResponse())
+  })
+
+  it('removes legacy plaintext locations and derived forecasts on mount', async () => {
+    for (const key of ['weather:location', 'weather:cache']) {
+      localStorage.setItem(key, JSON.stringify({ latitude: 12.3456, longitude: -65.4321 }))
+    }
+    const { result } = renderHook(() => useWeather())
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    for (const key of ['weather:location', 'weather:cache']) {
+      expect(localStorage.getItem(key)).toBeNull()
+    }
+    expect(locationSessionStorage.getItem('weather:cache')).not.toBeNull()
   })
 
   it('starts in loading state without cache', () => {
@@ -47,7 +61,7 @@ describe('useWeather', () => {
       locationName: 'Morrisville, NC',
       forecast: [],
     }
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'weather:cache',
       JSON.stringify({ data: weatherData, timestamp: Date.now(), version: 2 })
     )
@@ -57,7 +71,7 @@ describe('useWeather', () => {
   })
 
   it('ignores expired cache', () => {
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'weather:cache',
       JSON.stringify({
         data: { temperature: 72 },
@@ -70,7 +84,7 @@ describe('useWeather', () => {
   })
 
   it('ignores old cache version', () => {
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'weather:cache',
       JSON.stringify({ data: { temperature: 72 }, timestamp: Date.now(), version: 1 })
     )
@@ -117,7 +131,7 @@ describe('useWeather', () => {
   it('writes cache after successful fetch', async () => {
     const { result } = renderHook(() => useWeather())
     await waitFor(() => expect(result.current.loading).toBe(false))
-    const cached = JSON.parse(localStorage.getItem('weather:cache')!)
+    const cached = JSON.parse(locationSessionStorage.getItem('weather:cache')!)
     expect(cached.data.temperature).toBe(72)
     expect(cached.version).toBe(2)
   })
@@ -138,8 +152,8 @@ describe('useWeather', () => {
     expect(result.current.error).toBe('Oops')
   })
 
-  it('uses saved location from localStorage', async () => {
-    localStorage.setItem(
+  it('uses saved location from locationSessionStorage', async () => {
+    locationSessionStorage.setItem(
       'weather:location',
       JSON.stringify({ latitude: 40.71, longitude: -74.01, name: 'New York, NY' })
     )
@@ -155,7 +169,7 @@ describe('useWeather', () => {
   })
 
   it('handles corrupt location data', () => {
-    localStorage.setItem('weather:location', '{invalid')
+    locationSessionStorage.setItem('weather:location', '{invalid')
     const { result } = renderHook(() => useWeather())
     expect(result.current.savedLocation).toBe('Morrisville, NC')
   })
@@ -186,7 +200,7 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('Los Angeles')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Los Angeles, California')
   })
 
@@ -228,7 +242,7 @@ describe('useWeather', () => {
   })
 
   it('handles corrupt cache gracefully', () => {
-    localStorage.setItem('weather:cache', 'not json')
+    locationSessionStorage.setItem('weather:cache', 'not json')
     const { result } = renderHook(() => useWeather())
     expect(result.current.loading).toBe(true)
   })
@@ -249,7 +263,7 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('Some Place')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Some Place')
   })
 
@@ -267,7 +281,7 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('Custom Query')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Custom Query')
   })
 
@@ -315,7 +329,7 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('SmallTown')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('SmallTown, TX')
   })
 
@@ -348,11 +362,11 @@ describe('useWeather', () => {
 
     // Wait for the geolocation success callback to complete
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.latitude).toBe(40.71)
     expect(saved.longitude).toBe(-74.01)
   })
@@ -381,11 +395,11 @@ describe('useWeather', () => {
     })
 
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toContain('51.50')
   })
 
@@ -430,12 +444,12 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('Hamlet')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Hamlet, NC')
   })
 
   it('ignores cache with no version field', () => {
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'weather:cache',
       JSON.stringify({ data: { temperature: 72 }, timestamp: Date.now() })
     )
@@ -491,11 +505,11 @@ describe('useWeather', () => {
     })
 
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     // Falls back to coordinate-based name since reverse geocoding response was not ok
     expect(saved.name).toContain('51.50')
   })
@@ -527,11 +541,11 @@ describe('useWeather', () => {
     })
 
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('SmallTown, NY')
   })
 
@@ -562,11 +576,11 @@ describe('useWeather', () => {
     })
 
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Hamlet')
   })
 
@@ -590,7 +604,7 @@ describe('useWeather', () => {
     await act(async () => {
       await result.current.setLocationBySearch('Paris')
     })
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     expect(saved.name).toBe('Paris')
   })
 
@@ -621,11 +635,11 @@ describe('useWeather', () => {
     })
 
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
 
-    const saved = JSON.parse(localStorage.getItem('weather:location')!)
+    const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
     // Should keep the coordinate-based name since extractCity(undefined) returns ''
     expect(saved.name).toContain('35.68')
   })
@@ -658,7 +672,7 @@ describe('useWeather', () => {
 
     // Location should still be saved even when refresh fails
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
   })
@@ -686,7 +700,7 @@ describe('useWeather', () => {
     })
 
     // Location should still be saved even when refresh fails
-    const saved = localStorage.getItem('weather:location')
+    const saved = locationSessionStorage.getItem('weather:location')
     expect(saved).not.toBeNull()
   })
 
@@ -756,7 +770,7 @@ describe('useWeather', () => {
 
     // After useMyLocation completes, stale data from old location should not persist
     await waitFor(() => {
-      const saved = localStorage.getItem('weather:location')
+      const saved = locationSessionStorage.getItem('weather:location')
       expect(saved).not.toBeNull()
     })
     expect(result.current.savedLocation).toBe('New York, New York')
@@ -790,8 +804,8 @@ describe('useWeather', () => {
         expect(result.current.savedLocation).toBe('Miami, FL')
       })
 
-      // Verify localStorage was synced from electron-store
-      const saved = JSON.parse(localStorage.getItem('weather:location')!)
+      // Verify locationSessionStorage was synced from electron-store
+      const saved = JSON.parse(locationSessionStorage.getItem('weather:location')!)
       expect(saved.name).toBe('Miami, FL')
     })
 
@@ -819,12 +833,12 @@ describe('useWeather', () => {
       )
     })
 
-    it('falls back to localStorage when electron-store unavailable', async () => {
+    it('falls back to locationSessionStorage when electron-store unavailable', async () => {
       // IPC rejects — simulates no Electron main process
       mockInvoke.mockRejectedValue(new Error('IPC unavailable'))
 
-      // Pre-seed localStorage with a saved location
-      localStorage.setItem(
+      // Pre-seed locationSessionStorage with a saved location
+      locationSessionStorage.setItem(
         'weather:location',
         JSON.stringify({ latitude: 40.71, longitude: -74.01, name: 'New York, NY' })
       )
@@ -837,6 +851,7 @@ describe('useWeather', () => {
     })
 
     it('rejects stored location with non-finite latitude', async () => {
+      locationSessionStorage.clear()
       localStorage.clear()
       mockInvoke.mockImplementation((channel: string) => {
         if (channel === 'config:get-weather-location')
@@ -849,13 +864,14 @@ describe('useWeather', () => {
       await waitFor(() => {
         expect(result.current.loading).toBe(false)
       })
-      // Invalid location should not be synced to localStorage
-      expect(localStorage.getItem('weather:location')).toBeNull()
+      // Invalid location should not be synced to locationSessionStorage
+      expect(locationSessionStorage.getItem('weather:location')).toBeNull()
       // savedLocation falls back to the default
       expect(result.current.savedLocation).toBe('Morrisville, NC')
     })
 
     it('rejects stored location with non-finite longitude', async () => {
+      locationSessionStorage.clear()
       localStorage.clear()
       mockInvoke.mockImplementation((channel: string) => {
         if (channel === 'config:get-weather-location')
@@ -868,8 +884,8 @@ describe('useWeather', () => {
       await waitFor(() => {
         expect(result.current.loading).toBe(false)
       })
-      // Invalid location should not be synced to localStorage
-      expect(localStorage.getItem('weather:location')).toBeNull()
+      // Invalid location should not be synced to locationSessionStorage
+      expect(locationSessionStorage.getItem('weather:location')).toBeNull()
       expect(result.current.savedLocation).toBe('Morrisville, NC')
     })
   })
@@ -910,7 +926,7 @@ describe('useWeather', () => {
       locationName: 'Raleigh, NC',
       forecast: [],
     }
-    localStorage.setItem(
+    locationSessionStorage.setItem(
       'weather:cache',
       JSON.stringify({ data: weatherData, timestamp: Date.now(), version: 2 })
     )

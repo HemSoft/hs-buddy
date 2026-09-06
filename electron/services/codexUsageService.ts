@@ -197,6 +197,7 @@ export async function fetchCodexUsage(
 
     const response = await (options.fetchImpl ?? fetch)(CODEX_USAGE_ENDPOINT, {
       headers,
+      redirect: 'error',
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     })
     if (response.status === 401 || response.status === 403) {

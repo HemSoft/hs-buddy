@@ -9,7 +9,7 @@ import { resolveWorkspaceName } from './copilotSessionService'
 // Creates realistic VS Code workspace.json files matching the formats
 // resolveWorkspaceName handles: single-folder, multi-root, and missing/broken.
 
-const tmpDir = path.join(os.tmpdir(), `buddy-bench-workspace-${process.pid}`)
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buddy-bench-workspace-'))
 
 const fixtures: Record<string, string> = {}
 
@@ -22,8 +22,6 @@ function writeWorkspaceFixture(name: string, content: string): string {
 }
 
 beforeAll(() => {
-  fs.mkdirSync(tmpDir, { recursive: true })
-
   // Single-folder workspace (most common)
   writeWorkspaceFixture(
     'single-folder',
@@ -54,8 +52,6 @@ beforeAll(() => {
   // Missing workspace.json (fallback to dirname via catch)
   const noFileDir = path.join(tmpDir, 'no-file')
   fs.mkdirSync(noFileDir, { recursive: true })
-  const stale = path.join(noFileDir, 'workspace.json')
-  if (fs.existsSync(stale)) fs.unlinkSync(stale)
   fixtures['no-file'] = noFileDir
 })
 

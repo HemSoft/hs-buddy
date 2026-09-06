@@ -1,3 +1,13 @@
+vi.mock('electron', () => ({
+  safeStorage: {
+    isEncryptionAvailable: vi.fn(() => false),
+    getSelectedStorageBackend: vi.fn(() => 'gnome_libsecret'),
+    encryptString: vi.fn(() => Buffer.from('opaque-ciphertext')),
+    decryptString: vi.fn(),
+  },
+}))
+import { safeStorage } from 'electron'
+const configFixture = vi.hoisted(() => ({ initial: {} as Record<string, unknown> }))
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('electron-store', () => ({
@@ -9,7 +19,7 @@ vi.mock('electron-store', () => ({
     store = {}
 
     constructor() {
-      this.data = {}
+      this.data = structuredClone(configFixture.initial)
       this.store = this.data
     }
 
@@ -82,12 +92,77 @@ import { configManager, CONVEX_URL } from './config'
 describe('config', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(false)
     configManager.reset()
   })
 
   it('exports CONVEX_URL as a string', () => {
     expect(typeof CONVEX_URL).toBe('string')
     expect(CONVEX_URL.length).toBeGreaterThan(0)
+  })
+
+  it('routes weather coordinates to protected session storage without plaintext config writes', () => {
+    const location = { latitude: 12.3456, longitude: -65.4321, name: 'Private place' }
+    configManager.setUiValue('weatherLocation', location)
+    expect(configManager.getUiValue('weatherLocation')).toEqual(location)
+    expect(JSON.stringify(configManager.getConfig())).not.toContain('12.3456')
+    expect(JSON.stringify(configManager.getConfig())).not.toContain('Private place')
+    configManager.reset()
+    expect(configManager.getUiValue('weatherLocation')).toBeNull()
+  })
+
+  it('writes only OS-encrypted bytes through the config store', () => {
+    vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true)
+    const location = { latitude: 12.3456, longitude: -65.4321, name: 'Private place' }
+    configManager.setUiValue('weatherLocation', location)
+    expect(configManager.getConfig().weatherLocationCiphertext).toBe(
+      Buffer.from('opaque-ciphertext').toString('base64')
+    )
+    expect(JSON.stringify(configManager.getConfig())).not.toContain('Private place')
+    expect(safeStorage.encryptString).toHaveBeenCalledWith(JSON.stringify(location))
+  })
+
+  it('removes the legacy plaintext field during construction before encryption is ready', async () => {
+    const location = { latitude: 12.3456, longitude: -65.4321, name: 'Private place' }
+    configFixture.initial = { ui: { weatherLocation: location }, github: { accounts: [] } }
+    try {
+      vi.resetModules()
+      const { configManager: migrated } = await import('./config')
+      expect(migrated.getConfig().ui.weatherLocation).toBeNull()
+      expect(JSON.stringify(migrated.getConfig())).not.toContain('Private place')
+      expect(migrated.getUiValue('weatherLocation')).toEqual(location)
+      expect(safeStorage.encryptString).not.toHaveBeenCalled()
+    } finally {
+      configFixture.initial = {}
+    }
+  })
+
+  it('persists the legacy location at startup without a Weather card read and restores it after restart', async () => {
+    const location = { latitude: 12.3456, longitude: -65.4321, name: 'Private place' }
+    configFixture.initial = {
+      ui: { weatherLocation: location, dashboardCards: { weather: false } },
+      github: { accounts: [] },
+    }
+    try {
+      vi.resetModules()
+      const { configManager: migrated } = await import('./config')
+      expect(safeStorage.encryptString).not.toHaveBeenCalled()
+      vi.mocked(safeStorage.isEncryptionAvailable).mockReturnValue(true)
+      migrated.migrateWeatherLocation()
+      const persisted = migrated.getConfig()
+      expect(persisted.ui.weatherLocation).toBeNull()
+      expect(persisted.weatherLocationCiphertext).toBe(
+        Buffer.from('opaque-ciphertext').toString('base64')
+      )
+      expect(JSON.stringify(persisted)).not.toContain('Private place')
+      configFixture.initial = structuredClone(persisted) as unknown as Record<string, unknown>
+      vi.mocked(safeStorage.decryptString).mockReturnValue(JSON.stringify(location))
+      vi.resetModules()
+      const { configManager: restarted } = await import('./config')
+      expect(restarted.getUiValue('weatherLocation')).toEqual(location)
+    } finally {
+      configFixture.initial = {}
+    }
   })
 
   it('configManager is defined', () => {

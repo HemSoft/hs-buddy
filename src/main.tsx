@@ -4,7 +4,11 @@ import { AppRoot } from './AppRoot'
 import { installBrowserIpcMock } from './browser-ipc-mock'
 import { dataCache } from './services/dataCache'
 import { IPC_PUSH } from './ipc/contracts'
+import { safeRemoveItem } from './utils/storage'
 import './index.css'
+
+// Remove legacy plaintext locations even when the weather card is hidden.
+for (const key of ['weather:location', 'weather:cache', 'pollen:cache']) safeRemoveItem(key)
 
 // In non-Electron contexts (Lighthouse CI, browser testing), the preload bridge
 // is absent. Install mock IPC APIs so the app renders its full UI shell.

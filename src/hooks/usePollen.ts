@@ -8,7 +8,12 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react'
-import { safeGetJson, safeSetJson, safeRemoveItem } from '../utils/storage'
+import { safeRemoveItem } from '../utils/storage'
+import {
+  locationSessionStorage,
+  readLocationSessionJson,
+  writeLocationSessionJson,
+} from '../utils/locationSessionStorage'
 import { IPC_INVOKE } from '../ipc/contracts'
 
 export interface PollenSpecies {
@@ -79,13 +84,13 @@ function isPollenCacheValid(cached: PollenCache, lat: number, lon: number): bool
 }
 
 function readPollenCache(lat: number, lon: number): PollenData | null {
-  const cached = safeGetJson<PollenCache>(POLLEN_CACHE_KEY)
+  const cached = readLocationSessionJson<PollenCache>(POLLEN_CACHE_KEY)
   if (!cached) return null
   return isPollenCacheValid(cached, lat, lon) ? cached.data : null
 }
 
 function writePollenCache(data: PollenData, lat: number, lon: number): void {
-  safeSetJson(POLLEN_CACHE_KEY, {
+  writeLocationSessionJson(POLLEN_CACHE_KEY, {
     data,
     timestamp: Date.now(),
     version: POLLEN_CACHE_VERSION,
@@ -94,7 +99,7 @@ function writePollenCache(data: PollenData, lat: number, lon: number): void {
 }
 
 export function clearPollenCache(): void {
-  safeRemoveItem(POLLEN_CACHE_KEY)
+  locationSessionStorage.removeItem(POLLEN_CACHE_KEY)
 }
 
 interface PollenFetchResult {
@@ -154,6 +159,9 @@ function applyPollenFetchError(
  * Returns null data (no error) when no API key is configured.
  */
 export function usePollen(location: { latitude: number; longitude: number } | null) {
+  useEffect(() => {
+    safeRemoveItem(POLLEN_CACHE_KEY)
+  }, [])
   const [state, setState] = useState<PollenState>({ data: null, loading: false, error: null })
   const mountedRef = useRef(true)
   const requestIdRef = useRef(0)

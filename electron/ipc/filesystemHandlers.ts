@@ -1,11 +1,12 @@
 import { ipcMain } from 'electron'
 import type { Dirent } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { detectLanguage } from '../../src/utils/detectLanguage'
 import { getErrorMessageWithFallback } from '../../src/utils/errorUtils'
 import { shouldIncludeDirEntry, compareDirEntries } from '../../src/utils/dirEntryUtils'
 import { IPC_INVOKE } from '../../src/ipc/contracts'
+import { FileTooLargeError, readFileSnapshot } from '../services/fileSnapshots'
 
 const MAX_FILE_SIZE = 1_048_576 // 1 MB
 
@@ -121,23 +122,21 @@ export function registerFilesystemHandlers(): void {
           return { content: '', language: 'binary', size: 0, error: 'Binary file — cannot preview' }
         }
 
-        const st = await stat(resolved)
-        if (st.size > MAX_FILE_SIZE) {
-          return {
-            content: '',
-            language: detectLanguage(resolved),
-            size: st.size,
-            error: `File too large (${(st.size / 1024 / 1024).toFixed(1)} MB). Max: 1 MB.`,
-          }
-        }
-
-        const content = await readFile(resolved, 'utf-8')
+        const { data } = await readFileSnapshot(resolved, MAX_FILE_SIZE)
         return {
-          content,
+          content: data.toString('utf8'),
           language: detectLanguage(resolved),
-          size: st.size,
+          size: data.length,
         }
       } catch (err: unknown) {
+        if (err instanceof FileTooLargeError) {
+          return {
+            content: '',
+            language: detectLanguage(path.resolve(filePath)),
+            size: err.size,
+            error: `File too large (${(err.size / 1024 / 1024).toFixed(1)} MB). Max: 1 MB.`,
+          }
+        }
         return {
           content: '',
           language: 'plaintext',

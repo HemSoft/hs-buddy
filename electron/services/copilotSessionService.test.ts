@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterAll } from 'vitest'
 import { EventEmitter } from 'events'
 
 const mockExistsSync = vi.fn((_p: string): boolean => false)
-const mockReadFileSync = vi.fn((_p: string, _encoding?: BufferEncoding): string => {
+const mockReadFileSync = vi.fn((_p: string | number, _encoding?: BufferEncoding): string => {
   throw new Error('ENOENT')
 })
 const mockOpenSync = vi.fn((_p: string): number => 3)
@@ -12,16 +12,18 @@ const mockReadSync = vi.fn(
 const mockCloseSync = vi.fn((_fd: number): void => {})
 const mockReaddirSync = vi.fn((_dir: string): string[] => [])
 const mockStatSync = vi.fn((_p: string) => ({ size: 100, mtimeMs: Date.now() }))
+const mockFstatSync = vi.fn((_fd: number) => ({ size: 100, mtimeMs: Date.now() }))
 
 vi.mock('fs', () => ({
   existsSync: (p: string) => mockExistsSync(p),
-  readFileSync: (p: string, encoding?: BufferEncoding) => mockReadFileSync(p, encoding),
+  readFileSync: (p: string | number, encoding?: BufferEncoding) => mockReadFileSync(p, encoding),
   openSync: (p: string) => mockOpenSync(p),
   readSync: (fd: number, buf: Buffer, off: number, len: number, pos: number | null) =>
     mockReadSync(fd, buf, off, len, pos),
   closeSync: (fd: number) => mockCloseSync(fd),
   readdirSync: (dir: string) => mockReaddirSync(dir),
   statSync: (p: string) => mockStatSync(p),
+  fstatSync: (fd: number) => mockFstatSync(fd),
   createReadStream: vi.fn(() => {
     const emitter = new EventEmitter()
     setTimeout(() => emitter.emit('end'), 0)
@@ -324,9 +326,29 @@ describe('copilotSessionService', () => {
 
   describe('getSessionDetail', () => {
     it('returns null when file does not exist', async () => {
-      mockExistsSync.mockReturnValue(false)
+      mockOpenSync.mockImplementation(() => {
+        throw Object.assign(new Error('Missing file'), { code: 'ENOENT' })
+      })
       const result = await getSessionDetail('/nonexistent/file.jsonl')
       expect(result).toBeNull()
+      expect(mockExistsSync).not.toHaveBeenCalled()
+    })
+
+    it.each(['large', 'metadata-error'])('closes the descriptor before %s fallback', async mode => {
+      if (mode === 'large') {
+        mockFstatSync.mockReturnValue({ size: 128 * 1024 + 1, mtimeMs: 0 })
+      } else {
+        mockFstatSync.mockImplementation(() => {
+          throw new Error('metadata unavailable')
+        })
+      }
+      const rlEmitter = new EventEmitter()
+      mockCreateInterface.mockReturnValue(rlEmitter)
+      const promise = getSessionDetail('/workspace/hash1/chatSessions/test.jsonl')
+      expect(mockReadFileSync).not.toHaveBeenCalled()
+      expect(mockCloseSync).toHaveBeenCalledWith(3)
+      rlEmitter.emit('close')
+      expect(await promise).toBeNull()
     })
 
     it('returns null on stream error', async () => {
@@ -438,10 +460,9 @@ describe('copilotSessionService', () => {
 
       expect(result).not.toBeNull()
       expect(result!.sessionId).toBe('small-session')
-      expect(mockReadFileSync).toHaveBeenCalledWith(
-        '/workspace/hash1/chatSessions/test.jsonl',
-        'utf8'
-      )
+      expect(mockFstatSync).toHaveBeenCalledWith(3)
+      expect(mockReadFileSync).toHaveBeenCalledWith(3, 'utf8')
+      expect(mockCloseSync).toHaveBeenCalledWith(3)
       expect(createReadStream).not.toHaveBeenCalled()
     })
 

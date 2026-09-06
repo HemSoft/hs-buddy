@@ -104,12 +104,10 @@ function generateJSONLFixture(requestCount: number): string {
 
 // ─── Temp file management ─────────────────────────────────
 
-const tmpDir = path.join(os.tmpdir(), 'buddy-bench-jsonl')
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'buddy-bench-jsonl-'))
 const fixtures: Record<string, string> = {}
 
 beforeAll(() => {
-  fs.mkdirSync(tmpDir, { recursive: true })
-
   for (const count of [10, 100, 500]) {
     const filePath = path.join(tmpDir, `session-${count}.jsonl`)
     fs.writeFileSync(filePath, generateJSONLFixture(count))

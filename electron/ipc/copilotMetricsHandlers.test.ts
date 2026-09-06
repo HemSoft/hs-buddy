@@ -6,8 +6,7 @@ const mocks = vi.hoisted(() => ({
   ipcHandle: vi.fn(),
   normalizeSnapshot: vi.fn(),
   parseContent: vi.fn(),
-  readFile: vi.fn(),
-  stat: vi.fn(),
+  readFileSnapshot: vi.fn(),
 }))
 
 vi.mock('electron', () => ({
@@ -16,9 +15,8 @@ vi.mock('electron', () => ({
   },
 }))
 
-vi.mock('node:fs/promises', () => ({
-  readFile: mocks.readFile,
-  stat: mocks.stat,
+vi.mock('../services/fileSnapshots', () => ({
+  readFileSnapshot: mocks.readFileSnapshot,
 }))
 
 vi.mock('../../src/utils/copilotEnterpriseUsers', () => ({
@@ -56,8 +54,10 @@ describe('copilotMetricsHandlers', () => {
     const parsed = { users: [] }
     const snapshot = { generatedAt: '2026-06-03T00:00:00.000Z', users: [] }
     process.env.COPILOT_METRICS_FILE = metricsFile
-    mocks.stat.mockResolvedValue({ mtime: new Date('2026-06-03T01:02:03.000Z') })
-    mocks.readFile.mockResolvedValue('{"users":[]}')
+    mocks.readFileSnapshot.mockResolvedValue({
+      stats: { mtime: new Date('2026-06-03T01:02:03.000Z') },
+      data: Buffer.from('{"users":[]}'),
+    })
     mocks.parseContent.mockReturnValue(parsed)
     mocks.normalizeSnapshot.mockReturnValue(snapshot)
 
@@ -69,12 +69,21 @@ describe('copilotMetricsHandlers', () => {
     const result = await handler()
     const resolvedFile = resolve(metricsFile)
 
-    expect(mocks.stat).toHaveBeenCalledWith(resolvedFile)
-    expect(mocks.readFile).toHaveBeenCalledWith(resolvedFile, 'utf-8')
+    expect(mocks.readFileSnapshot).toHaveBeenCalledWith(resolvedFile)
     expect(mocks.normalizeSnapshot).toHaveBeenCalledWith(parsed, {
       sourceFile: resolvedFile,
       fileLastWriteTime: '2026-06-03T01:02:03.000Z',
     })
     expect(result).toEqual({ success: true, data: snapshot })
+  })
+
+  it('reports an opened-file read failure without publishing a snapshot', async () => {
+    mocks.readFileSnapshot.mockRejectedValue(new Error('File disappeared'))
+    registerCopilotMetricsHandlers()
+    const handler = mocks.ipcHandle.mock.calls.find(
+      ([channel]) => channel === IPC_INVOKE.GITHUB_GET_COPILOT_ENTERPRISE_USERS
+    )?.[1]
+    expect(await handler()).toEqual({ success: false, error: 'File disappeared' })
+    expect(mocks.normalizeSnapshot).not.toHaveBeenCalled()
   })
 })

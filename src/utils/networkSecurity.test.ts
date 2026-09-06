@@ -162,6 +162,31 @@ describe('isInternalHostname', () => {
 // --- decodeHtmlEntities ---
 
 describe('decodeHtmlEntities', () => {
+  it('decodes only the original entity layer', () => {
+    expect(decodeHtmlEntities('&amp;lt;script&amp;gt;')).toBe('&lt;script&gt;')
+    expect(decodeHtmlEntities('&#38;lt;&#x26;gt;')).toBe('&lt;&gt;')
+    expect(decodeHtmlEntities('&#38;amp; &#x26;quot; &amp;#65;')).toBe('&amp; &quot; &#65;')
+  })
+
+  it('preserves unsupported entities and accepts uppercase hexadecimal notation', () => {
+    expect(decodeHtmlEntities('&#X4a; &#x4B; &AMP; &unknown;')).toBe('J K &AMP; &unknown;')
+  })
+
+  it('decodes astral Unicode and preserves valid scalar boundaries', () => {
+    expect(decodeHtmlEntities('&#128512; &#x1F600;')).toBe('😀 😀')
+    for (const code of [1, 0xd7ff, 0xe000, 0xffff, 0x10000, 0x10ffff]) {
+      expect(decodeHtmlEntities(`&#${code};`)).toBe(String.fromCodePoint(code))
+    }
+  })
+
+  it('replaces invalid Unicode references without throwing or wrapping', () => {
+    for (const code of [0, 0xd800, 0xdfff, 0x110000]) {
+      expect(decodeHtmlEntities(`&#${code};`)).toBe('\uFFFD')
+    }
+    expect(decodeHtmlEntities(`&#${'9'.repeat(400)};`)).toBe('\uFFFD')
+    expect(decodeHtmlEntities('&amp;#128512;')).toBe('&#128512;')
+  })
+
   it('decodes numeric entities', () => {
     expect(decodeHtmlEntities('&#65;&#66;')).toBe('AB')
   })

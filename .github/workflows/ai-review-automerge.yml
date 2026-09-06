@@ -5,10 +5,6 @@ on:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, labeled, unlabeled, edited]
   issue_comment:
     types: [created, edited, deleted]
-  pull_request_review:
-    types: [submitted, edited, dismissed]
-  pull_request_review_comment:
-    types: [created, edited, deleted]
   workflow_run:
     workflows: [CI, Security Scanning]
     types: [completed]
@@ -33,6 +29,7 @@ jobs:
   reconcile:
     if: >-
       github.repository == 'HemSoft/hs-buddy' &&
+      github.ref == 'refs/heads/main' &&
       (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: ubuntu-latest
     timeout-minutes: 15

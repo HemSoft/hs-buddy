@@ -35,12 +35,16 @@ after satisfying the same required review check.
 
 ## Operation
 
-[The workflow](../.github/workflows/ai-review-automerge.yml) responds to PR and
-review metadata, comments, and CI/security completion. A ten-minute scheduled
-pass catches reaction changes, resolved threads, and missed events. GitHub
-Actions has no `pull_request_review_thread` trigger. Schedules may be delayed.
+[The workflow](../.github/workflows/ai-review-automerge.yml) responds to PR
+metadata, issue comments, and CI/security completion. A ten-minute scheduled
+pass catches formal reviews, reaction changes, resolved threads, and missed
+events. GitHub Actions has no `pull_request_review_thread` trigger. Schedules
+may be delayed.
 
-The controller checks out trusted `main` code and never executes PR code or
+Automatic triggers use the base or default branch workflow definition. Review
+events are deliberately excluded because their workflow definition comes from
+the PR merge ref. Manual dispatch must select `main`. The controller checks out
+trusted `main` code and never executes PR code or
 downloads PR artifacts. Its installation token is scoped to this repository
 and the checks, contents, issues, and pull requests permissions it needs. The
 workflow adds no AI calls and no reviewer-trigger comments.

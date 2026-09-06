@@ -77,6 +77,11 @@ uses an exclusive file create and cannot overwrite an existing baseline. Policy
 changes require an explicit reviewed implementation change; there is no automatic
 baseline increase path.
 
+Every exception must still identify a measured function. Removing or changing an
+accepted function requires `bun run crap:ratchet` to prune its old exception.
+Restoring that function later is checked as new debt. Coverage freshness includes
+the root, Node, Convex, and script TypeScript configurations for every suite.
+
 ## CI and verification
 
 Three `crap-coverage` jobs collect suites independently, with four test workers

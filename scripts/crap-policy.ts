@@ -39,6 +39,11 @@ export function compareBaseline(previous: CrapBaseline, next: CrapBaseline): voi
 
 export function crapFailures(rows: CrapRow[], baseline: CrapBaseline): CrapRow[] {
   validateBaseline(baseline)
+  const current = new Set(rows.map(row => `${row.file}:${row.id}`))
+  for (const id of Object.keys(baseline.exceptions)) {
+    if (!current.has(id))
+      throw new Error(`Stale CRAP baseline exception: ${id}; run bun run crap:ratchet`)
+  }
   return rows.filter(
     row => row.score > (baseline.exceptions[`${row.file}:${row.id}`] ?? CRAP_THRESHOLD) + 1e-10
   )

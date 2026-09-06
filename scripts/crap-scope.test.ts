@@ -40,6 +40,16 @@ describe('CRAP source freshness', () => {
     files.set('scripts/helper.ts', 'changed')
     expect(sourceFingerprint('renderer')).not.toBe(fingerprint)
   })
+  it.each(['tsconfig.json', 'tsconfig.node.json', 'tsconfig.convex.json', 'tsconfig.scripts.json'])(
+    'invalidates every suite when compiler configuration %s changes',
+    file => {
+      const suites = ['renderer', 'electron', 'convex'] as const
+      const initial = suites.map(sourceFingerprint)
+      files.set(file, '{"compilerOptions":{"useDefineForClassFields":false}}')
+      for (const [index, suite] of suites.entries())
+        expect(sourceFingerprint(suite)).not.toBe(initial[index])
+    }
+  )
   it('keeps future production features in scope and excludes only step definitions', () => {
     expect(isMeasuredFile('src/features/runtime.ts')).toBe(true)
     expect(isMeasuredFile('src/features/runtime.steps.ts')).toBe(false)

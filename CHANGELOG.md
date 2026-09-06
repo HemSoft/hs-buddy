@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1147] - 2026-09-06
+
+### Fixed
+
+- Invalidate stale CRAP policy and compiler inputs
+
 ## [0.1.1146] - 2026-09-06
 
 ### Fixed

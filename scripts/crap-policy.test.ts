@@ -33,6 +33,15 @@ describe('CRAP non-regression policy', () => {
       'cannot increase'
     )
   })
+  it('requires deleted functions to lose their exceptions before restored code is checked', () => {
+    const previous = baselineFor([row], commit)
+    expect(() => crapFailures([], previous)).toThrow('Stale CRAP baseline exception')
+    const pruned = baselineFor([], commit)
+    expect(() => compareBaseline(previous, pruned)).not.toThrow()
+    expect(crapFailures([], pruned)).toEqual([])
+    expect(crapFailures([row], pruned)).toEqual([row])
+    expect(() => compareBaseline(pruned, previous)).toThrow('cannot increase')
+  })
   it('allows only a ratchet down and keeps threshold 10 fixed', () => {
     const previous = baselineFor([row], commit)
     expect(() =>

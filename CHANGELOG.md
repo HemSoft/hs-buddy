@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1153] - 2026-09-06
+
+### Changed
+
+- Reduce production lint quality debt (#657)
+
+## [0.1.1152] - 2026-09-06
+
+### Changed
+
+- Reduce production lint quality debt (#657)
+
 ## [0.1.1151] - 2026-09-06
 
 ### Fixed

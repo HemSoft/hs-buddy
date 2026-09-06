@@ -1,3 +1,13 @@
+## Current measurement
+
+Use [the per-function CRAP gate](CRAP-CI.md) and `bun run crap:check` for current
+results. The maintained initial baseline at commit
+`3d5e565159cfa1dc341ce9831b0d6f6107a74183` measures 6,714 functions, 44 above 10,
+and a worst score of 20. The historical snapshots below used a different,
+non-authoritative coverage approximation and are not comparable.
+
+---
+
 ## 2026-06-13 — CRAP Score Snapshot (TypeScript)
 
 | Metric | Value |

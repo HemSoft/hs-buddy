@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1145] - 2026-09-06
+
+### Changed
+
+- Measure and gate per-function CRAP (#656)
+
 ## [0.1.1144] - 2026-09-06
 
 ### Changed

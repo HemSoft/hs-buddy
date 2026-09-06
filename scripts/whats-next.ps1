@@ -310,28 +310,10 @@ $results.Add((Invoke-SimpleGate -Gate 'Test Coverage' -Target '100% statements, 
     'Statements {0}%, Branches {1}%, Functions {2}%, Lines {3}%' -f $coverage.Statements, $coverage.Branches, $coverage.Functions, $coverage.Lines
 }))
 
-$complexityRun = Invoke-RepoCommand -Display 'npx eslint . --rule "complexity: [warn, 5]"' -FilePath 'npx' -Arguments @('eslint', '.', '--rule', 'complexity: [warn, 5]')
-$complexityText = $complexityRun.Output -join "`n"
-$complexitySummary = [regex]::Match($complexityText, '(\d+)\s+problems?\s+\(\d+\s+errors?,\s+(\d+)\s+warnings?\)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-if ($complexitySummary.Success) {
-    $complexityWarnings = [int]$complexitySummary.Groups[2].Value
-} else {
-    $complexityWarnings = Get-CountFromOutput $complexityRun.Output @('(\d+)\s+warnings?')
-}
-if ($null -eq $complexityWarnings) {
-    $complexityWarnings = @($complexityRun.Output | Select-String -Pattern 'complexity').Count
-}
-$coverageMetrics = Get-CoverageMetrics
-$coverageIsPerfect = $null -ne $coverageMetrics -and $coverageMetrics.Statements -eq 100 -and $coverageMetrics.Branches -eq 100 -and $coverageMetrics.Functions -eq 100 -and $coverageMetrics.Lines -eq 100
-$crapStatus = if ($complexityRun.ExitCode -eq 0 -and $complexityWarnings -eq 0 -and $coverageIsPerfect) { 'PASS' } else { 'FAIL' }
-$crapDetail = if ($coverageIsPerfect) {
-    if ($complexityWarnings -eq 0) { 'All functions covered and complexity <= 5, so CRAP < 6' } else { "$complexityWarnings function(s) exceed complexity 5; CRAP may be >= 6" }
-} elseif ($null -eq $coverageMetrics) {
-    'Coverage summary missing; cannot prove CRAP < 6'
-} else {
-    'Coverage is below 100%; {0} complexity warning(s)' -f $complexityWarnings
-}
-$results.Add((New-GateResult -Gate 'CRAP Score' -Target 'CRAP < 6 for every function' -Command 'npx eslint . --rule "complexity: [warn, 5]"' -Status $crapStatus -Detail $crapDetail -ExitCode $complexityRun.ExitCode -Seconds $complexityRun.Seconds))
+$results.Add((Invoke-SimpleGate -Gate 'CRAP Score' -Target 'Threshold 10; accepted per-function debt cannot increase' -Command 'bun run crap:check' -FilePath 'bun' -Arguments @('run', 'crap:check') -DetailFactory {
+    param($run)
+    ConvertTo-Detail $run.Output 5
+}))
 
 $results.Add((Invoke-SimpleGate -Gate 'Knip' -Target '0 findings' -Command 'bun run knip' -FilePath 'bun' -Arguments @('run', 'knip') -DetailFactory {
     param($run)

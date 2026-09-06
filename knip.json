@@ -19,7 +19,8 @@
         "electron/**/*.test.ts",
         "perf/**/*.bench.ts",
         "perf/**/*.test.ts",
-        "e2e/*.ts"
+        "e2e/*.ts",
+        "vitest.crap.config.ts"
       ],
       "project": [
         "src/**/*.{ts,tsx}",

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1144",
+  "version": "0.1.1145",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -60,7 +60,11 @@
     "test:e2e": "npx playwright test --project=browser-e2e",
     "test:e2e:install": "npx playwright install chrome",
     "test:ipc-contracts": "vitest run src/ipc/contracts.test.ts src/ipc/contracts.registration.test.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "crap:coverage": "bun scripts/crap-coverage.ts",
+    "crap": "bun scripts/crap-report.ts",
+    "crap:check": "bun run crap:coverage && bun run crap",
+    "crap:ratchet": "bun scripts/crap-report.ts --update-baseline"
   },
   "keywords": [
     "electron",
@@ -121,10 +125,12 @@
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/istanbul-lib-instrument": "1.7.8",
     "@types/node": "^26.1.1",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "@vitest/coverage-istanbul": "4.1.11",
     "@vitest/coverage-v8": "4.1.11",
     "convex-test": "0.0.56",
     "dependency-cruiser": "^18.1.0",
@@ -141,6 +147,7 @@
     "globals": "^17.7.0",
     "happy-dom": "^20.10.6",
     "husky": "^9.1.7",
+    "istanbul-lib-instrument": "6.0.3",
     "knip": "^6.24.0",
     "lint-staged": "^17.0.8",
     "markdownlint-cli2": "^0.23.2",

@@ -17,8 +17,7 @@ export const CRAP_EXCLUSIONS = [
   'src/browser-ipc-mock.ts',
 ]
 
-export function ownedFiles(suite: CrapSuite): string[] {
-  const roots = suite === 'renderer' ? ['src', 'shared'] : [suite]
+function repositoryFiles(roots: string[]): string[] {
   return execFileSync(
     'git',
     ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...roots],
@@ -27,6 +26,10 @@ export function ownedFiles(suite: CrapSuite): string[] {
     .split('\0')
     .filter(file => /\.tsx?$/.test(file))
     .sort()
+}
+
+export function ownedFiles(suite: CrapSuite): string[] {
+  return repositoryFiles(suite === 'renderer' ? ['src', 'shared'] : [suite])
 }
 
 export function sourceFingerprint(suite: CrapSuite): string {
@@ -41,8 +44,9 @@ export function sourceFingerprint(suite: CrapSuite): string {
     'scripts/crap-instrumenter.ts',
     'scripts/crap-coverage.ts',
   ]
+  const tests = suite === 'renderer' ? repositoryFiles(['scripts', 'perf']) : []
   const hash = createHash('sha256')
-  for (const file of [...ownedFiles(suite), ...config].sort()) {
+  for (const file of [...new Set([...ownedFiles(suite), ...tests, ...config])].sort()) {
     hash.update(file + '\0' + readFileSync(file, 'utf8').replaceAll('\r\n', '\n') + '\0')
   }
   return hash.digest('hex')

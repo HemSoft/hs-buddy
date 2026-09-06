@@ -38,6 +38,24 @@ export interface CrapFunction {
   score: number
 }
 
+function lexicalContext(node: Rule.Node, context: Rule.RuleContext): string[][] {
+  return context.sourceCode.getAncestors(node).flatMap(parent => {
+    let owner
+    if (parent.type === 'VariableDeclarator') owner = parent.id
+    if (parent.type === 'Property' || parent.type === 'MethodDefinition') owner = parent.key
+    if (
+      parent.type === 'FunctionDeclaration' ||
+      parent.type === 'FunctionExpression' ||
+      parent.type === 'ClassDeclaration'
+    )
+      owner = parent.id
+    if (parent.type === 'CallExpression') owner = parent.callee
+    return owner
+      ? [[parent.type, ...context.sourceCode.getTokens(owner).map(token => token.value)]]
+      : []
+  })
+}
+
 function functionMetric(
   node: Rule.Node,
   context: Rule.RuleContext,
@@ -50,7 +68,9 @@ function functionMetric(
     name: String(data.name),
     location,
     body,
-    fingerprint: createHash('sha256').update(JSON.stringify(tokens)).digest('hex'),
+    fingerprint: createHash('sha256')
+      .update(JSON.stringify([lexicalContext(node, context), tokens]))
+      .digest('hex'),
     complexity: Number(data.complexity),
   }
 }

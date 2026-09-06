@@ -69,10 +69,10 @@ describe('per-function CRAP arithmetic and evidence', () => {
 describe('coverage directive neutralization', () => {
   it('changes comment directives without moving source locations or changing strings', () => {
     const source =
-      '/* v8 ignore next */\nconst a = "v8 ignore next"; // istanbul ignore next\nconst b = () => 1'
+      '/* v8 ignore next */\nconst a = "v8 ignore next"; // istanbul ignore next\n/* c8 ignore next */\nconst b = () => 1'
     const result = withoutCoverageIgnores(source, 'fixture.ts')
     expect(result).toBe(
-      '/* xx ignore next */\nconst a = "v8 ignore next"; // xxxxxxxx ignore next\nconst b = () => 1'
+      '/* xx ignore next */\nconst a = "v8 ignore next"; // xxxxxxxx ignore next\n/* xx ignore next */\nconst b = () => 1'
     )
     expect(result.length).toBe(source.length)
   })

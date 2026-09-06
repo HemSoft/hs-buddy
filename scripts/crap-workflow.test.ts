@@ -10,7 +10,7 @@ describe('required CRAP qualification', () => {
     expect(collection).toContain('run: bun run crap:coverage ${{ matrix.suite }}')
     const gate = ci.split('  crap:')[1].split('  ci-complete:')[0]
     expect(gate).toContain('needs: [crap-coverage]')
-    expect(gate).toContain('test "$COVERAGE_RESULT" = success')
+    expect(gate).toContain('COVERAGE_RESULT: ${{ needs.crap-coverage.result }}')
     expect(gate).toContain('bun run crap')
     expect(gate).toContain('if: always()')
     expect(gate).toContain('path: reports/crap/report.json')

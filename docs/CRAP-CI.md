@@ -62,7 +62,7 @@ maps from the same run; paths are normalized across Windows and Linux checkouts.
 The historical actionable threshold remains **10**. A new function above 10
 fails. Existing debt is recorded in `crap-baseline.json`; each accepted function
 must stay at or below its recorded score. Baseline identities use file path,
-comment/whitespace-independent token hash and duplicate ordinal. A changed
+lexical context, comment/whitespace-independent token hash and duplicate ordinal. A changed
 function does not inherit an old exception merely because its name matches.
 
 The initial baseline measures production source at commit

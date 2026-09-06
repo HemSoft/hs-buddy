@@ -67,6 +67,9 @@ function checkBasePolicy(current: CrapBaseline): void {
 }
 
 try {
+  if (process.env.COVERAGE_RESULT && process.env.COVERAGE_RESULT !== 'success') {
+    throw new Error(`Coverage collection did not succeed: ${process.env.COVERAGE_RESULT}`)
+  }
   const rows = CRAP_SUITES.flatMap(measureSuite).sort(
     (a, b) =>
       a.file.localeCompare(b.file, 'en') || a.line - b.line || a.id.localeCompare(b.id, 'en')

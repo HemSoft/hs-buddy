@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1146] - 2026-09-06
+
+### Fixed
+
+- Harden CRAP evidence and function identities
+
 ## [0.1.1145] - 2026-09-06
 
 ### Changed

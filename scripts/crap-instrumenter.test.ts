@@ -3,6 +3,7 @@ import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { sourceCoverage } from './crap-instrumenter'
 import { measureFunctions, type FileCoverage } from './crap-metric'
+import { baselineFor, crapFailures } from './crap-policy'
 
 function collect(source: string, execute: string) {
   const filename = resolve('src/crap-fixture.ts')
@@ -63,6 +64,19 @@ describe('original TypeScript coverage identity', () => {
       coverage: 0,
       score: 30,
     })
+    expect(
+      crapFailures(
+        rows.map(row => ({ file: 'src/fixture.ts', ...row })),
+        baselineFor([], 'a'.repeat(40))
+      )
+    ).toHaveLength(1)
+  })
+  it('keeps function identity when an identical callback is inserted in another context', () => {
+    const source = 'const target = x => x ? 1 : 0'
+    const original = collect(source, 'target(true)')
+    const inserted = collect('const other = x => x ? 1 : 0; ' + source, 'target(true)')
+    expect(inserted[1].id).toBe(original[0].id)
+    expect(inserted[0].id).not.toBe(original[0].id)
   })
   it('keeps TypeScript generic arrows distinct from JSX parsing', () => {
     const collector = sourceCoverage(['src'])

@@ -78,6 +78,27 @@ describe('original TypeScript coverage identity', () => {
     expect(inserted[1].id).toBe(original[0].id)
     expect(inserted[0].id).not.toBe(original[0].id)
   })
+})
+
+describe('CRAP callback and syntax identity', () => {
+  it.each([
+    [
+      'class fields',
+      'class C { target = x => x }',
+      'class C { other = x => x; target = x => x }',
+      'new C()',
+    ],
+    ['constructor arguments', 'new Promise(x => x)', 'new Set(x => x); new Promise(x => x)', ''],
+  ])('distinguishes identical callbacks in %s', (_kind, source, insertedSource, execute) => {
+    // The constructor only records its callback; no asynchronous execution is needed.
+    const constructors =
+      'class Promise { constructor(callback) {} }; class Set { constructor(callback) {} };'
+    const prefix = _kind === 'constructor arguments' ? constructors : ''
+    const initial = collect(prefix + source, execute)
+    const inserted = collect(prefix + insertedSource, execute)
+    expect(inserted.at(-1)!.id).toBe(initial.at(-1)!.id)
+    expect(inserted.at(-2)!.id).not.toBe(initial.at(-1)!.id)
+  })
   it('keeps TypeScript generic arrows distinct from JSX parsing', () => {
     const collector = sourceCoverage(['src'])
     collector.instrumenter({

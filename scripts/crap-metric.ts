@@ -41,15 +41,9 @@ export interface CrapFunction {
 function lexicalContext(node: Rule.Node, context: Rule.RuleContext): string[][] {
   return context.sourceCode.getAncestors(node).flatMap(parent => {
     let owner
-    if (parent.type === 'VariableDeclarator') owner = parent.id
-    if (parent.type === 'Property' || parent.type === 'MethodDefinition') owner = parent.key
-    if (
-      parent.type === 'FunctionDeclaration' ||
-      parent.type === 'FunctionExpression' ||
-      parent.type === 'ClassDeclaration'
-    )
-      owner = parent.id
-    if (parent.type === 'CallExpression') owner = parent.callee
+    if ('id' in parent) owner = parent.id
+    if ('key' in parent) owner = parent.key
+    if (parent.type === 'CallExpression' || parent.type === 'NewExpression') owner = parent.callee
     return owner
       ? [[parent.type, ...context.sourceCode.getTokens(owner).map(token => token.value)]]
       : []

@@ -82,6 +82,13 @@ accepted function requires `bun run crap:ratchet` to prune its old exception.
 Restoring that function later is checked as new debt. Coverage freshness includes
 the root, Node, Convex, and script TypeScript configurations for every suite.
 
+Freshness conservatively includes all TypeScript under `scripts` and `perf` because
+renderer tests can import those tools and helpers. An unrelated edit there may
+require recollection. Function identities include lexical owners, including class
+fields and constructor calls. Renaming or moving an owner changes its descendants'
+identities; accepted debt must be reduced rather than automatically transferred
+to a different owner. Whitespace and line insertion do not change identities.
+
 ## CI and verification
 
 Three `crap-coverage` jobs collect suites independently, with four test workers

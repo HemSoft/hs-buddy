@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1148] - 2026-09-06
+
+### Fixed
+
+- Distinguish CRAP class and constructor callbacks
+
 ## [0.1.1147] - 2026-09-06
 
 ### Fixed

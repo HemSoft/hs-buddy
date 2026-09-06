@@ -40,6 +40,24 @@ describe('CRAP source freshness', () => {
     files.set('scripts/helper.ts', 'changed')
     expect(sourceFingerprint('renderer')).not.toBe(fingerprint)
   })
+  it.each([
+    'src/cross-suite.ts',
+    'electron/cross-suite.ts',
+    'shared/cross-suite.ts',
+    'convex/cross-suite.ts',
+    'scripts/cross-suite.ts',
+    'perf/cross-suite.ts',
+  ])('invalidates every suite when cross-suite input %s is added or changed', file => {
+    const suites = ['renderer', 'electron', 'convex'] as const
+    const initial = suites.map(sourceFingerprint)
+    files.set(file, 'export const value = 1')
+    const added = suites.map(sourceFingerprint)
+    files.set(file, 'export const value = 2')
+    for (const [index, suite] of suites.entries()) {
+      expect(added[index]).not.toBe(initial[index])
+      expect(sourceFingerprint(suite)).not.toBe(added[index])
+    }
+  })
   it.each(['tsconfig.json', 'tsconfig.node.json', 'tsconfig.convex.json', 'tsconfig.scripts.json'])(
     'invalidates every suite when compiler configuration %s changes',
     file => {

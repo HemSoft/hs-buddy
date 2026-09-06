@@ -69,17 +69,31 @@ function functionMetric(
   }
 }
 
-function functionsIn(source: string, filename: string): FunctionMetric[] {
+function functionsIn(source: string, filename: string) {
   const functions: FunctionMetric[] = []
+  let fileFingerprint = ''
   const complexity = builtinRules.get('complexity')!
   const collector: Rule.RuleModule = {
     meta: complexity.meta,
     create(context) {
+      fileFingerprint = createHash('sha256')
+        .update(
+          JSON.stringify(
+            context.sourceCode
+              .getTokens(context.sourceCode.ast)
+              .map(token => [token.type, token.value])
+          )
+        )
+        .digest('hex')
       const capture = Object.create(context) as Rule.RuleContext
       Object.defineProperty(capture, 'report', {
         value(descriptor: Rule.ReportDescriptor) {
           if (!('node' in descriptor) || !descriptor.node || !descriptor.data)
             throw new Error('Unexpected complexity report')
+          if (
+            ['Class field initializer', 'Class static block'].includes(String(descriptor.data.name))
+          )
+            return
           const node = descriptor.node as Rule.Node
           if (
             ['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(
@@ -108,7 +122,10 @@ function functionsIn(source: string, filename: string): FunctionMetric[] {
   )
   const errors = messages.filter(message => message.severity === 2)
   if (errors.length) throw new Error(errors.map(message => message.message).join('; '))
-  return functions.sort((a, b) => compare(a.location.start, b.location.start))
+  return {
+    functions: functions.sort((a, b) => compare(a.location.start, b.location.start)),
+    fileFingerprint,
+  }
 }
 
 function compare(a: Position, b: Position): number {
@@ -167,12 +184,15 @@ export function measureFunctions(
   coverage: FileCoverage | undefined,
   filename = 'source.ts'
 ): CrapFunction[] {
-  const functions = functionsIn(source, filename)
+  const { functions, fileFingerprint } = functionsIn(source, filename)
+  const counts = new Map<string, number>()
+  for (const fn of functions) counts.set(fn.fingerprint, (counts.get(fn.fingerprint) ?? 0) + 1)
   const duplicates = new Map<string, number>()
   return functions.map(fn => {
     const index = duplicates.get(fn.fingerprint) ?? 0
     duplicates.set(fn.fingerprint, index + 1)
-    const id = `${fn.fingerprint}:${index}`
+    const scope = counts.get(fn.fingerprint)! > 1 ? `:${fileFingerprint}` : ''
+    const id = `${fn.fingerprint}${scope}:${index}`
     const coverageId = coverage && matchingCoverage(fn, coverage)
     if (!coverage || coverageId === undefined)
       throw new Error(`Missing matching function coverage: ${fn.name} at ${fn.location.start.line}`)

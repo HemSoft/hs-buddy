@@ -66,7 +66,7 @@ lexical context, comment/whitespace-independent token hash and duplicate ordinal
 function does not inherit an old exception merely because its name matches.
 
 The initial baseline measures production source at commit
-`3d5e565159cfa1dc341ce9831b0d6f6107a74183`: **6,714 functions**, **44 above 10**,
+`3d5e565159cfa1dc341ce9831b0d6f6107a74183`: **6,713 functions**, **44 above 10**,
 and a **worst score of 20**. The old file-coverage approximation is not comparable
 to this measurement. No production behavior was changed to establish this baseline.
 
@@ -82,12 +82,17 @@ accepted function requires `bun run crap:ratchet` to prune its old exception.
 Restoring that function later is checked as new debt. Coverage freshness includes
 the root, Node, Convex, and script TypeScript configurations for every suite.
 
-Freshness conservatively includes all TypeScript under `scripts` and `perf` because
-renderer tests can import those tools and helpers. An unrelated edit there may
-require recollection. Function identities include lexical owners, including class
+Every suite fingerprints all TypeScript under `src`, `shared`, `electron`,
+`convex`, `scripts`, and `perf` because tests import code across those roots.
+An unrelated edit there may require recollection of every suite. Function
+identities include lexical owners, including class
 fields and constructor calls. Renaming or moving an owner changes its descendants'
 identities; accepted debt must be reduced rather than automatically transferred
 to a different owner. Whitespace and line insertion do not change identities.
+Otherwise indistinguishable callbacks also include the containing file's token
+hash in their IDs. Deleting or changing code in that file invalidates those
+ambiguous allowances, preventing an ordinal shift from transferring accepted debt.
+Whitespace and comments do not change that token hash.
 
 ## CI and verification
 

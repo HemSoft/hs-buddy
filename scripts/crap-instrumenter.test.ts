@@ -3,7 +3,7 @@ import { runInNewContext } from 'node:vm'
 import { describe, expect, it } from 'vitest'
 import { sourceCoverage } from './crap-instrumenter'
 import { measureFunctions, type FileCoverage } from './crap-metric'
-import { baselineFor, crapFailures } from './crap-policy'
+import { baselineFor, compareBaseline, crapFailures } from './crap-policy'
 
 function collect(source: string, execute: string) {
   const filename = resolve('src/crap-fixture.ts')
@@ -81,6 +81,27 @@ describe('original TypeScript coverage identity', () => {
 })
 
 describe('CRAP callback and syntax identity', () => {
+  it('invalidates duplicate allowances when deletion renumbers the surviving callback', () => {
+    const callback =
+      'x => { if(x.a) return 1; if(x.b) return 2; if(x.c) return 3; if(x.d) return 4; return 0 }'
+    const source = `const callbacks = [${callback}, ${callback}]`
+    const original = collect(source, 'callbacks[1]({})').map(row => ({
+      file: 'src/fixture.ts',
+      ...row,
+    }))
+    const baseline = baselineFor(original, 'a'.repeat(40))
+    const surviving = collect(`const callbacks = [${callback}]`, '').map(row => ({
+      file: 'src/fixture.ts',
+      ...row,
+    }))
+    expect(surviving[0].id).not.toBe(original[0].id)
+    expect(() => crapFailures(surviving, baseline)).toThrow('Stale CRAP baseline exception')
+    expect(() => compareBaseline(baseline, baselineFor(surviving, 'a'.repeat(40)))).toThrow(
+      'cannot increase'
+    )
+    const formatted = collect('// comment\n' + source.replaceAll(';', ';\n'), 'callbacks[1]({})')
+    expect(formatted.map(row => row.id)).toEqual(original.map(row => row.id))
+  })
   it.each([
     [
       'class fields',
@@ -96,6 +117,10 @@ describe('CRAP callback and syntax identity', () => {
     const prefix = _kind === 'constructor arguments' ? constructors : ''
     const initial = collect(prefix + source, execute)
     const inserted = collect(prefix + insertedSource, execute)
+    if (_kind === 'class fields') {
+      expect(initial).toHaveLength(1)
+      expect(inserted).toHaveLength(2)
+    }
     expect(inserted.at(-1)!.id).toBe(initial.at(-1)!.id)
     expect(inserted.at(-2)!.id).not.toBe(initial.at(-1)!.id)
   })

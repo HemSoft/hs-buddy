@@ -48,9 +48,12 @@ export function sourceFingerprint(suite: CrapSuite): string {
     'scripts/crap-instrumenter.ts',
     'scripts/crap-coverage.ts',
   ]
-  const tests = suite === 'renderer' ? repositoryFiles(['scripts', 'perf']) : []
+  // Tests cross production-root boundaries, so partial recollection must not
+  // qualify counters from any older maintained source or test helper.
+  const inputs = repositoryFiles(['src', 'shared', 'electron', 'convex', 'scripts', 'perf'])
   const hash = createHash('sha256')
-  for (const file of [...new Set([...ownedFiles(suite), ...tests, ...config])].sort()) {
+  hash.update(suite + '\0')
+  for (const file of [...new Set([...inputs, ...config])].sort()) {
     hash.update(file + '\0' + readFileSync(file, 'utf8').replaceAll('\r\n', '\n') + '\0')
   }
   return hash.digest('hex')

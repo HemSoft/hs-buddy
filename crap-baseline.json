@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "threshold": 10,
-  "sourceCommit": "3d5e565159cfa1dc341ce9831b0d6f6107a74183",
+  "sourceCommit": "50ff92af23a8801721e17c843605fb7c30f95b83",
   "exceptions": {
     "convex/githubAccounts.ts:3bb61e6440a3f9e856095fcb0a3538559f467b6b9009f86806594f94d14a095e:0": 11.097393689986282,
     "convex/migrations.ts:02c0153d12721e142e71d4a64f63669a738f26c7929bb154c42420b0b1ade241:0": 10.05787037037037,
@@ -14,7 +14,6 @@
     "electron/ipc/configHandlers.ts:d01bbfcd3a47ec07790b01d340b697148f029c4dd5f1f22252d6a801b1254390:0": 13.259259259259261,
     "electron/ipc/terminalHandlers.ts:616e5409981be2eabbe476cdd0888c2c13d01acd568c8e9e80a86bdefd668c01:0": 12.332361516034986,
     "electron/ipc/terminalHandlers.ts:1b5c0f7ff72c6b80d54935c87df66cf50f95eea2199ea25dd84a7661686a59c4:0": 12.40740740740741,
-    "electron/services/codexUsageService.ts:8fc8dd899821342fffaa9a2fd67cf9d80b68c53d26a949e66c7c0dcabafe8c9d:0": 10.799999999999999,
     "src/api/github/orgs.ts:f6939f4565f99d7380ec595ed5e9ca5d525130a483fc43069a3aa6d094783ad9:0": 12.40740740740741,
     "src/api/github/pr-detail.ts:6fff6631da60f323ef0ddb7ac51dfc9a650274d52ee1f6092243bb6a8b8b4717:0": 20,
     "src/api/github/pr-detail.ts:b29af5653d58362dc87107a61806dcd9946943a8a82e99131f3dde7da3b40661:0": 10.75,

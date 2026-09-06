@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1157] - 2026-09-06
+
+### Changed
+
+- Cover secure Codex request defaults (#661)
+
 ## [0.1.1156] - 2026-09-06
 
 ### Fixed

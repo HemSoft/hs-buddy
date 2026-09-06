@@ -182,6 +182,36 @@ describe('fetchCodexUsage', () => {
   })
 })
 
+it('uses the selected CLI profile and fixed endpoint through the production defaults', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'hs-buddy-codex-defaults-'))
+  const previousHome = process.env.CODEX_HOME
+  const previousFetch = globalThis.fetch
+  const request = vi.fn(async () => new Response(usagePayload(), { status: 200 }))
+  try {
+    await writeFile(
+      join(directory, 'auth.json'),
+      JSON.stringify({ tokens: { access_token: 'synthetic-default-token' } })
+    )
+    process.env.CODEX_HOME = directory
+    globalThis.fetch = request
+    const result = await fetchCodexUsage()
+    expect(result.success).toBe(true)
+    expect(JSON.stringify(result)).not.toContain('synthetic-default-token')
+    expect(request).toHaveBeenCalledExactlyOnceWith(
+      'https://chatgpt.com/backend-api/wham/usage',
+      expect.objectContaining({
+        redirect: 'error',
+        headers: expect.objectContaining({ Authorization: 'Bearer synthetic-default-token' }),
+      })
+    )
+  } finally {
+    globalThis.fetch = previousFetch
+    if (previousHome === undefined) delete process.env.CODEX_HOME
+    else process.env.CODEX_HOME = previousHome
+    await rm(directory, { recursive: true, force: true })
+  }
+})
+
 describe('fetchCodexUsage failure handling', () => {
   let directory: string
   let authPath: string

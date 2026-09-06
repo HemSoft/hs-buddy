@@ -132,9 +132,10 @@ export async function reconcilePull(
     const snapshot = await readSnapshot(api, repository, number)
     return `PR #${number} ${pull.head.sha}: ${evaluateReview(snapshot).reason}; eligible=${eligibleForAutoMerge(snapshot, repository)}`
   }
-  const check = await pendingCheck(api, repository, pull)
   const enrollment = { armed: pull.auto_merge !== null }
+  let check: CheckRun | undefined
   try {
+    check = await pendingCheck(api, repository, pull)
     const snapshot = await readSnapshot(api, repository, number)
     if (snapshot.pull.head.sha !== pull.head.sha)
       throw new Error('Head changed after pending check')
@@ -148,13 +149,15 @@ export async function reconcilePull(
     try {
       if (enrollment.armed) await autoMerge(api, pull, false)
     } finally {
-      await finishCheck(
-        api,
-        repository,
-        check,
-        false,
-        'Evaluation failed or evidence changed; inspect the workflow run.'
-      )
+      if (check) {
+        await finishCheck(
+          api,
+          repository,
+          check,
+          false,
+          'Evaluation failed or evidence changed; inspect the workflow run.'
+        )
+      }
     }
     throw error
   }

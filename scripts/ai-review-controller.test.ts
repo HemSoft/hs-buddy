@@ -32,6 +32,7 @@ function fixture() {
     graphError: false,
     failDisable: false,
     failEnable: false,
+    failPending: false,
     enforced: true,
     appId: MERGE_APP_ID,
     threadPages: false,
@@ -66,7 +67,7 @@ function route(
   body: Record<string, unknown>
 ): unknown {
   if (path === '/graphql') return graph(data, body)
-  if (method === 'POST') return { id: 11, app: { id: data.appId } }
+  if (method === 'POST') return createCheck(data)
   if (method === 'PATCH') return {}
   if (path.endsWith('/pulls/1')) return data.pull
   if (path.includes('/comments?')) return commentsPage(data, path)
@@ -75,6 +76,11 @@ function route(
     return data.shared ? [data.pull, { ...data.pull, number: 2 }] : [data.pull]
   if (path.includes('/rules/')) return rules(data.enforced)
   return []
+}
+
+function createCheck(data: ReturnType<typeof fixture>) {
+  if (data.failPending) throw new Error('Checks API unavailable')
+  return { id: 11, app: { id: data.appId } }
 }
 
 function commentsPage(data: ReturnType<typeof fixture>, path: string) {
@@ -294,6 +300,25 @@ describe('complete review evidence', () => {
       allPages({ request: vi.fn().mockResolvedValue(Array(100).fill(0)) }, '/list')
     ).rejects.toThrow('pagination limit')
   })
+})
+
+describe('pending-check failure recovery', () => {
+  it.each(['API failure', 'wrong App'])(
+    'withdraws existing enrollment after %s before evidence is read',
+    async failure => {
+      const data = fixture()
+      data.pull.auto_merge = { merge_method: 'squash' }
+      data.pull.labels.push({ name: 'automerge:hold' })
+      data.failPending = failure === 'API failure'
+      if (failure === 'wrong App') data.appId = 9
+      await expect(reconcilePull(fakeApi(data), repo, 1, options)).rejects.toThrow()
+      expect(data.pull.auto_merge).toBeNull()
+      expect(
+        writes(data).some(call => String(call.body.query).includes('disablePullRequestAutoMerge'))
+      ).toBe(true)
+      expect(writes(data).some(call => call.body.conclusion === 'success')).toBe(false)
+    }
+  )
 })
 
 describe('restricted GitHub transport', () => {

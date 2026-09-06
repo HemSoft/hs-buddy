@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1161] - 2026-09-06
+
+### Fixed
+
+- Withdraw auto-merge when pending check creation fails
+
 ## [0.1.1160] - 2026-09-06
 
 ### Added

@@ -175,15 +175,29 @@ function OrgHeader({
           event.stopPropagation()
           onToggleOrg(org)
         }}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrg(org), true)}
+        onKeyDown={event => {
+          handleItemKeyDown(
+            event,
+            () => {
+              onToggleOrg(org)
+            },
+            true
+          )
+        }}
       >
         <OrgChevron isExpanded={isOrgExpanded} />
       </button>
       <button
         type="button"
         className="sidebar-item-main"
-        onClick={() => onItemSelect(`org-detail:${org}`)}
-        onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(`org-detail:${org}`))}
+        onClick={() => {
+          onItemSelect(`org-detail:${org}`)
+        }}
+        onKeyDown={event => {
+          handleItemKeyDown(event, () => {
+            onItemSelect(`org-detail:${org}`)
+          })
+        }}
       >
         <span className="sidebar-item-icon">
           <OrgFolderIcon isExpanded={isOrgExpanded} />
@@ -221,8 +235,14 @@ function TeamMembersList({
             type="button"
             key={member.login}
             className={`sidebar-item sidebar-team-member-child ${selectedItem === userViewId ? 'selected' : ''}`}
-            onClick={() => onItemSelect(userViewId)}
-            onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
+            onClick={() => {
+              onItemSelect(userViewId)
+            }}
+            onKeyDown={event => {
+              handleItemKeyDown(event, () => {
+                onItemSelect(userViewId)
+              })
+            }}
           >
             <span className="sidebar-item-icon">
               <UserRound size={10} />
@@ -332,9 +352,15 @@ function OrgTeamNode({
       <button
         type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-user-child"
-        onClick={() => onToggleTeam(org, team.slug)}
+        onClick={() => {
+          onToggleTeam(org, team.slug)
+        }}
         title={getTeamTitle(team)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleTeam(org, team.slug))}
+        onKeyDown={event => {
+          handleItemKeyDown(event, () => {
+            onToggleTeam(org, team.slug)
+          })
+        }}
       >
         <span className="sidebar-item-chevron">
           <OrgChevron isExpanded={isTeamExpanded} />
@@ -452,8 +478,14 @@ function OrgTeamsSection({
       <button
         type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        onClick={() => onToggleOrgTeamGroup(org)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgTeamGroup(org))}
+        onClick={() => {
+          onToggleOrgTeamGroup(org)
+        }}
+        onKeyDown={event => {
+          handleItemKeyDown(event, () => {
+            onToggleOrgTeamGroup(org)
+          })
+        }}
       >
         <span className="sidebar-item-chevron">
           {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -554,9 +586,17 @@ function UsersSectionContent({
               'sidebar-item sidebar-org-user-child',
               selectedItem === userViewId
             )}
-            onClick={() => onItemSelect(userViewId)}
-            onContextMenu={event => onUserContextMenu(event, org, member.login)}
-            onKeyDown={event => handleItemKeyDown(event, () => onItemSelect(userViewId))}
+            onClick={() => {
+              onItemSelect(userViewId)
+            }}
+            onContextMenu={event => {
+              onUserContextMenu(event, org, member.login)
+            }}
+            onKeyDown={event => {
+              handleItemKeyDown(event, () => {
+                onItemSelect(userViewId)
+              })
+            }}
           >
             <span className="sidebar-item-icon">
               {isFavorite ? (
@@ -600,8 +640,14 @@ function OrgUsersSection({
       <button
         type="button"
         className="sidebar-item sidebar-item-disclosure sidebar-org-users-item"
-        onClick={() => onToggleOrgUserGroup(org)}
-        onKeyDown={event => handleItemKeyDown(event, () => onToggleOrgUserGroup(org))}
+        onClick={() => {
+          onToggleOrgUserGroup(org)
+        }}
+        onKeyDown={event => {
+          handleItemKeyDown(event, () => {
+            onToggleOrgUserGroup(org)
+          })
+        }}
       >
         <span className="sidebar-item-chevron">
           {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}

@@ -260,7 +260,9 @@ function ScriptSpecificFields({
           type="number"
           min={1}
           value={prNumber}
-          onChange={e => onPrNumberChange(e.target.value)}
+          onChange={e => {
+            onPrNumberChange(e.target.value)
+          }}
           placeholder="e.g. 42"
         />
       </div>
@@ -278,7 +280,9 @@ function ScriptSpecificFields({
             id="ralph-labels"
             type="text"
             value={labels}
-            onChange={e => onLabelsChange(e.target.value)}
+            onChange={e => {
+              onLabelsChange(e.target.value)
+            }}
             placeholder="e.g. tech-debt,automated"
           />
         </div>
@@ -288,7 +292,9 @@ function ScriptSpecificFields({
               id="ralph-dryrun"
               type="checkbox"
               checked={dryRun}
-              onChange={e => onDryRunChange(e.target.checked)}
+              onChange={e => {
+                onDryRunChange(e.target.checked)
+              }}
             />
             Dry Run
             <span className="ralph-form-hint">scan only: don&apos;t create issues</span>
@@ -330,7 +336,9 @@ function IterationsRow({
           max={100}
           step={1}
           value={iterations}
-          onChange={e => onIterationsChange(e.target.value)}
+          onChange={e => {
+            onIterationsChange(e.target.value)
+          }}
           disabled={scriptChoice === 'ralph-pr'}
         />
       </div>
@@ -347,7 +355,9 @@ function IterationsRow({
           max={50}
           step={1}
           value={repeats}
-          onChange={e => onRepeatsChange(e.target.value)}
+          onChange={e => {
+            onRepeatsChange(e.target.value)
+          }}
           disabled={scriptChoice === 'ralph-pr' || scriptChoice === 'ralph-issues'}
         />
       </div>
@@ -378,7 +388,13 @@ function ModelProviderRow({
     <div className="ralph-form-row">
       <div className="ralph-form-field">
         <label htmlFor="ralph-model">Model</label>
-        <select id="ralph-model" value={model} onChange={e => onModelChange(e.target.value)}>
+        <select
+          id="ralph-model"
+          value={model}
+          onChange={e => {
+            onModelChange(e.target.value)
+          }}
+        >
           <option value="">Default ({defaultModel ?? '…'})</option>
           {modelOptions.map(o => (
             <option key={o.value} value={o.value}>
@@ -393,7 +409,9 @@ function ModelProviderRow({
         <select
           id="ralph-provider"
           value={provider}
-          onChange={e => onProviderChange(e.target.value)}
+          onChange={e => {
+            onProviderChange(e.target.value)
+          }}
         >
           <option value="">Default ({defaultProvider ?? '…'})</option>
           {providerOptions.map(o => (
@@ -419,7 +437,13 @@ function ScriptSelect({
   return (
     <div className="ralph-form-field">
       <label htmlFor="ralph-script">Script</label>
-      <select id="ralph-script" value={value} onChange={e => onChange(e.target.value)}>
+      <select
+        id="ralph-script"
+        value={value}
+        onChange={e => {
+          onChange(e.target.value)
+        }}
+      >
         <option value="ralph">ralph (full loop)</option>
         <option value="ralph-pr">ralph-pr (PR only)</option>
         <option value="ralph-issues">ralph-issues (scan & create issues)</option>
@@ -466,7 +490,9 @@ function PromptField({
       <textarea
         id="ralph-prompt"
         value={prompt}
-        onChange={e => onChange(e.target.value)}
+        onChange={e => {
+          onChange(e.target.value)
+        }}
         placeholder={getPromptPlaceholder(scriptChoice)}
         rows={5}
       />
@@ -503,7 +529,9 @@ function ReviewAgentsSection({
               <button
                 type="button"
                 className={`ralph-agent-chip ${isSelected ? 'selected' : ''}`}
-                onClick={() => onToggle(o.value)}
+                onClick={() => {
+                  onToggle(o.value)
+                }}
                 title={o.label}
               >
                 {o.value}
@@ -512,7 +540,9 @@ function ReviewAgentsSection({
                 <select
                   className="ralph-agent-model-select"
                   value={reviewerModels[o.value] ?? ''}
-                  onChange={e => onModelChange(o.value, e.target.value)}
+                  onChange={e => {
+                    onModelChange(o.value, e.target.value)
+                  }}
                   title={`Model for ${o.value}`}
                 >
                   <option value="">Default model</option>
@@ -941,7 +971,9 @@ export function RalphLaunchForm({
             id="ralph-repo"
             type="text"
             value={repoPath}
-            onChange={e => setRepoPath(e.target.value)}
+            onChange={e => {
+              setRepoPath(e.target.value)
+            }}
             placeholder="D:\github\org\repo"
           />
           <button
@@ -989,7 +1021,13 @@ export function RalphLaunchForm({
       <div className="ralph-form-row">
         <div className="ralph-form-field">
           <label htmlFor="ralph-dev-agent">Work Agent</label>
-          <select id="ralph-dev-agent" value={devAgent} onChange={e => setDevAgent(e.target.value)}>
+          <select
+            id="ralph-dev-agent"
+            value={devAgent}
+            onChange={e => {
+              setDevAgent(e.target.value)
+            }}
+          >
             <option value="">Default</option>
             {devAgentOptions.map(o => (
               <option key={o.value} value={o.value}>
@@ -1005,7 +1043,9 @@ export function RalphLaunchForm({
             id="ralph-branch"
             type="text"
             value={branch}
-            onChange={e => setBranch(e.target.value)}
+            onChange={e => {
+              setBranch(e.target.value)
+            }}
             placeholder="Specify branch to work on, or leave blank to auto-create"
           />
         </div>
@@ -1016,7 +1056,9 @@ export function RalphLaunchForm({
           <input
             type="checkbox"
             checked={autoApprove}
-            onChange={e => setAutoApprove(e.target.checked)}
+            onChange={e => {
+              setAutoApprove(e.target.checked)
+            }}
           />
           <span className="ralph-toggle-text">Auto-approve PR when reviews pass</span>
         </label>

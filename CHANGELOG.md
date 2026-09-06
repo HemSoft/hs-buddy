@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1159] - 2026-09-06
+
+### Fixed
+
+- Move dashboard off reserved Windows port
+
 ## [0.1.1158] - 2026-09-06
 
 ### Fixed

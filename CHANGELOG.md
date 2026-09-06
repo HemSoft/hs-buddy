@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1155] - 2026-09-06
+
+### Fixed
+
+- Retire obsolete TODO issue imports (#658)
+
+## [0.1.1154] - 2026-09-06
+
+### Changed
+
+- Reconcile TODO with closed issue trackers (#658)
+
 ## [0.1.1153] - 2026-09-06
 
 ### Changed

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1165",
+  "version": "0.1.1166",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -177,6 +177,7 @@
     "brace-expansion": "^5.0.9",
     "browserslist": "^4.28.8",
     "electron-builder-squirrel-windows": "26.15.3",
+    "@xmldom/xmldom": "0.8.15",
     "@grpc/grpc-js": "^1.14.4",
     "fast-uri": "^3.1.6",
     "form-data": "^4.0.6",

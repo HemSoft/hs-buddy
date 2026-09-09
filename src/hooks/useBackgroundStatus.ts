@@ -155,12 +155,14 @@ export function useBackgroundStatus(): BackgroundStatus {
   }, [cacheKeys])
 
   return useMemo(() => {
-    void cacheRevision
     const next = buildBackgroundStatus(refreshInterval * MS_PER_MINUTE, queueFacts, cacheKeys)
     if (statusCache.current && hasSameBackgroundStatus(statusCache.current, next)) {
       return statusCache.current
     }
     statusCache.current = next
     return next
+    // cacheRevision is a subscription tick: it invalidates the memo without
+    // contributing a value to the status computation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cacheKeys, cacheRevision, queueFacts, refreshInterval, statusCache])
 }

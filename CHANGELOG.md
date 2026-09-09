@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1175] - 2026-09-09
+
+### Fixed
+
+- Restore bundled Copilot CLI for Linux AppImage
+
+## [0.1.1174] - 2026-09-09
+
+### Fixed
+
+- Replace void-read idiom in useBackgroundStatus
+
+## [0.1.1173] - 2026-09-09
+
+### Fixed
+
+- Restore green-lock audit deltas; accept shiki baseline
+
+## [0.1.1171] - 2026-09-09
+
+### Fixed
+
+- Derive throttle handler types from plugin exports instead of unlisted @octokit/types
+
+## [0.1.1170] - 2026-09-09
+
+### Fixed
+
+- Deduplicate @commitlint/config-conventional and annotate octokit throttle handlers
+
+## [0.1.1169] - 2026-09-09
+
+### Fixed
+
+- Drop unused direct @lhci/utils dependency
+
+## [0.1.1167] - 2026-09-09
+
+### Fixed
+
+- Bump sharp to 0.35.4 and resolve js-yaml advisories
+
+## [0.1.1166] - 2026-09-09
+
+### Fixed
+
+- Override @xmldom/xmldom to 0.8.15 to clear fresh advisories
+
 ## [0.1.1165] - 2026-09-06
 
 ### Changed

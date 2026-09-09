@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1165",
+  "version": "0.1.1175",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -112,7 +112,7 @@
   },
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^7.0.0",
-    "@commitlint/cli": "^21.2.0",
+    "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.0",
     "@edge-runtime/vm": "^5.0.0",
     "@eslint-react/eslint-plugin": "^5.10.3",
@@ -156,7 +156,7 @@
     "puppeteer-core": "25.7.0",
     "react-doctor": "0.9.13",
     "react-scan": "^0.5.7",
-    "sharp": "^0.35.3",
+    "sharp": "^0.35.4",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.62.1",
     "vite": "8.2.2",
@@ -168,6 +168,7 @@
   "optionalDependencies": {
     "@github/copilot-darwin-arm64": "^1.0.68",
     "@github/copilot-darwin-x64": "^1.0.68",
+    "@github/copilot-linux-x64": "^1.0.68",
     "@github/copilot-win32-x64": "^1.0.68"
   },
   "overrides": {
@@ -177,6 +178,7 @@
     "brace-expansion": "^5.0.9",
     "browserslist": "^4.28.8",
     "electron-builder-squirrel-windows": "26.15.3",
+    "@xmldom/xmldom": "0.8.15",
     "@grpc/grpc-js": "^1.14.4",
     "fast-uri": "^3.1.6",
     "form-data": "^4.0.6",

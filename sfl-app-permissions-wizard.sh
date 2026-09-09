@@ -250,21 +250,25 @@ fi
 
 # ── Stage 3: verify the controller works, strictly read-only ─────────────
 stage "Verify — run the controller locally in evaluation mode"
-step "Verify the active GitHub account is HemSoft:"
-ACTIVE=$(gh api user --jq .login 2>/dev/null) || { warn "gh is not authenticated."; exit 1; }
-if [[ "$ACTIVE" != "HemSoft" ]]; then
-  warn "Active GitHub account is '$ACTIVE', expected 'HemSoft'."
+step "Verify the active GitHub account is HemSoft before any gh call:"
+if ! gh auth status 2>&1 | grep -E "Logged in to github.com account HemSoft" >/dev/null; then
+  warn "The active github.com account is not HemSoft (gh auth status)."
   say "Switch first: gh auth switch --user HemSoft, then re-run this wizard."
   exit 1
 fi
+ACTIVE=$(gh api user --jq .login) || { warn "gh api user failed."; exit 1; }
 say "Active account: $ACTIVE"
 say ""
-say "This runs the controller WITHOUT --apply: it evaluates acceptance for"
-say "every open PR and mutates nothing — it never dispatches the workflow."
+say "This runs the controller WITHOUT --apply and with the CLI's user token:"
+say "it exercises the reconcile logic but NOT the SFL App token mint — the"
+say "original HTTP 422 was the App token, and only the scheduled workflow run"
+say "mints App tokens. After the permissions land, watch the next 'AI review"
+say "auto-merge' run in the Actions tab for the definitive verdict."
 if confirm "Run the controller in evaluation mode now?"; then
   if GH_TOKEN="$(gh auth token)" bun scripts/run-ai-review-automerge.ts; then
-    say "Controller evaluation completed cleanly — the token mint and the"
-    say "whole reconcile path work."
+    say "Controller evaluation completed cleanly (user-token path)."
+    say "Next: check the next scheduled 'AI review auto-merge' run in the"
+    say "Actions tab — its token-mint step is the real app-credential test."
   else
     warn "Controller evaluation failed — see the output above."
     warn "If it is the HTTP 422, re-run this wizard after re-checking the permissions."

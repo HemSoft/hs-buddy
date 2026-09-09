@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1177] - 2026-09-09
+
+### Fixed
+
+- App-token caveat, identity guard first, executable wizard
+
 ## [0.1.1176] - 2026-09-09
 
 ### Changed

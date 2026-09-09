@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1174",
+  "version": "0.1.1175",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -168,6 +168,7 @@
   "optionalDependencies": {
     "@github/copilot-darwin-arm64": "^1.0.68",
     "@github/copilot-darwin-x64": "^1.0.68",
+    "@github/copilot-linux-x64": "^1.0.68",
     "@github/copilot-win32-x64": "^1.0.68"
   },
   "overrides": {

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1175] - 2026-09-09
+
+### Fixed
+
+- Restore bundled Copilot CLI for Linux AppImage
+
 ## [0.1.1174] - 2026-09-09
 
 ### Fixed

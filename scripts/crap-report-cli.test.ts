@@ -2,7 +2,11 @@ import { spawnSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+
+// Each test spawns a bun subprocess; under heavy parallel load they exceed the
+// 5 s default. Give them headroom (same rationale as the stalled-PR tests).
+vi.setConfig({ testTimeout: 30_000 })
 
 describe('CRAP coverage failure diagnostics', () => {
   it.each(['failure', 'cancelled'])(

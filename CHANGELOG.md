@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1167] - 2026-09-09
+
+### Fixed
+
+- Bump sharp to 0.35.4 and resolve js-yaml advisories
+
 ## [0.1.1166] - 2026-09-09
 
 ### Fixed

@@ -1,6 +1,7 @@
 import { Octokit } from '@octokit/rest'
 import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
+import type { EndpointDefaults } from '@octokit/types'
 import { graphql as octokitGraphql } from '@octokit/graphql'
 import type { PRConfig } from '../../types/pullRequest'
 import { IPC_INVOKE } from '../../ipc/contracts'
@@ -220,7 +221,12 @@ export function buildOctokitOptions(
       // The throttling plugin shares Bottleneck groups by id. Keep accounts
       // independent while retaining serialization for each account's requests.
       id: `hs-buddy:${username.toLowerCase()}`,
-      onRateLimit: (retryAfter, options, _octokit, retryCount) => {
+      onRateLimit: (
+        retryAfter: number,
+        options: Required<EndpointDefaults>,
+        _octokit: Octokit,
+        retryCount: number
+      ) => {
         console.warn(`Rate limit hit for ${options.method} ${options.url}`)
         if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {
           console.warn(`Rate limit retry delay of ${retryAfter}s exceeds the request time budget`)
@@ -234,7 +240,12 @@ export function buildOctokitOptions(
         }
         return false
       },
-      onSecondaryRateLimit: (retryAfter, options, _octokit, retryCount) => {
+      onSecondaryRateLimit: (
+        retryAfter: number,
+        options: Required<EndpointDefaults>,
+        _octokit: Octokit,
+        retryCount: number
+      ) => {
         console.warn(`Secondary rate limit hit for ${options.method} ${options.url}`)
         if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {
           console.warn(

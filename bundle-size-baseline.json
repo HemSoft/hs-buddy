@@ -1,20 +1,20 @@
 {
-  "updatedAt": "2026-09-01T23:33:25.856Z",
+  "updatedAt": "2026-09-09T04:11:06.499Z",
   "bundles": [
     {
       "file": "dist/assets/emacs-lisp.js",
-      "sizeBytes": 779972,
-      "sizeHuman": "761.69 kB"
-    },
-    {
-      "file": "dist/assets/app.js",
-      "sizeBytes": 719036,
-      "sizeHuman": "702.18 kB"
+      "sizeBytes": 790099,
+      "sizeHuman": "771.58 kB"
     },
     {
       "file": "dist/assets/cpp.js",
-      "sizeBytes": 626279,
-      "sizeHuman": "611.60 kB"
+      "sizeBytes": 785673,
+      "sizeHuman": "767.26 kB"
+    },
+    {
+      "file": "dist/assets/app.js",
+      "sizeBytes": 730781,
+      "sizeHuman": "713.65 kB"
     },
     {
       "file": "dist/assets/wasm.js",
@@ -23,13 +23,13 @@
     },
     {
       "file": "dist/assets/TerminalPane.js",
-      "sizeBytes": 375472,
-      "sizeHuman": "366.67 kB"
+      "sizeBytes": 375347,
+      "sizeHuman": "366.55 kB"
     },
     {
       "file": "dist/assets/markdown-parser.js",
-      "sizeBytes": 300120,
-      "sizeHuman": "293.09 kB"
+      "sizeBytes": 300116,
+      "sizeHuman": "293.08 kB"
     },
     {
       "file": "dist/assets/wolfram.js",
@@ -38,13 +38,13 @@
     },
     {
       "file": "dist-electron/vendor.js",
-      "sizeBytes": 227320,
-      "sizeHuman": "221.99 kB"
+      "sizeBytes": 227342,
+      "sizeHuman": "222.01 kB"
     },
     {
       "file": "dist/assets/lib.js",
-      "sizeBytes": 217709,
-      "sizeHuman": "212.61 kB"
+      "sizeBytes": 218060,
+      "sizeHuman": "212.95 kB"
     },
     {
       "file": "dist/assets/vue-vine.js",
@@ -52,14 +52,14 @@
       "sizeHuman": "185.78 kB"
     },
     {
+      "file": "dist-electron/app.js",
+      "sizeBytes": 186795,
+      "sizeHuman": "182.42 kB"
+    },
+    {
       "file": "dist/assets/angular-ts.js",
       "sizeBytes": 183992,
       "sizeHuman": "179.68 kB"
-    },
-    {
-      "file": "dist-electron/app.js",
-      "sizeBytes": 182577,
-      "sizeHuman": "178.30 kB"
     },
     {
       "file": "dist/assets/typescript.js",
@@ -87,9 +87,14 @@
       "sizeHuman": "168.03 kB"
     },
     {
+      "file": "dist/assets/typst.js",
+      "sizeBytes": 164533,
+      "sizeHuman": "160.68 kB"
+    },
+    {
       "file": "dist/assets/FolderExplorerView.js",
-      "sizeBytes": 154583,
-      "sizeHuman": "150.96 kB"
+      "sizeBytes": 156998,
+      "sizeHuman": "153.32 kB"
     },
     {
       "file": "dist/assets/mdx.js",
@@ -98,8 +103,8 @@
     },
     {
       "file": "dist/assets/asciidoc.js",
-      "sizeBytes": 131619,
-      "sizeHuman": "128.53 kB"
+      "sizeBytes": 136143,
+      "sizeHuman": "132.95 kB"
     },
     {
       "file": "dist/assets/php.js",
@@ -108,8 +113,8 @@
     },
     {
       "file": "dist/assets/objective-c.js",
-      "sizeBytes": 105505,
-      "sizeHuman": "103.03 kB"
+      "sizeBytes": 105537,
+      "sizeHuman": "103.06 kB"
     },
     {
       "file": "dist/assets/blade.js",
@@ -118,8 +123,8 @@
     },
     {
       "file": "dist/assets/ScheduleOverviewPanel.js",
-      "sizeBytes": 104161,
-      "sizeHuman": "101.72 kB"
+      "sizeBytes": 104151,
+      "sizeHuman": "101.71 kB"
     },
     {
       "file": "dist/assets/less.js",
@@ -143,18 +148,18 @@
     },
     {
       "file": "dist/assets/swift.js",
-      "sizeBytes": 86779,
-      "sizeHuman": "84.75 kB"
+      "sizeBytes": 87355,
+      "sizeHuman": "85.31 kB"
     },
     {
       "file": "dist/assets/PullRequestDetailPanel.js",
-      "sizeBytes": 83959,
-      "sizeHuman": "81.99 kB"
+      "sizeBytes": 84291,
+      "sizeHuman": "82.32 kB"
     },
     {
       "file": "dist/assets/hack.js",
-      "sizeBytes": 81164,
-      "sizeHuman": "79.26 kB"
+      "sizeBytes": 81186,
+      "sizeHuman": "79.28 kB"
     },
     {
       "file": "dist/assets/app.css",
@@ -168,12 +173,12 @@
     },
     {
       "file": "dist/assets/latex.js",
-      "sizeBytes": 72976,
-      "sizeHuman": "71.27 kB"
+      "sizeBytes": 73003,
+      "sizeHuman": "71.29 kB"
     },
     {
       "file": "dist/assets/api.js",
-      "sizeBytes": 72448,
+      "sizeBytes": 72446,
       "sizeHuman": "70.75 kB"
     },
     {
@@ -188,13 +193,13 @@
     },
     {
       "file": "dist/assets/mojo.js",
-      "sizeBytes": 69891,
-      "sizeHuman": "68.25 kB"
+      "sizeBytes": 69609,
+      "sizeHuman": "67.98 kB"
     },
     {
       "file": "dist/assets/ocaml.js",
-      "sizeBytes": 62541,
-      "sizeHuman": "61.08 kB"
+      "sizeBytes": 62573,
+      "sizeHuman": "61.11 kB"
     },
     {
       "file": "dist/assets/markdown.js",
@@ -222,6 +227,11 @@
       "sizeHuman": "54.67 kB"
     },
     {
+      "file": "dist/assets/mermaid.js",
+      "sizeBytes": 54906,
+      "sizeHuman": "53.62 kB"
+    },
+    {
       "file": "dist/assets/everforest-light.js",
       "sizeBytes": 53838,
       "sizeHuman": "52.58 kB"
@@ -230,6 +240,26 @@
       "file": "dist/assets/everforest-dark.js",
       "sizeBytes": 53835,
       "sizeHuman": "52.57 kB"
+    },
+    {
+      "file": "dist/assets/catppuccin-macchiato.js",
+      "sizeBytes": 50948,
+      "sizeHuman": "49.75 kB"
+    },
+    {
+      "file": "dist/assets/catppuccin-frappe.js",
+      "sizeBytes": 50943,
+      "sizeHuman": "49.75 kB"
+    },
+    {
+      "file": "dist/assets/catppuccin-latte.js",
+      "sizeBytes": 50941,
+      "sizeHuman": "49.75 kB"
+    },
+    {
+      "file": "dist/assets/catppuccin-mocha.js",
+      "sizeBytes": 50940,
+      "sizeHuman": "49.75 kB"
     },
     {
       "file": "dist/assets/imba.js",
@@ -248,28 +278,8 @@
     },
     {
       "file": "dist/assets/apex.js",
-      "sizeBytes": 47866,
-      "sizeHuman": "46.74 kB"
-    },
-    {
-      "file": "dist/assets/catppuccin-macchiato.js",
-      "sizeBytes": 47353,
-      "sizeHuman": "46.24 kB"
-    },
-    {
-      "file": "dist/assets/catppuccin-frappe.js",
-      "sizeBytes": 47348,
-      "sizeHuman": "46.24 kB"
-    },
-    {
-      "file": "dist/assets/catppuccin-latte.js",
-      "sizeBytes": 47346,
-      "sizeHuman": "46.24 kB"
-    },
-    {
-      "file": "dist/assets/catppuccin-mocha.js",
-      "sizeBytes": 47345,
-      "sizeHuman": "46.24 kB"
+      "sizeBytes": 47982,
+      "sizeHuman": "46.86 kB"
     },
     {
       "file": "dist/assets/go.js",
@@ -280,6 +290,11 @@
       "file": "dist/assets/ruby.js",
       "sizeBytes": 46862,
       "sizeHuman": "45.76 kB"
+    },
+    {
+      "file": "dist/assets/ahk2.js",
+      "sizeBytes": 45157,
+      "sizeHuman": "44.10 kB"
     },
     {
       "file": "dist/assets/d.js",
@@ -308,8 +323,8 @@
     },
     {
       "file": "dist/assets/OrgDetailPanel.js",
-      "sizeBytes": 39904,
-      "sizeHuman": "38.97 kB"
+      "sizeBytes": 40776,
+      "sizeHuman": "39.82 kB"
     },
     {
       "file": "dist/assets/cobol.js",
@@ -322,14 +337,29 @@
       "sizeHuman": "38.17 kB"
     },
     {
+      "file": "dist/assets/bird2.js",
+      "sizeBytes": 38773,
+      "sizeHuman": "37.86 kB"
+    },
+    {
       "file": "dist/assets/markdown-emoji.js",
       "sizeBytes": 38737,
       "sizeHuman": "37.83 kB"
     },
     {
       "file": "dist/assets/erlang.js",
-      "sizeBytes": 37578,
-      "sizeHuman": "36.70 kB"
+      "sizeBytes": 37605,
+      "sizeHuman": "36.72 kB"
+    },
+    {
+      "file": "dist/assets/org.js",
+      "sizeBytes": 37107,
+      "sizeHuman": "36.24 kB"
+    },
+    {
+      "file": "dist/assets/haxe.js",
+      "sizeBytes": 36072,
+      "sizeHuman": "35.23 kB"
     },
     {
       "file": "dist/assets/tokyo-night.js",
@@ -347,14 +377,9 @@
       "sizeHuman": "34.62 kB"
     },
     {
-      "file": "dist/assets/haxe.js",
-      "sizeBytes": 35283,
-      "sizeHuman": "34.46 kB"
-    },
-    {
       "file": "dist/assets/bsl.js",
-      "sizeBytes": 33965,
-      "sizeHuman": "33.17 kB"
+      "sizeBytes": 34050,
+      "sizeHuman": "33.25 kB"
     },
     {
       "file": "dist/assets/one-dark-pro.js",
@@ -368,8 +393,13 @@
     },
     {
       "file": "dist/assets/TempoDashboard.js",
-      "sizeBytes": 32540,
-      "sizeHuman": "31.78 kB"
+      "sizeBytes": 33504,
+      "sizeHuman": "32.72 kB"
+    },
+    {
+      "file": "dist/assets/ahk.js",
+      "sizeBytes": 31531,
+      "sizeHuman": "30.79 kB"
     },
     {
       "file": "dist/assets/stylus.js",
@@ -378,8 +408,8 @@
     },
     {
       "file": "dist/assets/julia.js",
-      "sizeBytes": 31158,
-      "sizeHuman": "30.43 kB"
+      "sizeBytes": 31190,
+      "sizeHuman": "30.46 kB"
     },
     {
       "file": "dist/assets/applescript.js",
@@ -387,24 +417,19 @@
       "sizeHuman": "28.97 kB"
     },
     {
-      "file": "dist/assets/mermaid.js",
-      "sizeBytes": 29603,
-      "sizeHuman": "28.91 kB"
-    },
-    {
       "file": "dist/assets/crystal.js",
       "sizeBytes": 29571,
       "sizeHuman": "28.88 kB"
     },
     {
+      "file": "dist/assets/scala.js",
+      "sizeBytes": 29013,
+      "sizeHuman": "28.33 kB"
+    },
+    {
       "file": "dist/assets/night-owl.js",
       "sizeBytes": 29003,
       "sizeHuman": "28.32 kB"
-    },
-    {
-      "file": "dist/assets/scala.js",
-      "sizeBytes": 28976,
-      "sizeHuman": "28.30 kB"
     },
     {
       "file": "dist/assets/razor.js",
@@ -413,8 +438,8 @@
     },
     {
       "file": "dist/assets/coffee.js",
-      "sizeBytes": 27520,
-      "sizeHuman": "26.88 kB"
+      "sizeBytes": 27547,
+      "sizeHuman": "26.90 kB"
     },
     {
       "file": "dist/assets/java.js",
@@ -425,11 +450,6 @@
       "file": "dist/assets/scss.js",
       "sizeBytes": 27329,
       "sizeHuman": "26.69 kB"
-    },
-    {
-      "file": "dist/assets/c3.js",
-      "sizeBytes": 27068,
-      "sizeHuman": "26.43 kB"
     },
     {
       "file": "dist/assets/codeql.js",
@@ -448,8 +468,13 @@
     },
     {
       "file": "dist/assets/system-verilog.js",
-      "sizeBytes": 26295,
-      "sizeHuman": "25.68 kB"
+      "sizeBytes": 26680,
+      "sizeHuman": "26.05 kB"
+    },
+    {
+      "file": "dist/assets/c3.js",
+      "sizeBytes": 26478,
+      "sizeHuman": "25.86 kB"
     },
     {
       "file": "dist/assets/night-owl-light.js",
@@ -463,8 +488,8 @@
     },
     {
       "file": "dist/assets/fsharp.js",
-      "sizeBytes": 25403,
-      "sizeHuman": "24.81 kB"
+      "sizeBytes": 25430,
+      "sizeHuman": "24.83 kB"
     },
     {
       "file": "dist/assets/one-light.js",
@@ -472,29 +497,34 @@
       "sizeHuman": "24.79 kB"
     },
     {
+      "file": "dist/assets/vue.js",
+      "sizeBytes": 25335,
+      "sizeHuman": "24.74 kB"
+    },
+    {
       "file": "dist/assets/typespec.js",
       "sizeBytes": 25137,
       "sizeHuman": "24.55 kB"
     },
     {
+      "file": "dist/assets/moonbit.js",
+      "sizeBytes": 25031,
+      "sizeHuman": "24.44 kB"
+    },
+    {
       "file": "dist/assets/RalphDashboard.js",
-      "sizeBytes": 24982,
+      "sizeBytes": 24984,
       "sizeHuman": "24.40 kB"
     },
     {
-      "file": "dist/assets/vue.js",
-      "sizeBytes": 24863,
-      "sizeHuman": "24.28 kB"
+      "file": "dist/assets/UserDetailPanel.js",
+      "sizeBytes": 24785,
+      "sizeHuman": "24.20 kB"
     },
     {
       "file": "dist/assets/purescript.js",
       "sizeBytes": 24778,
       "sizeHuman": "24.20 kB"
-    },
-    {
-      "file": "dist/assets/UserDetailPanel.js",
-      "sizeBytes": 24600,
-      "sizeHuman": "24.02 kB"
     },
     {
       "file": "dist/assets/angular-html.js",
@@ -532,14 +562,9 @@
       "sizeHuman": "23.00 kB"
     },
     {
-      "file": "dist/assets/bird2.js",
-      "sizeBytes": 23035,
-      "sizeHuman": "22.50 kB"
-    },
-    {
       "file": "dist/assets/PullRequestList.js",
-      "sizeBytes": 22969,
-      "sizeHuman": "22.43 kB"
+      "sizeBytes": 23111,
+      "sizeHuman": "22.57 kB"
     },
     {
       "file": "dist/assets/gruvbox-light-medium.js",
@@ -572,39 +597,39 @@
       "sizeHuman": "22.19 kB"
     },
     {
-      "file": "dist/assets/surrealql.js",
-      "sizeBytes": 22681,
-      "sizeHuman": "22.15 kB"
-    },
-    {
       "file": "dist/assets/common-lisp.js",
       "sizeBytes": 22673,
       "sizeHuman": "22.14 kB"
     },
     {
       "file": "dist/assets/nim.js",
-      "sizeBytes": 22632,
-      "sizeHuman": "22.10 kB"
+      "sizeBytes": 22664,
+      "sizeHuman": "22.13 kB"
     },
     {
       "file": "dist/assets/JobDetailPanel.js",
-      "sizeBytes": 22128,
+      "sizeBytes": 22131,
       "sizeHuman": "21.61 kB"
     },
     {
       "file": "dist/assets/rose-pine-dawn.js",
-      "sizeBytes": 21844,
+      "sizeBytes": 21842,
       "sizeHuman": "21.33 kB"
     },
     {
       "file": "dist/assets/rose-pine-moon.js",
-      "sizeBytes": 21843,
+      "sizeBytes": 21841,
       "sizeHuman": "21.33 kB"
     },
     {
       "file": "dist/assets/rose-pine.js",
-      "sizeBytes": 21833,
+      "sizeBytes": 21831,
       "sizeHuman": "21.32 kB"
+    },
+    {
+      "file": "dist/assets/twig.js",
+      "sizeBytes": 21723,
+      "sizeHuman": "21.21 kB"
     },
     {
       "file": "dist/assets/wit.js",
@@ -613,8 +638,8 @@
     },
     {
       "file": "dist/assets/ScheduleDetailPanel.js",
-      "sizeBytes": 21306,
-      "sizeHuman": "20.81 kB"
+      "sizeBytes": 21277,
+      "sizeHuman": "20.78 kB"
     },
     {
       "file": "dist/assets/dracula-soft.js",
@@ -627,9 +652,14 @@
       "sizeHuman": "20.66 kB"
     },
     {
-      "file": "dist/assets/twig.js",
-      "sizeBytes": 21079,
-      "sizeHuman": "20.58 kB"
+      "file": "dist/assets/nushell.js",
+      "sizeBytes": 20974,
+      "sizeHuman": "20.48 kB"
+    },
+    {
+      "file": "dist/assets/ccount.js",
+      "sizeBytes": 20889,
+      "sizeHuman": "20.40 kB"
     },
     {
       "file": "dist/assets/snazzy-light.js",
@@ -637,19 +667,9 @@
       "sizeHuman": "20.37 kB"
     },
     {
-      "file": "dist/assets/ccount.js",
-      "sizeBytes": 20693,
-      "sizeHuman": "20.21 kB"
-    },
-    {
       "file": "dist/assets/CopilotUsagePanel.js",
-      "sizeBytes": 20526,
-      "sizeHuman": "20.04 kB"
-    },
-    {
-      "file": "dist/assets/nushell.js",
-      "sizeBytes": 20505,
-      "sizeHuman": "20.02 kB"
+      "sizeBytes": 20579,
+      "sizeHuman": "20.10 kB"
     },
     {
       "file": "dist/assets/viml.js",
@@ -658,8 +678,8 @@
     },
     {
       "file": "dist/assets/powershell.js",
-      "sizeBytes": 20243,
-      "sizeHuman": "19.77 kB"
+      "sizeBytes": 20282,
+      "sizeHuman": "19.81 kB"
     },
     {
       "file": "dist/assets/ayu-light.js",
@@ -677,6 +697,11 @@
       "sizeHuman": "19.75 kB"
     },
     {
+      "file": "dist/assets/mdc.js",
+      "sizeBytes": 20219,
+      "sizeHuman": "19.75 kB"
+    },
+    {
       "file": "dist/assets/ayu-mirage.js",
       "sizeBytes": 20175,
       "sizeHuman": "19.70 kB"
@@ -687,24 +712,19 @@
       "sizeHuman": "19.70 kB"
     },
     {
-      "file": "dist/assets/mdc.js",
-      "sizeBytes": 19676,
-      "sizeHuman": "19.21 kB"
-    },
-    {
       "file": "dist/assets/groovy.js",
-      "sizeBytes": 19271,
-      "sizeHuman": "18.82 kB"
-    },
-    {
-      "file": "dist/assets/useConfig.js",
-      "sizeBytes": 19182,
-      "sizeHuman": "18.73 kB"
+      "sizeBytes": 19298,
+      "sizeHuman": "18.85 kB"
     },
     {
       "file": "dist/assets/gdscript.js",
-      "sizeBytes": 19111,
-      "sizeHuman": "18.66 kB"
+      "sizeBytes": 19207,
+      "sizeHuman": "18.76 kB"
+    },
+    {
+      "file": "dist/assets/useConfig.js",
+      "sizeBytes": 19133,
+      "sizeHuman": "18.68 kB"
     },
     {
       "file": "dist/assets/material-theme-palenight.js",
@@ -748,22 +768,22 @@
     },
     {
       "file": "dist/assets/move.js",
-      "sizeBytes": 17597,
-      "sizeHuman": "17.18 kB"
+      "sizeBytes": 17749,
+      "sizeHuman": "17.33 kB"
     },
     {
       "file": "dist/assets/kanagawa-dragon.js",
-      "sizeBytes": 17217,
+      "sizeBytes": 17213,
       "sizeHuman": "16.81 kB"
     },
     {
       "file": "dist/assets/kanagawa-lotus.js",
-      "sizeBytes": 17216,
+      "sizeBytes": 17212,
       "sizeHuman": "16.81 kB"
     },
     {
       "file": "dist/assets/kanagawa-wave.js",
-      "sizeBytes": 17213,
+      "sizeBytes": 17209,
       "sizeHuman": "16.81 kB"
     },
     {
@@ -777,9 +797,14 @@
       "sizeHuman": "16.22 kB"
     },
     {
+      "file": "dist/assets/solidity.js",
+      "sizeBytes": 16499,
+      "sizeHuman": "16.11 kB"
+    },
+    {
       "file": "dist/assets/elixir.js",
-      "sizeBytes": 16360,
-      "sizeHuman": "15.98 kB"
+      "sizeBytes": 16387,
+      "sizeHuman": "16.00 kB"
     },
     {
       "file": "dist/assets/cue.js",
@@ -787,14 +812,14 @@
       "sizeHuman": "15.91 kB"
     },
     {
+      "file": "dist/assets/luau.js",
+      "sizeBytes": 16230,
+      "sizeHuman": "15.85 kB"
+    },
+    {
       "file": "dist/assets/matlab.js",
       "sizeBytes": 16178,
       "sizeHuman": "15.80 kB"
-    },
-    {
-      "file": "dist/assets/solidity.js",
-      "sizeBytes": 16166,
-      "sizeHuman": "15.79 kB"
     },
     {
       "file": "dist/assets/OrgDetailPanel.css",
@@ -805,11 +830,6 @@
       "file": "dist/assets/abap.js",
       "sizeBytes": 15944,
       "sizeHuman": "15.57 kB"
-    },
-    {
-      "file": "dist/assets/luau.js",
-      "sizeBytes": 15720,
-      "sizeHuman": "15.35 kB"
     },
     {
       "file": "dist/assets/lua.js",
@@ -823,8 +843,8 @@
     },
     {
       "file": "dist/assets/actionscript-3.js",
-      "sizeBytes": 15297,
-      "sizeHuman": "14.94 kB"
+      "sizeBytes": 15633,
+      "sizeHuman": "15.27 kB"
     },
     {
       "file": "dist/assets/kusto.js",
@@ -833,8 +853,8 @@
     },
     {
       "file": "dist/assets/SettingsAccounts.js",
-      "sizeBytes": 15264,
-      "sizeHuman": "14.91 kB"
+      "sizeBytes": 15236,
+      "sizeHuman": "14.88 kB"
     },
     {
       "file": "dist/assets/TempoDashboard.css",
@@ -843,8 +863,8 @@
     },
     {
       "file": "dist/assets/rust.js",
-      "sizeBytes": 15161,
-      "sizeHuman": "14.81 kB"
+      "sizeBytes": 15193,
+      "sizeHuman": "14.84 kB"
     },
     {
       "file": "dist/assets/CopilotUsagePanel.css",
@@ -873,8 +893,8 @@
     },
     {
       "file": "dist/assets/clarity.js",
-      "sizeBytes": 14367,
-      "sizeHuman": "14.03 kB"
+      "sizeBytes": 14454,
+      "sizeHuman": "14.12 kB"
     },
     {
       "file": "dist/assets/github-light-high-contrast.js",
@@ -887,19 +907,24 @@
       "sizeHuman": "13.91 kB"
     },
     {
+      "file": "dist/assets/smalltalk.js",
+      "sizeBytes": 14218,
+      "sizeHuman": "13.88 kB"
+    },
+    {
       "file": "dist/assets/synthwave-84.js",
       "sizeBytes": 14126,
       "sizeHuman": "13.79 kB"
     },
     {
       "file": "dist-electron/preload.mjs",
-      "sizeBytes": 14013,
-      "sizeHuman": "13.68 kB"
+      "sizeBytes": 14039,
+      "sizeHuman": "13.71 kB"
     },
     {
       "file": "dist/assets/pug.js",
-      "sizeBytes": 13977,
-      "sizeHuman": "13.65 kB"
+      "sizeBytes": 14009,
+      "sizeHuman": "13.68 kB"
     },
     {
       "file": "dist/assets/vitesse-dark.js",
@@ -923,8 +948,13 @@
     },
     {
       "file": "dist/assets/v.js",
-      "sizeBytes": 13306,
-      "sizeHuman": "12.99 kB"
+      "sizeBytes": 13422,
+      "sizeHuman": "13.11 kB"
+    },
+    {
+      "file": "dist/assets/nsis.js",
+      "sizeBytes": 13218,
+      "sizeHuman": "12.91 kB"
     },
     {
       "file": "dist/assets/fish.js",
@@ -932,14 +962,14 @@
       "sizeHuman": "12.82 kB"
     },
     {
-      "file": "dist/assets/bat.js",
-      "sizeBytes": 12980,
-      "sizeHuman": "12.68 kB"
+      "file": "dist/assets/RepoDetailPanel.js",
+      "sizeBytes": 13121,
+      "sizeHuman": "12.81 kB"
     },
     {
-      "file": "dist/assets/RepoDetailPanel.js",
-      "sizeBytes": 12968,
-      "sizeHuman": "12.66 kB"
+      "file": "dist/assets/bat.js",
+      "sizeBytes": 13013,
+      "sizeHuman": "12.71 kB"
     },
     {
       "file": "dist/assets/vesper.js",
@@ -958,8 +988,13 @@
     },
     {
       "file": "dist/assets/handlebars.js",
-      "sizeBytes": 12301,
-      "sizeHuman": "12.01 kB"
+      "sizeBytes": 12333,
+      "sizeHuman": "12.04 kB"
+    },
+    {
+      "file": "dist/assets/surrealql.js",
+      "sizeBytes": 12157,
+      "sizeHuman": "11.87 kB"
     },
     {
       "file": "dist/assets/hjson.js",
@@ -1003,8 +1038,8 @@
     },
     {
       "file": "dist/assets/BookmarkList.js",
-      "sizeBytes": 11381,
-      "sizeHuman": "11.11 kB"
+      "sizeBytes": 11353,
+      "sizeHuman": "11.09 kB"
     },
     {
       "file": "dist/assets/github-light.js",
@@ -1013,13 +1048,13 @@
     },
     {
       "file": "dist/assets/RunList.js",
-      "sizeBytes": 11196,
-      "sizeHuman": "10.93 kB"
+      "sizeBytes": 11204,
+      "sizeHuman": "10.94 kB"
     },
     {
       "file": "dist/assets/PRReviewPanel.js",
-      "sizeBytes": 11083,
-      "sizeHuman": "10.82 kB"
+      "sizeBytes": 11054,
+      "sizeHuman": "10.79 kB"
     },
     {
       "file": "dist/assets/elm.js",
@@ -1028,13 +1063,13 @@
     },
     {
       "file": "dist/assets/just.js",
-      "sizeBytes": 10988,
-      "sizeHuman": "10.73 kB"
+      "sizeBytes": 11011,
+      "sizeHuman": "10.75 kB"
     },
     {
       "file": "dist/assets/SettingsAppearance.js",
-      "sizeBytes": 10659,
-      "sizeHuman": "10.41 kB"
+      "sizeBytes": 10685,
+      "sizeHuman": "10.43 kB"
     },
     {
       "file": "dist/assets/yaml.js",
@@ -1043,8 +1078,8 @@
     },
     {
       "file": "dist/assets/raku.js",
-      "sizeBytes": 10564,
-      "sizeHuman": "10.32 kB"
+      "sizeBytes": 10596,
+      "sizeHuman": "10.35 kB"
     },
     {
       "file": "dist/assets/nextflow-groovy.js",
@@ -1122,6 +1157,11 @@
       "sizeHuman": "9.14 kB"
     },
     {
+      "file": "dist/assets/smithy.js",
+      "sizeBytes": 9226,
+      "sizeHuman": "9.01 kB"
+    },
+    {
       "file": "dist/assets/slack-dark.js",
       "sizeBytes": 9207,
       "sizeHuman": "8.99 kB"
@@ -1148,8 +1188,8 @@
     },
     {
       "file": "dist/assets/make.js",
-      "sizeBytes": 9053,
-      "sizeHuman": "8.84 kB"
+      "sizeBytes": 9085,
+      "sizeHuman": "8.87 kB"
     },
     {
       "file": "dist/assets/horizon-bright.js",
@@ -1168,8 +1208,8 @@
     },
     {
       "file": "dist/assets/dart.js",
-      "sizeBytes": 8715,
-      "sizeHuman": "8.51 kB"
+      "sizeBytes": 8742,
+      "sizeHuman": "8.54 kB"
     },
     {
       "file": "dist/assets/plsql.js",
@@ -1183,18 +1223,13 @@
     },
     {
       "file": "dist/assets/TaskPlannerView.js",
-      "sizeBytes": 8521,
-      "sizeHuman": "8.32 kB"
-    },
-    {
-      "file": "dist/assets/typst.js",
-      "sizeBytes": 8479,
-      "sizeHuman": "8.28 kB"
+      "sizeBytes": 8493,
+      "sizeHuman": "8.29 kB"
     },
     {
       "file": "dist/assets/RepoIssueList.js",
-      "sizeBytes": 8432,
-      "sizeHuman": "8.23 kB"
+      "sizeBytes": 8448,
+      "sizeHuman": "8.25 kB"
     },
     {
       "file": "dist/assets/haml.js",
@@ -1212,6 +1247,11 @@
       "sizeHuman": "7.98 kB"
     },
     {
+      "file": "dist/assets/monokai.js",
+      "sizeBytes": 8122,
+      "sizeHuman": "7.93 kB"
+    },
+    {
       "file": "dist/assets/regexp.js",
       "sizeBytes": 8112,
       "sizeHuman": "7.92 kB"
@@ -1222,24 +1262,24 @@
       "sizeHuman": "7.84 kB"
     },
     {
-      "file": "dist/assets/monokai.js",
-      "sizeBytes": 7974,
-      "sizeHuman": "7.79 kB"
-    },
-    {
       "file": "dist/assets/systemd.js",
       "sizeBytes": 7961,
       "sizeHuman": "7.77 kB"
     },
     {
-      "file": "dist/assets/RepoIssueDetailPanel.js",
-      "sizeBytes": 7907,
-      "sizeHuman": "7.72 kB"
-    },
-    {
       "file": "dist/assets/jsx-runtime.js",
       "sizeBytes": 7899,
       "sizeHuman": "7.71 kB"
+    },
+    {
+      "file": "dist/assets/RepoIssueDetailPanel.js",
+      "sizeBytes": 7879,
+      "sizeHuman": "7.69 kB"
+    },
+    {
+      "file": "dist/assets/prisma.js",
+      "sizeBytes": 7836,
+      "sizeHuman": "7.65 kB"
     },
     {
       "file": "dist/assets/PullRequestList.css",
@@ -1248,17 +1288,17 @@
     },
     {
       "file": "dist/assets/contracts.js",
-      "sizeBytes": 7728,
-      "sizeHuman": "7.55 kB"
+      "sizeBytes": 7754,
+      "sizeHuman": "7.57 kB"
     },
     {
       "file": "dist/assets/SessionDetail.js",
-      "sizeBytes": 7725,
+      "sizeBytes": 7724,
       "sizeHuman": "7.54 kB"
     },
     {
       "file": "dist/assets/CrewProjectView.js",
-      "sizeBytes": 7603,
+      "sizeBytes": 7600,
       "sizeHuman": "7.42 kB"
     },
     {
@@ -1273,8 +1313,8 @@
     },
     {
       "file": "dist/assets/RalphRunDetailPanel.js",
-      "sizeBytes": 7294,
-      "sizeHuman": "7.12 kB"
+      "sizeBytes": 7266,
+      "sizeHuman": "7.10 kB"
     },
     {
       "file": "dist/assets/scheme.js",
@@ -1282,14 +1322,14 @@
       "sizeHuman": "7.09 kB"
     },
     {
+      "file": "dist/assets/solarized-dark.js",
+      "sizeBytes": 7090,
+      "sizeHuman": "6.92 kB"
+    },
+    {
       "file": "dist/assets/min-light.js",
       "sizeBytes": 7059,
       "sizeHuman": "6.89 kB"
-    },
-    {
-      "file": "dist/assets/CopilotResultPanel.js",
-      "sizeBytes": 7024,
-      "sizeHuman": "6.86 kB"
     },
     {
       "file": "dist/assets/soy.js",
@@ -1302,9 +1342,14 @@
       "sizeHuman": "6.84 kB"
     },
     {
-      "file": "dist/assets/solarized-dark.js",
-      "sizeBytes": 6936,
-      "sizeHuman": "6.77 kB"
+      "file": "dist/assets/CopilotResultPanel.js",
+      "sizeBytes": 6998,
+      "sizeHuman": "6.83 kB"
+    },
+    {
+      "file": "dist/assets/r.js",
+      "sizeBytes": 6859,
+      "sizeHuman": "6.70 kB"
     },
     {
       "file": "dist/assets/talonscript.js",
@@ -1313,13 +1358,13 @@
     },
     {
       "file": "dist/assets/ModelPicker.js",
-      "sizeBytes": 6839,
-      "sizeHuman": "6.68 kB"
+      "sizeBytes": 6811,
+      "sizeHuman": "6.65 kB"
     },
     {
       "file": "dist/assets/RepoPullRequestList.js",
-      "sizeBytes": 6790,
-      "sizeHuman": "6.63 kB"
+      "sizeBytes": 6803,
+      "sizeHuman": "6.64 kB"
     },
     {
       "file": "dist/assets/RepoCommitPanels.css",
@@ -1327,14 +1372,14 @@
       "sizeHuman": "6.57 kB"
     },
     {
-      "file": "dist/assets/smalltalk.js",
-      "sizeBytes": 6679,
-      "sizeHuman": "6.52 kB"
+      "file": "dist/assets/chapel.js",
+      "sizeBytes": 6721,
+      "sizeHuman": "6.56 kB"
     },
     {
-      "file": "dist/assets/r.js",
-      "sizeBytes": 6665,
-      "sizeHuman": "6.51 kB"
+      "file": "dist/assets/solarized-light.js",
+      "sizeBytes": 6718,
+      "sizeHuman": "6.56 kB"
     },
     {
       "file": "dist/assets/proto.js",
@@ -1342,19 +1387,24 @@
       "sizeHuman": "6.48 kB"
     },
     {
-      "file": "dist/assets/solarized-light.js",
-      "sizeBytes": 6570,
-      "sizeHuman": "6.42 kB"
-    },
-    {
-      "file": "dist/assets/SettingsCopilot.js",
-      "sizeBytes": 6550,
-      "sizeHuman": "6.40 kB"
-    },
-    {
       "file": "dist/assets/postcss.js",
       "sizeBytes": 6541,
       "sizeHuman": "6.39 kB"
+    },
+    {
+      "file": "dist/assets/clojure.js",
+      "sizeBytes": 6532,
+      "sizeHuman": "6.38 kB"
+    },
+    {
+      "file": "dist/assets/verilog.js",
+      "sizeBytes": 6531,
+      "sizeHuman": "6.38 kB"
+    },
+    {
+      "file": "dist/assets/SettingsCopilot.js",
+      "sizeBytes": 6522,
+      "sizeHuman": "6.37 kB"
     },
     {
       "file": "dist/assets/toml.js",
@@ -1362,9 +1412,9 @@
       "sizeHuman": "6.37 kB"
     },
     {
-      "file": "dist/assets/clojure.js",
-      "sizeBytes": 6505,
-      "sizeHuman": "6.35 kB"
+      "file": "dist/assets/red.js",
+      "sizeBytes": 6508,
+      "sizeHuman": "6.36 kB"
     },
     {
       "file": "dist/assets/ara.js",
@@ -1377,19 +1427,9 @@
       "sizeHuman": "6.29 kB"
     },
     {
-      "file": "dist/assets/prisma.js",
-      "sizeBytes": 6422,
-      "sizeHuman": "6.27 kB"
-    },
-    {
       "file": "dist/assets/min-dark.js",
       "sizeBytes": 6381,
       "sizeHuman": "6.23 kB"
-    },
-    {
-      "file": "dist/assets/red.js",
-      "sizeBytes": 6352,
-      "sizeHuman": "6.20 kB"
     },
     {
       "file": "dist/assets/RepoIssueDetailPanel.css",
@@ -1403,18 +1443,18 @@
     },
     {
       "file": "dist/assets/vb.js",
-      "sizeBytes": 6185,
-      "sizeHuman": "6.04 kB"
+      "sizeBytes": 6199,
+      "sizeHuman": "6.05 kB"
+    },
+    {
+      "file": "dist/assets/coq.js",
+      "sizeBytes": 6130,
+      "sizeHuman": "5.99 kB"
     },
     {
       "file": "dist/assets/cypher.js",
       "sizeBytes": 6048,
       "sizeHuman": "5.91 kB"
-    },
-    {
-      "file": "dist/assets/verilog.js",
-      "sizeBytes": 6023,
-      "sizeHuman": "5.88 kB"
     },
     {
       "file": "dist/assets/shaderlab.js",
@@ -1427,14 +1467,9 @@
       "sizeHuman": "5.85 kB"
     },
     {
-      "file": "dist/assets/moonbit.js",
-      "sizeBytes": 5992,
-      "sizeHuman": "5.85 kB"
-    },
-    {
       "file": "dist/assets/SessionExplorer.js",
-      "sizeBytes": 5941,
-      "sizeHuman": "5.80 kB"
+      "sizeBytes": 5914,
+      "sizeHuman": "5.78 kB"
     },
     {
       "file": "dist/assets/lean.js",
@@ -1447,6 +1482,11 @@
       "sizeHuman": "5.64 kB"
     },
     {
+      "file": "dist/assets/SettingsAdvanced.js",
+      "sizeBytes": 5707,
+      "sizeHuman": "5.57 kB"
+    },
+    {
       "file": "dist/assets/RepoIssueList.css",
       "sizeBytes": 5676,
       "sizeHuman": "5.54 kB"
@@ -1457,19 +1497,9 @@
       "sizeHuman": "5.53 kB"
     },
     {
-      "file": "dist/assets/coq.js",
-      "sizeBytes": 5646,
-      "sizeHuman": "5.51 kB"
-    },
-    {
       "file": "dist/assets/AssistantPanel.js",
-      "sizeBytes": 5597,
-      "sizeHuman": "5.47 kB"
-    },
-    {
-      "file": "dist/assets/SettingsAdvanced.js",
-      "sizeBytes": 5570,
-      "sizeHuman": "5.44 kB"
+      "sizeBytes": 5620,
+      "sizeHuman": "5.49 kB"
     },
     {
       "file": "dist/assets/awk.js",
@@ -1487,14 +1517,14 @@
       "sizeHuman": "5.35 kB"
     },
     {
+      "file": "dist/assets/zig.js",
+      "sizeBytes": 5464,
+      "sizeHuman": "5.34 kB"
+    },
+    {
       "file": "dist/assets/dax.js",
       "sizeBytes": 5457,
       "sizeHuman": "5.33 kB"
-    },
-    {
-      "file": "dist/assets/CopilotPromptBox.js",
-      "sizeBytes": 5443,
-      "sizeHuman": "5.32 kB"
     },
     {
       "file": "dist/assets/qml.js",
@@ -1502,9 +1532,9 @@
       "sizeHuman": "5.31 kB"
     },
     {
-      "file": "dist/assets/zig.js",
-      "sizeBytes": 5432,
-      "sizeHuman": "5.30 kB"
+      "file": "dist/assets/CopilotPromptBox.js",
+      "sizeBytes": 5421,
+      "sizeHuman": "5.29 kB"
     },
     {
       "file": "dist/assets/gdresource.js",
@@ -1513,8 +1543,8 @@
     },
     {
       "file": "dist/assets/SettingsNotifications.js",
-      "sizeBytes": 5361,
-      "sizeHuman": "5.24 kB"
+      "sizeBytes": 5387,
+      "sizeHuman": "5.26 kB"
     },
     {
       "file": "dist/assets/wgsl.js",
@@ -1523,8 +1553,8 @@
     },
     {
       "file": "dist/assets/llvm.js",
-      "sizeBytes": 5142,
-      "sizeHuman": "5.02 kB"
+      "sizeBytes": 5132,
+      "sizeHuman": "5.01 kB"
     },
     {
       "file": "dist/assets/SettingsWeather.js",
@@ -1533,13 +1563,13 @@
     },
     {
       "file": "dist/assets/RepoCommitDetailPanel.js",
-      "sizeBytes": 5017,
-      "sizeHuman": "4.90 kB"
+      "sizeBytes": 4989,
+      "sizeHuman": "4.87 kB"
     },
     {
       "file": "dist/assets/bibtex.js",
-      "sizeBytes": 4887,
-      "sizeHuman": "4.77 kB"
+      "sizeBytes": 4914,
+      "sizeHuman": "4.80 kB"
     },
     {
       "file": "dist/assets/fennel.js",
@@ -1547,14 +1577,14 @@
       "sizeHuman": "4.75 kB"
     },
     {
-      "file": "dist/assets/InlineDropdown.js",
-      "sizeBytes": 4839,
-      "sizeHuman": "4.73 kB"
-    },
-    {
       "file": "dist/assets/sdbl.js",
       "sizeBytes": 4826,
       "sizeHuman": "4.71 kB"
+    },
+    {
+      "file": "dist/assets/InlineDropdown.js",
+      "sizeBytes": 4811,
+      "sizeHuman": "4.70 kB"
     },
     {
       "file": "dist/assets/polar.js",
@@ -1618,18 +1648,18 @@
     },
     {
       "file": "dist/assets/TerminalWorkspaceView.js",
-      "sizeBytes": 4163,
+      "sizeBytes": 4170,
       "sizeHuman": "4.07 kB"
-    },
-    {
-      "file": "dist/assets/CopilotResultsList.js",
-      "sizeBytes": 4104,
-      "sizeHuman": "4.01 kB"
     },
     {
       "file": "dist/assets/gn.js",
       "sizeBytes": 4094,
       "sizeHuman": "4.00 kB"
+    },
+    {
+      "file": "dist/assets/CopilotResultsList.js",
+      "sizeBytes": 4076,
+      "sizeHuman": "3.98 kB"
     },
     {
       "file": "dist/assets/ron.js",
@@ -1682,6 +1712,11 @@
       "sizeHuman": "3.62 kB"
     },
     {
+      "file": "dist/assets/createLucideIcon.js",
+      "sizeBytes": 3686,
+      "sizeHuman": "3.60 kB"
+    },
+    {
       "file": "dist/assets/BrowserTabView.js",
       "sizeBytes": 3683,
       "sizeHuman": "3.60 kB"
@@ -1722,14 +1757,19 @@
       "sizeHuman": "3.37 kB"
     },
     {
-      "file": "dist/assets/SettingsPullRequests.js",
-      "sizeBytes": 3395,
+      "file": "dist/assets/rbs.js",
+      "sizeBytes": 3403,
       "sizeHuman": "3.32 kB"
     },
     {
       "file": "dist/assets/tasl.js",
       "sizeBytes": 3380,
       "sizeHuman": "3.30 kB"
+    },
+    {
+      "file": "dist/assets/SettingsPullRequests.js",
+      "sizeBytes": 3367,
+      "sizeHuman": "3.29 kB"
     },
     {
       "file": "dist/assets/useConvex.js",
@@ -1752,29 +1792,29 @@
       "sizeHuman": "3.25 kB"
     },
     {
+      "file": "dist/assets/jsonc.js",
+      "sizeBytes": 3233,
+      "sizeHuman": "3.16 kB"
+    },
+    {
       "file": "dist/assets/logo.js",
       "sizeBytes": 3219,
       "sizeHuman": "3.14 kB"
     },
     {
-      "file": "dist/assets/jsonc.js",
-      "sizeBytes": 3201,
-      "sizeHuman": "3.13 kB"
-    },
-    {
       "file": "dist/assets/RepoCommitListPanel.js",
-      "sizeBytes": 3186,
-      "sizeHuman": "3.11 kB"
-    },
-    {
-      "file": "dist/assets/ExpandableFileList.js",
-      "sizeBytes": 3179,
-      "sizeHuman": "3.10 kB"
+      "sizeBytes": 3200,
+      "sizeHuman": "3.13 kB"
     },
     {
       "file": "dist/assets/SessionDetail.css",
       "sizeBytes": 3161,
       "sizeHuman": "3.09 kB"
+    },
+    {
+      "file": "dist/assets/ExpandableFileList.js",
+      "sizeBytes": 3152,
+      "sizeHuman": "3.08 kB"
     },
     {
       "file": "dist/assets/CopilotPromptBox.css",
@@ -1802,13 +1842,13 @@
       "sizeHuman": "2.96 kB"
     },
     {
-      "file": "dist/assets/json.js",
-      "sizeBytes": 2948,
-      "sizeHuman": "2.88 kB"
+      "file": "dist/assets/log.js",
+      "sizeBytes": 2976,
+      "sizeHuman": "2.91 kB"
     },
     {
-      "file": "dist/assets/log.js",
-      "sizeBytes": 2944,
+      "file": "dist/assets/json.js",
+      "sizeBytes": 2948,
       "sizeHuman": "2.88 kB"
     },
     {
@@ -1882,29 +1922,24 @@
       "sizeHuman": "2.09 kB"
     },
     {
+      "file": "dist/assets/hxml.js",
+      "sizeBytes": 1992,
+      "sizeHuman": "1.95 kB"
+    },
+    {
       "file": "dist/assets/desktop.js",
       "sizeBytes": 1925,
       "sizeHuman": "1.88 kB"
     },
     {
-      "file": "dist/assets/PremiumUsageBadge.js",
-      "sizeBytes": 1867,
-      "sizeHuman": "1.82 kB"
-    },
-    {
-      "file": "dist/assets/createLucideIcon.js",
-      "sizeBytes": 1861,
-      "sizeHuman": "1.82 kB"
-    },
-    {
-      "file": "dist/assets/hxml.js",
-      "sizeBytes": 1841,
-      "sizeHuman": "1.80 kB"
-    },
-    {
       "file": "dist/assets/docker.js",
-      "sizeBytes": 1833,
-      "sizeHuman": "1.79 kB"
+      "sizeBytes": 1860,
+      "sizeHuman": "1.82 kB"
+    },
+    {
+      "file": "dist/assets/PremiumUsageBadge.js",
+      "sizeBytes": 1839,
+      "sizeHuman": "1.80 kB"
     },
     {
       "file": "dist/assets/fortran-fixed-form.js",
@@ -1913,13 +1948,13 @@
     },
     {
       "file": "dist/assets/ini.js",
-      "sizeBytes": 1617,
-      "sizeHuman": "1.58 kB"
+      "sizeBytes": 1644,
+      "sizeHuman": "1.61 kB"
     },
     {
       "file": "dist/assets/useGitHubData.js",
-      "sizeBytes": 1593,
-      "sizeHuman": "1.56 kB"
+      "sizeBytes": 1589,
+      "sizeHuman": "1.55 kB"
     },
     {
       "file": "dist/assets/sparql.js",
@@ -1933,13 +1968,8 @@
     },
     {
       "file": "dist/assets/xsl.js",
-      "sizeBytes": 1456,
-      "sizeHuman": "1.42 kB"
-    },
-    {
-      "file": "dist/assets/useViewMode.js",
-      "sizeBytes": 1381,
-      "sizeHuman": "1.35 kB"
+      "sizeBytes": 1483,
+      "sizeHuman": "1.45 kB"
     },
     {
       "file": "dist-electron/rolldown-runtime.js",
@@ -1948,8 +1978,18 @@
     },
     {
       "file": "dist/assets/git-commit.js",
-      "sizeBytes": 1328,
-      "sizeHuman": "1.30 kB"
+      "sizeBytes": 1355,
+      "sizeHuman": "1.32 kB"
+    },
+    {
+      "file": "dist/assets/useViewMode.js",
+      "sizeBytes": 1353,
+      "sizeHuman": "1.32 kB"
+    },
+    {
+      "file": "dist/assets/assistantPrompts.js",
+      "sizeBytes": 1267,
+      "sizeHuman": "1.24 kB"
     },
     {
       "file": "dist/assets/csv.js",
@@ -1957,14 +1997,14 @@
       "sizeHuman": "1.23 kB"
     },
     {
-      "file": "dist/assets/assistantPrompts.js",
-      "sizeBytes": 1213,
-      "sizeHuman": "1.18 kB"
-    },
-    {
       "file": "dist/assets/BrowserTabView.css",
       "sizeBytes": 1187,
       "sizeHuman": "1.16 kB"
+    },
+    {
+      "file": "dist/assets/git-rebase.js",
+      "sizeBytes": 1108,
+      "sizeHuman": "1.08 kB"
     },
     {
       "file": "dist/assets/qmldir.js",
@@ -1973,23 +2013,23 @@
     },
     {
       "file": "dist/assets/useCopilotSessions.js",
-      "sizeBytes": 1085,
-      "sizeHuman": "1.06 kB"
-    },
-    {
-      "file": "dist/assets/git-rebase.js",
-      "sizeBytes": 1081,
-      "sizeHuman": "1.06 kB"
+      "sizeBytes": 1057,
+      "sizeHuman": "1.03 kB"
     },
     {
       "file": "dist/assets/PRStateIcon.js",
-      "sizeBytes": 1002,
-      "sizeHuman": "1002 B"
+      "sizeBytes": 1010,
+      "sizeHuman": "1010 B"
     },
     {
       "file": "dist/assets/html-derivative.js",
       "sizeBytes": 966,
       "sizeHuman": "966 B"
+    },
+    {
+      "file": "dist/assets/square-pen.js",
+      "sizeBytes": 850,
+      "sizeHuman": "850 B"
     },
     {
       "file": "dist/assets/tsv.js",
@@ -2007,14 +2047,9 @@
       "sizeHuman": "807 B"
     },
     {
-      "file": "dist/assets/square-pen.js",
-      "sizeBytes": 756,
-      "sizeHuman": "756 B"
-    },
-    {
       "file": "dist/assets/cpu.js",
-      "sizeBytes": 750,
-      "sizeHuman": "750 B"
+      "sizeBytes": 777,
+      "sizeHuman": "777 B"
     },
     {
       "file": "dist/assets/useExternalMarkdownLinks.js",
@@ -2027,6 +2062,11 @@
       "sizeHuman": "639 B"
     },
     {
+      "file": "dist/assets/toggle-right.js",
+      "sizeBytes": 563,
+      "sizeHuman": "563 B"
+    },
+    {
       "file": "dist/assets/errorUtils.js",
       "sizeBytes": 561,
       "sizeHuman": "561 B"
@@ -2037,9 +2077,9 @@
       "sizeHuman": "558 B"
     },
     {
-      "file": "dist/assets/jobRowUtils.js",
-      "sizeBytes": 544,
-      "sizeHuman": "544 B"
+      "file": "dist/assets/hard-drive.js",
+      "sizeBytes": 523,
+      "sizeHuman": "523 B"
     },
     {
       "file": "dist/assets/copilotFormatUtils.js",
@@ -2047,24 +2087,29 @@
       "sizeHuman": "520 B"
     },
     {
-      "file": "dist/assets/toggle-right.js",
-      "sizeBytes": 509,
-      "sizeHuman": "509 B"
-    },
-    {
-      "file": "dist/assets/hard-drive.js",
-      "sizeBytes": 496,
-      "sizeHuman": "496 B"
-    },
-    {
       "file": "dist/assets/calendar-clock.js",
-      "sizeBytes": 486,
-      "sizeHuman": "486 B"
+      "sizeBytes": 516,
+      "sizeHuman": "516 B"
+    },
+    {
+      "file": "dist/assets/jobRowUtils.js",
+      "sizeBytes": 516,
+      "sizeHuman": "516 B"
     },
     {
       "file": "dist/assets/file-code.js",
-      "sizeBytes": 480,
-      "sizeHuman": "480 B"
+      "sizeBytes": 507,
+      "sizeHuman": "507 B"
+    },
+    {
+      "file": "dist/assets/tag.js",
+      "sizeBytes": 461,
+      "sizeHuman": "461 B"
+    },
+    {
+      "file": "dist/assets/refresh-cw.js",
+      "sizeBytes": 456,
+      "sizeHuman": "456 B"
     },
     {
       "file": "dist/assets/MarkdownContent.js",
@@ -2072,84 +2117,79 @@
       "sizeHuman": "444 B"
     },
     {
-      "file": "dist/assets/tag.js",
-      "sizeBytes": 434,
-      "sizeHuman": "434 B"
-    },
-    {
-      "file": "dist/assets/refresh-cw.js",
-      "sizeBytes": 429,
-      "sizeHuman": "429 B"
-    },
-    {
       "file": "dist/assets/list.js",
-      "sizeBytes": 410,
-      "sizeHuman": "410 B"
+      "sizeBytes": 437,
+      "sizeHuman": "437 B"
     },
     {
       "file": "dist/assets/message-square-share.js",
+      "sizeBytes": 437,
+      "sizeHuman": "437 B"
+    },
+    {
+      "file": "dist/assets/triangle-alert.js",
+      "sizeBytes": 427,
+      "sizeHuman": "427 B"
+    },
+    {
+      "file": "dist/assets/circle-alert.js",
       "sizeBytes": 410,
       "sizeHuman": "410 B"
     },
     {
       "file": "dist/assets/shield.js",
-      "sizeBytes": 380,
-      "sizeHuman": "380 B"
+      "sizeBytes": 407,
+      "sizeHuman": "407 B"
     },
     {
-      "file": "dist/assets/triangle-alert.js",
-      "sizeBytes": 373,
-      "sizeHuman": "373 B"
-    },
-    {
-      "file": "dist/assets/circle-alert.js",
-      "sizeBytes": 358,
-      "sizeHuman": "358 B"
-    },
-    {
-      "file": "dist/assets/history.js",
-      "sizeBytes": 345,
-      "sizeHuman": "345 B"
+      "file": "dist/assets/rotate-ccw-clock.js",
+      "sizeBytes": 401,
+      "sizeHuman": "401 B"
     },
     {
       "file": "dist/assets/git-branch.js",
-      "sizeBytes": 337,
-      "sizeHuman": "337 B"
+      "sizeBytes": 364,
+      "sizeHuman": "364 B"
     },
     {
       "file": "dist/assets/git-merge.js",
-      "sizeBytes": 336,
-      "sizeHuman": "336 B"
-    },
-    {
-      "file": "dist/assets/pause.js",
-      "sizeBytes": 319,
-      "sizeHuman": "319 B"
-    },
-    {
-      "file": "dist/assets/rotate-ccw.js",
-      "sizeBytes": 308,
-      "sizeHuman": "308 B"
+      "sizeBytes": 363,
+      "sizeHuman": "363 B"
     },
     {
       "file": "dist/assets/circle-check-big.js",
-      "sizeBytes": 302,
-      "sizeHuman": "302 B"
+      "sizeBytes": 354,
+      "sizeHuman": "354 B"
+    },
+    {
+      "file": "dist/assets/pause.js",
+      "sizeBytes": 346,
+      "sizeHuman": "346 B"
+    },
+    {
+      "file": "dist/assets/rotate-ccw.js",
+      "sizeBytes": 335,
+      "sizeHuman": "335 B"
     },
     {
       "file": "dist/assets/trending-up.js",
-      "sizeBytes": 283,
-      "sizeHuman": "283 B"
-    },
-    {
-      "file": "dist/assets/square.js",
-      "sizeBytes": 255,
-      "sizeHuman": "255 B"
+      "sizeBytes": 310,
+      "sizeHuman": "310 B"
     },
     {
       "file": "dist/assets/loader-circle.js",
-      "sizeBytes": 252,
-      "sizeHuman": "252 B"
+      "sizeBytes": 300,
+      "sizeHuman": "300 B"
+    },
+    {
+      "file": "dist/assets/square.js",
+      "sizeBytes": 282,
+      "sizeHuman": "282 B"
+    },
+    {
+      "file": "dist/assets/check.js",
+      "sizeBytes": 259,
+      "sizeHuman": "259 B"
     },
     {
       "file": "dist/assets/notificationSound.js",
@@ -2162,9 +2202,9 @@
       "sizeHuman": "233 B"
     },
     {
-      "file": "dist/assets/check.js",
-      "sizeBytes": 232,
-      "sizeHuman": "232 B"
+      "file": "dist-electron/ffiRuntimeHost.js",
+      "sizeBytes": 144,
+      "sizeHuman": "144 B"
     },
     {
       "file": "dist-electron/main.js",
@@ -2183,8 +2223,8 @@
     },
     {
       "file": "dist/assets/index.js",
-      "sizeBytes": 75,
-      "sizeHuman": "75 B"
+      "sizeBytes": 47,
+      "sizeHuman": "47 B"
     }
   ]
 }

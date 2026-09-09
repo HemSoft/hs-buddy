@@ -9,6 +9,9 @@ const documentedDirectExceptions = new Set([
   '@opentelemetry/resources',
   '@opentelemetry/sdk-metrics',
   '@types/node',
+  // Pinned at 2.x for the bundle-size tooling's wasm lexer API (initSync);
+  // import-in-the-middle separately requires ^3.0.2, so both majors coexist.
+  'es-module-lexer',
   'esbuild',
   'globals',
   'prettier',

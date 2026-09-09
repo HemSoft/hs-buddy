@@ -8,7 +8,6 @@
         "@convex-dev/aggregate": "^0.3.0",
         "@convex-dev/migrations": "^0.3.6",
         "@github/copilot-sdk": "^1.0.5",
-        "@lhci/utils": "^0.15.1",
         "@octokit/graphql": "^9.0.3",
         "@octokit/plugin-retry": "^8.1.0",
         "@octokit/plugin-throttling": "^11.0.3",

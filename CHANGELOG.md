@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1169] - 2026-09-09
+
+### Fixed
+
+- Drop unused direct @lhci/utils dependency
+
 ## [0.1.1167] - 2026-09-09
 
 ### Fixed

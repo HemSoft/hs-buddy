@@ -2,7 +2,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+
+// Each test spawns a bash subprocess; under heavy parallel load (full coverage
+// run on a busy dev machine) they exceed the 5 s default. Give them headroom.
+vi.setConfig({ testTimeout: 30_000 })
 
 const workflowPath = join(import.meta.dirname, '..', '.github', 'workflows', 'sfl-auditor.yml')
 const temporaryDirectories: string[] = []
@@ -138,7 +142,7 @@ describe('SFL Auditor stalled draft PR counter', () => {
     expect(firstRun.output).toContain('stalled_prs_found=1')
     expect(secondRun.output).toContain('stalled_prs_found=0')
     expect(secondRun.comments).toBe('')
-  }, 10_000)
+  })
 })
 
 describe('SFL Auditor stalled draft PR warning detection', () => {

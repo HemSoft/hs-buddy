@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1176] - 2026-09-09
+
+### Changed
+
+- Publish wizard and stalled-PR timeout hardening on the fixed base
+
 ## [0.1.1175] - 2026-09-09
 
 ### Fixed

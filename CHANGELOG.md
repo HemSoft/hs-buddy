@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1174] - 2026-09-09
+
+### Fixed
+
+- Replace void-read idiom in useBackgroundStatus
+
 ## [0.1.1173] - 2026-09-09
 
 ### Fixed

@@ -251,12 +251,17 @@ fi
 # ── Stage 3: verify the controller works, strictly read-only ─────────────
 stage "Verify — run the controller locally in evaluation mode"
 step "Verify the active GitHub account is HemSoft before any gh call:"
-if ! gh auth status 2>&1 | grep -E "Logged in to github.com account HemSoft" >/dev/null; then
-  warn "The active github.com account is not HemSoft (gh auth status)."
+if ! gh auth status --active --hostname github.com 2>&1 | grep -E "Logged in to github.com account HemSoft" >/dev/null; then
+  warn "The ACTIVE github.com account is not HemSoft (gh auth status)."
   say "Switch first: gh auth switch --user HemSoft, then re-run this wizard."
   exit 1
 fi
 ACTIVE=$(gh api user --jq .login) || { warn "gh api user failed."; exit 1; }
+if [[ "$ACTIVE" != "HemSoft" ]]; then
+  warn "gh api reports '$ACTIVE' while auth status claims HemSoft — aborting."
+  say "Switch first: gh auth switch --user HemSoft, then re-run this wizard."
+  exit 1
+fi
 say "Active account: $ACTIVE"
 say ""
 say "This runs the controller WITHOUT --apply and with the CLI's user token:"

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1171] - 2026-09-09
+
+### Fixed
+
+- Derive throttle handler types from plugin exports instead of unlisted @octokit/types
+
 ## [0.1.1170] - 2026-09-09
 
 ### Fixed

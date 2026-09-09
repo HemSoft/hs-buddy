@@ -1,8 +1,11 @@
 import { Octokit } from '@octokit/rest'
 import { retry } from '@octokit/plugin-retry'
 import { throttling } from '@octokit/plugin-throttling'
-import type { EndpointDefaults } from '@octokit/types'
+import type { ThrottlingOptions } from '@octokit/plugin-throttling'
 import { graphql as octokitGraphql } from '@octokit/graphql'
+
+type ThrottleLimitHandler = NonNullable<ThrottlingOptions['onRateLimit']>
+type ThrottleSecondaryHandler = NonNullable<ThrottlingOptions['onSecondaryRateLimit']>
 import type { PRConfig } from '../../types/pullRequest'
 import { IPC_INVOKE } from '../../ipc/contracts'
 
@@ -222,10 +225,7 @@ export function buildOctokitOptions(
       // independent while retaining serialization for each account's requests.
       id: `hs-buddy:${username.toLowerCase()}`,
       onRateLimit: (
-        retryAfter: number,
-        options: Required<EndpointDefaults>,
-        _octokit: Octokit,
-        retryCount: number
+        ...[retryAfter, options, _octokit, retryCount]: Parameters<ThrottleLimitHandler>
       ) => {
         console.warn(`Rate limit hit for ${options.method} ${options.url}`)
         if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {
@@ -241,10 +241,7 @@ export function buildOctokitOptions(
         return false
       },
       onSecondaryRateLimit: (
-        retryAfter: number,
-        options: Required<EndpointDefaults>,
-        _octokit: Octokit,
-        retryCount: number
+        ...[retryAfter, options, _octokit, retryCount]: Parameters<ThrottleSecondaryHandler>
       ) => {
         console.warn(`Secondary rate limit hit for ${options.method} ${options.url}`)
         if (retryAfter * 1000 > GITHUB_REQUEST_TIMEOUT_MS) {

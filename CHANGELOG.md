@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1182] - 2026-09-10
+
+### Changed
+
+- Cancel cache touches after PR list tests
+
 ## [0.1.1181] - 2026-09-10
 
 ### Changed

@@ -9,11 +9,21 @@ interface StrykerConfig {
   thresholds: { break: number }
 }
 
+const runnerSource = resolve('node_modules/@stryker-mutator/vitest-runner/dist/src')
+
+const runtimeCopies = ['test-helpers.js', 'stryker-setup.js']
+
 describe('Stryker Vitest 5 compatibility', () => {
-  it('uses Vitest 5 nested test names in the patched runner', async () => {
-    const helperUrl = pathToFileURL(
-      resolve('node_modules/@stryker-mutator/vitest-runner/dist/src/test-helpers.js')
-    ).href
+  it('patches both runtime copies of the nested test-name collector', () => {
+    for (const file of runtimeCopies) {
+      expect(readFileSync(resolve(runnerSource, file), 'utf8')).toContain(
+        "return nameParts.join(' > ').trim();"
+      )
+    }
+  })
+
+  it('uses Vitest 5 nested test names in the patched helper', async () => {
+    const helperUrl = pathToFileURL(resolve(runnerSource, 'test-helpers.js')).href
     const { collectTestName } = (await import(helperUrl)) as {
       collectTestName: (test: unknown) => string
     }

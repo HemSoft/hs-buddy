@@ -9,6 +9,66 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1185] - 2026-09-10
+
+### Fixed
+
+- Compare stable memory runner families
+
+## [0.1.1184] - 2026-09-10
+
+### Changed
+
+- Normalize Stryker patch context
+
+## [0.1.1183] - 2026-09-10
+
+### Changed
+
+- Reject renamed split dependency groups
+
+## [0.1.1182] - 2026-09-10
+
+### Changed
+
+- Cancel cache touches after PR list tests
+
+## [0.1.1181] - 2026-09-10
+
+### Changed
+
+- Group the coupled test toolchain
+
+## [0.1.1180] - 2026-09-10
+
+### Changed
+
+- Preserve full Vitest 5 benchmark evidence
+
+## [0.1.1179] - 2026-09-10
+
+### Changed
+
+- Guard both Stryker runtime patches
+
+## [0.1.1178] - 2026-09-10
+
+### Fixed
+
+- Preserve benchmark uncertainty semantics
+
+## [0.1.1177] - 2026-09-10
+
+### Changed
+
+- Migrate the Vitest toolchain to v5
+
+## [0.1.1176] - 2026-09-09
+
+### Fixed
+
+- Pin @github/copilot-sdk to 1.0.5 to restore Electron startup
+
 ## [0.1.1175] - 2026-09-09
 
 ### Fixed

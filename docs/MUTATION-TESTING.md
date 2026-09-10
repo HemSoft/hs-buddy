@@ -1,10 +1,12 @@
 # Mutation testing
 
-Buddy uses [StrykerJS](https://stryker-mutator.io/) 9.6.1 with its Vitest
-runner to check whether the unit suite detects deliberate changes to production
-logic. Version 9.6.1 is pinned because 10.0.0's Babel 8 printer crashes on the
-repository's TypeScript function-type syntax before its test run starts. The
-blocking command is:
+Buddy uses [StrykerJS](https://stryker-mutator.io/) 10.0.0 with its Vitest
+5 runner to check whether the unit suite detects deliberate changes to production
+logic. The runner has a temporary Bun dependency patch for
+[StrykerJS #6210](https://github.com/stryker-mutator/stryker-js/issues/6210),
+which otherwise applies a Vitest 4 nested-test name filter and runs zero tests
+for covered mutants. Remove the patch when an upstream release includes the
+fix. The blocking command is:
 
 ```bash
 bun run test:mutation
@@ -62,11 +64,12 @@ found during setup.
 | Baseline commit | Mutation score | Killed | Survived | Timeout | Runtime |
 | --------------- | -------------: | -----: | -------: | ------: | ------: |
 | `bbb5a491`      |         96.66% |    492 |       17 |       0 |  4m 36s |
+| `6370430d`      |         96.83% |    520 |       17 |       0 |  4m 22s |
 
-The cold run exercised 509 non-static mutants with no uncovered mutants or
-errors. It ran on the Home Windows workstation with Node 24.12.0, Bun 1.3.7,
-Vitest 4.1.11, and concurrency set to two. GitHub Actions keeps the larger
-15-minute budget to allow for runner variance.
+The Vitest 5 migration cold run exercised 537 non-static mutants with no
+uncovered mutants or errors. It ran on the Home Windows workstation with Node
+24.12.0, Bun 1.3.7, Vitest 5.0.0, Stryker 10.0.0, and concurrency set to two.
+GitHub Actions keeps the larger 15-minute budget to allow for runner variance.
 
 The committed `thresholds.break` value may stay the same or increase during
 ordinary changes. Lowering it requires a fresh cold run against `main`, the

@@ -17,9 +17,10 @@
 // Re-export the axe runner
 export { axe } from 'vitest-axe'
 
-// Augment vitest's Assertion to include toHaveNoViolations (vitest v4+ module augmentation)
+// Vitest 5 recommends augmenting Matchers so expect() and asymmetric matchers
+// receive the same custom matcher type.
 declare module 'vitest' {
-  interface Assertion<T> {
-    toHaveNoViolations(): T
+  interface Matchers<R extends void | Promise<void> = void | Promise<void>, T = unknown> {
+    toHaveNoViolations(this: Matchers<R, T>): R
   }
 }

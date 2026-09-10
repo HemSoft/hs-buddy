@@ -3,6 +3,7 @@ import {
   compareBenchmarks,
   formatResults,
   isValidBenchOutput,
+  normalizeBenchOutput,
   parseBenchOutput,
   type BenchmarkOutput,
 } from './bench-compare'
@@ -52,11 +53,12 @@ export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: Be
 if (import.meta.main) {
   try {
     const load = (prefix: string) =>
-      Array.from(
-        { length: CI_SAMPLE_COUNT },
-        (_, index) =>
-          JSON.parse(readFileSync(`${prefix}-run-${index + 1}.json`, 'utf8')) as BenchmarkOutput
-      )
+      Array.from({ length: CI_SAMPLE_COUNT }, (_, index) => {
+        const path = `${prefix}-run-${index + 1}.json`
+        const output = normalizeBenchOutput(JSON.parse(readFileSync(path, 'utf8')))
+        if (!output) throw new Error(`Invalid benchmark output: ${path}`)
+        return output
+      })
     const { baseline, candidate, result } = qualifyBenchmarks(
       load('bench-baseline'),
       load('bench-results')

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import {
   buildQuoteFromMeta,
   parseChartResponse,
@@ -60,25 +60,37 @@ const MEDIUM_DATASET = makeDataset(100)
 const LARGE_DATASET = makeDataset(1_000)
 
 describe('finance quote calculation', () => {
-  bench('buildQuoteFromMeta — 10 quotes', () => {
-    buildQuotes(SMALL_DATASET)
+  test('buildQuoteFromMeta — 10 quotes', async ({ bench }) => {
+    await bench('buildQuoteFromMeta — 10 quotes', () => {
+      buildQuotes(SMALL_DATASET)
+    }).run()
   })
-  bench('buildQuoteFromMeta — 100 quotes', () => {
-    buildQuotes(MEDIUM_DATASET)
+  test('buildQuoteFromMeta — 100 quotes', async ({ bench }) => {
+    await bench('buildQuoteFromMeta — 100 quotes', () => {
+      buildQuotes(MEDIUM_DATASET)
+    }).run()
   })
-  bench('buildQuoteFromMeta — 1000 quotes', () => {
-    buildQuotes(LARGE_DATASET)
+  test('buildQuoteFromMeta — 1000 quotes', async ({ bench }) => {
+    await bench('buildQuoteFromMeta — 1000 quotes', () => {
+      buildQuotes(LARGE_DATASET)
+    }).run()
   })
 })
 
 describe('finance response parsing', () => {
-  bench('parseChartResponse — 10 quotes', () => {
-    parseResponses(SMALL_DATASET)
+  test('parseChartResponse — 10 quotes', async ({ bench }) => {
+    await bench('parseChartResponse — 10 quotes', () => {
+      parseResponses(SMALL_DATASET)
+    }).run()
   })
-  bench('parseChartResponse — 100 quotes', () => {
-    parseResponses(MEDIUM_DATASET)
+  test('parseChartResponse — 100 quotes', async ({ bench }) => {
+    await bench('parseChartResponse — 100 quotes', () => {
+      parseResponses(MEDIUM_DATASET)
+    }).run()
   })
-  bench('parseChartResponse — 1000 quotes', () => {
-    parseResponses(LARGE_DATASET)
+  test('parseChartResponse — 1000 quotes', async ({ bench }) => {
+    await bench('parseChartResponse — 1000 quotes', () => {
+      parseResponses(LARGE_DATASET)
+    }).run()
   })
 })

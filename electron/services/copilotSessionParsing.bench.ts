@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { bench, describe, beforeAll, afterAll } from 'vitest'
+import { test, describe, beforeAll, afterAll } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -141,16 +141,22 @@ function countToolCalls(rounds: ResultMetadata['toolCallRounds'] = []) {
 // ─── Benchmarks ───────────────────────────────────────────
 
 describe('getSessionDetail (streaming JSONL parse)', () => {
-  bench('10 requests', async () => {
-    await getSessionDetail(fixtures['10'])
+  test('10 requests', async ({ bench }) => {
+    await bench('10 requests', async () => {
+      await getSessionDetail(fixtures['10'])
+    }).run()
   })
 
-  bench('100 requests', async () => {
-    await getSessionDetail(fixtures['100'])
+  test('100 requests', async ({ bench }) => {
+    await bench('100 requests', async () => {
+      await getSessionDetail(fixtures['100'])
+    }).run()
   })
 
-  bench('500 requests', async () => {
-    await getSessionDetail(fixtures['500'])
+  test('500 requests', async ({ bench }) => {
+    await bench('500 requests', async () => {
+      await getSessionDetail(fixtures['500'])
+    }).run()
   })
 })
 
@@ -197,39 +203,49 @@ describe('regex extraction (hot path)', () => {
   const promptRe = /"message":\{"text":"((?:[^"\\]|\\.)*)"/
   const reqIdRe = /"requestId"/g
 
-  bench('extractScanInfo regexes (title, agent, date, prompt)', () => {
-    titleRe.exec(initLine)
-    agentRe.exec(initLine)
-    dateRe.exec(initLine)
-    promptRe.exec(initLine)
-    void initLine.match(reqIdRe)
+  test('extractScanInfo regexes (title, agent, date, prompt)', async ({ bench }) => {
+    await bench('extractScanInfo regexes (title, agent, date, prompt)', () => {
+      titleRe.exec(initLine)
+      agentRe.exec(initLine)
+      dateRe.exec(initLine)
+      promptRe.exec(initLine)
+      void initLine.match(reqIdRe)
+    }).run()
   })
 
-  bench('extractResultData JSON.parse', () => {
-    const meta = parseResultMetadata(resultLine)
-    void (meta.promptTokens ?? 0)
-    void (meta.outputTokens ?? 0)
-    void countToolCalls(meta.toolCallRounds)
+  test('extractResultData JSON.parse', async ({ bench }) => {
+    await bench('extractResultData JSON.parse', () => {
+      const meta = parseResultMetadata(resultLine)
+      void (meta.promptTokens ?? 0)
+      void (meta.outputTokens ?? 0)
+      void countToolCalls(meta.toolCallRounds)
+    }).run()
   })
 
   const promptTokensRe = /"promptTokens":(\d+)/
   const outputTokensRe = /"outputTokens":(\d+)/
 
-  bench('extractResultData regex fallback', () => {
-    promptTokensRe.exec(resultLine)
-    outputTokensRe.exec(resultLine)
+  test('extractResultData regex fallback', async ({ bench }) => {
+    await bench('extractResultData regex fallback', () => {
+      promptTokensRe.exec(resultLine)
+      outputTokensRe.exec(resultLine)
+    }).run()
   })
 
   const kindRe = new RegExp('^\\{"kind":(\\d+)')
   const keyRe = new RegExp('"k":\\[([^\\]]*)\\]')
 
-  bench('kind detection regex', () => {
-    kindRe.exec(resultLine)
-    kindRe.exec(initLine)
+  test('kind detection regex', async ({ bench }) => {
+    await bench('kind detection regex', () => {
+      kindRe.exec(resultLine)
+      kindRe.exec(initLine)
+    }).run()
   })
 
-  bench('key path extraction regex', () => {
-    keyRe.exec(resultLine)
-    keyRe.exec(initLine)
+  test('key path extraction regex', async ({ bench }) => {
+    await bench('key path extraction regex', () => {
+      keyRe.exec(resultLine)
+      keyRe.exec(initLine)
+    }).run()
   })
 })

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { applyReactionToResult } from './reactions'
 import type { PRCommentReactionContent, PRReviewComment, PRThreadsResult } from '../api/github'
 
@@ -46,23 +46,33 @@ const LARGE = makeResult(30, 10) // 30 threads × 10 comments + 3 issue comments
 const REACTION: PRCommentReactionContent = 'THUMBS_UP'
 
 describe('applyReactionToResult', () => {
-  bench('small PR (9 comments)', () => {
-    applyReactionToResult(SMALL, 'c-3', REACTION)
+  test('small PR (9 comments)', async ({ bench }) => {
+    await bench('small PR (9 comments)', () => {
+      applyReactionToResult(SMALL, 'c-3', REACTION)
+    }).run()
   })
 
-  bench('medium PR (53 comments)', () => {
-    applyReactionToResult(MEDIUM, 'c-25', REACTION)
+  test('medium PR (53 comments)', async ({ bench }) => {
+    await bench('medium PR (53 comments)', () => {
+      applyReactionToResult(MEDIUM, 'c-25', REACTION)
+    }).run()
   })
 
-  bench('large PR (303 comments)', () => {
-    applyReactionToResult(LARGE, 'c-150', REACTION)
+  test('large PR (303 comments)', async ({ bench }) => {
+    await bench('large PR (303 comments)', () => {
+      applyReactionToResult(LARGE, 'c-150', REACTION)
+    }).run()
   })
 
-  bench('miss — comment not found', () => {
-    applyReactionToResult(MEDIUM, 'nonexistent', REACTION)
+  test('miss — comment not found', async ({ bench }) => {
+    await bench('miss — comment not found', () => {
+      applyReactionToResult(MEDIUM, 'nonexistent', REACTION)
+    }).run()
   })
 
-  bench('add new reaction type', () => {
-    applyReactionToResult(MEDIUM, 'c-10', 'EYES')
+  test('add new reaction type', async ({ bench }) => {
+    await bench('add new reaction type', () => {
+      applyReactionToResult(MEDIUM, 'c-10', 'EYES')
+    }).run()
   })
 })

@@ -9,7 +9,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   buildBenchmarkKey,
-  isValidBenchOutput,
+  normalizeBenchOutput,
   normalizeFilepath,
   type BenchmarkOutput,
   type BenchmarkResult,
@@ -162,12 +162,12 @@ function loadBenchmarkOutput(path: string): BenchmarkOutput {
     throw new Error(`Benchmark input file not found: ${path}`)
   }
 
-  const data: unknown = JSON.parse(readFileSync(path, 'utf-8'))
-  if (!isValidBenchOutput(data)) {
+  const output = normalizeBenchOutput(JSON.parse(readFileSync(path, 'utf-8')))
+  if (!output) {
     throw new Error(`Benchmark input file is not valid vitest bench JSON: ${path}`)
   }
 
-  return data
+  return output
 }
 
 function countBenchmarks(output: BenchmarkOutput): number {

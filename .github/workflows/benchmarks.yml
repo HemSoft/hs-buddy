@@ -80,7 +80,7 @@ jobs:
                 output="$GITHUB_WORKSPACE/bench-results-run-${run}.json"
               fi
               echo "$revision sample ${run}/3"
-              (cd "$directory" && bunx vitest bench --run --outputJson "$output")
+              bun "$GITHUB_WORKSPACE/scripts/bench-json.ts" --directory "$directory" --output "$output"
             done
           done
 

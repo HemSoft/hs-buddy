@@ -10,7 +10,7 @@
  *
  * @vitest-environment node
  */
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { ipcHandler } from '../electron/ipc/ipcHandler'
 
 // Simulate typical handler payloads with fixed data for deterministic benchmarks
@@ -46,45 +46,65 @@ describe('IPC handler dispatch overhead', () => {
     throw new Error('simulated failure')
   })
 
-  bench('small payload (~50B)', async () => {
-    await fastHandler(event)
+  test('small payload (~50B)', async ({ bench }) => {
+    await bench('small payload (~50B)', async () => {
+      await fastHandler(event)
+    }).run()
   })
 
-  bench('medium payload (~5KB)', async () => {
-    await mediumHandler(event)
+  test('medium payload (~5KB)', async ({ bench }) => {
+    await bench('medium payload (~5KB)', async () => {
+      await mediumHandler(event)
+    }).run()
   })
 
-  bench('large payload (~50KB)', async () => {
-    await largeHandler(event)
+  test('large payload (~50KB)', async ({ bench }) => {
+    await bench('large payload (~50KB)', async () => {
+      await largeHandler(event)
+    }).run()
   })
 
-  bench('error path', async () => {
-    await errorHandler(event)
+  test('error path', async ({ bench }) => {
+    await bench('error path', async () => {
+      await errorHandler(event)
+    }).run()
   })
 })
 
 describe('JSON serialization (IPC transport simulation)', () => {
-  bench('serialize small payload', () => {
-    JSON.stringify(smallPayload)
+  test('serialize small payload', async ({ bench }) => {
+    await bench('serialize small payload', () => {
+      JSON.stringify(smallPayload)
+    }).run()
   })
 
-  bench('serialize medium payload', () => {
-    JSON.stringify(mediumPayload)
+  test('serialize medium payload', async ({ bench }) => {
+    await bench('serialize medium payload', () => {
+      JSON.stringify(mediumPayload)
+    }).run()
   })
 
-  bench('serialize large payload', () => {
-    JSON.stringify(largePayload)
+  test('serialize large payload', async ({ bench }) => {
+    await bench('serialize large payload', () => {
+      JSON.stringify(largePayload)
+    }).run()
   })
 
-  bench('parse small serialized payload', () => {
-    JSON.parse(smallPayloadJson)
+  test('parse small serialized payload', async ({ bench }) => {
+    await bench('parse small serialized payload', () => {
+      JSON.parse(smallPayloadJson)
+    }).run()
   })
 
-  bench('parse medium serialized payload', () => {
-    JSON.parse(mediumPayloadJson)
+  test('parse medium serialized payload', async ({ bench }) => {
+    await bench('parse medium serialized payload', () => {
+      JSON.parse(mediumPayloadJson)
+    }).run()
   })
 
-  bench('parse large serialized payload', () => {
-    JSON.parse(largePayloadJson)
+  test('parse large serialized payload', async ({ bench }) => {
+    await bench('parse large serialized payload', () => {
+      JSON.parse(largePayloadJson)
+    }).run()
   })
 })

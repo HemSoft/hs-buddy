@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { computeProjection, type QuotaSnapshot } from './quotaUtils'
 
 function makeSnapshot(overrides: Partial<QuotaSnapshot> = {}): QuotaSnapshot {
@@ -19,19 +19,27 @@ function makeSnapshot(overrides: Partial<QuotaSnapshot> = {}): QuotaSnapshot {
 const RESET_DATE = '2026-04-15T00:00:00Z'
 
 describe('computeProjection', () => {
-  bench('mid-cycle with overage', () => {
-    computeProjection(makeSnapshot({ remaining: 50 }), RESET_DATE)
+  test('mid-cycle with overage', async ({ bench }) => {
+    await bench('mid-cycle with overage', () => {
+      computeProjection(makeSnapshot({ remaining: 50 }), RESET_DATE)
+    }).run()
   })
 
-  bench('early cycle low usage', () => {
-    computeProjection(makeSnapshot({ remaining: 290 }), RESET_DATE)
+  test('early cycle low usage', async ({ bench }) => {
+    await bench('early cycle low usage', () => {
+      computeProjection(makeSnapshot({ remaining: 290 }), RESET_DATE)
+    }).run()
   })
 
-  bench('near-reset heavy usage', () => {
-    computeProjection(makeSnapshot({ remaining: 10 }), '2026-03-31T00:00:00Z')
+  test('near-reset heavy usage', async ({ bench }) => {
+    await bench('near-reset heavy usage', () => {
+      computeProjection(makeSnapshot({ remaining: 10 }), '2026-03-31T00:00:00Z')
+    }).run()
   })
 
-  bench('zero remaining', () => {
-    computeProjection(makeSnapshot({ remaining: 0, entitlement: 300 }), RESET_DATE)
+  test('zero remaining', async ({ bench }) => {
+    await bench('zero remaining', () => {
+      computeProjection(makeSnapshot({ remaining: 0, entitlement: 300 }), RESET_DATE)
+    }).run()
   })
 })

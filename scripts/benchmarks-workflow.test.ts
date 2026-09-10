@@ -33,7 +33,9 @@ describe('Benchmarks workflow', () => {
     expect(workflow).toContain('for run in 1 2 3; do')
     expect(workflow).toContain('order="baseline candidate"')
     expect(workflow).toContain('order="candidate baseline"')
-    expect(workflow).toContain('bunx vitest bench --run --outputJson')
+    expect(workflow).toContain(
+      'bun "$GITHUB_WORKSPACE/scripts/bench-json.ts" --directory "$directory" --output "$output"'
+    )
     expect(workflow).toContain('timeout-minutes: 15')
     expect(workflow).toContain('run: bun scripts/bench-qualify.ts')
   })

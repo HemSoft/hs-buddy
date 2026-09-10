@@ -5,6 +5,7 @@ import {
   buildBenchmarkKey,
   normalizeFilepath,
   isValidBenchOutput,
+  normalizeBenchOutput,
   formatResults,
   type BenchmarkOutput,
   type BenchmarkGroup,
@@ -144,6 +145,88 @@ describe('parseBenchOutput', () => {
 
     const map = parseBenchOutput(output)
     expect(map.size).toBe(2)
+  })
+})
+
+describe('normalizeBenchOutput', () => {
+  const vitest5Report = {
+    testResults: [
+      {
+        name: 'D:/project/src/utils/test.bench.ts',
+        assertionResults: [
+          {
+            ancestorTitles: ['suite'],
+            benchmarks: [
+              {
+                tasks: [
+                  {
+                    name: 'op',
+                    rank: 1,
+                    latency: {
+                      mean: 0.1,
+                      min: 0.05,
+                      max: 0.2,
+                      p50: 0.09,
+                      p75: 0.12,
+                      p99: 0.18,
+                      p995: 0.19,
+                      p999: 0.2,
+                      rme: 3,
+                      samplesCount: 100,
+                    },
+                    throughput: { mean: 10_000, rme: 2, samplesCount: 100 },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+
+  it('converts Vitest 5 JSON reporter measurements to the stable benchmark shape', () => {
+    const output = normalizeBenchOutput(vitest5Report)
+
+    expect(output?.files[0]).toMatchObject({
+      filepath: 'D:/project/src/utils/test.bench.ts',
+      groups: [
+        {
+          fullName: 'src/utils/test.bench.ts > suite',
+          benchmarks: [
+            {
+              name: 'op',
+              rank: 1,
+              hz: 10_000,
+              mean: 0.1,
+              min: 0.05,
+              max: 0.2,
+              median: 0.09,
+              p75: 0.12,
+              p99: 0.18,
+              p995: 0.19,
+              p999: 0.2,
+              rme: 2,
+              sampleCount: 100,
+            },
+          ],
+        },
+      ],
+    })
+  })
+
+  it('passes the Vitest 4 benchmark shape through unchanged', () => {
+    const output = makeOutput([{ fullName: 'file > suite', benchmarks: [makeBench()] }])
+    expect(normalizeBenchOutput(output)).toBe(output)
+  })
+
+  it('rejects incomplete Vitest 5 benchmark measurements', () => {
+    const invalid = structuredClone(vitest5Report)
+    Reflect.deleteProperty(
+      invalid.testResults[0].assertionResults[0].benchmarks[0].tasks[0],
+      'throughput'
+    )
+    expect(normalizeBenchOutput(invalid)).toBeUndefined()
   })
 })
 

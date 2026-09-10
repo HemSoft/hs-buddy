@@ -289,6 +289,130 @@ export function isValidBenchOutput(data: unknown): data is BenchmarkOutput {
   return obj.files.every(isValidFile)
 }
 
+function record(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined
+}
+
+function normalizeVitest5Task(value: unknown, id: string): BenchmarkResult | undefined {
+  const task = record(value)
+  if (!task || typeof task.name !== 'string') return undefined
+
+  const latency = record(task.latency)
+  const throughput = record(task.throughput)
+  if (!latency || !throughput) return undefined
+
+  const values = [
+    task.rank,
+    throughput.mean,
+    latency.mean,
+    latency.min,
+    latency.max,
+    latency.p75,
+    latency.p99,
+    latency.p995,
+    latency.p999,
+    throughput.rme,
+    latency.samplesCount,
+    latency.p50,
+  ]
+  if (!values.every(item => typeof item === 'number' && Number.isFinite(item))) return undefined
+
+  const [rank, hz, mean, min, max, p75, p99, p995, p999, rme, sampleCount, median] =
+    values as number[]
+  return {
+    id,
+    name: task.name,
+    rank,
+    hz,
+    mean,
+    min,
+    max,
+    p75,
+    p99,
+    p995,
+    p999,
+    rme,
+    sampleCount,
+    median,
+  }
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string')) return undefined
+  return value
+}
+
+function vitest5Tasks(value: unknown): unknown[] | undefined {
+  const benchmark = record(value)
+  return benchmark && Array.isArray(benchmark.tasks) ? benchmark.tasks : undefined
+}
+
+function normalizeVitest5Assertion(
+  value: unknown,
+  filepath: string
+): BenchmarkGroup | null | undefined {
+  const assertion = record(value)
+  if (!assertion) return undefined
+  if (assertion.benchmarks === undefined) return null
+
+  const ancestors = stringArray(assertion.ancestorTitles)
+  if (!ancestors || !Array.isArray(assertion.benchmarks)) return undefined
+
+  const suite = ancestors.join(' > ')
+  const fullName = suite ? `${filepath} > ${suite}` : filepath
+  const benchmarks: BenchmarkResult[] = []
+  for (const benchmarkValue of assertion.benchmarks) {
+    const tasks = vitest5Tasks(benchmarkValue)
+    if (!tasks) return undefined
+    for (const taskValue of tasks) {
+      const task = normalizeVitest5Task(taskValue, `${filepath}:${benchmarks.length}`)
+      if (!task) return undefined
+      benchmarks.push(task)
+    }
+  }
+  return { fullName, benchmarks }
+}
+
+function normalizeVitest5File(value: unknown): BenchmarkFile | undefined {
+  const testResult = record(value)
+  if (!testResult || typeof testResult.name !== 'string') return undefined
+  if (!Array.isArray(testResult.assertionResults)) return undefined
+
+  const filepath = normalizeFilepath(testResult.name)
+  const groups = new Map<string, BenchmarkGroup>()
+  for (const assertionValue of testResult.assertionResults) {
+    const assertion = normalizeVitest5Assertion(assertionValue, filepath)
+    if (assertion === undefined) return undefined
+    if (assertion === null) continue
+    const group = groups.get(assertion.fullName) ?? { fullName: assertion.fullName, benchmarks: [] }
+    group.benchmarks.push(...assertion.benchmarks)
+    groups.set(group.fullName, group)
+  }
+  return { filepath: testResult.name, groups: [...groups.values()] }
+}
+
+/**
+ * Convert Vitest 5's JSON reporter output into the stable internal benchmark
+ * shape used by the median and comparison scripts. Vitest 4's legacy
+ * --outputJson shape passes through unchanged.
+ */
+export function normalizeBenchOutput(data: unknown): BenchmarkOutput | undefined {
+  if (isValidBenchOutput(data)) return data
+
+  const root = record(data)
+  if (!root || !Array.isArray(root.testResults)) return undefined
+
+  const files: BenchmarkFile[] = []
+  for (const testResult of root.testResults) {
+    const file = normalizeVitest5File(testResult)
+    if (!file) return undefined
+    files.push(file)
+  }
+  return { files }
+}
+
 // --- CLI ---
 
 function requireArgValue(args: string[], index: number, flag: string): string {
@@ -360,8 +484,8 @@ function updateBaseline(currentPath: string, baselinePath: string): void {
     process.exit(1)
   }
   const data = readFileSync(currentPath, 'utf-8')
-  const parsed: unknown = JSON.parse(data)
-  if (!isValidBenchOutput(parsed)) {
+  const parsed = normalizeBenchOutput(JSON.parse(data))
+  if (!parsed) {
     console.error('❌ Current results file is not valid vitest bench JSON output')
     process.exit(1)
   }
@@ -383,12 +507,12 @@ function loadValidatedBenchFile(path: string, label: string): BenchmarkOutput {
     )
     process.exit(1)
   }
-  const raw: unknown = JSON.parse(readFileSync(path, 'utf-8'))
-  if (!isValidBenchOutput(raw)) {
+  const output = normalizeBenchOutput(JSON.parse(readFileSync(path, 'utf-8')))
+  if (!output) {
     console.error(`❌ ${label} file is not valid vitest bench JSON output`)
     process.exit(1)
   }
-  return raw
+  return output
 }
 
 function main(): void {

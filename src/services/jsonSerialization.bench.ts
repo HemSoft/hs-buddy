@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 
 // Simulates the cache layer's JSON serialization/deserialization at various scales.
 // The real cache (electron/cache.ts) stores data as JSON on disk via readFileSync/writeFileSync.
@@ -35,37 +35,51 @@ const mediumJson = JSON.stringify(medium)
 const largeJson = JSON.stringify(large)
 
 describe('JSON.stringify (cache write)', () => {
-  bench('10 entries', () => {
-    JSON.stringify(small)
+  test('10 entries', async ({ bench }) => {
+    await bench('10 entries', () => {
+      JSON.stringify(small)
+    }).run()
   })
 
-  bench('100 entries', () => {
-    JSON.stringify(medium)
+  test('100 entries', async ({ bench }) => {
+    await bench('100 entries', () => {
+      JSON.stringify(medium)
+    }).run()
   })
 
-  bench('1000 entries', () => {
-    JSON.stringify(large)
+  test('1000 entries', async ({ bench }) => {
+    await bench('1000 entries', () => {
+      JSON.stringify(large)
+    }).run()
   })
 })
 
 describe('JSON.parse (cache read)', () => {
-  bench('10 entries', () => {
-    JSON.parse(smallJson)
+  test('10 entries', async ({ bench }) => {
+    await bench('10 entries', () => {
+      JSON.parse(smallJson)
+    }).run()
   })
 
-  bench('100 entries', () => {
-    JSON.parse(mediumJson)
+  test('100 entries', async ({ bench }) => {
+    await bench('100 entries', () => {
+      JSON.parse(mediumJson)
+    }).run()
   })
 
-  bench('1000 entries', () => {
-    JSON.parse(largeJson)
+  test('1000 entries', async ({ bench }) => {
+    await bench('1000 entries', () => {
+      JSON.parse(largeJson)
+    }).run()
   })
 })
 
 describe('cache entry lookup (post-parse)', () => {
-  bench('direct key access on 1000-entry object', () => {
-    const cache = JSON.parse(largeJson)
-    // Simulate typical cache hit pattern: parse then lookup
-    void cache['key-500']
+  test('direct key access on 1000-entry object', async ({ bench }) => {
+    await bench('direct key access on 1000-entry object', () => {
+      const cache = JSON.parse(largeJson)
+      // Simulate typical cache hit pattern: parse then lookup
+      void cache['key-500']
+    }).run()
   })
 })

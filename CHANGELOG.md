@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1181] - 2026-09-10
+
+### Changed
+
+- Group the coupled test toolchain
+
 ## [0.1.1180] - 2026-09-10
 
 ### Changed

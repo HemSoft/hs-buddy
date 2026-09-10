@@ -15,15 +15,13 @@ updates:
       update-types:
       - minor
       - patch
-    stryker:
-      patterns:
-      - "@stryker-mutator/core"
-      - "@stryker-mutator/vitest-runner"
-    vitest:
+    test-toolchain:
       patterns:
       - "vitest"
       - "@vitest/*"
       - "@amiceli/vitest-cucumber"
+      - "@stryker-mutator/core"
+      - "@stryker-mutator/vitest-runner"
   open-pull-requests-limit: 5
   package-ecosystem: npm
   schedule:

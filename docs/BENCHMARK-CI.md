@@ -51,9 +51,15 @@ not account for every source of runner variance; interleaving and medians reduce
 order effects and single-sample noise. The local performance skill's five-run,
 5% baseline checks remain a separate, stricter investigation procedure.
 
-The job has a **15-minute timeout**, including setup, six benchmark invocations,
+The job has a **25-minute timeout**, including setup, six benchmark invocations,
 comparison, and upload. Benchmark CLI calls use `--run` to disable watch mode.
-Timeouts fail the required gate. Record the hosted job duration when changing
+Timeouts fail the required gate. The Vitest 5 migration retains Tinybench 6's
+full 1,000 ms measurement window; candidate samples therefore take about 4m38s,
+versus 2m16s for the Vitest 4 baseline. Migration CI run
+[34451422759](https://github.com/HemSoft/hs-buddy/actions/runs/34451422759)
+proved that the former 15-minute limit expired during the fifth sample. The
+25-minute budget preserves three interleaved pairs, the regression threshold,
+and uncertainty qualification. Record the hosted job duration when changing
 sample count or benchmark definitions; do not silently increase the budget.
 
 ## Evidence and reproduction

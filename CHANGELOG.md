@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1178] - 2026-09-10
+
+### Fixed
+
+- Preserve benchmark uncertainty semantics
+
 ## [0.1.1177] - 2026-09-10
 
 ### Changed

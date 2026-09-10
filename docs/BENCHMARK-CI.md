@@ -68,8 +68,9 @@ advisory baseline-install failures retain policy and an unavailable summary.
   scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
   path classification, version-only skips, sample cardinality, thresholds,
   uncertainty handling, and aggregate failure handling.
-- Run `bunx vitest bench --run --outputJson <sample.json>` in each revision to
-  collect samples. Name them `bench-baseline-run-1.json` through `-3.json` and
+- Run `bun scripts/bench-json.ts --directory <revision> --output <sample.json>`
+  from the candidate checkout to collect either Vitest 4 or Vitest 5 output.
+  Name samples `bench-baseline-run-1.json` through `-3.json` and
   `bench-results-run-1.json` through `-3.json` in the comparison directory.
 - Save `bench-policy.json` with `mode` (`enforce` or `advisory`) and nonempty
   `reasons`, then run the absolute path to `scripts/bench-qualify.ts` with Bun

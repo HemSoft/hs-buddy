@@ -313,7 +313,7 @@ function normalizeVitest5Task(value: unknown, id: string): BenchmarkResult | und
     latency.p99,
     latency.p995,
     latency.p999,
-    throughput.rme,
+    latency.rme,
     latency.samplesCount,
     latency.p50,
   ]

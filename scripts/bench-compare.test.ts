@@ -206,7 +206,7 @@ describe('normalizeBenchOutput', () => {
               p99: 0.18,
               p995: 0.19,
               p999: 0.2,
-              rme: 2,
+              rme: 3,
               sampleCount: 100,
             },
           ],

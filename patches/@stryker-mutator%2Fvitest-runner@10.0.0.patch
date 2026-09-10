@@ -28,25 +28,21 @@ diff --git a/src/stryker-setup.ts b/src/stryker-setup.ts
 index a37b179..8a36975 100644
 --- a/src/stryker-setup.ts
 +++ b/src/stryker-setup.ts
-@@ -85,7 +85,7 @@ function collectTestName({
+@@ -85,5 +85,5 @@ function collectTestName({
      nameParts.unshift(currentSuite.name);
      currentSuite = currentSuite.suite;
    }
 -  return nameParts.join(' ').trim();
 +  return nameParts.join(' > ').trim();
  }
- 
- function toRawTestId(test: RunnerTestCase): string {
 diff --git a/src/test-helpers.ts b/src/test-helpers.ts
 index 66e7d52..fa73369 100644
 --- a/src/test-helpers.ts
 +++ b/src/test-helpers.ts
-@@ -17,7 +17,7 @@ export function collectTestName({
+@@ -17,5 +17,5 @@ export function collectTestName({
      nameParts.unshift(currentSuite.name);
      currentSuite = currentSuite.suite;
    }
 -  return nameParts.join(' ').trim();
 +  return nameParts.join(' > ').trim();
  }
- 
- export function toRawTestId(test: RunnerTestCase): string {

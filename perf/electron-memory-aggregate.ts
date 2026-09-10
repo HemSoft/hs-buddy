@@ -49,6 +49,9 @@ function validateSample(sample: HarnessResult, revision: string): void {
   if (!revision || sample.sourceRevision !== revision || sample.runs.length !== 1) {
     throw new Error('Memory samples must contain one run from the current revision')
   }
+  if (!sample.runnerImage || !sample.runnerImageVersion) {
+    throw new Error('Memory samples must identify the GitHub runner image family and version')
+  }
   validateProtocol(sample)
   if (sample.runs[0].mode !== 'packaged') throw new Error('Expected a packaged runtime')
   validateScenarios(sample.runs[0].scenarios)

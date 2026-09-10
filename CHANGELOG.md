@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1185] - 2026-09-10
+
+### Fixed
+
+- Compare stable memory runner families
+
 ## [0.1.1184] - 2026-09-10
 
 ### Changed

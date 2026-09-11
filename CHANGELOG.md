@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1193] - 2026-09-11
+
+### Changed
+
+- Allow full interleaved run
+
 ## [0.1.1192] - 2026-09-11
 
 ### Fixed

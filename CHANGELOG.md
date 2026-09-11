@@ -9,11 +9,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1186] - 2026-09-11
+## [0.1.1192] - 2026-09-11
 
 ### Fixed
 
 - Package Koffi as a native dependency
+
+## [0.1.1191] - 2026-09-11
+
+### Fixed
+
+- Include identity and token setup in the deferred wizard verification command
+- Make deferred verification runnable
+
+## [0.1.1190] - 2026-09-11
+
+### Fixed
+
+- Align cleanup tooling release metadata with the package revision
+- Align changelog with package revision
+
+## [0.1.1189] - 2026-09-11
+
+### Changed
+
+- Merge current main into the cleanup tooling branch
+
+## [0.1.1188] - 2026-09-11
+
+### Fixed
+
+- Require HemSoft as the active account in the wizard
+
+## [0.1.1187] - 2026-09-11
+
+### Fixed
+
+- App-token caveat, identity guard first, executable wizard
+
+## [0.1.1186] - 2026-09-11
+
+### Changed
+
+- Publish wizard and stalled-PR timeout hardening on the fixed base
 
 ## [0.1.1185] - 2026-09-10
 

@@ -279,7 +279,8 @@ if confirm "Run the controller in evaluation mode now?"; then
     warn "If it is the HTTP 422, re-run this wizard after re-checking the permissions."
   fi
 else
-  note "Skipped verification. Later: bun scripts/run-ai-review-automerge.ts (no --apply)"
+  note "Skipped verification. Later, run this identity-checked evaluation command:"
+  note '  gh auth status --active --hostname github.com 2>&1 | grep -q "Logged in to github.com account HemSoft" && [[ "$(gh api user --jq .login)" == "HemSoft" ]] && GH_TOKEN="$(gh auth token)" bun scripts/run-ai-review-automerge.ts'
 fi
 # ──────────────────────────────────────────────────────────────────────────
 

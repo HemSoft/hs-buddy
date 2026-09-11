@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1191] - 2026-09-11
+
+### Fixed
+
+- Include identity and token setup in the deferred wizard verification command
+- Make deferred verification runnable
+
 ## [0.1.1190] - 2026-09-11
 
 ### Fixed

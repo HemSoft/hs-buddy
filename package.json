@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1185",
+  "version": "0.1.1186",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -103,6 +103,7 @@
     "cron-parser": "^5.6.1",
     "electron-store": "^11.0.2",
     "electron-window-state": "^5.0.3",
+    "koffi": "3.2.1",
     "lucide-react": "^1.23.0",
     "node-pty": "^1.1.0",
     "react": "^19.2.7",

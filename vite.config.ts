@@ -7,6 +7,10 @@ import react from '@vitejs/plugin-react'
 // ~2 MB of code that's only used during development (with Aspire).
 // The lightweight API packages (@opentelemetry/api, api-logs) remain bundled
 // since they provide no-op implementations when the SDK isn't loaded.
+// Koffi must be a direct dependency so the external import remains resolvable.
+import.meta.resolve('koffi')
+export const electronNativeExternals = ['node-pty', 'koffi'] as const
+
 const otelExternals = [
   '@opentelemetry/sdk-node',
   '@opentelemetry/exporter-trace-otlp-proto',
@@ -126,9 +130,9 @@ export default defineConfig(({ mode }) => {
                   build: {
                     target: 'esnext',
                     rolldownOptions: {
-                      // node-pty is a native module — must not be bundled.
-                      // OTel SDK packages are dev-only (Aspire) — lazy-loaded at runtime.
-                      external: ['node-pty', ...otelExternals],
+                      // Native modules must retain their package-relative loaders.
+                      // OTel SDK packages are dev-only (Aspire) and load at runtime.
+                      external: [...electronNativeExternals, ...otelExternals],
                       output: {
                         banner: requireShim,
                         codeSplitting: codeSplittingGroups(/[\\/](?:electron|shared)[\\/]/),

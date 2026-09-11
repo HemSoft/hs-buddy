@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { bench, describe, beforeAll, afterAll } from 'vitest'
+import { test, describe, beforeAll, afterAll } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
@@ -62,23 +62,33 @@ afterAll(() => {
 // ─── Benchmarks ───────────────────────────────────────────
 
 describe('resolveWorkspaceName', () => {
-  bench('single-folder workspace', () => {
-    resolveWorkspaceName(fixtures['single-folder'])
+  test('single-folder workspace', async ({ bench }) => {
+    await bench('single-folder workspace', () => {
+      resolveWorkspaceName(fixtures['single-folder'])
+    }).run()
   })
 
-  bench('multi-root workspace', () => {
-    resolveWorkspaceName(fixtures['multi-root'])
+  test('multi-root workspace', async ({ bench }) => {
+    await bench('multi-root workspace', () => {
+      resolveWorkspaceName(fixtures['multi-root'])
+    }).run()
   })
 
-  bench('encoded URI with spaces', () => {
-    resolveWorkspaceName(fixtures['encoded-uri'])
+  test('encoded URI with spaces', async ({ bench }) => {
+    await bench('encoded URI with spaces', () => {
+      resolveWorkspaceName(fixtures['encoded-uri'])
+    }).run()
   })
 
-  bench('empty JSON (fallback to dirname)', () => {
-    resolveWorkspaceName(fixtures['empty-json'])
+  test('empty JSON (fallback to dirname)', async ({ bench }) => {
+    await bench('empty JSON (fallback to dirname)', () => {
+      resolveWorkspaceName(fixtures['empty-json'])
+    }).run()
   })
 
-  bench('missing file (catch path)', () => {
-    resolveWorkspaceName(fixtures['no-file'])
+  test('missing file (catch path)', async ({ bench }) => {
+    await bench('missing file (catch path)', () => {
+      resolveWorkspaceName(fixtures['no-file'])
+    }).run()
   })
 })

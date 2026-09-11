@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import {
   assembleCopilotMetrics,
   computeOverageSpend,
@@ -71,44 +71,58 @@ const quotaOverage = {
 const usage = parseBillingUsage(mediumUsage)
 
 describe('parseBillingUsage', () => {
-  bench('25 billing items', () => {
-    parseBillingUsage(smallUsage)
+  test('25 billing items', async ({ bench }) => {
+    await bench('25 billing items', () => {
+      parseBillingUsage(smallUsage)
+    }).run()
   })
 
-  bench('250 billing items', () => {
-    parseBillingUsage(mediumUsage)
+  test('250 billing items', async ({ bench }) => {
+    await bench('250 billing items', () => {
+      parseBillingUsage(mediumUsage)
+    }).run()
   })
 
-  bench('1000 billing items', () => {
-    parseBillingUsage(largeUsage)
+  test('1000 billing items', async ({ bench }) => {
+    await bench('1000 billing items', () => {
+      parseBillingUsage(largeUsage)
+    }).run()
   })
 })
 
 describe('billing API settled-result parsing', () => {
-  bench('extractCopilotSpend — 250 items JSON stdout', () => {
-    extractCopilotSpend(mediumUsageResult)
+  test('extractCopilotSpend — 250 items JSON stdout', async ({ bench }) => {
+    await bench('extractCopilotSpend — 250 items JSON stdout', () => {
+      extractCopilotSpend(mediumUsageResult)
+    }).run()
   })
 
-  bench('extractBudgetFromResult — two budgets', () => {
-    extractBudgetFromResult(budgetResult)
+  test('extractBudgetFromResult — two budgets', async ({ bench }) => {
+    await bench('extractBudgetFromResult — two budgets', () => {
+      extractBudgetFromResult(budgetResult)
+    }).run()
   })
 })
 
 describe('billing derived metrics', () => {
-  bench('computeOverageSpend — premium snapshot', () => {
-    computeOverageSpend(quotaOverage)
+  test('computeOverageSpend — premium snapshot', async ({ bench }) => {
+    await bench('computeOverageSpend — premium snapshot', () => {
+      computeOverageSpend(quotaOverage)
+    }).run()
   })
 
-  bench('assembleCopilotMetrics — success payload', () => {
-    assembleCopilotMetrics({
-      org: 'HemSoft',
-      usageOk: true,
-      usage,
-      budgetAmount: 500,
-      spent: 42.25,
-      month: 6,
-      year: 2026,
-      fetchedAt: 1_782_432_000_000,
-    })
+  test('assembleCopilotMetrics — success payload', async ({ bench }) => {
+    await bench('assembleCopilotMetrics — success payload', () => {
+      assembleCopilotMetrics({
+        org: 'HemSoft',
+        usageOk: true,
+        usage,
+        budgetAmount: 500,
+        spent: 42.25,
+        month: 6,
+        year: 2026,
+        fetchedAt: 1_782_432_000_000,
+      })
+    }).run()
   })
 })

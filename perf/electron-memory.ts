@@ -70,6 +70,7 @@ export interface HarnessResult {
   sourceRevision: string | null
   sampleId: string | null
   runnerImage: string | null
+  runnerImageVersion: string | null
   options: HarnessOptions
   budgets: {
     absoluteScenario: 'dashboard-warm'
@@ -337,7 +338,8 @@ function ciSampleIdentity() {
   return {
     sourceRevision: process.env.GITHUB_SHA ?? null,
     sampleId: process.env.MEMORY_SAMPLE_ID ?? null,
-    runnerImage: process.env.ImageVersion ?? null,
+    runnerImage: process.env.ImageOS ?? null,
+    runnerImageVersion: process.env.ImageVersion ?? null,
   }
 }
 

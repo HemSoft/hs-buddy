@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1178",
+  "version": "0.1.1189",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -33,7 +33,7 @@
     "react-doctor": "bun scripts/run-react-doctor.ts",
     "lhci": "lhci autorun",
     "bench": "vitest bench",
-    "bench:json": "vitest bench --outputJson bench-results.json",
+    "bench:json": "bun scripts/bench-json.ts",
     "bench:median": "bun scripts/bench-median.ts",
     "bench:compare": "bun scripts/bench-compare.ts",
     "bench:update": "bun run bench:json && bun scripts/bench-compare.ts --update",
@@ -78,7 +78,7 @@
   "dependencies": {
     "@convex-dev/aggregate": "^0.3.0",
     "@convex-dev/migrations": "^0.3.6",
-    "@github/copilot-sdk": "^1.0.5",
+    "@github/copilot-sdk": "1.0.5",
     "@octokit/graphql": "^9.0.3",
     "@octokit/plugin-retry": "^8.1.0",
     "@octokit/plugin-throttling": "^11.0.3",
@@ -111,7 +111,7 @@
     "shiki": "^4.3.1"
   },
   "devDependencies": {
-    "@amiceli/vitest-cucumber": "^7.0.0",
+    "@amiceli/vitest-cucumber": "8.0.0",
     "@commitlint/cli": "^21.2.2",
     "@commitlint/config-conventional": "^21.2.0",
     "@edge-runtime/vm": "^5.0.0",
@@ -119,8 +119,8 @@
     "@eslint/js": "^10.0.1",
     "@lhci/cli": "^0.15.1",
     "@playwright/test": "^1.61.1",
-    "@stryker-mutator/core": "9.6.1",
-    "@stryker-mutator/vitest-runner": "9.6.1",
+    "@stryker-mutator/core": "10.0.0",
+    "@stryker-mutator/vitest-runner": "10.0.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.0",
     "@testing-library/react": "^16.3.2",
@@ -130,8 +130,8 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
-    "@vitest/coverage-istanbul": "4.1.11",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-istanbul": "5.0.0",
+    "@vitest/coverage-v8": "5.0.0",
     "convex-test": "0.0.56",
     "dependency-cruiser": "^18.1.0",
     "electron": "^44.0.0",
@@ -162,7 +162,7 @@
     "vite": "8.2.2",
     "vite-plugin-electron": "^1.1.0",
     "vite-plugin-electron-renderer": "^1.0.0",
-    "vitest": "4.1.11",
+    "vitest": "5.0.0",
     "vitest-axe": "^0.1.0"
   },
   "optionalDependencies": {
@@ -173,7 +173,6 @@
   },
   "overrides": {
     "react-doctor": "$react-doctor",
-    "@babel/core": "^7.29.1",
     "body-parser": "^1.20.6",
     "brace-expansion": "^5.0.9",
     "browserslist": "^4.28.8",
@@ -190,12 +189,16 @@
     "node-abi": "^4.35.0",
     "protobufjs": "^7.6.5",
     "qs": "^6.15.2",
+    "smol-toml": "1.8.0",
     "tar": "^7.5.22",
     "tmp": "^0.2.6",
     "undici": "^7.29.0",
     "uuid": "^11.1.1",
     "vite": "$vite",
     "ws": "^8.20.1"
+  },
+  "patchedDependencies": {
+    "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"
   },
   "engines": {
     "node": ">=22.0.0"

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import {
   aggregateResults,
   computeDominantTools,
@@ -56,31 +56,43 @@ const digestInput = {
 }
 
 describe('session result aggregation', () => {
-  bench('aggregateResults — 10 requests', () => {
-    aggregateResults(smallResults)
+  test('aggregateResults — 10 requests', async ({ bench }) => {
+    await bench('aggregateResults — 10 requests', () => {
+      aggregateResults(smallResults)
+    }).run()
   })
 
-  bench('aggregateResults — 100 requests', () => {
-    aggregateResults(mediumResults)
+  test('aggregateResults — 100 requests', async ({ bench }) => {
+    await bench('aggregateResults — 100 requests', () => {
+      aggregateResults(mediumResults)
+    }).run()
   })
 
-  bench('aggregateResults — 500 requests', () => {
-    aggregateResults(largeResults)
+  test('aggregateResults — 500 requests', async ({ bench }) => {
+    await bench('aggregateResults — 500 requests', () => {
+      aggregateResults(largeResults)
+    }).run()
   })
 })
 
 describe('session tool analysis', () => {
-  bench('countSearchChurn — 500 requests', () => {
-    countSearchChurn(largeResults)
+  test('countSearchChurn — 500 requests', async ({ bench }) => {
+    await bench('countSearchChurn — 500 requests', () => {
+      countSearchChurn(largeResults)
+    }).run()
   })
 
-  bench('computeDominantTools — 500 requests', () => {
-    computeDominantTools(largeResults)
+  test('computeDominantTools — 500 requests', async ({ bench }) => {
+    await bench('computeDominantTools — 500 requests', () => {
+      computeDominantTools(largeResults)
+    }).run()
   })
 })
 
 describe('computeSessionDigest', () => {
-  bench('100-request digest', () => {
-    computeSessionDigest(digestInput, 'hs-buddy', 'agent', 1_782_432_123_000)
+  test('100-request digest', async ({ bench }) => {
+    await bench('100-request digest', () => {
+      computeSessionDigest(digestInput, 'hs-buddy', 'agent', 1_782_432_123_000)
+    }).run()
   })
 })

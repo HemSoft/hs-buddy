@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { nextStartTime } from './tempoUtils'
 import type { TempoWorklog } from '../../types/tempo'
 
@@ -21,15 +21,21 @@ const TYPICAL = makeWorklogs(10)
 const HEAVY = makeWorklogs(50)
 
 describe('nextStartTime', () => {
-  bench('3 worklogs', () => {
-    nextStartTime(FEW)
+  test('3 worklogs', async ({ bench }) => {
+    await bench('3 worklogs', () => {
+      nextStartTime(FEW)
+    }).run()
   })
 
-  bench('10 worklogs (typical day)', () => {
-    nextStartTime(TYPICAL)
+  test('10 worklogs (typical day)', async ({ bench }) => {
+    await bench('10 worklogs (typical day)', () => {
+      nextStartTime(TYPICAL)
+    }).run()
   })
 
-  bench('50 worklogs (heavy day)', () => {
-    nextStartTime(HEAVY)
+  test('50 worklogs (heavy day)', async ({ bench }) => {
+    await bench('50 worklogs (heavy day)', () => {
+      nextStartTime(HEAVY)
+    }).run()
   })
 })

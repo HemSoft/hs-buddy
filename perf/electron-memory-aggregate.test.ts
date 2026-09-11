@@ -12,7 +12,8 @@ function samples(): HarnessResult[] {
     architecture: 'x64',
     sourceRevision: 'reviewed-revision',
     sampleId,
-    runnerImage: 'windows-image-1',
+    runnerImage: 'win25',
+    runnerImageVersion: '20260907.229.1',
     options: parseArgs(['--collect-only'])!,
     budgets: {
       ...baseline.budgets,
@@ -76,6 +77,14 @@ describe('parallel Electron memory qualification', () => {
       expect.objectContaining({ scenario: 'browser-cleanup', metric: 'eventListeners' })
     )
   })
+  it('accepts patch updates within one hosted runner family', () => {
+    const input = samples()
+    input[0].runnerImageVersion = '20260824.214.3'
+    input[1].runnerImageVersion = '20260907.229.1'
+    input[2].runnerImageVersion = '20260914.236.1'
+
+    expect(aggregateSamples(input, 'reviewed-revision').status).toBe('pass')
+  })
 })
 
 describe('parallel memory evidence validation', () => {
@@ -114,7 +123,10 @@ describe('parallel memory evidence validation', () => {
       sample.runs[0].electronVersion = '45.0.0'
     },
     (sample: HarnessResult) => {
-      sample.runnerImage = 'other-image'
+      sample.runnerImage = 'win22'
+    },
+    (sample: HarnessResult) => {
+      sample.runnerImageVersion = null
     },
     (sample: HarnessResult) => {
       delete sample.runs[0].scenarios['dashboard-warm']

@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import {
   normalizeCopilotEnterpriseUsersSnapshot,
   parseCopilotEnterpriseUsersContent,
@@ -63,25 +63,35 @@ const direct500 = makeDirectSnapshot(500)
 const nested100Json = `\uFEFF${JSON.stringify(nested100)}`
 
 describe('parseCopilotEnterpriseUsersContent', () => {
-  bench('100 nested users JSON with BOM', () => {
-    parseCopilotEnterpriseUsersContent(nested100Json)
+  test('100 nested users JSON with BOM', async ({ bench }) => {
+    await bench('100 nested users JSON with BOM', () => {
+      parseCopilotEnterpriseUsersContent(nested100Json)
+    }).run()
   })
 })
 
 describe('normalizeCopilotEnterpriseUsersSnapshot', () => {
-  bench('10 nested users', () => {
-    normalizeCopilotEnterpriseUsersSnapshot(nested10, metadata)
+  test('10 nested users', async ({ bench }) => {
+    await bench('10 nested users', () => {
+      normalizeCopilotEnterpriseUsersSnapshot(nested10, metadata)
+    }).run()
   })
 
-  bench('100 nested users', () => {
-    normalizeCopilotEnterpriseUsersSnapshot(nested100, metadata)
+  test('100 nested users', async ({ bench }) => {
+    await bench('100 nested users', () => {
+      normalizeCopilotEnterpriseUsersSnapshot(nested100, metadata)
+    }).run()
   })
 
-  bench('500 nested users', () => {
-    normalizeCopilotEnterpriseUsersSnapshot(nested500, metadata)
+  test('500 nested users', async ({ bench }) => {
+    await bench('500 nested users', () => {
+      normalizeCopilotEnterpriseUsersSnapshot(nested500, metadata)
+    }).run()
   })
 
-  bench('500 direct aggregate users', () => {
-    normalizeCopilotEnterpriseUsersSnapshot(direct500, metadata)
+  test('500 direct aggregate users', async ({ bench }) => {
+    await bench('500 direct aggregate users', () => {
+      normalizeCopilotEnterpriseUsersSnapshot(direct500, metadata)
+    }).run()
   })
 })

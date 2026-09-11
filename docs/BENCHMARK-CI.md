@@ -51,9 +51,15 @@ not account for every source of runner variance; interleaving and medians reduce
 order effects and single-sample noise. The local performance skill's five-run,
 5% baseline checks remain a separate, stricter investigation procedure.
 
-The job has a **15-minute timeout**, including setup, six benchmark invocations,
+The job has a **25-minute timeout**, including setup, six benchmark invocations,
 comparison, and upload. Benchmark CLI calls use `--run` to disable watch mode.
-Timeouts fail the required gate. Record the hosted job duration when changing
+Timeouts fail the required gate. The Vitest 5 migration retains Tinybench 6's
+full 1,000 ms measurement window; candidate samples therefore take about 4m38s,
+versus 2m16s for the Vitest 4 baseline. Migration CI run
+[34451422759](https://github.com/HemSoft/hs-buddy/actions/runs/34451422759)
+proved that the former 15-minute limit expired during the fifth sample. The
+25-minute budget preserves three interleaved pairs, the regression threshold,
+and uncertainty qualification. Record the hosted job duration when changing
 sample count or benchmark definitions; do not silently increase the budget.
 
 ## Evidence and reproduction
@@ -68,8 +74,9 @@ advisory baseline-install failures retain policy and an unavailable summary.
   scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
   path classification, version-only skips, sample cardinality, thresholds,
   uncertainty handling, and aggregate failure handling.
-- Run `bunx vitest bench --run --outputJson <sample.json>` in each revision to
-  collect samples. Name them `bench-baseline-run-1.json` through `-3.json` and
+- Run `bun scripts/bench-json.ts --directory <revision> --output <sample.json>`
+  from the candidate checkout to collect either Vitest 4 or Vitest 5 output.
+  Name samples `bench-baseline-run-1.json` through `-3.json` and
   `bench-results-run-1.json` through `-3.json` in the comparison directory.
 - Save `bench-policy.json` with `mode` (`enforce` or `advisory`) and nonempty
   `reasons`, then run the absolute path to `scripts/bench-qualify.ts` with Bun

@@ -10,7 +10,7 @@ permissions:
 jobs:
   benchmarks:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - name: Checkout repository and comparison history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -80,7 +80,7 @@ jobs:
                 output="$GITHUB_WORKSPACE/bench-results-run-${run}.json"
               fi
               echo "$revision sample ${run}/3"
-              (cd "$directory" && bunx vitest bench --run --outputJson "$output")
+              bun "$GITHUB_WORKSPACE/scripts/bench-json.ts" --directory "$directory" --output "$output"
             done
           done
 

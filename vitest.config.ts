@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   test: {
+    clearMocks: false,
     globals: true,
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.ts'],

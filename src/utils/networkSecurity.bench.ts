@@ -1,4 +1,4 @@
-import { bench, describe } from 'vitest'
+import { test, describe } from 'vitest'
 import { isInternalHostname, isPrivateIP, validateUrl } from './networkSecurity'
 
 const MIXED_HOSTNAMES = [
@@ -33,37 +33,53 @@ function validateRejectedUrl(url: string): void {
 }
 
 describe('URL validation', () => {
-  bench('validateUrl - public HTTPS URL', () => {
-    validateUrl('https://github.com/HemSoft/hs-buddy?tab=readme')
+  test('validateUrl - public HTTPS URL', async ({ bench }) => {
+    await bench('validateUrl - public HTTPS URL', () => {
+      validateUrl('https://github.com/HemSoft/hs-buddy?tab=readme')
+    }).run()
   })
 
-  bench('validateUrl - public IPv4 URL', () => {
-    validateUrl('https://8.8.8.8/dns-query')
+  test('validateUrl - public IPv4 URL', async ({ bench }) => {
+    await bench('validateUrl - public IPv4 URL', () => {
+      validateUrl('https://8.8.8.8/dns-query')
+    }).run()
   })
 
-  bench('validateUrl - public IPv6 URL', () => {
-    validateUrl('https://[2001:4860:4860::8888]/dns-query')
+  test('validateUrl - public IPv6 URL', async ({ bench }) => {
+    await bench('validateUrl - public IPv6 URL', () => {
+      validateUrl('https://[2001:4860:4860::8888]/dns-query')
+    }).run()
   })
 
-  bench('validateUrl - private URL rejection', () => {
-    validateRejectedUrl('https://192.168.1.10/admin')
+  test('validateUrl - private URL rejection', async ({ bench }) => {
+    await bench('validateUrl - private URL rejection', () => {
+      validateRejectedUrl('https://192.168.1.10/admin')
+    }).run()
   })
 
-  bench('validateUrl - malformed URL rejection', () => {
-    validateRejectedUrl('not-a-url')
+  test('validateUrl - malformed URL rejection', async ({ bench }) => {
+    await bench('validateUrl - malformed URL rejection', () => {
+      validateRejectedUrl('not-a-url')
+    }).run()
   })
 })
 
 describe('network security classification', () => {
-  bench('isInternalHostname - mixed hostnames', () => {
-    for (const hostname of MIXED_HOSTNAMES) isInternalHostname(hostname)
+  test('isInternalHostname - mixed hostnames', async ({ bench }) => {
+    await bench('isInternalHostname - mixed hostnames', () => {
+      for (const hostname of MIXED_HOSTNAMES) isInternalHostname(hostname)
+    }).run()
   })
 
-  bench('isPrivateIP - IPv4 batch', () => {
-    for (const ip of IPV4_ADDRESSES) isPrivateIP(ip)
+  test('isPrivateIP - IPv4 batch', async ({ bench }) => {
+    await bench('isPrivateIP - IPv4 batch', () => {
+      for (const ip of IPV4_ADDRESSES) isPrivateIP(ip)
+    }).run()
   })
 
-  bench('isPrivateIP - IPv6 batch', () => {
-    for (const ip of IPV6_ADDRESSES) isPrivateIP(ip)
+  test('isPrivateIP - IPv6 batch', async ({ bench }) => {
+    await bench('isPrivateIP - IPv6 batch', () => {
+      for (const ip of IPV6_ADDRESSES) isPrivateIP(ip)
+    }).run()
   })
 })

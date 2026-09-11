@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1190] - 2026-09-11
+
+### Fixed
+
+- Align cleanup tooling release metadata with the package revision
+- Align changelog with package revision
+
+## [0.1.1189] - 2026-09-11
+
+### Changed
+
+- Merge current main into the cleanup tooling branch
+
 ## [0.1.1188] - 2026-09-11
 
 ### Fixed

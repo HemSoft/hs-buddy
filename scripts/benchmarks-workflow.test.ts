@@ -29,14 +29,14 @@ describe('Benchmarks workflow', () => {
     expect(workflow).not.toContain('paths-ignore:')
     expect(workflow).not.toContain('continue-on-error:')
   })
-  it('interleaves three samples, alternates first revision, and retains the 25-minute budget', () => {
+  it('interleaves three samples, alternates first revision, and retains the 35-minute budget', () => {
     expect(workflow).toContain('for run in 1 2 3; do')
     expect(workflow).toContain('order="baseline candidate"')
     expect(workflow).toContain('order="candidate baseline"')
     expect(workflow).toContain(
       'bun "$GITHUB_WORKSPACE/scripts/bench-json.ts" --directory "$directory" --output "$output"'
     )
-    expect(workflow).toContain('timeout-minutes: 25')
+    expect(workflow).toContain('timeout-minutes: 35')
     expect(workflow).toContain('run: bun scripts/bench-qualify.ts')
   })
 })

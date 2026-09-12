@@ -50,9 +50,8 @@ describe('release artifact safety contract', () => {
     expect(workflow.split(staleCheck)).toHaveLength(1)
     const staleGuard = workflow.split('abort_if_stale() {')[1]?.split('\n          }')[0]
     expect(staleGuard).toContain(
-      'if ! current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"; then'
+      'if ! current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"; then\n              trap - ERR\n              cleanup_owned_artifacts\n              exit 1\n            fi'
     )
-    expect(staleGuard).toContain('cleanup_owned_artifacts')
     expect(staleGuard).toContain('if [ "$current_main" = "$TARGET_SHA" ]; then')
     expect(staleGuard).toContain('exit 1')
     expect(workflow.match(/^ {10}abort_if_stale$/gm)).toHaveLength(3)
@@ -99,7 +98,7 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain(
       'gh api --method PATCH "repos/$REPOSITORY/releases/$release_id" -F draft=false'
     )
-    expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"')
+    expect(workflow).toContain('retry_api --method DELETE "repos/$REPOSITORY/releases/$release_id"')
     expect(workflow).toContain('release_id="$(jq -r .id <<< "$release_json")"')
     expect(workflow).toContain('release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"')
     expect(workflow).toContain('grep -Fq "$release_marker"')
@@ -109,6 +108,9 @@ describe('release artifact safety contract', () => {
 
 describe('release cleanup and idempotency contract', () => {
   it('recovers marker-owned artifacts and keeps error cleanup active', () => {
+    expect(workflow).toContain('retry_command() {')
+    expect(workflow).toContain('for attempt in 1 2 3; do')
+    expect(workflow).toContain('retry_command gh api "$@"')
     expect(workflow).toContain('cleanup_release="$(')
     expect(workflow).toContain('cleanup_tag_ref="$(')
     expect(workflow).toContain('release_count_before_tag_delete="$(')

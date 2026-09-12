@@ -85,10 +85,23 @@ jobs:
           managed_release=false
           release_id=""
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
+          retry_command() {
+            local attempt
+            for attempt in 1 2 3; do
+              if "$@"; then
+                return
+              fi
+              sleep "$attempt"
+            done
+            "$@"
+          }
+          retry_api() {
+            retry_command gh api "$@"
+          }
           cleanup_owned_artifacts() {
             if [ "$managed_release" = false ]; then
               cleanup_release="$(
-                gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                   jq -c --arg tag "$TAG" \
                     '[.[][] | select(.tag_name == $tag)] | if length > 1 then error("duplicate exact releases") else .[0] // null end'
               )"
@@ -102,58 +115,58 @@ jobs:
               fi
             fi
             if [ "$managed_release" = true ]; then
-              live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"
+              live_release="$(retry_api "repos/$REPOSITORY/releases/$release_id")"
               test "$(jq -r .draft <<< "$live_release")" = true
               test "$(jq -r .tag_name <<< "$live_release")" = "$TAG"
               grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
-              gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"
+              retry_api --method DELETE "repos/$REPOSITORY/releases/$release_id"
               managed_release=false
             fi
             if [ "$tag_owned" = false ]; then
               cleanup_tag_ref="$(
-                gh api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
+                retry_api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
                   jq -c --arg ref "refs/tags/$TAG" \
                     '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
               )"
               if [ "$cleanup_tag_ref" != null ] && \
                 [ "$(jq -r .object.type <<< "$cleanup_tag_ref")" = tag ]; then
                 cleanup_tag_message="$(
-                  gh api \
+                  retry_api \
                     "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$cleanup_tag_ref")" \
                     --jq .message
                 )"
                 if [ "$cleanup_tag_message" = "Qualified by CI run $RUN_ID" ] && \
-                  [ "$(resolve_tag)" = "$TARGET_SHA" ]; then
+                  [ "$(retry_command resolve_tag)" = "$TARGET_SHA" ]; then
                   tag_owned=true
                   tag_owned_object="$(jq -r .object.sha <<< "$cleanup_tag_ref")"
                 fi
               fi
             fi
             if [ "$tag_owned" = true ]; then
-              live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+              live_tag_ref="$(retry_api "repos/$REPOSITORY/git/ref/tags/$TAG")"
               if [ "$(jq -r .object.type <<< "$live_tag_ref")" = tag ]; then
                 live_tag_message="$(
-                  gh api \
+                  retry_api \
                     "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$live_tag_ref")" \
                     --jq .message
                 )"
                 live_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
-                live_target="$(resolve_tag)"
+                live_target="$(retry_command resolve_tag)"
                 if [ "$live_tag_object" = "$tag_owned_object" ] && \
                   [ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] && \
                   [ "$live_target" = "$TARGET_SHA" ]; then
                   release_count_before_tag_delete="$(
-                    gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                    retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
                   )"
                   test "$release_count_before_tag_delete" = 0
-                  gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+                  retry_api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
                   release_count_after_tag_delete="$(
-                    gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                    retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
                   )"
                   if [ "$release_count_after_tag_delete" != 0 ]; then
-                    gh api --method POST "repos/$REPOSITORY/git/refs" \
+                    retry_api --method POST "repos/$REPOSITORY/git/refs" \
                       -f ref="refs/tags/$TAG" -f sha="$tag_owned_object" >/dev/null
                     return 1
                   fi

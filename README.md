@@ -51,7 +51,7 @@
 | Operating system | Architecture        | Package        | CI qualification                                                              |
 | ---------------- | ------------------- | -------------- | ----------------------------------------------------------------------------- |
 | Windows 11       | x64                 | NSIS installer | Targets Windows 11; builds and starts on Windows Server 2025 (`windows-2025`) |
-| Ubuntu 24.04     | x64                 | AppImage       | Builds and starts the packaged app under Xvfb on `ubuntu-24.04`               |
+| Ubuntu 24.04     | x64                 | DEB package    | Installs and starts the packaged app under Xvfb on `ubuntu-24.04`             |
 | macOS 15         | Intel x64           | DMG            | Builds and starts the packaged app on `macos-15-intel`                        |
 | macOS 15         | Apple silicon arm64 | DMG            | Builds and starts the packaged app on `macos-15`                              |
 

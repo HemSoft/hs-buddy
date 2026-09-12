@@ -28,7 +28,7 @@ const qualifiedTargets = [
     name: 'Linux x64',
     runner: 'ubuntu-24.04',
     builderPlatform: 'linux',
-    target: 'AppImage',
+    target: 'deb',
     platform: 'linux',
     arch: 'x64',
   },
@@ -68,6 +68,9 @@ describe('desktop package qualification workflow', () => {
       'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never --config.npmRebuild=false'
     )
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
+    expect(workflow).toContain('sudo dpkg --install')
+    expect(workflow).toContain('BUDDY_LINUX_EXECUTABLE=$executable')
+    expect(smokeRunner).toContain('process.env.BUDDY_LINUX_EXECUTABLE')
   })
 
   it('qualifies packages before CI can complete', () => {
@@ -80,8 +83,8 @@ describe('desktop package qualification workflow', () => {
   })
 
   it('keeps the advertised builder targets aligned with the matrix', () => {
-    for (const value of ['nsis', 'AppImage', 'dmg', 'arm64', 'x64']) {
-      expect(builderConfig).toContain(`"${value}"`)
+    for (const value of ['nsis', 'deb', 'dmg', 'arm64', 'x64']) {
+      expect(builderConfig).toMatch(new RegExp(`["']${value}["']`))
     }
   })
 

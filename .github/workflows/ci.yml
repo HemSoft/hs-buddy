@@ -545,7 +545,7 @@ jobs:
           - name: Linux x64
             runner: ubuntu-24.04
             builder-platform: linux
-            target: AppImage
+            target: deb
             platform: linux
             arch: x64
           - name: macOS Intel
@@ -601,6 +601,15 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron-builder-cache
 
+      - name: Install Linux distributable
+        if: runner.os == 'Linux'
+        run: |
+          package_file="$(find release -type f -name '*.deb' -print -quit)"
+          sudo dpkg --install "$package_file"
+          executable="$(find /opt -type f -name Buddy -perm /111 -print -quit)"
+          test -n "$executable"
+          echo "BUDDY_LINUX_EXECUTABLE=$executable" >> "$GITHUB_ENV"
+
       - name: Start packaged application
         run: bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}
 
@@ -622,7 +631,7 @@ jobs:
           name: failed-package-${{ matrix.platform }}-${{ matrix.arch }}
           path: |
             release/**/*.exe
-            release/**/*.AppImage
+            release/**/*.deb
             release/**/*.dmg
           if-no-files-found: warn
           retention-days: 7

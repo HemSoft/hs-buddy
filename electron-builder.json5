@@ -1,56 +1,46 @@
 {
-  "appId": "com.hemsoft.buddy",
-  "productName": "Buddy",
-  "icon": "public/icon",
-  "directories": {
-    "output": "release/${version}"
+  appId: 'com.hemsoft.buddy',
+  productName: 'Buddy',
+  icon: 'public/icon',
+  directories: {
+    output: 'release/${version}',
   },
-  "files": [
-    "dist",
-    "dist-electron",
-    "public",
-    "node_modules/node-pty/**/*"
+  files: ['dist', 'dist-electron', 'public', 'node_modules/node-pty/**/*'],
+  asarUnpack: [
+    'node_modules/node-pty/**/*',
+    'node_modules/@github/copilot-*/**/*',
+    'node_modules/@koromix/koffi-*/**/*',
   ],
-  "asarUnpack": [
-    "node_modules/node-pty/**/*",
-    "node_modules/@github/copilot-*/**/*",
-    "node_modules/@koromix/koffi-*/**/*"
-  ],
-  "win": {
-    "target": [
+  win: {
+    target: [
       {
-        "target": "nsis",
-        "arch": [
-          "x64"
-        ]
-      }
+        target: 'nsis',
+        arch: ['x64'],
+      },
     ],
-    "artifactName": "${productName}-${version}-Setup.${ext}"
+    artifactName: '${productName}-${version}-Setup.${ext}',
   },
-  "nsis": {
-    "oneClick": false,
-    "perMachine": false,
-    "allowToChangeInstallationDirectory": true,
-    "deleteAppDataOnUninstall": false
+  nsis: {
+    oneClick: false,
+    perMachine: false,
+    allowToChangeInstallationDirectory: true,
+    deleteAppDataOnUninstall: false,
   },
-  "mac": {
-    "icon": "public/icon-512.png",
-    "minimumSystemVersion": "13.0",
-    "target": [
+  mac: {
+    icon: 'public/icon-512.png',
+    minimumSystemVersion: '13.0',
+    target: [
       {
-        "target": "dmg",
-        "arch": [
-          "arm64",
-          "x64"
-        ]
-      }
+        target: 'dmg',
+        arch: ['arm64', 'x64'],
+      },
     ],
-    "artifactName": "${productName}-${version}-${arch}.${ext}",
-    "category": "public.app-category.productivity"
+    artifactName: '${productName}-${version}-${arch}.${ext}',
+    category: 'public.app-category.productivity',
   },
-  "linux": {
-    "executableName": "Buddy",
-    "target": ["AppImage"],
-    "artifactName": "${productName}-${version}.${ext}"
-  }
+  linux: {
+    executableName: 'Buddy',
+    target: ['deb'],
+    artifactName: '${productName}-${version}-${arch}.${ext}',
+  },
 }

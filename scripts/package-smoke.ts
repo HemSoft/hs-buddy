@@ -70,6 +70,14 @@ function isPackagedExecutable(file: string, platform: string): boolean {
 }
 
 function findExecutable(target: TargetRuntime): string {
+  const installedLinuxExecutable = process.env.BUDDY_LINUX_EXECUTABLE
+  if (
+    target.platform === 'linux' &&
+    installedLinuxExecutable &&
+    existsSync(installedLinuxExecutable)
+  ) {
+    return installedLinuxExecutable
+  }
   const executable = packagedFiles.find(file => isPackagedExecutable(file, target.platform))
   if (executable) return executable
   throw new Error(`No unpacked Buddy executable found for ${target.platform}-${target.arch}`)

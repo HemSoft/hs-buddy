@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1226] - 2026-09-12
+
+### Changed
+
+- Integrate accessibility baseline with main
+
 ## [0.1.1225] - 2026-09-12
 
 ### Changed

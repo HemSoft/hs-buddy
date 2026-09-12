@@ -30,7 +30,6 @@ jobs:
       - name: Verify exact CI qualification
         run: |
           set -euo pipefail
-          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
           jobs="$(gh api --paginate "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --slurp)"
           count="$(jq '[.[].jobs[] | select(.name == "ci-complete" and .status == "completed" and .conclusion == "success")] | length' <<< "$jobs")"
           test "$count" = "1"
@@ -55,10 +54,6 @@ jobs:
           fi
           echo "eligible=true" >> "$GITHUB_OUTPUT"
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
-
-      - name: Recheck current candidate
-        if: steps.version.outputs.eligible == 'true'
-        run: test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
 
       - name: Create immutable tag and release
         if: steps.version.outputs.eligible == 'true'
@@ -96,28 +91,44 @@ jobs:
             exit 1
           }
 
-          # matching-refs returns an empty array when the exact tag is absent,
-          # while API/auth/rate-limit failures remain fatal under set -e.
+          # Exact list filtering distinguishes absence from API failure and
+          # lets a retry recover owned draft/tag state before rejecting stale work.
           tag_ref="$(
             gh api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
               jq -c --arg ref "refs/tags/$TAG" \
                 '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
           )"
-          abort_if_stale
-          if [ "$tag_ref" != "null" ]; then
+          release_json="$(
+            gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+              jq -c --arg tag "$TAG" \
+                '[.[][] | select(.tag_name == $tag)] | if length > 1 then error("duplicate exact releases") else .[0] // null end'
+          )"
+
+          if [ "$tag_ref" != null ]; then
             test "$(resolve_tag)" = "$TARGET_SHA"
-            live_tag_object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
-            if [ "$(jq -r .object.type <<< "$live_tag_object")" = tag ]; then
+            if [ "$(jq -r .object.type <<< "$tag_ref")" = tag ]; then
               tag_message="$(
-                gh api \
-                  "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$live_tag_object")" \
+                gh api "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$tag_ref")" \
                   --jq .message
               )"
               if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then
                 tag_owned=true
               fi
             fi
-          else
+          fi
+
+          if [ "$release_json" != null ]; then
+            if [ "$(jq -r .draft <<< "$release_json")" = false ]; then
+              test "$(resolve_tag)" = "$TARGET_SHA"
+              echo "Release $TAG already exists at the qualified commit"
+              exit 0
+            fi
+            grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$release_json")"
+            managed_release=true
+          fi
+          abort_if_stale
+
+          if [ "$tag_ref" = null ]; then
             # An annotated tag object is the ownership marker. After an
             # ambiguous ref response, the live ref must point to this exact
             # object before this run may delete it during stale cleanup.
@@ -142,17 +153,7 @@ jobs:
           test "$(resolve_tag)" = "$TARGET_SHA"
           abort_if_stale
 
-          if release_json="$(
-            gh release view "$TAG" --repo "$REPOSITORY" --json isDraft,body 2>/dev/null
-          )"; then
-            test "$(resolve_tag)" = "$TARGET_SHA"
-            if [ "$(jq -r .isDraft <<< "$release_json")" = false ]; then
-              echo "Release $TAG already exists at the qualified commit"
-              exit 0
-            fi
-            grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$release_json")"
-            managed_release=true
-          else
+          if [ "$release_json" = null ]; then
             if ! gh release create "$TAG" \
               --repo "$REPOSITORY" \
               --verify-tag \

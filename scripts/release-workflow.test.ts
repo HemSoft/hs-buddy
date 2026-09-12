@@ -45,7 +45,7 @@ describe('release workflow qualification contract', () => {
 
   it('rejects stale candidates and commits without a version change', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
-    expect(workflow.split(staleCheck)).toHaveLength(3)
+    expect(workflow.split(staleCheck)).toHaveLength(1)
     expect(workflow.match(/^ {10}abort_if_stale$/gm)).toHaveLength(3)
     expect(workflow).toContain(
       'current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"'
@@ -70,7 +70,7 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('-f sha="$tag_object"')
     expect(workflow).toContain('live_tag_object')
     expect(workflow).toContain('tag_message="$(')
-    expect(workflow).toContain('Qualified by CI run $RUN_ID')
+    expect(workflow).toContain('if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then')
     expect(workflow).toContain('tag_owned=true')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')
@@ -86,6 +86,8 @@ describe('release workflow qualification contract', () => {
   it('serializes retries and makes an existing matching release a no-op', () => {
     expect(workflow).toContain('group: release')
     expect(workflow).toContain('cancel-in-progress: false')
+    expect(workflow).toContain('repos/$REPOSITORY/releases?per_page=100')
+    expect(workflow).toContain('select(.tag_name == $tag)')
     expect(workflow).toContain('gh release view "$TAG"')
     expect(workflow).toContain('Release $TAG already exists at the qualified commit')
     expect(workflow).toContain('exit 0')

@@ -51,7 +51,10 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('eligible=false')
   })
 
-  it('never moves an existing tag and creates releases from the exact tag', () => {
+  it('fails closed while checking tags and never moves an existing tag', () => {
+    expect(workflow).toContain('git/matching-refs/tags/$TAG')
+    expect(workflow).toContain('select(.ref == $ref)')
+    expect(workflow).not.toContain('git/ref/tags/$TAG" >/dev/null 2>&1')
     expect(workflow).toContain('test "$(resolve_tag)" = "$TARGET_SHA"')
     expect(workflow).not.toContain('force: true')
     expect(workflow).not.toContain('git tag -f')

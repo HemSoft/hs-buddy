@@ -77,8 +77,15 @@ jobs:
             printf '%s\n' "$object"
           }
 
+          # matching-refs returns an empty array when the exact tag is absent,
+          # while API/auth/rate-limit failures remain fatal under set -e.
+          tag_ref="$(
+            gh api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
+              jq -c --arg ref "refs/tags/$TAG" \
+                '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
+          )"
           tag_exists=false
-          if gh api "repos/$REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+          if [ "$tag_ref" != "null" ]; then
             tag_exists=true
             test "$(resolve_tag)" = "$TARGET_SHA"
           fi

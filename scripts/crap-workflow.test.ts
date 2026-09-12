@@ -17,7 +17,7 @@ describe('required CRAP qualification', () => {
     expect(gate).not.toContain('continue-on-error:')
     const dependencies = ci
       .split('  ci-complete:')[1]
-      .match(/needs: \[([^\]]+)\]/)?.[1]
+      .match(/needs:\s*\[([^\]]+)\]/)?.[1]
       .split(',')
       .map(value => value.trim())
     expect(dependencies).toContain('crap')

@@ -13,7 +13,7 @@ describe('Benchmarks workflow', () => {
     expect(ci).toContain('uses: ./.github/workflows/benchmarks.yml')
     const dependencies = ci
       .split('  ci-complete:')[1]
-      .match(/needs: \[([^\]]+)\]/)?.[1]
+      .match(/needs:\s*\[([^\]]+)\]/)?.[1]
       .split(',')
       .map(value => value.trim())
     expect(dependencies).toContain('benchmarks')

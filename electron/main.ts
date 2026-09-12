@@ -8,6 +8,8 @@ import {
   type WebPreferences,
 } from 'electron'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import windowStateKeeper from 'electron-window-state'
 import { initTelemetry, shutdownTelemetry, emitLog } from './telemetry'
@@ -75,6 +77,46 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
+const PACKAGE_SMOKE_OUTPUT = process.env.BUDDY_PACKAGE_SMOKE_FILE
+const mainRequire = createRequire(import.meta.url)
+
+async function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
+  try {
+    for (const dependency of ['node-pty', 'koffi']) mainRequire(dependency)
+
+    const copilotPackage = `@github/copilot-${process.platform}-${process.arch}`
+    mainRequire.resolve(copilotPackage)
+
+    const rendererLoaded = await window.webContents.executeJavaScript(
+      'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
+    )
+    if (!rendererLoaded) throw new Error('Renderer did not mount into #root')
+
+    await writeFile(
+      outputPath,
+      JSON.stringify({
+        ok: true,
+        platform: process.platform,
+        arch: process.arch,
+        nativeModules: ['node-pty', 'koffi'],
+        copilotPackage,
+        rendererLoaded,
+      })
+    )
+    app.exit(0)
+  } catch (error: unknown) {
+    await writeFile(
+      outputPath,
+      JSON.stringify({
+        ok: false,
+        platform: process.platform,
+        arch: process.arch,
+        error: String(error),
+      })
+    )
+    app.exit(1)
+  }
+}
 
 type WebviewAttachParams = {
   src?: string
@@ -244,6 +286,8 @@ function createBrowserWindow(): BrowserWindow {
     createdWindow.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())
     startupTimer.mark('content-loaded')
     startupTimer.report()
+
+    if (PACKAGE_SMOKE_OUTPUT) void recordPackageSmoke(createdWindow, PACKAGE_SMOKE_OUTPUT)
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -293,6 +337,10 @@ app.whenReady().then(() => {
 
   windowLifecycle.openWindow()
   startupTimer.mark('window-created')
+
+  // Package qualification only verifies the renderer and native runtime. Avoid
+  // network-dependent background work so the CI startup result is deterministic.
+  if (PACKAGE_SMOKE_OUTPUT) return
 
   // Recover orphaned ralph loops from a previous session
   initRalphService()

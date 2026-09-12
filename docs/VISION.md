@@ -260,7 +260,7 @@ The Crew, Tempo, Bookmarks, Copilot, Settings.
 | Icons | lucide-react |
 | Layout | allotment (resizable panes) |
 | Storage | electron-store (local config) |
-| Build | Vite + electron-builder (NSIS/DMG/AppImage) |
+| Build | Vite + electron-builder (NSIS/DMG/DEB) |
 | CI | GitHub Actions, Bun 1.2, Node 22 |
 
 ---

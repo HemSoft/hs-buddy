@@ -59,6 +59,7 @@ describe('packaged dependency qualification', () => {
   })
 
   it.each([
+    ['node-pty', 'not a module', 'spawn'],
     ['node-pty', null, 'spawn'],
     ['node-pty', {}, 'spawn'],
     ['koffi', {}, 'load'],
@@ -119,16 +120,43 @@ describe('packaged renderer qualification', () => {
 
 describe('packaged Copilot qualification', () => {
   it('resolves the Windows executable with its required suffix', () => {
-    expect(
+    const comSpec = process.env.ComSpec
+    delete process.env.ComSpec
+    try {
+      expect(
+        qualifyPackageDependencies(
+          'win32',
+          'x64',
+          'C:\\package',
+          nativeModule,
+          () => 'C:\\package\\copilot.exe',
+          vi.fn()
+        ).copilotBinary
+      ).toBe('C:\\package\\copilot.exe')
+    } finally {
+      if (comSpec !== undefined) process.env.ComSpec = comSpec
+    }
+  })
+
+  it('exercises node-pty with the configured Windows command shell', () => {
+    vi.stubEnv('ComSpec', 'C:\\custom\\cmd.exe')
+    const pty = { spawn: vi.fn() }
+    try {
       qualifyPackageDependencies(
         'win32',
         'x64',
         'C:\\package',
-        nativeModule,
-        () => 'C:\\package\\copilot.exe',
+        specifier => (specifier === 'node-pty' ? pty : nativeModule(specifier)),
+        () => 'C:\\package\\native.node',
         vi.fn()
-      ).copilotBinary
-    ).toBe('C:\\package\\copilot.exe')
+      )
+      expect(pty.spawn).toHaveBeenCalledWith('C:\\custom\\cmd.exe', ['/d', '/s', '/c', 'exit 0'], {
+        cols: 80,
+        rows: 24,
+      })
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('rejects an empty Copilot resolution and a missing binary', () => {

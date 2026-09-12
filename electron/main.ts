@@ -29,7 +29,12 @@ import {
   type DisplayInfo,
 } from '../src/utils/windowGeometry'
 import { startupTimer } from '../perf/startup-timing'
-import { qualifyPackageDependencies, requireMountedRenderer } from './packageQualification'
+import {
+  persistPackageSmokeResult,
+  qualifyPackageDependencies,
+  requireMountedRenderer,
+  type PackageSmokeResult,
+} from './packageQualification'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -81,7 +86,7 @@ const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
 const PACKAGE_SMOKE_OUTPUT = process.env.BUDDY_PACKAGE_SMOKE_FILE
 const mainRequire = createRequire(import.meta.url)
 
-async function packageSmokeResult(window: BrowserWindow): Promise<Record<string, unknown>> {
+async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeResult> {
   const dependencies = qualifyPackageDependencies(
     process.platform,
     process.arch,
@@ -102,24 +107,11 @@ async function packageSmokeResult(window: BrowserWindow): Promise<Record<string,
   }
 }
 
-async function writePackageSmokeResult(
-  outputPath: string,
-  result: Record<string, unknown>,
-  exitCode: number
-): Promise<void> {
-  await writeFile(outputPath, JSON.stringify(result))
-  app.exit(exitCode)
-}
-
 function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
-  return packageSmokeResult(window).then(
-    result => writePackageSmokeResult(outputPath, result, 0),
-    (error: unknown) =>
-      writePackageSmokeResult(
-        outputPath,
-        { ok: false, platform: process.platform, arch: process.arch, error: String(error) },
-        1
-      )
+  return persistPackageSmokeResult(
+    () => packageSmokeResult(window),
+    result => writeFile(outputPath, JSON.stringify(result)),
+    code => app.exit(code)
   )
 }
 

@@ -7,6 +7,14 @@ const smokeRunner = readFileSync('scripts/package-smoke.ts', 'utf8')
 const mainProcess = readFileSync('electron/main.ts', 'utf8')
 const runtimeQualification = readFileSync('electron/packageQualification.ts', 'utf8')
 
+function parseNeeds(job: string | undefined): string[] {
+  if (!job) throw new Error('Missing ci-complete job')
+  const declaration = job.match(/^ {4}needs:\s*(?:\[([^\]]+)\]|((?:\n {6}- [^\n]+)+))/m)
+  if (!declaration) throw new Error('ci-complete needs must be an inline or multiline array')
+  if (declaration[1]) return declaration[1].split(',').map(value => value.trim())
+  return [...(declaration[2] ?? '').matchAll(/^\s*-\s*(\S+)/gm)].map(match => match[1])
+}
+
 const qualifiedTargets = [
   {
     name: 'Windows x64',
@@ -63,13 +71,9 @@ describe('desktop package qualification workflow', () => {
   })
 
   it('qualifies packages before CI can complete', () => {
-    const dependencies = workflow
-      .split('  ci-complete:')[1]
-      ?.match(/needs:\s*\[([^\]]+)\]/)?.[1]
-      .split(',')
-      .map(value => value.trim())
+    const ciComplete = workflow.split('  ci-complete:')[1]?.split(/\n {2}[\w-]+:/, 1)[0]
 
-    expect(dependencies).toContain('package-smoke')
+    expect(parseNeeds(ciComplete)).toContain('package-smoke')
     expect(workflow).toContain('if-no-files-found: warn')
     expect(workflow).toContain('release/package-smoke*.log')
     expect(workflow).toMatch(/name: Upload failed distributable\n\s+if: failure\(\)/)

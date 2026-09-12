@@ -1,5 +1,5 @@
 import { accessSync, constants } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { posix, win32 } from 'node:path'
 
 const PACKAGE_NATIVE_MODULES = [
   { dependency: 'node-pty', binding: 'spawn' },
@@ -10,6 +10,13 @@ export interface PackageDependencyReport {
   nativeModules: string[]
   copilotPackage: string
   copilotBinary: string
+}
+
+export interface PackageSmokeResult extends Record<string, unknown> {
+  ok: boolean
+  platform: NodeJS.Platform
+  arch: string
+  error?: string
 }
 
 function assertExecutable(file: string): void {
@@ -41,16 +48,43 @@ export function qualifyPackageDependencies(
   }
 
   const copilotPackage = `@github/copilot-${platform}-${arch}`
-  const resolvedPackage = resolveModule(copilotPackage)
-  if (!resolvedPackage.trim()) throw new Error(`${copilotPackage} resolved to an empty path`)
+  const resolvedManifest = resolveModule(`${copilotPackage}/package.json`)
+  if (!resolvedManifest.trim()) throw new Error(`${copilotPackage} resolved to an empty path`)
 
+  const targetPath = platform === 'win32' ? win32 : posix
   const binaryName = platform === 'win32' ? 'copilot.exe' : 'copilot'
-  const copilotBinary = join(dirname(resolvedPackage), binaryName)
+  const copilotBinary = targetPath.join(targetPath.dirname(resolvedManifest), binaryName)
   verifyExecutable(copilotBinary)
 
   return {
     nativeModules: PACKAGE_NATIVE_MODULES.map(module => module.dependency),
     copilotPackage,
     copilotBinary,
+  }
+}
+
+export async function persistPackageSmokeResult(
+  getResult: () => Promise<PackageSmokeResult>,
+  writeResult: (result: PackageSmokeResult) => Promise<void>,
+  exit: (code: number) => void
+): Promise<void> {
+  let exitCode = 0
+  let result: PackageSmokeResult
+  try {
+    result = await getResult()
+  } catch (error: unknown) {
+    exitCode = 1
+    result = {
+      ok: false,
+      platform: process.platform,
+      arch: process.arch,
+      error: String(error),
+    }
+  }
+
+  try {
+    await writeResult(result)
+  } finally {
+    exit(exitCode)
   }
 }

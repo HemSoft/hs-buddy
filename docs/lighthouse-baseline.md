@@ -37,13 +37,13 @@ artifact paths. That assertion does not affect the measured scores.
 Environment: GitHub-hosted Ubuntu, Node 24.12.0, Bun 1.3.7, Lighthouse CI 0.15.1,
 Lighthouse 13.4.1, Headless Chrome 152, mobile emulation, simulated throttling.
 
-| Run | Performance | Accessibility | Best practices |
-| --- | ---: | ---: | ---: |
-| 1 | 71 | 92 | 100 |
-| 2 | 97 | 92 | 100 |
-| 3 | 97 | 92 | 100 |
-| Median | 97 | 92 | 100 |
-| Range | 71-97 | 92-92 | 100-100 |
+| Run    | Performance | Accessibility | Best practices |
+| ------ | ----------: | ------------: | -------------: |
+| 1      |          71 |            92 |            100 |
+| 2      |          97 |            92 |            100 |
+| 3      |          97 |            92 |            100 |
+| Median |          97 |            92 |            100 |
+| Range  |       71-97 |         92-92 |        100-100 |
 
 Performance varied by 26 points within this hosted job; the other categories
 did not vary. This supports a three-run median and retaining the existing
@@ -59,21 +59,42 @@ with the maintained configuration.
 
 The September 5 Windows sample on the #654 worktree measured:
 
-| Run | Performance | Accessibility | Best practices |
-| --- | ---: | ---: | ---: |
-| 1 | 97 | 92 | 100 |
-| 2 | 97 | 92 | 100 |
-| 3 | 97 | 92 | 100 |
-| Median | 97 | 92 | 100 |
-| Range | 97-97 | 92-92 | 100-100 |
+| Run    | Performance | Accessibility | Best practices |
+| ------ | ----------: | ------------: | -------------: |
+| 1      |          97 |            92 |            100 |
+| 2      |          97 |            92 |            100 |
+| 3      |          97 |            92 |            100 |
+| Median |          97 |            92 |            100 |
+| Range  |       97-97 |         92-92 |        100-100 |
+
+## September 12 accessibility correction
+
+[CI run 34648350886](https://github.com/HemSoft/hs-buddy/actions/runs/34648350886)
+reproduced a 92 accessibility score in all three reports. Each report identified
+the same two failures: low contrast for the loading detail and idle sync status,
+and no main landmark. The renderer now uses theme colors with at least 4.5:1
+contrast and places its content in exactly one `<main>` element.
+
+A September 12 local Windows run with the CI build mode and three-report
+configuration produced:
+
+| Run    | Performance | Accessibility | Best practices | Contrast | Main landmark |
+| ------ | ----------: | ------------: | -------------: | -------: | ------------: |
+| 1      |          97 |           100 |            100 |      100 |           100 |
+| 2      |          97 |           100 |            100 |      100 |           100 |
+| 3      |          97 |           100 |            100 |      100 |           100 |
+| Median |          97 |           100 |            100 |      100 |           100 |
+
+The next section records the policy applied before hosted verification. Add the
+three corrected hosted scores and artifact link here before merging this change.
 
 ## Threshold policy
 
-The maintained minimum scores are 60 for performance, 80 for accessibility,
-and 80 for best practices. All three assertions are errors. Explicit median
-aggregation prevents one unusually fast run from masking a regression and
-reduces sensitivity to one unusually slow run. No threshold was lowered for
-this change.
+The maintained minimum scores are 60 for performance, 100 for accessibility,
+and 80 for best practices. `color-contrast` and `landmark-one-main` also have
+explicit error assertions. Median aggregation remains in place for category
+scores, while the two deterministic audits must pass every collected report.
+No performance or best-practices threshold changed.
 
 ## Refresh procedure
 

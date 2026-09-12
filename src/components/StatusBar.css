@@ -184,7 +184,7 @@
 
 /* Idle sync status with countdown */
 .status-item-sync-idle {
-  color: var(--text-tertiary, #6d6d6d);
+  color: var(--statusbar-fg, #9d9d9d);
   font-weight: 400;
 }
 

@@ -190,6 +190,7 @@ describe('App component', () => {
     render(<App />)
     expect(screen.getByTestId('title-bar')).toBeInTheDocument()
     expect(screen.getByTestId('status-bar')).toBeInTheDocument()
+    expect(screen.getAllByRole('main')).toHaveLength(1)
   })
 
   it('renders sidebar, tabs, and content area', () => {
@@ -228,6 +229,8 @@ describe('App loading state', () => {
     render(<App />)
     expect(screen.getByText('Loading…')).toBeInTheDocument()
     expect(screen.getByText('Initializing configuration')).toBeInTheDocument()
+    expect(screen.getAllByRole('main')).toHaveLength(1)
+    expect(screen.getByRole('main')).toHaveAttribute('aria-busy', 'true')
   })
 })
 

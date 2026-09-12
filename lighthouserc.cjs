@@ -18,8 +18,10 @@ module.exports = {
       assertions: {
         // Preserve the maintained floors; median aggregation limits single-run noise.
         'categories:performance': ['error', { minScore: 0.6, aggregationMethod: 'median' }],
-        'categories:accessibility': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
+        'categories:accessibility': ['error', { minScore: 1, aggregationMethod: 'median' }],
         'categories:best-practices': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
+        'color-contrast': ['error', { minScore: 1, aggregationMethod: 'pessimistic' }],
+        'landmark-one-main': ['error', { minScore: 1, aggregationMethod: 'pessimistic' }],
       },
     },
     upload: {

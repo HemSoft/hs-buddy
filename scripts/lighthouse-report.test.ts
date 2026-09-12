@@ -107,8 +107,10 @@ describe('blocking Lighthouse workflow', () => {
     expect(config.ci.collect.numberOfRuns).toBe(3)
     expect(config.ci.assert.assertions).toEqual({
       'categories:performance': ['error', { minScore: 0.6, aggregationMethod: 'median' }],
-      'categories:accessibility': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
+      'categories:accessibility': ['error', { minScore: 1, aggregationMethod: 'median' }],
       'categories:best-practices': ['error', { minScore: 0.8, aggregationMethod: 'median' }],
+      'color-contrast': ['error', { minScore: 1, aggregationMethod: 'pessimistic' }],
+      'landmark-one-main': ['error', { minScore: 1, aggregationMethod: 'pessimistic' }],
     })
   })
   it('requires the job and preserves hidden reports even after assertion failure', () => {

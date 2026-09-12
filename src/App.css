@@ -14,6 +14,25 @@
   overflow: hidden;
 }
 
+.app-loading {
+  align-items: center;
+  justify-content: center;
+}
+
+.app-loading-message {
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.app-loading-title {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.app-loading-detail {
+  font-size: 12px;
+}
+
 /* Ensure Allotment fills the available space */
 .app-body > .split-view-view {
   flex: 1;

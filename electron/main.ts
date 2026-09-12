@@ -32,6 +32,7 @@ import { startupTimer } from '../perf/startup-timing'
 import {
   persistPackageSmokeResult,
   qualifyPackageDependencies,
+  requirePackageRenderer,
   waitForMountedRenderer,
   type PackageSmokeResult,
 } from './packageQualification'
@@ -94,23 +95,16 @@ async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeRe
     mainRequire,
     mainRequire.resolve
   )
-  let rendererLoaded: true
-  try {
-    rendererLoaded = await waitForMountedRenderer(
+  const rendererLoaded = await requirePackageRenderer(
+    waitForMountedRenderer(
       () =>
         window.webContents.executeJavaScript(
           'window.__buddyPreloadReady === true && document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
         ),
       () => new Promise(resolve => setTimeout(resolve, 250))
-    )
-  } catch (error: unknown) {
-    const preloadReady = await window.webContents.executeJavaScript(
-      'window.__buddyPreloadReady === true'
-    )
-    if (preloadReady !== true)
-      throw new Error('Preload did not set __buddyPreloadReady', { cause: error })
-    throw error
-  }
+    ),
+    window.webContents.executeJavaScript('window.__buddyPreloadReady === true')
+  )
   return {
     ok: true,
     platform: process.platform,

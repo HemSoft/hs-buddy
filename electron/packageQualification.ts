@@ -27,6 +27,19 @@ export function requireMountedRenderer(rendererLoaded: unknown): true {
   return true
 }
 
+export async function requirePackageRenderer(
+  renderer: Promise<true>,
+  preloadReady: Promise<unknown>
+): Promise<true> {
+  try {
+    return await renderer
+  } catch (error: unknown) {
+    if ((await preloadReady) !== true)
+      throw new Error('Preload did not set __buddyPreloadReady', { cause: error })
+    throw error
+  }
+}
+
 export async function waitForMountedRenderer(
   check: () => Promise<unknown>,
   delay: () => Promise<void>,

@@ -3,6 +3,7 @@ import {
   persistPackageSmokeResult,
   qualifyPackageDependencies,
   requireMountedRenderer,
+  requirePackageRenderer,
   waitForMountedRenderer,
   type PackageSmokeResult,
 } from './packageQualification'
@@ -93,6 +94,19 @@ describe('packaged dependency qualification', () => {
 })
 
 describe('packaged renderer qualification', () => {
+  it('distinguishes preload and renderer failures', async () => {
+    const rendererError = new Error('Renderer did not mount into #root')
+    await expect(
+      requirePackageRenderer(Promise.resolve(true), Promise.resolve(true))
+    ).resolves.toBe(true)
+    await expect(
+      requirePackageRenderer(Promise.reject(rendererError), Promise.resolve(false))
+    ).rejects.toThrow('Preload did not set __buddyPreloadReady')
+    await expect(
+      requirePackageRenderer(Promise.reject(rendererError), Promise.resolve(true))
+    ).rejects.toBe(rendererError)
+  })
+
   it('requires the renderer to report a mounted root', () => {
     expect(requireMountedRenderer(true)).toBe(true)
     expect(() => requireMountedRenderer(false)).toThrow('Renderer did not mount into #root')

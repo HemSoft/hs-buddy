@@ -100,6 +100,7 @@ describe('desktop package qualification workflow', () => {
     expect(builderConfig).toContain("afterPack: 'scripts/after-pack.mjs'")
     expect(afterPack).toContain("'app.asar.unpacked'")
     expect(afterPack).toContain("'node-pty'")
+    expect(afterPack).toContain('readdir(nodePtyDirectory, { recursive: true })')
     expect(afterPack).toContain("endsWith('/spawn-helper')")
     expect(afterPack).toContain('0o755')
     expect(afterPack).toContain("context.electronPlatformName === 'win32'")

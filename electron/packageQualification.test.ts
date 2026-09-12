@@ -107,7 +107,7 @@ describe('packaged renderer qualification', () => {
     expect(delay).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects a renderer that never mounts', async () => {
+  it('rejects a renderer that never mounts with the requested diagnostic', async () => {
     await expect(
       waitForMountedRenderer(
         async () => false,
@@ -115,12 +115,21 @@ describe('packaged renderer qualification', () => {
         2
       )
     ).rejects.toThrow('Renderer did not mount into #root')
+    await expect(
+      waitForMountedRenderer(
+        async () => false,
+        async () => {},
+        1,
+        'Preload did not set __buddyPreloadReady'
+      )
+    ).rejects.toThrow('Preload did not set __buddyPreloadReady')
   })
 })
 
 describe('packaged Copilot qualification', () => {
-  it('resolves the Windows executable with its required suffix', () => {
+  it('resolves the Windows executable and exercises the fallback shell', () => {
     const comSpec = process.env.ComSpec
+    const pty = { spawn: vi.fn() }
     delete process.env.ComSpec
     try {
       expect(
@@ -128,11 +137,15 @@ describe('packaged Copilot qualification', () => {
           'win32',
           'x64',
           'C:\\package',
-          nativeModule,
+          specifier => (specifier === 'node-pty' ? pty : nativeModule(specifier)),
           () => 'C:\\package\\copilot.exe',
           vi.fn()
         ).copilotBinary
       ).toBe('C:\\package\\copilot.exe')
+      expect(pty.spawn).toHaveBeenCalledWith('cmd.exe', ['/d', '/s', '/c', 'exit 0'], {
+        cols: 80,
+        rows: 24,
+      })
     } finally {
       if (comSpec !== undefined) process.env.ComSpec = comSpec
     }

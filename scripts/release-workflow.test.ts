@@ -17,14 +17,17 @@ describe('release workflow qualification contract', () => {
     expect(workflow).not.toMatch(/^\s+push:\s*$/m)
   })
 
-  it('binds qualification, checkout, and version reads to one SHA', () => {
+  it('binds qualification and API-only version reads to one SHA', () => {
     expect(workflow).toContain('TARGET_SHA: ${{ github.event.workflow_run.head_sha }}')
     expect(workflow).toContain('actions/runs/$RUN_ID/jobs?per_page=100')
     expect(workflow).toContain('.[].jobs[]')
     expect(workflow).toContain('.name == "ci-complete"')
     expect(workflow).toContain('.conclusion == "success"')
-    expect(workflow).toContain('ref: ${{ github.event.workflow_run.head_sha }}')
-    expect(workflow).toContain('test "$(git rev-parse HEAD)" = "$TARGET_SHA"')
+    expect(workflow).not.toContain('actions/checkout')
+    expect(workflow).not.toContain('git checkout')
+    expect(workflow).toContain('git/commits/$TARGET_SHA')
+    expect(workflow).toContain('contents/package.json?ref=$TARGET_SHA')
+    expect(workflow).toContain('contents/package.json?ref=$parent')
   })
 
   it('rejects stale candidates and commits without a version change', () => {

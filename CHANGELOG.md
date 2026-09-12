@@ -9,6 +9,156 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1221] - 2026-09-12
+
+### Fixed
+
+- Initialize leased tag deletion
+
+## [0.1.1220] - 2026-09-12
+
+### Fixed
+
+- Lease release tag deletion
+
+## [0.1.1219] - 2026-09-12
+
+### Fixed
+
+- Retry verified release cleanup
+
+## [0.1.1218] - 2026-09-12
+
+### Fixed
+
+- Make release recovery resumable
+
+## [0.1.1217] - 2026-09-12
+
+### Fixed
+
+- Retry release cleanup operations
+
+## [0.1.1216] - 2026-09-12
+
+### Fixed
+
+- Route stale lookup errors through cleanup
+
+## [0.1.1215] - 2026-09-12
+
+### Fixed
+
+- Recover ambiguous release creation
+
+## [0.1.1214] - 2026-09-12
+
+### Fixed
+
+- Clean owned artifacts after release errors
+
+## [0.1.1213] - 2026-09-12
+
+### Fixed
+
+- Serialize only qualified release jobs
+
+## [0.1.1212] - 2026-09-12
+
+### Fixed
+
+- Recover superseded release artifacts
+
+## [0.1.1211] - 2026-09-12
+
+### Fixed
+
+- Carry forward superseded version candidates
+
+## [0.1.1210] - 2026-09-12
+
+### Fixed
+
+- Bind release mutations to verified artifacts
+
+## [0.1.1209] - 2026-09-12
+
+### Fixed
+
+- Revalidate tag ownership before cleanup
+
+## [0.1.1208] - 2026-09-12
+
+### Fixed
+
+- Recover release artifacts before stale rejection
+
+## [0.1.1207] - 2026-09-12
+
+### Fixed
+
+- Fail closed on release lookup errors
+
+## [0.1.1206] - 2026-09-12
+
+### Fixed
+
+- Recover release tag ownership
+
+## [0.1.1205] - 2026-09-12
+
+### Fixed
+
+- Mark release workflow ownership
+
+## [0.1.1204] - 2026-09-12
+
+### Changed
+
+- Describe superseded release rollback
+
+## [0.1.1203] - 2026-09-12
+
+### Fixed
+
+- Roll back superseded release publication
+
+## [0.1.1202] - 2026-09-12
+
+### Fixed
+
+- Reject superseded release tags
+
+## [0.1.1201] - 2026-09-12
+
+### Fixed
+
+- Claim release tags atomically
+
+## [0.1.1200] - 2026-09-12
+
+### Fixed
+
+- Fail closed when checking release tags
+
+## [0.1.1199] - 2026-09-12
+
+### Fixed
+
+- Validate release versions as strict SemVer (#688)
+
+## [0.1.1198] - 2026-09-12
+
+### Fixed
+
+- Avoid privileged release checkout (#688)
+
+## [0.1.1197] - 2026-09-12
+
+### Fixed
+
+- Publish only qualified releases (#688)
+
 ## [0.1.1196] - 2026-09-12
 
 ### Changed

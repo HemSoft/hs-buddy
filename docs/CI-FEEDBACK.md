@@ -56,9 +56,27 @@ and baseline justification.
 
 Pushes to `main`, manual dispatches, and merge groups always run full qualification.
 A daily run at 07:23 UTC provides an additional backstop. GitHub can delay scheduled
-runs, so a nightly success does not validate a different release candidate. Before
-release, require successful checks for that candidate. HemSoft owns investigation
-of failed default-branch or scheduled qualification before the next release.
+runs, so a nightly success does not validate a different release candidate.
+
+The release workflow listens only for a completed, successful `CI` run caused by a
+`main` push. Before publishing, it verifies that the triggering run contains one
+successful `ci-complete` job and its head SHA is still the live `main` SHA. A
+package-version change is eligible; if its run was superseded, the next successful
+same-version commit carries it forward until that version is published. The
+workflow creates an owned annotated tag at the exact qualified SHA, creates a
+CI-run-marked draft, and rechecks the exact tag object, draft ID, and live `main`
+at the publication decision point. If the candidate is superseded before
+publication, it removes only workflow-owned unpublished artifacts. Published or
+unrelated tags and drafts are never moved, published, or deleted. Failed,
+canceled, non-push, duplicate, and already superseded runs cannot publish a
+release.
+
+Releases [`v0.1.1159`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1159)
+and [`v0.1.1191`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1191)
+predate this gate and remain available as historical unqualified releases. Their
+release notes warn that exact-SHA CI failed or was canceled. Do not use either as
+evidence of a qualified build. HemSoft owns investigation of failed default-branch
+or scheduled qualification before the next release.
 
 Run the complete workflow manually with `gh workflow run ci.yml --ref <ref>` after
 verifying the active GitHub identity. Merge queue triggers are supported here;

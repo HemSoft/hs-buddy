@@ -57,9 +57,14 @@ describe('release artifact safety contract', () => {
     )
     expect(workflow).toContain('parent_version=')
     expect(workflow).toContain('if [ "$version" = "$parent_version" ]')
-    expect(workflow).toContain('git/matching-refs/tags/$tag')
-    expect(workflow).toContain('if [ "$existing_tag_count" != 0 ]')
-    expect(workflow).toContain('Carrying forward untagged version $version from a superseded run')
+    expect(workflow).toContain('select(.tag_name == $tag and .draft == false)')
+    expect(workflow).toContain('if [ "$published_count" != 0 ]')
+    expect(workflow).toContain(
+      'Carrying forward unpublished version $version from a superseded run'
+    )
+    expect(workflow).toMatch(
+      /Carrying forward unpublished version \$version[\s\S]+echo "eligible=true" >> "\$GITHUB_OUTPUT"/
+    )
     expect(workflow).toContain('eligible=false')
   })
 
@@ -83,6 +88,8 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain('[ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] &&')
     expect(workflow).toContain('[ "$live_tag_object" = "$tag_owned_object" ] &&')
     expect(workflow).toContain('tag_owned=true')
+    expect(workflow).toContain('previous_run_id="${BASH_REMATCH[1]}"')
+    expect(workflow).toContain('<!-- hs-buddy-release-ci:$previous_run_id -->')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')
     expect(workflow).toContain('--verify-tag')

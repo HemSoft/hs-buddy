@@ -60,14 +60,16 @@ runs, so a nightly success does not validate a different release candidate.
 
 The release workflow listens only for a completed, successful `CI` run caused by a
 `main` push. Before publishing, it verifies that the triggering run contains one
-successful `ci-complete` job, its head SHA is still the live `main` SHA, and that
-commit changed the package version from its parent. The workflow atomically
-creates an owned annotated tag at that exact SHA, creates a CI-run-marked draft,
-and rechecks live `main` at the publication decision point. If the candidate is
-superseded before publication, it removes only that owned draft and tag. Existing
-tags must resolve to the same commit and are never moved; unrelated drafts are
-never published or deleted. Failed, canceled, non-push, duplicate, and already
-superseded runs cannot publish a release.
+successful `ci-complete` job and its head SHA is still the live `main` SHA. A
+package-version change is eligible; if its run was superseded, the next successful
+same-version commit carries it forward until that version is published. The
+workflow creates an owned annotated tag at the exact qualified SHA, creates a
+CI-run-marked draft, and rechecks the exact tag object, draft ID, and live `main`
+at the publication decision point. If the candidate is superseded before
+publication, it removes only workflow-owned unpublished artifacts. Published or
+unrelated tags and drafts are never moved, published, or deleted. Failed,
+canceled, non-push, duplicate, and already superseded runs cannot publish a
+release.
 
 Releases [`v0.1.1159`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1159)
 and [`v0.1.1191`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1191)

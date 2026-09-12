@@ -49,16 +49,17 @@ jobs:
           fi
           tag="v$version"
           if [ "$version" = "$parent_version" ]; then
-            existing_tag_count="$(
-              gh api "repos/$REPOSITORY/git/matching-refs/tags/$tag" |
-                jq --arg ref "refs/tags/$tag" '[.[] | select(.ref == $ref)] | length'
+            published_count="$(
+              gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                jq --arg tag "$tag" \
+                  '[.[][] | select(.tag_name == $tag and .draft == false)] | length'
             )"
-            if [ "$existing_tag_count" != 0 ]; then
+            if [ "$published_count" != 0 ]; then
               echo "eligible=false" >> "$GITHUB_OUTPUT"
-              echo "Version $version is already tagged"
+              echo "Version $version is already published"
               exit 0
             fi
-            echo "Carrying forward untagged version $version from a superseded run"
+            echo "Carrying forward unpublished version $version from a superseded run"
           fi
           echo "eligible=true" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -135,13 +136,34 @@ jobs:
           )"
 
           if [ "$tag_ref" != null ]; then
-            test "$(resolve_tag)" = "$TARGET_SHA"
+            tag_target="$(resolve_tag)"
             live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+            tag_message=""
             if [ "$(jq -r .object.type <<< "$live_tag_ref")" = tag ]; then
               tag_message="$(
                 gh api "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$live_tag_ref")" \
                   --jq .message
               )"
+            fi
+
+            if [ "$tag_target" != "$TARGET_SHA" ] && \
+              [[ "$tag_message" =~ ^Qualified\ by\ CI\ run\ ([0-9]+)$ ]]; then
+              previous_run_id="${BASH_REMATCH[1]}"
+              if [ "$release_json" != null ]; then
+                test "$(jq -r .draft <<< "$release_json")" = true
+                grep -Fq "<!-- hs-buddy-release-ci:$previous_run_id -->" \
+                  <<< "$(jq -r .body <<< "$release_json")"
+                gh api --method DELETE \
+                  "repos/$REPOSITORY/releases/$(jq -r .id <<< "$release_json")"
+              fi
+              test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
+                "$(jq -r .object.sha <<< "$live_tag_ref")"
+              test "$(resolve_tag)" = "$tag_target"
+              gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+              tag_ref=null
+              release_json=null
+            else
+              test "$tag_target" = "$TARGET_SHA"
               if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then
                 tag_owned=true
                 tag_owned_object="$(jq -r .object.sha <<< "$live_tag_ref")"

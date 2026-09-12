@@ -75,6 +75,7 @@ jobs:
           tag_owned=false
           tag_owned_object=""
           managed_release=false
+          release_id=""
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
           abort_if_stale() {
             local current_main
@@ -84,7 +85,11 @@ jobs:
             fi
             echo "::error::main superseded $TARGET_SHA before release publication"
             if [ "$managed_release" = true ]; then
-              gh release delete "$TAG" --repo "$REPOSITORY" --yes
+              live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"
+              test "$(jq -r .draft <<< "$live_release")" = true
+              test "$(jq -r .tag_name <<< "$live_release")" = "$TAG"
+              grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
+              gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"
             fi
             if [ "$tag_owned" = true ]; then
               live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
@@ -144,6 +149,7 @@ jobs:
             fi
             grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$release_json")"
             managed_release=true
+            release_id="$(jq -r .id <<< "$release_json")"
           fi
           abort_if_stale
 
@@ -184,16 +190,28 @@ jobs:
               echo "Draft creation did not return success; verifying ownership" >&2
             fi
             release_json="$(
-              gh release view "$TAG" --repo "$REPOSITORY" --json isDraft,body
+              gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                jq -c --arg tag "$TAG" \
+                  '[.[][] | select(.tag_name == $tag)] | if length != 1 then error("expected one exact release") else .[0] end'
             )"
-            test "$(jq -r .isDraft <<< "$release_json")" = true
+            test "$(jq -r .draft <<< "$release_json")" = true
             grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$release_json")"
             managed_release=true
+            release_id="$(jq -r .id <<< "$release_json")"
           fi
 
-          # This check is the publication decision point. Only a draft marked
-          # with this CI run can reach it; stale work is still safely deletable.
+          # This is the publication decision point. Re-read the exact release
+          # ID and tag object so replacement artifacts cannot inherit approval.
           abort_if_stale
-          gh release edit "$TAG" --repo "$REPOSITORY" --draft=false
-          test "$(gh release view "$TAG" --repo "$REPOSITORY" --json isDraft --jq .isDraft)" = false
+          live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"
+          test "$(jq -r .draft <<< "$live_release")" = true
+          test "$(jq -r .tag_name <<< "$live_release")" = "$TAG"
+          grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
+          test "$(resolve_tag)" = "$TARGET_SHA"
+          if [ "$tag_owned" = true ]; then
+            test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
+              "$tag_owned_object"
+          fi
+          gh api --method PATCH "repos/$REPOSITORY/releases/$release_id" -F draft=false >/dev/null
+          test "$(gh api "repos/$REPOSITORY/releases/$release_id" --jq .draft)" = false
           test "$(resolve_tag)" = "$TARGET_SHA"

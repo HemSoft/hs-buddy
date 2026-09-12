@@ -82,8 +82,11 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('gh release create "$TAG"')
     expect(workflow).toContain('--verify-tag')
     expect(workflow).toContain('--draft')
-    expect(workflow).toContain('gh release edit "$TAG" --repo "$REPOSITORY" --draft=false')
-    expect(workflow).toContain('gh release delete "$TAG" --repo "$REPOSITORY" --yes')
+    expect(workflow).toContain(
+      'gh api --method PATCH "repos/$REPOSITORY/releases/$release_id" -F draft=false'
+    )
+    expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"')
+    expect(workflow).toContain('release_id="$(jq -r .id <<< "$release_json")"')
     expect(workflow).toContain('release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"')
     expect(workflow).toContain('grep -Fq "$release_marker"')
     expect(workflow).not.toContain('--target "$TARGET_SHA"')
@@ -94,7 +97,7 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('cancel-in-progress: false')
     expect(workflow).toContain('repos/$REPOSITORY/releases?per_page=100')
     expect(workflow).toContain('select(.tag_name == $tag)')
-    expect(workflow).toContain('gh release view "$TAG"')
+    expect(workflow).toContain('live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"')
     expect(workflow).toContain('Release $TAG already exists at the qualified commit')
     expect(workflow).toContain('exit 0')
   })

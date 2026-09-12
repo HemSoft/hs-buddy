@@ -112,6 +112,8 @@ async function waitForExit(
   child.stderr.on('data', chunk => output.push(`[stderr] ${String(chunk).trimEnd()}`))
 
   return new Promise((resolveExit, reject) => {
+    let exitResult: { code: number | null; signal: NodeJS.Signals | null } | undefined
+    let closeGrace: ReturnType<typeof setTimeout> | undefined
     const timeout = setTimeout(() => {
       terminateProcessTree(child, platform)
       reject(new Error('Packaged app did not complete its startup smoke test within 60 seconds'))
@@ -119,11 +121,19 @@ async function waitForExit(
 
     child.once('error', error => {
       clearTimeout(timeout)
+      clearTimeout(closeGrace)
       reject(error)
+    })
+    child.once('exit', (code, signal) => {
+      clearTimeout(timeout)
+      const result = { code, signal }
+      exitResult = result
+      closeGrace = setTimeout(() => resolveExit(result), 5_000)
     })
     child.once('close', (code, signal) => {
       clearTimeout(timeout)
-      resolveExit({ code, signal })
+      clearTimeout(closeGrace)
+      resolveExit(exitResult ?? { code, signal })
     })
   })
 }

@@ -30,6 +30,19 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('contents/package.json?ref=$parent')
   })
 
+  it('accepts SemVer and rejects malformed identifiers', () => {
+    const pattern = workflow.match(/semver='([^']+)'/)?.[1]
+    expect(pattern).toBeDefined()
+    const semver = new RegExp(pattern ?? '')
+
+    for (const valid of ['1.2.3', '1.2.3-alpha.1', '1.2.3+build.5']) {
+      expect(semver.test(valid)).toBe(true)
+    }
+    for (const invalid of ['1.2.3-01', '1.2.3+.', '01.2.3', '1.2']) {
+      expect(semver.test(invalid)).toBe(false)
+    }
+  })
+
   it('rejects stale candidates and commits without a version change', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
     expect(workflow.split(staleCheck)).toHaveLength(4)

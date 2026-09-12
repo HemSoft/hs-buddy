@@ -45,7 +45,7 @@ describe('release workflow qualification contract', () => {
 
   it('rejects stale candidates and commits without a version change', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
-    expect(workflow.split(staleCheck)).toHaveLength(4)
+    expect(workflow.split(staleCheck)).toHaveLength(5)
     expect(workflow).toContain('parent_version=')
     expect(workflow).toContain('if [ "$version" = "$parent_version" ]')
     expect(workflow).toContain('eligible=false')

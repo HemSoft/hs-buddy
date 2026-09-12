@@ -84,6 +84,9 @@ jobs:
               jq -c --arg ref "refs/tags/$TAG" \
                 '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
           )"
+          # Do not leave an orphan tag for a candidate superseded between the
+          # job-level check and this atomic ref claim.
+          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
           if [ "$tag_ref" != "null" ]; then
             test "$(resolve_tag)" = "$TARGET_SHA"
           else

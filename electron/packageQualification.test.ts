@@ -86,7 +86,9 @@ describe('packaged dependency qualification', () => {
       )
     ).toThrow('node-pty resolved outside packaged resources')
   })
+})
 
+describe('packaged renderer qualification', () => {
   it('requires the renderer to report a mounted root', () => {
     expect(requireMountedRenderer(true)).toBe(true)
     expect(() => requireMountedRenderer(false)).toThrow('Renderer did not mount into #root')
@@ -110,7 +112,9 @@ describe('packaged dependency qualification', () => {
       )
     ).rejects.toThrow('Renderer did not mount into #root')
   })
+})
 
+describe('packaged Copilot qualification', () => {
   it('resolves the Windows executable with its required suffix', () => {
     expect(
       qualifyPackageDependencies(

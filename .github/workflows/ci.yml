@@ -613,15 +613,10 @@ jobs:
       - name: Install Windows distributable
         if: runner.os == 'Windows'
         shell: pwsh
-        run: |
-          $installer = (Get-ChildItem release -File -Filter '*.exe' | Select-Object -First 1).FullName
-          if (-not $installer) { throw 'NSIS installer was not found' }
-          $installDirectory = Join-Path $env:RUNNER_TEMP 'Buddy-installed'
-          $installation = Start-Process $installer -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
-          if ($installation.ExitCode -ne 0) { throw "NSIS exited with $($installation.ExitCode)" }
-          $executable = (Get-ChildItem $installDirectory -Recurse -Filter 'Buddy.exe' | Select-Object -First 1).FullName
-          if (-not $executable) { throw 'Installed Buddy.exe was not found' }
-          "BUDDY_PACKAGE_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
+        run: >-
+          ./scripts/install-windows-package.ps1
+          -ReleaseDirectory release
+          -InstallDirectory (Join-Path $env:RUNNER_TEMP 'Buddy-installed')
 
       - name: Mount macOS distributable
         if: runner.os == 'macOS'

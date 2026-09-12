@@ -6,6 +6,7 @@ const builderConfig = readFileSync('electron-builder.json5', 'utf8')
 const smokeRunner = readFileSync('scripts/package-smoke.ts', 'utf8')
 const mainProcess = readFileSync('electron/main.ts', 'utf8')
 const runtimeQualification = readFileSync('electron/packageQualification.ts', 'utf8')
+const windowsInstaller = readFileSync('scripts/install-windows-package.ps1', 'utf8')
 
 function parseNeeds(job: string | undefined): string[] {
   if (!job) throw new Error('Missing ci-complete job')
@@ -72,9 +73,11 @@ describe('desktop package qualification workflow', () => {
 
   it('launches each generated distributable rather than its staging tree', () => {
     expect(workflow).toContain('sudo apt-get install --yes "./$package_file"')
-    expect(workflow).toContain('Start-Process $installer')
+    expect(workflow).toContain('./scripts/install-windows-package.ps1')
+    expect(windowsInstaller).toContain('& $installer /S')
+    expect(windowsInstaller).toContain('BUDDY_PACKAGE_EXECUTABLE=$executable')
     expect(workflow).toContain('hdiutil attach "$dmg"')
-    expect(workflow.match(/BUDDY_PACKAGE_EXECUTABLE=/g)).toHaveLength(3)
+    expect(workflow.match(/BUDDY_PACKAGE_EXECUTABLE=/g)).toHaveLength(2)
     expect(smokeRunner).toContain('process.env.BUDDY_PACKAGE_EXECUTABLE')
   })
 

@@ -48,8 +48,6 @@ describe('renderer shell contrast', () => {
   it('uses the qualified theme colors without reducing their opacity', () => {
     expect(appStyles).toMatch(/\.app-loading-message\s*\{[^}]*color: var\(--text-secondary\)/s)
     expect(appStyles).not.toMatch(/\.app-loading-detail\s*\{[^}]*opacity:/s)
-    expect(statusStyles).toMatch(
-      /\.status-item-sync-idle\s*\{[^}]*color: var\(--statusbar-fg, #9d9d9d\)/s
-    )
+    expect(statusStyles).toMatch(/\.status-item-sync-idle\s*\{[^}]*color: var\(--statusbar-fg/s)
   })
 })

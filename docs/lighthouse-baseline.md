@@ -75,18 +75,23 @@ the same two failures: low contrast for the loading detail and idle sync status,
 and no main landmark. The renderer now uses theme colors with at least 4.5:1
 contrast and places its content in exactly one `<main>` element.
 
-A September 12 local Windows run with the CI build mode and three-report
-configuration produced:
+The correction was then measured on the hosted Ubuntu runner in
+[CI run 34688435275](https://github.com/HemSoft/hs-buddy/actions/runs/34688435275)
+at head `43044c8dcc982ca933ecff85def7ff58165b028e`. Its retained
+`lighthouse-results` artifact produced:
 
 | Run    | Performance | Accessibility | Best practices | Contrast | Main landmark |
 | ------ | ----------: | ------------: | -------------: | -------: | ------------: |
-| 1      |          97 |           100 |            100 |      100 |           100 |
+| 1      |          83 |           100 |            100 |      100 |           100 |
 | 2      |          97 |           100 |            100 |      100 |           100 |
 | 3      |          97 |           100 |            100 |      100 |           100 |
 | Median |          97 |           100 |            100 |      100 |           100 |
+| Min    |          83 |           100 |            100 |      100 |           100 |
+| Max    |          97 |           100 |            100 |      100 |           100 |
 
-The next section records the policy applied before hosted verification. Add the
-three corrected hosted scores and artifact link here before merging this change.
+These hosted results confirm the accessibility floor and both deterministic
+audits. A separate local Windows measurement produced 97/100/100 in all three
+runs; it is supporting evidence only and is not mixed into the hosted baseline.
 
 ## Threshold policy
 

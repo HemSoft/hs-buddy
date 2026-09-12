@@ -47,13 +47,21 @@ jobs:
             echo "::error::Invalid version in package.json: '$version'"
             exit 1
           fi
+          tag="v$version"
           if [ "$version" = "$parent_version" ]; then
-            echo "eligible=false" >> "$GITHUB_OUTPUT"
-            echo "package.json version did not change"
-            exit 0
+            existing_tag_count="$(
+              gh api "repos/$REPOSITORY/git/matching-refs/tags/$tag" |
+                jq --arg ref "refs/tags/$tag" '[.[] | select(.ref == $ref)] | length'
+            )"
+            if [ "$existing_tag_count" != 0 ]; then
+              echo "eligible=false" >> "$GITHUB_OUTPUT"
+              echo "Version $version is already tagged"
+              exit 0
+            fi
+            echo "Carrying forward untagged version $version from a superseded run"
           fi
           echo "eligible=true" >> "$GITHUB_OUTPUT"
-          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Create immutable tag and release
         if: steps.version.outputs.eligible == 'true'

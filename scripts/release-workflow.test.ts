@@ -42,8 +42,10 @@ describe('release workflow qualification contract', () => {
       expect(semver.test(invalid)).toBe(false)
     }
   })
+})
 
-  it('rejects stale candidates and commits without a version change', () => {
+describe('release artifact safety contract', () => {
+  it('rejects stale candidates and carries forward an untagged version', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
     expect(workflow.split(staleCheck)).toHaveLength(1)
     const staleGuard = workflow.split('abort_if_stale() {')[1]?.split('\n          }')[0]
@@ -55,6 +57,9 @@ describe('release workflow qualification contract', () => {
     )
     expect(workflow).toContain('parent_version=')
     expect(workflow).toContain('if [ "$version" = "$parent_version" ]')
+    expect(workflow).toContain('git/matching-refs/tags/$tag')
+    expect(workflow).toContain('if [ "$existing_tag_count" != 0 ]')
+    expect(workflow).toContain('Carrying forward untagged version $version from a superseded run')
     expect(workflow).toContain('eligible=false')
   })
 

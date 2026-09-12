@@ -1,19 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { IPC_INVOKE, IPC_SEND, IPC_PUSH } from '../src/ipc/contracts'
 
-const { mockOn, mockOff, mockSend, mockInvoke, exposedApis } = vi.hoisted(() => ({
+const { mockOn, mockOff, mockSend, mockInvoke, exposedApis, exposureOrder } = vi.hoisted(() => ({
   mockOn: vi.fn(),
   mockOff: vi.fn(),
   mockSend: vi.fn(),
   mockInvoke: vi.fn(),
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   exposedApis: {} as Record<string, any>,
+  exposureOrder: [] as string[],
 }))
 
 vi.mock('electron', () => ({
   contextBridge: {
     exposeInMainWorld: vi.fn((name: string, api: unknown) => {
       exposedApis[name] = api
+      exposureOrder.push(name)
     }),
   },
   ipcRenderer: {
@@ -32,8 +34,9 @@ describe('preload', () => {
     vi.clearAllMocks()
   })
 
-  it('exposes a preload-only readiness sentinel', () => {
+  it('exposes the readiness sentinel after every preload bridge', () => {
     expect(exposedApis.__buddyPreloadReady).toBe(true)
+    expect(exposureOrder.at(-1)).toBe('__buddyPreloadReady')
   })
 
   describe('ipcRenderer bridge', () => {

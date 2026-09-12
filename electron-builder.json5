@@ -2,6 +2,7 @@
   appId: 'com.hemsoft.buddy',
   productName: 'Buddy',
   icon: 'public/icon',
+  afterPack: 'scripts/after-pack.mjs',
   directories: {
     output: 'release/${version}',
   },

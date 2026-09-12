@@ -7,6 +7,7 @@ const smokeRunner = readFileSync('scripts/package-smoke.ts', 'utf8')
 const mainProcess = readFileSync('electron/main.ts', 'utf8')
 const runtimeQualification = readFileSync('electron/packageQualification.ts', 'utf8')
 const windowsInstaller = readFileSync('scripts/install-windows-package.ps1', 'utf8')
+const afterPack = readFileSync('scripts/after-pack.mjs', 'utf8')
 
 function parseNeeds(job: string | undefined): string[] {
   if (!job) throw new Error('Missing ci-complete job')
@@ -96,6 +97,9 @@ describe('desktop package qualification workflow', () => {
       expect(builderConfig).toMatch(new RegExp(`["']${value}["']`))
     }
     expect(builderConfig).toContain("maintainer: 'HemSoft <hemsoft@users.noreply.github.com>'")
+    expect(builderConfig).toContain("afterPack: 'scripts/after-pack.mjs'")
+    expect(afterPack).toContain("endsWith('/spawn-helper')")
+    expect(afterPack).toContain('0o755')
   })
 
   it('checks the renderer and native dependencies from the packaged runtime', () => {

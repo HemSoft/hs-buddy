@@ -35,7 +35,6 @@ function isValidBatchMonthlyRequestArgs(
 }
 
 // --------- Expose some API to the Renderer process ---------
-contextBridge.exposeInMainWorld('__buddyPreloadReady', true)
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
     const [channel, listener] = args
@@ -273,3 +272,5 @@ contextBridge.exposeInMainWorld('copilot', {
   quickPrompt: (args: { prompt: string; model?: string }) =>
     ipcRenderer.invoke(IPC_INVOKE.COPILOT_QUICK_PROMPT, args) as Promise<string>,
 })
+
+contextBridge.exposeInMainWorld('__buddyPreloadReady', true)

@@ -1,20 +1,20 @@
 # CodeQL scanning
 
-GitHub CodeQL default setup analyzes this repository's JavaScript and
-TypeScript. GitHub owns the generated workflow, so there is no checked-in
-CodeQL workflow to update or pin.
+GitHub CodeQL default setup analyzes this repository's GitHub Actions and
+JavaScript/TypeScript. GitHub owns the generated workflow, so there is no
+checked-in CodeQL workflow to update or pin.
 
 ## Configuration
 
 The repository uses:
 
 - default setup in the `configured` state;
-- the `javascript-typescript` language;
+- the GitHub Actions and JavaScript/TypeScript languages;
 - the extended query suite;
 - a standard GitHub-hosted runner; and
 - GitHub's pull-request, default-branch, and weekly scan schedule.
 
-Default setup scans all tracked JavaScript and TypeScript. The main source is
+Default setup scans tracked Actions workflows and JavaScript/TypeScript. The main source is
 under `src/`, `electron/`, `convex/`, `shared/`, `scripts/`, `e2e/`, and `perf/`,
 but root configuration and generator files plus helpers under `testing/` are
 also in scope. No repository-owned path or query is excluded. CodeQL omits
@@ -96,6 +96,6 @@ gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
   --jq '.rules[] | select(.type == "code_scanning")'
 ```
 
-Expect configured JavaScript and TypeScript default setup, a successful current
+Expect configured Actions and JavaScript/TypeScript default setup, a successful current
 default-branch analysis, an alert array, and a CodeQL rule whose security alert
 threshold is `high_or_higher`.

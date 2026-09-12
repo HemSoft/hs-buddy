@@ -68,7 +68,7 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          set -Eeuo pipefail
+          set -euo pipefail
           resolve_tag() {
             local object type
             object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
@@ -86,6 +86,21 @@ jobs:
           release_id=""
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
           cleanup_owned_artifacts() {
+            if [ "$managed_release" = false ]; then
+              cleanup_release="$(
+                gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                  jq -c --arg tag "$TAG" \
+                    '[.[][] | select(.tag_name == $tag)] | if length > 1 then error("duplicate exact releases") else .[0] // null end'
+              )"
+              if [ "$cleanup_release" != null ] && \
+                [ "$(jq -r .draft <<< "$cleanup_release")" = true ] && \
+                grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$cleanup_release")"; then
+                managed_release=true
+                release_id="$(jq -r .id <<< "$cleanup_release")"
+              elif [ "$cleanup_release" != null ]; then
+                tag_owned=false
+              fi
+            fi
             if [ "$managed_release" = true ]; then
               live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"
               test "$(jq -r .draft <<< "$live_release")" = true
@@ -93,6 +108,26 @@ jobs:
               grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
               gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"
               managed_release=false
+            fi
+            if [ "$tag_owned" = false ]; then
+              cleanup_tag_ref="$(
+                gh api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
+                  jq -c --arg ref "refs/tags/$TAG" \
+                    '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
+              )"
+              if [ "$cleanup_tag_ref" != null ] && \
+                [ "$(jq -r .object.type <<< "$cleanup_tag_ref")" = tag ]; then
+                cleanup_tag_message="$(
+                  gh api \
+                    "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$cleanup_tag_ref")" \
+                    --jq .message
+                )"
+                if [ "$cleanup_tag_message" = "Qualified by CI run $RUN_ID" ] && \
+                  [ "$(resolve_tag)" = "$TARGET_SHA" ]; then
+                  tag_owned=true
+                  tag_owned_object="$(jq -r .object.sha <<< "$cleanup_tag_ref")"
+                fi
+              fi
             fi
             if [ "$tag_owned" = true ]; then
               live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
@@ -107,7 +142,21 @@ jobs:
                 if [ "$live_tag_object" = "$tag_owned_object" ] && \
                   [ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] && \
                   [ "$live_target" = "$TARGET_SHA" ]; then
+                  release_count_before_tag_delete="$(
+                    gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                      jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
+                  )"
+                  test "$release_count_before_tag_delete" = 0
                   gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+                  release_count_after_tag_delete="$(
+                    gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                      jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
+                  )"
+                  if [ "$release_count_after_tag_delete" != 0 ]; then
+                    gh api --method POST "repos/$REPOSITORY/git/refs" \
+                      -f ref="refs/tags/$TAG" -f sha="$tag_owned_object" >/dev/null
+                    return 1
+                  fi
                   tag_owned=false
                 else
                   echo "Skipping tag cleanup because ownership or target changed" >&2
@@ -179,10 +228,20 @@ jobs:
                   jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
               )"
               test "$replacement_release_count" = 0
+              previous_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
               test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
-                "$(jq -r .object.sha <<< "$live_tag_ref")"
+                "$previous_tag_object"
               test "$(resolve_tag)" = "$tag_target"
               gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+              replacement_release_count="$(
+                gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                  jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
+              )"
+              if [ "$replacement_release_count" != 0 ]; then
+                gh api --method POST "repos/$REPOSITORY/git/refs" \
+                  -f ref="refs/tags/$TAG" -f sha="$previous_tag_object" >/dev/null
+                exit 1
+              fi
               tag_ref=null
               release_json=null
             else

@@ -77,6 +77,22 @@ jobs:
             printf '%s\n' "$object"
           }
 
+          tag_created=false
+          managed_release=false
+          abort_if_stale() {
+            if [ "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA" ]; then
+              return
+            fi
+            echo "::error::main superseded $TARGET_SHA during release publication"
+            if [ "$managed_release" = true ]; then
+              gh release delete "$TAG" --repo "$REPOSITORY" --yes
+            fi
+            if [ "$tag_created" = true ] && [ "$(resolve_tag)" = "$TARGET_SHA" ]; then
+              gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+            fi
+            exit 1
+          }
+
           # matching-refs returns an empty array when the exact tag is absent,
           # while API/auth/rate-limit failures remain fatal under set -e.
           tag_ref="$(
@@ -84,34 +100,48 @@ jobs:
               jq -c --arg ref "refs/tags/$TAG" \
                 '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
           )"
-          # Do not leave an orphan tag for a candidate superseded between the
-          # job-level check and this atomic ref claim.
-          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
+          abort_if_stale
           if [ "$tag_ref" != "null" ]; then
             test "$(resolve_tag)" = "$TARGET_SHA"
           else
             # Git ref creation is atomic. If another writer wins the race or
             # the response is lost, resolve_tag below still requires the live
             # tag to point to this qualified commit before release creation.
-            if ! gh api --method POST "repos/$REPOSITORY/git/refs" \
+            if gh api --method POST "repos/$REPOSITORY/git/refs" \
               -f ref="refs/tags/$TAG" \
               -f sha="$TARGET_SHA" >/dev/null; then
+              tag_created=true
+            else
               echo "Tag creation did not return success; verifying the live ref" >&2
             fi
           fi
           test "$(resolve_tag)" = "$TARGET_SHA"
+          abort_if_stale
 
-          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists at the qualified commit"
-            exit 0
+          if release_json="$(
+            gh release view "$TAG" --repo "$REPOSITORY" --json isDraft 2>/dev/null
+          )"; then
+            test "$(resolve_tag)" = "$TARGET_SHA"
+            if [ "$(jq -r .isDraft <<< "$release_json")" = false ]; then
+              echo "Release $TAG already exists at the qualified commit"
+              exit 0
+            fi
+            managed_release=true
+          else
+            gh release create "$TAG" \
+              --repo "$REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --title "$TAG" \
+              --generate-notes
+            managed_release=true
           fi
 
-          # Recheck immediately before the only publishing command. The tag
-          # was already atomically claimed and verified at TARGET_SHA.
-          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
-          gh release create "$TAG" \
-            --repo "$REPOSITORY" \
-            --verify-tag \
-            --title "$TAG" \
-            --generate-notes
+          # Publishing a draft plus a post-publication head check bounds the
+          # final race. If main advances during either API operation, remove
+          # the release and this run's tag so the version remains reusable.
+          abort_if_stale
+          gh release edit "$TAG" --repo "$REPOSITORY" --draft=false
+          abort_if_stale
+          test "$(gh release view "$TAG" --repo "$REPOSITORY" --json isDraft --jq .isDraft)" = false
           test "$(resolve_tag)" = "$TARGET_SHA"

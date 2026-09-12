@@ -45,7 +45,8 @@ describe('release workflow qualification contract', () => {
 
   it('rejects stale candidates and commits without a version change', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
-    expect(workflow.split(staleCheck)).toHaveLength(5)
+    expect(workflow.split(staleCheck)).toHaveLength(3)
+    expect(workflow.match(/^ {10}abort_if_stale$/gm)).toHaveLength(4)
     expect(workflow).toContain('parent_version=')
     expect(workflow).toContain('if [ "$version" = "$parent_version" ]')
     expect(workflow).toContain('eligible=false')
@@ -62,8 +63,13 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('gh api --method POST "repos/$REPOSITORY/git/refs"')
     expect(workflow).toContain('-f ref="refs/tags/$TAG"')
     expect(workflow).toContain('-f sha="$TARGET_SHA"')
+    expect(workflow).toContain('tag_created=true')
+    expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')
     expect(workflow).toContain('--verify-tag')
+    expect(workflow).toContain('--draft')
+    expect(workflow).toContain('gh release edit "$TAG" --repo "$REPOSITORY" --draft=false')
+    expect(workflow).toContain('gh release delete "$TAG" --repo "$REPOSITORY" --yes')
     expect(workflow).not.toContain('--target "$TARGET_SHA"')
   })
 

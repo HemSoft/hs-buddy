@@ -5,7 +5,7 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 ## Prerequisites
 
 - [Bun](https://bun.sh/) (package manager & script runner)
-- [Node.js](https://nodejs.org/) 20+
+- [Node.js](https://nodejs.org/) 22+
 - [.NET Aspire CLI](https://aspire.dev/get-started/install-cli/) (AppHost orchestration)
 - [Convex CLI](https://docs.convex.dev/getting-started) (`npm i -g convex`)
 
@@ -40,21 +40,21 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 ## Development Scripts
 
-| Command                 | Purpose                                                  |
-| ----------------------- | -------------------------------------------------------- |
-| `bun run setup`         | Install root dependencies and restore the Aspire AppHost |
-| `bun run dev`           | Start Electron in dev mode                               |
-| `bun run test`          | Run all unit tests                                       |
-| `bun run test:watch`    | Run tests in watch mode                                  |
-| `bun run test:coverage` | Run tests with coverage (must be 100%)                   |
-| `bun run test:mutation` | Run the blocking Stryker mutation-quality gate           |
-| `bun run test:electron` | Run Electron main-process tests                          |
-| `bun run test:convex`   | Run Convex server function tests                         |
-| `bun run test:e2e`      | Run Playwright E2E tests                                 |
-| `bun run lint`          | ESLint (zero warnings allowed)                           |
-| `bun run typecheck`     | TypeScript across all tsconfigs                          |
-| `bun run knip`          | Dead code & unused dependency detection                  |
-| `bun run format:check`  | Prettier format verification                             |
+| Command                          | Purpose                                                  |
+| -------------------------------- | -------------------------------------------------------- |
+| `bun run setup`                  | Install root dependencies and restore the Aspire AppHost |
+| `bun run dev`                    | Start Electron in dev mode                               |
+| `bun run test`                   | Run all unit tests                                       |
+| `bun run test:watch`             | Run tests in watch mode                                  |
+| `bun run test:coverage`          | Run renderer coverage (99/99/100/100 minimum)            |
+| `bun run test:mutation`          | Run the blocking Stryker mutation-quality gate           |
+| `bun run test:electron:coverage` | Run Electron coverage (97/89/97/98 minimum)              |
+| `bun run test:convex:coverage`   | Run Convex coverage (90/90/90/90 minimum)                |
+| `bun run test:e2e`               | Run Playwright E2E tests                                 |
+| `bun run lint`                   | ESLint (zero warnings allowed)                           |
+| `bun run typecheck`              | TypeScript across all tsconfigs                          |
+| `bun run knip`                   | Dead code & unused dependency detection                  |
+| `bun run format:check`           | Prettier format verification                             |
 
 ## PR Conventions
 
@@ -92,8 +92,8 @@ temporarily change the ruleset, make only the required repair, then immediately
 restore and verify the ruleset. Any permanent bypass or policy change must be
 documented here through a pull request.
 
-The same ruleset requires CodeQL results for JavaScript and TypeScript. A
-missing or running analysis blocks the update, as does a high or critical
+The same ruleset requires CodeQL results for GitHub Actions and
+JavaScript/TypeScript. A missing or running analysis blocks the update, as does a high or critical
 security alert introduced by the proposed change. The CodeQL configuration,
 scope, alert ownership, dismissal rules, and verification commands are in
 [CodeQL scanning](docs/CODEQL.md).
@@ -157,15 +157,23 @@ docs/contributing-guide
 Husky runs automatically on commit:
 
 1. **lint-staged** — Prettier + ESLint on staged files
-2. **Full test suite with coverage** — must maintain 100% coverage
+2. **Full renderer test suite with coverage** — must maintain the configured ratchet
 3. **Typecheck** — all four tsconfig projects
 
 > **Tip**: Use `--no-verify` only if you've already validated locally.
 
 ## Testing Expectations
 
-- **100% code coverage** is enforced on statements, branches, functions, and lines
-- Use `/* v8 ignore start */` / `/* v8 ignore next */` only for genuinely untestable paths (IPC bridges, audio playback, thin API wrappers)
+Coverage is enforced independently for each maintained suite, in statements/branches/functions/lines order:
+
+- **Renderer** (`bun run test:coverage`): 99% / 99% / 100% / 100%
+- **Electron** (`bun run test:electron:coverage`): 97% / 89% / 97% / 98%
+- **Convex** (`bun run test:convex:coverage`): 90% / 90% / 90% / 90%
+
+Renderer thresholds ratchet toward 100% when measured coverage permits. Use
+`/* v8 ignore start */` / `/* v8 ignore next */` only for genuinely untestable
+paths (IPC bridges, audio playback, thin API wrappers).
+
 - New features must include tests — no exceptions
 - Test files live alongside source: `Component.test.tsx` or in a dedicated test file
 

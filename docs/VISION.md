@@ -1,7 +1,7 @@
 # Buddy Vision
 
 **Version**: 3.0
-**Updated**: 2026-04-06
+**Updated**: 2026-09-12
 **Status**: Active Execution
 
 ## Executive Summary
@@ -91,58 +91,67 @@ stored in electron-store with Convex sync for view modes.
 
 ## Architecture
 
+The product direction and strategic goals are durable guidance. Architecture,
+stack, and test details below are a point-in-time inventory reviewed on
+2026-09-12; stable manifest versions, schema-table totals, and feature totals
+are enforced by `scripts/check-readme-metadata.ts`.
+
 ```text
 ┌──────────────────────────────────────────────────────────────────┐
-│  Buddy Desktop (Electron 30 + React 18 + Vite 5)               │
+│  Buddy Desktop (Electron 44 + React 19 + Vite 8)               │
 │                                                                  │
 │  Renderer                      Main Process                      │
 │  ┌────────────────────┐        ┌──────────────────────────────┐ │
-│  │ React UI            │        │ IPC Handlers (8 domains)     │ │
-│  │  10 Activity Panels │◀──────▶│ Workers (exec, ai, skill)   │ │
-│  │  30+ Content Views  │  IPC   │ Services (Copilot, Tempo,   │ │
-│  │  21 Custom Hooks    │        │   Todoist, Crew, Sessions)  │ │
+│  │ React UI            │        │ IPC Handlers                 │ │
+│  │  Activity Panels    │◀──────▶│ Workers (exec, ai, skill)   │ │
+│  │  Content Views      │  IPC   │ Services (Copilot, Tempo,   │ │
+│  │  Custom Hooks       │        │   Todoist, Crew, Sessions)  │ │
 │  └────────┬───────────┘        │ OpenTelemetry (→ Aspire)     │ │
 │           │                     └──────────────────────────────┘ │
 │           │ Convex SDK                                           │
 │           ▼                                                      │
 │  ┌────────────────────┐                                          │
-│  │  Convex Cloud       │  14 tables · 2 cron jobs                │
+│  │  Convex Cloud       │  17 schema tables · scheduled jobs      │
 │  │  Real-time sync     │  File storage for run outputs           │
 │  │  Offline resilience │                                          │
 │  └────────────────────┘                                          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Model (14 Convex Tables)
+### Data Model (17 Convex Tables)
 
-| Table | Purpose |
-|-------|---------|
-| `githubAccounts` | Multi-account GitHub CLI configurations |
-| `settings` | Singleton app config (PR refresh, Copilot models, view modes) |
-| `jobs` | Task definitions (exec/ai/skill worker type + config) |
-| `schedules` | Cron expressions, timezone, missed policy, linked job |
-| `runs` | Execution history (status, duration, output, file storage) |
-| `bookmarks` | URL collection with categories, tags, sort order |
-| `repoBookmarks` | Folder-organized repo collection |
-| `buddyStats` | 16 lifetime counters (launches, tabs, PRs viewed, etc.) |
-| `copilotResults` | Stored Copilot prompt/response pairs |
-| `copilotUsageHistory` | Daily billing snapshots for trend reporting |
-| `prReviewRuns` | AI review history per PR + head SHA |
-| `featureIntakes` | External ticket → canonical issue mapping |
-| `sessionDigests` | Copilot session efficiency metrics |
-| `_storage` | Convex file storage for run outputs |
+| Table                 | Purpose                                                       |
+| --------------------- | ------------------------------------------------------------- |
+| `githubAccounts`      | Multi-account GitHub CLI configurations                       |
+| `settings`            | Singleton app config (PR refresh, Copilot models, view modes) |
+| `terminalPrompts`     | Saved terminal prompt templates                               |
+| `jobs`                | Task definitions (exec/ai/skill worker type + config)         |
+| `schedules`           | Cron expressions, timezone, missed policy, linked job         |
+| `runs`                | Execution history (status, duration, output, file storage)    |
+| `bookmarks`           | URL collection with categories, tags, sort order              |
+| `repoBookmarks`       | Folder-organized repo collection                              |
+| `buddyStats`          | 16 lifetime counters (launches, tabs, PRs viewed, etc.)       |
+| `copilotResults`      | Stored Copilot prompt/response pairs                          |
+| `copilotResultCounts` | Aggregated Copilot result totals                              |
+| `copilotUsageHistory` | Daily billing snapshots for trend reporting                   |
+| `prReviewRuns`        | AI review history per PR + head SHA                           |
+| `featureIntakes`      | External ticket → canonical issue mapping                     |
+| `sessionDigests`      | Copilot session efficiency metrics                            |
+| `ralphRuns`           | Ralph loop execution history                                  |
+| `terminalWorkspaces`  | Persisted terminal workspace state                            |
+| `_storage`            | Convex-managed file storage for run outputs (system table)    |
 
 ### Electron Main Process
 
-| Module | Responsibility |
-|--------|---------------|
-| `main.ts` | App entry, window creation, multi-monitor, CDP debug port |
-| `config.ts` | electron-store config manager |
-| `cache.ts` | Caching layer |
-| `preload.ts` | Context bridge (IPC ↔ renderer) |
-| `menu.ts` | Keyboard shortcuts (frameless window — no native menu bar) |
+| Module         | Responsibility                                                |
+| -------------- | ------------------------------------------------------------- |
+| `main.ts`      | App entry, window creation, multi-monitor, CDP debug port     |
+| `config.ts`    | electron-store config manager                                 |
+| `cache.ts`     | Caching layer                                                 |
+| `preload.ts`   | Context bridge (IPC ↔ renderer)                               |
+| `menu.ts`      | Keyboard shortcuts (frameless window — no native menu bar)    |
 | `telemetry.ts` | OpenTelemetry SDK: traces, metrics, structured logs to Aspire |
-| `zoom.ts` | Zoom level persistence |
+| `zoom.ts`      | Zoom level persistence                                        |
 
 ### IPC Handler Domains
 
@@ -169,26 +178,26 @@ The operating model, workflow library, and governance live at:
 
 ### Pipeline (happy path)
 
-| # | Workflow | What it does |
-|---|---------|-------------|
-| 0 | `repo-audit` / `simplisticate` | Audit findings → categorized GitHub Issues |
-| 1 | `sfl-dispatcher` | Dispatches SFL workflows only when useful queued work exists |
-| 2 | `issue-processor` | Issue → draft PR with implementation |
-| 3 | `pr-analyzer-a` | First full-spectrum PR review pass (marker + verdict) |
-| 4 | `pr-analyzer-b` | Second full-spectrum PR review pass (marker + verdict) |
-| 5 | `pr-analyzer-c` | Final full-spectrum PR review pass (marker + verdict) |
-| 6 | `pr-fixer` | Applies analyzer feedback and advances the review cycle |
-| 7 | `pr-promoter` | Promotes clean draft PRs and merges approved ready PRs |
+| #   | Workflow                       | What it does                                                 |
+| --- | ------------------------------ | ------------------------------------------------------------ |
+| 0   | `repo-audit` / `simplisticate` | Audit findings → categorized GitHub Issues                   |
+| 1   | `sfl-dispatcher`               | Dispatches SFL workflows only when useful queued work exists |
+| 2   | `issue-processor`              | Issue → draft PR with implementation                         |
+| 3   | `pr-analyzer-a`                | First full-spectrum PR review pass (marker + verdict)        |
+| 4   | `pr-analyzer-b`                | Second full-spectrum PR review pass (marker + verdict)       |
+| 5   | `pr-analyzer-c`                | Final full-spectrum PR review pass (marker + verdict)        |
+| 6   | `pr-fixer`                     | Applies analyzer feedback and advances the review cycle      |
+| 7   | `pr-promoter`                  | Promotes clean draft PRs and merges approved ready PRs       |
 
 ### Supporting Workflows
 
-| Workflow | Cadence | Purpose |
-|---------|---------|---------|
-| `sfl-auditor` | Manual dispatch | Detects/repairs state discrepancies |
-| `sfl-dispatcher` | Manual dispatch | Finds queued work and dispatches the relevant SFL workflow |
-| `daily-repo-status` | Manual dispatch | Repository health report |
-| `repo-audit` | Manual dispatch | Comprehensive documentation/config audit |
-| `simplisticate` | Manual dispatch | Complexity reduction audit |
+| Workflow            | Cadence         | Purpose                                                    |
+| ------------------- | --------------- | ---------------------------------------------------------- |
+| `sfl-auditor`       | Manual dispatch | Detects/repairs state discrepancies                        |
+| `sfl-dispatcher`    | Manual dispatch | Finds queued work and dispatches the relevant SFL workflow |
+| `daily-repo-status` | Manual dispatch | Repository health report                                   |
+| `repo-audit`        | Manual dispatch | Comprehensive documentation/config audit                   |
+| `simplisticate`     | Manual dispatch | Complexity reduction audit                                 |
 
 ---
 
@@ -196,17 +205,15 @@ The operating model, workflow library, and governance live at:
 
 ### CI Pipeline (`.github/workflows/ci.yml`)
 
-Parallelized into four jobs: **lint** (ESLint, Knip, Prettier, e18e) ‖
-**typecheck** (tsc --noEmit) ‖ **test** (Vitest + coverage). **build**
-(Vite + bundle size) runs after typecheck passes.
+The pipeline fans out lint, typecheck, renderer, Electron, IPC, Convex, E2E,
+memory, package, and build checks. `ci-complete` aggregates the required jobs.
 
 ### Testing
 
-- **Vitest** with `happy-dom`, 119 test files, ~974 tests
-- **BDD**: 3 Gherkin feature specs via `vitest-cucumber`
-- **Benchmarks**: 8 `.bench.ts` files for critical paths
-- **Coverage**: v8 provider, Cobertura + lcov reporters, ratcheting
-  thresholds (45%+ statements/functions/lines, 41%+ branches)
+- **Vitest** with `happy-dom` for renderer tests and dedicated Electron and Convex suites
+- **BDD**: 6 tracked Gherkin feature specs
+- **Benchmarks**: dedicated `.bench.ts` coverage for critical paths
+- **Coverage**: v8 provider with separately maintained renderer (99/99/100/100), Electron (97/89/97/98), and Convex (90/90/90/90) thresholds
 
 ### Code Health
 
@@ -249,36 +256,36 @@ The Crew, Tempo, Bookmarks, Copilot, Settings.
 
 ## Technical Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop | Electron 30 |
-| UI | React 18, TypeScript 5.2, Vite 5 |
-| Backend | Convex 1.34 (serverless DB + real-time) |
-| AI | `@github/copilot-sdk` 0.1.23 |
-| GitHub API | `@octokit/rest` 22, `@octokit/graphql` 9 |
-| Telemetry | OpenTelemetry SDK (traces, metrics, logs → Aspire) |
-| Icons | lucide-react |
-| Layout | allotment (resizable panes) |
-| Storage | electron-store (local config) |
-| Build | Vite + electron-builder (NSIS/DMG/DEB) |
-| CI | GitHub Actions, Bun 1.2, Node 22 |
+| Layer      | Technology                                         |
+| ---------- | -------------------------------------------------- |
+| Desktop    | Electron 44                                        |
+| UI         | React 19, TypeScript 6, Vite 8                     |
+| Backend    | Convex 1.45.0 (serverless DB + real-time)          |
+| AI         | `@github/copilot-sdk` 1.0.13                       |
+| GitHub API | `@octokit/rest` 22, `@octokit/graphql` 9           |
+| Telemetry  | OpenTelemetry SDK (traces, metrics, logs → Aspire) |
+| Icons      | lucide-react                                       |
+| Layout     | allotment (resizable panes)                        |
+| Storage    | electron-store (local config)                      |
+| Build      | Vite + electron-builder (NSIS/DMG/DEB)             |
+| CI         | GitHub Actions, Bun 1.2, Node 22                   |
 
 ---
 
 ## Strategic Goals
 
-| # | Goal | Status |
-|---|------|--------|
-| 1 | Replace hs-conductor | ✅ Retired — Buddy handles all scheduling |
-| 2 | Platform independence (Convex sync) | ✅ All data in Convex |
-| 3 | Serverless architecture | ✅ No local Express/Inngest server |
-| 4 | Real-time experience | ✅ Convex subscriptions power live UI |
-| 5 | Skill integration (110+ Claude skills) | ✅ skill-worker type operational |
-| 6 | Unified delivery intake | ✅ featureIntakes table + discussion-processor |
-| 7 | Recursive quality automation (SFL) | ✅ Full loop operational |
-| 8 | Portfolio scalability | 🚧 Running on hs-buddy + 2 SFL repos |
-| 9 | Raise test coverage to 50% | 🚧 At ~46%, ratcheting up |
-| 10 | Mobile companion app | 📋 Future — React Native + Expo |
+| #   | Goal                                   | Status                                                              |
+| --- | -------------------------------------- | ------------------------------------------------------------------- |
+| 1   | Replace hs-conductor                   | ✅ Retired — Buddy handles all scheduling                           |
+| 2   | Platform independence (Convex sync)    | ✅ All data in Convex                                               |
+| 3   | Serverless architecture                | ✅ No local Express/Inngest server                                  |
+| 4   | Real-time experience                   | ✅ Convex subscriptions power live UI                               |
+| 5   | Skill integration (110+ Claude skills) | ✅ skill-worker type operational                                    |
+| 6   | Unified delivery intake                | ✅ featureIntakes table + discussion-processor                      |
+| 7   | Recursive quality automation (SFL)     | ✅ Full loop operational                                            |
+| 8   | Portfolio scalability                  | 🚧 Running on hs-buddy + 2 SFL repos                                |
+| 9   | Maintain ratcheted coverage gates      | ✅ Renderer, Electron, and Convex suites enforce independent floors |
+| 10  | Mobile companion app                   | 📋 Future — React Native + Expo                                     |
 
 ---
 

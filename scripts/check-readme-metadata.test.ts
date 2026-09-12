@@ -23,7 +23,8 @@ function sources() {
   return {
     readme: `${ciBadge}
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)]
-**Electron 44** **React 19** **TypeScript 6** **Vite 8** 2 schema tables`,
+**Electron 44** **React 19** **TypeScript 6** **Vite 8** 2 schema tables
+Project tree: 2 schema tables`,
     contributing: '[Node.js](https://nodejs.org/) 22+',
     vision: `Electron 44 + React 19 + Vite 8
 React 19, TypeScript 6, Vite 8
@@ -55,7 +56,7 @@ describe('validateDocumentationMetadata', () => {
     stale.vision = stale.vision.replace('6 tracked Gherkin', '3 tracked Gherkin')
     expect(validateDocumentationMetadata(stale, packageJson)).toEqual(
       expect.arrayContaining([
-        'README.md must declare 2 schema tables.',
+        'README.md must declare 2 schema tables in both maintained claims.',
         'docs/VISION.md must declare 6 tracked Gherkin feature specs.',
       ])
     )

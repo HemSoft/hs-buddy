@@ -91,12 +91,15 @@ function validateReadme(readme: string, versions: RequiredVersions, schemaCount:
       `README.md Tech Stack must declare ${name} ${value}.`
     )
   }
-  requireClaim(
-    errors,
-    readme,
-    `${schemaCount} schema tables`,
-    `README.md must declare ${schemaCount} schema tables.`
+  const documentedSchemaCounts = [...readme.matchAll(/\b(\d+) schema tables\b/g)].map(
+    match => match[1]
   )
+  if (
+    documentedSchemaCounts.length !== 2 ||
+    documentedSchemaCounts.some(count => count !== String(schemaCount))
+  ) {
+    errors.push(`README.md must declare ${schemaCount} schema tables in both maintained claims.`)
+  }
   return errors
 }
 

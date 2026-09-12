@@ -1,5 +1,4 @@
 import { accessSync, constants } from 'node:fs'
-import { posix, win32 } from 'node:path'
 
 const PACKAGE_NATIVE_MODULES = [
   { dependency: 'node-pty', binding: 'spawn' },
@@ -28,14 +27,7 @@ export function requireMountedRenderer(rendererLoaded: unknown): true {
   return true
 }
 
-/** Load every native dependency from the packaged Electron runtime. */
-export function qualifyPackageDependencies(
-  platform: NodeJS.Platform,
-  arch: string,
-  loadModule: (specifier: string) => unknown,
-  resolveModule: (specifier: string) => string,
-  verifyExecutable: (file: string) => void = assertExecutable
-): PackageDependencyReport {
+function qualifyNativeModules(loadModule: (specifier: string) => unknown): string[] {
   for (const { dependency, binding } of PACKAGE_NATIVE_MODULES) {
     const loaded = loadModule(dependency)
     if (
@@ -46,18 +38,25 @@ export function qualifyPackageDependencies(
       throw new Error(`${dependency} loaded without its ${binding} binding`)
     }
   }
+  return PACKAGE_NATIVE_MODULES.map(module => module.dependency)
+}
 
+/** Load every native dependency from the packaged Electron runtime. */
+export function qualifyPackageDependencies(
+  platform: NodeJS.Platform,
+  arch: string,
+  loadModule: (specifier: string) => unknown,
+  resolveModule: (specifier: string) => string,
+  verifyExecutable: (file: string) => void = assertExecutable
+): PackageDependencyReport {
+  const nativeModules = qualifyNativeModules(loadModule)
   const copilotPackage = `@github/copilot-${platform}-${arch}`
-  const resolvedManifest = resolveModule(`${copilotPackage}/package.json`)
-  if (!resolvedManifest.trim()) throw new Error(`${copilotPackage} resolved to an empty path`)
-
-  const targetPath = platform === 'win32' ? win32 : posix
-  const binaryName = platform === 'win32' ? 'copilot.exe' : 'copilot'
-  const copilotBinary = targetPath.join(targetPath.dirname(resolvedManifest), binaryName)
+  const copilotBinary = resolveModule(copilotPackage)
+  if (!copilotBinary.trim()) throw new Error(`${copilotPackage} resolved to an empty path`)
   verifyExecutable(copilotBinary)
 
   return {
-    nativeModules: PACKAGE_NATIVE_MODULES.map(module => module.dependency),
+    nativeModules,
     copilotPackage,
     copilotBinary,
   }

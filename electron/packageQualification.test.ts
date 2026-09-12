@@ -13,7 +13,7 @@ function nativeModule(specifier: string): object {
 describe('packaged dependency qualification', () => {
   it('loads native bindings and verifies the matching Copilot executable', () => {
     const loadModule = vi.fn(nativeModule)
-    const resolveModule = vi.fn(() => '/package/package.json')
+    const resolveModule = vi.fn(() => '/package/copilot')
     const verifyExecutable = vi.fn()
 
     expect(
@@ -24,7 +24,7 @@ describe('packaged dependency qualification', () => {
       copilotBinary: expect.stringMatching(/[\\/]package[\\/]copilot$/),
     })
     expect(loadModule.mock.calls).toEqual([['node-pty'], ['koffi']])
-    expect(resolveModule).toHaveBeenCalledWith('@github/copilot-darwin-arm64/package.json')
+    expect(resolveModule).toHaveBeenCalledWith('@github/copilot-darwin-arm64')
     expect(verifyExecutable).toHaveBeenCalledWith(
       expect.stringMatching(/[\\/]package[\\/]copilot$/)
     )
@@ -65,7 +65,7 @@ describe('packaged dependency qualification', () => {
         'win32',
         'x64',
         nativeModule,
-        () => 'C:\\package\\package.json',
+        () => 'C:\\package\\copilot.exe',
         vi.fn()
       ).copilotBinary
     ).toBe('C:\\package\\copilot.exe')
@@ -84,7 +84,7 @@ describe('packaged dependency qualification', () => {
         'win32',
         'x64',
         nativeModule,
-        () => 'C:\\package\\package.json',
+        () => 'C:\\package\\copilot.exe',
         missingBinary
       )
     ).toThrow('fixture: Copilot binary is missing')
@@ -99,7 +99,7 @@ describe('package smoke result persistence', () => {
   }
 
   it('writes a successful result and exits cleanly', async () => {
-    const writeResult = vi.fn(async () => undefined)
+    const writeResult = vi.fn(async () => {})
     const exit = vi.fn()
 
     await persistPackageSmokeResult(async () => successfulResult, writeResult, exit)
@@ -109,7 +109,7 @@ describe('package smoke result persistence', () => {
   })
 
   it('records qualification failures before exiting unsuccessfully', async () => {
-    const writeResult = vi.fn(async () => undefined)
+    const writeResult = vi.fn(async () => {})
     const exit = vi.fn()
 
     await persistPackageSmokeResult(

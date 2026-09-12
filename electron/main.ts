@@ -110,8 +110,12 @@ async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeRe
 function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
   return persistPackageSmokeResult(
     () => packageSmokeResult(window),
-    result => writeFile(outputPath, JSON.stringify(result)),
-    code => app.exit(code)
+    async result => {
+      await writeFile(outputPath, JSON.stringify(result))
+    },
+    code => {
+      app.exit(code)
+    }
   )
 }
 

@@ -1,27 +1,33 @@
 name: Dependabot Lockfile Fix
 
-# Auto-updates bun.lock when Dependabot opens or updates a PR.
-# Dependabot doesn't natively support Bun lockfiles, so this workflow
-# runs `bun install` and commits the updated lockfile back to the PR branch.
+# Dependabot cannot update Bun lockfiles itself. Keep package installation in a
+# read-only job, then let a trusted job write only the validated bun.lock blob.
 
 on:
-  pull_request:
+  # This event loads the workflow from the trusted base branch. Job-level
+  # permissions still keep PR checkout and package execution read-only.
+  pull_request_target:
     branches: [main]
 
-permissions:
-  actions: write
-  contents: write
-  pull-requests: read
+permissions: {}
 
 jobs:
-  fix-lockfile:
+  generate-lockfile:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    if: startsWith(github.head_ref, 'dependabot/')
+    permissions:
+      contents: read
+    outputs:
+      changed: ${{ steps.validate.outputs.changed }}
+      lockfile-sha256: ${{ steps.validate.outputs.lockfile-sha256 }}
     steps:
-      - name: Checkout PR branch
+      - name: Checkout exact PR head without credentials
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
 
       - name: Setup Node.js
@@ -32,53 +38,155 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
-      - name: Cache Bun dependencies
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
-        with:
-          path: ~/.bun/install/cache
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: ${{ runner.os }}-bun-
-
       - name: Update lockfile
         run: bun install --no-frozen-lockfile
 
+      - name: Validate generated files
+        id: validate
+        env:
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -f bun.lock
+          test ! -L bun.lock
+          test "$(git ls-files --stage -- bun.lock | awk '{print $1}')" = "100644"
+
+          mapfile -t tracked_changes < <(git diff --name-only --diff-filter=ACDMRTUXB)
+          mapfile -t staged_changes < <(git diff --cached --name-only --diff-filter=ACDMRTUXB)
+          mapfile -t untracked_changes < <(git ls-files --others --exclude-standard)
+
+          if [ "${#staged_changes[@]}" -ne 0 ] || [ "${#untracked_changes[@]}" -ne 0 ]; then
+            printf 'Unexpected staged files: %s\n' "${staged_changes[*]:-none}" >&2
+            printf 'Unexpected untracked files: %s\n' "${untracked_changes[*]:-none}" >&2
+            exit 1
+          fi
+          if [ "${#tracked_changes[@]}" -eq 0 ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Lockfile already up to date"
+            exit 0
+          fi
+          if [ "${#tracked_changes[@]}" -ne 1 ] || [ "${tracked_changes[0]}" != "bun.lock" ]; then
+            printf 'Expected only bun.lock to change, got: %s\n' "${tracked_changes[*]}" >&2
+            exit 1
+          fi
+
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "lockfile-sha256=$(sha256sum bun.lock | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Verify frozen install
+        if: steps.validate.outputs.changed == 'true'
         run: bun install --frozen-lockfile
 
-      - name: Commit updated lockfile
+      - name: Upload lockfile result
+        if: steps.validate.outputs.changed == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependabot-lockfile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bun.lock
+          if-no-files-found: error
+          retention-days: 1
+
+  commit-lockfile:
+    needs: generate-lockfile
+    if: needs.generate-lockfile.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Download generated lockfile
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dependabot-lockfile-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifact
+
+      - name: Validate artifact and current Dependabot head
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_LOCKFILE_SHA256: ${{ needs.generate-lockfile.outputs.lockfile-sha256 }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          test "$BASE_REF" = "main"
+          test "$HEAD_REPOSITORY" = "$REPOSITORY"
+          case "$HEAD_REF" in dependabot/*) ;; *) exit 1 ;; esac
+
+          mapfile -t artifact_entries < <(find artifact -mindepth 1 -printf '%P\n')
+          if [ "${#artifact_entries[@]}" -ne 1 ] || [ "${artifact_entries[0]}" != "bun.lock" ]; then
+            printf 'Expected one bun.lock artifact, got: %s\n' "${artifact_entries[*]:-none}" >&2
+            exit 1
+          fi
+          test -f artifact/bun.lock
+          test ! -L artifact/bun.lock
+          test "$(sha256sum artifact/bun.lock | cut -d' ' -f1)" = "$EXPECTED_LOCKFILE_SHA256"
+
+          gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" > pr.json
+          test "$(jq -r .state pr.json)" = "open"
+          test "$(jq -r .user.login pr.json)" = "dependabot[bot]"
+          test "$(jq -r .base.ref pr.json)" = "$BASE_REF"
+          test "$(jq -r .head.repo.full_name pr.json)" = "$REPOSITORY"
+          test "$(jq -r .head.ref pr.json)" = "$HEAD_REF"
+          test "$(jq -r .head.sha pr.json)" = "$EXPECTED_HEAD"
+
+      - name: Commit lockfile through the Git Database API
         id: commit-lockfile
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          HUSKY: '0'
+          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add bun.lock
-          if git diff --cached --quiet; then
-            echo "Lockfile already up to date"
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-          else
-            git commit -m "chore: update bun.lock for dependabot PR"
-            auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
-            git -c http.https://github.com/.extraheader="AUTHORIZATION: basic $auth_header" \
-              push origin "HEAD:${GITHUB_HEAD_REF}"
-            echo "pushed=true" >> "$GITHUB_OUTPUT"
-            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-          fi
+          set -euo pipefail
+          base_tree="$(gh api "repos/$REPOSITORY/git/commits/$EXPECTED_HEAD" --jq .tree.sha)"
+
+          base64 -w0 artifact/bun.lock | jq -Rs '{content: ., encoding: "base64"}' > blob.json
+          blob_sha="$(gh api --method POST "repos/$REPOSITORY/git/blobs" --input blob.json --jq .sha)"
+
+          jq -n \
+            --arg base_tree "$base_tree" \
+            --arg blob "$blob_sha" \
+            '{base_tree: $base_tree, tree: [{path: "bun.lock", mode: "100644", type: "blob", sha: $blob}]}' \
+            > tree.json
+          tree_sha="$(gh api --method POST "repos/$REPOSITORY/git/trees" --input tree.json --jq .sha)"
+
+          jq -n \
+            --arg message "chore: update bun.lock for Dependabot PR #$PR_NUMBER" \
+            --arg tree "$tree_sha" \
+            --arg parent "$EXPECTED_HEAD" \
+            '{message: $message, tree: $tree, parents: [$parent]}' \
+            > commit.json
+          commit_sha="$(gh api --method POST "repos/$REPOSITORY/git/commits" --input commit.json --jq .sha)"
+
+          # Recheck immediately before the compare-and-update operation. A
+          # moved PR head must fail rather than receive a stale lockfile.
+          test "$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$EXPECTED_HEAD"
+          jq -n --arg sha "$commit_sha" '{sha: $sha, force: false}' > ref.json
+          pushed_sha="$(gh api --method PATCH "repos/$REPOSITORY/git/refs/heads/$HEAD_REF" --input ref.json --jq .object.sha)"
+          test "$pushed_sha" = "$commit_sha"
+          test "$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$pushed_sha"
+
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$pushed_sha" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch generated-commit CI
         id: dispatch-ci
         if: steps.commit-lockfile.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TARGET_REF: ${{ github.head_ref }}
+          TARGET_REF: ${{ github.event.pull_request.head.ref }}
           TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
         run: |
+          set -euo pipefail
+          test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$TARGET_REF" --jq .object.sha)" = "$TARGET_SHA"
           gh workflow run ci.yml --ref "$TARGET_REF"
-          # GitHub-side queueing can delay the dispatched run's appearance well
-          # past a minute, so poll for up to five minutes. If it never shows up,
-          # degrade to a warning only once some other ci.yml run is confirmed
-          # for the generated SHA; otherwise fail so the gap is visible.
           for attempt in $(seq 1 60); do
             run_id="$(gh run list \
               --workflow ci.yml \
@@ -113,19 +221,16 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RUN_ID: ${{ steps.dispatch-ci.outputs.run_id }}
-          TARGET_REF: ${{ github.head_ref }}
+          TARGET_REF: ${{ github.event.pull_request.head.ref }}
           TARGET_SHA: ${{ steps.commit-lockfile.outputs.sha }}
         run: |
           set +e
-          gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status
+          gh run watch "$RUN_ID" --compact --exit-status
           watch_exit=$?
           set -e
           conclusion="$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion // ""')"
           if [ "$conclusion" = "cancelled" ]; then
-            # Only treat cancellation as neutral when a newer lockfile commit
-            # actually superseded this one through CI's branch concurrency
-            # group; an operator cancel with no successor must stay red.
-            current_head="$(git ls-remote origin "refs/heads/$TARGET_REF" | cut -f1)"
+            current_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$TARGET_REF" --jq .object.sha)"
             if [ -n "$current_head" ] && [ "$current_head" != "$TARGET_SHA" ]; then
               echo "::warning::Dispatched CI run $RUN_ID was cancelled; lockfile branch moved to $current_head whose own CI gates this PR."
               exit 0

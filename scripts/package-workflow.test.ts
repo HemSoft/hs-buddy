@@ -98,6 +98,7 @@ describe('desktop package qualification workflow', () => {
     }
     expect(builderConfig).toContain("maintainer: 'HemSoft <hemsoft@users.noreply.github.com>'")
     expect(builderConfig).toContain("afterPack: 'scripts/after-pack.mjs'")
+    expect(afterPack).toContain("includes('/node-pty/')")
     expect(afterPack).toContain("endsWith('/spawn-helper')")
     expect(afterPack).toContain('0o755')
     expect(afterPack).toContain("context.electronPlatformName !== 'win32' && helpers.length === 0")

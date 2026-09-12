@@ -68,7 +68,7 @@ describe('desktop package qualification workflow', () => {
       'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never --config.npmRebuild=false'
     )
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
-    expect(workflow).toContain('sudo dpkg --install')
+    expect(workflow).toContain('sudo apt-get install --yes "./$package_file"')
     expect(workflow).toContain('BUDDY_LINUX_EXECUTABLE=$executable')
     expect(smokeRunner).toContain('process.env.BUDDY_LINUX_EXECUTABLE')
   })

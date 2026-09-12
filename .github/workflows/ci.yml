@@ -605,7 +605,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           package_file="$(find release -type f -name '*.deb' -print -quit)"
-          sudo dpkg --install "$package_file"
+          sudo apt-get install --yes "./$package_file"
           executable="$(find /opt -type f -name Buddy -perm /111 -print -quit)"
           test -n "$executable"
           echo "BUDDY_LINUX_EXECUTABLE=$executable" >> "$GITHUB_ENV"

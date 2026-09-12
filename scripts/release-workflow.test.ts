@@ -46,6 +46,9 @@ describe('release workflow qualification contract', () => {
   it('rejects stale candidates and commits without a version change', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
     expect(workflow.split(staleCheck)).toHaveLength(1)
+    const staleGuard = workflow.split('abort_if_stale() {')[1]?.split('\n          }')[0]
+    expect(staleGuard).toContain('if [ "$current_main" = "$TARGET_SHA" ]; then')
+    expect(staleGuard).toContain('exit 1')
     expect(workflow.match(/^ {10}abort_if_stale$/gm)).toHaveLength(3)
     expect(workflow).toContain(
       'current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"'
@@ -70,7 +73,10 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('-f sha="$tag_object"')
     expect(workflow).toContain('live_tag_object')
     expect(workflow).toContain('tag_message="$(')
+    expect(workflow).toContain('live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"')
     expect(workflow).toContain('if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then')
+    expect(workflow).toContain('[ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] &&')
+    expect(workflow).toContain('[ "$live_tag_object" = "$tag_owned_object" ] &&')
     expect(workflow).toContain('tag_owned=true')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')

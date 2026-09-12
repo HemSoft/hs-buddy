@@ -73,6 +73,7 @@ jobs:
           }
 
           tag_owned=false
+          tag_owned_object=""
           managed_release=false
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
           abort_if_stale() {
@@ -85,8 +86,24 @@ jobs:
             if [ "$managed_release" = true ]; then
               gh release delete "$TAG" --repo "$REPOSITORY" --yes
             fi
-            if [ "$tag_owned" = true ] && [ "$(resolve_tag)" = "$TARGET_SHA" ]; then
-              gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+            if [ "$tag_owned" = true ]; then
+              live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+              if [ "$(jq -r .object.type <<< "$live_tag_ref")" = tag ]; then
+                live_tag_message="$(
+                  gh api \
+                    "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$live_tag_ref")" \
+                    --jq .message
+                )"
+                live_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
+                live_target="$(resolve_tag)"
+                if [ "$live_tag_object" = "$tag_owned_object" ] && \
+                  [ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] && \
+                  [ "$live_target" = "$TARGET_SHA" ]; then
+                  gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+                else
+                  echo "Skipping tag cleanup because ownership or target changed" >&2
+                fi
+              fi
             fi
             exit 1
           }
@@ -106,13 +123,15 @@ jobs:
 
           if [ "$tag_ref" != null ]; then
             test "$(resolve_tag)" = "$TARGET_SHA"
-            if [ "$(jq -r .object.type <<< "$tag_ref")" = tag ]; then
+            live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+            if [ "$(jq -r .object.type <<< "$live_tag_ref")" = tag ]; then
               tag_message="$(
-                gh api "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$tag_ref")" \
+                gh api "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$live_tag_ref")" \
                   --jq .message
               )"
               if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then
                 tag_owned=true
+                tag_owned_object="$(jq -r .object.sha <<< "$live_tag_ref")"
               fi
             fi
           fi
@@ -148,6 +167,7 @@ jobs:
             live_tag_object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)"
             if [ "$live_tag_object" = "$tag_object" ]; then
               tag_owned=true
+              tag_owned_object="$tag_object"
             fi
           fi
           test "$(resolve_tag)" = "$TARGET_SHA"

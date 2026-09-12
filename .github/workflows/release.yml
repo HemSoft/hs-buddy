@@ -71,17 +71,19 @@ jobs:
           set -euo pipefail
           resolve_tag() {
             local object type
-            object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
-            type="$(jq -r .object.type <<< "$object")"
-            object="$(jq -r .object.sha <<< "$object")"
+            object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")" || return
+            type="$(jq -r .object.type <<< "$object")" || return
+            object="$(jq -r .object.sha <<< "$object")" || return
             if [ "$type" = "tag" ]; then
-              object="$(gh api "repos/$REPOSITORY/git/tags/$object" --jq .object.sha)"
+              object="$(gh api "repos/$REPOSITORY/git/tags/$object" --jq .object.sha)" || return
             fi
             printf '%s\n' "$object"
           }
 
           tag_owned=false
           tag_owned_object=""
+          tag_owner_run_id="$RUN_ID"
+          tag_owned_target="$TARGET_SHA"
           managed_release=false
           release_id=""
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
@@ -97,6 +99,36 @@ jobs:
           }
           retry_api() {
             retry_command gh api "$@"
+          }
+          delete_release_id() {
+            local release_to_delete=$1 remaining
+            if gh api --method DELETE "repos/$REPOSITORY/releases/$release_to_delete"; then
+              return
+            fi
+            remaining="$(
+              retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                jq --argjson id "$release_to_delete" '[.[][] | select(.id == $id)] | length'
+            )"
+            test "$remaining" = 0
+          }
+          delete_tag_ref() {
+            local remaining
+            if gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"; then
+              return
+            fi
+            remaining="$(
+              retry_api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
+                jq --arg ref "refs/tags/$TAG" '[.[] | select(.ref == $ref)] | length'
+            )"
+            test "$remaining" = 0
+          }
+          restore_tag_ref() {
+            local object=$1
+            if gh api --method POST "repos/$REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" -f sha="$object" >/dev/null; then
+              return
+            fi
+            test "$(retry_api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$object"
           }
           cleanup_owned_artifacts() {
             if [ "$managed_release" = false ]; then
@@ -119,7 +151,7 @@ jobs:
               test "$(jq -r .draft <<< "$live_release")" = true
               test "$(jq -r .tag_name <<< "$live_release")" = "$TAG"
               grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
-              retry_api --method DELETE "repos/$REPOSITORY/releases/$release_id"
+              delete_release_id "$release_id"
               managed_release=false
             fi
             if [ "$tag_owned" = false ]; then
@@ -135,8 +167,8 @@ jobs:
                     "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$cleanup_tag_ref")" \
                     --jq .message
                 )"
-                if [ "$cleanup_tag_message" = "Qualified by CI run $RUN_ID" ] && \
-                  [ "$(retry_command resolve_tag)" = "$TARGET_SHA" ]; then
+                if [ "$cleanup_tag_message" = "Qualified by CI run $tag_owner_run_id" ] && \
+                  [ "$(retry_command resolve_tag)" = "$tag_owned_target" ]; then
                   tag_owned=true
                   tag_owned_object="$(jq -r .object.sha <<< "$cleanup_tag_ref")"
                 fi
@@ -153,21 +185,20 @@ jobs:
                 live_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
                 live_target="$(retry_command resolve_tag)"
                 if [ "$live_tag_object" = "$tag_owned_object" ] && \
-                  [ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] && \
-                  [ "$live_target" = "$TARGET_SHA" ]; then
+                  [ "$live_tag_message" = "Qualified by CI run $tag_owner_run_id" ] && \
+                  [ "$live_target" = "$tag_owned_target" ]; then
                   release_count_before_tag_delete="$(
                     retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
                   )"
                   test "$release_count_before_tag_delete" = 0
-                  retry_api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+                  delete_tag_ref
                   release_count_after_tag_delete="$(
                     retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
                   )"
                   if [ "$release_count_after_tag_delete" != 0 ]; then
-                    retry_api --method POST "repos/$REPOSITORY/git/refs" \
-                      -f ref="refs/tags/$TAG" -f sha="$tag_owned_object" >/dev/null
+                    restore_tag_ref "$tag_owned_object"
                     return 1
                   fi
                   tag_owned=false
@@ -228,37 +259,46 @@ jobs:
             if [ "$tag_target" != "$TARGET_SHA" ] && \
               [[ "$tag_message" =~ ^Qualified\ by\ CI\ run\ ([0-9]+)$ ]]; then
               previous_run_id="${BASH_REMATCH[1]}"
+              previous_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
+              tag_owned=true
+              tag_owned_object="$previous_tag_object"
+              tag_owner_run_id="$previous_run_id"
+              tag_owned_target="$tag_target"
+              release_marker="<!-- hs-buddy-release-ci:$previous_run_id -->"
               if [ "$release_json" != null ]; then
                 previous_release_id="$(jq -r .id <<< "$release_json")"
+                managed_release=true
+                release_id="$previous_release_id"
                 live_previous_release="$(
                   gh api "repos/$REPOSITORY/releases/$previous_release_id"
                 )"
                 test "$(jq -r .draft <<< "$live_previous_release")" = true
                 test "$(jq -r .tag_name <<< "$live_previous_release")" = "$TAG"
-                grep -Fq "<!-- hs-buddy-release-ci:$previous_run_id -->" \
-                  <<< "$(jq -r .body <<< "$live_previous_release")"
-                gh api --method DELETE \
-                  "repos/$REPOSITORY/releases/$previous_release_id"
+                grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_previous_release")"
+                delete_release_id "$previous_release_id"
+                managed_release=false
               fi
               replacement_release_count="$(
                 gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                   jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
               )"
               test "$replacement_release_count" = 0
-              previous_tag_object="$(jq -r .object.sha <<< "$live_tag_ref")"
               test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
                 "$previous_tag_object"
               test "$(resolve_tag)" = "$tag_target"
-              gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+              delete_tag_ref
               replacement_release_count="$(
                 gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                   jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
               )"
               if [ "$replacement_release_count" != 0 ]; then
-                gh api --method POST "repos/$REPOSITORY/git/refs" \
-                  -f ref="refs/tags/$TAG" -f sha="$previous_tag_object" >/dev/null
+                restore_tag_ref "$previous_tag_object"
                 exit 1
               fi
+              tag_owned=false
+              tag_owner_run_id="$RUN_ID"
+              tag_owned_target="$TARGET_SHA"
+              release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
               tag_ref=null
               release_json=null
             else

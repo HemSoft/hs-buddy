@@ -88,7 +88,9 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain('tag_message="$(')
     expect(workflow).toContain('live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"')
     expect(workflow).toContain('if [ "$tag_message" = "Qualified by CI run $RUN_ID" ]; then')
-    expect(workflow).toContain('[ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] &&')
+    expect(workflow).toContain(
+      '[ "$live_tag_message" = "Qualified by CI run $tag_owner_run_id" ] &&'
+    )
     expect(workflow).toContain('[ "$live_tag_object" = "$tag_owned_object" ] &&')
     expect(workflow).toContain('tag_owned=true')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
@@ -98,7 +100,7 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain(
       'gh api --method PATCH "repos/$REPOSITORY/releases/$release_id" -F draft=false'
     )
-    expect(workflow).toContain('retry_api --method DELETE "repos/$REPOSITORY/releases/$release_id"')
+    expect(workflow).toContain('delete_release_id "$release_id"')
     expect(workflow).toContain('release_id="$(jq -r .id <<< "$release_json")"')
     expect(workflow).toContain('release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"')
     expect(workflow).toContain('grep -Fq "$release_marker"')
@@ -111,6 +113,10 @@ describe('release cleanup and idempotency contract', () => {
     expect(workflow).toContain('retry_command() {')
     expect(workflow).toContain('for attempt in 1 2 3; do')
     expect(workflow).toContain('retry_command gh api "$@"')
+    expect(workflow).toContain('delete_release_id() {')
+    expect(workflow).toContain('delete_tag_ref() {')
+    expect(workflow).toContain('restore_tag_ref() {')
+    expect(workflow).toContain('[.[][] | select(.id == $id)] | length')
     expect(workflow).toContain('cleanup_release="$(')
     expect(workflow).toContain('cleanup_tag_ref="$(')
     expect(workflow).toContain('release_count_before_tag_delete="$(')
@@ -124,10 +130,12 @@ describe('release cleanup and idempotency contract', () => {
     expect(finalOwnershipClearIndex).toBeGreaterThan(trapIndex)
     expect(finalTrapRemovalIndex).toBeGreaterThan(finalOwnershipClearIndex)
     expect(workflow).toContain('previous_run_id="${BASH_REMATCH[1]}"')
+    expect(workflow).toContain('tag_owner_run_id="$previous_run_id"')
+    expect(workflow).toContain('tag_owned_target="$tag_target"')
     expect(workflow).toContain('live_previous_release="$(')
     expect(workflow).toContain('repos/$REPOSITORY/releases/$previous_release_id')
     expect(workflow).toContain('test "$replacement_release_count" = 0')
-    expect(workflow).toContain('-f sha="$previous_tag_object"')
+    expect(workflow).toContain('restore_tag_ref "$previous_tag_object"')
     expect(workflow).toContain('<!-- hs-buddy-release-ci:$previous_run_id -->')
   })
 

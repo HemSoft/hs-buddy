@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1218] - 2026-09-12
+
+### Fixed
+
+- Make release recovery resumable
+
 ## [0.1.1217] - 2026-09-12
 
 ### Fixed

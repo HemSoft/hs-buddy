@@ -94,5 +94,6 @@ describe('desktop package qualification workflow', () => {
     }
     expect(runtimeQualification).toContain('@github/copilot-${platform}-${arch}')
     expect(smokeRunner).toContain('copilot-${target.platform}-${target.arch}')
+    expect(smokeRunner).not.toContain("'--no-sandbox'")
   })
 })

@@ -78,7 +78,7 @@ function findExecutable(target: TargetRuntime): string {
 function launchDetails(target: TargetRuntime, executable: string): [string, string[]] {
   const appArguments = [`--user-data-dir=${smokeUserData}`]
   if (target.platform === 'linux') {
-    return ['xvfb-run', ['--auto-servernum', executable, '--no-sandbox', ...appArguments]]
+    return ['xvfb-run', ['--auto-servernum', executable, ...appArguments]]
   }
   return [executable, appArguments]
 }

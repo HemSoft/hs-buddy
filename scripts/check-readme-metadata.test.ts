@@ -32,7 +32,7 @@ Convex 1.45.0
 \`@github/copilot-sdk\` 1.0.13
 Data Model (2 Convex Tables)
 **BDD**: 6 tracked Gherkin feature specs`,
-    schema: 'first: defineTable({})\nsecond: defineTable({})',
+    schema: '  first: defineTable({})\n  second: defineTable({})\n  // old: defineTable({})',
     featureCount: 6,
   }
 }

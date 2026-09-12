@@ -151,7 +151,8 @@ export function validateDocumentationMetadata(
   const result = readRequiredVersions(packageJson)
   if (!('versions' in result)) return [...errors, ...result.errors]
 
-  const schemaCount = sources.schema.match(/:\s*defineTable\s*\(/g)?.length ?? 0
+  const schemaCount =
+    sources.schema.match(/^ {2}[A-Za-z_$][\w$]*:\s*defineTable\s*\(/gm)?.length ?? 0
   errors.push(...validateReadme(sources.readme, result.versions, schemaCount))
   errors.push(...validateVision(sources.vision, result.versions, schemaCount, sources.featureCount))
   requireClaim(

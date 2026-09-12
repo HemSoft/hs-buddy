@@ -29,7 +29,7 @@ import {
   type DisplayInfo,
 } from '../src/utils/windowGeometry'
 import { startupTimer } from '../perf/startup-timing'
-import { qualifyPackageDependencies } from './packageQualification'
+import { qualifyPackageDependencies, requireMountedRenderer } from './packageQualification'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -81,42 +81,46 @@ const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
 const PACKAGE_SMOKE_OUTPUT = process.env.BUDDY_PACKAGE_SMOKE_FILE
 const mainRequire = createRequire(import.meta.url)
 
-async function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
-  try {
-    const dependencies = qualifyPackageDependencies(
-      process.platform,
-      process.arch,
-      mainRequire,
-      mainRequire.resolve
-    )
-    const rendererLoaded = await window.webContents.executeJavaScript(
+async function packageSmokeResult(window: BrowserWindow): Promise<Record<string, unknown>> {
+  const dependencies = qualifyPackageDependencies(
+    process.platform,
+    process.arch,
+    mainRequire,
+    mainRequire.resolve
+  )
+  const rendererLoaded = requireMountedRenderer(
+    await window.webContents.executeJavaScript(
       'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
     )
-    if (!rendererLoaded) throw new Error('Renderer did not mount into #root')
-
-    await writeFile(
-      outputPath,
-      JSON.stringify({
-        ok: true,
-        platform: process.platform,
-        arch: process.arch,
-        ...dependencies,
-        rendererLoaded,
-      })
-    )
-    app.exit(0)
-  } catch (error: unknown) {
-    await writeFile(
-      outputPath,
-      JSON.stringify({
-        ok: false,
-        platform: process.platform,
-        arch: process.arch,
-        error: String(error),
-      })
-    )
-    app.exit(1)
+  )
+  return {
+    ok: true,
+    platform: process.platform,
+    arch: process.arch,
+    ...dependencies,
+    rendererLoaded,
   }
+}
+
+async function writePackageSmokeResult(
+  outputPath: string,
+  result: Record<string, unknown>,
+  exitCode: number
+): Promise<void> {
+  await writeFile(outputPath, JSON.stringify(result))
+  app.exit(exitCode)
+}
+
+function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
+  return packageSmokeResult(window).then(
+    result => writePackageSmokeResult(outputPath, result, 0),
+    (error: unknown) =>
+      writePackageSmokeResult(
+        outputPath,
+        { ok: false, platform: process.platform, arch: process.arch, error: String(error) },
+        1
+      )
+  )
 }
 
 type WebviewAttachParams = {

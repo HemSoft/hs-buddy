@@ -44,26 +44,35 @@ const qualifiedTargets = [
 
 describe('desktop package qualification workflow', () => {
   it.each(qualifiedTargets)('builds and starts $name packages on a native runner', target => {
-    const matrixEntry = [
-      `- name: ${target.name}`,
+    const matrixEntry = workflow.split(`- name: ${target.name}`)[1]?.split(/\n\s+- name: /, 1)[0]
+
+    expect(matrixEntry).toBeDefined()
+    for (const setting of [
       `runner: ${target.runner}`,
       `builder-platform: ${target.builderPlatform}`,
       `target: ${target.target}`,
       `platform: ${target.platform}`,
       `arch: ${target.arch}`,
-    ]
-
-    for (const setting of matrixEntry) expect(workflow).toContain(setting)
+    ]) {
+      expect(matrixEntry).toContain(setting)
+    }
     expect(workflow).toContain(
-      'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never -c.npmRebuild=false'
+      'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never --config.npmRebuild=false'
     )
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
   })
 
   it('qualifies packages before CI can complete', () => {
-    expect(workflow).toMatch(/ci-complete:[\s\S]*needs:[\s\S]*package-smoke/)
+    const dependencies = workflow
+      .split('  ci-complete:')[1]
+      ?.match(/needs:\s*\[([^\]]+)\]/)?.[1]
+      .split(',')
+      .map(value => value.trim())
+
+    expect(dependencies).toContain('package-smoke')
     expect(workflow).toContain('if-no-files-found: warn')
     expect(workflow).toContain('release/package-smoke*.log')
+    expect(workflow).toMatch(/name: Upload failed distributable\n\s+if: failure\(\)/)
   })
 
   it('keeps the advertised builder targets aligned with the matrix', () => {
@@ -80,6 +89,6 @@ describe('desktop package qualification workflow', () => {
       expect(smokeRunner).toContain(`'${dependency}'`)
     }
     expect(runtimeQualification).toContain('@github/copilot-${platform}-${arch}')
-    expect(smokeRunner).toContain('copilot-${expectedPlatform}-${expectedArch}')
+    expect(smokeRunner).toContain('copilot-${target.platform}-${target.arch}')
   })
 })

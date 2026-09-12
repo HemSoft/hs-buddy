@@ -100,6 +100,9 @@ describe('desktop package qualification workflow', () => {
     expect(builderConfig).toContain("afterPack: 'scripts/after-pack.mjs'")
     expect(afterPack).toContain("endsWith('/spawn-helper')")
     expect(afterPack).toContain('0o755')
+    expect(afterPack).toContain("context.electronPlatformName !== 'win32' && helpers.length === 0")
+    expect(afterPack).toContain('throw new Error(')
+    expect(afterPack).toContain('${context.appOutDir}')
   })
 
   it('checks the renderer and native dependencies from the packaged runtime', () => {
@@ -118,5 +121,6 @@ describe('desktop package qualification workflow', () => {
     expect(smokeRunner).toContain("process.kill(-child.pid, 'SIGKILL')")
     expect(smokeRunner).toContain("spawnSync('taskkill'")
     expect(smokeRunner).toContain("detached: platform !== 'win32'")
+    expect(smokeRunner).toContain("child.once('close'")
   })
 })

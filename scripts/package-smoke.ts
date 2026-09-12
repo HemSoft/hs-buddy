@@ -121,7 +121,7 @@ async function waitForExit(
       clearTimeout(timeout)
       reject(error)
     })
-    child.once('exit', (code, signal) => {
+    child.once('close', (code, signal) => {
       clearTimeout(timeout)
       resolveExit({ code, signal })
     })

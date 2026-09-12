@@ -6,7 +6,9 @@ export default async function afterPack(context) {
   const files = await readdir(context.appOutDir, { recursive: true })
   const helpers = files.filter(file => file.replaceAll('\\', '/').endsWith('/spawn-helper'))
   if (context.electronPlatformName !== 'win32' && helpers.length === 0) {
-    throw new Error(`node-pty spawn-helper was not packaged for ${context.electronPlatformName}`)
+    throw new Error(
+      `node-pty spawn-helper was not packaged for ${context.electronPlatformName} under ${context.appOutDir} (expected node_modules/node-pty/**/spawn-helper)`
+    )
   }
   await Promise.all(helpers.map(file => chmod(join(context.appOutDir, file), 0o755)))
 }

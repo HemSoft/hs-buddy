@@ -74,16 +74,10 @@ function qualifyNativeModules(
     if (dependency === 'node-pty') {
       const command = platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : '/bin/sh'
       const args = platform === 'win32' ? ['/d', '/s', '/c', 'exit 0'] : ['-c', 'exit 0']
-      const probe = (
-        loaded as {
-          spawn: (
-            file: string,
-            args: string[],
-            options: { cols: number; rows: number }
-          ) => { kill: () => void }
-        }
-      ).spawn(command, args, { cols: 80, rows: 24 })
-      probe.kill()
+      const ptyModule = loaded as {
+        spawn: (file: string, args: string[], options: { cols: number; rows: number }) => unknown
+      }
+      ptyModule.spawn(command, args, { cols: 80, rows: 24 })
     }
   }
   return PACKAGE_NATIVE_MODULES.map(module => module.dependency)

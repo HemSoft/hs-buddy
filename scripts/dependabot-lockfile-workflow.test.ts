@@ -13,79 +13,95 @@ const packageJson = JSON.parse(readFileSync(resolve(process.cwd(), 'package.json
   scripts: Record<string, string>
 }
 const convexConfig = readRepositoryText('vitest.convex.config.ts')
-
-const stepNames = [...workflow.matchAll(/^\s+- name: (.+)$/gm)].map(match => match[1])
+const generateJob = workflow.slice(
+  workflow.indexOf('\n  generate-lockfile:\n'),
+  workflow.indexOf('\n  commit-lockfile:\n')
+)
+const writeJob = workflow.slice(workflow.indexOf('\n  commit-lockfile:\n'))
 const convexJob = ciWorkflow.slice(
   ciWorkflow.indexOf('\n  test-convex:\n'),
   ciWorkflow.indexOf('\n  test-e2e:\n')
 )
 
+const stepNames = [...workflow.matchAll(/^\s+- name: (.+)$/gm)].map(match => match[1])
+
 describe('workflow text normalization', () => {
   it.each([
     ['LF', '\n'],
     ['CRLF', '\r\n'],
-  ])('normalizes %s text before section and multiline assertions', (_label, lineEnding) => {
-    const fixture = [
-      'jobs:',
-      '  test-convex:',
-      '    run: bun run test:convex:coverage',
-      '  test-e2e:',
-      '    run: |',
-      '      gh run watch "$RUN_ID" --exit-status',
-      '      watch_exit=$?',
-    ].join(lineEnding)
+  ])('normalizes %s text before section assertions', (_label, lineEnding) => {
+    const fixture = ['jobs:', '  read-only:', '  write-only:'].join(lineEnding)
     const normalized = normalizeLineEndings(fixture)
-    const convexFixture = normalized.slice(
-      normalized.indexOf('\n  test-convex:\n'),
-      normalized.indexOf('\n  test-e2e:\n')
-    )
 
-    expect(convexFixture).toContain('run: bun run test:convex:coverage')
-    expect(normalized).toContain('--exit-status\n      watch_exit=$?')
+    expect(normalized).toContain('\n  read-only:\n')
+    expect(normalized).toContain('\n  write-only:')
   })
 })
 
 describe('Dependabot Lockfile Fix workflow', () => {
-  it('keeps the lockfile update and generated-commit CI path', () => {
+  it('isolates PR checkout and dependency execution in a read-only job', () => {
+    expect(workflow).toContain('permissions: {}')
+    expect(generateJob).toContain('permissions:\n      contents: read')
+    expect(generateJob).not.toMatch(/\b(contents|actions|pull-requests): write\b/)
+    expect(generateJob).toContain('ref: ${{ github.event.pull_request.head.sha }}')
+    expect(generateJob).toContain('persist-credentials: false')
+    expect(generateJob).toContain('run: bun install --no-frozen-lockfile')
+    expect(generateJob).toContain('run: bun install --frozen-lockfile')
+  })
+
+  it('keeps write credentials out of every untrusted execution path', () => {
+    expect(writeJob).toContain('actions: write')
+    expect(writeJob).toContain('contents: write')
+    expect(writeJob).not.toContain('uses: actions/checkout')
+    expect(writeJob).not.toContain('uses: ./.github/actions/')
+    expect(writeJob).not.toContain('bun install')
+    expect(writeJob).not.toContain('npm install')
+  })
+
+  it('rejects unexpected files, symlinks, actor changes, forks, and stale heads', () => {
+    expect(generateJob).toContain('Expected only bun.lock to change')
+    expect(generateJob).toContain('test ! -L bun.lock')
+    expect(writeJob).toContain('github.actor')
+    expect(writeJob).toContain('test "$ACTOR" = "dependabot[bot]"')
+    expect(writeJob).toContain('test "$HEAD_REPOSITORY" = "$REPOSITORY"')
+    expect(writeJob).toContain('test ! -L artifact/bun.lock')
+    expect(writeJob).toContain('Expected one bun.lock artifact')
+    expect(writeJob).toContain('test "$(jq -r .head.sha pr.json)" = "$EXPECTED_HEAD"')
+    expect(writeJob).toContain(
+      'test "$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$EXPECTED_HEAD"'
+    )
+  })
+
+  it('creates a one-file commit without checking out the untrusted head', () => {
+    expect(writeJob).toContain('Git Database API')
+    expect(writeJob).toContain('git/commits/$EXPECTED_HEAD')
+    expect(writeJob).toContain('path: "bun.lock"')
+    expect(writeJob).toContain('base_tree: $base_tree')
+    expect(writeJob).toContain('parents: [$parent]')
+    expect(writeJob).toContain('{sha: $sha, force: false}')
+    expect(writeJob).toContain('git/refs/heads/$HEAD_REF')
+  })
+
+  it('dispatches CI only after the pushed commit is verified', () => {
     expect(stepNames).toEqual(
       expect.arrayContaining([
-        'Update lockfile',
-        'Verify frozen install',
-        'Commit updated lockfile',
+        'Validate generated files',
+        'Validate artifact and current Dependabot head',
+        'Commit lockfile through the Git Database API',
         'Dispatch generated-commit CI',
         'Wait for generated-commit CI',
       ])
     )
-  })
-
-  it('does not duplicate the application CI suite', () => {
-    expect(stepNames).not.toEqual(
-      expect.arrayContaining([
-        'Lint (ESLint)',
-        'Type check (TypeScript + Convex)',
-        'Run tests with coverage',
-        'Run E2E tests',
-        'Build (vite + electron)',
-      ])
-    )
-  })
-
-  it('does not claim the generated commit was pre-validated', () => {
-    expect(workflow).not.toContain('statuses: write')
-    expect(stepNames).not.toContain('Mark pushed lockfile commit as validated')
-    expect(workflow).not.toContain('Dependabot Lockfile Fix / validated')
+    expect(writeJob).toContain("steps.commit-lockfile.outputs.pushed == 'true'")
+    expect(writeJob).toContain('gh workflow run ci.yml --ref "$TARGET_REF"')
+    expect(writeJob).toContain('--event workflow_dispatch')
+    expect(writeJob).toContain('--commit "$TARGET_SHA"')
+    expect(writeJob).toContain('refusing to skip generated-commit validation')
   })
 
   it('delegates generated commits to coverage-gated Convex follow-up CI', () => {
     expect(ciWorkflow).toContain('  workflow_dispatch:')
-    expect(workflow).toContain('gh workflow run ci.yml --ref "$TARGET_REF"')
-    expect(workflow).toContain('--event workflow_dispatch')
-    expect(workflow).toContain('--commit "$TARGET_SHA"')
-    expect(workflow).toContain('No workflow_dispatch CI run appeared for $TARGET_SHA')
-    expect(workflow).toContain(
-      'gh run watch "${{ steps.dispatch-ci.outputs.run_id }}" --compact --exit-status'
-    )
-    expect(workflow).not.toContain('run: bun run test:convex')
+    expect(writeJob).not.toContain('run: bun run test:convex')
     expect(convexJob).toContain('run: bun run test:convex:coverage')
     expect(packageJson.scripts['test:convex:coverage']).toContain('--coverage')
     for (const metric of ['statements', 'branches', 'functions', 'lines']) {
@@ -93,37 +109,10 @@ describe('Dependabot Lockfile Fix workflow', () => {
     }
   })
 
-  it('tolerates queueing delays when waiting for the dispatched run to appear', () => {
-    expect(workflow).toContain('for attempt in $(seq 1 60); do')
-    expect(workflow).toContain('($attempt/60)')
-
-    // The queue-timeout path degrades to a warning only when another ci.yml
-    // run covers the SHA (warning immediately followed by exit 0); with no
-    // coverage anywhere it must fail loudly instead.
-    const dispatchStep = workflow.slice(
-      workflow.indexOf('- name: Dispatch generated-commit CI'),
-      workflow.indexOf('- name: Wait for generated-commit CI')
-    )
-    const scriptLines = dispatchStep
-      .split(/\r?\n/)
-      .map(line => line.trim())
-      .filter(line => line !== '' && !line.startsWith('#'))
-    const warningIndex = scriptLines.findIndex(line =>
-      line.includes('::warning::No workflow_dispatch CI run appeared')
-    )
-    expect(warningIndex).toBeGreaterThan(-1)
-    expect(scriptLines[warningIndex + 1]).toBe('exit 0')
-    expect(scriptLines.at(-2)).toContain('refusing to skip generated-commit validation')
-    expect(scriptLines.at(-1)).toBe('exit 1')
-    expect(workflow).toContain("steps.dispatch-ci.outputs.run_id != ''")
-    expect(dispatchStep).toContain('--commit "$TARGET_SHA"')
-  })
-
   it('treats a cancelled dispatched run as superseded only by a newer commit', () => {
-    expect(workflow).toContain('--exit-status\n          watch_exit=$?')
-    expect(workflow).toContain('"$conclusion" = "cancelled"')
-    expect(workflow).toContain('git ls-remote origin "refs/heads/$TARGET_REF"')
-    expect(workflow).toContain('no newer commit supersedes $TARGET_SHA')
-    expect(workflow).toMatch(/::warning::Dispatched CI run \$RUN_ID was cancelled/)
+    expect(writeJob).toContain('gh run watch "$RUN_ID" --compact --exit-status')
+    expect(writeJob).toContain('"$conclusion" = "cancelled"')
+    expect(writeJob).toContain('no newer commit supersedes $TARGET_SHA')
+    expect(writeJob).toMatch(/::warning::Dispatched CI run \$RUN_ID was cancelled/)
   })
 })

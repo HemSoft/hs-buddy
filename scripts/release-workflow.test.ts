@@ -59,9 +59,12 @@ describe('release workflow qualification contract', () => {
     expect(workflow).not.toContain('force: true')
     expect(workflow).not.toContain('git tag -f')
     expect(workflow).not.toContain('git/refs" --input')
+    expect(workflow).toContain('gh api --method POST "repos/$REPOSITORY/git/refs"')
+    expect(workflow).toContain('-f ref="refs/tags/$TAG"')
+    expect(workflow).toContain('-f sha="$TARGET_SHA"')
     expect(workflow).toContain('gh release create "$TAG"')
     expect(workflow).toContain('--verify-tag')
-    expect(workflow).toContain('--target "$TARGET_SHA"')
+    expect(workflow).not.toContain('--target "$TARGET_SHA"')
   })
 
   it('serializes retries and makes an existing matching release a no-op', () => {

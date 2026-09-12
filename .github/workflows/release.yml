@@ -84,31 +84,31 @@ jobs:
               jq -c --arg ref "refs/tags/$TAG" \
                 '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
           )"
-          tag_exists=false
           if [ "$tag_ref" != "null" ]; then
-            tag_exists=true
             test "$(resolve_tag)" = "$TARGET_SHA"
+          else
+            # Git ref creation is atomic. If another writer wins the race or
+            # the response is lost, resolve_tag below still requires the live
+            # tag to point to this qualified commit before release creation.
+            if ! gh api --method POST "repos/$REPOSITORY/git/refs" \
+              -f ref="refs/tags/$TAG" \
+              -f sha="$TARGET_SHA" >/dev/null; then
+              echo "Tag creation did not return success; verifying the live ref" >&2
+            fi
           fi
+          test "$(resolve_tag)" = "$TARGET_SHA"
+
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            test "$tag_exists" = "true"
             echo "Release $TAG already exists at the qualified commit"
             exit 0
           fi
 
-          # Recheck immediately before the only publishing command. When the
-          # tag is absent, gh creates it at TARGET_SHA together with the release.
+          # Recheck immediately before the only publishing command. The tag
+          # was already atomically claimed and verified at TARGET_SHA.
           test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
-          if [ "$tag_exists" = "true" ]; then
-            gh release create "$TAG" \
-              --repo "$REPOSITORY" \
-              --verify-tag \
-              --title "$TAG" \
-              --generate-notes
-          else
-            gh release create "$TAG" \
-              --repo "$REPOSITORY" \
-              --target "$TARGET_SHA" \
-              --title "$TAG" \
-              --generate-notes
-          fi
+          gh release create "$TAG" \
+            --repo "$REPOSITORY" \
+            --verify-tag \
+            --title "$TAG" \
+            --generate-notes
           test "$(resolve_tag)" = "$TARGET_SHA"

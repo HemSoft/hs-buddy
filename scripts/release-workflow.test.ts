@@ -1,3 +1,4 @@
+import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -6,6 +7,43 @@ const workflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/release.yml'),
   'utf8'
 ).replaceAll('\r\n', '\n')
+
+const bashAvailable = spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0
+const waitFunctionStart = workflow.indexOf('          wait_for_exact_release() {')
+const waitFunctionEnd = workflow.indexOf('          delete_release_id() {', waitFunctionStart)
+const waitFunction = workflow.slice(waitFunctionStart, waitFunctionEnd).replace(/^ {10}/gm, '')
+
+const delayedVisibilitySetup = `counter="$(mktemp)"
+trap 'rm -f "$counter"' EXIT
+printf '0' > "$counter"
+find_exact_release() {
+  count="$(( $(cat "$counter") + 1 ))"
+  printf '%s' "$count" > "$counter"
+  if [ "$count" -lt 3 ]; then
+    printf 'null\\n'
+  else
+    printf '{"id":123}\\n'
+  fi
+}
+sleep() { :; }`
+
+const delayedVisibilityAssertion = `release="$(wait_for_exact_release)"
+printf '%s\\n%s\\n' "$release" "$(cat "$counter")"`
+
+const duplicateFailureSetup = `counter="$(mktemp)"
+trap 'rm -f "$counter"' EXIT
+printf '0' > "$counter"
+find_exact_release() {
+  count="$(( $(cat "$counter") + 1 ))"
+  printf '%s' "$count" > "$counter"
+  if [ "$count" = 1 ]; then return 5; fi
+  printf '{"id":123}\\n'
+}
+sleep() { :; }`
+
+const duplicateFailureAssertion = `wait_for_exact_release
+status=$?
+printf '%s\\n%s\\n' "$status" "$(cat "$counter")"`
 
 describe('release workflow qualification contract', () => {
   it('starts only from a successful main push CI completion', () => {
@@ -160,5 +198,43 @@ describe('release cleanup and idempotency contract', () => {
     expect(workflow).toContain('live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"')
     expect(workflow).toContain('Release $TAG already exists at the qualified commit')
     expect(workflow).toContain('exit 0')
+  })
+})
+
+describe('release visibility error handling', () => {
+  it('uses bounded exact-release discovery after draft creation', () => {
+    expect(waitFunctionStart).toBeGreaterThan(-1)
+    expect(waitFunctionEnd).toBeGreaterThan(waitFunctionStart)
+    expect(waitFunction).toContain('for attempt in 1 2 3; do')
+    const creation = workflow.slice(workflow.indexOf('if [ "$release_json" = null ]; then'))
+    expect(creation).toContain('release_json="$(wait_for_exact_release)"')
+    expect(creation).not.toMatch(
+      /release_json="\$\(\n\s+gh api --paginate "repos\/\$REPOSITORY\/releases\?per_page=100"/
+    )
+  })
+
+  it.runIf(bashAvailable)('recovers when a new draft is briefly absent', () => {
+    const result = execFileSync(
+      'bash',
+      ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
+      { encoding: 'utf8' }
+    )
+    expect(result).toBe('{"id":123}\n3\n')
+  })
+
+  it('retries API transport but propagates exact-lookup errors', () => {
+    expect(workflow).toContain(
+      'find_exact_release() {\n            retry_api --paginate "repos/$REPOSITORY/releases?per_page=100"'
+    )
+    expect(waitFunction).toContain('candidate="$(find_exact_release)" || return')
+  })
+
+  it.runIf(bashAvailable)('fails immediately after a duplicate-release error', () => {
+    const result = execFileSync(
+      'bash',
+      ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
+      { encoding: 'utf8' }
+    )
+    expect(result).toBe('5\n1\n')
   })
 })

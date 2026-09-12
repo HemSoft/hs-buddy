@@ -1414,7 +1414,7 @@ describe('context menu interactions (lines 133-134, 225-232)', () => {
             username: 'octocat',
             org: 'octo-org',
             token: 'ghp_test',
-            repoRoot: 'C:\\repos',
+            repoRoot: 'C:/repos',
           },
         ],
       })
@@ -1441,23 +1441,21 @@ describe('context menu interactions (lines 133-134, 225-232)', () => {
 
       // Should dispatch with correct repo path
       await waitFor(() => {
-        const calls = dispatchEventSpy.mock.calls
-        const ralphCall = calls.find(c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review')
-        if (ralphCall) {
-          const event = ralphCall[0] as CustomEvent
-          expect(event.detail).toEqual({
-            prNumber: 42,
-            repository: 'test-repo',
-            org: 'octo-org',
-            repoPath: 'C:\\repos\\test-repo',
-          })
-        }
+        const ralphCall = dispatchEventSpy.mock.calls.find(
+          c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review'
+        )
+        expect(ralphCall).toBeTruthy()
+        const event = ralphCall![0] as CustomEvent
+        expect(event.detail).toEqual({
+          prNumber: 42,
+          repository: 'test-repo',
+          org: 'octo-org',
+          repoPath: 'C:/repos/test-repo',
+        })
       })
     })
 
     it('handles missing repoRoot gracefully (lines 709-710)', async () => {
-      // Allow any pending setTimeout from previous test to flush
-      await new Promise(r => setTimeout(r, 150))
       const dispatchEventSpy = vi.spyOn(window, 'dispatchEvent')
 
       prDetailMocks.useGitHubAccounts.mockReturnValue({
@@ -1493,12 +1491,12 @@ describe('context menu interactions (lines 133-134, 225-232)', () => {
 
       // Should dispatch with empty repoPath when repoRoot is missing
       await waitFor(() => {
-        const calls = dispatchEventSpy.mock.calls
-        const ralphCall = calls.find(c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review')
-        if (ralphCall) {
-          const event = ralphCall[0] as CustomEvent
-          expect(event.detail.repoPath).toBe('')
-        }
+        const ralphCall = dispatchEventSpy.mock.calls.find(
+          c => (c[0] as CustomEvent).type === 'ralph:launch-pr-review'
+        )
+        expect(ralphCall).toBeTruthy()
+        const event = ralphCall![0] as CustomEvent
+        expect(event.detail.repoPath).toBe('')
       })
     })
   })

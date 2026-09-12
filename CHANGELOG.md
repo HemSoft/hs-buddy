@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1234] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
+## [0.1.1233] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
+## [0.1.1232] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
+## [0.1.1231] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
+## [0.1.1230] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
+## [0.1.1229] - 2026-09-12
+
+### Fixed
+
+- Retry draft release discovery
+
 ## [0.1.1228] - 2026-09-12
 
 ### Changed

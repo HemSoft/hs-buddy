@@ -100,6 +100,25 @@ jobs:
           retry_api() {
             retry_command gh api "$@"
           }
+          find_exact_release() {
+            retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+              jq -c --arg tag "$TAG" \
+                '[.[][] | select(.tag_name == $tag)] | if length > 1 then error("duplicate exact releases") else .[0] // null end'
+          }
+          wait_for_exact_release() {
+            local attempt candidate
+            for attempt in 1 2 3; do
+              candidate="$(find_exact_release)" || return
+              if [ "$candidate" != null ]; then
+                printf '%s\n' "$candidate"
+                return
+              fi
+              sleep "$attempt"
+            done
+            candidate="$(find_exact_release)" || return
+            test "$candidate" != null
+            printf '%s\n' "$candidate"
+          }
           delete_release_id() {
             local release_to_delete=$1 attempt remaining
             for attempt in 1 2 3; do
@@ -390,11 +409,7 @@ jobs:
               --generate-notes; then
               echo "Draft creation did not return success; verifying ownership" >&2
             fi
-            release_json="$(
-              gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
-                jq -c --arg tag "$TAG" \
-                  '[.[][] | select(.tag_name == $tag)] | if length != 1 then error("expected one exact release") else .[0] end'
-            )"
+            release_json="$(wait_for_exact_release)"
             test "$(jq -r .draft <<< "$release_json")" = true
             grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$release_json")"
             managed_release=true

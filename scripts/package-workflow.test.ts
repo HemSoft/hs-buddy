@@ -5,6 +5,7 @@ const workflow = readFileSync('.github/workflows/ci.yml', 'utf8').replaceAll('\r
 const builderConfig = readFileSync('electron-builder.json5', 'utf8')
 const smokeRunner = readFileSync('scripts/package-smoke.ts', 'utf8')
 const mainProcess = readFileSync('electron/main.ts', 'utf8')
+const runtimeQualification = readFileSync('electron/packageQualification.ts', 'utf8')
 
 const qualifiedTargets = [
   {
@@ -73,11 +74,12 @@ describe('desktop package qualification workflow', () => {
 
   it('checks the renderer and native dependencies from the packaged runtime', () => {
     expect(mainProcess).toContain('document.getElementById("root")?.childElementCount > 0')
+    expect(mainProcess).toContain('qualifyPackageDependencies(')
     for (const dependency of ['node-pty', 'koffi']) {
-      expect(mainProcess).toContain(`'${dependency}'`)
+      expect(runtimeQualification).toContain(`'${dependency}'`)
       expect(smokeRunner).toContain(`'${dependency}'`)
     }
-    expect(mainProcess).toContain('@github/copilot-${process.platform}-${process.arch}')
+    expect(runtimeQualification).toContain('@github/copilot-${platform}-${arch}')
     expect(smokeRunner).toContain('copilot-${expectedPlatform}-${expectedArch}')
   })
 })

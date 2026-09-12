@@ -58,8 +58,12 @@
 Every package qualification loads the production renderer and the packaged
 `node-pty`, `koffi`, and platform-specific Copilot native dependencies. The
 installer and a startup log are retained with the CI run when qualification
-fails. Other operating-system versions and CPU architectures are not currently
-qualified.
+fails. These are unsigned build-and-start checks; release signing and Apple
+notarization are separate delivery controls.
+
+The required matrix uses one standard hosted runner for each row, runs all four
+jobs in parallel, and caps each job at 35 minutes. Other operating-system
+versions and CPU architectures are not currently qualified.
 
 ### Prerequisites
 

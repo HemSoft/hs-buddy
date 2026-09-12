@@ -29,6 +29,7 @@ import {
   type DisplayInfo,
 } from '../src/utils/windowGeometry'
 import { startupTimer } from '../perf/startup-timing'
+import { qualifyPackageDependencies } from './packageQualification'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -82,11 +83,12 @@ const mainRequire = createRequire(import.meta.url)
 
 async function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
   try {
-    for (const dependency of ['node-pty', 'koffi']) mainRequire(dependency)
-
-    const copilotPackage = `@github/copilot-${process.platform}-${process.arch}`
-    mainRequire.resolve(copilotPackage)
-
+    const dependencies = qualifyPackageDependencies(
+      process.platform,
+      process.arch,
+      mainRequire,
+      mainRequire.resolve
+    )
     const rendererLoaded = await window.webContents.executeJavaScript(
       'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
     )
@@ -98,8 +100,7 @@ async function recordPackageSmoke(window: BrowserWindow, outputPath: string): Pr
         ok: true,
         platform: process.platform,
         arch: process.arch,
-        nativeModules: ['node-pty', 'koffi'],
-        copilotPackage,
+        ...dependencies,
         rendererLoaded,
       })
     )

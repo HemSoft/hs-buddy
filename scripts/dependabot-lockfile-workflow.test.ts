@@ -18,6 +18,10 @@ const generateJob = workflow.slice(
   workflow.indexOf('\n  commit-lockfile:\n')
 )
 const writeJob = workflow.slice(workflow.indexOf('\n  commit-lockfile:\n'))
+const dispatchStep = workflow.slice(
+  workflow.indexOf('- name: Dispatch generated-commit CI'),
+  workflow.indexOf('- name: Wait for generated-commit CI')
+)
 const convexJob = ciWorkflow.slice(
   ciWorkflow.indexOf('\n  test-convex:\n'),
   ciWorkflow.indexOf('\n  test-e2e:\n')
@@ -39,7 +43,10 @@ describe('workflow text normalization', () => {
 })
 
 describe('Dependabot Lockfile Fix workflow', () => {
-  it('isolates PR checkout and dependency execution in a read-only job', () => {
+  it('loads trusted workflow code while isolating PR execution in a read-only job', () => {
+    expect(workflow).toContain('pull_request_target:')
+    expect(workflow).not.toMatch(/^\s+pull_request:\s*$/m)
+    expect(workflow).toContain("github.event.pull_request.user.login == 'dependabot[bot]'")
     expect(workflow).toContain('permissions: {}')
     expect(generateJob).toContain('permissions:\n      contents: read')
     expect(generateJob).not.toMatch(/\b(contents|actions|pull-requests): write\b/)
@@ -58,11 +65,10 @@ describe('Dependabot Lockfile Fix workflow', () => {
     expect(writeJob).not.toContain('npm install')
   })
 
-  it('rejects unexpected files, symlinks, actor changes, forks, and stale heads', () => {
+  it('rejects unexpected files, symlinks, authors, forks, and stale heads', () => {
     expect(generateJob).toContain('Expected only bun.lock to change')
     expect(generateJob).toContain('test ! -L bun.lock')
-    expect(writeJob).toContain('github.actor')
-    expect(writeJob).toContain('test "$ACTOR" = "dependabot[bot]"')
+    expect(writeJob).toContain('test "$(jq -r .user.login pr.json)" = "dependabot[bot]"')
     expect(writeJob).toContain('test "$HEAD_REPOSITORY" = "$REPOSITORY"')
     expect(writeJob).toContain('test ! -L artifact/bun.lock')
     expect(writeJob).toContain('Expected one bun.lock artifact')
@@ -93,10 +99,28 @@ describe('Dependabot Lockfile Fix workflow', () => {
       ])
     )
     expect(writeJob).toContain("steps.commit-lockfile.outputs.pushed == 'true'")
-    expect(writeJob).toContain('gh workflow run ci.yml --ref "$TARGET_REF"')
-    expect(writeJob).toContain('--event workflow_dispatch')
-    expect(writeJob).toContain('--commit "$TARGET_SHA"')
-    expect(writeJob).toContain('refusing to skip generated-commit validation')
+    const verifyRef =
+      'test "$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$TARGET_REF" --jq .object.sha)" = "$TARGET_SHA"'
+    const dispatch = 'gh workflow run ci.yml --ref "$TARGET_REF"'
+    expect(dispatchStep).toContain(verifyRef)
+    expect(dispatchStep.indexOf(verifyRef)).toBeLessThan(dispatchStep.indexOf(dispatch))
+    expect(dispatchStep).toContain('--event workflow_dispatch')
+    expect(dispatchStep).toContain('--commit "$TARGET_SHA"')
+
+    const scriptLines = dispatchStep
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line !== '' && !line.startsWith('#'))
+    const warningIndex = scriptLines.findIndex(line =>
+      line.includes('::warning::No workflow_dispatch CI run appeared')
+    )
+    const errorIndex = scriptLines.findIndex(line =>
+      line.includes('refusing to skip generated-commit validation')
+    )
+    expect(warningIndex).toBeGreaterThan(-1)
+    expect(scriptLines[warningIndex + 1]).toBe('exit 0')
+    expect(errorIndex).toBeGreaterThan(warningIndex)
+    expect(scriptLines[errorIndex + 1]).toBe('exit 1')
   })
 
   it('delegates generated commits to coverage-gated Convex follow-up CI', () => {

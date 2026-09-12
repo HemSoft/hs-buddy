@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1195] - 2026-09-12
+
+### Fixed
+
+- Address Dependabot workflow review (#687)
+
 ## [0.1.1194] - 2026-09-12
 
 ### Fixed

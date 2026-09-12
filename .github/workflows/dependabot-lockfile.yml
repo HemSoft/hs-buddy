@@ -4,7 +4,9 @@ name: Dependabot Lockfile Fix
 # read-only job, then let a trusted job write only the validated bun.lock blob.
 
 on:
-  pull_request:
+  # This event loads the workflow from the trusted base branch. Job-level
+  # permissions still keep PR checkout and package execution read-only.
+  pull_request_target:
     branches: [main]
 
 permissions: {}
@@ -12,8 +14,8 @@ permissions: {}
 jobs:
   generate-lockfile:
     if: >-
-      github.actor == 'dependabot[bot]' &&
-      startsWith(github.head_ref, 'dependabot/') &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      startsWith(github.event.pull_request.head.ref, 'dependabot/') &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
@@ -103,7 +105,6 @@ jobs:
       - name: Validate artifact and current Dependabot head
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTOR: ${{ github.actor }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
           EXPECTED_LOCKFILE_SHA256: ${{ needs.generate-lockfile.outputs.lockfile-sha256 }}
@@ -113,7 +114,6 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           set -euo pipefail
-          test "$ACTOR" = "dependabot[bot]"
           test "$BASE_REF" = "main"
           test "$HEAD_REPOSITORY" = "$REPOSITORY"
           case "$HEAD_REF" in dependabot/*) ;; *) exit 1 ;; esac

@@ -53,16 +53,17 @@ low alerts are reviewed during the weekly dependency-maintenance pass.
 
 ## Lockfile repair trust boundary
 
-The `Dependabot Lockfile Fix` workflow separates untrusted dependency execution
-from repository writes. Its first job checks out the exact same-repository
-Dependabot head without persisted credentials and grants the job only
-`contents: read`. That job may run PR-controlled package scripts, but it can
+The `Dependabot Lockfile Fix` workflow uses `pull_request_target` so GitHub
+loads its code from the trusted base branch, then separates untrusted dependency
+execution from repository writes. Its first job checks out the exact
+same-repository Dependabot head without persisted credentials and grants the job
+only `contents: read`. That job may run PR-controlled package scripts, but it can
 publish only an artifact containing a regular `bun.lock` file after rejecting
 all other tracked, staged, or untracked changes.
 
 The write-capable job never checks out or executes the PR tree. It downloads
 only the artifact from the same workflow run, checks its digest and shape, then
-re-reads the live pull request. The job requires the Dependabot actor, an open
+re-reads the live pull request. The job requires a Dependabot-authored open
 same-repository pull request, the expected `dependabot/` branch, and the exact
 unchanged head SHA. It creates a Git tree that replaces only `bun.lock` and
 updates the branch without force. A stale head makes the update fail. CI is

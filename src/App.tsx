@@ -96,15 +96,12 @@ function useAppCallbacks(
 
 function AppLoadingState() {
   return (
-    <div
-      className="app-body"
-      style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-    >
-      <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-        <div style={{ fontSize: '14px', marginBottom: '8px' }}>Loading…</div>
-        <div style={{ fontSize: '12px', opacity: 0.7 }}>Initializing configuration</div>
+    <main className="app-body app-loading" aria-busy="true">
+      <div className="app-loading-message">
+        <div className="app-loading-title">Loading…</div>
+        <div className="app-loading-detail">Initializing configuration</div>
       </div>
-    </div>
+    </main>
   )
 }
 
@@ -298,7 +295,7 @@ function App() {
         <AppLoadingState />
       ) : (
         <TerminalWorkspaceProvider>
-          <div className="app-body">
+          <main className="app-body">
             <ActivityBar
               selectedSection={selectedSection}
               onSectionSelect={handleSectionSelect}
@@ -358,7 +355,7 @@ function App() {
                 </Allotment.Pane>
               )}
             </Allotment>
-          </div>
+          </main>
         </TerminalWorkspaceProvider>
       )}
       <StatusBar

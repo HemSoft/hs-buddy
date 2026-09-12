@@ -30,6 +30,17 @@ function contrast(foreground: string, background: string): number {
   return (values[0] + 0.05) / (values[1] + 0.05)
 }
 
+function blendWhite(hex: string, alpha: number): string {
+  const channels = [1, 3, 5].map(offset => Number.parseInt(hex.slice(offset, offset + 2), 16))
+  return `#${channels
+    .map(channel =>
+      Math.round(channel * (1 - alpha) + 255 * alpha)
+        .toString(16)
+        .padStart(2, '0')
+    )
+    .join('')}`
+}
+
 const themes = [
   cssBlock(/:root\s*\{([\s\S]*?)\n\}/),
   cssBlock(/\[data-theme='light'\]\s*\{([\s\S]*?)\n\}/),
@@ -40,14 +51,20 @@ describe('renderer shell contrast', () => {
     expect(
       contrast(cssColor(theme, 'text-secondary'), cssColor(theme, 'bg-primary'))
     ).toBeGreaterThanOrEqual(4.5)
-    expect(
-      contrast(cssColor(theme, 'statusbar-fg'), cssColor(theme, 'statusbar-bg'))
-    ).toBeGreaterThanOrEqual(4.5)
+    const statusForeground = cssColor(theme, 'statusbar-fg')
+    const statusBackground = cssColor(theme, 'statusbar-bg')
+    expect(contrast(statusForeground, statusBackground)).toBeGreaterThanOrEqual(4.5)
+    expect(contrast(statusForeground, blendWhite(statusBackground, 0.08))).toBeGreaterThanOrEqual(
+      4.5
+    )
   })
 
   it('uses the qualified theme colors without reducing their opacity', () => {
     expect(appStyles).toMatch(/\.app-loading-message\s*\{[^}]*color: var\(--text-secondary\)/s)
     expect(appStyles).not.toMatch(/\.app-loading-detail\s*\{[^}]*opacity:/s)
     expect(statusStyles).toMatch(/\.status-item-sync-idle\s*\{[^}]*color: var\(--statusbar-fg/s)
+    expect(statusStyles).toMatch(
+      /\.status-item-sync-idle:hover\s*\{[^}]*color: var\(--statusbar-fg/s
+    )
   })
 })

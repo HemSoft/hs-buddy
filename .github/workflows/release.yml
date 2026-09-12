@@ -174,7 +174,11 @@ jobs:
 
           abort_if_stale() {
             local current_main
-            current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"
+            if ! current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"; then
+              trap - ERR
+              cleanup_owned_artifacts
+              exit 1
+            fi
             if [ "$current_main" = "$TARGET_SHA" ]; then
               return
             fi

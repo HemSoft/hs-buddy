@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1216] - 2026-09-12
+
+### Fixed
+
+- Route stale lookup errors through cleanup
+
 ## [0.1.1215] - 2026-09-12
 
 ### Fixed

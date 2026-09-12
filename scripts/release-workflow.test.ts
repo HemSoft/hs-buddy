@@ -49,6 +49,10 @@ describe('release artifact safety contract', () => {
     const staleCheck = 'test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"'
     expect(workflow.split(staleCheck)).toHaveLength(1)
     const staleGuard = workflow.split('abort_if_stale() {')[1]?.split('\n          }')[0]
+    expect(staleGuard).toContain(
+      'if ! current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"; then'
+    )
+    expect(staleGuard).toContain('cleanup_owned_artifacts')
     expect(staleGuard).toContain('if [ "$current_main" = "$TARGET_SHA" ]; then')
     expect(staleGuard).toContain('exit 1')
     expect(workflow.match(/^ {10}abort_if_stale$/gm)).toHaveLength(3)

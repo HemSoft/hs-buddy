@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1214] - 2026-09-12
+
+### Fixed
+
+- Clean owned artifacts after release errors
+
 ## [0.1.1213] - 2026-09-12
 
 ### Fixed

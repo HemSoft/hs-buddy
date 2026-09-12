@@ -68,7 +68,7 @@ jobs:
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
-          set -euo pipefail
+          set -Eeuo pipefail
           resolve_tag() {
             local object type
             object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
@@ -85,19 +85,14 @@ jobs:
           managed_release=false
           release_id=""
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
-          abort_if_stale() {
-            local current_main
-            current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"
-            if [ "$current_main" = "$TARGET_SHA" ]; then
-              return
-            fi
-            echo "::error::main superseded $TARGET_SHA before release publication"
+          cleanup_owned_artifacts() {
             if [ "$managed_release" = true ]; then
               live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"
               test "$(jq -r .draft <<< "$live_release")" = true
               test "$(jq -r .tag_name <<< "$live_release")" = "$TAG"
               grep -Fq "$release_marker" <<< "$(jq -r .body <<< "$live_release")"
               gh api --method DELETE "repos/$REPOSITORY/releases/$release_id"
+              managed_release=false
             fi
             if [ "$tag_owned" = true ]; then
               live_tag_ref="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
@@ -113,11 +108,30 @@ jobs:
                   [ "$live_tag_message" = "Qualified by CI run $RUN_ID" ] && \
                   [ "$live_target" = "$TARGET_SHA" ]; then
                   gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"
+                  tag_owned=false
                 else
                   echo "Skipping tag cleanup because ownership or target changed" >&2
                 fi
               fi
             fi
+          }
+          on_error() {
+            local status=$?
+            trap - ERR
+            cleanup_owned_artifacts
+            exit "$status"
+          }
+          trap on_error ERR
+
+          abort_if_stale() {
+            local current_main
+            current_main="$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)"
+            if [ "$current_main" = "$TARGET_SHA" ]; then
+              return
+            fi
+            echo "::error::main superseded $TARGET_SHA before release publication"
+            trap - ERR
+            cleanup_owned_artifacts
             exit 1
           }
 
@@ -254,3 +268,6 @@ jobs:
           gh api --method PATCH "repos/$REPOSITORY/releases/$release_id" -F draft=false >/dev/null
           test "$(gh api "repos/$REPOSITORY/releases/$release_id" --jq .draft)" = false
           test "$(resolve_tag)" = "$TARGET_SHA"
+          managed_release=false
+          tag_owned=false
+          trap - ERR

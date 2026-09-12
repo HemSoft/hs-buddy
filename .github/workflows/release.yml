@@ -118,13 +118,18 @@ jobs:
             return 1
           }
           delete_tag_ref() {
-            local expected_object=$1 attempt live_ref auth_header
+            local expected_object=$1 attempt live_ref auth_header git_dir
             auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
+            git_dir="$RUNNER_TEMP/hs-buddy-release-git"
+            if [ ! -d "$git_dir" ]; then
+              git init --bare "$git_dir" >/dev/null
+            fi
             for attempt in 1 2 3; do
-              if git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
+              if git --git-dir="$git_dir" \
+                -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
                 push "https://github.com/$REPOSITORY.git" \
                 --force-with-lease="refs/tags/$TAG:$expected_object" \
-                "refs/tags/$TAG:"; then
+                ":refs/tags/$TAG"; then
                 return
               fi
               live_ref="$(

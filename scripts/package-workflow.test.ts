@@ -75,7 +75,7 @@ describe('desktop package qualification workflow', () => {
     expect(workflow).toContain('sudo apt-get install --yes "./$package_file"')
     expect(workflow).toContain('./scripts/install-windows-package.ps1')
     expect(windowsInstaller).toContain('Get-ChildItem $ReleaseDirectory -Recurse')
-    expect(windowsInstaller).toContain('Start-Process $installer')
+    expect(windowsInstaller).toContain("Start-Process $installer -ArgumentList @('/S'")
     expect(windowsInstaller).toContain('BUDDY_PACKAGE_EXECUTABLE=$executable')
     expect(workflow).toContain('hdiutil attach "$dmg"')
     expect(workflow.match(/BUDDY_PACKAGE_EXECUTABLE=/g)).toHaveLength(2)

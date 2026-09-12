@@ -71,6 +71,20 @@ function qualifyNativeModules(
       throw new Error(`${dependency} loaded without its ${binding} binding`)
     }
     assertPackagedResolution(dependency, resolveModule(dependency), resourcesPath, platform)
+    if (dependency === 'node-pty') {
+      const command = platform === 'win32' ? (process.env.ComSpec ?? 'cmd.exe') : '/bin/sh'
+      const args = platform === 'win32' ? ['/d', '/s', '/c', 'exit 0'] : ['-c', 'exit 0']
+      const probe = (
+        loaded as {
+          spawn: (
+            file: string,
+            args: string[],
+            options: { cols: number; rows: number }
+          ) => { kill: () => void }
+        }
+      ).spawn(command, args, { cols: 80, rows: 24 })
+      probe.kill()
+    }
   }
   return PACKAGE_NATIVE_MODULES.map(module => module.dependency)
 }

@@ -8,7 +8,7 @@ import {
 } from './packageQualification'
 
 function nativeModule(specifier: string): object {
-  return specifier === 'node-pty' ? { spawn: vi.fn() } : { load: vi.fn() }
+  return specifier === 'node-pty' ? { spawn: vi.fn(() => ({ kill: vi.fn() })) } : { load: vi.fn() }
 }
 
 describe('packaged dependency qualification', () => {
@@ -32,6 +32,9 @@ describe('packaged dependency qualification', () => {
       copilotBinary: expect.stringMatching(/[\\/]package[\\/]copilot$/),
     })
     expect(loadModule.mock.calls).toEqual([['node-pty'], ['koffi']])
+    expect(
+      (loadModule.mock.results[0].value as { spawn: ReturnType<typeof vi.fn> }).spawn
+    ).toHaveBeenCalledOnce()
     expect(resolveModule).toHaveBeenCalledWith('@github/copilot-darwin-arm64')
     expect(verifyExecutable).toHaveBeenCalledWith(
       expect.stringMatching(/[\\/]package[\\/]copilot$/)

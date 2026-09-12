@@ -8,6 +8,8 @@ import {
   type WebPreferences,
 } from 'electron'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
+import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import windowStateKeeper from 'electron-window-state'
 import { initTelemetry, shutdownTelemetry, emitLog } from './telemetry'
@@ -27,6 +29,13 @@ import {
   type DisplayInfo,
 } from '../src/utils/windowGeometry'
 import { startupTimer } from '../perf/startup-timing'
+import {
+  persistPackageSmokeResult,
+  qualifyPackageDependencies,
+  requirePackageRenderer,
+  waitForMountedRenderer,
+  type PackageSmokeResult,
+} from './packageQualification'
 
 // Initialize OpenTelemetry before anything else touches HTTP/DNS
 await initTelemetry()
@@ -75,6 +84,47 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
   : RENDERER_DIST
 
 const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
+const PACKAGE_SMOKE_OUTPUT = process.env.BUDDY_PACKAGE_SMOKE_FILE
+const mainRequire = createRequire(import.meta.url)
+
+async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeResult> {
+  const dependencies = qualifyPackageDependencies(
+    process.platform,
+    process.arch,
+    process.resourcesPath,
+    mainRequire,
+    mainRequire.resolve
+  )
+  const rendererLoaded = await requirePackageRenderer(
+    waitForMountedRenderer(
+      () =>
+        window.webContents.executeJavaScript(
+          'window.__buddyPreloadReady === true && document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
+        ),
+      () => new Promise(resolve => setTimeout(resolve, 250))
+    ),
+    window.webContents.executeJavaScript('window.__buddyPreloadReady === true')
+  )
+  return {
+    ok: true,
+    platform: process.platform,
+    arch: process.arch,
+    ...dependencies,
+    rendererLoaded,
+  }
+}
+
+function recordPackageSmoke(window: BrowserWindow, outputPath: string): Promise<void> {
+  return persistPackageSmokeResult(
+    () => packageSmokeResult(window),
+    async result => {
+      await writeFile(outputPath, JSON.stringify(result))
+    },
+    code => {
+      app.exit(code)
+    }
+  )
+}
 
 type WebviewAttachParams = {
   src?: string
@@ -244,6 +294,8 @@ function createBrowserWindow(): BrowserWindow {
     createdWindow.webContents.send(IPC_PUSH.MAIN_PROCESS_MESSAGE, new Date().toLocaleString())
     startupTimer.mark('content-loaded')
     startupTimer.report()
+
+    if (PACKAGE_SMOKE_OUTPUT) void recordPackageSmoke(createdWindow, PACKAGE_SMOKE_OUTPUT)
   })
 
   if (VITE_DEV_SERVER_URL) {
@@ -293,6 +345,10 @@ app.whenReady().then(() => {
 
   windowLifecycle.openWindow()
   startupTimer.mark('window-created')
+
+  // Package qualification only verifies the renderer and native runtime. Avoid
+  // network-dependent background work so the CI startup result is deterministic.
+  if (PACKAGE_SMOKE_OUTPUT) return
 
   // Recover orphaned ralph loops from a previous session
   initRalphService()

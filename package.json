@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1221",
+  "version": "0.1.1225",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -13,6 +13,7 @@
     "dev": "vite",
     "setup": "bun scripts/setup.ts",
     "build": "bun run bump && tsc && vite build && electron-builder",
+    "package:smoke": "bun scripts/package-smoke.ts",
     "bump": "bun scripts/bump-revision.ts",
     "lint": "eslint . --max-warnings 0",
     "lint:quality": "bun scripts/check-readme-metadata.ts && bun scripts/lint-quality.ts",

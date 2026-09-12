@@ -272,3 +272,5 @@ contextBridge.exposeInMainWorld('copilot', {
   quickPrompt: (args: { prompt: string; model?: string }) =>
     ipcRenderer.invoke(IPC_INVOKE.COPILOT_QUICK_PROMPT, args) as Promise<string>,
 })
+
+contextBridge.exposeInMainWorld('__buddyPreloadReady', true)

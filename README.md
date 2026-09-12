@@ -46,6 +46,25 @@
 
 ## Installation
 
+### Supported desktop packages
+
+| Operating system | Architecture        | Package        | CI qualification                                                              |
+| ---------------- | ------------------- | -------------- | ----------------------------------------------------------------------------- |
+| Windows 11       | x64                 | NSIS installer | Targets Windows 11; builds and starts on Windows Server 2025 (`windows-2025`) |
+| Ubuntu 24.04     | x64                 | DEB package    | Installs and starts the packaged app under Xvfb on `ubuntu-24.04`             |
+| macOS 15         | Intel x64           | DMG            | Builds and starts the packaged app on `macos-15-intel`                        |
+| macOS 15         | Apple silicon arm64 | DMG            | Builds and starts the packaged app on `macos-15`                              |
+
+Every package qualification loads the production renderer and the packaged
+`node-pty`, `koffi`, and platform-specific Copilot native dependencies. The
+installer and a startup log are retained with the CI run when qualification
+fails. These are unsigned build-and-start checks; release signing and Apple
+notarization are separate delivery controls.
+
+The required matrix uses one standard hosted runner for each row, runs all four
+jobs in parallel, and caps each job at 35 minutes. Other operating-system
+versions and CPU architectures are not currently qualified.
+
 ### Prerequisites
 
 - **Node.js 22+** - [Download](https://nodejs.org/)

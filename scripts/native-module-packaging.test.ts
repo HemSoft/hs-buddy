@@ -26,7 +26,7 @@ describe('Electron native module packaging', () => {
     ({ dependency, unpackPattern }) => {
       expect(electronNativeExternals).toContain(dependency)
       expect(packageManifest.dependencies).toHaveProperty(dependency)
-      expect(builderConfig).toContain(`"${unpackPattern}"`)
+      expect(builderConfig).toMatch(new RegExp(`["']${unpackPattern.replaceAll('*', '\\*')}["']`))
     }
   )
 })

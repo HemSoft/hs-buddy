@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1225] - 2026-09-12
+
+### Changed
+
+- Isolate package renderer diagnostics
+
+## [0.1.1224] - 2026-09-12
+
+### Fixed
+
+- Restore package smoke entrypoint
+
+## [0.1.1223] - 2026-09-12
+
+### Fixed
+
+- Distinguish package startup failures
+
+## [0.1.1222] - 2026-09-12
+
+### Changed
+
+- Integrate package qualification with main
+
 ## [0.1.1221] - 2026-09-12
 
 ### Fixed

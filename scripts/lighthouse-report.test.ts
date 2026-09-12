@@ -121,7 +121,7 @@ describe('blocking Lighthouse workflow', () => {
     expect(job.match(/if: always\(\)/g)).toHaveLength(2)
     const dependencies = workflow
       .split('  ci-complete:')[1]
-      .match(/needs: \[([^\]]+)\]/)?.[1]
+      .match(/needs:\s*\[([^\]]+)\]/)?.[1]
       .split(',')
       .map(value => value.trim())
     expect(dependencies).toContain('lighthouse')

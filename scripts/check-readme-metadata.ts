@@ -1,5 +1,6 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
+import ts from 'typescript'
 
 const CI_BADGE =
   '[![CI](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
@@ -70,20 +71,51 @@ function requireClaim(errors: string[], source: string, claim: string, message: 
   if (!source.includes(claim)) errors.push(message)
 }
 
+function startsWithDefineTable(node: ts.Expression): boolean {
+  if (!ts.isCallExpression(node)) return false
+  if (ts.isIdentifier(node.expression)) return node.expression.text === 'defineTable'
+  if (ts.isPropertyAccessExpression(node.expression)) {
+    return startsWithDefineTable(node.expression.expression)
+  }
+  return false
+}
+
+function isDefineTableProperty(node: ts.Node): boolean {
+  return ts.isPropertyAssignment(node) && startsWithDefineTable(node.initializer)
+}
+
+function countSchemaTables(schema: string): number {
+  const source = ts.createSourceFile('schema.ts', schema, ts.ScriptTarget.Latest, false)
+  let count = 0
+  const visit = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isIdentifier(node.expression) &&
+      node.expression.text === 'defineSchema' &&
+      ts.isObjectLiteralExpression(node.arguments[0])
+    ) {
+      count = node.arguments[0].properties.filter(isDefineTableProperty).length
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(source)
+  return count
+}
+
 function validateReadme(readme: string, versions: RequiredVersions, schemaCount: number): string[] {
   const errors: string[] = []
-  requireClaim(
-    errors,
-    readme,
-    `[![Electron](https://img.shields.io/badge/Electron-${major(versions.electron)}-47848F.svg)]`,
-    `README.md Electron badge must declare Electron ${major(versions.electron)}.`
-  )
-  for (const [name, value] of [
-    ['Electron', major(versions.electron)],
-    ['React', major(versions.react)],
-    ['TypeScript', major(versions.typescript)],
-    ['Vite', major(versions.vite)],
+  for (const [name, value, color] of [
+    ['Electron', major(versions.electron), '47848F'],
+    ['React', major(versions.react), '61DAFB'],
+    ['TypeScript', major(versions.typescript), 'blue'],
+    ['Vite', major(versions.vite), '646CFF'],
   ]) {
+    requireClaim(
+      errors,
+      readme,
+      `[![${name}](https://img.shields.io/badge/${name}-${value}-${color}.svg)]`,
+      `README.md ${name} badge must declare ${name} ${value}.`
+    )
     requireClaim(
       errors,
       readme,
@@ -115,6 +147,10 @@ function validateVision(
   const typescript = major(versions.typescript)
   const vite = major(versions.vite)
   const claims: Array<[string, string]> = [
+    [
+      `| Desktop    | Electron ${electron} `,
+      'docs/VISION.md Desktop stack version must match package.json.',
+    ],
     [
       `Electron ${electron} + React ${react} + Vite ${vite}`,
       'docs/VISION.md architecture versions must match package.json.',
@@ -151,8 +187,7 @@ export function validateDocumentationMetadata(
   const result = readRequiredVersions(packageJson)
   if (!('versions' in result)) return [...errors, ...result.errors]
 
-  const schemaCount =
-    sources.schema.match(/^ {2}[A-Za-z_$][\w$]*:\s*defineTable\s*\(/gm)?.length ?? 0
+  const schemaCount = countSchemaTables(sources.schema)
   errors.push(...validateReadme(sources.readme, result.versions, schemaCount))
   errors.push(...validateVision(sources.vision, result.versions, schemaCount, sources.featureCount))
   requireClaim(

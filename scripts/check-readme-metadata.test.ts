@@ -23,16 +23,21 @@ function sources() {
   return {
     readme: `${ciBadge}
 [![Electron](https://img.shields.io/badge/Electron-44-47848F.svg)]
+[![React](https://img.shields.io/badge/React-19-61DAFB.svg)]
+[![TypeScript](https://img.shields.io/badge/TypeScript-6-blue.svg)]
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)]
 **Electron 44** **React 19** **TypeScript 6** **Vite 8** 2 schema tables
 Project tree: 2 schema tables`,
     contributing: '[Node.js](https://nodejs.org/) 22+',
-    vision: `Electron 44 + React 19 + Vite 8
+    vision: `| Desktop    | Electron 44 |
+Electron 44 + React 19 + Vite 8
 React 19, TypeScript 6, Vite 8
 Convex 1.45.0
 \`@github/copilot-sdk\` 1.0.13
 Data Model (2 Convex Tables)
 **BDD**: 6 tracked Gherkin feature specs`,
-    schema: '  first: defineTable({})\n  second: defineTable({})\n  // old: defineTable({})',
+    schema:
+      'export default defineSchema({\n  first: defineTable({}),\n  second: defineTable({}),\n  /* retired: defineTable({}) */\n})',
     featureCount: 6,
   }
 }
@@ -45,8 +50,12 @@ describe('validateDocumentationMetadata', () => {
   it('reports stale manifest-derived framework documentation', () => {
     const stale = sources()
     stale.vision = stale.vision.replace('Electron 44 +', 'Electron 43 +')
-    expect(validateDocumentationMetadata(stale, packageJson)).toContain(
-      'docs/VISION.md architecture versions must match package.json.'
+    stale.readme = stale.readme.replace('badge/React-19-', 'badge/React-18-')
+    expect(validateDocumentationMetadata(stale, packageJson)).toEqual(
+      expect.arrayContaining([
+        'docs/VISION.md architecture versions must match package.json.',
+        'README.md React badge must declare React 19.',
+      ])
     )
   })
 

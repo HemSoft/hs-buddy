@@ -30,14 +30,13 @@ export function requireMountedRenderer(rendererLoaded: unknown): true {
 export async function waitForMountedRenderer(
   check: () => Promise<unknown>,
   delay: () => Promise<void>,
-  attempts = 120,
-  failureMessage = 'Renderer did not mount into #root'
+  attempts = 120
 ): Promise<true> {
   for (let attempt = 0; attempt < attempts; attempt++) {
     if ((await check()) === true) return true
     await delay()
   }
-  throw new Error(failureMessage)
+  return requireMountedRenderer(false)
 }
 
 function assertPackagedResolution(

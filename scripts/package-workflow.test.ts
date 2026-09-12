@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const workflow = readFileSync('.github/workflows/ci.yml', 'utf8').replaceAll('\r\n', '\n')
 const builderConfig = readFileSync('electron-builder.json5', 'utf8')
+const packageJson = readFileSync('package.json', 'utf8')
 const smokeRunner = readFileSync('scripts/package-smoke.ts', 'utf8')
 const mainProcess = readFileSync('electron/main.ts', 'utf8')
 const runtimeQualification = readFileSync('electron/packageQualification.ts', 'utf8')
@@ -80,6 +81,7 @@ describe('desktop package qualification workflow', () => {
     expect(windowsInstaller).toContain('BUDDY_PACKAGE_EXECUTABLE=$executable')
     expect(workflow).toContain('hdiutil attach "$dmg"')
     expect(workflow.match(/BUDDY_PACKAGE_EXECUTABLE=/g)).toHaveLength(2)
+    expect(packageJson).toContain('"package:smoke": "bun scripts/package-smoke.ts"')
     expect(smokeRunner).toContain('process.env.BUDDY_PACKAGE_EXECUTABLE')
   })
 

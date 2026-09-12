@@ -94,20 +94,23 @@ async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeRe
     mainRequire,
     mainRequire.resolve
   )
-  const delay = () => new Promise<void>(resolve => setTimeout(resolve, 250))
-  const rendererLoaded = await waitForMountedRenderer(
-    () =>
-      window.webContents.executeJavaScript(
-        'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
-      ),
-    delay
-  )
-  await waitForMountedRenderer(
-    () => window.webContents.executeJavaScript('window.__buddyPreloadReady === true'),
-    delay,
-    120,
-    'Preload did not set __buddyPreloadReady'
-  )
+  let rendererLoaded: true
+  try {
+    rendererLoaded = await waitForMountedRenderer(
+      () =>
+        window.webContents.executeJavaScript(
+          'window.__buddyPreloadReady === true && document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
+        ),
+      () => new Promise(resolve => setTimeout(resolve, 250))
+    )
+  } catch (error: unknown) {
+    const preloadReady = await window.webContents.executeJavaScript(
+      'window.__buddyPreloadReady === true'
+    )
+    if (preloadReady !== true)
+      throw new Error('Preload did not set __buddyPreloadReady', { cause: error })
+    throw error
+  }
   return {
     ok: true,
     platform: process.platform,

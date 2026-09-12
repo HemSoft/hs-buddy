@@ -107,7 +107,7 @@ describe('packaged renderer qualification', () => {
     expect(delay).toHaveBeenCalledTimes(1)
   })
 
-  it('rejects a renderer that never mounts with the requested diagnostic', async () => {
+  it('rejects a renderer that never mounts', async () => {
     await expect(
       waitForMountedRenderer(
         async () => false,
@@ -115,14 +115,6 @@ describe('packaged renderer qualification', () => {
         2
       )
     ).rejects.toThrow('Renderer did not mount into #root')
-    await expect(
-      waitForMountedRenderer(
-        async () => false,
-        async () => {},
-        1,
-        'Preload did not set __buddyPreloadReady'
-      )
-    ).rejects.toThrow('Preload did not set __buddyPreloadReady')
   })
 })
 

@@ -27,6 +27,7 @@ function sources() {
 [![TypeScript](https://img.shields.io/badge/TypeScript-6-blue.svg)]
 [![Vite](https://img.shields.io/badge/Vite-8-646CFF.svg)]
 **Electron 44** **React 19** **TypeScript 6** **Vite 8** 2 schema tables
+**Node.js 22+**
 Project tree: 2 schema tables`,
     contributing: '[Node.js](https://nodejs.org/) 22+',
     vision: `| Desktop    | Electron 44 |
@@ -34,7 +35,7 @@ Electron 44 + React 19 + Vite 8
 React 19, TypeScript 6, Vite 8
 Convex 1.45.0
 \`@github/copilot-sdk\` 1.0.13
-Data Model (2 Convex Tables)
+Data Model (2 Convex Schema Tables + System Storage)
 **BDD**: 6 tracked Gherkin feature specs`,
     schema:
       'export default defineSchema({\n  first: defineTable({}),\n  second: defineTable({}),\n  /* retired: defineTable({}) */\n})',
@@ -74,8 +75,12 @@ describe('validateDocumentationMetadata', () => {
   it('reports a missing CI badge and invalid package metadata', () => {
     const missingBadge = sources()
     missingBadge.readme = missingBadge.readme.replace(ciBadge, '')
-    expect(validateDocumentationMetadata(missingBadge, packageJson)).toContain(
-      'README.md must include the main-branch status badge for .github/workflows/ci.yml.'
+    missingBadge.readme = missingBadge.readme.replace('**Node.js 22+**', '**Node.js 20+**')
+    expect(validateDocumentationMetadata(missingBadge, packageJson)).toEqual(
+      expect.arrayContaining([
+        'README.md must include the main-branch status badge for .github/workflows/ci.yml.',
+        'README.md prerequisites must require Node.js 22+.',
+      ])
     )
     expect(validateDocumentationMetadata(sources(), '{')).toContain(
       'package.json must contain valid JSON.'

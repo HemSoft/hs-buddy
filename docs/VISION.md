@@ -118,7 +118,7 @@ are enforced by `scripts/check-readme-metadata.ts`.
 └──────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Model (17 Convex Tables)
+### Data Model (17 Convex Schema Tables + System Storage)
 
 | Table                 | Purpose                                                       |
 | --------------------- | ------------------------------------------------------------- |
@@ -155,7 +155,7 @@ are enforced by `scripts/check-readme-metadata.ts`.
 
 ### IPC Handler Domains
 
-`github` · `copilot` · `copilotSessions` · `crew` · `tempo` · `todoist` · `shell` · `config` · `cache` · `window`
+`config` · `cache` · `github` · `window` · `shell` · `copilot` · `crew` · `tempo` · `copilotSessions` · `todoist` · `finance` · `terminal` · `filesystem` · `ralph` · `slack` · `pollen` · `copilotMetrics` · `codexUsage`
 
 ### Aspire Orchestration
 

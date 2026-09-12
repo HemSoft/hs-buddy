@@ -165,8 +165,8 @@ function validateVision(
       `docs/VISION.md must declare @github/copilot-sdk ${versions.copilot}.`,
     ],
     [
-      `Data Model (${schemaCount} Convex Tables)`,
-      `docs/VISION.md must declare ${schemaCount} Convex tables.`,
+      `Data Model (${schemaCount} Convex Schema Tables + System Storage)`,
+      `docs/VISION.md must declare ${schemaCount} Convex schema tables plus system storage.`,
     ],
     [
       `**BDD**: ${featureCount} tracked Gherkin feature specs`,
@@ -195,6 +195,12 @@ export function validateDocumentationMetadata(
     sources.contributing,
     `Node.js](https://nodejs.org/) ${result.versions.node}+`,
     `CONTRIBUTING.md prerequisites must require Node.js ${result.versions.node}+.`
+  )
+  requireClaim(
+    errors,
+    sources.readme,
+    `**Node.js ${result.versions.node}+**`,
+    `README.md prerequisites must require Node.js ${result.versions.node}+.`
   )
   return errors
 }

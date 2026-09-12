@@ -89,6 +89,9 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain('[ "$live_tag_object" = "$tag_owned_object" ] &&')
     expect(workflow).toContain('tag_owned=true')
     expect(workflow).toContain('previous_run_id="${BASH_REMATCH[1]}"')
+    expect(workflow).toContain('live_previous_release="$(')
+    expect(workflow).toContain('repos/$REPOSITORY/releases/$previous_release_id')
+    expect(workflow).toContain('test "$replacement_release_count" = 0')
     expect(workflow).toContain('<!-- hs-buddy-release-ci:$previous_run_id -->')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')
@@ -105,7 +108,8 @@ describe('release artifact safety contract', () => {
   })
 
   it('serializes retries and makes an existing matching release a no-op', () => {
-    expect(workflow).toContain('group: release')
+    expect(workflow).toMatch(/runs-on: ubuntu-latest\n {4}concurrency:\n {6}group: release/)
+    expect(workflow).not.toMatch(/^concurrency:/m)
     expect(workflow).toContain('cancel-in-progress: false')
     expect(workflow).toContain('repos/$REPOSITORY/releases?per_page=100')
     expect(workflow).toContain('select(.tag_name == $tag)')

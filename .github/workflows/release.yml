@@ -9,10 +9,6 @@ permissions:
   actions: read
   contents: write
 
-concurrency:
-  group: release
-  cancel-in-progress: false
-
 jobs:
   release:
     if: >-
@@ -20,6 +16,9 @@ jobs:
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       REPOSITORY: ${{ github.repository }}
@@ -150,12 +149,22 @@ jobs:
               [[ "$tag_message" =~ ^Qualified\ by\ CI\ run\ ([0-9]+)$ ]]; then
               previous_run_id="${BASH_REMATCH[1]}"
               if [ "$release_json" != null ]; then
-                test "$(jq -r .draft <<< "$release_json")" = true
+                previous_release_id="$(jq -r .id <<< "$release_json")"
+                live_previous_release="$(
+                  gh api "repos/$REPOSITORY/releases/$previous_release_id"
+                )"
+                test "$(jq -r .draft <<< "$live_previous_release")" = true
+                test "$(jq -r .tag_name <<< "$live_previous_release")" = "$TAG"
                 grep -Fq "<!-- hs-buddy-release-ci:$previous_run_id -->" \
-                  <<< "$(jq -r .body <<< "$release_json")"
+                  <<< "$(jq -r .body <<< "$live_previous_release")"
                 gh api --method DELETE \
-                  "repos/$REPOSITORY/releases/$(jq -r .id <<< "$release_json")"
+                  "repos/$REPOSITORY/releases/$previous_release_id"
               fi
+              replacement_release_count="$(
+                gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                  jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
+              )"
+              test "$replacement_release_count" = 0
               test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
                 "$(jq -r .object.sha <<< "$live_tag_ref")"
               test "$(resolve_tag)" = "$tag_target"

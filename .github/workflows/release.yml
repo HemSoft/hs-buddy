@@ -118,17 +118,26 @@ jobs:
             return 1
           }
           delete_tag_ref() {
-            local attempt remaining
+            local expected_object=$1 attempt live_ref auth_header
+            auth_header="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w 0)"
             for attempt in 1 2 3; do
-              if gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"; then
+              if git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth_header" \
+                push "https://github.com/$REPOSITORY.git" \
+                --force-with-lease="refs/tags/$TAG:$expected_object" \
+                "refs/tags/$TAG:"; then
                 return
               fi
-              remaining="$(
+              live_ref="$(
                 retry_api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
-                  jq --arg ref "refs/tags/$TAG" '[.[] | select(.ref == $ref)] | length'
+                  jq -c --arg ref "refs/tags/$TAG" \
+                    '[.[] | select(.ref == $ref)] | if length > 1 then error("duplicate exact tag refs") else .[0] // null end'
               )"
-              if [ "$remaining" = 0 ]; then
+              if [ "$live_ref" = null ]; then
                 return
+              fi
+              if [ "$(jq -r .object.sha <<< "$live_ref")" != "$expected_object" ]; then
+                echo "Refusing to delete replacement tag object" >&2
+                return 1
               fi
               sleep "$attempt"
             done
@@ -210,7 +219,7 @@ jobs:
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
                   )"
                   test "$release_count_before_tag_delete" = 0
-                  delete_tag_ref
+                  delete_tag_ref "$tag_owned_object"
                   release_count_after_tag_delete="$(
                     retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                       jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'
@@ -304,7 +313,7 @@ jobs:
               test "$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = \
                 "$previous_tag_object"
               test "$(resolve_tag)" = "$tag_target"
-              delete_tag_ref
+              delete_tag_ref "$previous_tag_object"
               replacement_release_count="$(
                 gh api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
                   jq --arg tag "$TAG" '[.[][] | select(.tag_name == $tag)] | length'

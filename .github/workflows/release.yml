@@ -80,6 +80,16 @@ jobs:
           tag_owned=false
           managed_release=false
           release_marker="<!-- hs-buddy-release-ci:$RUN_ID -->"
+          tag_belongs_to_run() {
+            local object
+            object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+            if [ "$(jq -r .object.type <<< "$object")" != tag ]; then
+              return 1
+            fi
+            test "$(
+              gh api "repos/$REPOSITORY/git/tags/$(jq -r .object.sha <<< "$object")" --jq .message
+            )" = "Qualified by CI run $RUN_ID"
+          }
           abort_if_stale() {
             if [ "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA" ]; then
               return
@@ -104,6 +114,9 @@ jobs:
           abort_if_stale
           if [ "$tag_ref" != "null" ]; then
             test "$(resolve_tag)" = "$TARGET_SHA"
+            if tag_belongs_to_run; then
+              tag_owned=true
+            fi
           else
             # An annotated tag object is the ownership marker. After an
             # ambiguous ref response, the live ref must point to this exact

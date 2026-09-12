@@ -66,6 +66,8 @@ describe('release workflow qualification contract', () => {
     expect(workflow).toContain('-f object="$TARGET_SHA"')
     expect(workflow).toContain('-f sha="$tag_object"')
     expect(workflow).toContain('live_tag_object')
+    expect(workflow).toContain('tag_belongs_to_run')
+    expect(workflow).toContain('Qualified by CI run $RUN_ID')
     expect(workflow).toContain('tag_owned=true')
     expect(workflow).toContain('gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"')
     expect(workflow).toContain('gh release create "$TAG"')

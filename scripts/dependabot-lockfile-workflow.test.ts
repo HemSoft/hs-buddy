@@ -77,7 +77,9 @@ describe('Dependabot Lockfile Fix workflow', () => {
       'test "$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$EXPECTED_HEAD"'
     )
   })
+})
 
+describe('trusted Dependabot writer', () => {
   it('creates a one-file commit without checking out the untrusted head', () => {
     expect(writeJob).toContain('Git Database API')
     expect(writeJob).toContain('git/commits/$EXPECTED_HEAD')

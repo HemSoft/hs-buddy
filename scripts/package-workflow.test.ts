@@ -68,9 +68,14 @@ describe('desktop package qualification workflow', () => {
       'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never --config.npmRebuild=false'
     )
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
+  })
+
+  it('launches each generated distributable rather than its staging tree', () => {
     expect(workflow).toContain('sudo apt-get install --yes "./$package_file"')
-    expect(workflow).toContain('BUDDY_LINUX_EXECUTABLE=$executable')
-    expect(smokeRunner).toContain('process.env.BUDDY_LINUX_EXECUTABLE')
+    expect(workflow).toContain('Start-Process $installer')
+    expect(workflow).toContain('hdiutil attach "$dmg"')
+    expect(workflow.match(/BUDDY_PACKAGE_EXECUTABLE=/g)).toHaveLength(3)
+    expect(smokeRunner).toContain('process.env.BUDDY_PACKAGE_EXECUTABLE')
   })
 
   it('qualifies packages before CI can complete', () => {
@@ -92,6 +97,8 @@ describe('desktop package qualification workflow', () => {
   it('checks the renderer and native dependencies from the packaged runtime', () => {
     expect(mainProcess).toContain('document.getElementById("root")?.childElementCount > 0')
     expect(mainProcess).toContain('qualifyPackageDependencies(')
+    expect(mainProcess).toContain('waitForMountedRenderer(')
+    expect(mainProcess).toContain('process.resourcesPath')
     for (const dependency of ['node-pty', 'koffi']) {
       expect(runtimeQualification).toContain(`'${dependency}'`)
       expect(smokeRunner).toContain(`'${dependency}'`)
@@ -99,5 +106,8 @@ describe('desktop package qualification workflow', () => {
     expect(runtimeQualification).toContain('@github/copilot-${platform}-${arch}')
     expect(smokeRunner).toContain('copilot-${target.platform}-${target.arch}')
     expect(smokeRunner).not.toContain("'--no-sandbox'")
+    expect(smokeRunner).toContain("process.kill(-child.pid, 'SIGKILL')")
+    expect(smokeRunner).toContain("spawnSync('taskkill'")
+    expect(smokeRunner).toContain("detached: platform !== 'win32'")
   })
 })

@@ -3,6 +3,7 @@ import {
   persistPackageSmokeResult,
   qualifyPackageDependencies,
   requireMountedRenderer,
+  waitForMountedRenderer,
   type PackageSmokeResult,
 } from './packageQualification'
 
@@ -17,7 +18,14 @@ describe('packaged dependency qualification', () => {
     const verifyExecutable = vi.fn()
 
     expect(
-      qualifyPackageDependencies('darwin', 'arm64', loadModule, resolveModule, verifyExecutable)
+      qualifyPackageDependencies(
+        'darwin',
+        'arm64',
+        '/package',
+        loadModule,
+        resolveModule,
+        verifyExecutable
+      )
     ).toEqual({
       nativeModules: ['node-pty', 'koffi'],
       copilotPackage: '@github/copilot-darwin-arm64',
@@ -36,9 +44,15 @@ describe('packaged dependency qualification', () => {
       return nativeModule(specifier)
     }
 
-    expect(() => qualifyPackageDependencies('linux', 'x64', loadModule, vi.fn())).toThrow(
-      'fixture: node-pty is missing'
-    )
+    expect(() =>
+      qualifyPackageDependencies(
+        'linux',
+        'x64',
+        '/package',
+        loadModule,
+        vi.fn(() => '/package/native.node')
+      )
+    ).toThrow('fixture: node-pty is missing')
   })
 
   it.each([
@@ -49,9 +63,28 @@ describe('packaged dependency qualification', () => {
     const loadModule = (specifier: string) =>
       specifier === missingDependency ? invalidModule : nativeModule(specifier)
 
-    expect(() => qualifyPackageDependencies('linux', 'x64', loadModule, vi.fn())).toThrow(
-      `${missingDependency} loaded without its ${binding} binding`
-    )
+    expect(() =>
+      qualifyPackageDependencies(
+        'linux',
+        'x64',
+        '/package',
+        loadModule,
+        vi.fn(() => '/package/native.node')
+      )
+    ).toThrow(`${missingDependency} loaded without its ${binding} binding`)
+  })
+
+  it('rejects dependency resolution outside packaged resources', () => {
+    expect(() =>
+      qualifyPackageDependencies(
+        'linux',
+        'x64',
+        '/package/resources',
+        nativeModule,
+        () => '/checkout/node_modules/node-pty/index.js',
+        vi.fn()
+      )
+    ).toThrow('node-pty resolved outside packaged resources')
   })
 
   it('requires the renderer to report a mounted root', () => {
@@ -59,11 +92,31 @@ describe('packaged dependency qualification', () => {
     expect(() => requireMountedRenderer(false)).toThrow('Renderer did not mount into #root')
   })
 
+  it('waits for an asynchronous renderer mount', async () => {
+    const check = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+    const delay = vi.fn(async () => {})
+
+    await expect(waitForMountedRenderer(check, delay, 2)).resolves.toBe(true)
+    expect(check).toHaveBeenCalledTimes(2)
+    expect(delay).toHaveBeenCalledTimes(1)
+  })
+
+  it('rejects a renderer that never mounts', async () => {
+    await expect(
+      waitForMountedRenderer(
+        async () => false,
+        async () => {},
+        2
+      )
+    ).rejects.toThrow('Renderer did not mount into #root')
+  })
+
   it('resolves the Windows executable with its required suffix', () => {
     expect(
       qualifyPackageDependencies(
         'win32',
         'x64',
+        'C:\\package',
         nativeModule,
         () => 'C:\\package\\copilot.exe',
         vi.fn()
@@ -73,7 +126,14 @@ describe('packaged dependency qualification', () => {
 
   it('rejects an empty Copilot resolution and a missing binary', () => {
     expect(() =>
-      qualifyPackageDependencies('win32', 'x64', nativeModule, () => '', vi.fn())
+      qualifyPackageDependencies(
+        'win32',
+        'x64',
+        'C:\\package',
+        nativeModule,
+        specifier => (specifier.startsWith('@github/') ? '' : 'C:\\package\\native.node'),
+        vi.fn()
+      )
     ).toThrow('@github/copilot-win32-x64 resolved to an empty path')
 
     const missingBinary = () => {
@@ -83,6 +143,7 @@ describe('packaged dependency qualification', () => {
       qualifyPackageDependencies(
         'win32',
         'x64',
+        'C:\\package',
         nativeModule,
         () => 'C:\\package\\copilot.exe',
         missingBinary

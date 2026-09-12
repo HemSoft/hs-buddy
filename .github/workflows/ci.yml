@@ -608,10 +608,37 @@ jobs:
           sudo apt-get install --yes "./$package_file"
           executable="$(find /opt -type f -name Buddy -perm /111 -print -quit)"
           test -n "$executable"
-          echo "BUDDY_LINUX_EXECUTABLE=$executable" >> "$GITHUB_ENV"
+          echo "BUDDY_PACKAGE_EXECUTABLE=$executable" >> "$GITHUB_ENV"
+
+      - name: Install Windows distributable
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = (Get-ChildItem release -File -Filter '*.exe' | Select-Object -First 1).FullName
+          if (-not $installer) { throw 'NSIS installer was not found' }
+          $installDirectory = Join-Path $env:RUNNER_TEMP 'Buddy-installed'
+          $installation = Start-Process $installer -ArgumentList @('/S', "/D=$installDirectory") -Wait -PassThru
+          if ($installation.ExitCode -ne 0) { throw "NSIS exited with $($installation.ExitCode)" }
+          $executable = (Get-ChildItem $installDirectory -Recurse -Filter 'Buddy.exe' | Select-Object -First 1).FullName
+          if (-not $executable) { throw 'Installed Buddy.exe was not found' }
+          "BUDDY_PACKAGE_EXECUTABLE=$executable" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Mount macOS distributable
+        if: runner.os == 'macOS'
+        run: |
+          dmg="$(find release -type f -name '*.dmg' -print -quit)"
+          mount="$RUNNER_TEMP/buddy-dmg"
+          hdiutil attach "$dmg" -nobrowse -readonly -mountpoint "$mount"
+          executable="$mount/Buddy.app/Contents/MacOS/Buddy"
+          test -x "$executable"
+          echo "BUDDY_PACKAGE_EXECUTABLE=$executable" >> "$GITHUB_ENV"
 
       - name: Start packaged application
         run: bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}
+
+      - name: Unmount macOS distributable
+        if: always() && runner.os == 'macOS'
+        run: hdiutil detach "$RUNNER_TEMP/buddy-dmg" || true
 
       - name: Upload startup diagnostics
         if: always()

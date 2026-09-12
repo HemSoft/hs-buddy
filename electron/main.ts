@@ -32,7 +32,7 @@ import { startupTimer } from '../perf/startup-timing'
 import {
   persistPackageSmokeResult,
   qualifyPackageDependencies,
-  requireMountedRenderer,
+  waitForMountedRenderer,
   type PackageSmokeResult,
 } from './packageQualification'
 
@@ -90,13 +90,16 @@ async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeRe
   const dependencies = qualifyPackageDependencies(
     process.platform,
     process.arch,
+    process.resourcesPath,
     mainRequire,
     mainRequire.resolve
   )
-  const rendererLoaded = requireMountedRenderer(
-    await window.webContents.executeJavaScript(
-      'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
-    )
+  const rendererLoaded = await waitForMountedRenderer(
+    () =>
+      window.webContents.executeJavaScript(
+        'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
+      ),
+    () => new Promise(resolve => setTimeout(resolve, 250))
   )
   return {
     ok: true,

@@ -7,7 +7,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs'
-import { spawn } from 'node:child_process'
+import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { join, resolve } from 'node:path'
 
 interface TargetRuntime {
@@ -62,25 +62,14 @@ function listFiles(directory: string): string[] {
   return files
 }
 
-function isPackagedExecutable(file: string, platform: string): boolean {
-  const normalized = file.replaceAll('\\', '/')
-  if (platform === 'win32') return normalized.endsWith('/win-unpacked/Buddy.exe')
-  if (platform === 'linux') return /\/linux-unpacked\/(?:buddy|Buddy)$/.test(normalized)
-  return normalized.endsWith('/Buddy.app/Contents/MacOS/Buddy')
-}
-
 function findExecutable(target: TargetRuntime): string {
-  const installedLinuxExecutable = process.env.BUDDY_LINUX_EXECUTABLE
-  if (
-    target.platform === 'linux' &&
-    installedLinuxExecutable &&
-    existsSync(installedLinuxExecutable)
-  ) {
-    return installedLinuxExecutable
+  const executable = process.env.BUDDY_PACKAGE_EXECUTABLE
+  if (!executable || !existsSync(executable)) {
+    throw new Error(
+      `No installed or mounted Buddy executable found for ${target.platform}-${target.arch}`
+    )
   }
-  const executable = packagedFiles.find(file => isPackagedExecutable(file, target.platform))
-  if (executable) return executable
-  throw new Error(`No unpacked Buddy executable found for ${target.platform}-${target.arch}`)
+  return executable
 }
 
 function launchDetails(target: TargetRuntime, executable: string): [string, string[]] {
@@ -91,9 +80,23 @@ function launchDetails(target: TargetRuntime, executable: string): [string, stri
   return [executable, appArguments]
 }
 
+function terminateProcessTree(child: Pick<ChildProcess, 'pid' | 'kill'>, platform: string): void {
+  if (!child.pid) return
+  if (platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(child.pid), '/t', '/f'], { stdio: 'ignore' })
+    return
+  }
+  try {
+    process.kill(-child.pid, 'SIGKILL')
+  } catch (_: unknown) {
+    child.kill('SIGKILL')
+  }
+}
+
 async function waitForExit(
   launchCommand: string,
-  launchArguments: string[]
+  launchArguments: string[],
+  platform: string
 ): Promise<{ code: number | null; signal: NodeJS.Signals | null }> {
   const child = spawn(launchCommand, launchArguments, {
     env: {
@@ -101,6 +104,7 @@ async function waitForExit(
       BUDDY_PACKAGE_SMOKE_FILE: smokeOutput,
       ELECTRON_DISABLE_SECURITY_WARNINGS: 'true',
     },
+    detached: platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 
@@ -109,7 +113,7 @@ async function waitForExit(
 
   return new Promise((resolveExit, reject) => {
     const timeout = setTimeout(() => {
-      child.kill('SIGKILL')
+      terminateProcessTree(child, platform)
       reject(new Error('Packaged app did not complete its startup smoke test within 60 seconds'))
     }, 60_000)
 
@@ -180,7 +184,7 @@ async function run(): Promise<void> {
       `Command: ${launchCommand} ${launchArguments.join(' ')}`
     )
 
-    const exitResult = await waitForExit(launchCommand, launchArguments)
+    const exitResult = await waitForExit(launchCommand, launchArguments, target.platform)
     output.push(`Exit: code=${String(exitResult.code)} signal=${String(exitResult.signal)}`)
     const result = readSmokeResult()
     output.push(`Result: ${JSON.stringify(result)}`)

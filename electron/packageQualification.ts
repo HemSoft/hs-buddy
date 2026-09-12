@@ -27,7 +27,40 @@ export function requireMountedRenderer(rendererLoaded: unknown): true {
   return true
 }
 
-function qualifyNativeModules(loadModule: (specifier: string) => unknown): string[] {
+export async function waitForMountedRenderer(
+  check: () => Promise<unknown>,
+  delay: () => Promise<void>,
+  attempts = 120
+): Promise<true> {
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    if ((await check()) === true) return true
+    await delay()
+  }
+  return requireMountedRenderer(false)
+}
+
+function assertPackagedResolution(
+  dependency: string,
+  resolvedPath: string,
+  resourcesPath: string,
+  platform: NodeJS.Platform
+): void {
+  const normalize = (value: string) => value.replaceAll('\\', '/').replace(/\/$/, '')
+  const resolved = normalize(resolvedPath)
+  const resources = normalize(resourcesPath)
+  const [comparableResolved, comparableResources] =
+    platform === 'win32' ? [resolved.toLowerCase(), resources.toLowerCase()] : [resolved, resources]
+  if (!comparableResolved.startsWith(`${comparableResources}/`)) {
+    throw new Error(`${dependency} resolved outside packaged resources: ${resolvedPath}`)
+  }
+}
+
+function qualifyNativeModules(
+  platform: NodeJS.Platform,
+  resourcesPath: string,
+  loadModule: (specifier: string) => unknown,
+  resolveModule: (specifier: string) => string
+): string[] {
   for (const { dependency, binding } of PACKAGE_NATIVE_MODULES) {
     const loaded = loadModule(dependency)
     if (
@@ -37,6 +70,7 @@ function qualifyNativeModules(loadModule: (specifier: string) => unknown): strin
     ) {
       throw new Error(`${dependency} loaded without its ${binding} binding`)
     }
+    assertPackagedResolution(dependency, resolveModule(dependency), resourcesPath, platform)
   }
   return PACKAGE_NATIVE_MODULES.map(module => module.dependency)
 }
@@ -45,14 +79,16 @@ function qualifyNativeModules(loadModule: (specifier: string) => unknown): strin
 export function qualifyPackageDependencies(
   platform: NodeJS.Platform,
   arch: string,
+  resourcesPath: string,
   loadModule: (specifier: string) => unknown,
   resolveModule: (specifier: string) => string,
   verifyExecutable: (file: string) => void = assertExecutable
 ): PackageDependencyReport {
-  const nativeModules = qualifyNativeModules(loadModule)
+  const nativeModules = qualifyNativeModules(platform, resourcesPath, loadModule, resolveModule)
   const copilotPackage = `@github/copilot-${platform}-${arch}`
   const copilotBinary = resolveModule(copilotPackage)
   if (!copilotBinary.trim()) throw new Error(`${copilotPackage} resolved to an empty path`)
+  assertPackagedResolution(copilotPackage, copilotBinary, resourcesPath, platform)
   verifyExecutable(copilotBinary)
 
   return {

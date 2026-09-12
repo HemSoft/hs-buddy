@@ -157,6 +157,8 @@ You can add multiple GitHub accounts for monitoring different organizations:
 
 #### Security
 
+Report suspected vulnerabilities privately by following the [security policy](SECURITY.md), not through a public issue.
+
 - **No tokens in config files** - Authentication is handled by GitHub CLI
 - **System keychain storage** - Credentials are stored securely by your OS
 - **No `.env` file needed** - After migration, you can delete it

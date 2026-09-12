@@ -99,6 +99,7 @@ describe('desktop package qualification workflow', () => {
   })
 
   it('checks the renderer and native dependencies from the packaged runtime', () => {
+    expect(mainProcess).toContain('window.__buddyPreloadReady === true')
     expect(mainProcess).toContain('document.getElementById("root")?.childElementCount > 0')
     expect(mainProcess).toContain('qualifyPackageDependencies(')
     expect(mainProcess).toContain('waitForMountedRenderer(')

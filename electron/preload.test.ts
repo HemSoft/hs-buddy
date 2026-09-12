@@ -32,6 +32,10 @@ describe('preload', () => {
     vi.clearAllMocks()
   })
 
+  it('exposes a preload-only readiness sentinel', () => {
+    expect(exposedApis.__buddyPreloadReady).toBe(true)
+  })
+
   describe('ipcRenderer bridge', () => {
     it('exposes ipcRenderer API with on/off/send/invoke', () => {
       expect(exposedApis.ipcRenderer).toBeDefined()

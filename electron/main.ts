@@ -97,7 +97,7 @@ async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeRe
   const rendererLoaded = await waitForMountedRenderer(
     () =>
       window.webContents.executeJavaScript(
-        'document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
+        'window.__buddyPreloadReady === true && document.readyState === "complete" && document.getElementById("root")?.childElementCount > 0'
       ),
     () => new Promise(resolve => setTimeout(resolve, 250))
   )

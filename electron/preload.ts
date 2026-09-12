@@ -35,6 +35,7 @@ function isValidBatchMonthlyRequestArgs(
 }
 
 // --------- Expose some API to the Renderer process ---------
+contextBridge.exposeInMainWorld('__buddyPreloadReady', true)
 contextBridge.exposeInMainWorld('ipcRenderer', {
   on(...args: Parameters<typeof ipcRenderer.on>) {
     const [channel, listener] = args

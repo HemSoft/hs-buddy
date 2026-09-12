@@ -40,6 +40,7 @@
   },
   linux: {
     executableName: 'Buddy',
+    maintainer: 'HemSoft <hemsoft@users.noreply.github.com>',
     target: ['deb'],
     artifactName: '${productName}-${version}-${arch}.${ext}',
   },

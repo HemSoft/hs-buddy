@@ -86,6 +86,7 @@ describe('desktop package qualification workflow', () => {
     for (const value of ['nsis', 'deb', 'dmg', 'arm64', 'x64']) {
       expect(builderConfig).toMatch(new RegExp(`["']${value}["']`))
     }
+    expect(builderConfig).toContain("maintainer: 'HemSoft <hemsoft@users.noreply.github.com>'")
   })
 
   it('checks the renderer and native dependencies from the packaged runtime', () => {

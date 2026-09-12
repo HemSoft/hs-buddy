@@ -231,7 +231,7 @@ Code-inspired layout:
 
 ```text
 ┌──────────────────────────────────────────────────────────┐
-│ [≡] Buddy v0.1.608                      [−] [□] [×]     │
+│ [≡] Buddy                               [−] [□] [×]     │
 ├────┬────────────────────────┬────────────────────────────┤
 │    │  Sidebar               │  Tab Bar                   │
 │ 🔀 │                        ├────────────────────────────┤
@@ -267,7 +267,7 @@ The Crew, Tempo, Bookmarks, Copilot, Settings.
 | Icons      | lucide-react                                       |
 | Layout     | allotment (resizable panes)                        |
 | Storage    | electron-store (local config)                      |
-| Build      | Vite + electron-builder (NSIS/DMG/AppImage)        |
+| Build      | Vite + electron-builder (NSIS/DMG/DEB)             |
 | CI         | GitHub Actions, Bun 1.3.7, Node 24.12.0            |
 
 ---

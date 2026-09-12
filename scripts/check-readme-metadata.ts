@@ -169,6 +169,10 @@ function validateVision(
       `docs/VISION.md must declare ${schemaCount} Convex schema tables plus system storage.`,
     ],
     [
+      `${schemaCount} schema tables · scheduled jobs`,
+      `docs/VISION.md architecture must declare ${schemaCount} schema tables.`,
+    ],
+    [
       `**BDD**: ${featureCount} tracked Gherkin feature specs`,
       `docs/VISION.md must declare ${featureCount} tracked Gherkin feature specs.`,
     ],

@@ -32,6 +32,7 @@ Project tree: 2 schema tables`,
     contributing: '[Node.js](https://nodejs.org/) 22+',
     vision: `| Desktop    | Electron 44 |
 Electron 44 + React 19 + Vite 8
+2 schema tables · scheduled jobs
 React 19, TypeScript 6, Vite 8
 Convex 1.45.0
 \`@github/copilot-sdk\` 1.0.13
@@ -63,16 +64,19 @@ describe('validateDocumentationMetadata', () => {
   it('reports stale schema and feature totals', () => {
     const stale = sources()
     stale.readme = stale.readme.replace('2 schema tables', '1 schema tables')
-    stale.vision = stale.vision.replace('6 tracked Gherkin', '3 tracked Gherkin')
+    stale.vision = stale.vision
+      .replace('6 tracked Gherkin', '3 tracked Gherkin')
+      .replace('2 schema tables ·', '1 schema tables ·')
     expect(validateDocumentationMetadata(stale, packageJson)).toEqual(
       expect.arrayContaining([
         'README.md must declare 2 schema tables in both maintained claims.',
         'docs/VISION.md must declare 6 tracked Gherkin feature specs.',
+        'docs/VISION.md architecture must declare 2 schema tables.',
       ])
     )
   })
 
-  it('reports a missing CI badge and invalid package metadata', () => {
+  it('reports stale README prerequisites, a missing CI badge, and invalid package metadata', () => {
     const missingBadge = sources()
     missingBadge.readme = missingBadge.readme.replace(ciBadge, '')
     missingBadge.readme = missingBadge.readme.replace('**Node.js 22+**', '**Node.js 20+**')

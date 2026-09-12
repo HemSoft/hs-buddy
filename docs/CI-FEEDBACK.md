@@ -56,9 +56,22 @@ and baseline justification.
 
 Pushes to `main`, manual dispatches, and merge groups always run full qualification.
 A daily run at 07:23 UTC provides an additional backstop. GitHub can delay scheduled
-runs, so a nightly success does not validate a different release candidate. Before
-release, require successful checks for that candidate. HemSoft owns investigation
-of failed default-branch or scheduled qualification before the next release.
+runs, so a nightly success does not validate a different release candidate.
+
+The release workflow listens only for a completed, successful `CI` run caused by a
+`main` push. Before publishing, it verifies that the triggering run contains one
+successful `ci-complete` job, its head SHA is still the live `main` SHA, and that
+commit changed the package version from its parent. The workflow creates the tag
+at that exact SHA before creating the release. Existing tags must already resolve
+to the same commit and are never moved. Failed, canceled, non-push, duplicate, and
+superseded runs cannot publish.
+
+Releases [`v0.1.1159`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1159)
+and [`v0.1.1191`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1191)
+predate this gate and remain available as historical unqualified releases. Their
+release notes warn that exact-SHA CI failed or was canceled. Do not use either as
+evidence of a qualified build. HemSoft owns investigation of failed default-branch
+or scheduled qualification before the next release.
 
 Run the complete workflow manually with `gh workflow run ci.yml --ref <ref>` after
 verifying the active GitHub identity. Merge queue triggers are supported here;

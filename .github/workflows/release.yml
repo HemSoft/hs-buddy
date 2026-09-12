@@ -1,61 +1,115 @@
 name: Release
 
 on:
-  push:
-    branches: [main]
-    paths: [package.json]
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
 
 permissions:
+  actions: read
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release
   cancel-in-progress: false
 
 jobs:
   release:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPOSITORY: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha }}
 
     steps:
-      - name: Checkout repository
+      - name: Verify exact CI qualification
+        run: |
+          set -euo pipefail
+          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
+          jobs="$(gh api --paginate "repos/$REPOSITORY/actions/runs/$RUN_ID/jobs?per_page=100" --slurp)"
+          count="$(jq '[.[].jobs[] | select(.name == "ci-complete" and .status == "completed" and .conclusion == "success")] | length' <<< "$jobs")"
+          test "$count" = "1"
+          test "$(gh api "repos/$REPOSITORY/actions/runs/$RUN_ID" --jq .head_sha)" = "$TARGET_SHA"
+
+      - name: Checkout qualified commit
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
           persist-credentials: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
-        with:
-          node-version: 24.12.0
-
-      - name: Read version from package.json
+      - name: Read candidate version
         id: version
         run: |
           set -euo pipefail
-          VERSION=$(node -p "require('./package.json').version")
-          SEMVER_REGEX='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$'
-          if [[ -z "$VERSION" ]] || ! [[ "$VERSION" =~ $SEMVER_REGEX ]]; then
-            echo "::error::Invalid version in package.json: '$VERSION'"
+          test "$(git rev-parse HEAD)" = "$TARGET_SHA"
+          parent="$(git rev-parse "$TARGET_SHA^")"
+          version="$(node -p "require('./package.json').version")"
+          parent_version="$(git show "$parent:package.json" | node -e 'let s=""; process.stdin.on("data",d=>s+=d); process.stdin.on("end",()=>console.log(JSON.parse(s).version))')"
+          semver='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'
+          if ! [[ "$version" =~ $semver ]]; then
+            echo "::error::Invalid version in package.json: '$version'"
             exit 1
           fi
-          printf '%s\n' "version=$VERSION" >> "$GITHUB_OUTPUT"
-          printf '%s\n' "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-
-      - name: Check if release already exists
-        id: check
-        run: |
-          if gh release view "${{ steps.version.outputs.tag }}" > /dev/null 2>&1; then
-            printf '%s\n' "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            printf '%s\n' "exists=false" >> "$GITHUB_OUTPUT"
+          if [ "$version" = "$parent_version" ]; then
+            echo "eligible=false" >> "$GITHUB_OUTPUT"
+            echo "package.json version did not change"
+            exit 0
           fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "eligible=true" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub release
-        if: steps.check.outputs.exists == 'false'
-        run: |
-          gh release create "${{ steps.version.outputs.tag }}" \
-            --title "${{ steps.version.outputs.tag }}" \
-            --generate-notes
+      - name: Recheck current candidate
+        if: steps.version.outputs.eligible == 'true'
+        run: test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
+
+      - name: Create immutable tag and release
+        if: steps.version.outputs.eligible == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          resolve_tag() {
+            local object type
+            object="$(gh api "repos/$REPOSITORY/git/ref/tags/$TAG")"
+            type="$(jq -r .object.type <<< "$object")"
+            object="$(jq -r .object.sha <<< "$object")"
+            if [ "$type" = "tag" ]; then
+              object="$(gh api "repos/$REPOSITORY/git/tags/$object" --jq .object.sha)"
+            fi
+            printf '%s\n' "$object"
+          }
+
+          tag_exists=false
+          if gh api "repos/$REPOSITORY/git/ref/tags/$TAG" >/dev/null 2>&1; then
+            tag_exists=true
+            test "$(resolve_tag)" = "$TARGET_SHA"
+          fi
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            test "$tag_exists" = "true"
+            echo "Release $TAG already exists at the qualified commit"
+            exit 0
+          fi
+
+          # Recheck immediately before the only publishing command. When the
+          # tag is absent, gh creates it at TARGET_SHA together with the release.
+          test "$(gh api "repos/$REPOSITORY/commits/main" --jq .sha)" = "$TARGET_SHA"
+          if [ "$tag_exists" = "true" ]; then
+            gh release create "$TAG" \
+              --repo "$REPOSITORY" \
+              --verify-tag \
+              --title "$TAG" \
+              --generate-notes
+          else
+            gh release create "$TAG" \
+              --repo "$REPOSITORY" \
+              --target "$TARGET_SHA" \
+              --title "$TAG" \
+              --generate-notes
+          fi
+          test "$(resolve_tag)" = "$TARGET_SHA"

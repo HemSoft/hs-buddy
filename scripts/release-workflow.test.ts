@@ -132,6 +132,14 @@ describe('release cleanup and idempotency contract', () => {
     expect(workflow).toContain('previous_run_id="${BASH_REMATCH[1]}"')
     expect(workflow).toContain('tag_owner_run_id="$previous_run_id"')
     expect(workflow).toContain('tag_owned_target="$tag_target"')
+    const recoveryIndex = workflow.indexOf('previous_run_id="${BASH_REMATCH[1]}"')
+    const recoveryDeleteIndex = workflow.indexOf('delete_tag_ref', recoveryIndex)
+    expect(workflow.indexOf('tag_owner_run_id="$RUN_ID"', recoveryDeleteIndex)).toBeGreaterThan(
+      recoveryDeleteIndex
+    )
+    expect(workflow.indexOf('tag_owned_target="$TARGET_SHA"', recoveryDeleteIndex)).toBeGreaterThan(
+      recoveryDeleteIndex
+    )
     expect(workflow).toContain('live_previous_release="$(')
     expect(workflow).toContain('repos/$REPOSITORY/releases/$previous_release_id')
     expect(workflow).toContain('test "$replacement_release_count" = 0')

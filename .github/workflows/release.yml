@@ -101,34 +101,52 @@ jobs:
             retry_command gh api "$@"
           }
           delete_release_id() {
-            local release_to_delete=$1 remaining
-            if gh api --method DELETE "repos/$REPOSITORY/releases/$release_to_delete"; then
-              return
-            fi
-            remaining="$(
-              retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
-                jq --argjson id "$release_to_delete" '[.[][] | select(.id == $id)] | length'
-            )"
-            test "$remaining" = 0
+            local release_to_delete=$1 attempt remaining
+            for attempt in 1 2 3; do
+              if gh api --method DELETE "repos/$REPOSITORY/releases/$release_to_delete"; then
+                return
+              fi
+              remaining="$(
+                retry_api --paginate "repos/$REPOSITORY/releases?per_page=100" --slurp |
+                  jq --argjson id "$release_to_delete" '[.[][] | select(.id == $id)] | length'
+              )"
+              if [ "$remaining" = 0 ]; then
+                return
+              fi
+              sleep "$attempt"
+            done
+            return 1
           }
           delete_tag_ref() {
-            local remaining
-            if gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"; then
-              return
-            fi
-            remaining="$(
-              retry_api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
-                jq --arg ref "refs/tags/$TAG" '[.[] | select(.ref == $ref)] | length'
-            )"
-            test "$remaining" = 0
+            local attempt remaining
+            for attempt in 1 2 3; do
+              if gh api --method DELETE "repos/$REPOSITORY/git/refs/tags/$TAG"; then
+                return
+              fi
+              remaining="$(
+                retry_api "repos/$REPOSITORY/git/matching-refs/tags/$TAG" |
+                  jq --arg ref "refs/tags/$TAG" '[.[] | select(.ref == $ref)] | length'
+              )"
+              if [ "$remaining" = 0 ]; then
+                return
+              fi
+              sleep "$attempt"
+            done
+            return 1
           }
           restore_tag_ref() {
-            local object=$1
-            if gh api --method POST "repos/$REPOSITORY/git/refs" \
-              -f ref="refs/tags/$TAG" -f sha="$object" >/dev/null; then
-              return
-            fi
-            test "$(retry_api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$object"
+            local object=$1 attempt
+            for attempt in 1 2 3; do
+              if gh api --method POST "repos/$REPOSITORY/git/refs" \
+                -f ref="refs/tags/$TAG" -f sha="$object" >/dev/null; then
+                return
+              fi
+              if [ "$(retry_api "repos/$REPOSITORY/git/ref/tags/$TAG" --jq .object.sha)" = "$object" ]; then
+                return
+              fi
+              sleep "$attempt"
+            done
+            return 1
           }
           cleanup_owned_artifacts() {
             if [ "$managed_release" = false ]; then

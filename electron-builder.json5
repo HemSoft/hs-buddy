@@ -34,6 +34,7 @@
     "deleteAppDataOnUninstall": false
   },
   "mac": {
+    "icon": "public/icon-512.png",
     "minimumSystemVersion": "13.0",
     "target": [
       {
@@ -48,6 +49,7 @@
     "category": "public.app-category.productivity"
   },
   "linux": {
+    "executableName": "Buddy",
     "target": ["AppImage"],
     "artifactName": "${productName}-${version}.${ext}"
   }

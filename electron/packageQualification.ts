@@ -1,4 +1,4 @@
-export const PACKAGE_NATIVE_MODULES = ['node-pty', 'koffi'] as const
+const PACKAGE_NATIVE_MODULES = ['node-pty', 'koffi'] as const
 
 export interface PackageDependencyReport {
   nativeModules: string[]

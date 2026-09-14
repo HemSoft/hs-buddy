@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1244] - 2026-09-14
+
+### Changed
+
+- Stabilize lazy module imports
+
 ## [0.1.1243] - 2026-09-14
 
 ### Changed

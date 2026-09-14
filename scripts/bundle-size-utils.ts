@@ -1,6 +1,4 @@
-import { ImportType, initSync, parse } from 'es-module-lexer'
-
-initSync()
+import { parse } from 'es-module-lexer'
 
 export interface BundleEntry {
   file: string
@@ -57,11 +55,8 @@ export function parseStaticModuleImports(source: string): string[] {
   return [
     ...new Set(
       imports.flatMap(record =>
-        record.n &&
-        (record.t === ImportType.Static ||
-          record.t === ImportType.StaticSourcePhase ||
-          record.t === ImportType.StaticDeferPhase)
-          ? [record.n]
+        (record.type === 'static' || record.type === 'reexport-star') && record.specifier
+          ? [record.specifier]
           : []
       )
     ),

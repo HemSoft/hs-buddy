@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1243] - 2026-09-14
+
+### Changed
+
+- Integrate Dependabot workflow fix
+
+## [0.1.1242] - 2026-09-14
+
+### Changed
+
+- Correct es-module-lexer duplicate source
+
+## [0.1.1241] - 2026-09-14
+
+### Changed
+
+- Merge main into es-module-lexer update
+
+## [0.1.1240] - 2026-09-14
+
+### Fixed
+
+- Preserve bundle import traversal
+
+## [0.1.1239] - 2026-09-14
+
+### Fixed
+
+- Migrate es-module-lexer v3 API
+
 ## [0.1.1238] - 2026-09-14
 
 ### Changed

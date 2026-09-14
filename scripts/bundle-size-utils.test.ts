@@ -110,6 +110,7 @@ describe('initial renderer graph', () => {
       import './side-effect.js'
       import value from './value.js'
       export { shared } from './shared.js'
+      export * from './star.js'
       import('./dynamic.js')
     `
 
@@ -117,6 +118,7 @@ describe('initial renderer graph', () => {
       './side-effect.js',
       './value.js',
       './shared.js',
+      './star.js',
     ])
   })
 

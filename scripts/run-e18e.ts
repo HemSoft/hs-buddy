@@ -9,8 +9,7 @@ const documentedDirectExceptions = new Set([
   '@opentelemetry/resources',
   '@opentelemetry/sdk-metrics',
   '@types/node',
-  // Pinned at 2.x for the bundle-size tooling's wasm lexer API (initSync);
-  // import-in-the-middle separately requires ^3.0.2, so both majors coexist.
+  // Root and import-in-the-middle use 3.x; Vitest 5 still requires ^2.3.2.
   'es-module-lexer',
   'esbuild',
   'globals',

@@ -1,9 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { basename, dirname, relative, resolve } from 'node:path'
-import { initSync, parse } from 'es-module-lexer'
+import { parse } from 'es-module-lexer'
 import { humanSize, type BundleEntry } from './bundle-size-utils'
-
-initSync()
 
 interface PendingChunk {
   path: string
@@ -45,7 +43,9 @@ export function collectElectronMainChunks(distElectronDir: string): BundleEntry[
 
     const source = sourceBytes.toString('utf8')
     const [imports] = parse(source)
-    for (const { n: specifier } of imports) {
+    for (const record of imports) {
+      if (record.type === 'dynamic' && record.glob) continue
+      const { specifier } = record
       if (!specifier?.startsWith('.') || !specifier.endsWith('.js')) continue
       pending.push({ path: resolve(dirname(filePath), specifier), importer: filePath })
     }

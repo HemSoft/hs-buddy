@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1238] - 2026-09-14
+
+### Changed
+
+- Pin Dependabot polling interval
+
 ## [0.1.1237] - 2026-09-14
 
 ### Fixed

@@ -96,8 +96,8 @@ describe('trusted Dependabot writer', () => {
     expect(writeJob).toContain('timeout "$remaining" gh api')
     expect(writeJob).toContain('if [ "$attempt" -lt 30 ]; then')
     expect(writeJob).toContain('Waiting for pull request head to update ($attempt/30)')
-    expect(writeJob).toContain('sleep 1')
-    expect(writeJob.indexOf('sleep 1')).toBeLessThan(
+    expect(writeJob).toContain('sleep 1\n')
+    expect(writeJob.indexOf('sleep 1\n')).toBeLessThan(
       writeJob.indexOf('test "$observed_head" = "$pushed_sha"')
     )
   })

@@ -79,31 +79,32 @@ describe('detectMemoryLeak', () => {
     expect(result.summary).toContain('No leak detected')
   })
 
-  it('detects leak when operation accumulates memory', async () => {
-    // Simulate a leak with small but consistent allocations to avoid CI flakiness.
-    // Uses 10 cycles × 10k-number arrays (~80KB each) — enough to detect a trend
-    // without heavy allocation overhead.
-    const leakyStore: number[][] = []
+  it('detects leak when measured memory grows consistently', async () => {
+    let heapUsed = 100_000
 
     const result = await detectMemoryLeak({
-      operation: () => {
-        // Each cycle adds ~80KB that's retained
-        leakyStore.push(Array.from({ length: 10_000 }, (_, i) => i))
-      },
+      operation: () => {},
       cycles: 10,
       warmupCycles: 2,
-      leakThresholdBytes: 50 * 1024, // 50KB threshold — low enough to catch the small leak
+      leakThresholdBytes: 50 * 1024,
       forceGC: false,
+      memoryUsage: () => {
+        heapUsed += 80_000
+        return {
+          heapUsed,
+          heapTotal: 2_000_000,
+          rss: 3_000_000,
+          external: 0,
+          arrayBuffers: 0,
+        }
+      },
     })
 
-    // With 10 cycles × ~80KB = ~800KB growth, this should detect a leak
     expect(result.leaked).toBe(true)
-    expect(result.heapGrowthBytes).toBeGreaterThan(50 * 1024)
-    expect(result.slope).toBeGreaterThan(0)
+    expect(result.heapGrowthBytes).toBe(720_000)
+    expect(result.slope).toBe(80_000)
+    expect(result.rSquared).toBe(1)
     expect(result.summary).toContain('LEAK DETECTED')
-
-    // Clean up to avoid affecting other tests
-    leakyStore.length = 0
   })
 
   it('returns correct snapshot count', async () => {

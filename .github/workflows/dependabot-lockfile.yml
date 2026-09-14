@@ -176,13 +176,20 @@ jobs:
           # can briefly return its cached pre-update head. Wait for the PR view
           # to converge before dispatching CI for the generated commit.
           observed_head=""
+          deadline=$((SECONDS + 30))
           for attempt in $(seq 1 30); do
-            observed_head="$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)"
+            remaining=$((deadline - SECONDS))
+            if [ "$remaining" -le 0 ]; then
+              break
+            fi
+            observed_head="$(timeout "$remaining" gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha || true)"
             if [ "$observed_head" = "$pushed_sha" ]; then
               break
             fi
-            echo "Waiting for pull request head to update ($attempt/30)"
-            sleep 1
+            if [ "$attempt" -lt 30 ]; then
+              echo "Waiting for pull request head to update ($attempt/30)"
+              sleep 1
+            fi
           done
           test "$observed_head" = "$pushed_sha"
 

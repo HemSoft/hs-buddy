@@ -15,6 +15,9 @@ const documentedDirectExceptions = new Set([
   'esbuild',
   'globals',
   'prettier',
+  // Lighthouse 13.4.1 retains puppeteer-core 25.7.0 even though its ^25.3.0
+  // range also accepts the direct 25.10.0 version.
+  'puppeteer-core',
   'typescript',
   'vscode-jsonrpc',
 ])

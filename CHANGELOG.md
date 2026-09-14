@@ -9,23 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1246] - 2026-09-14
+## [0.1.1248] - 2026-09-14
+
+### Changed
+
+- Integrate lazy module stabilization
+
+## [0.1.1247] - 2026-09-14
 
 ### Fixed
 
 - Deduplicate Puppeteer lockfile
 
-## [0.1.1245] - 2026-09-14
+## [0.1.1246] - 2026-09-14
 
 ### Changed
 
 - Integrate es-module-lexer migration
 
+## [0.1.1245] - 2026-09-14
+
+### Changed
+
+- Update Puppeteer duplicate handling
+
 ## [0.1.1244] - 2026-09-14
 
 ### Changed
 
-- Document puppeteer duplicate
+- Stabilize lazy module imports
 
 ## [0.1.1243] - 2026-09-14
 

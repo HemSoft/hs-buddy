@@ -46,6 +46,18 @@
 
 ## Installation
 
+Download the installers and `SHA256SUMS` from the
+[latest GitHub release](https://github.com/HemSoft/hs-buddy/releases/latest).
+Verify the selected package against `SHA256SUMS` with the platform-native
+command in [Release signing and publication](docs/RELEASE-SIGNING.md) before
+opening it.
+
+Windows users can inspect the installer signature with
+`Get-AuthenticodeSignature .\Buddy-*-Setup.exe`. The release guide provides the
+macOS commands to mount the DMG at an explicit temporary path and verify its
+code signature and notarization ticket. The signing policy, checksum commands,
+and failure recovery procedure are maintained there.
+
 ### Supported desktop packages
 
 | Operating system | Architecture        | Package        | CI qualification                                                              |
@@ -58,8 +70,9 @@
 Every package qualification loads the production renderer and the packaged
 `node-pty`, `koffi`, and platform-specific Copilot native dependencies. The
 installer and a startup log are retained with the CI run when qualification
-fails. These are unsigned build-and-start checks; release signing and Apple
-notarization are separate delivery controls.
+fails. Pull-request qualification uses unsigned build-and-start checks. Published
+release packages pass the signing and notarization controls in
+[Release signing and publication](docs/RELEASE-SIGNING.md).
 
 The required matrix uses one standard hosted runner for each row, runs all four
 jobs in parallel, and caps each job at 35 minutes. Other operating-system

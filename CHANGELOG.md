@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1249] - 2026-09-14
+
+### Added
+
+- Publish signed desktop installers (#709)
+
 ## [0.1.1248] - 2026-09-14
 
 ### Changed

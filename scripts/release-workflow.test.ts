@@ -7,6 +7,9 @@ const workflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/release.yml'),
   'utf8'
 ).replaceAll('\r\n', '\n')
+const qualifyJob = workflow.split('\n  qualify:\n')[1]?.split('\n  package-release:\n')[0] ?? ''
+const packageJob = workflow.split('\n  package-release:\n')[1]?.split('\n  release:\n')[0] ?? ''
+const releaseJob = workflow.split('\n  release:\n')[1] ?? ''
 
 const bashAvailable = spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0
 const waitFunctionStart = workflow.indexOf('          wait_for_exact_release() {')
@@ -45,6 +48,97 @@ const duplicateFailureAssertion = `wait_for_exact_release
 status=$?
 printf '%s\\n%s\\n' "$status" "$(cat "$counter")"`
 
+function packageMatrixRows(): Record<string, string>[] {
+  const matrix = `${packageJob.split('\n      matrix:\n')[1]?.split('\n    env:\n')[0] ?? ''}\n`
+  return [...matrix.matchAll(/^ {10}- name: (.+)\n((?: {12}.+\n)+)/gm)].map(match => {
+    const properties = [...match[2].matchAll(/^ {12}([a-z-]+): (.+)$/gm)].map(property => [
+      property[1],
+      property[2],
+    ])
+    return { name: match[1], ...Object.fromEntries(properties) }
+  })
+}
+
+function packageStep(name: string): string {
+  return packageJob.split(`\n      - name: ${name}\n`)[1]?.split('\n      - name: ')[0] ?? ''
+}
+
+const expectedPackageMatrix = [
+  {
+    name: 'Windows x64',
+    runner: 'windows-2025',
+    'builder-platform': 'win',
+    target: 'nsis',
+    platform: 'win32',
+    arch: 'x64',
+    'package-pattern': "'*.exe'",
+    signing: 'authenticode',
+    'signing-config': '--config.forceCodeSigning=true',
+  },
+  {
+    name: 'Linux x64',
+    runner: 'ubuntu-24.04',
+    'builder-platform': 'linux',
+    target: 'deb',
+    platform: 'linux',
+    arch: 'x64',
+    'package-pattern': "'*.deb'",
+    signing: 'not-applicable',
+    'signing-config': "''",
+  },
+  {
+    name: 'macOS Intel',
+    runner: 'macos-15-intel',
+    'builder-platform': 'mac',
+    target: 'dmg',
+    platform: 'darwin',
+    arch: 'x64',
+    'package-pattern': "'*.dmg'",
+    signing: 'apple-notarized',
+    'signing-config': '--config.forceCodeSigning=true --config.mac.notarize=true',
+  },
+  {
+    name: 'macOS Apple silicon',
+    runner: 'macos-15',
+    'builder-platform': 'mac',
+    target: 'dmg',
+    platform: 'darwin',
+    arch: 'arm64',
+    'package-pattern': "'*.dmg'",
+    signing: 'apple-notarized',
+    'signing-config': '--config.forceCodeSigning=true --config.mac.notarize=true',
+  },
+]
+
+function expectPlatformScopedSecrets(): void {
+  const windowsRequirement = packageStep('Require Windows signing credentials')
+  const windowsBuild = packageStep('Build signed Windows distributable')
+  const appleRequirement = packageStep('Require Apple signing credentials')
+  const appleBuild = packageStep('Build signed macOS distributable')
+  const linuxBuild = packageStep('Build Linux distributable')
+  for (const secret of ['WINDOWS_CSC_LINK', 'WINDOWS_CSC_KEY_PASSWORD']) {
+    expect(windowsRequirement).toContain(`secrets.${secret}`)
+    expect(windowsBuild).toContain(`secrets.${secret}`)
+    expect(appleBuild).not.toContain(`secrets.${secret}`)
+    expect(linuxBuild).not.toContain(`secrets.${secret}`)
+  }
+  for (const secret of [
+    'MACOS_CSC_LINK',
+    'MACOS_CSC_KEY_PASSWORD',
+    'APPLE_ID',
+    'APPLE_APP_SPECIFIC_PASSWORD',
+    'APPLE_TEAM_ID',
+  ]) {
+    expect(appleRequirement).toContain(`secrets.${secret}`)
+    expect(appleBuild).toContain(`secrets.${secret}`)
+    expect(windowsBuild).not.toContain(`secrets.${secret}`)
+    expect(linuxBuild).not.toContain(`secrets.${secret}`)
+  }
+  expect(windowsRequirement).toContain('test -n "$WIN_CSC_LINK"')
+  expect(appleRequirement).toContain('test -n "$APPLE_TEAM_ID"')
+  expect(linuxBuild).not.toContain('secrets.')
+}
+
 describe('release workflow qualification contract', () => {
   it('starts only from a successful main push CI completion', () => {
     expect(workflow).toContain('workflow_run:')
@@ -56,16 +150,16 @@ describe('release workflow qualification contract', () => {
   })
 
   it('binds qualification and API-only version reads to one SHA', () => {
-    expect(workflow).toContain('TARGET_SHA: ${{ github.event.workflow_run.head_sha }}')
-    expect(workflow).toContain('actions/runs/$RUN_ID/jobs?per_page=100')
-    expect(workflow).toContain('.[].jobs[]')
-    expect(workflow).toContain('.name == "ci-complete"')
-    expect(workflow).toContain('.conclusion == "success"')
-    expect(workflow).not.toContain('actions/checkout')
-    expect(workflow).not.toContain('git checkout')
-    expect(workflow).toContain('git/commits/$TARGET_SHA')
-    expect(workflow).toContain('contents/package.json?ref=$TARGET_SHA')
-    expect(workflow).toContain('contents/package.json?ref=$parent')
+    expect(qualifyJob).toContain('TARGET_SHA: ${{ github.event.workflow_run.head_sha }}')
+    expect(qualifyJob).toContain('actions/runs/$RUN_ID/jobs?per_page=100')
+    expect(qualifyJob).toContain('.[].jobs[]')
+    expect(qualifyJob).toContain('.name == "ci-complete"')
+    expect(qualifyJob).toContain('.conclusion == "success"')
+    expect(qualifyJob).not.toContain('actions/checkout')
+    expect(qualifyJob).not.toContain('git checkout')
+    expect(qualifyJob).toContain('git/commits/$TARGET_SHA')
+    expect(qualifyJob).toContain('contents/package.json?ref=$TARGET_SHA')
+    expect(qualifyJob).toContain('contents/package.json?ref=$parent')
   })
 
   it('accepts SemVer and rejects malformed identifiers', () => {
@@ -79,6 +173,73 @@ describe('release workflow qualification contract', () => {
     for (const invalid of ['1.2.3-01', '1.2.3+.', '01.2.3', '1.2']) {
       expect(semver.test(invalid)).toBe(false)
     }
+    expect(releaseJob).toContain('version_without_build="${VERSION%%+*}"')
+    expect(releaseJob).toContain('prerelease_args=(--prerelease)')
+    expect(releaseJob).toContain('"${prerelease_args[@]}"')
+    expect(releaseJob.match(/\.prerelease/g)).toHaveLength(2)
+  })
+})
+
+describe('signed release package contract', () => {
+  it('builds every supported package from the qualified commit', () => {
+    expect(packageJob).toContain('environment: release-signing')
+    expect(packageJob).toContain('ref: ${{ github.event.workflow_run.head_sha }}')
+    expect(packageJob).toContain('persist-credentials: false')
+    expect(packageJob).toContain('bun install --frozen-lockfile --ignore-scripts')
+    expect(packageJob).toContain('packages=(release/"$VERSION"/${{ matrix.package-pattern }})')
+    expect(packageJob).not.toContain('mapfile')
+    expect(packageJob).not.toContain('-maxdepth')
+    expect(packageJob).toContain('test "$(git rev-parse HEAD)" = "$TARGET_SHA"')
+    expect(packageMatrixRows()).toEqual(expectedPackageMatrix)
+    expect(packageStep('Verify Windows signature and install')).toContain(
+      "if: runner.os == 'Windows'"
+    )
+    expect(packageStep('Verify Windows signature and install')).toContain(
+      'Get-AuthenticodeSignature'
+    )
+    expect(packageStep('Notarize and staple macOS DMG')).toContain("if: runner.os == 'macOS'")
+    expect(packageStep('Notarize and staple macOS DMG')).toContain('xcrun notarytool submit')
+    expect(packageStep('Notarize and staple macOS DMG')).toContain('xcrun stapler staple')
+    expect(packageStep('Mount and verify macOS distributable')).toContain(
+      "if: runner.os == 'macOS'"
+    )
+    expect(packageStep('Mount and verify macOS distributable')).toContain(
+      'codesign --verify --deep --strict'
+    )
+    expect(packageStep('Mount and verify macOS distributable')).toContain('xcrun stapler validate')
+    expect(packageStep('Build signed Windows distributable')).toContain(
+      "if: runner.os == 'Windows'"
+    )
+    expect(packageStep('Build Linux distributable')).toContain("if: runner.os == 'Linux'")
+    expect(packageStep('Build signed macOS distributable')).toContain("if: runner.os == 'macOS'")
+    expect(packageStep('Start packaged application')).toContain('bun run package:smoke')
+  })
+
+  it('fails closed without protected credentials and scopes them by platform', () => {
+    expectPlatformScopedSecrets()
+  })
+
+  it('assembles and verifies the complete draft asset set before publication', () => {
+    expect(releaseJob).toContain('needs: [qualify, package-release]')
+    expect(releaseJob).toContain('pattern: release-package-*')
+    expect(releaseJob).toContain('bun scripts/release-artifacts.ts assemble')
+    expect(releaseJob).toContain('mapfile -t existing_asset_ids')
+    expect(releaseJob).toContain(
+      'gh api --method DELETE "repos/$REPOSITORY/releases/assets/$asset_id"'
+    )
+    expect(releaseJob.indexOf('mapfile -t existing_asset_ids')).toBeLessThan(
+      releaseJob.indexOf('gh release upload')
+    )
+    expect(releaseJob).toContain('gh release upload "$TAG" release-publish/*')
+    expect(releaseJob).toContain('test "${#release_files[@]}" = 6')
+    expect(releaseJob).toContain('Accept: application/octet-stream')
+    expect(releaseJob).toContain('if [ "$mode" = compare-local ]; then')
+    expect(releaseJob).toContain('cmp "release-publish/$file" "$download_dir/$file"')
+    expect(releaseJob).toContain('bun scripts/release-artifacts.ts verify')
+    expect(releaseJob).toContain('sha256sum --check SHA256SUMS')
+    expect(releaseJob.indexOf('gh release upload')).toBeLessThan(
+      releaseJob.indexOf('-F draft=false')
+    )
   })
 })
 
@@ -100,13 +261,17 @@ describe('release artifact safety contract', () => {
     expect(workflow).toContain('if [ "$version" = "$parent_version" ]')
     expect(workflow).toContain('select(.tag_name == $tag and .draft == false)')
     expect(workflow).toContain('if [ "$published_count" != 0 ]')
+    expect(workflow).toContain('Revalidating published version $version from the qualified commit')
     expect(workflow).toContain(
       'Carrying forward unpublished version $version from a superseded run'
     )
     expect(workflow).toMatch(
       /Carrying forward unpublished version \$version[\s\S]+echo "eligible=true" >> "\$GITHUB_OUTPUT"/
     )
-    expect(workflow).toContain('eligible=false')
+    expect(workflow).toMatch(
+      /Revalidating published version \$version[\s\S]+echo "eligible=true" >> "\$GITHUB_OUTPUT"/
+    )
+    expect(workflow).not.toContain('eligible=false')
   })
 
   it('fails closed while checking tags and never moves an existing tag', () => {
@@ -189,15 +354,24 @@ describe('release cleanup and idempotency contract', () => {
     expect(workflow).toContain('<!-- hs-buddy-release-ci:$previous_run_id -->')
   })
 
-  it('serializes retries and makes an existing matching release a no-op', () => {
-    expect(workflow).toMatch(/runs-on: ubuntu-latest\n {4}concurrency:\n {6}group: release/)
-    expect(workflow).not.toMatch(/^concurrency:/m)
+  it('serializes retries and validates an existing matching public release', () => {
+    expect(workflow).toMatch(
+      /^concurrency:\n {2}group: release-\$\{\{.+\}\}\n {2}cancel-in-progress: false/m
+    )
+    expect(workflow.match(/^concurrency:/gm)).toHaveLength(1)
     expect(workflow).toContain('cancel-in-progress: false')
     expect(workflow).toContain('repos/$REPOSITORY/releases?per_page=100')
     expect(workflow).toContain('select(.tag_name == $tag)')
     expect(workflow).toContain('live_release="$(gh api "repos/$REPOSITORY/releases/$release_id")"')
-    expect(workflow).toContain('Release $TAG already exists at the qualified commit')
-    expect(workflow).toContain('exit 0')
+    expect(workflow).toContain('validate_release_assets "$public_release_id"')
+    expect(workflow).toContain('validate_release_assets "$release_id" compare-local')
+    expect(workflow).toContain('Release $TAG already has the complete verified asset set')
+    const publicReleaseBranch =
+      workflow.split('if [ "$(jq -r .draft <<< "$release_json")" = false ]; then')[1] ?? ''
+    expect(publicReleaseBranch.indexOf('validate_release_assets')).toBeGreaterThan(-1)
+    expect(publicReleaseBranch.indexOf('validate_release_assets')).toBeLessThan(
+      publicReleaseBranch.indexOf('exit 0')
+    )
   })
 })
 

@@ -40,6 +40,8 @@ export interface MemoryLeakOptions {
   leakThresholdBytes?: number
   /** Force GC between cycles if available (default: true). */
   forceGC?: boolean
+  /** Memory sampler used after each measured cycle (default: process.memoryUsage). */
+  memoryUsage?: () => NodeJS.MemoryUsage
 }
 
 export interface MemoryLeakResult {
@@ -179,6 +181,7 @@ function resolveLeakOptions(options: MemoryLeakOptions) {
     warmupCycles: options.warmupCycles ?? DEFAULT_WARMUP_CYCLES,
     leakThresholdBytes: options.leakThresholdBytes ?? DEFAULT_LEAK_THRESHOLD_BYTES,
     forceGC: options.forceGC ?? true,
+    memoryUsage: options.memoryUsage ?? process.memoryUsage,
   }
 }
 
@@ -186,7 +189,7 @@ function resolveLeakOptions(options: MemoryLeakOptions) {
  * Run the operation repeatedly and detect memory leaks via heap growth analysis.
  */
 export async function detectMemoryLeak(options: MemoryLeakOptions): Promise<MemoryLeakResult> {
-  const { operation, cycles, warmupCycles, leakThresholdBytes, forceGC } =
+  const { operation, cycles, warmupCycles, leakThresholdBytes, forceGC, memoryUsage } =
     resolveLeakOptions(options)
 
   validateOptions(cycles, warmupCycles)
@@ -206,7 +209,7 @@ export async function detectMemoryLeak(options: MemoryLeakOptions): Promise<Memo
     await operation()
     doGC()
 
-    const mem = process.memoryUsage()
+    const mem = memoryUsage()
     snapshots.push({
       cycle,
       heapUsed: mem.heapUsed,

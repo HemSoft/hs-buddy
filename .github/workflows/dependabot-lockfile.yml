@@ -171,7 +171,27 @@ jobs:
           jq -n --arg sha "$commit_sha" '{sha: $sha, force: false}' > ref.json
           pushed_sha="$(gh api --method PATCH "repos/$REPOSITORY/git/refs/heads/$HEAD_REF" --input ref.json --jq .object.sha)"
           test "$pushed_sha" = "$commit_sha"
-          test "$(gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha)" = "$pushed_sha"
+
+          # The Git ref update is authoritative, but the pull request endpoint
+          # can briefly return its cached pre-update head. Wait for the PR view
+          # to converge before dispatching CI for the generated commit.
+          observed_head=""
+          deadline=$((SECONDS + 30))
+          for attempt in $(seq 1 30); do
+            remaining=$((deadline - SECONDS))
+            if [ "$remaining" -le 0 ]; then
+              break
+            fi
+            observed_head="$(timeout "$remaining" gh api "repos/$REPOSITORY/pulls/$PR_NUMBER" --jq .head.sha || true)"
+            if [ "$observed_head" = "$pushed_sha" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 30 ]; then
+              echo "Waiting for pull request head to update ($attempt/30)"
+              sleep 1
+            fi
+          done
+          test "$observed_head" = "$pushed_sha"
 
           echo "pushed=true" >> "$GITHUB_OUTPUT"
           echo "sha=$pushed_sha" >> "$GITHUB_OUTPUT"

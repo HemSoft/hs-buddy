@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1238] - 2026-09-14
+
+### Changed
+
+- Pin Dependabot polling interval
+
+## [0.1.1237] - 2026-09-14
+
+### Fixed
+
+- Bound Dependabot head polling
+
+## [0.1.1236] - 2026-09-14
+
+### Fixed
+
+- Wait for Dependabot PR head consistency
+
+## [0.1.1235] - 2026-09-14
+
+### Changed
+
+- Make memory leak detection deterministic
+
 ## [0.1.1234] - 2026-09-12
 
 ### Fixed

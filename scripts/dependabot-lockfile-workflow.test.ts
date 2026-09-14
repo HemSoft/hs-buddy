@@ -90,6 +90,12 @@ describe('trusted Dependabot writer', () => {
     expect(writeJob).toContain('git/refs/heads/$HEAD_REF')
   })
 
+  it('waits for the pull request endpoint to observe the committed head', () => {
+    expect(writeJob).toContain('for attempt in $(seq 1 30)')
+    expect(writeJob).toContain('Waiting for pull request head to update ($attempt/30)')
+    expect(writeJob).toContain('test "$observed_head" = "$pushed_sha"')
+  })
+
   it('dispatches CI only after the pushed commit is verified', () => {
     expect(stepNames).toEqual(
       expect.arrayContaining([

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1235] - 2026-09-14
+
+### Fixed
+
+- Migrate es-module-lexer v3 API
+
 ## [0.1.1234] - 2026-09-12
 
 ### Fixed

@@ -55,7 +55,9 @@ export function parseStaticModuleImports(source: string): string[] {
   return [
     ...new Set(
       imports.flatMap(record =>
-        record.type === 'static' && record.specifier ? [record.specifier] : []
+        (record.type === 'static' || record.type === 'reexport-star') && record.specifier
+          ? [record.specifier]
+          : []
       )
     ),
   ]

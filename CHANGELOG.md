@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1236] - 2026-09-14
+
+### Fixed
+
+- Preserve bundle import traversal
+
 ## [0.1.1235] - 2026-09-14
 
 ### Fixed

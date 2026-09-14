@@ -53,6 +53,7 @@ it('ignores import-like comments and strings while following real dynamic import
     const text = "import('./string.js')";
     const template = \`export { thing } from './template.js'\`;
     import('node:fs'); import(variable); import.meta.url;
+    import(\`./locales/\${lang}.js\`);
     import('./real.js');
   `
   )

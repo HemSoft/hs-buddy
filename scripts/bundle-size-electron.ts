@@ -43,7 +43,9 @@ export function collectElectronMainChunks(distElectronDir: string): BundleEntry[
 
     const source = sourceBytes.toString('utf8')
     const [imports] = parse(source)
-    for (const { specifier } of imports) {
+    for (const record of imports) {
+      if (record.type === 'dynamic' && record.glob) continue
+      const { specifier } = record
       if (!specifier?.startsWith('.') || !specifier.endsWith('.js')) continue
       pending.push({ path: resolve(dirname(filePath), specifier), importer: filePath })
     }

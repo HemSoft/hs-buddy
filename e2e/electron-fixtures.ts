@@ -1,7 +1,8 @@
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, type WriteStream } from 'node:fs'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { finished } from 'node:stream/promises'
 import {
   _electron as electron,
   expect,
@@ -38,7 +39,30 @@ function isolatedApplicationEnvironment(testRoot: string): Record<string, string
 }
 
 async function closeApplication(app: ElectronApplication): Promise<void> {
-  if (app.process().exitCode === null) await app.close()
+  const child = app.process()
+  if (child.exitCode !== null) return
+  try {
+    await app.close()
+  } finally {
+    if (child.exitCode === null) child.kill('SIGKILL')
+  }
+}
+
+async function cleanElectronHarness(
+  app: ElectronApplication | undefined,
+  processLog: WriteStream,
+  testRoot: string
+): Promise<void> {
+  try {
+    if (app) await closeApplication(app)
+  } finally {
+    processLog.end()
+    try {
+      await rm(testRoot, { recursive: true, force: true })
+    } finally {
+      await finished(processLog)
+    }
+  }
 }
 
 export const test = base.extend<Record<never, never>, ElectronWorkerFixtures>({
@@ -81,9 +105,7 @@ export const test = base.extend<Record<never, never>, ElectronWorkerFixtures>({
         // eslint-disable-next-line react-hooks/rules-of-hooks
         await use({ app, fixtureRoot, page, userDataDir })
       } finally {
-        if (app) await closeApplication(app)
-        processLog.end()
-        await rm(testRoot, { recursive: true, force: true })
+        await cleanElectronHarness(app, processLog, testRoot)
       }
     },
     { scope: 'worker' },

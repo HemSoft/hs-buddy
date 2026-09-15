@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1254] - 2026-09-15
+
+### Changed
+
+- Gate markdown lint (#711)
+
 ## [0.1.1253] - 2026-09-15
 
 ### Fixed

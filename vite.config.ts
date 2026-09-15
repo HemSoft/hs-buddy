@@ -86,18 +86,21 @@ function rendererCodeSplitting() {
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // In E2E mode (--mode e2e OR VITE_E2E=1), skip the Electron plugin entirely
-  // so Vite serves only the renderer bundle. The E2E tests inject IPC mocks via addInitScript.
-  const isE2E = mode === 'e2e' || process.env.VITE_E2E === '1'
+  // Browser E2E serves only the renderer and injects IPC mocks. Electron E2E
+  // keeps the Electron plugin while sharing the deterministic Convex renderer mock.
+  const isBrowserE2E = mode === 'e2e' || process.env.VITE_E2E === '1'
+  const usesE2ERendererMocks = isBrowserE2E || mode === 'electron-e2e'
 
   return {
     // The renderer loads via file:// in production (win.loadFile), so asset
     // URLs must be relative. (vite-plugin-electron-renderer set this before
     // it was removed — see the electron() plugin options below.)
     base: './',
+    // A local Electron E2E run must not load credentials from developer env files.
+    envDir: mode === 'electron-e2e' ? false : undefined,
     // In E2E mode, alias convex/react to a mock module that provides no-op hooks.
     // This prevents the real Convex client from trying WebSocket connections.
-    ...(isE2E
+    ...(usesE2ERendererMocks
       ? {
           resolve: {
             alias: {
@@ -121,7 +124,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      ...(!isE2E
+      ...(!isBrowserE2E
         ? [
             electron({
               main: {

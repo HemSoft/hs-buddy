@@ -85,6 +85,7 @@ process.env.VITE_PUBLIC = VITE_DEV_SERVER_URL
 
 const BROWSER_WEBVIEW_PARTITION = 'persist:browser'
 const PACKAGE_SMOKE_OUTPUT = process.env.BUDDY_PACKAGE_SMOKE_FILE
+const IS_ELECTRON_E2E = process.env.BUDDY_ELECTRON_E2E === '1'
 const mainRequire = createRequire(import.meta.url)
 
 async function packageSmokeResult(window: BrowserWindow): Promise<PackageSmokeResult> {
@@ -346,9 +347,9 @@ app.whenReady().then(() => {
   windowLifecycle.openWindow()
   startupTimer.mark('window-created')
 
-  // Package qualification only verifies the renderer and native runtime. Avoid
-  // network-dependent background work so the CI startup result is deterministic.
-  if (PACKAGE_SMOKE_OUTPUT) return
+  // Qualification modes exercise the renderer and native runtime without
+  // starting network-dependent background services.
+  if (PACKAGE_SMOKE_OUTPUT || IS_ELECTRON_E2E) return
 
   // Recover orphaned ralph loops from a previous session
   initRalphService()

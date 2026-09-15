@@ -1,4 +1,32 @@
-# Browser network fixtures
+# End-to-end tests
+
+## Real Electron journeys
+
+Run the complete Electron integration suite from a clean checkout with one command:
+
+```bash
+bun run test:e2e:electron
+```
+
+The command builds the app in deterministic Electron E2E mode, launches its own
+Electron process, waits for the preload-backed renderer, and removes the process
+and temporary user-data directory after the tests. The required journeys use
+local fixtures and run with Chromium offline. They do not read personal
+credentials or depend on Convex, GitHub, or another external service.
+
+Install the normal project prerequisites first. Windows and macOS need no extra
+display package. Linux requires Xvfb and runs the same command through a virtual
+display:
+
+```bash
+xvfb-run --auto-servernum bun run test:e2e:electron
+```
+
+Failures write the process log, Playwright trace, screenshots, JUnit result, and
+HTML report under `test-results/`, `electron-e2e-results.xml`, and
+`playwright-electron-report/`.
+
+## Browser network fixtures
 
 Run `bun run test:e2e` for the browser project. Its context fixture installs
 `github-network.ts` before page scripts run. Known GitHub REST endpoints and
@@ -18,5 +46,5 @@ specific endpoint with an error or aborts it. Remove that override to test
 recovery. `github-network.spec.ts` exercises the real GitHub client through REST,
 GraphQL, 401 responses, network retries, and recovery.
 
-The `electron-cdp` project keeps its existing real connection and preload APIs.
-It receives no browser proxy, service-worker restriction, or network fixtures.
+The `electron-e2e` project launches the real app through Playwright's Electron
+API. Its renderer runs offline instead of using browser network fixtures.

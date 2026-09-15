@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1252] - 2026-09-15
+
+### Fixed
+
+- Reject external store paths (#710)
+
 ## [0.1.1251] - 2026-09-15
 
 ### Fixed

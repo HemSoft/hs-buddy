@@ -63,7 +63,9 @@ test.describe('real Electron renderer-to-main journeys', () => {
 
     expect(result.saved).toEqual({ success: true })
     expect(result.theme).toBe('light')
-    expect(path.relative(userDataDir, result.storePath)).not.toMatch(/^\.\.(?:[\\/]|$)/)
+    const relativeStorePath = path.relative(userDataDir, result.storePath)
+    expect(path.isAbsolute(relativeStorePath)).toBe(false)
+    expect(relativeStorePath).not.toMatch(/^\.\.(?:[\\/]|$)/)
 
     const storedConfig = JSON.parse(await readFile(result.storePath, 'utf8')) as {
       ui?: { theme?: string }

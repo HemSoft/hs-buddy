@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1253] - 2026-09-15
+
+### Fixed
+
+- Harden harness teardown (#710)
+
+## [0.1.1252] - 2026-09-15
+
+### Fixed
+
+- Reject external store paths (#710)
+
+## [0.1.1251] - 2026-09-15
+
+### Fixed
+
+- Isolate terminal profiles (#710)
+
+## [0.1.1250] - 2026-09-15
+
+### Fixed
+
+- Keep quality baseline stable (#710)
+
+## [0.1.1249] - 2026-09-15
+
+### Changed
+
+- Gate real electron journeys (#710)
+
 ## [0.1.1248] - 2026-09-14
 
 ### Changed

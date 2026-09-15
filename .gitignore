@@ -23,6 +23,8 @@ release/
 
 # Playwright
 playwright-report/
+playwright-electron-report/
+electron-e2e-results.xml
 test-results/
 
 # Lighthouse CI

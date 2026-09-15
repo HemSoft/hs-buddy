@@ -255,6 +255,16 @@ describe('buildTerminalShellArgs', () => {
     expect(args.join(' ')).not.toContain('function global:prompt')
   })
 
+  it('disables PowerShell profiles for an isolated session', () => {
+    const args = buildTerminalShellArgs('pwsh.exe', 'win32', false)
+    expect(args).toContain('-NoProfile')
+    expect(args).toContain('-Command')
+  })
+
+  it('disables Bash profiles and rc files for an isolated session', () => {
+    expect(buildTerminalShellArgs('/bin/bash', 'linux', false)).toEqual(['--noprofile', '--norc'])
+  })
+
   it('returns empty array for non-Windows platform', () => {
     expect(buildTerminalShellArgs('pwsh.exe', 'darwin')).toEqual([])
     expect(buildTerminalShellArgs('bash', 'linux')).toEqual([])

@@ -1,8 +1,8 @@
 /**
  * Mock convex/react module for E2E testing.
  *
- * When running in E2E mode (--mode e2e), Vite aliases 'convex/react' to this
- * file. This prevents the real Convex client from attempting WebSocket connections
+ * In browser and Electron E2E modes, Vite aliases 'convex/react' to this file.
+ * This prevents the real Convex client from attempting WebSocket connections
  * to a non-existent server, while keeping all hooks functional (they return
  * undefined/loading state).
  */

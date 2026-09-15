@@ -270,7 +270,7 @@ async function resolveRepoPath(owner: string, repo: string): Promise<string | nu
 
 /** Builds shell args, including the static environment-backed PowerShell startup launcher. */
 function buildShellArgs(shell: string): string[] {
-  return buildTerminalShellArgs(shell, process.platform)
+  return buildTerminalShellArgs(shell, process.platform, process.env.BUDDY_ELECTRON_E2E !== '1')
 }
 
 /** Detects OSC 7 CWD sequences in PTY output and updates session.cwd. */

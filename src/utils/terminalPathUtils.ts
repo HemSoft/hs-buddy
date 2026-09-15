@@ -272,9 +272,22 @@ const POWERSHELL_STARTUP_COMMAND = [
  * This lets PowerShell finish loading profiles before setup runs and keeps the
  * payload out of the process command line that Windows application control checks.
  */
-export function buildTerminalShellArgs(shell: string, platform: string): string[] {
+export function buildTerminalShellArgs(
+  shell: string,
+  platform: string,
+  loadProfiles = true
+): string[] {
   if (isWindowsPowerShell(shell, platform)) {
-    return ['-NoLogo', '-NoExit', '-Command', POWERSHELL_STARTUP_COMMAND]
+    return [
+      '-NoLogo',
+      ...(loadProfiles ? [] : ['-NoProfile']),
+      '-NoExit',
+      '-Command',
+      POWERSHELL_STARTUP_COMMAND,
+    ]
+  }
+  if (!loadProfiles && platform !== 'win32' && path.posix.basename(shell) === 'bash') {
+    return ['--noprofile', '--norc']
   }
   return []
 }

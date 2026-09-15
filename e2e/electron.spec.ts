@@ -3,7 +3,51 @@
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
+import type { Page } from '@playwright/test'
 import { test, expect, FIXTURE_FILE_CONTENT, FIXTURE_FILE_NAME } from './electron-fixtures'
+
+function terminalProbe(): { command: string; expectedSize: string; marker: string } {
+  const marker = '__BUDDY_ELECTRON_TERMINAL_OK__'
+  const sizeMarker = '__BUDDY_SIZE__'
+  return process.platform === 'win32'
+    ? {
+        command: `Write-Output '${marker}'; $s=$Host.UI.RawUI.WindowSize; Write-Output "${sizeMarker}$($s.Width)x$($s.Height)"`,
+        expectedSize: `${sizeMarker}100x32`,
+        marker,
+      }
+    : {
+        command: `echo '${marker}'; printf '${sizeMarker}'; stty size`,
+        expectedSize: `${sizeMarker}32 100`,
+        marker,
+      }
+}
+
+async function waitForTerminalOutput(
+  page: Page,
+  sessionId: string,
+  expectedSize: string
+): Promise<string> {
+  await expect
+    .poll(
+      async () => {
+        const attached = await page.evaluate(id => window.terminal.attach(id), sessionId)
+        expect(attached.success, attached.error).toBe(true)
+        return attached.buffer ?? ''
+      },
+      { timeout: 15_000 }
+    )
+    .toContain(expectedSize)
+  const attached = await page.evaluate(id => window.terminal.attach(id), sessionId)
+  return attached.buffer ?? ''
+}
+
+async function killAndVerifyTerminal(page: Page, sessionId: string): Promise<void> {
+  expect(await page.evaluate(id => window.terminal.kill(id), sessionId)).toEqual({ success: true })
+  expect(await page.evaluate(id => window.terminal.attach(id), sessionId)).toEqual({
+    success: false,
+    error: 'Session not found',
+  })
+}
 
 test.describe('real Electron renderer-to-main journeys', () => {
   test('persists configuration inside the isolated user-data directory', async ({
@@ -55,14 +99,7 @@ test.describe('real Electron renderer-to-main journeys', () => {
     electronHarness,
   }) => {
     const { fixtureRoot, page } = electronHarness
-    const marker = '__BUDDY_ELECTRON_TERMINAL_OK__'
-    const sizeMarker = '__BUDDY_SIZE__'
-    const command =
-      process.platform === 'win32'
-        ? `Write-Output '${marker}'; $s=$Host.UI.RawUI.WindowSize; Write-Output "${sizeMarker}$($s.Width)x$($s.Height)"`
-        : `echo '${marker}'; printf '${sizeMarker}'; stty size`
-    const expectedSize =
-      process.platform === 'win32' ? `${sizeMarker}100x32` : `${sizeMarker}32 100`
+    const probe = terminalProbe()
     const spawnResult = await page.evaluate(
       cwd => window.terminal.spawn({ cwd, cols: 80, rows: 24 }),
       fixtureRoot
@@ -78,29 +115,13 @@ test.describe('real Electron renderer-to-main journeys', () => {
           window.terminal.resize(id, 100, 32)
           window.terminal.write(id, `${terminalCommand}\r`)
         },
-        { id: sessionId, terminalCommand: command }
+        { id: sessionId, terminalCommand: probe.command }
       )
 
-      await expect
-        .poll(
-          async () => {
-            const attached = await page.evaluate(id => window.terminal.attach(id), sessionId)
-            expect(attached.success, attached.error).toBe(true)
-            return attached.buffer ?? ''
-          },
-          { timeout: 15_000 }
-        )
-        .toContain(expectedSize)
-
-      const output = await page.evaluate(id => window.terminal.attach(id), sessionId)
-      expect(output.buffer).toContain(marker)
-      expect(await page.evaluate(id => window.terminal.kill(id), sessionId)).toEqual({
-        success: true,
-      })
-      expect(await page.evaluate(id => window.terminal.attach(id), sessionId)).toEqual({
-        success: false,
-        error: 'Session not found',
-      })
+      expect(await waitForTerminalOutput(page, sessionId, probe.expectedSize)).toContain(
+        probe.marker
+      )
+      await killAndVerifyTerminal(page, sessionId)
     } finally {
       await page.evaluate(id => window.terminal.kill(id), sessionId)
     }

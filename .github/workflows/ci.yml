@@ -79,6 +79,9 @@ jobs:
       - name: Format check (Prettier)
         run: bun run format:check
 
+      - name: Lint Markdown
+        run: bun run lint:md
+
       - name: Analyze dependency health
         run: bun run e18e
 

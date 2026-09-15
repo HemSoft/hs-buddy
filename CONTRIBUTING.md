@@ -52,6 +52,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 | `bun run test:convex:coverage`   | Run Convex coverage (90/90/90/90 minimum)                |
 | `bun run test:e2e`               | Run Playwright E2E tests                                 |
 | `bun run lint`                   | ESLint (zero warnings allowed)                           |
+| `bun run lint:md`                | Markdownlint across tracked Markdown sources             |
 | `bun run typecheck`              | TypeScript across all tsconfigs                          |
 | `bun run knip`                   | Dead code & unused dependency detection                  |
 | `bun run format:check`           | Prettier format verification                             |

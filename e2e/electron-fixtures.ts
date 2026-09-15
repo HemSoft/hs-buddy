@@ -25,6 +25,18 @@ interface ElectronWorkerFixtures {
   electronHarness: ElectronHarness
 }
 
+function isolatedApplicationEnvironment(testRoot: string): Record<string, string> {
+  return electronE2EEnvironment({
+    APPDATA: testRoot,
+    ELECTRON_ENABLE_LOGGING: '1',
+    HOME: testRoot,
+    LOCALAPPDATA: testRoot,
+    USERPROFILE: testRoot,
+    XDG_CONFIG_HOME: testRoot,
+    ...(process.platform === 'win32' ? {} : { SHELL: '/bin/bash' }),
+  })
+}
+
 async function closeApplication(app: ElectronApplication): Promise<void> {
   if (app.process().exitCode === null) await app.close()
 }
@@ -54,7 +66,7 @@ export const test = base.extend<Record<never, never>, ElectronWorkerFixtures>({
           args: ['.', `--user-data-dir=${userDataDir}`],
           artifactsDir,
           cwd: process.cwd(),
-          env: electronE2EEnvironment({ ELECTRON_ENABLE_LOGGING: '1' }),
+          env: isolatedApplicationEnvironment(testRoot),
           offline: true,
           timeout: 45_000,
           tracesDir: path.resolve('test-results', 'electron-traces'),

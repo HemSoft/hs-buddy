@@ -12,10 +12,12 @@
 ### 1. HemSoft Identity Requirement
 
 All repository work against **`HemSoft/hs-buddy`** belongs to the **`HemSoft`**
-identity. Use `HemSoft` exclusively for Git, commits, pushes, and GitHub CLI
-operations that read or modify repository resources. Before those operations,
-run `gh auth status` and verify that `HemSoft` is active. Do not switch to or
-attribute repository work to `fhemmerrelias` or any other account.
+identity. Use `HemSoft` exclusively for commits, authenticated Git operations
+such as fetch or push, and GitHub CLI operations that access repository
+resources. Before those operations, run `gh auth status` and verify that
+`HemSoft` is active. Local read-only Git commands do not require GitHub
+authentication. Do not switch to or attribute repository work to
+`fhemmerrelias` or any other account.
 
 Read-only enterprise billing diagnostics may use the `fhemmerrelias` credential
 when reproducing the runtime behavior of an existing local script or application

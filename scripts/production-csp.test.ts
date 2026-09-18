@@ -10,7 +10,7 @@ describe('production CSP', () => {
     const productionHtml = hardenProductionCsp(developmentHtml)
 
     expect(productionHtml).toContain(PRODUCTION_SCRIPT_SRC)
-    expect(productionScriptSources(productionHtml)).toEqual(["'self'"])
+    expect(productionScriptSources(productionHtml)).toEqual(["'self'", "'wasm-unsafe-eval'"])
     expect(() => assertProductionCsp(productionHtml)).not.toThrow()
   })
 
@@ -31,10 +31,19 @@ describe('production CSP', () => {
     )
   })
 
-  it('allows unsafe-inline only in style-src', () => {
+  it('keeps only the narrow WebAssembly exception needed by Shiki', () => {
     const productionHtml = hardenProductionCsp(developmentHtml)
 
     expect(() => assertProductionCsp(productionHtml)).not.toThrow()
+    expect(productionHtml).toContain("script-src 'self' 'wasm-unsafe-eval'")
     expect(productionHtml).toContain("style-src 'self' 'unsafe-inline'")
+  })
+
+  it('rejects production HTML that cannot compile Shiki WebAssembly', () => {
+    const productionHtml = hardenProductionCsp(developmentHtml).replace(" 'wasm-unsafe-eval'", '')
+
+    expect(() => assertProductionCsp(productionHtml)).toThrow(
+      "Production script-src must retain 'wasm-unsafe-eval'"
+    )
   })
 })

@@ -37,7 +37,7 @@ const requireShim = [
 const MAX_SPLIT_CHUNK_SIZE = 450 * 1024
 const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
 const DEVELOPMENT_SCRIPT_SRC = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-export const PRODUCTION_SCRIPT_SRC = "script-src 'self'"
+export const PRODUCTION_SCRIPT_SRC = "script-src 'self' 'wasm-unsafe-eval'"
 
 export function hardenProductionCsp(html: string): string {
   const occurrences = html.split(DEVELOPMENT_SCRIPT_SRC).length - 1

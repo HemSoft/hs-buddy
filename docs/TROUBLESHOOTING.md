@@ -8,8 +8,9 @@
 
 **Status**: `unsafe-eval` and `unsafe-inline` are retained in the development
 `script-src` because Vite HMR requires them. The `production-csp` Vite plugin
-removes both allowances during production builds, and `bun run security:csp`
-checks the generated `dist/index.html`.
+removes both allowances during production builds while retaining the narrower
+`wasm-unsafe-eval` source required by Shiki. `bun run security:csp` checks the
+generated `dist/index.html`.
 
 ---
 

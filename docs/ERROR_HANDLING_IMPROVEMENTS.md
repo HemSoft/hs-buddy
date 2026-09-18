@@ -18,7 +18,8 @@ This update addresses three main categories of console errors and warnings that 
 
 **Status**: Vite HMR keeps `unsafe-eval` and `unsafe-inline` in the development
 `script-src`. Production builds run the `production-csp` Vite plugin, which
-removes both script allowances. `bun run security:csp` validates the generated
+removes both broad script allowances while retaining `wasm-unsafe-eval` for
+Shiki syntax highlighting. `bun run security:csp` validates the generated
 `dist/index.html` in CI.
 
 ---

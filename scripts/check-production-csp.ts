@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const FORBIDDEN_PRODUCTION_SCRIPT_SOURCES = ["'unsafe-eval'", "'unsafe-inline'"] as const
+const REQUIRED_PRODUCTION_SCRIPT_SOURCES = ["'self'", "'wasm-unsafe-eval'"] as const
 
 export function productionScriptSources(html: string): string[] {
   const cspMeta = [...html.matchAll(/<meta\b[^>]*>/gi)].find(match =>
@@ -29,8 +30,10 @@ export function assertProductionCsp(html: string): void {
       throw new Error(`Production script-src must not contain ${forbidden}`)
     }
   }
-  if (!scriptSources.includes("'self'")) {
-    throw new Error("Production script-src must retain 'self'")
+  for (const required of REQUIRED_PRODUCTION_SCRIPT_SOURCES) {
+    if (!scriptSources.includes(required)) {
+      throw new Error(`Production script-src must retain ${required}`)
+    }
   }
 }
 

@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import path from 'node:path'
 import electron from 'vite-plugin-electron/simple'
 import react from '@vitejs/plugin-react'
@@ -36,6 +36,27 @@ const requireShim = [
 // so the renderer warning limit sits just above the largest grammar.
 const MAX_SPLIT_CHUNK_SIZE = 450 * 1024
 const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
+const DEVELOPMENT_SCRIPT_SRC = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
+export const PRODUCTION_SCRIPT_SRC = "script-src 'self' 'wasm-unsafe-eval'"
+
+export function hardenProductionCsp(html: string): string {
+  const occurrences = html.split(DEVELOPMENT_SCRIPT_SRC).length - 1
+  if (occurrences !== 1) {
+    throw new Error(
+      `Expected one development script-src directive before production hardening, found ${occurrences}`
+    )
+  }
+  return html.replace(DEVELOPMENT_SCRIPT_SRC, PRODUCTION_SCRIPT_SRC)
+}
+
+function productionCspPlugin(): Plugin {
+  return {
+    name: 'production-csp',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml: hardenProductionCsp,
+  }
+}
 
 function codeSplittingGroups(sourcePattern: RegExp) {
   return {
@@ -124,6 +145,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      productionCspPlugin(),
       ...(!isBrowserE2E
         ? [
             electron({

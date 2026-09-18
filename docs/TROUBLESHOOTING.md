@@ -6,10 +6,11 @@
 
 **Issue**: Electron security audit flags `unsafe-eval` in `Content-Security-Policy`
 
-**Status**: `unsafe-eval` is **intentionally retained** in `index.html` because
-Vite HMR requires it during development. A production hardening pass should
-remove it from the production build, for example via a Vite plugin that strips
-the directive post-build.
+**Status**: `unsafe-eval` and `unsafe-inline` are retained in the development
+`script-src` because Vite HMR requires them. The `production-csp` Vite plugin
+removes both allowances during production builds while retaining the narrower
+`wasm-unsafe-eval` source required by Shiki. `bun run security:csp` checks the
+generated `dist/index.html`.
 
 ---
 

@@ -12,11 +12,15 @@ This update addresses three main categories of console errors and warnings that 
 
 ## Changes Made
 
-### 1. Content Security Policy - Status: Deferred
+### 1. Content Security Policy - Status: Hardened
 
-**File**: [`index.html`](../index.html)
+**Files**: [`index.html`](../index.html), [`vite.config.ts`](../vite.config.ts)
 
-**Status**: `unsafe-eval` is intentionally retained. Vite HMR requires it in development mode. A comment in `index.html` notes that the production build should remove it; a Vite plugin or build hook is needed to strip the directive post-build. No change was made.
+**Status**: Vite HMR keeps `unsafe-eval` and `unsafe-inline` in the development
+`script-src`. Production builds run the `production-csp` Vite plugin, which
+removes both broad script allowances while retaining `wasm-unsafe-eval` for
+Shiki syntax highlighting. `bun run security:csp` validates the generated
+`dist/index.html` in CI.
 
 ---
 

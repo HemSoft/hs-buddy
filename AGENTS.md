@@ -75,7 +75,7 @@ true`) since most findings are in transitive dependencies we don't control
 
 ## App Guardrail
 
-For broader product and architecture direction, prefer [VISION.md](VISION.md)
+For broader product and architecture direction, prefer [VISION.md](docs/VISION.md)
 and the codebase itself. Keep AGENTS.md limited to easy-to-miss, always-on
 constraints.
 

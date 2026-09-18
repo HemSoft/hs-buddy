@@ -4,6 +4,7 @@ import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
 import { buildScheduleUpdateFields } from '../shared/utils/scheduleUtils'
+import { recoverMissedSchedule } from './lib/offlineRecovery'
 
 /**
  * Schedule CRUD operations
@@ -174,7 +175,13 @@ export const toggle = mutation({
   },
 })
 
-// Advance nextRunAt to the next future occurrence (used by offline sync)
+// Recovery rereads the cursor and commits all missed work in one transaction.
+export const recoverMissed = mutation({
+  args: { id: v.id('schedules') },
+  handler: (ctx, args) => recoverMissedSchedule(ctx, args.id),
+})
+
+// Legacy cursor update retained for API compatibility, not used by recovery.
 export const advanceNextRun = mutation({
   args: {
     id: v.id('schedules'),

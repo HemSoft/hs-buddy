@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1258] - 2026-09-18
+
+### Fixed
+
+- Recover missed schedules atomically (#720)
+
 ## [0.1.1257] - 2026-09-18
 
 ### Changed

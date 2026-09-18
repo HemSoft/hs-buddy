@@ -1,9 +1,12 @@
-import { rmSync } from 'node:fs'
-import { createE18ePlaceholder } from './e18e-placeholder'
 import { spawnSync } from 'node:child_process'
+import { readFileSync, rmSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { createE18ePlaceholder } from './e18e-placeholder'
+import { parseE18eReport, requireSuccessfulAnalyzer } from './e18e-report'
 
-const electronMain = 'dist-electron/main.js'
-const createdPlaceholder = createE18ePlaceholder(electronMain)
+const root = fileURLToPath(new URL('../', import.meta.url))
 const documentedDirectExceptions = new Set([
   '@opentelemetry/api-logs',
   '@opentelemetry/resources',
@@ -19,18 +22,6 @@ const documentedDirectExceptions = new Set([
 ])
 const ansiPattern = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 
-interface E18eMessage {
-  message: string
-  severity: 'debug' | 'info' | 'warning' | 'error'
-}
-
-interface E18eReport {
-  stats?: {
-    extraStats?: Array<{ name: string; value: number }>
-  }
-  messages?: E18eMessage[]
-}
-
 function stripAnsi(value: string): string {
   return value.replace(ansiPattern, '')
 }
@@ -43,13 +34,25 @@ function formatPackageList(packages: string[]): string {
   return packages.length > 0 ? packages.join(', ') : 'none'
 }
 
-try {
+function analyze() {
+  const require = createRequire(import.meta.url)
+  const analyzerRoot = resolve(dirname(require.resolve('@e18e/cli')), '..')
+  const { version } = JSON.parse(readFileSync(resolve(analyzerRoot, 'package.json'), 'utf8')) as {
+    version: string
+  }
+  const manifest = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')) as {
+    name: string
+    version: string
+    devDependencies: Record<string, string>
+  }
+  if (manifest.devDependencies['@e18e/cli'] !== version) {
+    throw new Error(`e18e requires the exact manifest pin; installed version is ${version}`)
+  }
+  console.log(`e18e analyzer version: ${version}`)
   const result = spawnSync(
-    'bun',
+    'node',
     [
-      'x',
-      '--yes',
-      '@e18e/cli',
+      resolve(analyzerRoot, 'cli.js'),
       'analyze',
       '--log-level',
       'error',
@@ -57,36 +60,21 @@ try {
       'warn',
       '--json',
     ],
-    { encoding: 'utf8', shell: process.platform === 'win32' }
+    { cwd: root, encoding: 'utf8', timeout: 300_000, maxBuffer: 32 * 1024 * 1024 }
   )
+  if (result.stderr) process.stderr.write(result.stderr)
+  if (result.status !== 0 && result.stdout) process.stderr.write(result.stdout)
+  requireSuccessfulAnalyzer(result)
+  return parseE18eReport(result.stdout, manifest)
+}
 
-  if (result.error) {
-    throw result.error
-  }
-
-  if (result.stderr) {
-    process.stderr.write(result.stderr)
-  }
-
-  let report: E18eReport | undefined
+export function runE18e(): number {
+  const electronMain = resolve(root, 'dist-electron/main.js')
+  const createdPlaceholder = createE18ePlaceholder(electronMain)
   try {
-    report = JSON.parse(result.stdout) as E18eReport
-  } catch (_: unknown) {
-    if (result.stdout) {
-      process.stdout.write(result.stdout)
-    }
-
-    console.warn('e18e did not produce a JSON report; treating analyzer output as unavailable.')
-    process.exitCode = 0
-  }
-
-  if (report) {
-    const messages = report.messages ?? []
-    const errors = messages.filter(message => message.severity === 'error')
-    const warnings = messages.filter(message => message.severity === 'warning')
-    const duplicateCount =
-      report.stats?.extraStats?.find(stat => stat.name === 'duplicateDependencyCount')?.value ??
-      warnings.length
+    const report = analyze()
+    const errors = report.messages.filter(message => message.severity === 'error')
+    const warnings = report.messages.filter(message => message.severity === 'warning')
     const directDuplicates = warnings
       .map(message => stripAnsi(message.message))
       .filter(message => message.includes('root@'))
@@ -95,12 +83,10 @@ try {
     const documentedDirectDuplicates = directDuplicates.filter(name =>
       documentedDirectExceptions.has(name)
     )
-
     const undocumentedDirectDuplicates = directDuplicates.filter(
       name => !documentedDirectExceptions.has(name)
     )
-
-    console.log(`e18e duplicate dependency count: ${duplicateCount}`)
+    console.log(`e18e duplicate dependency count: ${report.duplicateCount}`)
     console.log(`e18e warnings: ${warnings.length}`)
     console.log(
       `documented direct dependency exceptions: ${formatPackageList(documentedDirectDuplicates)}`
@@ -108,15 +94,18 @@ try {
     console.log(
       `undocumented direct dependency findings: ${formatPackageList(undocumentedDirectDuplicates)}`
     )
-
-    for (const error of errors) {
-      console.error(stripAnsi(error.message))
-    }
-
-    process.exitCode = errors.length > 0 || undocumentedDirectDuplicates.length > 0 ? 1 : 0
+    for (const error of errors) console.error(stripAnsi(error.message))
+    return errors.length > 0 || undocumentedDirectDuplicates.length > 0 ? 1 : 0
+  } finally {
+    if (createdPlaceholder) rmSync(electronMain, { force: true })
   }
-} finally {
-  if (createdPlaceholder) {
-    rmSync(electronMain, { force: true })
+}
+
+if (import.meta.main) {
+  try {
+    process.exitCode = runE18e()
+  } catch (error: unknown) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
   }
 }

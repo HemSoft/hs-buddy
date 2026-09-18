@@ -1,9 +1,10 @@
 import { v } from 'convex/values'
-import { mutation, query } from './_generated/server'
+import { internalMutation, mutation, query } from './_generated/server'
 import { calculateNextRunAt, DEFAULT_TIMEZONE } from './lib/cronUtils'
 import { notFoundError } from './lib/domain'
 import { projectJob } from './lib/projections'
 import { buildScheduleUpdateFields } from '../shared/utils/scheduleUtils'
+import { continueRecoveryBatch, recoverMissedSchedule } from './lib/offlineRecovery'
 
 /**
  * Schedule CRUD operations
@@ -174,7 +175,25 @@ export const toggle = mutation({
   },
 })
 
-// Advance nextRunAt to the next future occurrence (used by offline sync)
+// Recovery rereads the cursor and commits all missed work in one transaction.
+export const recoverMissed = mutation({
+  args: { id: v.id('schedules') },
+  handler: (ctx, args) => recoverMissedSchedule(ctx, args.id),
+})
+
+// Convex durably schedules each continuation in the preceding batch transaction.
+export const continueRecovery = internalMutation({
+  args: {
+    scheduleId: v.id('schedules'),
+    jobId: v.id('jobs'),
+    input: v.optional(v.any()),
+    remaining: v.number(),
+    startedAt: v.number(),
+  },
+  handler: continueRecoveryBatch,
+})
+
+// Legacy cursor update retained for API compatibility, not used by recovery.
 export const advanceNextRun = mutation({
   args: {
     id: v.id('schedules'),

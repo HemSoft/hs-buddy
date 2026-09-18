@@ -11,7 +11,7 @@ const NOW = Date.parse('2026-09-18T12:00:30Z')
 async function fixture(missedPolicy: 'skip' | 'last' | 'catchup' = 'last') {
   vi.useFakeTimers()
   vi.setSystemTime(NOW)
-  const t = convexTest(schema, modules)
+  const t = convexTest({ schema, modules, transactionLimits: true })
   aggregateComponent.register(t, 'runCounts')
   const jobId = await t.run(ctx =>
     ctx.db.insert('jobs', {
@@ -187,6 +187,72 @@ test('caps catchup at 100 runs and advances beyond the remaining gap', async () 
   expect((await t.mutation(api.schedules.recoverMissed, { id })).runsCreated).toBe(100)
   expect(await t.query(api.runs.listBySchedule, { scheduleId: id, limit: 101 })).toHaveLength(100)
   expect((await t.mutation(api.schedules.recoverMissed, { id })).runsCreated).toBe(0)
+})
+
+test('large UTF-8 payloads recover all 100 runs within real transaction budgets', async () => {
+  const { t, id, jobId } = await fixture('catchup')
+  const input = { payload: 'é'.repeat(100_000), sequence: 3n }
+  await t.run(ctx => ctx.db.patch(id, { nextRunAt: NOW - 200 * 60_000, params: input }))
+  const result = await t.mutation(api.schedules.recoverMissed, { id })
+  expect(result.runsCreated).toBeLessThan(100)
+  expect(result.action).toBe('catchup (100 runs queued)')
+  expect((await t.mutation(api.schedules.recoverMissed, { id })).runsCreated).toBe(0)
+  await t.run(ctx => ctx.db.patch(id, { params: { editedAfterAdmission: true } }))
+  await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+  expect(await t.query(api.runs.countsByJob, { jobIds: [jobId] })).toEqual({
+    [jobId]: { total: 100, completed: 0, failed: 0 },
+  })
+  expect((await t.query(api.runs.listBySchedule, { scheduleId: id, limit: 1 }))[0].input).toEqual(
+    input
+  )
+  expect((await t.query(api.buddyStats.get)).runsTriggered).toBe(100)
+})
+
+test('rollback removes continuation intent as well as the initial large-input batch', async () => {
+  const { t, id, jobId } = await fixture('catchup')
+  await t.run(ctx =>
+    ctx.db.patch(id, { nextRunAt: NOW - 200 * 60_000, params: 'x'.repeat(200_000) })
+  )
+  await expect(
+    t.mutation(async ctx => {
+      await recoverMissedSchedule(ctx, id)
+      throw new Error('abort with continuation scheduled')
+    })
+  ).rejects.toThrow('abort with continuation scheduled')
+  await t.finishAllScheduledFunctions(() => vi.runAllTimers())
+  expect(await t.query(api.runs.countsByJob, { jobIds: [jobId] })).toEqual({
+    [jobId]: { total: 0, completed: 0, failed: 0 },
+  })
+  expect((await t.query(api.schedules.get, { id }))?.nextRunAt).toBe(NOW - 200 * 60_000)
+})
+
+test.each([0, -1, 1.5, 101])(
+  'rejects an invalid internal continuation count %s',
+  async remaining => {
+    const { t, id, jobId } = await fixture()
+    await expect(
+      t.mutation(internal.schedules.continueRecovery, {
+        scheduleId: id,
+        jobId,
+        remaining,
+        startedAt: NOW,
+      })
+    ).rejects.toThrow('Invalid recovery batch size')
+  }
+)
+
+test('job deletion cancels durable continuation work without recreating deleted runs', async () => {
+  const { t, id, jobId } = await fixture()
+  await t.run(ctx => ctx.db.delete(jobId))
+  expect(
+    await t.mutation(internal.schedules.continueRecovery, {
+      scheduleId: id,
+      jobId,
+      remaining: 1,
+      startedAt: NOW,
+    })
+  ).toBeNull()
+  expect(await t.query(api.runs.listBySchedule, { scheduleId: id })).toEqual([])
 })
 
 test('invalid cron leaves work and cursor untouched', async () => {

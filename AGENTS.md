@@ -67,9 +67,9 @@ CI and should be run locally before pushing.
 - **Migrate**: `bun run e18e:migrate` — auto-replaces heavy packages with
   lighter alternatives where possible (e.g. `chalk` → native, `rimraf` →
   `fs.rm`). Run periodically and review the diff.
-- **CI**: runs in the `lint` job as an informational step (`continue-on-error:
-true`) since most findings are in transitive dependencies we don't control
-  directly. Treat direct-dependency findings as actionable.
+- **CI**: runs in the `lint` job as a blocking gate. Analyzer failures and
+  invalid reports fail qualification. Transitive warnings remain informational;
+  direct-dependency exceptions follow [the triage policy](docs/E18E-DEPENDENCY-TRIAGE.md).
 
 ---
 

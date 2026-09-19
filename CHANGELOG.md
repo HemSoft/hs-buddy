@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1261] - 2026-09-19
+
+### Changed
+
+- Explain lexer dependency exception (#721)
+
+## [0.1.1260] - 2026-09-18
+
+### Fixed
+
+- Fail dependency qualification on invalid analysis (#721)
+
 ## [0.1.1259] - 2026-09-18
 
 ### Fixed

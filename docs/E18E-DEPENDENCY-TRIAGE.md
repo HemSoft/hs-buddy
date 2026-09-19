@@ -40,6 +40,9 @@ versions reported by e18e:
   `@opentelemetry/sdk-metrics`: the app keeps these OpenTelemetry packages
   aligned for its direct instrumentation surface while upstream telemetry
   toolchains may carry older compatible releases transitively.
+- `es-module-lexer`: the root and `import-in-the-middle` use 3.x, while Vitest 5
+  requires `^2.3.2`. Keep both supported major versions rather than overriding
+  Vitest's declared range.
 - `esbuild`: the app keeps a root `esbuild` for Vite/react-scan peer coverage,
   while Convex currently pins its own older `esbuild` release.
 - `globals`: the app keeps the root lint environment catalog current for ESLint

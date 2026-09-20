@@ -108,6 +108,30 @@ describe('AccountQuotaCard', () => {
     expect(screen.getByText('Failed to load')).toBeInTheDocument()
   })
 
+  it('identifies an expired GitHub login and retains the diagnostic', () => {
+    const error = 'gh: Bad credentials (HTTP 401)'
+    const state: AccountQuotaState = {
+      data: null,
+      loading: false,
+      error,
+      fetchedAt: null,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('GitHub login expired')).toHaveAttribute('title', error)
+  })
+
+  it('identifies certificate failures and retains the diagnostic', () => {
+    const error = 'x509: certificate signed by unknown authority'
+    const state: AccountQuotaState = {
+      data: null,
+      loading: false,
+      error,
+      fetchedAt: null,
+    }
+    render(<AccountQuotaCard account={testAccount} state={state} />)
+    expect(screen.getByText('Secure connection failed')).toHaveAttribute('title', error)
+  })
+
   it('shows "No Copilot subscription" for 404 errors', () => {
     const state: AccountQuotaState = {
       data: null,

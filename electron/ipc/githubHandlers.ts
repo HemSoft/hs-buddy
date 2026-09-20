@@ -4,6 +4,7 @@ import { api } from '../../convex/_generated/api'
 import { getErrorMessage } from '../../src/utils/errorUtils'
 import { configManager, CONVEX_URL } from '../config'
 import { execAsync, execFileAsync } from '../utils'
+import { buildGitHubCliEnvironment } from '../githubCliEnvironment'
 import { findBudgetAcrossPages } from '../../src/utils/budgetUtils'
 import { ENTERPRISE_NOT_CONFIGURED_CODE, IPC_INVOKE } from '../../src/ipc/contracts'
 import {
@@ -87,6 +88,7 @@ async function tryGetCliToken(username?: string): Promise<string | null> {
     const { stdout } = await execFileAsync('gh', buildGhAuthTokenArgs(username), {
       encoding: 'utf8',
       timeout: CLI_TIMEOUT_MS,
+      env: buildGitHubCliEnvironment(process.env),
     })
     const token = stdout.trim()
     return token.length > 0 ? token : null
@@ -98,10 +100,7 @@ async function tryGetCliToken(username?: string): Promise<string | null> {
 /** Build an exec env with an optional per-account GH_TOKEN. */
 async function getTokenEnv(username?: string): Promise<NodeJS.ProcessEnv> {
   const token = await tryGetCliToken(username)
-  return {
-    ...process.env,
-    ...(token ? { GH_TOKEN: token } : {}),
-  }
+  return buildGitHubCliEnvironment(process.env, token ?? undefined)
 }
 
 /** Aggregated Copilot usage metrics for a single org, reused by the
@@ -273,7 +272,7 @@ async function fetchPersonalAccountSpend(
     const quotaResult = await execAsync('gh api /copilot_internal/user', {
       encoding: 'utf8',
       timeout: API_TIMEOUT_MS,
-      env: { ...process.env, GH_TOKEN: quotaToken },
+      env: buildGitHubCliEnvironment(process.env, quotaToken),
     })
     const quotaData = JSON.parse(quotaResult.stdout.trim())
     return { spent: computeOverageSpend(quotaData), spentError: null }
@@ -778,7 +777,7 @@ function registerCopilotUsageHandlers(): void {
       const { stdout } = await execAsync('gh api /copilot_internal/user', {
         encoding: 'utf8',
         timeout: API_TIMEOUT_MS,
-        env: { ...process.env, GH_TOKEN: token },
+        env: buildGitHubCliEnvironment(process.env, token),
       })
 
       const data = JSON.parse(stdout.trim())

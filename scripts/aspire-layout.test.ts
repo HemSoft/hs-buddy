@@ -36,6 +36,20 @@ describe('Aspire AppHost isolation', () => {
     expect(appHost.match(/\.withBun\(\{ install: false \}\)/g)).toHaveLength(2)
   })
 
+  it('keeps fixed profile ports out of the dynamic client range', async () => {
+    const config = await readJson('aspire.config.json')
+    const profiles = config.profiles as Record<string, Record<string, unknown>>
+    const profile = profiles.https
+    const urls = [
+      ...(profile.applicationUrl as string).split(';'),
+      ...Object.values(profile.environmentVariables as Record<string, string>),
+    ]
+    const ports = urls.map(url => Number(new URL(url).port))
+
+    expect(new Set(ports).size).toBe(ports.length)
+    expect(ports.every(port => port >= 1024 && port < 49_152)).toBe(true)
+  })
+
   it('keeps the launcher fast path restore-free', async () => {
     const launcher = await readFile(resolve(repoRoot, 'scripts/runAspire.debug.ps1'), 'utf8')
 

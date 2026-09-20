@@ -299,13 +299,25 @@ function QuotaLoadingView() {
   )
 }
 
+function quotaErrorLabel(error: string): string {
+  const normalized = error.toLowerCase()
+  if (normalized.includes('404')) return 'No Copilot subscription'
+  if (normalized.includes('bad credentials') || normalized.includes('401')) {
+    return 'GitHub login expired'
+  }
+  if (normalized.includes('x509') || normalized.includes('certificate')) {
+    return 'Secure connection failed'
+  }
+  return 'Failed to load'
+}
+
 function QuotaErrorView({ username, error }: { username: string; error: string }) {
   return (
     <div className="usage-account-error">
       <AlertCircle size={16} />
       <div>
         <strong>{username}</strong>
-        <p>{error.includes('404') ? 'No Copilot subscription' : 'Failed to load'}</p>
+        <p title={error}>{quotaErrorLabel(error)}</p>
       </div>
     </div>
   )

@@ -286,6 +286,32 @@ describe('githubHandlers', () => {
       expect(result.success).toBe(true)
       expect(result.data).toEqual({ chat_enabled: true })
     })
+
+    it('does not pass Aspire certificate overrides to GitHub CLI calls', async () => {
+      const previousCertDir = process.env.SSL_CERT_DIR
+      const previousExtraCa = process.env.NODE_EXTRA_CA_CERTS
+      process.env.SSL_CERT_DIR = String.raw`C:\Temp\aspire-run\buddy-id\certs`
+      process.env.NODE_EXTRA_CA_CERTS = String.raw`C:\Temp\aspire-run\buddy-id\cert.pem`
+      mockExecAsync
+        .mockResolvedValueOnce({ stdout: 'ghp_token123\n', stderr: '' })
+        .mockResolvedValueOnce({ stdout: JSON.stringify({ chat_enabled: true }), stderr: '' })
+
+      try {
+        const handler = handlers.get('github:get-copilot-quota')!
+        await handler({}, 'testuser')
+
+        const tokenOptions = mockExecFileAsync.mock.calls[0][2] as { env: NodeJS.ProcessEnv }
+        const quotaOptions = mockExecAsync.mock.calls[1][1] as { env: NodeJS.ProcessEnv }
+        expect(tokenOptions.env).not.toHaveProperty('SSL_CERT_DIR')
+        expect(quotaOptions.env).not.toHaveProperty('SSL_CERT_DIR')
+        expect(quotaOptions.env.NODE_EXTRA_CA_CERTS).toBe(process.env.NODE_EXTRA_CA_CERTS)
+      } finally {
+        if (previousCertDir === undefined) delete process.env.SSL_CERT_DIR
+        else process.env.SSL_CERT_DIR = previousCertDir
+        if (previousExtraCa === undefined) delete process.env.NODE_EXTRA_CA_CERTS
+        else process.env.NODE_EXTRA_CA_CERTS = previousExtraCa
+      }
+    })
   })
 
   describe('github:get-copilot-usage', () => {

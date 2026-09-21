@@ -19,6 +19,7 @@ import type * as jobs from "../jobs.js";
 import type * as lib_constants from "../lib/constants.js";
 import type * as lib_cronUtils from "../lib/cronUtils.js";
 import type * as lib_domain from "../lib/domain.js";
+import type * as lib_offlineRecovery from "../lib/offlineRecovery.js";
 import type * as lib_projections from "../lib/projections.js";
 import type * as lib_runStore from "../lib/runStore.js";
 import type * as lib_stats from "../lib/stats.js";
@@ -52,6 +53,7 @@ declare const fullApi: ApiFromModules<{
   "lib/constants": typeof lib_constants;
   "lib/cronUtils": typeof lib_cronUtils;
   "lib/domain": typeof lib_domain;
+  "lib/offlineRecovery": typeof lib_offlineRecovery;
   "lib/projections": typeof lib_projections;
   "lib/runStore": typeof lib_runStore;
   "lib/stats": typeof lib_stats;

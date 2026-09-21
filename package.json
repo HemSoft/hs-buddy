@@ -137,7 +137,7 @@
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-istanbul": "5.0.1",
     "@vitest/coverage-v8": "5.0.1",
-    "convex-test": "0.0.57",
+    "convex-test": "0.0.59",
     "dependency-cruiser": "^18.1.0",
     "electron": "^44.0.0",
     "electron-builder": "^26.15.3",

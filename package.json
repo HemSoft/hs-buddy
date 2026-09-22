@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1264",
+  "version": "0.1.1265",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -158,7 +158,7 @@
     "markdownlint-cli2": "^0.23.2",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.9.4",
-    "puppeteer-core": "25.10.0",
+    "puppeteer-core": "25.11.0",
     "react-doctor": "0.9.13",
     "react-scan": "^0.5.7",
     "sharp": "^0.35.4",

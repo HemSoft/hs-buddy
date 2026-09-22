@@ -17,6 +17,8 @@ const documentedDirectExceptions = new Set([
   'esbuild',
   'globals',
   'prettier',
+  // Lighthouse retains 25.10.0; the direct Electron memory sampler uses 25.11.0.
+  'puppeteer-core',
   'typescript',
   'vscode-jsonrpc',
 ])

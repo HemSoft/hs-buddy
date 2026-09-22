@@ -49,6 +49,9 @@ versions reported by e18e:
   configuration while markdown and test tooling may carry older releases.
 - `prettier`: the app keeps the root formatter current for repository format
   checks while markdown tooling may carry an older formatter release.
+- `puppeteer-core`: the Electron memory sampler uses 25.11.0. Lighthouse 13.4.1
+  still resolves 25.10.0 transitively, within its declared `^25.3.0` range.
+  Let Lighthouse keep its tested copy instead of overriding its dependency tree.
 - `typescript`: the app uses TypeScript 6, while `eslint-plugin-sonarjs` still
   carries a TypeScript 5 transitive dependency.
 - `vscode-jsonrpc`: the app uses v9 directly, while `@github/copilot-sdk`

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1263] - 2026-09-22
+
+### Fixed
+
+- Use App identity for native auto-merge enrollment
+
 ## [0.1.1262] - 2026-09-20
 
 ### Fixed

@@ -67,14 +67,16 @@ jobs:
           owner: HemSoft
           repositories: hs-buddy
           permission-checks: write
-          permission-contents: read
+          # Enrollment must use the App so merged pushes still trigger CI and release.
+          # The installed App currently grants read; keep auto-merge disabled until upgraded.
+          permission-contents: ${{ vars.AI_AUTOMERGE_ENABLED == 'true' && 'write' || 'read' }}
           permission-issues: read
           permission-pull-requests: write
 
       - name: Reconcile acceptance and native auto-merge
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          MERGE_TOKEN: ${{ github.token }}
+          WITHDRAW_TOKEN: ${{ github.token }}
           AI_AUTOMERGE_ENABLED: ${{ vars.AI_AUTOMERGE_ENABLED }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number || github.event.workflow_run.pull_requests[0].number || inputs.pr-number || '' }}
         run: bun scripts/run-ai-review-automerge.ts --apply

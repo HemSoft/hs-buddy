@@ -15,10 +15,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Stabilize GitHub CLI and Aspire integrations
 
-### Changed
-
-- Remove generated app revision changes
-
 ## [0.1.1261] - 2026-09-19
 
 ### Changed

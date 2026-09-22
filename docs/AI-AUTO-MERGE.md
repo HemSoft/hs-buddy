@@ -53,9 +53,13 @@ Automatic triggers use the base or default branch workflow definition. Review
 events are deliberately excluded because their workflow definition comes from
 the PR merge ref. Manual dispatch must select `main`. The controller checks out
 trusted `main` code and never executes PR code or
-downloads PR artifacts. Its installation token is scoped to this repository
-and the checks, contents, issues, and pull requests permissions it needs. The
-workflow adds no AI calls and no reviewer-trigger comments.
+downloads PR artifacts. The SFL App token is scoped to this repository. The
+installed App currently grants contents read, enough to publish the acceptance
+check while `AI_AUTOMERGE_ENABLED=false`. Enrollment uses the App token with
+contents write only after that permission is granted. This preserves the normal
+post-merge push workflows. Withdrawal uses the workflow `GITHUB_TOKEN` with
+contents and pull-request write access so turning off enrollment remains possible
+without the App upgrade. The workflow adds no AI calls or reviewer-trigger comments.
 
 Each run publishes a pending check before reading evidence, rereads that
 evidence before enrollment, and uses `expectedHeadOid` when enabling native
@@ -85,8 +89,11 @@ an atomic merge condition.
 1. Land the workflow and controller with `AI_AUTOMERGE_ENABLED` unset or `false`.
    In this mode it publishes acceptance checks but never enrolls a PR.
 2. Run the workflow on an open PR and verify that the check's App ID is `4448946`.
-   The existing `SFL_APP_PRIVATE_KEY` installation must permit contents write,
-   checks write, pull requests write, and issues read for `hs-buddy`.
+   The existing `SFL_APP_PRIVATE_KEY` installation must permit contents read,
+   checks write, pull requests write, and issues read for `hs-buddy`. Before
+   setting `AI_AUTOMERGE_ENABLED=true`, grant the App contents write and verify
+   the upgraded installation. Keep the switch false until then. The workflow
+   `GITHUB_TOKEN` needs contents and pull-request write to withdraw enrollment.
 3. Preserve the `main` ruleset's existing CI, npm audit, CodeQL, thread
    resolution, deletion, and force-push restrictions. Add `ai-review-accepted`
    as a required status check with integration ID `4448946`. Enable strict

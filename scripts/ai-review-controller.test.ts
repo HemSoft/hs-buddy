@@ -158,6 +158,34 @@ describe('GitHub review controller', () => {
     expect(mutations.at(-1)?.body).toMatchObject({ conclusion: 'success' })
   })
 
+  it('uses the App for enrollment and the workflow token only for withdrawal', async () => {
+    const data = fixture()
+    const appApi = fakeApi(data)
+    const withdrawCalls: Call[] = []
+    const withdrawApi: GitHubApi = {
+      async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+        const values = (body ?? {}) as Record<string, unknown>
+        withdrawCalls.push({ path, method, body: values })
+        return structuredClone(route(data, path, method, values)) as T
+      },
+    }
+
+    await reconcilePull(appApi, repo, 1, options, withdrawApi)
+    expect(
+      data.calls.some(call => String(call.body.query).includes('enablePullRequestAutoMerge'))
+    ).toBe(true)
+    expect(withdrawCalls).toEqual([])
+
+    data.pull.labels = []
+    await reconcilePull(appApi, repo, 1, options, withdrawApi)
+    expect(
+      withdrawCalls.some(call => String(call.body.query).includes('disablePullRequestAutoMerge'))
+    ).toBe(true)
+    expect(
+      data.calls.some(call => String(call.body.query).includes('disablePullRequestAutoMerge'))
+    ).toBe(false)
+  })
+
   it('dry-run reads the same policy without writing', async () => {
     const data = fixture()
     expect(await reconcilePull(fakeApi(data), repo, 1, { ...options, apply: false })).toContain(

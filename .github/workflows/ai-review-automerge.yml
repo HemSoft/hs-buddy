@@ -54,7 +54,7 @@ jobs:
           owner: HemSoft
           repositories: hs-buddy
           permission-checks: write
-          permission-contents: write
+          permission-contents: read
           permission-issues: read
           permission-pull-requests: write
 

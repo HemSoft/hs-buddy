@@ -9,17 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1263] - 2026-09-22
-
-### Changed
-
-- Preserve workflow command assertions
-
 ## [0.1.1262] - 2026-09-20
 
 ### Fixed
 
 - Stabilize GitHub CLI and Aspire integrations
+
+### Changed
+
+- Remove generated app revision changes
 
 ## [0.1.1261] - 2026-09-19
 

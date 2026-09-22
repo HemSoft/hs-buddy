@@ -53,9 +53,11 @@ Automatic triggers use the base or default branch workflow definition. Review
 events are deliberately excluded because their workflow definition comes from
 the PR merge ref. Manual dispatch must select `main`. The controller checks out
 trusted `main` code and never executes PR code or
-downloads PR artifacts. Its installation token is scoped to this repository
-and the checks, contents, issues, and pull requests permissions it needs. The
-workflow adds no AI calls and no reviewer-trigger comments.
+downloads PR artifacts. Its SFL App token is scoped to this repository and
+writes the App-bound check while reading repository evidence. Native auto-merge
+mutations use the workflow's separately scoped `GITHUB_TOKEN`, which has the
+contents and pull-request write permissions required for enrollment withdrawal
+and enrollment. The workflow adds no AI calls and no reviewer-trigger comments.
 
 Each run publishes a pending check before reading evidence, rereads that
 evidence before enrollment, and uses `expectedHeadOid` when enabling native
@@ -85,8 +87,10 @@ an atomic merge condition.
 1. Land the workflow and controller with `AI_AUTOMERGE_ENABLED` unset or `false`.
    In this mode it publishes acceptance checks but never enrolls a PR.
 2. Run the workflow on an open PR and verify that the check's App ID is `4448946`.
-   The existing `SFL_APP_PRIVATE_KEY` installation must permit contents write,
-   checks write, pull requests write, and issues read for `hs-buddy`.
+   The existing `SFL_APP_PRIVATE_KEY` installation must permit contents read,
+   checks write, pull requests write, and issues read for `hs-buddy`. The
+   workflow `GITHUB_TOKEN` must retain contents and pull-request write access
+   for native auto-merge mutations.
 3. Preserve the `main` ruleset's existing CI, npm audit, CodeQL, thread
    resolution, deletion, and force-push restrictions. Add `ai-review-accepted`
    as a required status check with integration ID `4448946`. Enable strict
@@ -111,8 +115,9 @@ Removing the check would allow merges without the policy's evidence.
 
 For a read-only local evaluation, supply a token through `GH_TOKEN` and run
 `bun scripts/run-ai-review-automerge.ts`. Set `PR_NUMBER` to limit the evaluation.
-Only `--apply` permits writes, and only the configured App can publish the
-required check. Never paste tokens into commands, logs, or PR descriptions.
+Only `--apply` permits writes; set `MERGE_TOKEN` separately when applying native
+auto-merge mutations. Only the configured App can publish the required check.
+Never paste tokens into commands, logs, or PR descriptions.
 
 ## Agent closeout
 

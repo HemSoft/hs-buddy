@@ -99,6 +99,7 @@ async function rereadEvidence(
 
 async function updateEnrollment(
   api: GitHubApi,
+  mutationApi: GitHubApi,
   repository: string,
   snapshot: ReviewSnapshot,
   enabled: boolean,
@@ -109,13 +110,13 @@ async function updateEnrollment(
     eligibleForAutoMerge(snapshot, repository) &&
     (await hasRequiredGate(api, repository))
   if (enrollment.armed && (!canArm || snapshot.pull.auto_merge?.merge_method !== 'squash')) {
-    await autoMerge(api, snapshot.pull, false)
+    await autoMerge(mutationApi, snapshot.pull, false)
     enrollment.armed = false
   }
   if (canArm && !enrollment.armed) {
     // A lost response can hide a successful server-side mutation.
     enrollment.armed = true
-    await autoMerge(api, snapshot.pull, true)
+    await autoMerge(mutationApi, snapshot.pull, true)
   }
 }
 
@@ -123,7 +124,8 @@ export async function reconcilePull(
   api: GitHubApi,
   repository: string,
   number: number,
-  options: { apply: boolean; enabled: boolean }
+  options: { apply: boolean; enabled: boolean },
+  mutationApi: GitHubApi = api
 ): Promise<string> {
   const pull = await api.request<Pull>(`/repos/${repository}/pulls/${number}`)
   if (pull.state !== 'open') return `PR #${number}: closed; no action`
@@ -143,13 +145,13 @@ export async function reconcilePull(
     const decision = evaluateReview(snapshot)
     const fresh = await rereadEvidence(api, repository, snapshot, 'during evaluation')
     enrollment.armed = fresh.pull.auto_merge !== null
-    await updateEnrollment(api, repository, fresh, options.enabled, enrollment)
+    await updateEnrollment(api, mutationApi, repository, fresh, options.enabled, enrollment)
     await rereadEvidence(api, repository, fresh, 'before acceptance')
     await finishCheck(api, repository, check, decision.accepted, decision.reason)
     return `PR #${number} ${fresh.pull.head.sha}: ${decision.reason}; native auto-merge=${enrollment.armed}`
   } catch (error: unknown) {
     try {
-      if (enrollment.armed) await autoMerge(api, pull, false)
+      if (enrollment.armed) await autoMerge(mutationApi, pull, false)
     } finally {
       if (check) {
         await finishCheck(

@@ -158,6 +158,27 @@ describe('GitHub review controller', () => {
     expect(mutations.at(-1)?.body).toMatchObject({ conclusion: 'success' })
   })
 
+  it('uses the workflow token for native auto-merge while the App owns the check', async () => {
+    const data = fixture()
+    const appApi = fakeApi(data)
+    const mergeCalls: Call[] = []
+    const mutationApi: GitHubApi = {
+      async request<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
+        mergeCalls.push({ path, method, body: (body ?? {}) as Record<string, unknown> })
+        return structuredClone(
+          route(data, path, method, (body ?? {}) as Record<string, unknown>)
+        ) as T
+      },
+    }
+
+    await reconcilePull(appApi, repo, 1, options, mutationApi)
+
+    expect(data.calls.some(call => String(call.body.query).startsWith('mutation'))).toBe(false)
+    expect(
+      mergeCalls.some(call => String(call.body.query).includes('enablePullRequestAutoMerge'))
+    ).toBe(true)
+  })
+
   it('dry-run reads the same policy without writing', async () => {
     const data = fixture()
     expect(await reconcilePull(fakeApi(data), repo, 1, { ...options, apply: false })).toContain(

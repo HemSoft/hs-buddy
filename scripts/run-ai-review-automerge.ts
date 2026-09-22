@@ -7,6 +7,7 @@ if (repository !== 'HemSoft/hs-buddy') throw new Error('This policy is scoped to
 const token = process.env.GH_TOKEN
 if (!token) throw new Error('GH_TOKEN is required')
 const api = githubApi(token)
+const mutationApi = githubApi(process.env.MERGE_TOKEN ?? token)
 const requested = process.env.PR_NUMBER
 if (requested && !/^[1-9]\d*$/.test(requested))
   throw new Error('PR_NUMBER must be a positive integer')
@@ -18,7 +19,7 @@ const options = {
 const failed = await reconcileBatch(
   numbers,
   async number => {
-    console.log(await reconcilePull(api, repository, number, options))
+    console.log(await reconcilePull(api, repository, number, options, mutationApi))
   },
   (number, error) => {
     console.error(`PR #${number}: ${error instanceof Error ? error.message : 'evaluation failed'}`)

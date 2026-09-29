@@ -39,6 +39,12 @@ const SHIKI_GRAMMAR_WARNING_LIMIT_KB = 800
 const DEVELOPMENT_SCRIPT_SRC = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
 export const PRODUCTION_SCRIPT_SRC = "script-src 'self' 'wasm-unsafe-eval'"
 
+/** Rolldown may derive the shared renderer chunk name from the checkout basename. */
+export function rendererChunkFileName(name: string, projectDirectoryName: string): string {
+  const logicalName = name === projectDirectoryName ? 'app' : name
+  return `assets/${logicalName}-[hash].js`
+}
+
 export function hardenProductionCsp(html: string): string {
   const occurrences = html.split(DEVELOPMENT_SCRIPT_SRC).length - 1
   if (occurrences !== 1) {
@@ -140,6 +146,8 @@ export default defineConfig(({ mode }) => {
           // into the entry graph because group matches include dependencies.
           codeSplitting: rendererCodeSplitting(),
           strictExecutionOrder: true,
+          // Stabilize actual generated imports, not only bundle-report labels.
+          chunkFileNames: chunk => rendererChunkFileName(chunk.name, path.basename(__dirname)),
         },
       },
     },

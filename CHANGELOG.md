@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1266] - 2026-09-29
+
+### Fixed
+
+- Stabilize renderer chunk names (#731)
+
 ## [0.1.1265] - 2026-09-22
 
 ### Changed

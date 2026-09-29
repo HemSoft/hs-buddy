@@ -1,16 +1,16 @@
 ---
 name: buddy-perfection
-description: "V1.1 - Commands: audit, fix. Audits hs-buddy against its declared quality gates and fixes confirmed failures without weakening policy."
+description: 'V1.1 - Commands: audit, fix. Audits hs-buddy against its declared quality gates and fixes confirmed failures without weakening policy.'
 disable-model-invocation: true
 hooks:
   PostToolUse:
-    - matcher: "Read|Write|Edit"
+    - matcher: 'Read|Write|Edit'
       hooks:
         - type: prompt
           prompt: |
             If a file was read, written, or edited in the buddy-perfection directory, verify that History/{YYYY-MM-DD}.md contains an entry for this interaction with an exact shell timestamp, action, one-line summary, and retrospective result.
   Stop:
-    - matcher: "*"
+    - matcher: '*'
       hooks:
         - type: prompt
           prompt: |
@@ -23,9 +23,36 @@ Audit hs-buddy against its current repository policy. CI, package scripts,
 configuration, and repository instructions are authoritative. Do not impose a
 generic target such as 100 percent coverage unless the repository declares it.
 
-`scripts/whats-next.ps1` is the deterministic baseline runner for TypeScript,
-ESLint, coverage, CRAP, Knip, Prettier, Markdown, bundle size, e18e, dependency
-boundaries, React Doctor, and scorecard. It does not replace live discovery.
+[`scripts/whats-next.ps1`](../../../scripts/whats-next.ps1) runs a local baseline
+for TypeScript, ESLint, renderer coverage, CRAP, Knip, Prettier, Markdown,
+a fresh production build, CSP, bundle size, e18e, dependency boundaries,
+quality lint, Electron security, React Doctor, and scorecard. It does not
+replace live discovery or the required hosted `ci-complete` check.
+
+The version 2 JSON report names the score `BaselineScore`, sets
+`FullQualification` to false, and accounts for all CI jobs in `CIGates`.
+Independent jobs have explicit exclusion reasons. Unknown CI jobs are blocked
+until their scope is accounted for. `CoveragePolicy` reads the maintained
+suite configurations and keeps the renderer's reporting-only 100% goal
+separate from enforced thresholds. Dependency warnings remain nonblocking
+under the configured architecture policy, but their counts remain visible.
+
+Use `-PlanOnly -Json` to inspect targets and scope without running gates.
+Use `-Gates 'Bundle Size' -Json` for a focused check; the runner also executes
+the required fresh production build. Existing artifacts never substitute for
+a successful build from the current invocation. Use a disposable checkout
+for read-only audits because checks create build and report files. The runner
+never installs prerequisites or changes credentials.
+
+JSON statuses are `PASS`, `FAIL`, `BLOCKED`, `EXCLUDED`, or `PLANNED`.
+Exit 1 means a gate failed, exit 2 means a prerequisite or measurement was
+blocked, and exit 0 means no attempted gate failed or was blocked. Excluded
+and planned checks are not passes. `-SkipScorecard` explicitly excludes that
+external measurement. `-KeepGoingOnMissingTools` remains accepted; missing
+prerequisites are always recorded and independent gates continue. Failed native
+commands retain their full output in the result's `Output` field for diagnosis.
+The contract tests require PowerShell 7 and explicitly skip when it is absent.
+Set `PWSH_EXECUTABLE` to its executable path when it is installed outside `PATH`.
 
 ## Commands
 
@@ -56,7 +83,7 @@ boundaries, React Doctor, and scorecard. It does not replace live discovery.
 Report:
 
 | Gate | Command | Target | Result | Evidence |
-| --- | --- | --- | --- | --- |
+| ---- | ------- | ------ | ------ | -------- |
 
 Use `pass`, `fail`, or `blocked`, then state the highest-priority finding, any
 policy drift, and the final working-tree state.

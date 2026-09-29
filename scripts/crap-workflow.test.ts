@@ -24,7 +24,10 @@ describe('required CRAP qualification', () => {
   })
   it('replaces the file-level approximation with the authoritative command', () => {
     const script = readFileSync('scripts/whats-next.ps1', 'utf8')
-    expect(script).toContain("-Command 'bun run crap:check'")
+    expect(script).toContain("Import-Module (Join-Path $PSScriptRoot 'audit-reporting.psm1')")
+    const policy = readFileSync('scripts/audit-reporting.psm1', 'utf8')
+    expect(policy).toContain("New-AuditGate 'CRAP Score'")
+    expect(policy).toContain("'crap:check'")
     expect(script).not.toContain('coverageIsPerfect')
     expect(script).not.toContain('All functions covered and complexity <= 5')
   })

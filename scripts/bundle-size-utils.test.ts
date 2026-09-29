@@ -22,20 +22,18 @@ describe('normalizeBundleFile', () => {
 })
 
 describe('normalizeRendererEntryFile', () => {
-  it('uses stable app names for root chunks produced inside worktrees', () => {
-    expect(
-      normalizeRendererEntryFile(
-        'issue-626-lazy-load-feature-routes-DWzO9sQI.js',
-        'issue-626-lazy-load-feature-routes'
-      )
-    ).toBe('app.js')
-    expect(
-      normalizeRendererEntryFile(
-        'issue-626-lazy-load-feature-routes-Bi18G-If.css',
-        'issue-626-lazy-load-feature-routes'
-      )
-    ).toBe('app.css')
-    expect(normalizeRendererEntryFile('SettingsAccounts-AbCdEf12.js', 'issue-626')).toBe(
+  it('aliases only the root stylesheet identified by HTML', () => {
+    const initial = new Set(['assets/TerminalPane-Bi18G-If.css'])
+    expect(normalizeRendererEntryFile('TerminalPane-Bi18G-If.css', 'TerminalPane', initial)).toBe(
+      'app.css'
+    )
+    expect(normalizeRendererEntryFile('TerminalPane-AbCdEf12.css', 'TerminalPane', initial)).toBe(
+      'TerminalPane-AbCdEf12.css'
+    )
+    expect(normalizeRendererEntryFile('TerminalPane-AbCdEf12.js', 'TerminalPane', initial)).toBe(
+      'TerminalPane-AbCdEf12.js'
+    )
+    expect(normalizeRendererEntryFile('SettingsAccounts-AbCdEf12.js', 'issue-626', initial)).toBe(
       'SettingsAccounts-AbCdEf12.js'
     )
   })

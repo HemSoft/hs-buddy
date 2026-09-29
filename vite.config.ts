@@ -40,9 +40,13 @@ const DEVELOPMENT_SCRIPT_SRC = "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
 export const PRODUCTION_SCRIPT_SRC = "script-src 'self' 'wasm-unsafe-eval'"
 
 /** Rolldown may derive the shared renderer chunk name from the checkout basename. */
-export function rendererChunkFileName(name: string, projectDirectoryName: string): string {
-  const logicalName = name === projectDirectoryName ? 'app' : name
-  return `assets/${logicalName}-[hash].js`
+export function rendererChunkFileName(
+  chunk: { name: string; moduleIds: readonly string[] },
+  rendererEntryModule: string
+): string {
+  const entry = rendererEntryModule.replaceAll('\\', '/')
+  const isRoot = chunk.moduleIds.some(id => id.replaceAll('\\', '/') === entry)
+  return `assets/${isRoot ? 'app' : chunk.name}-[hash].js`
 }
 
 export function hardenProductionCsp(html: string): string {
@@ -147,7 +151,8 @@ export default defineConfig(({ mode }) => {
           codeSplitting: rendererCodeSplitting(),
           strictExecutionOrder: true,
           // Stabilize actual generated imports, not only bundle-report labels.
-          chunkFileNames: chunk => rendererChunkFileName(chunk.name, path.basename(__dirname)),
+          chunkFileNames: chunk =>
+            rendererChunkFileName(chunk, path.resolve(__dirname, 'src/main.tsx')),
         },
       },
     },

@@ -47,11 +47,14 @@ function collectRendererAssets(distDir: string): BundleEntry[] {
   const assetsDir = resolve(distDir, 'assets')
   if (!existsSync(assetsDir)) return []
   const projectDirectoryName = basename(root)
+  const initialAssets = new Set(
+    parseInitialHtmlAssets(readFileSync(resolve(distDir, 'index.html'), 'utf-8'))
+  )
   return readdirSync(assetsDir)
     .filter(f => f.endsWith('.js') || f.endsWith('.css'))
     .map(f => {
       const size = statSync(resolve(assetsDir, f)).size
-      const logicalFile = normalizeRendererEntryFile(f, projectDirectoryName)
+      const logicalFile = normalizeRendererEntryFile(f, projectDirectoryName, initialAssets)
       return { file: `dist/assets/${logicalFile}`, sizeBytes: size, sizeHuman: humanSize(size) }
     })
 }

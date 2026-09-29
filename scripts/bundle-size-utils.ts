@@ -118,11 +118,19 @@ export function normalizeBundleFile(file: string): string {
   return file.replace(/-[A-Za-z0-9_-]{8}\./, '.')
 }
 
-/** Stabilize the root renderer chunk name across checkout and worktree directory names. */
-export function normalizeRendererEntryFile(file: string, projectDirectoryName: string): string {
-  if (!file.startsWith(`${projectDirectoryName}-`)) return file
-  if (file.endsWith('.js')) return 'app.js'
-  if (file.endsWith('.css')) return 'app.css'
+/** Alias only the root stylesheet proven by HTML, never a same-named lazy asset. */
+export function normalizeRendererEntryFile(
+  file: string,
+  projectDirectoryName: string,
+  initialAssets: ReadonlySet<string>
+): string {
+  if (
+    file.startsWith(`${projectDirectoryName}-`) &&
+    file.endsWith('.css') &&
+    initialAssets.has(`assets/${file}`)
+  ) {
+    return 'app.css'
+  }
   return file
 }
 

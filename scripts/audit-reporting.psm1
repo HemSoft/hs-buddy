@@ -89,6 +89,21 @@ function Get-AuditPrerequisite {
     if (-not $Spec.External -and -not (Test-Path (Join-Path $Repository 'node_modules'))) {
         return 'Missing checkout-local dependencies; install the frozen lockfile outside read-only audit mode'
     }
+    $requiredModules = @{
+        'TypeScript' = @('typescript'); 'ESLint' = @('eslint')
+        'Test Coverage' = @('vitest', '@vitest/coverage-v8')
+        'CRAP Score' = @('vitest', 'typescript')
+        'Knip' = @('knip'); 'Prettier' = @('prettier')
+        'Markdown Lint' = @('markdownlint-cli2'); 'Build' = @('vite')
+        'Bundle Size' = @('es-module-lexer'); 'e18e' = @('@e18e/cli')
+        'Dep Cruiser' = @('dependency-cruiser'); 'Quality Lint' = @('eslint')
+        'Electron Security' = @('typescript'); 'React Doctor' = @('react-doctor')
+    }
+    foreach ($module in @($requiredModules[$Spec.Gate])) {
+        if ($module -and -not (Test-Path (Join-Path $Repository "node_modules/$module/package.json"))) {
+            return "Missing checkout-local module: $module"
+        }
+    }
     if ($Spec.Gate -eq 'Build' -and -not (Test-Path (Join-Path $Repository 'node_modules/vite/bin/vite.js'))) {
         return 'Missing checkout-local Vite CLI; no package will be installed during audit'
     }
@@ -166,11 +181,19 @@ function Get-AuditCIScope {
         'ci-feedback' = 'Hosted fast-feedback aggregate; local subset does not satisfy this check'
         'ci-complete' = 'Hosted final qualification aggregate; local baseline is not complete CI qualification'
     }
-    $source = Get-Content -Raw (Join-Path $Repository '.github/workflows/ci.yml')
-    $jobs = [regex]::Split($source, '(?m)^jobs:\s*\r?$')
-    if ($jobs.Count -ne 2) { throw 'Cannot discover an unambiguous CI jobs block' }
-    foreach ($match in [regex]::Matches($jobs[1], '(?m)^  ([A-Za-z][A-Za-z0-9_-]*):\s*\r?$')) {
-        $job = $match.Groups[1].Value
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) { throw 'Missing Bun for read-only CI YAML discovery' }
+    # Use the pinned runtime's parser so quoted, inline and underscore-prefixed IDs are included.
+    $program = @'
+const data = Bun.YAML.parse(await Bun.file(process.argv[1]).text());
+if (!data?.jobs || typeof data.jobs !== 'object' || Array.isArray(data.jobs)) throw new Error('Missing CI jobs mapping');
+const names = Object.keys(data.jobs);
+if (!names.length || !names.every(name => /^[A-Za-z_][A-Za-z0-9_-]*$/.test(name))) throw new Error('Invalid CI job IDs');
+console.log(JSON.stringify(names));
+'@
+    $output = @(& bun -e $program (Join-Path $Repository '.github/workflows/ci.yml') 2>&1 | ForEach-Object { $_.ToString() })
+    if ($LASTEXITCODE -ne 0) { throw "Cannot discover CI jobs: $($output -join ' ')" }
+    $jobs = ($output -join "`n") | ConvertFrom-Json
+    foreach ($job in $jobs) {
         if ($covered.ContainsKey($job)) {
             $statuses = @($covered[$job] | ForEach-Object { $Results[$_].Status })
             $status = if ($statuses -contains 'FAIL') { 'FAIL' } elseif ($statuses -contains 'BLOCKED') { 'BLOCKED' } elseif ($statuses -contains 'EXCLUDED') { 'EXCLUDED' } elseif ($statuses -contains 'PLANNED') { 'PLANNED' } else { 'PASS' }

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1270] - 2026-09-29
+
+### Fixed
+
+- Classify missing audit modules and parse complete CI scope
+
 ## [0.1.1269] - 2026-09-29
 
 ### Fixed

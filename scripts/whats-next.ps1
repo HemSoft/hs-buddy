@@ -23,6 +23,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$utf8 = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $utf8
+$OutputEncoding = $utf8
 Import-Module (Join-Path $PSScriptRoot 'audit-reporting.psm1') -Force -DisableNameChecking
 $repoRoot = (Resolve-Path $Repository).Path
 
@@ -105,7 +108,7 @@ foreach ($spec in $plan) {
     } elseif ($Gates.Count -gt 0 -and $spec.Gate -notin $Gates) {
         $result = New-AuditResult $spec 'EXCLUDED' 'Outside explicit -Gates selection; not validated'
     } elseif ($PlanOnly) {
-        $result = New-AuditResult $spec 'PLANNED' 'Plan only; no command executed and no artifact accepted'
+        $result = New-AuditResult $spec 'PLANNED' 'Plan only; no gate command executed and no artifact accepted'
     } else {
         $result = Invoke-AuditGate $spec $byGate
     }

@@ -8,15 +8,20 @@ const runner = resolve('scripts/whats-next.ps1')
 const modulePath = resolve('scripts/audit-reporting.psm1')
 const powershell =
   process.env.PWSH_EXECUTABLE ?? (process.platform === 'win32' ? 'pwsh.exe' : 'pwsh')
-const available = !spawnSync(powershell, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion'], {
+const nativeCommandTimeout = 20_000
+// Two bounded native invocations must fit inside one contract, including cold startup.
+const nativeOptions = { timeout: nativeCommandTimeout * 2 + 5_000 }
+const probe = spawnSync(powershell, ['-NoProfile', '-Command', '$PSVersionTable.PSVersion'], {
   encoding: 'utf8',
-}).error
+  timeout: nativeCommandTimeout,
+})
+const available = !probe.error && probe.status === 0
 let root: string
 
 function run(...args: string[]) {
   return spawnSync(powershell, ['-NoProfile', ...args], {
     encoding: 'utf8',
-    timeout: 20_000,
+    timeout: nativeCommandTimeout,
     env: {
       ...process.env,
       AUDIT_TEST_ROOT: root,
@@ -46,7 +51,7 @@ beforeEach(() => {
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
-describe.skipIf(!available)('local audit policy, requires PowerShell 7', () => {
+describe.skipIf(!available)('local audit policy, requires PowerShell 7', nativeOptions, () => {
   it('reads current enforced targets and separates the renderer reporting goal', () => {
     const config = join(root, 'vitest.config.ts')
     writeFileSync(
@@ -72,7 +77,7 @@ describe.skipIf(!available)('local audit policy, requires PowerShell 7', () => {
   it('accounts for every current CI job and blocks newly discovered unmapped jobs', () => {
     const { data } = report('-PlanOnly')
     const jobs = readFileSync('.github/workflows/ci.yml', 'utf8').split(/^jobs:\s*$/m)[1]
-    const names = [...jobs.matchAll(/^ {2}([A-Za-z][A-Za-z0-9_-]*):\s*$/gm)].map(match => match[1])
+    const names = [...jobs.matchAll(/^ {2}([A-Za-z_][A-Za-z0-9_-]*):\s*$/gm)].map(match => match[1])
     expect(data.CIGates.map((gate: { Gate: string }) => gate.Gate)).toEqual([
       ...names,
       'npm audit',
@@ -81,15 +86,30 @@ describe.skipIf(!available)('local audit policy, requires PowerShell 7', () => {
     expect(data.CIGates.every((gate: { Detail: string }) => gate.Detail.length > 0)).toBe(true)
     writeFileSync(
       join(root, '.github/workflows/ci.yml'),
-      `${readFileSync('.github/workflows/ci.yml', 'utf8')}\n  future-gate:\n    runs-on: ubuntu-latest\n`
+      `${readFileSync('.github/workflows/ci.yml', 'utf8')}\n  _future_gate:\n    runs-on: ubuntu-latest\n`
     )
     const changed = report('-PlanOnly')
     expect(changed.code).toBe(2)
-    expect(changed.data.CIGates.at(-3)).toMatchObject({ Gate: 'future-gate', Status: 'BLOCKED' })
+    expect(changed.data.CIGates.at(-3)).toMatchObject({ Gate: '_future_gate', Status: 'BLOCKED' })
   })
 })
 
-describe.skipIf(!available)('local audit blockers, requires PowerShell 7', () => {
+describe.skipIf(!available)('CI YAML discovery, requires PowerShell 7', nativeOptions, () => {
+  it('accounts for quoted inline job mappings instead of skipping valid YAML forms', () => {
+    const workflow = join(root, '.github/workflows/ci.yml')
+    writeFileSync(
+      workflow,
+      `${readFileSync(workflow, 'utf8')}\n  "_quoted_job": { runs-on: ubuntu-latest, steps: [{ run: 'echo metadata' }] }\n`
+    )
+    const { code, data } = report('-PlanOnly')
+    expect(code).toBe(2)
+    expect(
+      data.CIGates.find((gate: { Gate: string }) => gate.Gate === '_quoted_job')
+    ).toMatchObject({ Status: 'BLOCKED' })
+  })
+})
+
+describe.skipIf(!available)('local audit blockers, requires PowerShell 7', nativeOptions, () => {
   it('rejects stale artifacts and missing dependencies before invoking bundle qualification', () => {
     mkdirSync(join(root, 'dist'), { recursive: true })
     writeFileSync(join(root, 'dist/index.html'), 'stale artifact')
@@ -138,61 +158,88 @@ describe.skipIf(!available)('local audit blockers, requires PowerShell 7', () =>
   })
 })
 
-describe.skipIf(!available)('local audit discovery failures, requires PowerShell 7', () => {
-  it('preserves the complete version 2 envelope when configs cannot be read', () => {
-    rmSync(join(root, 'vitest.config.ts'))
-    const { code, data } = report('-PlanOnly')
-    expect(code).toBe(2)
-    expect(Object.keys(data).sort()).toEqual([
-      'BaselineScore',
-      'CIGates',
-      'CoveragePolicy',
-      'FullQualification',
-      'Gates',
-      'GeneratedAt',
-      'NextActions',
-      'ReportVersion',
-      'Repository',
-      'Scope',
-    ])
-    expect(data.ReportVersion).toBe(2)
-    expect(data.CoveragePolicy).toBeNull()
-    expect(data.Gates[0]).toMatchObject({ Gate: 'Policy discovery', Status: 'BLOCKED' })
-    expect(data.NextActions).toHaveLength(2)
-    copyFileSync('vitest.config.ts', join(root, 'vitest.config.ts'))
-    rmSync(join(root, '.github/workflows/ci.yml'))
-    const missingWorkflow = report('-PlanOnly')
-    expect(missingWorkflow.code).toBe(2)
-    expect(missingWorkflow.data.ReportVersion).toBe(2)
-    expect(missingWorkflow.data.CIGates[0]).toMatchObject({
-      Gate: 'CI scope discovery',
-      Status: 'BLOCKED',
+describe.skipIf(!available)(
+  'local audit discovery failures, requires PowerShell 7',
+  nativeOptions,
+  () => {
+    it('preserves the complete version 2 envelope when configs cannot be read', () => {
+      rmSync(join(root, 'vitest.config.ts'))
+      const { code, data } = report('-PlanOnly')
+      expect(code).toBe(2)
+      expect(Object.keys(data).sort()).toEqual([
+        'BaselineScore',
+        'CIGates',
+        'CoveragePolicy',
+        'FullQualification',
+        'Gates',
+        'GeneratedAt',
+        'NextActions',
+        'ReportVersion',
+        'Repository',
+        'Scope',
+      ])
+      expect(data.ReportVersion).toBe(2)
+      expect(data.CoveragePolicy).toBeNull()
+      expect(data.Gates[0]).toMatchObject({ Gate: 'Policy discovery', Status: 'BLOCKED' })
+      expect(data.NextActions).toHaveLength(2)
+      copyFileSync('vitest.config.ts', join(root, 'vitest.config.ts'))
+      rmSync(join(root, '.github/workflows/ci.yml'))
+      const missingWorkflow = report('-PlanOnly')
+      expect(missingWorkflow.code).toBe(2)
+      expect(missingWorkflow.data.ReportVersion).toBe(2)
+      expect(missingWorkflow.data.CIGates[0]).toMatchObject({
+        Gate: 'CI scope discovery',
+        Status: 'BLOCKED',
+      })
     })
-  })
 
-  it('blocks partial installs without allowing bunx to fetch Vite', () => {
-    mkdirSync(join(root, 'node_modules'))
-    const { code, data } = report('-Gates', 'Bundle Size')
-    expect(code).toBe(2)
-    expect(data.Gates.find((gate: { Gate: string }) => gate.Gate === 'Build')).toMatchObject({
-      Status: 'BLOCKED',
-      Command: 'node node_modules/vite/bin/vite.js build',
-      Detail: 'Missing checkout-local Vite CLI; no package will be installed during audit',
+    it('blocks partial installs without allowing bunx to fetch Vite', () => {
+      mkdirSync(join(root, 'node_modules/vite'), { recursive: true })
+      writeFileSync(join(root, 'node_modules/vite/package.json'), '{}')
+      const { code, data } = report('-Gates', 'Bundle Size')
+      expect(code).toBe(2)
+      expect(data.Gates.find((gate: { Gate: string }) => gate.Gate === 'Build')).toMatchObject({
+        Status: 'BLOCKED',
+        Command: 'node node_modules/vite/bin/vite.js build',
+        Detail: 'Missing checkout-local Vite CLI; no package will be installed during audit',
+      })
+      expect(readFileSync('scripts/crap-coverage.ts', 'utf8')).toMatch(
+        /\[\s*'--no-install',\s*'vitest'/
+      )
     })
-    expect(readFileSync('scripts/crap-coverage.ts', 'utf8')).toMatch(
-      /\[\s*'--no-install',\s*'vitest'/
-    )
-  })
-})
+  }
+)
 
-describe.skipIf(!available)('local audit build receipts, requires PowerShell 7', () => {
-  it("requires fresh outputs and this invocation's successful build receipt", () => {
-    const result = run(
-      '-Command',
-      `
+describe.skipIf(!available)(
+  'local audit module prerequisites, requires PowerShell 7',
+  nativeOptions,
+  () => {
+    it('blocks module-backed gates when an incomplete node_modules directory exists', () => {
+      mkdirSync(join(root, 'node_modules'))
+      for (const name of ['React Doctor', 'e18e']) {
+        const { code, data } = report('-Gates', name)
+        expect(code).toBe(2)
+        const gate = data.Gates.find((item: { Gate: string }) => item.Gate === name)
+        expect(gate.Status).toBe('BLOCKED')
+        expect(gate.Detail).toContain('Missing checkout-local module')
+      }
+    })
+  }
+)
+
+describe.skipIf(!available)(
+  'local audit build receipts, requires PowerShell 7',
+  nativeOptions,
+  () => {
+    it("requires fresh outputs and this invocation's successful build receipt", () => {
+      const result = run(
+        '-Command',
+        `
       Import-Module $env:AUDIT_TEST_MODULE -Force -DisableNameChecking
       $root = $env:AUDIT_TEST_ROOT
       New-Item -ItemType Directory "$root/dist", "$root/dist-electron", "$root/node_modules" | Out-Null
+      New-Item -ItemType Directory "$root/node_modules/es-module-lexer" | Out-Null
+      Set-Content "$root/node_modules/es-module-lexer/package.json" '{}'
       Set-Content "$root/dist/index.html" 'fixture'
       Set-Content "$root/dist-electron/main.js" 'fixture'
       (Get-Item "$root/dist/index.html").LastWriteTimeUtc = [datetime]::UtcNow.AddDays(-1)
@@ -207,13 +254,14 @@ describe.skipIf(!available)('local audit build receipts, requires PowerShell 7',
         ValidReceipt = Get-AuditPrerequisite $spec $root @{Build=[pscustomobject]@{Status='PASS'}}
       } | ConvertTo-Json
     `
-    )
-    expect(result.status).toBe(0)
-    const data = JSON.parse(result.stdout)
-    expect(data.Stale).toContain('Stale build output')
-    expect(data.Fresh).toBeNull()
-    expect(data.NoReceipt).toContain('this invocation')
-    expect(data.FailedReceipt).toContain('this invocation')
-    expect(data.ValidReceipt).toBeNull()
-  })
-})
+      )
+      expect(result.status).toBe(0)
+      const data = JSON.parse(result.stdout)
+      expect(data.Stale).toContain('Stale build output')
+      expect(data.Fresh).toBeNull()
+      expect(data.NoReceipt).toContain('this invocation')
+      expect(data.FailedReceipt).toContain('this invocation')
+      expect(data.ValidReceipt).toBeNull()
+    })
+  }
+)

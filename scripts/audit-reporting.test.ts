@@ -41,6 +41,7 @@ beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'buddy-audit-contract-'))
   mkdirSync(join(root, '.github/workflows'), { recursive: true })
   copyFileSync('.github/workflows/ci.yml', join(root, '.github/workflows/ci.yml'))
+  copyFileSync('package.json', join(root, 'package.json'))
   for (const config of [
     'vitest.config.ts',
     'vitest.electron.config.ts',
@@ -194,6 +195,10 @@ describe.skipIf(!available)(
     })
 
     it('blocks partial installs without allowing bunx to fetch Vite', () => {
+      writeFileSync(
+        join(root, 'package.json'),
+        JSON.stringify({ devDependencies: { vite: '1.0.0' } })
+      )
       mkdirSync(join(root, 'node_modules/vite'), { recursive: true })
       writeFileSync(join(root, 'node_modules/vite/package.json'), '{}')
       const { code, data } = report('-Gates', 'Bundle Size')
@@ -228,6 +233,66 @@ describe.skipIf(!available)(
 )
 
 describe.skipIf(!available)(
+  'composite gate prerequisites, requires PowerShell 7',
+  nativeOptions,
+  () => {
+    it('uses maintained declarations for every composite command dependency', () => {
+      const manifest = JSON.parse(readFileSync('package.json', 'utf8'))
+      for (const name of Object.keys({ ...manifest.dependencies, ...manifest.devDependencies })) {
+        mkdirSync(join(root, 'node_modules', name), { recursive: true })
+        writeFileSync(join(root, 'node_modules', name, 'package.json'), '{}')
+      }
+      const result = run(
+        '-Command',
+        `
+      Import-Module $env:AUDIT_TEST_MODULE -Force -DisableNameChecking
+      $root = $env:AUDIT_TEST_ROOT
+      $plan = @(Get-AuditGatePlan (Get-CoveragePolicy $root) $root)
+      Remove-Item "$root/node_modules/@vitest/coverage-v8/package.json"
+      $crap = Get-AuditPrerequisite ($plan | Where-Object Gate -eq 'CRAP Score') $root @{}
+      Set-Content "$root/node_modules/@vitest/coverage-v8/package.json" '{}'
+      Remove-Item "$root/node_modules/typescript/package.json"
+      $quality = Get-AuditPrerequisite ($plan | Where-Object Gate -eq 'Quality Lint') $root @{}
+      [pscustomobject]@{ Crap=$crap; Quality=$quality } | ConvertTo-Json
+    `
+      )
+      expect(result.status).toBe(0)
+      const data = JSON.parse(result.stdout)
+      expect(data.Crap).toContain('Missing checkout-local module: @vitest/coverage-v8')
+      expect(data.Quality).toContain('Missing checkout-local module: typescript')
+    })
+  }
+)
+
+describe.skipIf(!available)(
+  'scorecard failure evidence, requires PowerShell 7',
+  nativeOptions,
+  () => {
+    it('retains successful-command JSON and failing rules in gates and next actions', () => {
+      const payload = {
+        classification: { numericScore: 95, maxPoints: 100, level: 'Silver' },
+        rules: [{ id: 'fixture-rule', passed: false, reason: 'Fixture finding' }],
+      }
+      mkdirSync(join(root, 'scripts'))
+      writeFileSync(
+        join(root, 'scripts/get-scorecard-report.ps1'),
+        `Write-Output '${JSON.stringify(payload)}'`
+      )
+      const result = run('-File', runner, '-Repository', root, '-Json', '-Gates', 'Scorecard')
+      expect(result.status).toBe(1)
+      const data = JSON.parse(result.stdout)
+      const gate = data.Gates.find((item: { Gate: string }) => item.Gate === 'Scorecard')
+      expect(gate.Status).toBe('FAIL')
+      expect(gate.ExitCode).toBe(0)
+      expect(JSON.parse(gate.Output.join('\n'))).toEqual(payload)
+      expect(
+        data.NextActions.find((item: { Gate: string }) => item.Gate === 'Scorecard').Output
+      ).toEqual(gate.Output)
+    })
+  }
+)
+
+describe.skipIf(!available)(
   'local audit build receipts, requires PowerShell 7',
   nativeOptions,
   () => {
@@ -240,6 +305,7 @@ describe.skipIf(!available)(
       New-Item -ItemType Directory "$root/dist", "$root/dist-electron", "$root/node_modules" | Out-Null
       New-Item -ItemType Directory "$root/node_modules/es-module-lexer" | Out-Null
       Set-Content "$root/node_modules/es-module-lexer/package.json" '{}'
+      Set-Content "$root/package.json" '{"dependencies":{"es-module-lexer":"2.0.0"}}'
       Set-Content "$root/dist/index.html" 'fixture'
       Set-Content "$root/dist-electron/main.js" 'fixture'
       (Get-Item "$root/dist/index.html").LastWriteTimeUtc = [datetime]::UtcNow.AddDays(-1)

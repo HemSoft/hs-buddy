@@ -76,9 +76,12 @@ function Invoke-AuditGate {
         $missing = Test-FreshAuditBuild $repoRoot $run.StartedAtUtc
         if ($missing) { $status = 'BLOCKED'; $detail = $missing }
     }
-    if ($Spec.Gate -eq 'Scorecard' -and $status -eq 'PASS') { return Get-ScorecardResult $Spec $run }
-    $result = New-AuditResult $Spec $status $detail $run.ExitCode $run.Seconds
-    if ($status -ne 'PASS') { $result | Add-Member -NotePropertyName Output -NotePropertyValue $run.Output }
+    $result = if ($Spec.Gate -eq 'Scorecard' -and $status -eq 'PASS') {
+        Get-ScorecardResult $Spec $run
+    } else {
+        New-AuditResult $Spec $status $detail $run.ExitCode $run.Seconds
+    }
+    if ($result.Status -ne 'PASS') { $result | Add-Member -NotePropertyName Output -NotePropertyValue $run.Output }
     return $result
 }
 

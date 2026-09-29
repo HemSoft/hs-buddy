@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1271] - 2026-09-29
+
+### Fixed
+
+- Preserve scorecard evidence and validate declared audit prerequisites
+
 ## [0.1.1270] - 2026-09-29
 
 ### Fixed

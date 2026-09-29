@@ -89,19 +89,22 @@ function Get-AuditPrerequisite {
     if (-not $Spec.External -and -not (Test-Path (Join-Path $Repository 'node_modules'))) {
         return 'Missing checkout-local dependencies; install the frozen lockfile outside read-only audit mode'
     }
-    $requiredModules = @{
-        'TypeScript' = @('typescript'); 'ESLint' = @('eslint')
-        'Test Coverage' = @('vitest', '@vitest/coverage-v8')
-        'CRAP Score' = @('vitest', 'typescript')
-        'Knip' = @('knip'); 'Prettier' = @('prettier')
-        'Markdown Lint' = @('markdownlint-cli2'); 'Build' = @('vite')
-        'Bundle Size' = @('es-module-lexer'); 'e18e' = @('@e18e/cli')
-        'Dep Cruiser' = @('dependency-cruiser'); 'Quality Lint' = @('eslint')
-        'Electron Security' = @('typescript'); 'React Doctor' = @('react-doctor')
-    }
-    foreach ($module in @($requiredModules[$Spec.Gate])) {
-        if ($module -and -not (Test-Path (Join-Path $Repository "node_modules/$module/package.json"))) {
-            return "Missing checkout-local module: $module"
+    if (-not $Spec.External) {
+        # The baseline requires the frozen installation, including composite commands and config plugins.
+        # Read its authoritative declarations rather than maintaining a second, incomplete module list.
+        try {
+            $manifest = Get-Content -Raw (Join-Path $Repository 'package.json') | ConvertFrom-Json -AsHashtable
+            $modules = @(foreach ($section in @('dependencies', 'devDependencies')) {
+                if ($manifest.ContainsKey($section)) {
+                    if ($manifest[$section] -isnot [collections.IDictionary]) { throw "Invalid $section mapping" }
+                    $manifest[$section].Keys
+                }
+            })
+        } catch { return "Unreadable dependency declarations: $($_.Exception.Message)" }
+        foreach ($module in @($modules | Sort-Object -Unique)) {
+            if (-not (Test-Path (Join-Path $Repository "node_modules/$module/package.json"))) {
+                return "Missing checkout-local module: $module; restore the declared frozen installation outside audit mode"
+            }
         }
     }
     if ($Spec.Gate -eq 'Build' -and -not (Test-Path (Join-Path $Repository 'node_modules/vite/bin/vite.js'))) {

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1269] - 2026-09-29
+
+### Fixed
+
+- Preserve audit schema and execute checkout-local tools
+
 ## [0.1.1268] - 2026-09-29
 
 ### Fixed

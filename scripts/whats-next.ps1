@@ -83,10 +83,10 @@ try {
     $coverage = Get-CoveragePolicy $repoRoot
     $plan = @(Get-AuditGatePlan $coverage $repoRoot)
 } catch {
-    $report = [pscustomobject]@{
-        Repository = $repoRoot; Scope = 'Local baseline'; FullQualification = $false
-        Gates = @([pscustomobject]@{ Gate = 'Policy discovery'; Status = 'BLOCKED'; Detail = $_.Exception.Message })
-    }
+    $spec = [pscustomobject]@{ Gate = 'Policy discovery'; Target = 'Readable maintained suite configs'; Command = 'Get-CoveragePolicy' }
+    $blocked = New-AuditResult $spec 'BLOCKED' $_.Exception.Message 2
+    $ciBlocked = [pscustomobject]@{ Gate = 'CI scope discovery'; Status = 'BLOCKED'; Detail = 'Policy unavailable; no CI qualification established' }
+    $report = New-AuditReport $repoRoot $null @($blocked) @($ciBlocked)
     if ($Json) { $report | ConvertTo-Json -Depth 8 } else { $report.Gates | Format-Table -Wrap }
     exit 2
 }
@@ -112,22 +112,13 @@ foreach ($spec in $plan) {
     $results.Add($result)
     $byGate[$spec.Gate] = $result
 }
-$ciScope = @(Get-AuditCIScope $repoRoot $byGate $coverage)
-$nextActions = @(@($results) + $ciScope | Where-Object { $_.Status -in @('FAIL', 'BLOCKED') })
-$passing = @($results | Where-Object { $_.Status -eq 'PASS' }).Count
-$executed = @($results | Where-Object { $_.Status -in @('PASS', 'FAIL') }).Count
-$report = [pscustomobject]@{
-    ReportVersion = 2
-    Repository = $repoRoot
-    GeneratedAt = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([datetime]::UtcNow, 'America/New_York').ToString('yyyy-MM-dd HH:mm:ss') + ' ET'
-    Scope = 'Local baseline only; not ci-feedback or ci-complete'
-    FullQualification = $false
-    BaselineScore = "$passing/$executed executed gates passing; $($results.Count) gates accounted for"
-    CoveragePolicy = $coverage
-    Gates = @($results)
-    CIGates = $ciScope
-    NextActions = $nextActions
+try {
+    $ciScope = @(Get-AuditCIScope $repoRoot $byGate $coverage)
+} catch {
+    $ciScope = @([pscustomobject]@{ Gate = 'CI scope discovery'; Status = 'BLOCKED'; Detail = $_.Exception.Message })
 }
+$report = New-AuditReport $repoRoot $coverage $results.ToArray() $ciScope
+$nextActions = $report.NextActions
 if ($Json) {
     $report | ConvertTo-Json -Depth 10
 } else {

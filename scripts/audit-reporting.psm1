@@ -51,7 +51,8 @@ function Get-AuditGatePlan {
     New-AuditGate 'Markdown Lint' '0 findings' 'lint:md'
     [pscustomobject]@{
         Gate = 'Build'; Target = 'Fresh production renderer and Electron outputs'
-        FilePath = 'bun'; Arguments = @('x', 'vite', 'build'); Command = 'bun x vite build'
+        FilePath = 'node'; Arguments = @((Join-Path $Repository 'node_modules/vite/bin/vite.js'), 'build')
+        Command = 'node node_modules/vite/bin/vite.js build'
         Requires = @(); External = $false
     }
     New-AuditGate 'Production CSP' 'Production script policy; no unsafe-eval' 'security:csp' @('Build')
@@ -87,6 +88,18 @@ function Get-AuditPrerequisite {
     if (-not (Get-Command $Spec.FilePath -ErrorAction SilentlyContinue)) { return "Missing executable: $($Spec.FilePath)" }
     if (-not $Spec.External -and -not (Test-Path (Join-Path $Repository 'node_modules'))) {
         return 'Missing checkout-local dependencies; install the frozen lockfile outside read-only audit mode'
+    }
+    if ($Spec.Gate -eq 'Build' -and -not (Test-Path (Join-Path $Repository 'node_modules/vite/bin/vite.js'))) {
+        return 'Missing checkout-local Vite CLI; no package will be installed during audit'
+    }
+    if ($Spec.Gate -in @('e18e', 'React Doctor', 'CRAP Score') -and -not (Get-Command node -ErrorAction SilentlyContinue)) {
+        return 'Missing executable: node'
+    }
+    if ($Spec.Gate -eq 'CRAP Score' -and -not (Get-Command bunx -ErrorAction SilentlyContinue)) {
+        return 'Missing executable: bunx'
+    }
+    if ($Spec.Gate -eq 'CRAP Score' -and -not (Test-Path (Join-Path $Repository 'node_modules/vitest/vitest.mjs'))) {
+        return 'Missing checkout-local Vitest CLI; no package will be installed during audit'
     }
     foreach ($dependency in $Spec.Requires) {
         if (-not $Results.ContainsKey($dependency) -or $Results[$dependency].Status -ne 'PASS') {
@@ -172,4 +185,22 @@ function Get-AuditCIScope {
     [pscustomobject]@{ Gate = 'CodeQL'; Status = 'EXCLUDED'; Detail = 'Independent hosted code-scanning workflow; local baseline cannot establish repository rule acceptance' }
 }
 
-Export-ModuleMember -Function Get-CoveragePolicy, Get-AuditGatePlan, New-AuditResult, Get-AuditPrerequisite, Test-FreshAuditBuild, Get-AuditCommandStatus, Get-AuditDetail, Get-AuditCIScope
+function New-AuditReport {
+    param([string]$Repository, [object]$Coverage, [object[]]$Results, [object[]]$CIGates)
+    $actions = @(@($Results) + @($CIGates) | Where-Object { $_.Status -in @('FAIL', 'BLOCKED') })
+    $passing = @($Results | Where-Object { $_.Status -eq 'PASS' }).Count
+    $executed = @($Results | Where-Object { $_.Status -in @('PASS', 'FAIL') }).Count
+    $zone = [TimeZoneInfo]::FindSystemTimeZoneById('America/New_York')
+    $now = [TimeZoneInfo]::ConvertTimeFromUtc([datetime]::UtcNow, $zone)
+    $suffix = if ($zone.IsDaylightSavingTime($now)) { 'EDT' } else { 'EST' }
+    [pscustomobject]@{
+        ReportVersion = 2; Repository = $Repository
+        GeneratedAt = $now.ToString('yyyy-MM-dd HH:mm:ss') + " $suffix"
+        Scope = 'Local baseline only; not ci-feedback or ci-complete'
+        FullQualification = $false
+        BaselineScore = "$passing/$executed executed gates passing; $($Results.Count) gates accounted for"
+        CoveragePolicy = $Coverage; Gates = @($Results); CIGates = @($CIGates); NextActions = $actions
+    }
+}
+
+Export-ModuleMember -Function Get-CoveragePolicy, Get-AuditGatePlan, New-AuditResult, Get-AuditPrerequisite, Test-FreshAuditBuild, Get-AuditCommandStatus, Get-AuditDetail, Get-AuditCIScope, New-AuditReport

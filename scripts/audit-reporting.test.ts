@@ -138,6 +138,53 @@ describe.skipIf(!available)('local audit blockers, requires PowerShell 7', () =>
   })
 })
 
+describe.skipIf(!available)('local audit discovery failures, requires PowerShell 7', () => {
+  it('preserves the complete version 2 envelope when configs cannot be read', () => {
+    rmSync(join(root, 'vitest.config.ts'))
+    const { code, data } = report('-PlanOnly')
+    expect(code).toBe(2)
+    expect(Object.keys(data).sort()).toEqual([
+      'BaselineScore',
+      'CIGates',
+      'CoveragePolicy',
+      'FullQualification',
+      'Gates',
+      'GeneratedAt',
+      'NextActions',
+      'ReportVersion',
+      'Repository',
+      'Scope',
+    ])
+    expect(data.ReportVersion).toBe(2)
+    expect(data.CoveragePolicy).toBeNull()
+    expect(data.Gates[0]).toMatchObject({ Gate: 'Policy discovery', Status: 'BLOCKED' })
+    expect(data.NextActions).toHaveLength(2)
+    copyFileSync('vitest.config.ts', join(root, 'vitest.config.ts'))
+    rmSync(join(root, '.github/workflows/ci.yml'))
+    const missingWorkflow = report('-PlanOnly')
+    expect(missingWorkflow.code).toBe(2)
+    expect(missingWorkflow.data.ReportVersion).toBe(2)
+    expect(missingWorkflow.data.CIGates[0]).toMatchObject({
+      Gate: 'CI scope discovery',
+      Status: 'BLOCKED',
+    })
+  })
+
+  it('blocks partial installs without allowing bunx to fetch Vite', () => {
+    mkdirSync(join(root, 'node_modules'))
+    const { code, data } = report('-Gates', 'Bundle Size')
+    expect(code).toBe(2)
+    expect(data.Gates.find((gate: { Gate: string }) => gate.Gate === 'Build')).toMatchObject({
+      Status: 'BLOCKED',
+      Command: 'node node_modules/vite/bin/vite.js build',
+      Detail: 'Missing checkout-local Vite CLI; no package will be installed during audit',
+    })
+    expect(readFileSync('scripts/crap-coverage.ts', 'utf8')).toMatch(
+      /\[\s*'--no-install',\s*'vitest'/
+    )
+  })
+})
+
 describe.skipIf(!available)('local audit build receipts, requires PowerShell 7', () => {
   it("requires fresh outputs and this invocation's successful build receipt", () => {
     const result = run(

@@ -1,409 +1,139 @@
 <#
 .SYNOPSIS
-Runs the Buddy Perfection quality gates and prints the next repo improvements.
-
+Runs the local Buddy quality baseline, not complete CI qualification.
 .DESCRIPTION
-Deterministically evaluates the hs-buddy baseline gates documented in
-.agents/skills/buddy-perfection/SKILL.md:
-TypeScript, ESLint, Test Coverage, CRAP Score, Knip, Prettier, Markdown Lint,
-Bundle Size, e18e, Dep Cruiser, React Doctor, and Scorecard.
-
-By default this script runs the gates instead of reading stale output. Use -Json
-when another tool needs stable machine-readable output.
+Reads enforced coverage targets from maintained suite configs. Accounts for
+all jobs in CI, with reasons for exclusions. Always builds fresh production
+outputs before bundle/CSP qualification. Missing prerequisites are BLOCKED.
+Use a disposable checkout for read-only audits: builds and reports write files.
+KeepGoingOnMissingTools remains accepted for compatibility; missing tools are
+always recorded and independent gates continue. No dependencies are installed,
+accounts switched, workflows dispatched or external services written.
 #>
 
 [CmdletBinding()]
 param(
     [switch]$Json,
     [switch]$SkipScorecard,
-    [switch]$KeepGoingOnMissingTools
+    [switch]$KeepGoingOnMissingTools,
+    [switch]$PlanOnly,
+    [string[]]$Gates = @(),
+    [string]$Repository = (Join-Path $PSScriptRoot '..')
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
-
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$coverageSummaryPath = Join-Path $repoRoot 'coverage/coverage-summary.json'
-
-function New-GateResult {
-    param(
-        [Parameter(Mandatory)][string]$Gate,
-        [Parameter(Mandatory)][string]$Target,
-        [Parameter(Mandatory)][string]$Command,
-        [Parameter(Mandatory)][string]$Status,
-        [Parameter(Mandatory)][string]$Detail,
-        [int]$ExitCode = 0,
-        [double]$Seconds = 0,
-        [object[]]$Findings = @()
-    )
-
-    [pscustomobject]@{
-        Gate = $Gate
-        Status = $Status
-        Detail = $Detail
-        Target = $Target
-        Command = $Command
-        ExitCode = $ExitCode
-        Seconds = [math]::Round($Seconds, 2)
-        Findings = @($Findings)
-    }
-}
+$utf8 = [Text.UTF8Encoding]::new($false)
+[Console]::OutputEncoding = $utf8
+$OutputEncoding = $utf8
+Import-Module (Join-Path $PSScriptRoot 'audit-reporting.psm1') -Force -DisableNameChecking
+$repoRoot = (Resolve-Path $Repository).Path
 
 function Invoke-RepoCommand {
-    param(
-        [Parameter(Mandatory)][string]$Display,
-        [Parameter(Mandatory)][string]$FilePath,
-        [string[]]$Arguments = @()
-    )
-
+    param([object]$Spec)
     Push-Location $repoRoot
+    $watch = [diagnostics.stopwatch]::StartNew()
+    $started = [datetime]::UtcNow
+    $previous = $ErrorActionPreference
     try {
-        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
-        $previousErrorActionPreference = $ErrorActionPreference
         $ErrorActionPreference = 'Continue'
-        $output = & $FilePath @Arguments 2>&1
-        $exitCode = if ($null -eq $global:LASTEXITCODE) { 0 } else { $global:LASTEXITCODE }
-        $ErrorActionPreference = $previousErrorActionPreference
-        $stopwatch.Stop()
-
-        [pscustomobject]@{
-            Display = $Display
-            Output = @($output | ForEach-Object {
-                    if ($_ -is [System.Management.Automation.ErrorRecord]) {
-                        $_.Exception.Message
-                    } else {
-                        $_.ToString()
-                    }
-                })
-            ExitCode = $exitCode
-            Seconds = $stopwatch.Elapsed.TotalSeconds
-        }
+        $global:LASTEXITCODE = 0
+        $arguments = $Spec.Arguments
+        $output = @(& $Spec.FilePath @arguments 2>&1 | ForEach-Object { $_.ToString() })
+        $code = $global:LASTEXITCODE
     } catch {
-        if ($null -ne (Get-Variable -Name previousErrorActionPreference -Scope Local -ErrorAction SilentlyContinue)) {
-            $ErrorActionPreference = $previousErrorActionPreference
-        }
-
-        if (-not $KeepGoingOnMissingTools) {
-            throw
-        }
-
-        [pscustomobject]@{
-            Display = $Display
-            Output = @($_.Exception.Message)
-            ExitCode = 127
-            Seconds = 0
-        }
+        $output = @($_.Exception.Message)
+        $code = 127
     } finally {
+        $ErrorActionPreference = $previous
+        $watch.Stop()
         Pop-Location
     }
+    [pscustomobject]@{ Output = $output; ExitCode = $code; Seconds = $watch.Elapsed.TotalSeconds; StartedAtUtc = $started }
 }
 
-function ConvertTo-Detail {
-    param([string[]]$Output, [int]$MaxLines = 3)
-
-    $lines = @($Output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Select-Object -Last $MaxLines)
-    if ($lines.Count -eq 0) {
-        return 'No output'
-    }
-
-    return ($lines -join ' | ')
-}
-
-function Get-CountFromOutput {
-    param(
-        [string[]]$Output,
-        [string[]]$Patterns
-    )
-
-    $text = $Output -join "`n"
-    foreach ($pattern in $Patterns) {
-        $match = [regex]::Match($text, $pattern, [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-        if ($match.Success) {
-            return [int]$match.Groups[1].Value
-        }
-    }
-
-    return $null
-}
-
-function Get-CoverageMetrics {
-    if (-not (Test-Path $coverageSummaryPath)) {
-        return $null
-    }
-
-    $summary = Get-Content -Raw -Path $coverageSummaryPath | ConvertFrom-Json
-    $total = $summary.total
-    [pscustomobject]@{
-        Statements = [double]$total.statements.pct
-        Branches = [double]$total.branches.pct
-        Functions = [double]$total.functions.pct
-        Lines = [double]$total.lines.pct
-    }
-}
-
-function Get-Scorecard {
-    if ($SkipScorecard) {
-        return New-GateResult `
-            -Gate 'Scorecard' `
-            -Target '100/100 Gold' `
-            -Command '.\scripts\get-scorecard-report.ps1 -Json' `
-            -Status 'SKIPPED' `
-            -Detail 'Skipped by -SkipScorecard'
-    }
-
-    $command = '.\scripts\get-scorecard-report.ps1 -Json'
-    $run = Invoke-RepoCommand -Display $command -FilePath 'powershell' -Arguments @(
-        '-NoProfile',
-        '-ExecutionPolicy',
-        'Bypass',
-        '-File',
-        (Join-Path $PSScriptRoot 'get-scorecard-report.ps1'),
-        '-Json'
-    )
-
-    if ($run.ExitCode -ne 0) {
-        return New-GateResult `
-            -Gate 'Scorecard' `
-            -Target '100/100 Gold' `
-            -Command $command `
-            -Status 'FAIL' `
-            -Detail (ConvertTo-Detail $run.Output) `
-            -ExitCode $run.ExitCode `
-            -Seconds $run.Seconds
-    }
-
+function Get-ScorecardResult {
+    param([object]$Spec, [object]$Run)
     try {
-        $data = ($run.Output -join "`n") | ConvertFrom-Json
-        $classification = $data.classification
-        $score = [int]$classification.numericScore
-        $max = [int]$classification.maxPoints
-        $level = [string]$classification.level
-        $failing = @($data.rules | Where-Object { -not $_.passed })
-
+        $data = ($Run.Output -join "`n") | ConvertFrom-Json
+        $score = [int]$data.classification.numericScore
+        $level = [string]$data.classification.level
         $status = if ($score -eq 100 -and $level -eq 'Gold') { 'PASS' } else { 'FAIL' }
-        $detail = '{0}/{1} {2}; Bronze {3}/{4}, Silver {5}/{6}, Gold {7}/{8}; {9} failing rule(s)' -f `
-            $score,
-            $max,
-            $level,
-            $classification.bronze.points,
-            $classification.bronze.maxPoints,
-            $classification.silver.points,
-            $classification.silver.maxPoints,
-            $classification.gold.points,
-            $classification.gold.maxPoints,
-            $failing.Count
-
-        return New-GateResult `
-            -Gate 'Scorecard' `
-            -Target '100/100 Gold' `
-            -Command $command `
-            -Status $status `
-            -Detail $detail `
-            -ExitCode $run.ExitCode `
-            -Seconds $run.Seconds `
-            -Findings $failing
+        New-AuditResult $Spec $status "$score/$($data.classification.maxPoints) $level" $Run.ExitCode $Run.Seconds
     } catch {
-        return New-GateResult `
-            -Gate 'Scorecard' `
-            -Target '100/100 Gold' `
-            -Command $command `
-            -Status 'FAIL' `
-            -Detail $_.Exception.Message `
-            -ExitCode 1 `
-            -Seconds $run.Seconds
+        New-AuditResult $Spec 'BLOCKED' "External scorecard measurement unavailable: $($_.Exception.Message)" 1 $Run.Seconds
     }
 }
 
-function Invoke-SimpleGate {
-    param(
-        [Parameter(Mandatory)][string]$Gate,
-        [Parameter(Mandatory)][string]$Target,
-        [Parameter(Mandatory)][string]$Command,
-        [Parameter(Mandatory)][string]$FilePath,
-        [string[]]$Arguments = @(),
-        [scriptblock]$DetailFactory = $null
-    )
-
-    $run = Invoke-RepoCommand -Display $Command -FilePath $FilePath -Arguments $Arguments
-    $status = if ($run.ExitCode -eq 0) { 'PASS' } else { 'FAIL' }
-    $detail = if ($null -ne $DetailFactory) {
-        & $DetailFactory $run
-    } elseif ($status -eq 'PASS') {
-        'Clean'
+function Invoke-AuditGate {
+    param([object]$Spec, [hashtable]$Prior)
+    $missing = Get-AuditPrerequisite $Spec $repoRoot $Prior
+    if ($missing) { return New-AuditResult $Spec 'BLOCKED' $missing 127 }
+    $run = Invoke-RepoCommand $Spec
+    $status = Get-AuditCommandStatus $Spec $run.ExitCode ($run.Output -join "`n")
+    $detail = Get-AuditDetail $Spec $run.Output
+    if ($Spec.Gate -eq 'Build' -and $status -eq 'PASS') {
+        $missing = Test-FreshAuditBuild $repoRoot $run.StartedAtUtc
+        if ($missing) { $status = 'BLOCKED'; $detail = $missing }
+    }
+    $result = if ($Spec.Gate -eq 'Scorecard' -and $status -eq 'PASS') {
+        Get-ScorecardResult $Spec $run
     } else {
-        ConvertTo-Detail $run.Output
+        New-AuditResult $Spec $status $detail $run.ExitCode $run.Seconds
     }
-
-    New-GateResult `
-        -Gate $Gate `
-        -Target $Target `
-        -Command $Command `
-        -Status $status `
-        -Detail $detail `
-        -ExitCode $run.ExitCode `
-        -Seconds $run.Seconds
+    if ($result.Status -ne 'PASS') { $result | Add-Member -NotePropertyName Output -NotePropertyValue $run.Output }
+    return $result
 }
 
-function Get-NextActions {
-    param([object[]]$Results)
-
-    $priority = @(
-        'TypeScript',
-        'ESLint',
-        'Prettier',
-        'Knip',
-        'Test Coverage',
-        'CRAP Score',
-        'React Doctor',
-        'Markdown Lint',
-        'Bundle Size',
-        'e18e',
-        'Dep Cruiser',
-        'Scorecard'
-    )
-
-    $byGate = @{}
-    foreach ($result in $Results) {
-        $byGate[$result.Gate] = $result
-    }
-
-    foreach ($gate in $priority) {
-        if ($byGate.ContainsKey($gate)) {
-            $result = $byGate[$gate]
-            if ($result.Status -ne 'PASS') {
-                [pscustomobject]@{
-                    Gate = $result.Gate
-                    Status = $result.Status
-                    Command = $result.Command
-                    Detail = $result.Detail
-                }
-            }
-        }
-    }
+try {
+    $coverage = Get-CoveragePolicy $repoRoot
+    $plan = @(Get-AuditGatePlan $coverage $repoRoot)
+} catch {
+    $spec = [pscustomobject]@{ Gate = 'Policy discovery'; Target = 'Readable maintained suite configs'; Command = 'Get-CoveragePolicy' }
+    $blocked = New-AuditResult $spec 'BLOCKED' $_.Exception.Message 2
+    $ciBlocked = [pscustomobject]@{ Gate = 'CI scope discovery'; Status = 'BLOCKED'; Detail = 'Policy unavailable; no CI qualification established' }
+    $report = New-AuditReport $repoRoot $null @($blocked) @($ciBlocked)
+    if ($Json) { $report | ConvertTo-Json -Depth 8 } else { $report.Gates | Format-Table -Wrap }
+    exit 2
 }
 
-$results = [System.Collections.Generic.List[object]]::new()
-
-$results.Add((Invoke-SimpleGate -Gate 'TypeScript' -Target '0 errors' -Command 'bun run typecheck' -FilePath 'bun' -Arguments @('run', 'typecheck') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return '0 errors' }
-    $count = Get-CountFromOutput $run.Output @('Found\s+(\d+)\s+errors?', '(\d+)\s+errors?')
-    if ($null -ne $count) { return "$count error(s)" }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'ESLint' -Target '0 errors, 0 warnings' -Command 'bun run lint' -FilePath 'bun' -Arguments @('run', 'lint') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return '0 errors, 0 warnings' }
-    $text = $run.Output -join "`n"
-    $match = [regex]::Match($text, '(\d+)\s+problems?\s+\((\d+)\s+errors?,\s+(\d+)\s+warnings?\)', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($match.Success) {
-        return '{0} error(s), {1} warning(s)' -f $match.Groups[2].Value, $match.Groups[3].Value
-    }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Test Coverage' -Target '100% statements, branches, functions, lines' -Command 'bun run test:coverage' -FilePath 'bun' -Arguments @('run', 'test:coverage') -DetailFactory {
-    param($run)
-    $coverage = Get-CoverageMetrics
-    if ($null -eq $coverage) { return ConvertTo-Detail $run.Output }
-    'Statements {0}%, Branches {1}%, Functions {2}%, Lines {3}%' -f $coverage.Statements, $coverage.Branches, $coverage.Functions, $coverage.Lines
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'CRAP Score' -Target 'Threshold 10; accepted per-function debt cannot increase' -Command 'bun run crap:check' -FilePath 'bun' -Arguments @('run', 'crap:check') -DetailFactory {
-    param($run)
-    ConvertTo-Detail $run.Output 5
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Knip' -Target '0 findings' -Command 'bun run knip' -FilePath 'bun' -Arguments @('run', 'knip') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return '0 findings' }
-    ConvertTo-Detail $run.Output 5
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Prettier' -Target '0 unformatted files' -Command 'bun run format:check' -FilePath 'bun' -Arguments @('run', 'format:check') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return 'Clean' }
-    $count = @($run.Output | Select-String -Pattern '^\[warn\]\s+.+').Count
-    if ($count -gt 0) { return "$count unformatted file(s)" }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Markdown Lint' -Target '0 findings' -Command 'bun run lint:md' -FilePath 'bun' -Arguments @('run', 'lint:md') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return 'Clean' }
-    $count = @($run.Output | Select-String -Pattern ':\d+(?::\d+)?\s+MD\d+').Count
-    if ($count -gt 0) { return "$count finding(s)" }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Bundle Size' -Target 'Within baseline budget' -Command 'bun run bundle-size' -FilePath 'bun' -Arguments @('run', 'bundle-size') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return 'Within budget' }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'e18e' -Target '0 direct-dependency findings' -Command 'bun run e18e' -FilePath 'bun' -Arguments @('run', 'e18e') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return 'No direct-dependency findings' }
-    ConvertTo-Detail $run.Output 5
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'Dep Cruiser' -Target '0 violations' -Command 'bun run deps:check' -FilePath 'bun' -Arguments @('run', 'deps:check') -DetailFactory {
-    param($run)
-    if ($run.ExitCode -eq 0) { return '0 violations' }
-    $count = Get-CountFromOutput $run.Output @('(\d+)\s+violations?')
-    if ($null -ne $count) { return "$count violation(s)" }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Invoke-SimpleGate -Gate 'React Doctor' -Target 'Score 100' -Command '.\scripts\run-react-doctor.ps1 -ScoreOnly' -FilePath 'powershell' -Arguments @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', (Join-Path $PSScriptRoot 'run-react-doctor.ps1'), '-ScoreOnly') -DetailFactory {
-    param($run)
-    $text = $run.Output -join "`n"
-    $scoreMatch = [regex]::Match($text, '(?:score|overall score)\D+(\d{1,3})', [System.Text.RegularExpressions.RegexOptions]::IgnoreCase)
-    if ($scoreMatch.Success) {
-        return 'Score {0}/100' -f $scoreMatch.Groups[1].Value
-    }
-    if ($run.ExitCode -eq 0) { return 'Score 100/100' }
-    ConvertTo-Detail $run.Output
-}))
-
-$results.Add((Get-Scorecard))
-
-$passing = @($results | Where-Object { $_.Status -eq 'PASS' }).Count
-$nextActions = @(Get-NextActions $results)
-$generatedAt = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz')
-
-$report = [pscustomobject]@{
-    Repository = $repoRoot.Path
-    GeneratedAt = $generatedAt
-    PerfectionScore = '{0}/{1} gates passing' -f $passing, $results.Count
-    Gates = @($results)
-    NextActions = $nextActions
+$unknown = @($Gates | Where-Object { $_ -notin $plan.Gate })
+if ($unknown.Count -gt 0) { throw "Unknown gate selection: $($unknown -join ', ')" }
+# Selecting a built-output check always includes the fresh build prerequisite.
+if ($Gates.Count -gt 0 -and (@($Gates | Where-Object { $_ -in @('Bundle Size', 'Production CSP') }).Count -gt 0)) {
+    $Gates += 'Build'
 }
-
+$results = [collections.generic.list[object]]::new()
+$byGate = @{}
+foreach ($spec in $plan) {
+    if ($SkipScorecard -and $spec.Gate -eq 'Scorecard') {
+        $result = New-AuditResult $spec 'EXCLUDED' 'Excluded by -SkipScorecard; external measurement not obtained'
+    } elseif ($Gates.Count -gt 0 -and $spec.Gate -notin $Gates) {
+        $result = New-AuditResult $spec 'EXCLUDED' 'Outside explicit -Gates selection; not validated'
+    } elseif ($PlanOnly) {
+        $result = New-AuditResult $spec 'PLANNED' 'Plan only; no gate command executed and no artifact accepted'
+    } else {
+        $result = Invoke-AuditGate $spec $byGate
+    }
+    $results.Add($result)
+    $byGate[$spec.Gate] = $result
+}
+try {
+    $ciScope = @(Get-AuditCIScope $repoRoot $byGate $coverage)
+} catch {
+    $ciScope = @([pscustomobject]@{ Gate = 'CI scope discovery'; Status = 'BLOCKED'; Detail = $_.Exception.Message })
+}
+$report = New-AuditReport $repoRoot $coverage $results.ToArray() $ciScope
+$nextActions = $report.NextActions
 if ($Json) {
-    $report | ConvertTo-Json -Depth 8
-    exit $(if ($nextActions.Count -eq 0) { 0 } else { 1 })
-}
-
-Write-Host ''
-Write-Host 'Buddy Perfection - hs-buddy'
-Write-Host "Generated: $generatedAt"
-Write-Host "Score: $($report.PerfectionScore)"
-Write-Host ''
-$results |
-    Select-Object Gate, Status, Detail, Target |
-    Format-Table -AutoSize -Wrap
-
-Write-Host ''
-Write-Host 'What next'
-if ($nextActions.Count -eq 0) {
-    Write-Host 'All perfection gates are passing.'
+    $report | ConvertTo-Json -Depth 10
 } else {
-    $nextActions |
-        Select-Object Gate, Status, Detail, Command |
-        Format-Table -AutoSize -Wrap
+    Write-Host "Buddy local baseline: $($report.BaselineScore)"
+    Write-Host $report.Scope
+    $report.Gates | Select-Object Gate, Status, Detail, Target | Format-Table -Wrap
+    Write-Host 'Independent CI scope'
+    $report.CIGates | Format-Table -Wrap
 }
-
-exit $(if ($nextActions.Count -eq 0) { 0 } else { 1 })
+if (@($nextActions | Where-Object { $_.Status -eq 'FAIL' }).Count -gt 0) { exit 1 }
+if (@($nextActions | Where-Object { $_.Status -eq 'BLOCKED' }).Count -gt 0) { exit 2 }
+exit 0

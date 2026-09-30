@@ -13,7 +13,7 @@ for (const name of suites) {
   rmSync(`${directory}/source.json`, { force: true })
   const result = spawnSync(
     'bunx',
-    ['vitest', 'run', '--config', 'vitest.crap.config.ts', '--coverage'],
+    ['--no-install', 'vitest', 'run', '--config', 'vitest.crap.config.ts', '--coverage'],
     {
       stdio: 'inherit',
       env: { ...process.env, CRAP_SUITE: suite },

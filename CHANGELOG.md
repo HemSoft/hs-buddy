@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1274] - 2026-09-30
+
+### Changed
+
+- Cover partial assistant context views (#737)
+
 ## [0.1.1273] - 2026-09-30
 
 ### Fixed

@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1271",
+  "version": "0.1.1272",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -179,7 +179,7 @@
   "overrides": {
     "react-doctor": "$react-doctor",
     "body-parser": "^1.20.6",
-    "brace-expansion": "^5.0.9",
+    "brace-expansion": "^5.0.11",
     "browserslist": "^4.28.8",
     "electron-builder-squirrel-windows": "26.15.3",
     "@xmldom/xmldom": "0.8.15",

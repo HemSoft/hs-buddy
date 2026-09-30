@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1272] - 2026-09-30
+
+### Fixed
+
+- Remediate brace-expansion recursion advisories (#735)
+
 ## [0.1.1271] - 2026-09-29
 
 ### Fixed

@@ -13,7 +13,8 @@ test.use({
 
 const pr: PullRequest = {
   source: 'GitHub',
-  repository: 'test-org/fixture-repository',
+  repository: 'fixture-repository',
+  org: 'test-org',
   id: 42,
   title: 'Verify assistant context for encoded PR routes',
   author: 'test-user',
@@ -44,6 +45,8 @@ test('assistant badge follows encoded PR routes and section changes', async ({ p
     await page.evaluate(id => {
       window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: id } }))
     }, viewId)
+    await expect(page.locator('.pr-detail-title-text')).toHaveText(pr.title)
+    await expect(page.getByText('Loading feature…', { exact: true })).toHaveCount(0)
     const badge = page.locator('.assistant-context-badge')
     await expect(badge).toHaveText('Pull Request #42 in test-org/fixture-repository')
     await expect(badge).toHaveAttribute('title', 'Pull Request #42 in test-org/fixture-repository')

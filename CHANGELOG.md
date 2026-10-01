@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1276] - 2026-10-01
+
+### Changed
+
+- Wait for rendered pr detail in context journey (#737)
+
 ## [0.1.1275] - 2026-10-01
 
 ### Fixed

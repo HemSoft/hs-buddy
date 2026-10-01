@@ -125,6 +125,23 @@ describe('parsePRDetailRoute', () => {
     expect(parsePRDetailRoute('pr-detail:')).toBeNull()
   })
 
+  it.each([
+    null,
+    false,
+    '',
+    'not-a-pr',
+    42,
+    [],
+    {},
+    { ...basePR, repository: null },
+    { ...basePR, id: '42' },
+    { ...basePR, url: undefined },
+    { ...basePR, org: 42 },
+  ])('rejects encoded data without a usable PR identity: %j', payload => {
+    const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(payload))}`
+    expect(parsePRDetailRoute(viewId)).toBeNull()
+  })
+
   it('parses a valid view id into PR details', () => {
     const result = expectParsedRoute(parsePRDetailRoute(createPRDetailViewId(basePR)))
 

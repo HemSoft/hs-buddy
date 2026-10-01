@@ -1,6 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useAssistantContext, serializeContext } from './useAssistantContext'
+import { createPRDetailViewId, type PRDetailSection } from '../utils/prDetailView'
+import type { PullRequest } from '../types/pullRequest'
+
+const routePR: PullRequest = {
+  source: 'GitHub',
+  repository: 'owner/repo',
+  id: 42,
+  title: 'Fix context',
+  author: 'testuser',
+  url: 'https://github.com/owner/repo/pull/42',
+  state: 'open',
+  approvalCount: 0,
+  assigneeCount: 0,
+  iApproved: false,
+  created: null,
+  date: null,
+}
 
 describe('serializeContext', () => {
   it('includes summary in context', () => {
@@ -235,6 +252,67 @@ describe('useAssistantContext', () => {
     const { result } = renderHook(() => useAssistantContext(viewId))
     expect(result.current).toEqual({ viewType, viewId, summary, metadata })
   })
+
+  it.each<PRDetailSection | null>([
+    null,
+    'conversation',
+    'commits',
+    'checks',
+    'files-changed',
+    'ai-reviews',
+  ])('parses the actual encoded PR route for section %s', section => {
+    const viewId = createPRDetailViewId(routePR, section)
+    const { result } = renderHook(() => useAssistantContext(viewId))
+    expect(result.current).toEqual({
+      viewType: 'pr-detail',
+      viewId,
+      summary: 'Pull Request #42 in owner/repo',
+      metadata: { owner: 'owner', repo: 'repo', prNumber: '42' },
+    })
+    expect(serializeContext(result.current)).toContain(
+      'The user is currently viewing: Pull Request #42 in owner/repo'
+    )
+    expect(serializeContext(result.current)).toContain('Repository: owner/repo')
+  })
+
+  it.each<[Partial<PullRequest>, string, string]>([
+    [{ org: 'other-org' }, 'owner', 'repo'],
+    [{ repository: 'repo', org: 'test-org' }, 'test-org', 'repo'],
+    [{ repository: 'repo' }, 'owner', 'repo'],
+    [{ repository: '', url: 'invalid-url' }, '', ''],
+  ])('uses the shared repository identity policy for %j', (overrides, owner, repo) => {
+    const viewId = createPRDetailViewId({ ...routePR, ...overrides })
+    const { result } = renderHook(() => useAssistantContext(viewId))
+    expect(result.current).toEqual({
+      viewType: 'pr-detail',
+      viewId,
+      summary: `Pull Request #42 in ${owner}/${repo}`,
+      metadata: { owner, repo, prNumber: '42' },
+    })
+  })
+
+  it('keeps the same PR context when the encoded route section changes', () => {
+    const viewId = createPRDetailViewId(routePR)
+    const { result, rerender } = renderHook(
+      ({ activeViewId }) => useAssistantContext(activeViewId),
+      { initialProps: { activeViewId: viewId } }
+    )
+    const original = result.current
+    const checksViewId = createPRDetailViewId(routePR, 'checks')
+    rerender({ activeViewId: checksViewId })
+    expect(result.current).toEqual({ ...original, viewId: checksViewId })
+  })
+
+  it.each([null, {}, [], 42, { ...routePR, repository: null }])(
+    'does not crash or invent a PR number for malformed encoded payload %j',
+    payload => {
+      const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(payload))}`
+      const { result } = renderHook(() => useAssistantContext(viewId))
+      expect(result.current.viewId).toBe(viewId)
+      expect(result.current.metadata.prNumber).toBe('')
+      expect(result.current.metadata.repo).toBe('')
+    }
+  )
 
   it('returns welcome context for null activeViewId', () => {
     const { result } = renderHook(() => useAssistantContext(null))

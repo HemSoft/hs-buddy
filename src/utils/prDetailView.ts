@@ -81,6 +81,19 @@ export function createPRDetailViewId(
   return section ? `${base}?section=${section}` : base
 }
 
+function hasPRDetailIdentity(
+  value: unknown
+): value is Pick<PRDetailInfo, 'repository' | 'id' | 'url' | 'org'> {
+  if (!value || typeof value !== 'object') return false
+  const pr = value as Partial<PRDetailInfo>
+  return (
+    typeof pr.repository === 'string' &&
+    typeof pr.id === 'number' &&
+    typeof pr.url === 'string' &&
+    (pr.org === undefined || typeof pr.org === 'string')
+  )
+}
+
 export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
   const prefix = 'pr-detail:'
   if (!viewId.startsWith(prefix)) {
@@ -101,7 +114,9 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
       return null
     }
 
-    const pr = JSON.parse(decodeURIComponent(encoded)) as PRDetailInfo
+    const parsed: unknown = JSON.parse(decodeURIComponent(encoded))
+    if (!hasPRDetailIdentity(parsed)) return null
+    const pr = parsed as PRDetailInfo
     const section = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
       ? (sectionPart as PRDetailSection)
       : null

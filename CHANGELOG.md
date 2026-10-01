@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1282] - 2026-10-01
+
+### Changed
+
+- Assert complete retained batch thread counts (#738)
+
 ## [0.1.1281] - 2026-10-01
 
 ### Changed

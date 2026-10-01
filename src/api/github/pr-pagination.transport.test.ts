@@ -86,6 +86,17 @@ async function readStats(kind: 'repository' | 'batch') {
   }
 }
 
+async function expectThreadCounts(
+  kind: 'repository' | 'batch',
+  total: number,
+  resolved: number,
+  unresolved: number
+) {
+  const actual = await readStats(kind)
+  expect(actual.unresolved).toBe(unresolved)
+  if (kind === 'batch') expect(actual).toEqual({ total, resolved, unresolved })
+}
+
 const nullConnections = [
   { name: 'null repository', response: { repository: null } },
   { name: 'null pull request', response: { repository: { pullRequest: null } } },
@@ -110,9 +121,7 @@ describe.each(['repository', 'batch'] as const)('%s public thread statistics', k
       .mockResolvedValueOnce({
         repository: { pullRequest: { reviewThreads: page([resolved, unresolved], false, null) } },
       })
-    const result = await readStats(kind)
-    expect(result.unresolved).toBe(2)
-    if (kind === 'batch') expect(result).toEqual({ total: 4, resolved: 2, unresolved: 2 })
+    await expectThreadCounts(kind, 4, 2, 2)
     expect(transport.graphql).toHaveBeenCalledTimes(3)
     expect(transport.graphql.mock.calls[1][0]).toContain('after: "cursor-1"')
     expect(transport.graphql.mock.calls[2][0]).toContain('after: "cursor-2"')
@@ -132,7 +141,7 @@ describe.each(['repository', 'batch'] as const)('%s public thread statistics', k
           },
         })
         .mockResolvedValueOnce(response)
-      expect((await readStats(kind)).unresolved).toBe(3)
+      await expectThreadCounts(kind, 4, 1, 3)
       expect(transport.graphql).toHaveBeenCalledTimes(2)
     }
   )
@@ -147,7 +156,7 @@ describe.each(['repository', 'batch'] as const)('%s public thread statistics', k
       .mockResolvedValueOnce({
         repository: { pullRequest: { reviewThreads: page([], false, null) } },
       })
-    expect((await readStats(kind)).unresolved).toBe(3)
+    await expectThreadCounts(kind, 4, 1, 3)
     expect(transport.graphql).toHaveBeenCalledTimes(2)
   })
 
@@ -162,7 +171,7 @@ describe.each(['repository', 'batch'] as const)('%s public thread statistics', k
         },
       },
     })
-    expect((await readStats(kind)).unresolved).toBe(3)
+    await expectThreadCounts(kind, 4, 1, 3)
     expect(transport.graphql).toHaveBeenCalledTimes(1)
   })
 
@@ -170,7 +179,7 @@ describe.each(['repository', 'batch'] as const)('%s public thread statistics', k
     transport.graphql.mockResolvedValueOnce({
       pr0: { pullRequest: { reviewThreads: { ...page([], false, null), totalCount: 0 } } },
     })
-    expect((await readStats(kind)).unresolved).toBe(0)
+    await expectThreadCounts(kind, 0, 0, 0)
     expect(transport.graphql).toHaveBeenCalledTimes(1)
   })
 })

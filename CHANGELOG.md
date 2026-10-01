@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1279] - 2026-10-01
+
+### Changed
+
+- Remove unpublished duplicate changelog entry (#737)
+
+## [0.1.1278] - 2026-10-01
+
+### Fixed
+
+- Validate pr payloads and strengthen route journey (#737)
+
+## [0.1.1276] - 2026-10-01
+
+### Changed
+
+- Wait for rendered pr detail in context journey (#737)
+
+## [0.1.1275] - 2026-10-01
+
+### Fixed
+
+- Parse encoded pr routes in assistant context (#737)
+
+## [0.1.1274] - 2026-09-30
+
+### Changed
+
+- Cover partial assistant context views (#737)
+
 ## [0.1.1273] - 2026-09-30
 
 ### Fixed

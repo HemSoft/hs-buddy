@@ -124,7 +124,80 @@ describe('parsePRDetailRoute', () => {
   it('returns null for a pr-detail route with no payload', () => {
     expect(parsePRDetailRoute('pr-detail:')).toBeNull()
   })
+})
 
+describe('parsePRDetailRoute invalid payloads', () => {
+  it.each([
+    null,
+    false,
+    '',
+    'not-a-pr',
+    42,
+    [],
+    {},
+    { ...basePR, repository: null },
+    { ...basePR, id: '42' },
+    { ...basePR, url: undefined },
+    { ...basePR, org: 42 },
+  ])('rejects encoded data without a usable PR identity: %j', payload => {
+    const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(payload))}`
+    expect(parsePRDetailRoute(viewId)).toBeNull()
+  })
+
+  it('rejects a payload containing only identity fields', () => {
+    const payload = { repository: 'owner/repo', id: 42, url: basePR.url }
+    expect(
+      parsePRDetailRoute(`pr-detail:${encodeURIComponent(JSON.stringify(payload))}`)
+    ).toBeNull()
+  })
+
+  it.each([
+    'source',
+    'repository',
+    'id',
+    'title',
+    'author',
+    'url',
+    'state',
+    'approvalCount',
+    'assigneeCount',
+    'iApproved',
+    'created',
+    'date',
+  ])('rejects missing required field %s', field => {
+    const payload = { ...basePR, [field]: undefined }
+    expect(
+      parsePRDetailRoute(`pr-detail:${encodeURIComponent(JSON.stringify(payload))}`)
+    ).toBeNull()
+  })
+
+  it.each([
+    ['source', 42],
+    ['title', {}],
+    ['author', false],
+    ['state', []],
+    ['approvalCount', '1'],
+    ['assigneeCount', false],
+    ['iApproved', 0],
+    ['created', 42],
+    ['date', {}],
+    ['authorAvatarUrl', null],
+    ['reviewStateKnown', 'yes'],
+    ['updatedAt', false],
+    ['headBranch', 42],
+    ['baseBranch', {}],
+    ['orgAvatarUrl', false],
+    ['threadsTotal', '3'],
+    ['threadsUnaddressed', false],
+  ])('rejects invalid field %s with value %j', (field, value) => {
+    const payload = { ...basePR, [field as string]: value }
+    expect(
+      parsePRDetailRoute(`pr-detail:${encodeURIComponent(JSON.stringify(payload))}`)
+    ).toBeNull()
+  })
+})
+
+describe('parsePRDetailRoute valid payloads', () => {
   it('parses a valid view id into PR details', () => {
     const result = expectParsedRoute(parsePRDetailRoute(createPRDetailViewId(basePR)))
 

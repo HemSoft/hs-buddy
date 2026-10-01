@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import type { AssistantContext } from '../types/assistant'
+import { parsePRDetailRoute } from '../utils/prDetailView'
+import { getRepoContextFromViewId } from '../utils/repoContext'
 
 interface ViewDefinition {
   prefix: string
@@ -87,7 +89,22 @@ const PR_LIST_SUMMARIES: Record<string, string> = {
   'pr-recently-merged': 'Recently Merged PRs',
 }
 
+function resolveEncodedPRContext(activeViewId: string): AssistantContext | null {
+  const route = parsePRDetailRoute(activeViewId)
+  if (!route) return null
+  const { owner = '', repo = '' } = getRepoContextFromViewId(activeViewId) ?? {}
+  const prNumber = String(route.pr.id)
+  return {
+    viewType: 'pr-detail',
+    viewId: activeViewId,
+    summary: `Pull Request #${prNumber} in ${owner}/${repo}`,
+    metadata: { owner, repo, prNumber },
+  }
+}
+
 function resolveDefinedViewContext(activeViewId: string): AssistantContext | null {
+  const encodedPRContext = resolveEncodedPRContext(activeViewId)
+  if (encodedPRContext) return encodedPRContext
   for (const view of VIEW_DEFINITIONS) {
     if (activeViewId.startsWith(view.prefix)) {
       const parts = activeViewId.slice(view.prefix.length).split('/')

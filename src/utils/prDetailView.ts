@@ -81,17 +81,49 @@ export function createPRDetailViewId(
   return section ? `${base}?section=${section}` : base
 }
 
-function hasPRDetailIdentity(
-  value: unknown
-): value is Pick<PRDetailInfo, 'repository' | 'id' | 'url' | 'org'> {
+type FieldValidator = (value: unknown) => boolean
+
+const isString: FieldValidator = value => typeof value === 'string'
+const isNumber: FieldValidator = value => typeof value === 'number'
+const isBoolean: FieldValidator = value => typeof value === 'boolean'
+
+function optional(validate: FieldValidator): FieldValidator {
+  return value => value === undefined || validate(value)
+}
+
+function nullable(validate: FieldValidator): FieldValidator {
+  return value => value === null || validate(value)
+}
+
+// Keep the runtime boundary complete when PRDetailInfo gains another field.
+const PR_DETAIL_FIELDS = {
+  source: isString,
+  repository: isString,
+  id: isNumber,
+  title: isString,
+  author: isString,
+  authorAvatarUrl: optional(isString),
+  url: isString,
+  state: isString,
+  approvalCount: isNumber,
+  assigneeCount: isNumber,
+  iApproved: isBoolean,
+  reviewStateKnown: optional(isBoolean),
+  created: nullable(isString),
+  updatedAt: optional(nullable(isString)),
+  headBranch: optional(isString),
+  baseBranch: optional(isString),
+  date: nullable(isString),
+  orgAvatarUrl: optional(isString),
+  org: optional(isString),
+  threadsTotal: optional(nullable(isNumber)),
+  threadsUnaddressed: optional(nullable(isNumber)),
+} satisfies Record<keyof PRDetailInfo, FieldValidator>
+
+function isPRDetailInfo(value: unknown): value is PRDetailInfo {
   if (!value || typeof value !== 'object') return false
-  const pr = value as Partial<PRDetailInfo>
-  return (
-    typeof pr.repository === 'string' &&
-    typeof pr.id === 'number' &&
-    typeof pr.url === 'string' &&
-    (pr.org === undefined || typeof pr.org === 'string')
-  )
+  const record = value as Record<string, unknown>
+  return Object.entries(PR_DETAIL_FIELDS).every(([field, validate]) => validate(record[field]))
 }
 
 export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
@@ -115,8 +147,8 @@ export function parsePRDetailRoute(viewId: string): PRDetailRoute | null {
     }
 
     const parsed: unknown = JSON.parse(decodeURIComponent(encoded))
-    if (!hasPRDetailIdentity(parsed)) return null
-    const pr = parsed as PRDetailInfo
+    if (!isPRDetailInfo(parsed)) return null
+    const pr = parsed
     const section = VALID_SECTIONS.includes(sectionPart as PRDetailSection)
       ? (sectionPart as PRDetailSection)
       : null

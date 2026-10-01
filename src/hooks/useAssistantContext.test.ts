@@ -303,16 +303,20 @@ describe('useAssistantContext', () => {
     expect(result.current).toEqual({ ...original, viewId: checksViewId })
   })
 
-  it.each([null, {}, [], 42, { ...routePR, repository: null }])(
-    'does not crash or invent a PR number for malformed encoded payload %j',
-    payload => {
-      const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(payload))}`
-      const { result } = renderHook(() => useAssistantContext(viewId))
-      expect(result.current.viewId).toBe(viewId)
-      expect(result.current.metadata.prNumber).toBe('')
-      expect(result.current.metadata.repo).toBe('')
-    }
-  )
+  it.each([
+    null,
+    {},
+    [],
+    42,
+    { ...routePR, repository: null },
+    { repository: routePR.repository, id: routePR.id, url: routePR.url },
+  ])('does not crash or invent a PR number for malformed encoded payload %j', payload => {
+    const viewId = `pr-detail:${encodeURIComponent(JSON.stringify(payload))}`
+    const { result } = renderHook(() => useAssistantContext(viewId))
+    expect(result.current.viewId).toBe(viewId)
+    expect(result.current.metadata.prNumber).toBe('')
+    expect(result.current.metadata.repo).toBe('')
+  })
 
   it('returns welcome context for null activeViewId', () => {
     const { result } = renderHook(() => useAssistantContext(null))

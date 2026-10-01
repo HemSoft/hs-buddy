@@ -32,21 +32,42 @@ test('assistant badge follows encoded PR routes and section changes', async ({ p
   await page.route('https://api.github.com/repos/test-org/fixture-repository/**', route =>
     route.fulfill({ status: 404, json: { message: 'Isolated context fixture' } })
   )
-  await page.route('https://api.github.com/graphql', route =>
-    route.fulfill({ json: { data: { repository: { pullRequest: null } } } })
-  )
+  await page.route('https://api.github.com/graphql', async route => {
+    const body = route.request().postDataJSON() as {
+      query?: unknown
+      variables?: { owner?: unknown; repo?: unknown; number?: unknown }
+    } | null
+    if (
+      typeof body?.query !== 'string' ||
+      !/\bquery\s+(PRHistory|PRThreads)\s*\(/.test(body.query) ||
+      body.variables?.owner !== 'test-org' ||
+      body.variables?.repo !== 'fixture-repository' ||
+      body.variables?.number !== 42
+    ) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({ json: { data: { repository: { pullRequest: null } } } })
+  })
   await waitForAppReady(page)
   await page.getByRole('button', { name: /Toggle Copilot Assistant/ }).click()
   await expect(page.locator('.assistant-panel')).toBeVisible()
 
-  const sections: Array<PRDetailSection | null> = [null, 'checks', 'files-changed']
-  for (const section of sections) {
+  const sections: Array<[PRDetailSection | null, string | null]> = [
+    [null, null],
+    ['checks', 'Checks'],
+    ['files-changed', 'Files changed'],
+  ]
+  for (const [section, label] of sections) {
     const viewId = createPRDetailViewId(pr, section)
     await page.evaluate(id => {
       window.dispatchEvent(new CustomEvent('app:navigate', { detail: { viewId: id } }))
     }, viewId)
     await expect(page.locator('.pr-detail-title-text')).toHaveText(pr.title)
     await expect(page.getByText('Loading feature…', { exact: true })).toHaveCount(0)
+    const sectionNote = page.locator('.pr-detail-section-note')
+    if (label) await expect(sectionNote.locator('span')).toHaveText(`Tree section: ${label}`)
+    else await expect(sectionNote).toHaveCount(0)
     const badge = page.locator('.assistant-context-badge')
     await expect(badge).toHaveText('Pull Request #42 in test-org/fixture-repository')
     await expect(badge).toHaveAttribute('title', 'Pull Request #42 in test-org/fixture-repository')

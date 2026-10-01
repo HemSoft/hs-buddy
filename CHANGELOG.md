@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1278] - 2026-10-01
+
+### Fixed
+
+- Validate pr payloads and strengthen route journey (#737)
+
+## [0.1.1277] - 2026-10-01
+
+### Fixed
+
+- Validate pr payloads and strengthen route journey (#737)
+
 ## [0.1.1276] - 2026-10-01
 
 ### Changed

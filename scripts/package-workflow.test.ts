@@ -53,6 +53,16 @@ const qualifiedTargets = [
   },
 ] as const
 
+it('qualifies completion audio tests at the advertised Node floor', () => {
+  const testJob = workflow.split('  test:')[1]?.split(/\n {2}[\w-]+:/, 1)[0]
+  expect(testJob).toMatch(
+    /node-version: 22\.12\.0[\s\S]*run: bun run test:completion-audio[\s\S]*node-version: 24\.12\.0/
+  )
+  expect(JSON.parse(packageJson).scripts['test:completion-audio']).toBe(
+    'node --experimental-strip-types --test .pi/tests/done-sound.test.mjs'
+  )
+})
+
 describe('desktop package qualification workflow', () => {
   it.each(qualifiedTargets)('builds and starts $name packages on a native runner', target => {
     const matrixEntry = workflow.split(`- name: ${target.name}`)[1]?.split(/\n\s+- name: /, 1)[0]

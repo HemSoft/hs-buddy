@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1291] - 2026-10-03
+
+### Changed
+
+- Qualify completion audio startup and Pi version requirements
+
+## [0.1.1290] - 2026-10-03
+
+### Added
+
+- Complete repository-local completion audio integration
+
 ## [0.1.1289] - 2026-10-03
 
 ### Fixed
@@ -49,6 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Isolate completion audio and automate regression checks
 - Remove vulnerable build-tool dependency chains
 
 ## [0.1.1282] - 2026-10-01

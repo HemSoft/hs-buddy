@@ -1,4 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 const packageJson = JSON.parse(readFileSync('package.json', 'utf8')) as {
@@ -35,6 +39,44 @@ describe('Markdown CI contract', () => {
       'release/**',
       '.github/aw/logs/**',
     ])
+  })
+
+  it('rejects malformed hidden workflows, ignores excluded files, and accepts repaired Markdown', () => {
+    const directory = mkdtempSync(join(tmpdir(), 'buddy-markdown-'))
+    try {
+      copyFileSync('.markdownlintignore', join(directory, '.markdownlintignore'))
+      mkdirSync(join(directory, '.github', 'workflows'), { recursive: true })
+      mkdirSync(join(directory, '.github', 'agents'), { recursive: true })
+      const fixture = join(directory, '.github', 'workflows', 'fixture.md')
+      const broken = '# Heading\n\n### Skipped level\n'
+      writeFileSync(fixture, broken)
+      writeFileSync(join(directory, '.github', 'agents', 'ignored.md'), broken)
+      const lint = () =>
+        spawnSync(
+          process.execPath,
+          [
+            fileURLToPath(import.meta.resolve('markdownlint-cli')),
+            '--dot',
+            '--config',
+            resolve('.markdownlint-cli2.jsonc'),
+            '--configPointer',
+            '/config',
+            '**/*.md',
+          ],
+          { cwd: directory, encoding: 'utf8' }
+        )
+      const failure = lint()
+      expect(failure.error).toBeUndefined()
+      expect(failure.status).toBe(1)
+      expect(failure.stderr).toContain('MD001')
+      expect(failure.stderr).toContain('fixture.md')
+      expect(failure.stderr).not.toContain('ignored.md')
+      writeFileSync(fixture, '# Heading\n\n## Next level\n')
+      const success = lint()
+      expect(success.status, success.stderr).toBe(0)
+    } finally {
+      rmSync(directory, { recursive: true, force: true })
+    }
   })
 
   it('propagates a Markdown failure through both aggregate gates', () => {

@@ -58,7 +58,7 @@ function readRequiredVersions(packageJson: string): VersionResult {
     vite: version(metadata, 'devDependencies', 'vite'),
     convex: version(metadata, 'dependencies', 'convex'),
     copilot: version(metadata, 'dependencies', '@github/copilot-sdk'),
-    node: major(metadata.engines?.node),
+    node: metadata.engines?.node?.match(/\d+(?:\.\d+){0,2}/)?.[0].replace(/(?:\.0)+$/, ''),
   }
   const errors = Object.entries(candidates)
     .filter(([, declaredVersion]) => declaredVersion === undefined)

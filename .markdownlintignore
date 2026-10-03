@@ -1,0 +1,7 @@
+**/node_modules/**
+dist/**
+dist-electron/**
+.github/agents/**
+test-results/**
+release/**
+.github/aw/logs/**

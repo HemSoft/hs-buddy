@@ -53,6 +53,16 @@ const qualifiedTargets = [
   },
 ] as const
 
+it('qualifies completion audio tests at the advertised Node floor', () => {
+  const testJob = workflow.split('  test:')[1]?.split(/\n {2}[\w-]+:/, 1)[0]
+  expect(testJob).toMatch(
+    /node-version: 22\.12\.0[\s\S]*run: bun run test:completion-audio[\s\S]*node-version: 24\.12\.0/
+  )
+  expect(JSON.parse(packageJson).scripts['test:completion-audio']).toBe(
+    'node --experimental-strip-types --test .pi/tests/done-sound.test.mjs'
+  )
+})
+
 describe('desktop package qualification workflow', () => {
   it.each(qualifiedTargets)('builds and starts $name packages on a native runner', target => {
     const matrixEntry = workflow.split(`- name: ${target.name}`)[1]?.split(/\n\s+- name: /, 1)[0]
@@ -71,6 +81,13 @@ describe('desktop package qualification workflow', () => {
       'bunx electron-builder --${{ matrix.builder-platform }} ${{ matrix.target }} --${{ matrix.arch }} --publish never --config.npmRebuild=false'
     )
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
+  })
+
+  it('packages Linux at the advertised minimum Node version', () => {
+    expect(JSON.parse(packageJson).engines.node).toBe('>=22.12.0')
+    const linuxEntry = workflow.split('- name: Linux x64')[1]?.split(/\n\s+- name: /, 1)[0]
+    expect(linuxEntry).toContain('node-version: 22.12.0')
+    expect(workflow).toContain("node-version: ${{ matrix.node-version || '24.12.0' }}")
   })
 
   it('launches each generated distributable rather than its staging tree', () => {

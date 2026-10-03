@@ -67,7 +67,7 @@ versions and CPU architectures are not currently qualified.
 
 ### Prerequisites
 
-- **Node.js 22+** - [Download](https://nodejs.org/)
+- **Node.js 22.12+** - [Download](https://nodejs.org/)
 - **Bun** - [Install](https://bun.sh/)
 - **Aspire CLI** - [Install](https://aspire.dev/get-started/install-cli/)
 
@@ -336,10 +336,10 @@ The [configuration](.pi/done-sound.json) also supports
 `enabled: false` and a repository-relative `audioPath`.
 
 The [playback script](scripts/Play-DoneSound.ps1)
-requires PowerShell and `ffplay` on Windows or Linux, or `afplay` on macOS. It
+requires PowerShell 7 and `ffplay` on Windows or Linux, or `afplay` on macOS. It
 plays without opening a player window. Playback failures warn without failing
 the completed task. Playback runs in the background and does not delay the settled
-handler. Run `bun run test:completion-audio` on Node.js 24 or newer to test the
+handler. Run `bun run test:completion-audio` on Node.js 22.12 or newer to test the
 hook without playing audio. CI runs this suite, including mocked PowerShell playback.
 
 ## Contributing

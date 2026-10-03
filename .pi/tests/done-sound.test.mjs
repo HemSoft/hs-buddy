@@ -1,15 +1,23 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { fileURLToPath, URL } from 'node:url'
 import { spawnSync } from 'node:child_process'
+import { setImmediate } from 'node:timers'
 import { test } from 'node:test'
 import process from 'node:process'
 import doneSound, { belongsToRepository } from '../extensions/done-sound.ts'
 
 const root = fileURLToPath(new URL('../../', import.meta.url))
 const success = { code: 0, killed: false, stdout: '', stderr: '' }
+
+// PowerShell is installed on the host, not an npm package binary.
+const powerShellName = process.platform === 'win32' ? 'pwsh.exe' : 'pwsh'
+const powerShell = (process.env.PATH ?? '')
+  .split(delimiter)
+  .map(directory => join(directory, powerShellName))
+  .find(candidate => existsSync(candidate))
 
 function harness(exec = async () => success) {
   const handlers = new Map()
@@ -120,6 +128,7 @@ test('settled handler returns before playback and overlapping events cannot star
 })
 
 test('PowerShell plays the asset without a window and reports player failures', () => {
+  assert.ok(powerShell, 'Install PowerShell 7 on PATH to run playback integration tests')
   const directory = mkdtempSync(join(tmpdir(), 'done-sound-'))
   try {
     const player = join(directory, 'mock-player.ps1')
@@ -135,7 +144,7 @@ test('PowerShell plays the asset without a window and reports player failures', 
     )
     for (const code of [0, 7]) {
       const result = spawnSync(
-        'pwsh',
+        powerShell,
         [
           '-NoProfile',
           '-File',

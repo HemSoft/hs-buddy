@@ -49,6 +49,36 @@ describe('validateDocumentationMetadata', () => {
     expect(validateDocumentationMetadata(sources(), packageJson)).toEqual([])
   })
 
+  it.each(['22.12.0', '22.12.1'])('retains nonzero minor and patch Node floors for %s', floor => {
+    const metadata = JSON.parse(packageJson)
+    metadata.engines.node = `>=${floor}`
+    const requirement = floor === '22.12.0' ? '22.12' : floor
+    const manifest = JSON.stringify(metadata)
+    const original = sources()
+    expect(validateDocumentationMetadata(original, manifest)).toEqual(
+      expect.arrayContaining([
+        `CONTRIBUTING.md prerequisites must require Node.js ${requirement}+.`,
+        `README.md prerequisites must require Node.js ${requirement}+.`,
+      ])
+    )
+    original.readme = original.readme.replace('Node.js 22+', `Node.js ${requirement}+`)
+    original.contributing = original.contributing.replace('22+', `${requirement}+`)
+    expect(validateDocumentationMetadata(original, manifest)).toEqual([])
+  })
+
+  it.each([undefined, {}, { node: 'unsupported' }])(
+    'reports missing Node metadata for %j',
+    engines => {
+      const metadata = JSON.parse(packageJson)
+      metadata.engines = engines
+      delete metadata.dependencies.react
+      expect(validateDocumentationMetadata(sources(), JSON.stringify(metadata))).toEqual([
+        'package.json must declare a versioned react requirement.',
+        'package.json must declare a versioned node requirement.',
+      ])
+    }
+  )
+
   it('reports stale manifest-derived framework documentation', () => {
     const stale = sources()
     stale.vision = stale.vision.replace('Electron 44 +', 'Electron 43 +')

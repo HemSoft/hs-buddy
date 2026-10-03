@@ -451,6 +451,83 @@ describe('useTerminalWorkspace', () => {
     })
   })
 
+  it.each(['D:/deep/repo', ''])(
+    'moves a deeply nested pane with cwd %j past unrelated children',
+    cwd => {
+      const remaining: TerminalLayout = {
+        type: 'split',
+        direction: 'horizontal',
+        sizes: [40, 60],
+        children: [
+          { type: 'pane', id: 'unrelated', cwd: 'D:/other' },
+          { type: 'pane', id: 'sibling', cwd: 'D:/sibling' },
+        ],
+      }
+      const source: TerminalLayout = {
+        ...remaining,
+        children: [
+          remaining.children[0],
+          {
+            type: 'split',
+            direction: 'vertical',
+            sizes: [30, 70],
+            children: [remaining.children[1], { type: 'pane', id: 'moving', cwd }],
+          },
+        ],
+      }
+      const target: TerminalLayout = { type: 'pane', id: 'target-pane', cwd: 'D:/target' }
+      mocks.queryValue = {
+        nodes: [
+          { id: 'source', name: 'Source', parentId: null, sortOrder: 0, layout: source },
+          { id: 'target', name: 'Target', parentId: null, sortOrder: 1, layout: target },
+        ],
+        activeNodeId: 'source',
+      }
+      const { result } = renderHook(() => useTerminalWorkspace(), { wrapper })
+      act(() => result.current.movePaneToNode('moving', 'source', 'target'))
+      expect(result.current.nodes.find(node => node.id === 'source')?.layout).toEqual(remaining)
+      expect(result.current.nodes.find(node => node.id === 'target')?.layout).toEqual({
+        type: 'split',
+        direction: 'vertical',
+        sizes: [50, 50],
+        children: [target, { type: 'pane', id: 'moving', cwd }],
+      })
+      expect(killTerminalSession).not.toHaveBeenCalled()
+      expect(result.current.activeNodeId).toBe('source')
+    }
+  )
+
+  it('preserves the source and uses the existing empty-cwd fallback for an absent pane', () => {
+    const source: TerminalLayout = {
+      type: 'split',
+      direction: 'horizontal',
+      sizes: [50, 50],
+      children: [
+        { type: 'pane', id: 'one', cwd: 'D:/one' },
+        { type: 'pane', id: 'two', cwd: 'D:/two' },
+      ],
+    }
+    const target: TerminalLayout = { type: 'pane', id: 'target-pane', cwd: 'D:/target' }
+    mocks.queryValue = {
+      nodes: [
+        { id: 'source', name: 'Source', parentId: null, sortOrder: 0, layout: source },
+        { id: 'target', name: 'Target', parentId: null, sortOrder: 1, layout: target },
+      ],
+      activeNodeId: 'target',
+    }
+    const { result } = renderHook(() => useTerminalWorkspace(), { wrapper })
+    act(() => result.current.movePaneToNode('absent', 'source', 'target'))
+    expect(result.current.nodes.find(node => node.id === 'source')?.layout).toEqual(source)
+    expect(result.current.nodes.find(node => node.id === 'target')?.layout).toEqual({
+      type: 'split',
+      direction: 'vertical',
+      sizes: [50, 50],
+      children: [target, { type: 'pane', id: 'absent', cwd: '' }],
+    })
+    expect(killTerminalSession).not.toHaveBeenCalled()
+    expect(result.current.activeNodeId).toBe('target')
+  })
+
   it('moves nested panes and preserves the first non-empty cwd it finds', () => {
     const { result } = renderHook(() => useTerminalWorkspace(), { wrapper })
 

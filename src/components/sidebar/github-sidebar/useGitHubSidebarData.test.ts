@@ -72,6 +72,7 @@ vi.mock('../../../hooks/useNewPRIndicator', () => ({
 }))
 
 // --- Module-level API method mocks ---
+const mockFetchOrgRepos = vi.fn()
 const mockFetchRepoCounts = vi.fn().mockResolvedValue({ issues: 0, prs: 0 })
 const mockFetchRepoPRs = vi.fn().mockResolvedValue([])
 const mockFetchRepoCommits = vi.fn().mockResolvedValue([])
@@ -84,9 +85,7 @@ const mockApprovePullRequest = vi.fn().mockResolvedValue(undefined)
 vi.mock('../../../api/github', () => ({
   GitHubClient: vi.fn().mockImplementation(function () {
     return {
-      fetchOrgRepos: vi
-        .fn()
-        .mockResolvedValue({ repos: [], authenticatedAs: 'alice', isUserNamespace: false }),
+      fetchOrgRepos: (...args: unknown[]) => mockFetchOrgRepos(...args),
       fetchOrgMembers: (...args: unknown[]) => mockFetchOrgMembers(...args),
       fetchOrgOverview: (...args: unknown[]) => mockFetchOrgOverview(...args),
       fetchOrgTeams: vi.fn().mockResolvedValue({ teams: [] }),
@@ -169,6 +168,15 @@ beforeEach(() => {
   mockCreateBookmarkResult = undefined
   mockCreateBookmarkShouldReject = false
   mockIsAbortError.mockReturnValue(false)
+  mockThrowIfAborted.mockReset()
+  mockTaskEnqueue.mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) =>
+    fn(new AbortController().signal)
+  )
+  mockFetchOrgRepos.mockReset().mockResolvedValue({
+    repos: [],
+    authenticatedAs: 'alice',
+    isUserNamespace: false,
+  })
   mockFetchRepoCounts.mockResolvedValue({ issues: 0, prs: 0 })
   mockFetchRepoPRs.mockResolvedValue([])
   mockFetchRepoCommits.mockResolvedValue([])
@@ -272,6 +280,103 @@ describe('useGitHubSidebarData', () => {
       serializationKey: 'organization-repositories:acme',
     })
     expect(mockThrowIfAborted).toHaveBeenCalledTimes(2)
+  })
+
+  it('applies repositories that enter the cache after mount without queueing a request', async () => {
+    const { result } = renderHook(() => useGitHubSidebarData())
+    const cached = {
+      repos: [{ name: 'cached-repo', full_name: 'acme/cached-repo' }],
+      authenticatedAs: 'alice',
+      isUserNamespace: false,
+    }
+    mockGet.mockImplementation((key: string) =>
+      key === 'org-repos:acme' ? { data: cached } : null
+    )
+    await act(async () => result.current.toggleOrg('acme'))
+    expect(result.current.orgRepos.acme).toEqual(cached.repos)
+    expect(result.current.loadingOrgs.size).toBe(0)
+    expect(mockTaskEnqueue).not.toHaveBeenCalled()
+    expect(mockFetchOrgRepos).not.toHaveBeenCalled()
+  })
+
+  it('shows loading until a queued request publishes repositories to the cache and visible state', async () => {
+    let resolveFetch!: (value: unknown) => void
+    mockFetchOrgRepos.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveFetch = resolve
+      })
+    )
+    const { result } = renderHook(() => useGitHubSidebarData())
+    await act(async () => result.current.toggleOrg('acme'))
+    expect(result.current.loadingOrgs.has('acme')).toBe(true)
+    expect(result.current.orgRepos.acme).toBeUndefined()
+    const fetched = {
+      repos: [{ name: 'new-repo', full_name: 'acme/new-repo' }],
+      authenticatedAs: 'alice',
+      isUserNamespace: false,
+    }
+    await act(async () => {
+      resolveFetch(fetched)
+      await mockTaskEnqueue.mock.results.at(-1)!.value
+    })
+    expect(result.current.orgRepos.acme).toEqual(fetched.repos)
+    expect(result.current.loadingOrgs.has('acme')).toBe(false)
+    expect(mockSet).toHaveBeenCalledExactlyOnceWith('org-repos:acme', fetched)
+    expect(mockFetchOrgRepos).toHaveBeenCalledExactlyOnceWith('acme')
+  })
+
+  it('discards an aborted response without publishing stale repositories and clears loading', async () => {
+    const controller = new AbortController()
+    mockTaskEnqueue.mockImplementation((fn: (signal: AbortSignal) => Promise<unknown>) =>
+      fn(controller.signal)
+    )
+    mockThrowIfAborted.mockImplementation((signal: AbortSignal) => signal.throwIfAborted())
+    mockIsAbortError.mockImplementation(
+      (error: unknown) => error instanceof DOMException && error.name === 'AbortError'
+    )
+    let resolveFetch!: (value: unknown) => void
+    mockFetchOrgRepos.mockReturnValueOnce(
+      new Promise(resolve => {
+        resolveFetch = resolve
+      })
+    )
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { result } = renderHook(() => useGitHubSidebarData())
+      await act(async () => result.current.toggleOrg('acme'))
+      expect(result.current.loadingOrgs.has('acme')).toBe(true)
+      await act(async () => {
+        controller.abort()
+        resolveFetch({
+          repos: [{ name: 'stale-repo' }],
+          authenticatedAs: 'alice',
+          isUserNamespace: false,
+        })
+        await mockTaskEnqueue.mock.results.at(-1)!.value.catch(() => {})
+      })
+      expect(result.current.orgRepos).toEqual({})
+      expect(result.current.loadingOrgs.size).toBe(0)
+      expect(mockSet).not.toHaveBeenCalled()
+      expect(errorLog).not.toHaveBeenCalled()
+    } finally {
+      errorLog.mockRestore()
+    }
+  })
+
+  it('reports an ordinary repository-fetch failure and clears loading without replacing state', async () => {
+    const failure = new Error('GitHub unavailable')
+    mockFetchOrgRepos.mockRejectedValueOnce(failure)
+    const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {})
+    try {
+      const { result } = renderHook(() => useGitHubSidebarData())
+      await act(async () => result.current.toggleOrg('acme'))
+      expect(result.current.orgRepos).toEqual({})
+      expect(result.current.loadingOrgs.size).toBe(0)
+      expect(mockSet).not.toHaveBeenCalled()
+      expect(errorLog).toHaveBeenCalledExactlyOnceWith('Failed to fetch repos for acme:', failure)
+    } finally {
+      errorLog.mockRestore()
+    }
   })
 
   it('toggleOrg collapses on second call', async () => {

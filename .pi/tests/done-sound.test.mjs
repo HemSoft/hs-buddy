@@ -56,7 +56,7 @@ test("only the fully settled event plays the repository's clip", async () => {
   assert.deepEqual(h.warnings, [])
 })
 
-test('scope includes subfolders but excludes other and nested repositories', () => {
+test('an already-loaded hook allows subfolders but excludes other and nested repositories', () => {
   assert.equal(belongsToRepository(root), true)
   assert.equal(belongsToRepository(join(root, 'scripts')), true)
   assert.equal(belongsToRepository(tmpdir()), false)

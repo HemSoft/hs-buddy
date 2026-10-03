@@ -329,8 +329,16 @@ saying "HemSoft Buddy is done working." when an interactive task fully settles,
 after any retries or queued follow-ups.
 Other repositories, nested repositories, RPC clients, and headless runs stay silent.
 
-Pi loads the hook on the next trusted project launch or `/reload`. It does not
-change Git hooks, global Pi settings, or the existing Copilot completion sound.
+Pi 0.80.4 or newer is required for the
+[`agent_settled` event](https://github.com/earendil-works/pi/blob/v0.80.4/packages/coding-agent/src/core/extensions/types.ts#L709).
+Use a Node.js version supported by your installed Pi release.
+
+Start Pi from the repository root. Pi discovers `.pi/extensions` under its
+startup working directory, not parent directories. Starting from `scripts/` or
+another subfolder does not load this hook automatically. Once loaded, the hook
+allows working directories within this repository but rejects nested repositories.
+Pi loads the hook on the next trusted root launch or `/reload` from that root.
+It does not change Git hooks, global Pi settings, or the existing Copilot completion sound.
 Set `GENERATE_AUDIO_DONE_SOUND=0` before starting Pi to mute this notification.
 The [configuration](.pi/done-sound.json) also supports
 `enabled: false` and a repository-relative `audioPath`.
@@ -341,6 +349,9 @@ plays without opening a player window. Playback failures warn without failing
 the completed task. Playback runs in the background and does not delay the settled
 handler. Run `bun run test:completion-audio` on Node.js 22.12 or newer to test the
 hook without playing audio. CI runs this suite, including mocked PowerShell playback.
+The separate [discovery probe](.pi/tests/discovery.mjs) accepts an installed Pi
+SDK entry-file path and tests real root/subfolder discovery without model requests
+or playback. The handler tests do not prove extension discovery.
 
 ## Contributing
 

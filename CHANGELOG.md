@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1291] - 2026-10-03
+
+### Changed
+
+- Qualify completion audio startup and Pi version requirements
+
 ## [0.1.1290] - 2026-10-03
 
 ### Added

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1287] - 2026-10-03
+
+### Fixed
+
+- Keep documented node floors synchronized with the manifest
+
 ## [0.1.1286] - 2026-10-03
 
 ### Fixed

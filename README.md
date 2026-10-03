@@ -67,7 +67,7 @@ versions and CPU architectures are not currently qualified.
 
 ### Prerequisites
 
-- **Node.js 22+** - [Download](https://nodejs.org/)
+- **Node.js 22.12+** - [Download](https://nodejs.org/)
 - **Bun** - [Install](https://bun.sh/)
 - **Aspire CLI** - [Install](https://aspire.dev/get-started/install-cli/)
 

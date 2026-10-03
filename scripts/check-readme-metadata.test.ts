@@ -49,6 +49,23 @@ describe('validateDocumentationMetadata', () => {
     expect(validateDocumentationMetadata(sources(), packageJson)).toEqual([])
   })
 
+  it.each(['22.12.0', '22.12.1'])('retains nonzero minor and patch Node floors for %s', floor => {
+    const metadata = JSON.parse(packageJson)
+    metadata.engines.node = `>=${floor}`
+    const requirement = floor === '22.12.0' ? '22.12' : floor
+    const manifest = JSON.stringify(metadata)
+    const original = sources()
+    expect(validateDocumentationMetadata(original, manifest)).toEqual(
+      expect.arrayContaining([
+        `CONTRIBUTING.md prerequisites must require Node.js ${requirement}+.`,
+        `README.md prerequisites must require Node.js ${requirement}+.`,
+      ])
+    )
+    original.readme = original.readme.replace('Node.js 22+', `Node.js ${requirement}+`)
+    original.contributing = original.contributing.replace('22+', `${requirement}+`)
+    expect(validateDocumentationMetadata(original, manifest)).toEqual([])
+  })
+
   it('reports stale manifest-derived framework documentation', () => {
     const stale = sources()
     stale.vision = stale.vision.replace('Electron 44 +', 'Electron 43 +')

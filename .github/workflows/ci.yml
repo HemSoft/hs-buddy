@@ -192,6 +192,9 @@ jobs:
         timeout-minutes: 10
         run: bun install --frozen-lockfile
 
+      - name: Run completion audio tests
+        run: bun run test:completion-audio
+
       - name: Run tests with coverage
         run: bun run test:coverage
 

@@ -323,23 +323,24 @@ See [SET_IT_FREE_GOVERNANCE.md](docs/SET_IT_FREE_GOVERNANCE.md) for the full pol
 
 ## Pi completion audio
 
-The repository-local [Pi extension](D:/github/HemSoft/hs-buddy/.pi/extensions/done-sound.ts)
-plays the [guide-voice completion clip](D:/github/HemSoft/hs-buddy/assets/done.mp3)
+The repository-local [Pi extension](.pi/extensions/done-sound.ts)
+plays the [guide-voice completion clip](assets/done.mp3)
 saying "HemSoft Buddy is done working." when an interactive task fully settles,
 after any retries or queued follow-ups.
-Other repositories, nested repositories, and headless runs stay silent.
+Other repositories, nested repositories, RPC clients, and headless runs stay silent.
 
 Pi loads the hook on the next trusted project launch or `/reload`. It does not
 change Git hooks, global Pi settings, or the existing Copilot completion sound.
 Set `GENERATE_AUDIO_DONE_SOUND=0` before starting Pi to mute this notification.
-The [configuration](D:/github/HemSoft/hs-buddy/.pi/done-sound.json) also supports
+The [configuration](.pi/done-sound.json) also supports
 `enabled: false` and a repository-relative `audioPath`.
 
-The [playback script](D:/github/HemSoft/hs-buddy/scripts/Play-DoneSound.ps1)
+The [playback script](scripts/Play-DoneSound.ps1)
 requires PowerShell and `ffplay` on Windows or Linux, or `afplay` on macOS. It
 plays without opening a player window. Playback failures warn without failing
-the completed task. Run `node --test .pi/tests/done-sound.test.mjs` on Node.js 24
-or newer to test the hook without playing audio.
+the completed task. Playback runs in the background and does not delay the settled
+handler. Run `bun run test:completion-audio` on Node.js 24 or newer to test the
+hook without playing audio. CI runs this suite, including mocked PowerShell playback.
 
 ## Contributing
 

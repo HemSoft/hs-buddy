@@ -39,9 +39,9 @@ export default function doneSound(pi: ExtensionAPI) {
   let playing = false
 
   // Unlike agent_end, this runs only after retries and queued follow-ups finish.
-  pi.on('agent_settled', async (_event, ctx) => {
+  pi.on('agent_settled', (_event, ctx) => {
     if (
-      !ctx.hasUI ||
+      ctx.mode !== 'tui' ||
       process.env.GENERATE_AUDIO_DONE_SOUND === '0' ||
       playing ||
       !belongsToRepository(ctx.cwd)
@@ -49,30 +49,35 @@ export default function doneSound(pi: ExtensionAPI) {
       return
 
     playing = true
-    try {
-      const audioPath = configuredAudioPath()
-      if (audioPath === undefined) return
-      const result = await pi.exec(
-        'pwsh',
-        ['-NoProfile', '-File', playbackScript, '-AudioPath', audioPath],
-        {
-          cwd: repositoryRoot,
-          timeout: 15000,
+    // Notification-only work must not hold up the settled event.
+    void play()
+
+    async function play() {
+      try {
+        const audioPath = configuredAudioPath()
+        if (audioPath === undefined) return
+        const result = await pi.exec(
+          'pwsh',
+          ['-NoProfile', '-File', playbackScript, '-AudioPath', audioPath],
+          {
+            cwd: repositoryRoot,
+            timeout: 15000,
+          }
+        )
+        if (result.code !== 0 || result.killed) {
+          ctx.ui.notify(
+            'Completion audio could not play. Check the audio player and configured file.',
+            'warning'
+          )
         }
-      )
-      if (result.code !== 0 || result.killed) {
+      } catch (_: unknown) {
         ctx.ui.notify(
-          'Completion audio could not play. Check ffplay and assets/done.mp3.',
+          'Completion audio could not start. Check PowerShell and the audio player.',
           'warning'
         )
+      } finally {
+        playing = false
       }
-    } catch (_: unknown) {
-      ctx.ui.notify(
-        'Completion audio could not start. Check PowerShell and the audio player.',
-        'warning'
-      )
-    } finally {
-      playing = false
     }
   })
 }

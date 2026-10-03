@@ -22,7 +22,12 @@ function harness(exec = async () => success) {
       return exec(...args)
     },
   })
-  const ctx = { cwd: root, hasUI: true, ui: { notify: (...args) => warnings.push(args) } }
+  const ctx = {
+    cwd: root,
+    mode: 'tui',
+    hasUI: true,
+    ui: { notify: (...args) => warnings.push(args) },
+  }
   return { handlers, calls, warnings, ctx, settle: () => handlers.get('agent_settled')({}, ctx) }
 }
 
@@ -57,10 +62,15 @@ test('scope includes subfolders but excludes other and nested repositories', () 
   }
 })
 
-test('no sound for headless children, other repositories, or a muted session', async () => {
+test('no sound for RPC, headless children, other repositories, or a muted session', async () => {
   const h = harness()
-  h.ctx.hasUI = false
-  await h.settle()
+  for (const mode of ['rpc', 'json', 'print']) {
+    h.ctx.mode = mode
+    // RPC deliberately has UI; hasUI alone must not enable audio.
+    h.ctx.hasUI = mode === 'rpc'
+    await h.settle()
+  }
+  h.ctx.mode = 'tui'
   h.ctx.hasUI = true
   h.ctx.cwd = tmpdir()
   await h.settle()
@@ -84,25 +94,27 @@ test('playback failures warn without failing task completion', async () => {
     },
   ]) {
     const h = harness(exec)
-    await h.settle()
-    await h.settle()
+    h.settle()
+    await new Promise(resolve => setImmediate(resolve))
+    h.settle()
+    await new Promise(resolve => setImmediate(resolve))
     assert.equal(h.calls.length, 2)
     assert.equal(h.warnings.length, 2)
     assert.equal(h.warnings[0][1], 'warning')
   }
 })
 
-test('overlapping notifications cannot start two players', async () => {
+test('settled handler returns before playback and overlapping events cannot start two players', async () => {
   let finish
   const pending = new Promise(resolve => {
     finish = resolve
   })
   const h = harness(() => pending)
-  const first = h.settle()
+  assert.equal(h.settle(), undefined)
   await h.settle()
   assert.equal(h.calls.length, 1)
   finish(success)
-  await first
+  await new Promise(resolve => setImmediate(resolve))
   await h.settle()
   assert.equal(h.calls.length, 2)
 })

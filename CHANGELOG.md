@@ -9,11 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.1281] - 2026-10-03
+## [0.1.1283] - 2026-10-03
 
-### Added
+### Fixed
 
-- Publish repository-local completion audio
+- Isolate completion audio and automate regression checks
+
+## [0.1.1282] - 2026-10-01
+
+### Changed
+
+- Assert complete retained batch thread counts (#738)
+
+## [0.1.1281] - 2026-10-01
+
+### Changed
+
+- Cover GitHub API pagination and fallbacks (#738)
 
 ## [0.1.1280] - 2026-10-01
 

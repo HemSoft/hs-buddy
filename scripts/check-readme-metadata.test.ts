@@ -66,6 +66,19 @@ describe('validateDocumentationMetadata', () => {
     expect(validateDocumentationMetadata(original, manifest)).toEqual([])
   })
 
+  it.each([undefined, {}, { node: 'unsupported' }])(
+    'reports missing Node metadata for %j',
+    engines => {
+      const metadata = JSON.parse(packageJson)
+      metadata.engines = engines
+      delete metadata.dependencies.react
+      expect(validateDocumentationMetadata(sources(), JSON.stringify(metadata))).toEqual([
+        'package.json must declare a versioned react requirement.',
+        'package.json must declare a versioned node requirement.',
+      ])
+    }
+  )
+
   it('reports stale manifest-derived framework documentation', () => {
     const stale = sources()
     stale.vision = stale.vision.replace('Electron 44 +', 'Electron 43 +')

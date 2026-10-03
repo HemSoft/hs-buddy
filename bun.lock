@@ -106,6 +106,7 @@
   },
   "patchedDependencies": {
     "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch",
+    "app-builder-lib@26.15.3": "patches/app-builder-lib@26.15.3.patch",
   },
   "overrides": {
     "@electron/get": "5.1.0",

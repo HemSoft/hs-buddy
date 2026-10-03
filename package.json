@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1287",
+  "version": "0.1.1288",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -205,6 +205,7 @@
     "ws": "^8.20.1"
   },
   "patchedDependencies": {
+    "app-builder-lib@26.15.3": "patches/app-builder-lib@26.15.3.patch",
     "@stryker-mutator/vitest-runner@10.0.0": "patches/@stryker-mutator%2Fvitest-runner@10.0.0.patch"
   },
   "engines": {

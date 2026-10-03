@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1288] - 2026-10-03
+
+### Fixed
+
+- Adapt secure Electron downloader proxy and timeout behavior
+
 ## [0.1.1287] - 2026-10-03
 
 ### Fixed

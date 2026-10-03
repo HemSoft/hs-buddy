@@ -51,6 +51,31 @@ low alerts are reviewed during the weekly dependency-maintenance pass.
 5. Confirm GitHub closes the alert. Dismiss an alert only with a specific reason
    and a linked issue that records the evidence.
 
+## Electron downloader compatibility patch
+
+[Issue #746](https://github.com/HemSoft/hs-buddy/issues/746) tracks the vulnerable
+Electron download chain. The `@electron/get` override removes Got and its
+vulnerable cache dependency. Its Fetch API requires Node.js 22.12+.
+
+`patches/app-builder-lib@26.15.3.patch` adapts electron-builder's download call
+without disabling audit checks. It initializes Fetch proxy support for uppercase
+and lowercase `HTTP_PROXY` and `HTTPS_PROXY`, respects `NO_PROXY`, and converts
+Got's request timeout to an abort signal. The default deadline remains ten
+minutes. A supplied Fetch signal combines with that deadline.
+
+Custom download configuration must use Fetch options. The patch rejects legacy
+Got `agent` and `https` options instead of silently ignoring them. Use a Fetch
+`dispatcher` for custom proxy or TLS configuration. This also applies to the
+legacy `electronDownload.strictSSL: false` setting, which produces Got TLS
+options. Standard downloads do not disable certificate verification.
+
+`scripts/electron-downloader.test.ts` exercises the installed electron-builder
+module against a local CONNECT proxy and origin. It checks returned bytes,
+request headers, proxy bypass, and stalled-request cancellation in isolated Node
+processes. Remove the override and patch together when electron-builder declares
+and supports a secure Fetch-based downloader upstream, then rerun these probes
+and the package-smoke matrix.
+
 ## Lockfile repair trust boundary
 
 The `Dependabot Lockfile Fix` workflow uses `pull_request_target` so GitHub

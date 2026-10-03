@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1283] - 2026-10-03
+
+### Fixed
+
+- Remove vulnerable build-tool dependency chains
+
 ## [0.1.1282] - 2026-10-01
 
 ### Changed

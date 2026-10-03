@@ -15,13 +15,26 @@ function jobBlock(name: string): string {
 
 describe('Markdown CI contract', () => {
   it('runs the repository Markdown command in the existing lint job', () => {
-    expect(packageJson.scripts['lint:md']).toBe('markdownlint-cli2 "**/*.md"')
+    expect(packageJson.scripts['lint:md']).toBe(
+      'markdownlint --dot --config .markdownlint-cli2.jsonc --configPointer /config "**/*.md"'
+    )
     expect(jobBlock('lint')).toContain('- name: Lint Markdown\n        run: bun run lint:md')
   })
 
   it('keeps workflow Markdown covered by the repository-wide glob', () => {
     expect(packageJson.scripts['lint:md']).toContain('**/*.md')
     expect(markdownConfig).not.toContain('.github/workflows/**')
+    const ignores = readFileSync('.markdownlintignore', 'utf8')
+    expect(ignores).not.toContain('.github/workflows/**')
+    expect(ignores.trim().split(/\r?\n/)).toEqual([
+      '**/node_modules/**',
+      'dist/**',
+      'dist-electron/**',
+      '.github/agents/**',
+      'test-results/**',
+      'release/**',
+      '.github/aw/logs/**',
+    ])
   })
 
   it('propagates a Markdown failure through both aggregate gates', () => {

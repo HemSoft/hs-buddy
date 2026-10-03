@@ -1,7 +1,7 @@
 {
   "name": "@hemsoft/buddy",
   "private": true,
-  "version": "0.1.1282",
+  "version": "0.1.1283",
   "description": "Your universal productivity companion - manage skills, tasks, and workflows",
   "type": "module",
   "main": "dist-electron/main.js",
@@ -18,8 +18,8 @@
     "lint": "eslint . --max-warnings 0",
     "lint:quality": "bun scripts/check-readme-metadata.ts && bun scripts/lint-quality.ts",
     "lint:fix": "eslint . --fix",
-    "lint:md": "markdownlint-cli2 \"**/*.md\"",
-    "lint:md:fix": "markdownlint-cli2 --fix \"**/*.md\"",
+    "lint:md": "markdownlint --dot --config .markdownlint-cli2.jsonc --configPointer /config \"**/*.md\"",
+    "lint:md:fix": "markdownlint --dot --config .markdownlint-cli2.jsonc --configPointer /config --fix \"**/*.md\"",
     "format": "prettier --write \"{src,shared,electron,convex,scripts,e2e,perf}/**/*.{ts,tsx,js,json,css}\"",
     "format:check": "prettier --check \"{src,shared,electron,convex,scripts,e2e,perf}/**/*.{ts,tsx,js,json,css}\"",
     "test": "vitest run",
@@ -155,7 +155,7 @@
     "istanbul-lib-instrument": "6.0.3",
     "knip": "^6.24.0",
     "lint-staged": "^17.0.8",
-    "markdownlint-cli2": "^0.23.2",
+    "markdownlint-cli": "0.49.1",
     "png-to-ico": "^3.0.1",
     "prettier": "^3.9.4",
     "puppeteer-core": "25.11.0",
@@ -178,6 +178,8 @@
   },
   "overrides": {
     "react-doctor": "$react-doctor",
+    "@electron/get": "5.1.0",
+    "basic-ftp": "6.2.1",
     "body-parser": "^1.20.6",
     "brace-expansion": "^5.0.11",
     "browserslist": "^4.28.8",
@@ -218,7 +220,7 @@
       "prettier --write"
     ],
     "*.md": [
-      "markdownlint-cli2"
+      "markdownlint --dot --config .markdownlint-cli2.jsonc --configPointer /config"
     ]
   }
 }

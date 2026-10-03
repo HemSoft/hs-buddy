@@ -4,10 +4,11 @@
     "line-length": false,
     "no-inline-html": false,
     "fenced-code-language": false,
+    "first-line-heading": false,
     "table-column-style": false,
     "no-duplicate-heading": {
-      "siblings_only": true,
-    },
+      "siblings_only": true
+    }
   },
   "ignores": [
     "**/node_modules/**",
@@ -16,6 +17,6 @@
     ".github/agents/**",
     "test-results/**",
     "release/**",
-    ".github/aw/logs/**",
-  ],
+    ".github/aw/logs/**"
+  ]
 }

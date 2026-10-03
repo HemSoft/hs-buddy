@@ -73,6 +73,13 @@ describe('desktop package qualification workflow', () => {
     expect(workflow).toContain('bun run package:smoke -- ${{ matrix.platform }} ${{ matrix.arch }}')
   })
 
+  it('packages Linux at the advertised minimum Node version', () => {
+    expect(JSON.parse(packageJson).engines.node).toBe('>=22.12.0')
+    const linuxEntry = workflow.split('- name: Linux x64')[1]?.split(/\n\s+- name: /, 1)[0]
+    expect(linuxEntry).toContain('node-version: 22.12.0')
+    expect(workflow).toContain("node-version: ${{ matrix.node-version || '24.12.0' }}")
+  })
+
   it('launches each generated distributable rather than its staging tree', () => {
     expect(workflow).toContain('sudo apt-get install --yes "./$package_file"')
     expect(workflow).toContain('./scripts/install-windows-package.ps1')

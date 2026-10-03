@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1285] - 2026-10-03
+
+### Fixed
+
+- Keep markdown exclusions in one source
+
 ## [0.1.1284] - 2026-10-03
 
 ### Changed

@@ -27,6 +27,7 @@ describe('Markdown CI contract', () => {
 
   it('keeps workflow Markdown covered by the repository-wide glob', () => {
     expect(packageJson.scripts['lint:md']).toContain('**/*.md')
+    expect(packageJson.scripts['lint:md']).toContain('--dot')
     expect(markdownConfig).not.toContain('.github/workflows/**')
     const ignores = readFileSync('.markdownlintignore', 'utf8')
     expect(ignores).not.toContain('.github/workflows/**')

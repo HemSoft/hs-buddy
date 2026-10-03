@@ -3,28 +3,56 @@ import { Buffer } from 'node:buffer'
 import console from 'node:console'
 import process from 'node:process'
 import { createServer } from 'node:http'
+import { createServer as createSecureServer } from 'node:https'
 import { connect } from 'node:net'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createRequire } from 'node:module'
+import { URL } from 'node:url'
 
 const mode = process.argv[2] ?? 'uppercase'
+const secure = mode.startsWith('https-')
 const cache = await mkdtemp(join(tmpdir(), 'buddy-downloader-'))
 const sockets = new Set()
+const observers = new Map()
 let tunnels = 0
 let requests = 0
+let retryRequests = 0
 const payload = Buffer.from('verified proxied Electron artifact')
-const origin = createServer((request, response) => {
+const handler = (request, response) => {
   requests++
   assert.equal(request.headers['x-buddy-test'], 'preserved')
-  if (request.url === '/stall') return
+  if (request.url.startsWith('/stall')) {
+    const observer = observers.get(request.url)
+    if (observer) {
+      response.once('close', observer.onClosed)
+      observer.onStarted()
+    }
+    return
+  }
+  if (request.url === '/retry' && retryRequests++ === 0) {
+    response.writeHead(503)
+    response.end('temporary failure')
+    return
+  }
   response.writeHead(200, { 'content-length': payload.length })
   response.end(payload)
-})
+}
+// Public test-only key and certificate. The child trusts this certificate only;
+// production TLS verification and system trust stores remain unchanged.
+const origin = secure
+  ? createSecureServer(
+      {
+        key: await readFile(new URL('./downloader-test-key.pem', import.meta.url)),
+        cert: await readFile(new URL('./downloader-test-cert.pem', import.meta.url)),
+      },
+      handler
+    )
+  : createServer(handler)
 const proxy = createServer()
 proxy.on('connect', (request, socket, head) => {
-  assert.equal(request.url, 'buddy.invalid:80')
+  assert.equal(request.url, `buddy.invalid:${secure ? 443 : 80}`)
   tunnels++
   const upstream = connect(origin.address().port, '127.0.0.1', () => {
     socket.write('HTTP/1.1 200 Connection Established\r\n\r\n')
@@ -36,24 +64,36 @@ proxy.on('connect', (request, socket, head) => {
   upstream.on('error', () => socket.destroy())
   socket.on('error', () => upstream.destroy())
 })
+function observeStall(path) {
+  let onStarted
+  let onClosed
+  const started = new Promise(resolve => {
+    onStarted = resolve
+  })
+  const closed = new Promise(resolve => {
+    onClosed = resolve
+  })
+  const observer = { started, closed, onStarted, onClosed }
+  observers.set(path, observer)
+  return observer
+}
 for (const server of [origin, proxy]) {
   server.on('connection', socket => sockets.add(socket))
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
 }
 try {
-  // Windows environment keys are case-insensitive; delete aliases before assigning.
-  delete process.env.http_proxy
-  delete process.env.https_proxy
-  delete process.env.HTTP_PROXY
-  delete process.env.HTTPS_PROXY
-  process.env[mode === 'lowercase' ? 'http_proxy' : 'HTTP_PROXY'] =
-    `http://127.0.0.1:${proxy.address().port}`
-  process.env[mode === 'lowercase' ? 'https_proxy' : 'HTTPS_PROXY'] =
+  // Windows keys are case-insensitive; delete aliases before assigning.
+  for (const key of ['http_proxy', 'https_proxy', 'HTTP_PROXY', 'HTTPS_PROXY'])
+    delete process.env[key]
+  const proxyVariable = secure ? 'HTTPS_PROXY' : 'HTTP_PROXY'
+  process.env[mode.includes('lowercase') ? proxyVariable.toLowerCase() : proxyVariable] =
     `http://127.0.0.1:${proxy.address().port}`
   process.env.NO_PROXY = mode === 'no-proxy' ? '127.0.0.1' : ''
   process.env.no_proxy = process.env.NO_PROXY
   const baseURL =
-    mode === 'no-proxy' ? `http://127.0.0.1:${origin.address().port}` : 'http://buddy.invalid'
+    mode === 'no-proxy'
+      ? `http://127.0.0.1:${origin.address().port}`
+      : `${secure ? 'https' : 'http'}://buddy.invalid`
   const requireBuilder = createRequire(import.meta.resolve('electron-builder'))
   const { downloadElectronArtifactZip } = requireBuilder('app-builder-lib/out/util/electronGet.js')
   const version = `99.0.${process.pid}`
@@ -92,6 +132,41 @@ try {
   cancelled.electronDownload.downloadOptions.signal = globalThis.AbortSignal.abort()
   await assert.rejects(downloadElectronArtifactZip(cancelled), { name: 'AbortError' })
   assert.equal(requests, 2, 'An already-aborted caller signal must not issue a request')
+
+  const observer = observeStall('/stall-caller')
+  const controller = new globalThis.AbortController()
+  const inFlight = options('/stall-caller')
+  inFlight.electronDownload.downloadOptions.signal = controller.signal
+  inFlight.electronDownload.downloadOptions.timeout.request = 10000
+  const cancelledFetch = assert.rejects(downloadElectronArtifactZip(inFlight), {
+    name: 'AbortError',
+  })
+  await observer.started
+  controller.abort()
+  await cancelledFetch
+  await observer.closed
+  assert.equal(requests, 3, 'In-flight caller cancellation must not retry')
+
+  const held = observeStall('/stall-lock')
+  const holdingOptions = options('/stall-lock')
+  holdingOptions.electronDownload.downloadOptions.timeout.request = 1500
+  const first = assert.rejects(downloadElectronArtifactZip(holdingOptions), {
+    name: 'TimeoutError',
+  })
+  await held.started
+  const second = downloadElectronArtifactZip(options('/after-lock'))
+  await first
+  assert.deepEqual(
+    await readFile(await second),
+    payload,
+    'A lock waiter keeps its full request deadline'
+  )
+  assert.equal(requests, 5)
+
+  const retried = await downloadElectronArtifactZip(options('/retry'))
+  assert.deepEqual(await readFile(retried), payload)
+  assert.equal(retryRequests, 2, 'Fetch HTTP 503 must retry with a fresh deadline')
+  assert.equal(requests, 7)
   console.log('BUDDY_DOWNLOADER_PROBE_PASS')
 } catch (error) {
   console.error(error.cause)

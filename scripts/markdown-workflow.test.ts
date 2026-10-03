@@ -75,6 +75,11 @@ describe('Markdown CI contract', () => {
       writeFileSync(fixture, '# Heading\n\n## Next level\n')
       const success = lint()
       expect(success.status, success.stderr).toBe(0)
+      // Published main already disables MD041 in .markdownlint.jsonc.
+      // The replacement must preserve that effective policy, not add an H1 requirement.
+      writeFileSync(fixture, '## Legacy heading\n\n### Next level\n')
+      const legacy = lint()
+      expect(legacy.status, legacy.stderr).toBe(0)
     } finally {
       rmSync(directory, { recursive: true, force: true })
     }

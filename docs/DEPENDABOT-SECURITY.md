@@ -61,7 +61,9 @@ vulnerable cache dependency. Its Fetch API requires Node.js 22.12+.
 without disabling audit checks. It initializes Fetch proxy support for uppercase
 and lowercase `HTTP_PROXY` and `HTTPS_PROXY`, respects `NO_PROXY`, and converts
 Got's request timeout to an abort signal. The default deadline remains ten
-minutes. A supplied Fetch signal combines with that deadline.
+minutes per attempt and starts after acquiring the artifact lock. A supplied
+Fetch signal combines with that deadline. Fetch server errors and transient
+network errors retain the builder's retry policy.
 
 Custom download configuration must use Fetch options. The patch rejects legacy
 Got `agent` and `https` options instead of silently ignoring them. Use a Fetch
@@ -70,9 +72,11 @@ legacy `electronDownload.strictSSL: false` setting, which produces Got TLS
 options. Standard downloads do not disable certificate verification.
 
 `scripts/electron-downloader.test.ts` exercises the installed electron-builder
-module against a local CONNECT proxy and origin. It checks returned bytes,
-request headers, proxy bypass, and stalled-request cancellation in isolated Node
-processes. Remove the override and patch together when electron-builder declares
+module against local HTTP and HTTPS origins through a CONNECT proxy. It checks
+returned bytes, request headers, proxy bypass, in-flight caller cancellation,
+lock contention, and server-error retries in isolated Node processes. The public
+test-only certificate and key authenticate `buddy.invalid`; the child process
+trusts that certificate without changing system trust or disabling TLS checks. Remove the override and patch together when electron-builder declares
 and supports a secure Fetch-based downloader upstream, then rerun these probes
 and the package-smoke matrix.
 

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1281] - 2026-10-03
+
+### Added
+
+- Publish repository-local completion audio
+
 ## [0.1.1280] - 2026-10-01
 
 ### Changed

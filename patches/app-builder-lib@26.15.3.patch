@@ -1,0 +1,90 @@
+diff --git a/out/util/electronGet.js b/out/util/electronGet.js
+index a941f9d2..04f3899a 100644
+--- a/out/util/electronGet.js
++++ b/out/util/electronGet.js
+@@ -22,6 +22,7 @@ const tar = require("tar");
+ const unzipper = require("unzipper");
+ const builder_util_runtime_1 = require("builder-util-runtime");
+ const cacheState_1 = require("./cacheState");
++let fetchProxyInitialized = false;
+ function hashUrlSafe(input, length = 6) {
+     let hash = 5381;
+     for (let i = 0; i < input.length; i++) {
+@@ -192,6 +193,16 @@ async function extractArchive(file, dir) {
+ }
+ async function downloadArtifactToFile(config, label) {
+     var _a, _b, _c, _d;
++    // Wait until module loading is complete before installing the Fetch proxy dispatcher.
++    if (!fetchProxyInitialized && [process.env.HTTPS_PROXY, process.env.https_proxy, process.env.HTTP_PROXY, process.env.http_proxy].some(value => value && value.trim())) {
++        get.initializeProxy();
++        fetchProxyInitialized = true;
++    }
++    const { timeout: legacyTimeout, agent: legacyAgent, https: legacyHttps, ...fetchOptions } = config.downloadOptions || {};
++    if (legacyAgent || legacyHttps) {
++        throw new Error("@electron/get 5 requires a Fetch dispatcher instead of a Got agent or https options in downloadOptions");
++    }
++    const timeoutMs = typeof legacyTimeout === "number" ? legacyTimeout : (legacyTimeout && legacyTimeout.request) || 10 * 60 * 1000;
+     // Serialize concurrent downloads of the same artifact across vitest workers to prevent @electron/get's
+     // non-atomic putFileInCache (remove + move) from racing with a concurrent reader.
+     const artifactLockKey = crypto
+@@ -211,9 +222,7 @@ async function downloadArtifactToFile(config, label) {
+     let lastLoggedMilestone = -1;
+     const state = { bar: undefined };
+     const downloadOptions = {
+-        timeout: { request: 10 * 60 * 1000 }, // prevent indefinite hang on stalled connections
+-        ...config.downloadOptions,
+-        agent: (_b = (_a = config.downloadOptions) === null || _a === void 0 ? void 0 : _a.agent) !== null && _b !== void 0 ? _b : (0, builder_util_1.buildGotProxyAgent)(),
++        ...fetchOptions,
+         getProgressCallback: info => {
+             // @electron/get passes downloadOptions (including this callback) to its internal
+             // SHASUMS256.txt validation download. That file is tiny (<1 MB) and fires at 100%
+@@ -242,10 +251,16 @@ async function downloadArtifactToFile(config, label) {
+         },
+     };
+     const configWithProgress = { ...config, downloadOptions };
++    // Each attempt gets its full deadline after acquiring the artifact lock.
++    const downloadWithTimeout = (options = configWithProgress) => {
++        const timeoutSignal = AbortSignal.timeout(timeoutMs);
++        const signal = fetchOptions.signal ? AbortSignal.any([fetchOptions.signal, timeoutSignal]) : timeoutSignal;
++        return get.downloadArtifact({ ...options, downloadOptions: { ...options.downloadOptions, signal } });
++    };
+     try {
+         let filePath;
+         try {
+-            filePath = await (0, builder_util_runtime_1.retry)(() => get.downloadArtifact(configWithProgress), {
++            filePath = await (0, builder_util_runtime_1.retry)(() => downloadWithTimeout(), {
+                 retries: 3,
+                 interval: 2000,
+                 backoff: 2000,
+@@ -254,16 +269,18 @@ async function downloadArtifactToFile(config, label) {
+                     if (e instanceof builder_util_runtime_1.HttpError) {
+                         return e.isServerError();
+                     }
+-                    if (typeof ((_a = e === null || e === void 0 ? void 0 : e.response) === null || _a === void 0 ? void 0 : _a.statusCode) === "number") {
+-                        return e.response.statusCode >= 500;
++                    const status = e?.response?.status ?? e?.response?.statusCode;
++                    if (typeof status === "number") {
++                        return status >= 500;
+                     }
+-                    return typeof (e === null || e === void 0 ? void 0 : e.code) === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "ENOENT"].includes(e.code);
++                    const code = e?.cause?.code ?? e?.code;
++                    return typeof code === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "ENOENT"].includes(code);
+                 },
+             });
+         }
+         catch (err) {
+             if (typeof (err === null || err === void 0 ? void 0 : err.message) === "string" && err.message.includes("dest already exists")) {
+-                filePath = await get.downloadArtifact(configWithProgress);
++                filePath = await downloadWithTimeout();
+             }
+             else {
+                 throw err;
+@@ -271,7 +288,7 @@ async function downloadArtifactToFile(config, label) {
+         }
+         if (!(await (0, builder_util_1.exists)(filePath))) {
+             builder_util_1.log.warn({ filePath, label }, "cached artifact missing from disk; retrying with cache write");
+-            filePath = await get.downloadArtifact({ ...configWithProgress, cacheMode: get_1.ElectronDownloadCacheMode.WriteOnly });
++            filePath = await downloadWithTimeout({ ...configWithProgress, cacheMode: get_1.ElectronDownloadCacheMode.WriteOnly });
+         }
+         if (!state.bar && lastLoggedMilestone === -1) {
+             builder_util_1.log.info({ label }, "using cached artifact");

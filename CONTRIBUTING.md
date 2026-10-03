@@ -5,7 +5,7 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 ## Prerequisites
 
 - [Bun](https://bun.sh/) (package manager & script runner)
-- [Node.js](https://nodejs.org/) 22+
+- [Node.js](https://nodejs.org/) 22.12+ workspace-wide, required by the ESM Electron downloader
 - [.NET Aspire CLI](https://aspire.dev/get-started/install-cli/) (AppHost orchestration)
 - [Convex CLI](https://docs.convex.dev/getting-started) (`npm i -g convex`)
 

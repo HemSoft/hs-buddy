@@ -4,18 +4,10 @@
     "line-length": false,
     "no-inline-html": false,
     "fenced-code-language": false,
+    "first-line-heading": false,
     "table-column-style": false,
     "no-duplicate-heading": {
-      "siblings_only": true,
-    },
-  },
-  "ignores": [
-    "**/node_modules/**",
-    "dist/**",
-    "dist-electron/**",
-    ".github/agents/**",
-    "test-results/**",
-    "release/**",
-    ".github/aw/logs/**",
-  ],
+      "siblings_only": true
+    }
+  }
 }

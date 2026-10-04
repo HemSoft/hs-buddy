@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1293] - 2026-10-04
+
+### Changed
+
+- Cover Electron cache and shell paths (#740)
+
 ## [0.1.1292] - 2026-10-03
 
 ### Changed

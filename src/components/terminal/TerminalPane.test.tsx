@@ -280,6 +280,46 @@ describe('TerminalPane', () => {
     })
   })
 
+  it('routes CWD events only to the matching live pane and unsubscribes its exact handler', async () => {
+    const firstCwd = vi.fn()
+    const secondCwd = vi.fn()
+    mockSpawn.mockResolvedValueOnce({ success: true, sessionId: 'first-session' })
+    mockSpawn.mockResolvedValueOnce({ success: true, sessionId: 'second-session' })
+    const first = render(<TerminalPane viewKey="first" onCwdChange={firstCwd} />)
+    render(<TerminalPane viewKey="second" onCwdChange={secondCwd} />)
+    await vi.waitFor(() => {
+      expect(mockOn.mock.calls.filter(call => call[0] === 'terminal:cwd-changed')).toHaveLength(2)
+    })
+    const handlers = mockOn.mock.calls
+      .filter(call => call[0] === 'terminal:cwd-changed')
+      .map(call => call[1])
+    for (const handler of handlers) handler(null, 'unrelated-session', '/unrelated')
+    expect(firstCwd).not.toHaveBeenCalled()
+    expect(secondCwd).not.toHaveBeenCalled()
+    for (const handler of handlers) handler(null, 'first-session', '/first/repo')
+    expect(firstCwd).toHaveBeenCalledExactlyOnceWith('/first/repo')
+    expect(secondCwd).not.toHaveBeenCalled()
+    first.unmount()
+    expect(mockOff).toHaveBeenCalledWith('terminal:cwd-changed', handlers[0])
+    expect(mockOff).not.toHaveBeenCalledWith('terminal:cwd-changed', handlers[1])
+    handlers[1](null, 'first-session', '/retired')
+    handlers[1](null, 'second-session', '/second/repo')
+    expect(firstCwd).toHaveBeenCalledTimes(1)
+    expect(secondCwd).toHaveBeenCalledExactlyOnceWith('/second/repo')
+  })
+
+  it('accepts matching CWD events without a callback and removes the listener on unmount', async () => {
+    const { unmount } = render(<TerminalPane viewKey="no-cwd-callback" />)
+    await vi.waitFor(() => {
+      expect(mockOn).toHaveBeenCalledWith('terminal:cwd-changed', expect.any(Function))
+    })
+    const handler = mockOn.mock.calls.find(call => call[0] === 'terminal:cwd-changed')![1]
+    expect(() => handler(null, 'new-sess-123', '/repo')).not.toThrow()
+    expect(mockSpawn).toHaveBeenCalledTimes(1)
+    unmount()
+    expect(mockOff).toHaveBeenCalledWith('terminal:cwd-changed', handler)
+  })
+
   it('removes IPC listeners on unmount', async () => {
     const { unmount } = render(<TerminalPane viewKey="test-key" />)
 

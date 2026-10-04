@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1295] - 2026-10-04
+
+### Changed
+
+- Match migration ordering for tied account IDs (#741)
+
 ## [0.1.1294] - 2026-10-04
 
 ### Changed

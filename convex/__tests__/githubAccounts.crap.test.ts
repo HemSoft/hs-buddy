@@ -299,7 +299,7 @@ test('selects a deterministic keeper and newest-defined metadata when timestamps
     return [first, second] as const
   })
   const documents = await Promise.all(ids.map(id => t.query(api.githubAccounts.get, { id })))
-  const keeperIndex = ids[0] < ids[1] ? 0 : 1
+  const keeperIndex = ids[0].localeCompare(ids[1]) < 0 ? 0 : 1
   const newestIndex = keeperIndex === 0 ? 1 : 0
   await t.mutation(internal.migrations.runMergeCaseCollidingGitHubAccounts, {})
   expect(await t.query(api.githubAccounts.list)).toEqual([

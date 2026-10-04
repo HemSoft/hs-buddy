@@ -40,24 +40,23 @@ function seedProviderSnapshotsAfterUnassignedMirror() {
   })
 }
 
-describe('usage provider override config handler', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let handler: (...args: any[]) => any
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let syncHandler: (...args: any[]) => any
+type TestHandler = (...args: unknown[]) => unknown
+let handler: TestHandler
+let syncHandler: TestHandler
 
-  beforeEach(() => {
-    vi.clearAllMocks()
-    hasGitHubAccount.mockReset().mockReturnValue(true)
-    getUsageProviderOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
-    getUsageProviderDefaultOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
-    vi.mocked(ipcMain.handle).mockImplementation((channel, registeredHandler) => {
-      if (channel === 'config:set-usage-provider-override') handler = registeredHandler
-      if (channel === 'config:sync-github-accounts') syncHandler = registeredHandler
-    })
-    registerConfigHandlers()
+beforeEach(() => {
+  vi.clearAllMocks()
+  hasGitHubAccount.mockReset().mockReturnValue(true)
+  getUsageProviderOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
+  getUsageProviderDefaultOverrides.mockReturnValue({ 'hemsoft/hemsoft': 'codex' })
+  vi.mocked(ipcMain.handle).mockImplementation((channel, registeredHandler) => {
+    if (channel === 'config:set-usage-provider-override') handler = registeredHandler as TestHandler
+    if (channel === 'config:sync-github-accounts') syncHandler = registeredHandler as TestHandler
   })
+  registerConfigHandlers()
+})
 
+describe('usage provider override config handler', () => {
   it('persists a valid local provider', () => {
     expect(handler({}, 'HemSoft', 'HemSoft', 'codex')).toEqual({ success: true })
     expect(setUsageProviderOverride).toHaveBeenCalledWith('HemSoft', 'HemSoft', 'codex')
@@ -113,6 +112,39 @@ describe('usage provider override config handler', () => {
       },
     ])
   })
+})
+
+describe('usage provider account snapshot validation', () => {
+  it.each([undefined, 'copilot', 'codex'] as const)(
+    'accepts optional snapshot provider %s and persists only the validated account',
+    usageProvider => {
+      const account = {
+        username: 'alice',
+        org: 'acme',
+        ...(usageProvider ? { usageProvider } : {}),
+      }
+      expect(syncHandler({}, [{ ...account, ignored: 'discard me' }])).toEqual({
+        success: true,
+        usageProviderOverrides: { 'hemsoft/hemsoft': 'codex' },
+        usageProviderDefaultOverrides: { 'hemsoft/hemsoft': 'codex' },
+      })
+      expect(replaceGitHubAccounts).toHaveBeenCalledExactlyOnceWith([account])
+    }
+  )
+
+  it.each(['unsupported', '', null, 42, true, {}, []])(
+    'rejects snapshot provider %j before any config mutation, including a preceding valid account',
+    usageProvider => {
+      expect(
+        syncHandler({}, [
+          { username: 'valid', org: 'acme', usageProvider: 'copilot' },
+          { username: 'invalid', org: 'acme', usageProvider },
+        ])
+      ).toEqual({ success: false, error: 'Usage provider must be Copilot or Codex' })
+      expect(replaceGitHubAccounts).not.toHaveBeenCalled()
+      expect(setUsageProviderOverride).not.toHaveBeenCalled()
+    }
+  )
 
   it('rejects invalid account snapshots', () => {
     expect(syncHandler({}, [{ username: 'bad/name', org: 'HemSoft' }])).toMatchObject({

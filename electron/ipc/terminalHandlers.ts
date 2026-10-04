@@ -88,7 +88,8 @@ function resolveExecutableOnPath(executable: string): string | null {
     return null
   }
 
-  const delimiter = process.platform === 'win32' ? path.win32.delimiter : path.posix.delimiter
+  // This resolver is called only by resolveWindowsShell and resolves Windows paths.
+  const delimiter = path.win32.delimiter
   for (const rawDirectory of pathValue.split(delimiter)) {
     const directory = rawDirectory.trim().replace(/^"(.*)"$/, '$1')
     if (!directory) continue

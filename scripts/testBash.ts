@@ -25,14 +25,13 @@ function candidates(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[]
     env.LOCALAPPDATA ? win32.join(env.LOCALAPPDATA, 'Programs') : undefined,
   ]
   const paths = [
-    'bash',
-    ...roots
-      .filter((root): root is string => !!root)
-      .map(root => win32.join(root, 'Git/bin/bash.exe')),
     ...(env.PATH ?? env.Path ?? '')
       .split(';')
       .filter(Boolean)
       .map(root => win32.join(root, 'bash.exe')),
+    ...roots
+      .filter((root): root is string => !!root)
+      .map(root => win32.join(root, 'Git/bin/bash.exe')),
   ]
   const seen = new Set<string>()
   return paths.filter(path => {

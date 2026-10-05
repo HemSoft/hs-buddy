@@ -4,31 +4,40 @@ import { selectTestBash } from './testBash'
 const compatible = { status: 0, stdout: 'hs-buddy-bash-compatible\n' }
 const incompatible = { status: 0, stdout: '' }
 
-describe('release-test Bash selection', () => {
-  it('rejects a successful Windows launcher with broken quoting and selects Git Bash', () => {
-    const gitBash = 'C:\\Program Files\\Git\\bin\\bash.exe'
-    const probe = vi.fn((executable: string) =>
-      executable === gitBash ? compatible : incompatible
-    )
+describe('Windows Git Bash installations', () => {
+  it.each(['ProgramFiles', 'ProgramFiles(x86)'])(
+    'rejects broken WSL quoting and selects Git under %s',
+    rootKey => {
+      const root = rootKey === 'ProgramFiles' ? 'C:\\Program Files' : 'C:\\Program Files (x86)'
+      const gitBash = `${root}\\Git\\bin\\bash.exe`
+      const probe = vi.fn((executable: string) =>
+        executable === gitBash ? compatible : incompatible
+      )
+      expect(
+        selectTestBash({
+          platform: 'win32',
+          env: {
+            [rootKey]: root,
+            PATH: 'C:\\Windows\\System32',
+          },
+          probe,
+        })
+      ).toBe(gitBash)
+      expect(probe.mock.calls).toEqual([['C:\\Windows\\System32\\bash.exe'], [gitBash]])
+    }
+  )
+
+  it.each(['PATH', 'Path'])('uses compatible %s Bash without launching fallbacks', pathKey => {
+    const gitBash = 'D:\\PortableGit\\bin\\bash.exe'
+    const probe = vi.fn(() => compatible)
     expect(
       selectTestBash({
         platform: 'win32',
-        env: {
-          ProgramFiles: 'C:\\Program Files',
-          PATH: 'C:\\Windows\\System32;C:\\Program Files\\Git\\bin',
-        },
+        env: { [pathKey]: 'D:\\PortableGit\\bin', ProgramFiles: 'C:\\Program Files' },
         probe,
       })
     ).toBe(gitBash)
-    expect(probe.mock.calls).toEqual([['bash'], [gitBash]])
-  })
-
-  it('uses compatible PATH Bash without launching fallback executables', () => {
-    const probe = vi.fn(() => compatible)
-    expect(
-      selectTestBash({ platform: 'win32', env: { ProgramFiles: 'C:\\Program Files' }, probe })
-    ).toBe('bash')
-    expect(probe.mock.calls).toEqual([['bash']])
+    expect(probe.mock.calls).toEqual([[gitBash]])
   })
 
   it('finds a per-user Git installation when the WSL launcher is incompatible', () => {
@@ -39,13 +48,15 @@ describe('release-test Bash selection', () => {
     expect(
       selectTestBash({
         platform: 'win32',
-        env: { LOCALAPPDATA: 'C:\\Users\\fixture\\AppData\\Local' },
+        env: { LOCALAPPDATA: 'C:\\Users\\fixture\\AppData\\Local', PATH: 'C:\\Windows\\System32' },
         probe,
       })
     ).toBe(gitBash)
-    expect(probe.mock.calls).toEqual([['bash'], [gitBash]])
+    expect(probe.mock.calls).toEqual([['C:\\Windows\\System32\\bash.exe'], [gitBash]])
   })
+})
 
+describe('portable Bash and capability failures', () => {
   it('finds a nonstandard Git Bash location on PATH after missing standard installs', () => {
     const gitBash = 'D:\\Tools\\PortableGit\\bin\\bash.exe'
     const probe = vi.fn((executable: string) =>
@@ -60,7 +71,7 @@ describe('release-test Bash selection', () => {
         probe,
       })
     ).toBe(gitBash)
-    expect(probe.mock.calls).toEqual([['bash'], ['C:\\Windows\\System32\\bash.exe'], [gitBash]])
+    expect(probe.mock.calls).toEqual([['C:\\Windows\\System32\\bash.exe'], [gitBash]])
   })
 
   it.each(['linux', 'darwin'] as const)('retains verified PATH Bash on %s', platform => {
@@ -69,7 +80,7 @@ describe('release-test Bash selection', () => {
     expect(probe.mock.calls).toEqual([['bash']])
   })
 
-  it('fails explicitly when the capability probe exits unsuccessfully or times out', () => {
+  it('fails explicitly on unsuccessful exits, timeouts, or incompatible output', () => {
     for (const result of [
       { status: 1, stdout: compatible.stdout },
       { status: null, stdout: compatible.stdout, error: new Error('ETIMEDOUT') },
@@ -93,6 +104,6 @@ describe('release-test Bash selection', () => {
         probe,
       })
     ).toThrow('install Git for Windows')
-    expect(probe.mock.calls).toEqual([['bash'], ['C:\\Program Files\\Git\\bin\\bash.exe']])
+    expect(probe.mock.calls).toEqual([['C:\\Program Files\\Git\\bin\\bash.exe']])
   })
 })

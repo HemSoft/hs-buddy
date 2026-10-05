@@ -9,7 +9,6 @@ const workflow = readFileSync(
   'utf8'
 ).replaceAll('\r\n', '\n')
 
-const bash = selectTestBash()
 const waitFunctionStart = workflow.indexOf('          wait_for_exact_release() {')
 const waitFunctionEnd = workflow.indexOf('          delete_release_id() {', waitFunctionStart)
 const waitFunction = workflow.slice(waitFunctionStart, waitFunctionEnd).replace(/^ {10}/gm, '')
@@ -216,7 +215,7 @@ describe('release visibility error handling', () => {
 
   it('recovers when a new draft is briefly absent', () => {
     const result = execFileSync(
-      bash,
+      selectTestBash(),
       ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
       { encoding: 'utf8' }
     )
@@ -232,7 +231,7 @@ describe('release visibility error handling', () => {
 
   it('fails immediately after a duplicate-release error', () => {
     const result = execFileSync(
-      bash,
+      selectTestBash(),
       ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
       { encoding: 'utf8' }
     )

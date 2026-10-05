@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   test: {
+    // Keep native Git/Bash probes responsive on shared Windows development hosts.
+    ...(process.platform === 'win32' ? { maxWorkers: 4 } : {}),
     clearMocks: false,
     globals: true,
     environment: 'happy-dom',

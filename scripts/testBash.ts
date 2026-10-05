@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
 import { win32 } from 'node:path'
+import { performance } from 'node:perf_hooks'
 
 const expectedOutput = 'hs-buddy-bash-compatible\n'
 const probeSource = `set -eu
@@ -8,13 +9,21 @@ trap 'rm -f "$counter"' EXIT
 printf '%s' 'buddy "quoted" $literal' > "$counter"
 actual="$(cat "$counter")"
 [ "$actual" = 'buddy "quoted" $literal' ]
+rm -f "$counter"
+[ ! -e "$counter" ]
+trap - EXIT
 printf '%s\\n' 'hs-buddy-bash-compatible'`
 
 type ProbeResult = { status: number | null; stdout: string | null; error?: unknown }
 type Options = {
   platform?: NodeJS.Platform
   env?: NodeJS.ProcessEnv
-  probe?: (executable: string) => ProbeResult
+  probe?: (executable: string, timeoutMs: number) => ProbeResult
+  now?: () => number
+}
+
+function isCompatible(result: ProbeResult): boolean {
+  return !result.error && result.status === 0 && result.stdout === expectedOutput
 }
 
 function candidates(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[] {
@@ -46,19 +55,26 @@ function candidates(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[]
 export function selectTestBash({
   platform = process.platform,
   env = process.env,
-  probe = executable =>
+  probe = (executable, timeoutMs) =>
     spawnSync(executable, ['-c', probeSource], {
       encoding: 'utf8',
-      timeout: 5000,
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
     }),
+  now = () => performance.now(),
 }: Options = {}): string {
+  const deadline = now() + 15_000
   for (const executable of candidates(platform, env)) {
-    const result = probe(executable)
-    if (!result.error && result.status === 0 && result.stdout === expectedOutput) return executable
+    const remaining = Math.floor(deadline - now())
+    if (remaining <= 0) break
+    const result = probe(executable, Math.min(5000, remaining))
+    if (now() > deadline) break
+    if (isCompatible(result)) return executable
   }
   throw new Error(
     'Release-workflow tests require Bash that preserves -c quoting and supports mktemp, cat and rm. ' +
       'On Windows install Git for Windows with Git Bash (including Git/bin/bash.exe); ' +
-      'on Linux/macOS install Bash on PATH. A successful bash --version alone is insufficient.'
+      'on Linux/macOS install Bash on PATH. Discovery has a shared 15-second budget; ' +
+      'a successful bash --version alone is insufficient.'
   )
 }

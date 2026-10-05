@@ -15,6 +15,10 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
   Missing or incompatible shells fail with an installation hint instead of skipping
   release behavior checks. No manual `PATH` reordering is required.
 
+The Windows renderer unit suite uses at most four workers to avoid starving native
+Git/Bash subprocesses on shared development machines. Other platforms keep the
+Vitest default. All tests, isolation, deadlines, and coverage floors remain active.
+
 ## Getting Started
 
 ```bash

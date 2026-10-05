@@ -28,7 +28,10 @@ find_exact_release() {
 sleep() { :; }`
 
 const delayedVisibilityAssertion = `release="$(wait_for_exact_release)"
-printf '%s\\n%s\\n' "$release" "$(cat "$counter")"`
+printf '%s\\n%s\\n' "$release" "$(cat "$counter")"
+rm -f "$counter" || exit
+[ ! -e "$counter" ] || exit
+trap - EXIT`
 
 const duplicateFailureSetup = `counter="$(mktemp)"
 trap 'rm -f "$counter"' EXIT
@@ -43,7 +46,10 @@ sleep() { :; }`
 
 const duplicateFailureAssertion = `wait_for_exact_release
 status=$?
-printf '%s\\n%s\\n' "$status" "$(cat "$counter")"`
+printf '%s\\n%s\\n' "$status" "$(cat "$counter")"
+rm -f "$counter" || exit
+[ ! -e "$counter" ] || exit
+trap - EXIT`
 
 describe('release workflow qualification contract', () => {
   it('starts only from a successful main push CI completion', () => {

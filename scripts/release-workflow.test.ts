@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
 import { selectTestBash } from './testBash'
 
 const workflow = readFileSync(
@@ -213,15 +213,6 @@ describe('release visibility error handling', () => {
     )
   })
 
-  it('recovers when a new draft is briefly absent', () => {
-    const result = execFileSync(
-      selectTestBash(),
-      ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
-      { encoding: 'utf8' }
-    )
-    expect(result).toBe('{"id":123}\n3\n')
-  })
-
   it('retries API transport but propagates exact-lookup errors', () => {
     expect(workflow).toContain(
       'find_exact_release() {\n            retry_api --paginate "repos/$REPOSITORY/releases?per_page=100"'
@@ -229,12 +220,41 @@ describe('release visibility error handling', () => {
     expect(waitFunction).toContain('candidate="$(find_exact_release)" || return')
   })
 
-  it('fails immediately after a duplicate-release error', () => {
-    const result = execFileSync(
-      selectTestBash(),
-      ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
-      { encoding: 'utf8' }
-    )
-    expect(result).toBe('5\n1\n')
+  describe('Bash behavior probes', () => {
+    let bash = ''
+    let prerequisiteError: unknown
+
+    // Cold WSL startup can consume the entire five-second behavior budget.
+    // Select once in bounded setup; retain each behavior test's existing deadline.
+    beforeAll(() => {
+      try {
+        bash = selectTestBash()
+      } catch (error: unknown) {
+        prerequisiteError = error
+      }
+    }, 20_000)
+
+    function selectedBash(): string {
+      if (prerequisiteError) throw prerequisiteError
+      return bash
+    }
+
+    it('recovers when a new draft is briefly absent', () => {
+      const result = execFileSync(
+        selectedBash(),
+        ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
+        { encoding: 'utf8' }
+      )
+      expect(result).toBe('{"id":123}\n3\n')
+    })
+
+    it('fails immediately after a duplicate-release error', () => {
+      const result = execFileSync(
+        selectedBash(),
+        ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
+        { encoding: 'utf8' }
+      )
+      expect(result).toBe('5\n1\n')
+    })
   })
 })

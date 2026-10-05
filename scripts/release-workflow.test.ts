@@ -1,14 +1,15 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { selectTestBash } from './testBash'
 
 const workflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/release.yml'),
   'utf8'
 ).replaceAll('\r\n', '\n')
 
-const bashAvailable = spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0
+const bash = selectTestBash()
 const waitFunctionStart = workflow.indexOf('          wait_for_exact_release() {')
 const waitFunctionEnd = workflow.indexOf('          delete_release_id() {', waitFunctionStart)
 const waitFunction = workflow.slice(waitFunctionStart, waitFunctionEnd).replace(/^ {10}/gm, '')
@@ -213,9 +214,9 @@ describe('release visibility error handling', () => {
     )
   })
 
-  it.runIf(bashAvailable)('recovers when a new draft is briefly absent', () => {
+  it('recovers when a new draft is briefly absent', () => {
     const result = execFileSync(
-      'bash',
+      bash,
       ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
       { encoding: 'utf8' }
     )
@@ -229,9 +230,9 @@ describe('release visibility error handling', () => {
     expect(waitFunction).toContain('candidate="$(find_exact_release)" || return')
   })
 
-  it.runIf(bashAvailable)('fails immediately after a duplicate-release error', () => {
+  it('fails immediately after a duplicate-release error', () => {
     const result = execFileSync(
-      'bash',
+      bash,
       ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
       { encoding: 'utf8' }
     )

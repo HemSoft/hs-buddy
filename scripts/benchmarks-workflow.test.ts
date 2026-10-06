@@ -3,8 +3,21 @@ import { describe, expect, it } from 'vitest'
 
 const workflow = readFileSync('.github/workflows/benchmarks.yml', 'utf8')
 const ci = readFileSync('.github/workflows/ci.yml', 'utf8')
+const guide = readFileSync('docs/BENCHMARK-CI.md', 'utf8')
 
 describe('Benchmarks workflow', () => {
+  it('documents the enforced benchmark job timeout consistently', () => {
+    const enforced = workflow.match(/^ {4}timeout-minutes: (\d+)\s*$/m)?.[1]
+    const documented = guide.match(/The job has a \*\*(\d+)-minute timeout\*\*/)?.[1]
+    const rationale = guide.match(/The\s+(\d+)-minute budget/)?.[1]
+    expect(enforced).toBeDefined()
+    expect(documented).toBeDefined()
+    expect(rationale).toBeDefined()
+    expect(Number(enforced)).toBeGreaterThan(0)
+    expect(documented).toBe(enforced)
+    expect(rationale).toBe(enforced)
+  })
+
   it('runs through CI on pull requests and main, plus standalone manual dispatch', () => {
     expect(workflow).toContain('  workflow_call:')
     expect(workflow).toContain('  workflow_dispatch:')

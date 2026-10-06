@@ -51,15 +51,22 @@ not account for every source of runner variance; interleaving and medians reduce
 order effects and single-sample noise. The local performance skill's five-run,
 5% baseline checks remain a separate, stricter investigation procedure.
 
-The job has a **25-minute timeout**, including setup, six benchmark invocations,
+The job has a **35-minute timeout**, including setup, six benchmark invocations,
 comparison, and upload. Benchmark CLI calls use `--run` to disable watch mode.
 Timeouts fail the required gate. The Vitest 5 migration retains Tinybench 6's
-full 1,000 ms measurement window; candidate samples therefore take about 4m38s,
-versus 2m16s for the Vitest 4 baseline. Migration CI run
+full 1,000 ms measurement window. Three interleaved pairs require six separate
+full benchmark invocations. Representative qualification run
+[37280369901](https://github.com/HemSoft/hs-buddy/actions/runs/37280369901)
+completed the benchmark job in 29m09s, above the previously documented 25-minute
+budget. The 35-minute budget covers this measured cost and setup, comparison,
+and upload while preserving all three pairs, the measurement window, regression
+threshold, and uncertainty qualification.
+
+Benchmark qualification is separate from fast lint, typecheck, and review
+feedback. Migration CI run
 [34451422759](https://github.com/HemSoft/hs-buddy/actions/runs/34451422759)
-proved that the former 15-minute limit expired during the fifth sample. The
-25-minute budget preserves three interleaved pairs, the regression threshold,
-and uncertainty qualification. Record the hosted job duration when changing
+proved that the former 15-minute limit expired during the fifth sample.
+Record the hosted job duration when changing
 sample count or benchmark definitions; do not silently increase the budget.
 
 ## Evidence and reproduction
@@ -71,7 +78,7 @@ advisory reason when applicable. Skip-mode runs retain the policy file only;
 advisory baseline-install failures retain policy and an unavailable summary.
 
 - Run `bun run test -- scripts/bench-policy.test.ts scripts/bench-qualify.test.ts
-  scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
+scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
   path classification, version-only skips, sample cardinality, thresholds,
   uncertainty handling, and aggregate failure handling.
 - Run `bun scripts/bench-json.ts --directory <revision> --output <sample.json>`

@@ -4,9 +4,16 @@
  * In browser and Electron E2E modes, Vite aliases 'convex/react' to this file.
  * This prevents the real Convex client from attempting WebSocket connections
  * to a non-existent server, while keeping all hooks functional (they return
- * undefined/loading state).
+ * undefined/loading state unless the browser fixture supplies query results).
  */
 import { type ReactNode, createElement } from 'react'
+import { getFunctionName, type FunctionReference } from 'convex/server'
+
+declare global {
+  interface Window {
+    __buddyE2EQueries?: Record<string, unknown>
+  }
+}
 
 // Mock ConvexReactClient — no-op class
 export class ConvexReactClient {
@@ -22,9 +29,10 @@ export function ConvexProvider({ children }: { client: unknown; children: ReactN
   return createElement('div', { 'data-testid': 'convex-provider' }, children)
 }
 
-// Mock useQuery — always returns undefined (loading state)
-export function useQuery() {
-  return undefined
+// Only browser fixture data is read; no real Convex client or connection is created.
+export function useQuery(query: FunctionReference<'query'>, args?: unknown) {
+  if (args === 'skip') return undefined
+  return window.__buddyE2EQueries?.[getFunctionName(query)]
 }
 
 // Mock useMutation — returns a no-op async function

@@ -37,6 +37,16 @@ function isPositiveInteger(value: unknown): boolean {
   return typeof value === 'number' && Number.isInteger(value) && value > 0
 }
 
+/** Preserve the analyzer's optional native score; diagnostic counts are a separate gate. */
+export function formatReactDoctorScore(value: unknown): string {
+  const score = record(record(value).summary).score
+  if (score === null || score === undefined) return 'native score unavailable'
+  if (typeof score !== 'number' || !Number.isFinite(score) || score < 0 || score > 100) {
+    throw new Error('Malformed React Doctor native score')
+  }
+  return `native score ${score}/100`
+}
+
 /** Fail closed on an incomplete scan or any unsuppressed error or warning. */
 export function validateReactDoctorReport(value: unknown, version: string): string[] {
   const report = record(value)

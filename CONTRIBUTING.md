@@ -8,6 +8,16 @@ Thanks for your interest in contributing! This guide covers the setup, conventio
 - [Node.js](https://nodejs.org/) 22.12+ workspace-wide, required by the ESM Electron downloader
 - [.NET Aspire CLI](https://aspire.dev/get-started/install-cli/) (AppHost orchestration)
 - [Convex CLI](https://docs.convex.dev/getting-started) (`npm i -g convex`)
+- Bash for the release-workflow tests: on Windows install [Git for Windows](https://gitforwindows.org/)
+  with Git Bash; on Linux/macOS make Bash available on `PATH`. The tests verify
+  shell quoting and temporary-file operations, then automatically use a compatible
+  Git Bash installation if the Windows WSL launcher comes first on `PATH`.
+  Missing or incompatible shells fail with an installation hint instead of skipping
+  release behavior checks. No manual `PATH` reordering is required.
+
+The Windows renderer unit suite uses at most four workers to avoid starving native
+Git/Bash subprocesses on shared development machines. Other platforms keep the
+Vitest default. All tests, isolation, deadlines, and coverage floors remain active.
 
 ## Getting Started
 

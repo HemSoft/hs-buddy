@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1301] - 2026-10-06
+
+### Changed
+
+- Isolate native Bash timeout fault evidence
+
+## [0.1.1300] - 2026-10-06
+
+### Fixed
+
+- Clean parent-owned Bash probe counters after timeout
+
+## [0.1.1299] - 2026-10-05
+
+### Fixed
+
+- Bound Windows test resources and Bash probe cleanup
+
+## [0.1.1298] - 2026-10-05
+
+### Fixed
+
+- Isolate Bash discovery from release behavior deadlines
+
+## [0.1.1297] - 2026-10-05
+
+### Fixed
+
+- Bound Bash discovery and retain static release contracts
+
+## [0.1.1296] - 2026-10-05
+
+### Fixed
+
+- Select a compatible Bash for release tests
+
 ## [0.1.1295] - 2026-10-04
 
 ### Changed

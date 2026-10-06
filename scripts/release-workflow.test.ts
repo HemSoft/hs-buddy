@@ -1,14 +1,14 @@
-import { execFileSync, spawnSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { selectTestBash } from './testBash'
 
 const workflow = readFileSync(
   resolve(process.cwd(), '.github/workflows/release.yml'),
   'utf8'
 ).replaceAll('\r\n', '\n')
 
-const bashAvailable = spawnSync('bash', ['--version'], { stdio: 'ignore' }).status === 0
 const waitFunctionStart = workflow.indexOf('          wait_for_exact_release() {')
 const waitFunctionEnd = workflow.indexOf('          delete_release_id() {', waitFunctionStart)
 const waitFunction = workflow.slice(waitFunctionStart, waitFunctionEnd).replace(/^ {10}/gm, '')
@@ -28,7 +28,10 @@ find_exact_release() {
 sleep() { :; }`
 
 const delayedVisibilityAssertion = `release="$(wait_for_exact_release)"
-printf '%s\\n%s\\n' "$release" "$(cat "$counter")"`
+printf '%s\\n%s\\n' "$release" "$(cat "$counter")"
+rm -f "$counter" || exit
+[ ! -e "$counter" ] || exit
+trap - EXIT`
 
 const duplicateFailureSetup = `counter="$(mktemp)"
 trap 'rm -f "$counter"' EXIT
@@ -43,7 +46,10 @@ sleep() { :; }`
 
 const duplicateFailureAssertion = `wait_for_exact_release
 status=$?
-printf '%s\\n%s\\n' "$status" "$(cat "$counter")"`
+printf '%s\\n%s\\n' "$status" "$(cat "$counter")"
+rm -f "$counter" || exit
+[ ! -e "$counter" ] || exit
+trap - EXIT`
 
 describe('release workflow qualification contract', () => {
   it('starts only from a successful main push CI completion', () => {
@@ -213,15 +219,6 @@ describe('release visibility error handling', () => {
     )
   })
 
-  it.runIf(bashAvailable)('recovers when a new draft is briefly absent', () => {
-    const result = execFileSync(
-      'bash',
-      ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
-      { encoding: 'utf8' }
-    )
-    expect(result).toBe('{"id":123}\n3\n')
-  })
-
   it('retries API transport but propagates exact-lookup errors', () => {
     expect(workflow).toContain(
       'find_exact_release() {\n            retry_api --paginate "repos/$REPOSITORY/releases?per_page=100"'
@@ -229,12 +226,41 @@ describe('release visibility error handling', () => {
     expect(waitFunction).toContain('candidate="$(find_exact_release)" || return')
   })
 
-  it.runIf(bashAvailable)('fails immediately after a duplicate-release error', () => {
-    const result = execFileSync(
-      'bash',
-      ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
-      { encoding: 'utf8' }
-    )
-    expect(result).toBe('5\n1\n')
+  describe('Bash behavior probes', () => {
+    let bash = ''
+    let prerequisiteError: unknown
+
+    // Cold WSL startup can consume the entire five-second behavior budget.
+    // Select once in bounded setup; retain each behavior test's existing deadline.
+    beforeAll(() => {
+      try {
+        bash = selectTestBash()
+      } catch (error: unknown) {
+        prerequisiteError = error
+      }
+    }, 20_000)
+
+    function selectedBash(): string {
+      if (prerequisiteError) throw prerequisiteError
+      return bash
+    }
+
+    it('recovers when a new draft is briefly absent', () => {
+      const result = execFileSync(
+        selectedBash(),
+        ['-c', `${delayedVisibilitySetup}\n${waitFunction}\n${delayedVisibilityAssertion}`],
+        { encoding: 'utf8' }
+      )
+      expect(result).toBe('{"id":123}\n3\n')
+    })
+
+    it('fails immediately after a duplicate-release error', () => {
+      const result = execFileSync(
+        selectedBash(),
+        ['-c', `${duplicateFailureSetup}\n${waitFunction}\n${duplicateFailureAssertion}`],
+        { encoding: 'utf8' }
+      )
+      expect(result).toBe('5\n1\n')
+    })
   })
 })

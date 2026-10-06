@@ -12,7 +12,8 @@ import { installGitHubNetwork } from './github-network'
  * Extend Playwright's base test with automatic IPC mocking.
  * All E2E specs should import { test, expect } from this file.
  */
-export const test = base.extend({
+export const test = base.extend<{ convexQueries: Record<string, unknown> }>({
+  convexQueries: [{}, { option: true }],
   context: async ({ context, baseURL }, use, testInfo) => {
     if (testInfo.project.name === 'electron-cdp') {
       // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -26,7 +27,7 @@ export const test = base.extend({
     await Promise.all(context.pages().map(page => page.close()))
     expect(unexpected, 'Unhandled external requests').toEqual([])
   },
-  page: async ({ page }, use, testInfo) => {
+  page: async ({ page, convexQueries }, use, testInfo) => {
     // Only inject mocks for browser-e2e project.
     // The electron-cdp project connects to a real Electron app with preload APIs.
     if (testInfo.project.name === 'electron-cdp') {
@@ -53,6 +54,10 @@ export const test = base.extend({
       }
       return
     }
+
+    await page.addInitScript(queries => {
+      window.__buddyE2EQueries = queries
+    }, convexQueries)
 
     // Inject Electron API mocks BEFORE any page scripts execute.
     // This mimics what the preload script provides in the real Electron environment.

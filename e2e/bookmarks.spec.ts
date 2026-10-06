@@ -4,8 +4,8 @@ import { test, expect, waitForAppReady } from './fixtures'
  * E2E tests for the Bookmarks feature.
  *
  * These tests verify that bookmarks navigation works in the running app.
- * With Convex mocked in E2E mode, components are in loading/empty state.
- * Tests verify the app renders correctly and doesn't crash.
+ * Convex is mocked in E2E mode. Loading/error scenarios use the default fixture;
+ * populated search uses explicit local query results and never a real service.
  */
 
 test.describe('Bookmarks - Loading & Connectivity', () => {
@@ -95,16 +95,47 @@ test.describe('Bookmarks - Core Interactions', () => {
     await expect(header).toBeVisible()
   })
 
-  test('should filter bookmarks by search query', async ({ page }) => {
-    // Only meaningful when bookmarks exist — skip if empty state
-    const hasBookmarks = (await page.locator('.bookmark-card').count()) > 0
-    test.skip(!hasBookmarks, 'No bookmarks to filter')
+  test.describe('populated local fixtures', () => {
+    test.use({
+      convexQueries: {
+        'bookmarks:list': [
+          {
+            _id: 'fixture-alpha',
+            title: 'Alpha handbook',
+            url: 'https://alpha.invalid/handbook',
+            category: 'Guides',
+            sortOrder: 0,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+          {
+            _id: 'fixture-beta',
+            title: 'Beta reference',
+            url: 'https://beta.invalid/reference',
+            category: 'Guides',
+            sortOrder: 1,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+        'bookmarks:listCategories': ['Guides'],
+      },
+    })
 
-    const firstCardTitle = await page.locator('.bookmark-card-title').first().textContent()
-    const searchInput = page.getByPlaceholder('Search bookmarks…')
-    await searchInput.fill(firstCardTitle ?? 'test')
+    test('should filter bookmarks by search query', async ({ page }) => {
+      await page.getByText('All Bookmarks', { exact: true }).click()
+      const cards = page.locator('.bookmark-card')
+      const titles = cards.locator('.bookmark-card-title')
+      await expect(titles).toHaveText(['Alpha handbook', 'Beta reference'])
 
-    // Should still show at least one result matching the query
-    await expect(page.locator('.bookmark-card')).toHaveCount(1, { timeout: 2000 })
+      const searchInput = page.getByPlaceholder('Search bookmarks…')
+      await searchInput.fill('Alpha')
+      await expect(titles).toHaveText(['Alpha handbook'])
+      await expect(cards).toHaveCount(1)
+
+      await searchInput.clear()
+      await expect(titles).toHaveText(['Alpha handbook', 'Beta reference'])
+      await expect(cards).toHaveCount(2)
+    })
   })
 })

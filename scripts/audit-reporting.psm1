@@ -65,7 +65,7 @@ function Get-AuditGatePlan {
         FilePath = 'bun'; Arguments = @('scripts/check-electron-security.ts')
         Command = 'bun scripts/check-electron-security.ts'; Requires = @(); External = $false
     }
-    New-AuditGate 'React Doctor' 'Score 100; zero unsuppressed diagnostics' 'react-doctor'
+    New-AuditGate 'React Doctor' 'Zero unsuppressed diagnostics; native score unavailable offline' 'react-doctor'
     [pscustomobject]@{
         Gate = 'Scorecard'; Target = '100/100 Gold; external reporting goal'
         FilePath = 'pwsh'; Arguments = @('-NoProfile', '-File', (Join-Path $Repository 'scripts/get-scorecard-report.ps1'), '-Json')

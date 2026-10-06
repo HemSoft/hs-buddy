@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1304] - 2026-10-06
+
+### Fixed
+
+- Report native React Doctor score availability
+
 ## [0.1.1303] - 2026-10-06
 
 ### Changed

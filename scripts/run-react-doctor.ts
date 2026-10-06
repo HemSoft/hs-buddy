@@ -3,7 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { validateReactDoctorReport } from './react-doctor-report'
+import { formatReactDoctorScore, validateReactDoctorReport } from './react-doctor-report'
 
 const root = fileURLToPath(new URL('../', import.meta.url))
 const require = createRequire(import.meta.url)
@@ -28,12 +28,13 @@ writeFileSync(resolve(reportDirectory, 'report.json'), result.stdout ?? '')
 writeFileSync(resolve(reportDirectory, 'stderr.txt'), result.stderr ?? '')
 try {
   if (result.error) throw result.error
-  const diagnostics = validateReactDoctorReport(JSON.parse(result.stdout), version)
+  const report: unknown = JSON.parse(result.stdout)
+  const diagnostics = validateReactDoctorReport(report, version)
   for (const diagnostic of diagnostics) console.error(diagnostic)
   if (diagnostics.length > 0) throw new Error(`${diagnostics.length} unsuppressed diagnostic(s)`)
   if (result.status !== 0) throw new Error(`React Doctor exited with ${result.status}`)
   console.log(
-    `React Doctor ${version}: Score 100/100, zero diagnostics. Report: reports/react-doctor/report.json`
+    `React Doctor ${version}: zero errors, zero warnings; ${formatReactDoctorScore(report)}. Report: reports/react-doctor/report.json`
   )
 } catch (error: unknown) {
   console.error(error instanceof Error ? error.message : String(error))

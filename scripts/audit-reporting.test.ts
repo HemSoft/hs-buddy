@@ -53,6 +53,17 @@ beforeEach(() => {
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
 describe.skipIf(!available)('local audit policy, requires PowerShell 7', nativeOptions, () => {
+  it('uses the offline diagnostic gate without a fabricated score target', () => {
+    const { code, data } = report('-PlanOnly')
+    expect(code).toBe(0)
+    expect(data.Gates.find((gate: { Gate: string }) => gate.Gate === 'React Doctor')).toMatchObject(
+      {
+        Target: 'Zero unsuppressed diagnostics; native score unavailable offline',
+        Command: 'bun run react-doctor',
+      }
+    )
+  })
+
   it('reads current enforced targets and separates the renderer reporting goal', () => {
     const config = join(root, 'vitest.config.ts')
     writeFileSync(

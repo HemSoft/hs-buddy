@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { validateReactDoctorReport } from './react-doctor-report'
+import { formatReactDoctorScore, validateReactDoctorReport } from './react-doctor-report'
 
 function cleanReport() {
   return {
@@ -17,6 +17,39 @@ function cleanReport() {
     summary: { totalDiagnosticCount: 0 },
   }
 }
+
+describe('React Doctor native score reporting', () => {
+  it.each([null, undefined])(
+    'reports unavailable native score %s without inventing a number',
+    score => {
+      const report = { ...cleanReport(), summary: { totalDiagnosticCount: 0, score } }
+      expect(validateReactDoctorReport(report, '0.9.13')).toEqual([])
+      expect(formatReactDoctorScore(report)).toBe('native score unavailable')
+    }
+  )
+
+  it.each([0, 87.5, 100])('preserves the analyzer-provided score %s', score => {
+    const report = {
+      ...cleanReport(),
+      summary: { totalDiagnosticCount: 0, score, scoreLabel: 'Fixture' },
+    }
+    expect(formatReactDoctorScore(report)).toBe(`native score ${score}/100`)
+  })
+
+  it.each([
+    false,
+    '100',
+    [],
+    {},
+    { score: 100, label: 'Great' },
+    -1,
+    101,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+  ])('rejects malformed native score %j', score => {
+    expect(() => formatReactDoctorScore({ summary: { score } })).toThrow()
+  })
+})
 
 describe('React Doctor gate', () => {
   it('accepts a complete zero-diagnostic report', () => {

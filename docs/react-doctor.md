@@ -18,6 +18,13 @@ repository wrapper. No external score service is required. The PowerShell
 The dependency override also aligns `react-scan`'s React Doctor dependency with
 the direct pin, avoiding a second analyzer version.
 
+The wrapper uses `--no-score`: the maintained gate requires a complete scan with
+zero unsuppressed errors and warnings. It reports the native score as unavailable
+when `summary.score` is null; clean diagnostics do not imply a numeric score.
+A native score is displayed only when supplied by the analyzer, separately from
+the diagnostic gate. The legacy `-ScoreOnly` switch still runs this full offline
+scan and does not enable the score service. See the [React Doctor CLI reference](https://www.react.doctor/docs/reference/cli-reference).
+
 The command writes `reports/react-doctor/report.json` and `stderr.txt`, including
 the analyzer version, rule, file path, and line number. It fails on every
 unsuppressed error or warning, incomplete scans, skipped checks, malformed

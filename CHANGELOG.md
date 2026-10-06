@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1300] - 2026-10-06
+
+### Fixed
+
+- Clean parent-owned Bash probe counters after timeout
+
 ## [0.1.1299] - 2026-10-05
 
 ### Fixed

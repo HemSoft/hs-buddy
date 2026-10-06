@@ -189,16 +189,26 @@ describe('native Bash cleanup capabilities', { timeout: 25_000 }, () => {
     ['failure', 1],
     ['missing', 127],
     ['no-op', 0],
-  ])('rejects %s removal even when quoting and reads succeed', (_name, status) => {
+    ['timeout', null],
+  ])('rejects %s and removes parent-owned probe counters', async (name, status) => {
     const directory = mkdtempSync(join(tmpdir(), 'buddy-bash-cleanup-'))
     const startup = join(directory, 'fault.sh')
+    const evidence = join(directory, 'evidence.txt')
     const moduleUrl = pathToFileURL(resolve('scripts/testBash.ts')).href
     const source = `import { selectTestBash } from ${JSON.stringify(moduleUrl)};
 try { console.log(JSON.stringify({selected: true, executable: selectTestBash()})); }
 catch (error) { console.log(JSON.stringify({selected: false, message: error.message})); }`
     let failure: { error: unknown } | undefined
     try {
-      writeFileSync(startup, `rm() { return ${status}; }\n`)
+      writeFileSync(evidence, '')
+      writeFileSync(
+        startup,
+        'cat() { command cat "$@" >> "$BUDDY_BASH_EVIDENCE"; printf \'\\n\' >> "$BUDDY_BASH_EVIDENCE"; command cat "$@"; }\n' +
+          (status === null
+            ? "trap '' TERM\nrm() { finish=$((SECONDS + 6)); while [ $SECONDS -lt $finish ]; do :; done; printf 'finished\\n' >> \"$BUDDY_BASH_EVIDENCE\"; return 0; }\n"
+            : `rm() { return ${status}; }\n`)
+      )
+      const started = performance.now()
       const result = spawnSync(
         process.execPath,
         ['--experimental-strip-types', '--input-type=module', '-e', source],
@@ -209,7 +219,10 @@ catch (error) { console.log(JSON.stringify({selected: false, message: error.mess
           env: {
             ...process.env,
             BASH_ENV: startup.replaceAll('\\', '/'),
+            BUDDY_BASH_EVIDENCE: evidence.replaceAll('\\', '/'),
             TMPDIR: directory.replaceAll('\\', '/'),
+            TEMP: directory,
+            TMP: directory,
           },
         }
       )
@@ -219,10 +232,16 @@ catch (error) { console.log(JSON.stringify({selected: false, message: error.mess
         selected: false,
         message: expect.stringContaining('supports mktemp, cat and rm'),
       })
-      const counters = readdirSync(directory).filter(name => name !== 'fault.sh')
-      expect(counters.length).toBeGreaterThan(0)
-      for (const name of counters)
-        expect(readFileSync(join(directory, name), 'utf8')).toBe('buddy "quoted" $literal')
+      const observed = readFileSync(evidence, 'utf8').trim().split('\n')
+      expect(observed.length).toBeGreaterThan(0)
+      for (const counter of observed) expect(counter).toBe('buddy "quoted" $literal')
+      expect(readdirSync(directory).sort()).toEqual(['evidence.txt', 'fault.sh'])
+      if (name === 'timeout') {
+        expect(performance.now() - started).toBeGreaterThanOrEqual(4500)
+        // Git's Windows launcher can outlive termination briefly. The fixture's
+        // finite loop lets its child finish before removing the evidence directory.
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
     } catch (error: unknown) {
       failure = { error }
     }

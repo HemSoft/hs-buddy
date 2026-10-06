@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process'
-import { win32 } from 'node:path'
+import { join, win32 } from 'node:path'
 import { performance } from 'node:perf_hooks'
+import { lstatSync, mkdtempSync, readdirSync, rmdirSync, unlinkSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 
 const expectedOutput = 'hs-buddy-bash-compatible\n'
 const probeSource = `set -eu
-counter="$(mktemp)"
+counter="$(mktemp "$HS_BUDDY_TEST_BASH_TEMP/counter.XXXXXX")"
 trap 'rm -f "$counter"' EXIT
 printf '%s' 'buddy "quoted" $literal' > "$counter"
 actual="$(cat "$counter")"
@@ -20,6 +22,39 @@ type Options = {
   env?: NodeJS.ProcessEnv
   probe?: (executable: string, timeoutMs: number) => ProbeResult
   now?: () => number
+}
+
+function removeProbeDirectory(directory: string): void {
+  const root = lstatSync(directory)
+  if (!root.isDirectory() || root.isSymbolicLink()) throw new Error('Unexpected Bash probe root')
+  for (const name of readdirSync(directory)) {
+    const file = join(directory, name)
+    if (!name.startsWith('counter.') || !lstatSync(file).isFile())
+      throw new Error('Unexpected Bash probe counter')
+    unlinkSync(file)
+  }
+  rmdirSync(directory)
+}
+
+function nativeProbe(executable: string, timeoutMs: number): ProbeResult {
+  const directory = mkdtempSync(join(tmpdir(), 'hs-buddy-bash-probe-'))
+  let result: ProbeResult
+  try {
+    result = spawnSync(executable, ['-c', probeSource], {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+      killSignal: 'SIGKILL',
+      env: { ...process.env, HS_BUDDY_TEST_BASH_TEMP: directory.replaceAll('\\', '/') },
+    })
+  } catch (error: unknown) {
+    result = { status: null, stdout: null, error }
+  }
+  try {
+    removeProbeDirectory(directory)
+  } catch (error: unknown) {
+    if (!result.error) result = { ...result, error }
+  }
+  return result
 }
 
 function isCompatible(result: ProbeResult): boolean {
@@ -55,12 +90,7 @@ function candidates(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): string[]
 export function selectTestBash({
   platform = process.platform,
   env = process.env,
-  probe = (executable, timeoutMs) =>
-    spawnSync(executable, ['-c', probeSource], {
-      encoding: 'utf8',
-      timeout: timeoutMs,
-      killSignal: 'SIGKILL',
-    }),
+  probe = nativeProbe,
   now = () => performance.now(),
 }: Options = {}): string {
   const deadline = now() + 15_000

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1301] - 2026-10-06
+
+### Changed
+
+- Isolate native Bash timeout fault evidence
+
 ## [0.1.1300] - 2026-10-06
 
 ### Fixed

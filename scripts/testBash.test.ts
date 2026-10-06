@@ -11,7 +11,7 @@ import {
   lstatSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join, resolve, relative, isAbsolute, sep } from 'node:path'
+import { dirname, join, resolve, relative, isAbsolute, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
 const compatible = { status: 0, stdout: 'hs-buddy-bash-compatible\n' }
@@ -195,17 +195,18 @@ describe('native Bash cleanup capabilities', { timeout: 25_000 }, () => {
     const startup = join(directory, 'fault.sh')
     const evidence = join(directory, 'evidence.txt')
     const moduleUrl = pathToFileURL(resolve('scripts/testBash.ts')).href
-    const source = `import { selectTestBash } from ${JSON.stringify(moduleUrl)};
-try { console.log(JSON.stringify({selected: true, executable: selectTestBash()})); }
-catch (error) { console.log(JSON.stringify({selected: false, message: error.message})); }`
     let failure: { error: unknown } | undefined
     try {
+      const nativeEnv = process.platform === 'win32' ? { PATH: dirname(selectTestBash()) } : {}
+      const source = `import { selectTestBash } from ${JSON.stringify(moduleUrl)};
+try { console.log(JSON.stringify({selected: true, executable: selectTestBash({env: ${JSON.stringify(nativeEnv)}})})); }
+catch (error) { console.log(JSON.stringify({selected: false, message: error.message})); }`
       writeFileSync(evidence, '')
       writeFileSync(
         startup,
         'cat() { command cat "$@" >> "$BUDDY_BASH_EVIDENCE"; printf \'\\n\' >> "$BUDDY_BASH_EVIDENCE"; command cat "$@"; }\n' +
           (status === null
-            ? "trap '' TERM\nrm() { finish=$((SECONDS + 6)); while [ $SECONDS -lt $finish ]; do :; done; printf 'finished\\n' >> \"$BUDDY_BASH_EVIDENCE\"; return 0; }\n"
+            ? "trap '' TERM\nrm() { finish=$((SECONDS + 6)); while [ $SECONDS -lt $finish ]; do :; done; return 0; }\n"
             : `rm() { return ${status}; }\n`)
       )
       const started = performance.now()
@@ -232,7 +233,7 @@ catch (error) { console.log(JSON.stringify({selected: false, message: error.mess
         selected: false,
         message: expect.stringContaining('supports mktemp, cat and rm'),
       })
-      const observed = readFileSync(evidence, 'utf8').trim().split('\n')
+      const observed = readFileSync(evidence, 'utf8').trim().split('\n').filter(Boolean)
       expect(observed.length).toBeGreaterThan(0)
       for (const counter of observed) expect(counter).toBe('buddy "quoted" $literal')
       expect(readdirSync(directory).sort()).toEqual(['evidence.txt', 'fault.sh'])

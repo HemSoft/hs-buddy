@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1302] - 2026-10-06
+
+### Changed
+
+- Execute bookmark search with isolated populated fixtures
+
 ## [0.1.1301] - 2026-10-06
 
 ### Changed

@@ -58,7 +58,7 @@ describe.skipIf(!available)('local audit policy, requires PowerShell 7', nativeO
     expect(code).toBe(0)
     expect(data.Gates.find((gate: { Gate: string }) => gate.Gate === 'React Doctor')).toMatchObject(
       {
-        Target: 'Zero unsuppressed diagnostics; native score unavailable offline',
+        Target: 'Zero unsuppressed diagnostics; native score only when supplied by the analyzer',
         Command: 'bun run react-doctor',
       }
     )

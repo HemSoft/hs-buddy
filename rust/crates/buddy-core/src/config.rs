@@ -201,6 +201,21 @@ impl Default for FinanceConfig {
     }
 }
 
+/// Settings only the native app uses. Electron's schema allows unknown
+/// top-level keys, so this section round-trips untouched through its store.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct NativeConfig {
+    /// Auto-refresh interval in minutes per dashboard card id; 0 is off.
+    pub auto_refresh: BTreeMap<String, u32>,
+}
+
+impl NativeConfig {
+    fn is_default(&self) -> bool {
+        self.auto_refresh.is_empty()
+    }
+}
+
 /// The whole configuration file. Sections the native app does not model yet
 /// (`copilot`, `automation`, `notifications`, ...) survive in `extra`.
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
@@ -210,8 +225,37 @@ pub struct AppConfig {
     pub ui: UiConfig,
     pub pr: PrConfig,
     pub finance: FinanceConfig,
+    #[serde(skip_serializing_if = "NativeConfig::is_default")]
+    pub native: NativeConfig,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Window geometry persisted by Electron's `electron-window-state` in
+/// `window-state.json` next to `config.json`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct WindowState {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub is_maximized: bool,
+    pub is_full_screen: bool,
+}
+
+impl WindowState {
+    /// Load the saved geometry when it exists and describes a usable window.
+    pub fn load() -> Option<Self> {
+        let path = config_path().ok()?.with_file_name("window-state.json");
+        let body = std::fs::read_to_string(path).ok()?;
+        let state: Self = serde_json::from_str(&body).ok()?;
+        (state.width >= 200.0
+            && state.height >= 200.0
+            && state.x.is_finite()
+            && state.y.is_finite())
+        .then_some(state)
+    }
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -435,6 +479,28 @@ mod tests {
 
     /// Serializes the tests that set `BUDDY_CONFIG_PATH`.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn native_section_round_trips_and_is_omitted_when_empty() {
+        let mut config = AppConfig::default();
+        assert!(!serde_json::to_string(&config).unwrap().contains("native"));
+        config.native.auto_refresh.insert("weather".into(), 0);
+        let json = serde_json::to_string(&config).unwrap();
+        assert!(json.contains("\"native\":{\"autoRefresh\":{\"weather\":0}}"));
+        let back = AppConfig::from_json(&json).unwrap();
+        assert_eq!(back.native.auto_refresh.get("weather"), Some(&0));
+    }
+
+    #[test]
+    fn window_state_parses_electron_window_state_file() {
+        let raw = r#"{"width":2629,"height":1246,"x":445,"y":63,"displayBounds":{"x":0,"y":0,"width":3440,"height":1440},"isMaximized":false,"isFullScreen":false}"#;
+        let state: WindowState = serde_json::from_str(raw).unwrap();
+        assert_eq!(
+            (state.x, state.y, state.width, state.height),
+            (445.0, 63.0, 2629.0, 1246.0)
+        );
+        assert!(!state.is_maximized);
+    }
 
     #[test]
     fn env_override_wins_for_config_path() {

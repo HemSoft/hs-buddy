@@ -6,11 +6,11 @@ mod settings;
 mod shell;
 mod theme;
 
-use buddy_core::config::AppConfig;
+use buddy_core::config::{AppConfig, WindowState};
 use gpui_kit::component::TitleBar;
 use gpui_kit::{
-    AppContext as _, Bounds, KeyBinding, TitlebarOptions, WindowBounds, WindowDecorations,
-    WindowOptions, px, size,
+    App, AppContext as _, Bounds, KeyBinding, Pixels, TitlebarOptions, WindowBounds,
+    WindowDecorations, WindowOptions, point, px, size,
 };
 
 use crate::app::{About, BuddyApp, Quit, Reload, ToggleFullScreen};
@@ -18,6 +18,32 @@ use crate::assets::BuddyAssets;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
 use gpui_kit::component::WindowExt as _;
+
+/// Reuse the geometry Electron saved in `window-state.json` when it still
+/// lands on a connected display; otherwise center a default-sized window.
+fn initial_window_bounds(cx: &App) -> WindowBounds {
+    let fallback =
+        || WindowBounds::Windowed(Bounds::centered(None, size(px(1280.0), px(820.0)), cx));
+    let Some(state) = WindowState::load() else {
+        return fallback();
+    };
+    let bounds: Bounds<Pixels> = Bounds {
+        origin: point(px(state.x as f32), px(state.y as f32)),
+        size: size(px(state.width as f32), px(state.height as f32)),
+    };
+    let on_a_display = cx
+        .displays()
+        .iter()
+        .any(|display| display.bounds().contains(&bounds.center()));
+    if !on_a_display {
+        return fallback();
+    }
+    if state.is_maximized {
+        WindowBounds::Maximized(bounds)
+    } else {
+        WindowBounds::Windowed(bounds)
+    }
+}
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -82,9 +108,8 @@ fn main() {
             })
             .detach();
 
-            let bounds = Bounds::centered(None, size(px(1280.0), px(820.0)), cx);
             let options = WindowOptions {
-                window_bounds: Some(WindowBounds::Windowed(bounds)),
+                window_bounds: Some(initial_window_bounds(cx)),
                 window_min_size: Some(size(px(800.0), px(600.0))),
                 window_decorations: Some(WindowDecorations::Client),
                 app_id: Some("com.hemsoft.buddy".into()),

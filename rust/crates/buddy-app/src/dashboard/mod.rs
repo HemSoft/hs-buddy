@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::time::{Duration, Instant};
 
+use std::collections::BTreeMap;
+
 use buddy_core::config::{GitHubConfig, WeatherLocation};
 use buddy_core::convex_data::{self, ConvexUpdate};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
@@ -17,6 +19,7 @@ use buddy_core::pollen::{self, PollenData, PollenError};
 use buddy_core::stats::{BuddyStats, WorkspacePulse};
 use buddy_core::weather::{self, WeatherData};
 use buddy_core::{http, secrets};
+use chrono::Datelike as _;
 use futures::StreamExt as _;
 use gpui_kit::assets::IconName;
 use gpui_kit::component::input::{InputEvent, InputState};
@@ -44,12 +47,21 @@ pub enum DashboardEvent {
     Navigate(Section),
 }
 
+/// Persisted per-card interval, else the card's default.
+fn interval_for(intervals: &BTreeMap<String, u32>, card: CardId, default: u32) -> u32 {
+    intervals.get(card.key()).copied().unwrap_or(default)
+}
+
 /// Per-card refresh bookkeeping (`useAutoRefresh`).
 #[derive(Debug, Clone)]
 pub struct RefreshState {
     pub loading: bool,
     pub interval_minutes: u32,
+    /// Last successful refresh (drives the "Updated …" label).
     pub last_refreshed: Option<Instant>,
+    /// Last attempt, successful or not (drives the auto-refresh schedule so a
+    /// failing endpoint is retried once per interval, not every tick).
+    pub last_attempt: Option<Instant>,
 }
 
 impl RefreshState {
@@ -58,19 +70,31 @@ impl RefreshState {
             loading: false,
             interval_minutes,
             last_refreshed: None,
+            last_attempt: None,
         }
     }
 
     fn mark_refreshed(&mut self) {
         self.loading = false;
-        self.last_refreshed = Some(Instant::now());
+        let now = Instant::now();
+        self.last_refreshed = Some(now);
+        self.last_attempt = Some(now);
+    }
+
+    fn mark_failed(&mut self) {
+        self.loading = false;
+        self.last_attempt = Some(Instant::now());
+    }
+
+    fn never_attempted(&self) -> bool {
+        self.last_attempt.is_none() && !self.loading
     }
 
     fn is_due(&self) -> bool {
         if self.loading || self.interval_minutes == 0 {
             return false;
         }
-        match self.last_refreshed {
+        match self.last_attempt {
             Some(at) => at.elapsed() >= Duration::from_secs(u64::from(self.interval_minutes) * 60),
             None => false,
         }
@@ -111,8 +135,14 @@ pub struct DashboardView {
     /// Bumped whenever the location or an explicit weather request starts;
     /// responses carrying an older generation are ignored.
     weather_generation: u64,
+    pollen_generation: u64,
     finance_generation: u64,
     copilot_generation: u64,
+    /// UTC (year, month) the Copilot report was fetched for; a rollover refetches.
+    copilot_period: Option<(i32, u32)>,
+    /// Keychain writes are serialized so the latest selection always wins.
+    weather_persist_in_flight: bool,
+    weather_persist_dirty: bool,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -150,6 +180,7 @@ impl DashboardView {
             }),
         ];
 
+        let intervals = Settings::global(cx).config.native.auto_refresh.clone();
         let mut this = Self {
             http: http::client(),
             weather_search,
@@ -167,26 +198,47 @@ impl DashboardView {
             weather_error: None,
             weather_location: weather::default_location(),
             weather_generation: 0,
+            pollen_generation: 0,
             finance_generation: 0,
             copilot_generation: 0,
-            weather_refresh: RefreshState::new(WEATHER_DEFAULT_INTERVAL_MINUTES),
+            copilot_period: None,
+            weather_persist_in_flight: false,
+            weather_persist_dirty: false,
+            weather_refresh: RefreshState::new(interval_for(
+                &intervals,
+                CardId::Weather,
+                WEATHER_DEFAULT_INTERVAL_MINUTES,
+            )),
             pollen: None,
             pollen_error: None,
             quotes: Vec::new(),
             finance_error: None,
-            finance_refresh: RefreshState::new(FINANCE_DEFAULT_INTERVAL_MINUTES),
+            finance_refresh: RefreshState::new(interval_for(
+                &intervals,
+                CardId::Finance,
+                FINANCE_DEFAULT_INTERVAL_MINUTES,
+            )),
             loaded_watchlist: Vec::new(),
             loaded_github: GitHubConfig::default(),
             loaded_pollen_key: String::new(),
             _subscriptions: subscriptions,
         };
 
+        // Only visible cards fetch; hidden ones start when they are shown.
         this.restore_weather_location(cx);
-        this.load_finance(cx);
+        if this.card_visible(CardId::Finance, cx) {
+            this.load_finance(cx);
+        }
         this.load_copilot(cx);
         this.start_convex(cx);
         this.start_ticker(cx);
         this
+    }
+
+    fn card_visible(&self, card: CardId, cx: &App) -> bool {
+        Settings::global(cx)
+            .config
+            .is_dashboard_card_visible(card.key())
     }
 
     // ── Async plumbing ───────────────────────────────────────────────────
@@ -218,13 +270,21 @@ impl DashboardView {
     /// save picked up): re-run only the loads whose inputs differ.
     fn settings_changed(&mut self, cx: &mut Context<Self>) {
         let config = Settings::global(cx).config.clone();
-        if config.finance.watchlist != self.loaded_watchlist {
+        let weather_visible = config.is_dashboard_card_visible(CardId::Weather.key());
+        let finance_visible = config.is_dashboard_card_visible(CardId::Finance.key());
+        if finance_visible
+            && (config.finance.watchlist != self.loaded_watchlist
+                || self.finance_refresh.never_attempted())
+        {
             self.load_finance(cx);
         }
         if config.github != self.loaded_github {
             self.load_copilot(cx);
         }
-        if config.ui.pollen_api_key != self.loaded_pollen_key {
+        if weather_visible && self.weather_refresh.never_attempted() {
+            self.load_weather(cx);
+            self.load_pollen(cx);
+        } else if weather_visible && config.ui.pollen_api_key != self.loaded_pollen_key {
             self.load_pollen(cx);
         }
         cx.notify();
@@ -244,11 +304,19 @@ impl DashboardView {
 
     /// Once a second: fire due auto-refreshes and repaint countdowns/uptime.
     fn tick(&mut self, cx: &mut Context<Self>) {
-        if self.weather_refresh.is_due() {
+        if self.weather_refresh.is_due() && self.card_visible(CardId::Weather, cx) {
             self.refresh_weather(cx);
         }
-        if self.finance_refresh.is_due() {
+        if self.finance_refresh.is_due() && self.card_visible(CardId::Finance, cx) {
             self.refresh_finance(cx);
+        }
+        // Billing periods are UTC months; crossing one invalidates the report.
+        let now = chrono::Utc::now();
+        let period = (now.year(), now.month());
+        if matches!(self.copilot_period, Some(loaded) if loaded != period)
+            && !self.command_center.loading
+        {
+            self.load_copilot(cx);
         }
         cx.notify();
     }
@@ -286,7 +354,18 @@ impl DashboardView {
     // ── Loads ────────────────────────────────────────────────────────────
 
     fn restore_weather_location(&mut self, cx: &mut Context<Self>) {
-        self.weather_refresh.loading = true;
+        // A legacy plaintext `ui.weatherLocation` is the user's saved city from
+        // an older Electron build: adopt it, move it to the keychain, and clear
+        // it now so a later save cannot resurrect it over a newer choice.
+        if let Some(legacy) = Settings::global(cx).config.ui.weather_location.clone() {
+            self.weather_location = legacy;
+            self.persist_weather_location(cx);
+            Settings::update(cx, |config| config.ui.weather_location = None);
+            self.start_weather_if_visible(cx);
+            return;
+        }
+        let visible = self.card_visible(CardId::Weather, cx);
+        self.weather_refresh.loading = visible;
         self.run(
             cx,
             async move {
@@ -299,8 +378,46 @@ impl DashboardView {
                 if let Some(location) = saved {
                     this.weather_location = location;
                 }
-                this.load_weather(cx);
-                this.load_pollen(cx);
+                this.weather_refresh.loading = false;
+                this.start_weather_if_visible(cx);
+            },
+        );
+    }
+
+    fn start_weather_if_visible(&mut self, cx: &mut Context<Self>) {
+        if self.card_visible(CardId::Weather, cx) {
+            self.load_weather(cx);
+            self.load_pollen(cx);
+        }
+    }
+
+    /// Write the current location to the keychain, one write at a time; a
+    /// selection made while a write is running is persisted right after it.
+    fn persist_weather_location(&mut self, cx: &mut Context<Self>) {
+        if self.weather_persist_in_flight {
+            self.weather_persist_dirty = true;
+            return;
+        }
+        self.weather_persist_in_flight = true;
+        self.weather_persist_dirty = false;
+        let location = self.weather_location.clone();
+        self.run(
+            cx,
+            async move {
+                let saved = location.clone();
+                let result =
+                    tokio::task::spawn_blocking(move || secrets::save_weather_location(&location))
+                        .await;
+                (saved, result)
+            },
+            |this, (saved, result), cx| {
+                this.weather_persist_in_flight = false;
+                if let Ok(Err(err)) = result {
+                    log::warn!("could not remember weather location: {err}");
+                }
+                if this.weather_persist_dirty || saved != this.weather_location {
+                    this.persist_weather_location(cx);
+                }
             },
         );
     }
@@ -327,10 +444,15 @@ impl DashboardView {
                     Ok(data) => {
                         this.weather = Some(data);
                         this.weather_error = None;
+                        this.weather_refresh.mark_refreshed();
                     }
-                    Err(err) => this.weather_error = Some(err),
+                    Err(err) => {
+                        // Keep the last good forecast on screen, flag it stale,
+                        // and retry on the normal schedule.
+                        this.weather_error = Some(err);
+                        this.weather_refresh.mark_failed();
+                    }
                 }
-                this.weather_refresh.mark_refreshed();
             },
         );
     }
@@ -343,12 +465,13 @@ impl DashboardView {
         );
         let api_key = Settings::global(cx).config.ui.pollen_api_key.clone();
         self.loaded_pollen_key = api_key.clone();
-        let generation = self.weather_generation;
+        self.pollen_generation += 1;
+        let generation = self.pollen_generation;
         self.run(
             cx,
             async move { pollen::fetch_pollen(&http, lat, lon, &api_key).await },
             move |this, result, _| {
-                if generation != this.weather_generation {
+                if generation != this.pollen_generation {
                     return;
                 }
                 match result {
@@ -394,7 +517,11 @@ impl DashboardView {
                         this.quotes = quotes;
                         this.finance_error = None;
                     }
-                    Err(err) => this.finance_error = Some(err),
+                    Err(err) => {
+                        this.finance_error = Some(err);
+                        this.finance_refresh.mark_failed();
+                        return;
+                    }
                 }
                 this.finance_refresh.mark_refreshed();
             },
@@ -414,6 +541,8 @@ impl DashboardView {
                 if generation != this.copilot_generation {
                     return;
                 }
+                let now = chrono::Utc::now();
+                this.copilot_period = Some((now.year(), now.month()));
                 for (username, error) in &report.errors {
                     log::warn!("copilot usage for {username}: {error}");
                 }
@@ -424,17 +553,10 @@ impl DashboardView {
     }
 
     fn set_weather_location(&mut self, location: WeatherLocation, cx: &mut Context<Self>) {
-        self.weather_location = location.clone();
+        self.weather_location = location;
         self.weather = None;
         self.pollen = None;
-        Runtime::global(cx).spawn_detached(async move {
-            let result =
-                tokio::task::spawn_blocking(move || secrets::save_weather_location(&location))
-                    .await;
-            if let Ok(Err(err)) = result {
-                log::warn!("could not remember weather location: {err}");
-            }
-        });
+        self.persist_weather_location(cx);
         self.load_weather(cx);
         self.load_pollen(cx);
     }
@@ -574,6 +696,12 @@ impl DashboardView {
 
     pub fn set_weather_interval(&mut self, minutes: u32, cx: &mut Context<Self>) {
         self.weather_refresh.interval_minutes = minutes;
+        Settings::update(cx, |config| {
+            config
+                .native
+                .auto_refresh
+                .insert(CardId::Weather.key().to_string(), minutes);
+        });
         cx.notify();
     }
 
@@ -650,6 +778,12 @@ impl DashboardView {
 
     pub fn set_finance_interval(&mut self, minutes: u32, cx: &mut Context<Self>) {
         self.finance_refresh.interval_minutes = minutes;
+        Settings::update(cx, |config| {
+            config
+                .native
+                .auto_refresh
+                .insert(CardId::Finance.key().to_string(), minutes);
+        });
         cx.notify();
     }
 

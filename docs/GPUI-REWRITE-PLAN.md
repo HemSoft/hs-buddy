@@ -247,6 +247,14 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
   `cargo test -p buddy-core convex_live -- --ignored --nocapture`.
 - Not shown until their sources are ported: Active PRs (needs the pull
   request views), status-bar PR and job counts, and the View menu zoom items.
+- Native-only settings live under a `native` key in the shared `config.json`
+  (currently `native.autoRefresh.<cardId>` minutes, 0 = off). Electron's
+  schema tolerates unknown top-level keys, so the section round-trips.
+- Window geometry is restored from Electron's `window-state.json` (same
+  folder as `config.json`) when it still lands on a connected display.
+- Hidden dashboard cards never fetch; a card starts loading when it becomes
+  visible. Failed refreshes keep the last good data, flag it, and retry on the
+  normal interval.
 - Verified live on 2026-10-07: Open-Meteo weather and forecast, Yahoo quotes
   for the default watchlist, `gh`-based Copilot path (no accounts configured
   on this machine, so the card shows its empty state).

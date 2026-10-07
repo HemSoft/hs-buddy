@@ -472,7 +472,16 @@ pub fn render(
         (None, Some(error)) => {
             card = card.child(status_message(error.to_string(), true, cx));
         }
-        (Some(data), _) => {
+        (Some(data), error) => {
+            if let Some(error) = error {
+                card = card.child(
+                    div()
+                        .w_full()
+                        .text_size(px(11.0))
+                        .text_color(BuddyPalette::global(cx).accent_error)
+                        .child(format!("Showing the last successful forecast. {error}")),
+                );
+            }
             card = card.children(current_section(data, sun, cx));
             if let Some(pollen) = pollen_area(view, cx) {
                 card = card.child(pollen);

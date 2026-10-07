@@ -4,7 +4,10 @@ use gpui_kit::assets::IconName;
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::{ActiveTheme, Icon, Selectable as _, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui_kit::{
+    AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement,
+    StatefulInteractiveElement as _, Styled, Window, div, px,
+};
 
 use crate::app::{BuddyApp, Section};
 use crate::theme::BuddyPalette;
@@ -128,10 +131,13 @@ pub fn render(app: &BuddyApp, cx: &mut Context<BuddyApp>) -> impl IntoElement + 
     let palette = *BuddyPalette::global(cx);
     let dashboard_active = app.active_section.is_none();
 
+    // Scrolls when the window is shorter than the eleven 48px items need.
     v_flex()
+        .id("activity-bar")
         .w(px(ACTIVITY_BAR_WIDTH))
         .flex_shrink_0()
         .h_full()
+        .overflow_y_scroll()
         .bg(palette.activity_bar_bg)
         .child(item(
             "activity-home",

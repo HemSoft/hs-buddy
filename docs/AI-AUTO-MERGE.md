@@ -141,3 +141,7 @@ authorizes it, after reporting the actual cleanup result.
 - [App tokens and workflow triggering](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow)
 - [Protected branch checks](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches)
 - [Merge queue availability](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue)
+
+## Organization transfer
+
+The trusted controller supports repository ID1229335234 at `HemSoft/hs-buddy` and `hemsoft-dev/hs-buddy`. The workflow checks both the immutable ID and approved full name, then mints an App token scoped to the actual repository owner. The script rejects unrelated owners and repository names. This preparation preserves the existing `AI_AUTOMERGE_ENABLED` value and permission ceiling; it does not enable auto-merge or transfer the App. Complete the App installation and credential gates in [SFL migration issue138](https://github.com/HemSoft/set-it-free-loop/issues/138) before repository transfer.

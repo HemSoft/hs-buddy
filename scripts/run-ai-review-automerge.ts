@@ -1,9 +1,9 @@
 import { openPullNumbers, reconcilePull } from './ai-review-controller'
 import { githubApi } from './ai-review-github'
 import { reconcileBatch } from './ai-review-batch'
+import { approvedControllerRepository } from './ai-review-policy'
 
-const repository = process.env.GITHUB_REPOSITORY ?? 'HemSoft/hs-buddy'
-if (repository !== 'HemSoft/hs-buddy') throw new Error('This policy is scoped to HemSoft/hs-buddy')
+const repository = approvedControllerRepository(process.env.GITHUB_REPOSITORY)
 const token = process.env.GH_TOKEN
 if (!token) throw new Error('GH_TOKEN is required')
 const api = githubApi(token)

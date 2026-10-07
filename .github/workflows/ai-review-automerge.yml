@@ -41,7 +41,8 @@ concurrency:
 jobs:
   reconcile:
     if: >-
-      github.repository == 'HemSoft/hs-buddy' &&
+      github.repository_id == '1229335234' &&
+      (github.repository == 'HemSoft/hs-buddy' || github.repository == 'hemsoft-dev/hs-buddy') &&
       github.ref == 'refs/heads/main' &&
       (github.event_name != 'issue_comment' || github.event.issue.pull_request)
     runs-on: ubuntu-latest
@@ -64,7 +65,7 @@ jobs:
         with:
           client-id: ${{ vars.SFL_APP_CLIENT_ID }}
           private-key: ${{ secrets.SFL_APP_PRIVATE_KEY }}
-          owner: HemSoft
+          owner: ${{ github.repository_owner }}
           repositories: hs-buddy
           permission-checks: write
           # Enrollment must use the App so merged pushes still trigger CI and release.

@@ -2,6 +2,13 @@ export const REVIEW_CHECK = 'ai-review-accepted'
 export const CODEX_ACTOR_ID = 199175422
 export const MERGE_APP_ID = 4448946
 
+export function approvedControllerRepository(repository = 'HemSoft/hs-buddy'): string {
+  if (repository !== 'HemSoft/hs-buddy' && repository !== 'hemsoft-dev/hs-buddy') {
+    throw new Error('This policy is scoped to the approved hs-buddy repository owners')
+  }
+  return repository
+}
+
 export interface Actor {
   id: number
   login: string

@@ -1,0 +1,22 @@
+[package]
+name = "buddy-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Buddy desktop application (GPUI)"
+
+[[bin]]
+name = "buddy"
+path = "src/main.rs"
+
+[dependencies]
+buddy-core = { path = "../buddy-core" }
+gpui-kit.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+env_logger = "0.11"
+log.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+futures.workspace = true

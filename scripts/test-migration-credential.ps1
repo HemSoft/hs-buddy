@@ -54,10 +54,11 @@ try {
    'wrong-rerun-actor' {$env:GITHUB_TRIGGERING_ACTOR='other'}
    'missing-key' {Remove-Item Env:VERIFY_CREDENTIAL_TOKEN}
   }
-  $success=$false
-  try{& $script -Provider $Provider -ExpectedRepositoryId $ExpectedRepositoryId -OutputPath $OutputPath;$success=$true}catch{
+  $success=$false;$streams=[Collections.Generic.List[object]]::new()
+  try{& $script -Provider $Provider -ExpectedRepositoryId $ExpectedRepositoryId -OutputPath $OutputPath *>&1 | ForEach-Object {$streams.Add($_)};$success=$true}catch{
    if($_.Exception.Message.Contains('synthetic-private-token')){throw 'Credential value escaped failure handling.'}
   }
+  foreach($stream in $streams){if(($stream | Out-String -Width 4096).Contains('synthetic-private-token')){throw 'Credential value escaped an output stream.'}}
   $expected=$case.EndsWith('-valid')
   if($success -ne $expected){throw "Unexpected outcome: $case"}
   if(Test-Path Env:VERIFY_CREDENTIAL_TOKEN){throw 'Credential remained in the environment.'}
@@ -65,6 +66,9 @@ try {
   if($success){
    $text=Get-Content -Raw -LiteralPath $OutputPath;$metadata=$text | ConvertFrom-Json
    if($text.Contains('synthetic-private-token') -or $metadata.authentication -cne 'verified' -or $metadata.runtime_verified -ne $false -or $null -ne $metadata.PSObject.Properties['token_type']){throw 'Unsafe public metadata.'}
+   $allowed=@('repository_id','repository','reviewed_sha','run_url','provider','method','authentication','runtime_verified','observed_at')
+   if($Provider -ceq 'GitHubToken'){$allowed+=@('actor','repository_scope','repository_access','actor_repository_access','token_write_permissions_verified','post_transfer_access_verified')}
+   if((($metadata.PSObject.Properties.Name | Sort-Object) -join ',') -cne (($allowed | Sort-Object) -join ',')){throw 'Unexpected public metadata properties.'}
    if($Provider -ceq 'GitHubToken'){
     if($metadata.post_transfer_access_verified -ne ($case -ceq 'destination-valid') -or $metadata.repository_access -cne 'metadata' -or $metadata.actor_repository_access -cne 'write' -or $metadata.token_write_permissions_verified -ne $false){throw 'Unsupported access claim.'}
     if($case -ceq 'fine-grained-valid' -and $metadata.repository_scope -cne 'unreported'){throw 'Invented classic scope.'}

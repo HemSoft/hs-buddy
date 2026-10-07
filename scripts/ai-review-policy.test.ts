@@ -268,7 +268,7 @@ describe('human review decisions', () => {
 
 describe('organization controller scope', () => {
   it('accepts the same repository at its legacy and destination owners', () => {
-    expect(approvedControllerRepository()).toBe('HemSoft/hs-buddy')
+    expect(() => approvedControllerRepository()).toThrow('GITHUB_REPOSITORY')
     expect(approvedControllerRepository('HemSoft/hs-buddy')).toBe('HemSoft/hs-buddy')
     expect(approvedControllerRepository('hemsoft-dev/hs-buddy')).toBe('hemsoft-dev/hs-buddy')
   })

@@ -2,7 +2,7 @@
 
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{ActiveTheme, Icon, h_flex};
-use gpui_kit::{App, FontWeight, IntoElement, ParentElement, Styled, px};
+use gpui_kit::{App, FontWeight, IntoElement, ParentElement, Styled, div, px};
 
 pub const TAB_BAR_HEIGHT: f32 = 35.0;
 
@@ -16,19 +16,25 @@ pub fn render(cx: &App) -> impl IntoElement + use<> {
         .border_b_1()
         .border_color(theme.border)
         .child(
-            h_flex()
+            // Active tab: neutral right divider, accent on the bottom edge (`.tab.active`).
+            div()
                 .h_full()
-                .px(px(14.0))
-                .gap(px(8.0))
-                .items_center()
-                .bg(theme.tab_active)
-                .border_t_1()
-                .border_color(theme.primary)
                 .border_r_1()
-                .text_color(theme.tab_active_foreground)
-                .text_size(px(12.0))
-                .font_weight(FontWeight::MEDIUM)
-                .child(Icon::new(IconName::LayoutDashboard).size(px(14.0)))
-                .child("Dashboard"),
+                .border_color(theme.border)
+                .child(
+                    h_flex()
+                        .h_full()
+                        .px(px(14.0))
+                        .gap(px(8.0))
+                        .items_center()
+                        .bg(theme.tab_active)
+                        .border_b_1()
+                        .border_color(theme.primary)
+                        .text_color(theme.tab_active_foreground)
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::MEDIUM)
+                        .child(Icon::new(IconName::LayoutDashboard).size(px(14.0)))
+                        .child("Dashboard"),
+                ),
         )
 }

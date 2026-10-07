@@ -99,11 +99,17 @@ pub fn code_glyph(code: u16) -> WeatherGlyph {
 // ── Open-Meteo ──────────────────────────────────────────────────────────────
 
 pub fn forecast_url(latitude: f64, longitude: f64) -> String {
+    let params = [
+        "current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m",
+        "daily=temperature_2m_max,temperature_2m_min,weather_code",
+        "temperature_unit=fahrenheit",
+        "wind_speed_unit=mph",
+        "timezone=auto",
+        "forecast_days=3",
+    ]
+    .join("&");
     format!(
-        "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}\
-         &current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m\
-         &daily=temperature_2m_max,temperature_2m_min,weather_code\
-         &temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=auto&forecast_days=3"
+        "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&{params}"
     )
 }
 
@@ -403,6 +409,14 @@ mod tests {
       "current":{"time":"2026-10-07T02:30","temperature_2m":71.6,"relative_humidity_2m":54.4,"weather_code":2,"wind_speed_10m":6.8},
       "daily":{"time":["2026-10-07","2026-10-08","2026-10-09"],
                "temperature_2m_max":[78.3,79.1,70.9],"temperature_2m_min":[60.8,59.6,58.2],"weather_code":[2,1,61]}}"#;
+
+    #[test]
+    fn forecast_url_has_no_whitespace() {
+        let url = forecast_url(35.8235, -78.8256);
+        assert!(!url.contains(char::is_whitespace), "{url}");
+        assert!(url.contains("&daily=temperature_2m_max,temperature_2m_min,weather_code&"));
+        assert!(url.ends_with("&forecast_days=3"));
+    }
 
     #[test]
     fn parses_open_meteo_forecast() {

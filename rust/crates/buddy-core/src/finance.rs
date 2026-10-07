@@ -23,10 +23,15 @@ impl QuoteData {
 
     /// `+1.23 (+0.45%)` or `-1.23 (-0.45%)`.
     pub fn change_text(&self) -> String {
-        let sign = if self.is_up() { "+" } else { "" };
+        fn sign(value: f64) -> &'static str {
+            if value >= 0.0 { "+" } else { "" }
+        }
         format!(
-            "{sign}{:.2} ({sign}{:.2}%)",
-            self.change, self.change_percent
+            "{}{:.2} ({}{:.2}%)",
+            sign(self.change),
+            self.change,
+            sign(self.change_percent),
+            self.change_percent
         )
     }
 }
@@ -243,9 +248,16 @@ mod tests {
         let down = QuoteData {
             change: -1.0,
             change_percent: -2.0,
-            ..up
+            ..up.clone()
         };
         assert_eq!(down.change_text(), "-1.00 (-2.00%)");
+        // A negative previous close flips the percent sign; each value keeps its own.
+        let mixed = QuoteData {
+            change: 3.0,
+            change_percent: -3.0,
+            ..up
+        };
+        assert_eq!(mixed.change_text(), "+3.00 (-3.00%)");
     }
 
     #[test]
@@ -288,6 +300,11 @@ mod tests {
         assert_eq!(err.unwrap_err(), "Incomplete data for X");
         let err = parse_chart_response(r#"{"chart":{}}"#, "X", 0);
         assert_eq!(err.unwrap_err(), "No data for X");
+    }
+
+    #[test]
+    fn chart_url_has_no_whitespace() {
+        assert!(!chart_url("BTC-USD").contains(char::is_whitespace));
     }
 
     #[test]

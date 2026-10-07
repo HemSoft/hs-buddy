@@ -14,8 +14,9 @@ pub fn client() -> reqwest::Client {
         .expect("reqwest client with static configuration")
 }
 
-/// `encodeURIComponent` semantics: everything except the unreserved set is
-/// percent-encoded.
+/// `encodeURIComponent` semantics: everything is percent-encoded except
+/// `A-Z a-z 0-9 - _ . ! ~ * ' ( )`, the set that function leaves untouched
+/// (a superset of RFC 3986's unreserved characters).
 pub fn encode_component(value: &str) -> String {
     let mut out = String::with_capacity(value.len());
     for byte in value.bytes() {

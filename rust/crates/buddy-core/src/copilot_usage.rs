@@ -6,7 +6,7 @@
 use chrono::{DateTime, Datelike, NaiveDate, TimeZone, Timelike, Utc};
 use serde::Deserialize;
 
-use crate::config::{GitHubAccount, UsageProvider};
+use crate::config::{GitHubAccount, GitHubConfig, UsageProvider};
 use crate::gh;
 
 /// Cost of one AI Credit beyond the included allotment (`quotaUtils.ts`).
@@ -174,13 +174,15 @@ pub struct UsagePool {
     /// `entitlement - remaining`; may exceed the allotment under overage.
     pub used: i64,
     pub allotment: i64,
+    /// GitHub's own `overage_count`; zero for synthesized org pools.
+    pub overage_count: i64,
     pub reset_at: DateTime<Utc>,
 }
 
 impl UsagePool {
-    /// `computeOverageRequests`: both `overage_count` and `-remaining` reduce to this.
+    /// `computeOverageRequests`: the larger of `overage_count` and `-remaining`.
     pub fn overage_requests(&self) -> i64 {
-        (self.used - self.allotment).max(0)
+        self.overage_count.max(self.used - self.allotment).max(0)
     }
 
     pub fn overage_cost(&self) -> f64 {
@@ -272,6 +274,7 @@ struct QuotaSnapshots {
 struct PremiumSnapshot {
     entitlement: f64,
     remaining: f64,
+    overage_count: f64,
 }
 
 /// `/copilot_internal/user` for a personal namespace (username == org).
@@ -288,6 +291,7 @@ pub fn parse_personal_quota(json: &str, now: DateTime<Utc>) -> Result<UsagePool,
     Ok(UsagePool {
         used: (premium.entitlement - premium.remaining).round() as i64,
         allotment: premium.entitlement.round() as i64,
+        overage_count: premium.overage_count.round().max(0.0) as i64,
         reset_at,
     })
 }
@@ -382,6 +386,7 @@ pub async fn fetch_account_pool(
     Ok(UsagePool {
         used: parsed.premium_requests,
         allotment: credit_allotment(seats, year, month),
+        overage_count: 0,
         reset_at: first_of_next_month_utc(year, month),
     })
 }
@@ -394,12 +399,14 @@ pub struct UsageReport {
     pub errors: Vec<(String, String)>,
 }
 
-/// `useCopilotUsage`: skip Codex accounts, fetch every remaining account, and
+/// `useCopilotUsage`: skip accounts whose effective provider is Codex (the
+/// override map wins, as in Electron), fetch every remaining account, and
 /// count each org pool once using the first account that produced data.
-pub async fn fetch_report(accounts: &[GitHubAccount], now: DateTime<Utc>) -> UsageReport {
-    let accounts: Vec<&GitHubAccount> = accounts
+pub async fn fetch_report(github: &GitHubConfig, now: DateTime<Utc>) -> UsageReport {
+    let accounts: Vec<&GitHubAccount> = github
+        .accounts
         .iter()
-        .filter(|a| a.usage_provider != Some(UsageProvider::Codex))
+        .filter(|a| github.effective_usage_provider(a) != Some(UsageProvider::Codex))
         .collect();
     let results =
         futures::future::join_all(accounts.iter().map(|a| fetch_account_pool(a, now))).await;
@@ -484,6 +491,7 @@ mod tests {
         let pool = UsagePool {
             used: 1000,
             allotment: 3900,
+            overage_count: 0,
             reset_at: first_of_next_month_utc(2026, 10),
         };
         let now = Utc.with_ymd_and_hms(2026, 10, 11, 0, 0, 0).unwrap();
@@ -518,6 +526,7 @@ mod tests {
         let pool = UsagePool {
             used: 0,
             allotment: 0,
+            overage_count: 0,
             reset_at: Utc.with_ymd_and_hms(2026, 3, 31, 0, 0, 0).unwrap(),
         };
         let now = Utc.with_ymd_and_hms(2026, 3, 1, 0, 0, 0).unwrap();
@@ -535,6 +544,13 @@ mod tests {
         let pool = parse_personal_quota(json, now).unwrap();
         assert_eq!(pool.used, 1284);
         assert_eq!(pool.allotment, 3900);
+        assert_eq!(pool.overage_count, 0);
+
+        // GitHub's overage_count is preserved even when `remaining` says zero.
+        let overage = r#"{"quota_snapshots":{"premium_interactions":{"entitlement":100,"remaining":0,"overage_count":100}}}"#;
+        let pool = parse_personal_quota(overage, now).unwrap();
+        assert_eq!(pool.overage_requests(), 100);
+        assert!((pool.overage_cost() - 1.0).abs() < 1e-9);
         assert_eq!(pool.reset_at.to_rfc3339(), "2026-11-01T00:00:00+00:00");
     }
 
@@ -544,11 +560,13 @@ mod tests {
         let a = UsagePool {
             used: 1000,
             allotment: 3900,
+            overage_count: 0,
             reset_at: first_of_next_month_utc(2026, 10),
         };
         let b = UsagePool {
             used: 4500,
             allotment: 3900,
+            overage_count: 0,
             reset_at: first_of_next_month_utc(2026, 10),
         };
         let summary = aggregate(&[a, b], 2, now);

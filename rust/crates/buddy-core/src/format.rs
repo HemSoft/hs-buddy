@@ -40,7 +40,7 @@ pub fn decimal(value: f64, decimals: usize) -> String {
 
 /// `formatCurrency` from `quotaUtils.ts`: USD with two fraction digits.
 pub fn currency(amount: f64) -> String {
-    if amount < 0.0 {
+    if amount.is_sign_negative() {
         format!("-${}", decimal(-amount, 2))
     } else {
         format!("${}", decimal(amount, 2))
@@ -108,10 +108,12 @@ pub fn ago(ms: u64) -> String {
     }
 }
 
-/// Countdown label such as `4m 12s` or `45s`.
+/// Countdown label such as `4m 12s` or `45s`, rounding partial seconds up so
+/// the label never shows `0s` while time remains.
 pub fn countdown(ms: u64) -> String {
-    let minutes = ms / MINUTE_MS;
-    let seconds = (ms % MINUTE_MS) / SECOND_MS;
+    let total_seconds = ms.div_ceil(SECOND_MS);
+    let minutes = total_seconds / 60;
+    let seconds = total_seconds % 60;
     if minutes > 0 {
         format!("{minutes}m {seconds:02}s")
     } else {
@@ -138,6 +140,7 @@ mod tests {
         assert_eq!(currency(12.4), "$12.40");
         assert_eq!(currency(1234.567), "$1,234.57");
         assert_eq!(currency(-3.5), "-$3.50");
+        assert_eq!(currency(-0.0), "-$0.00");
     }
 
     #[test]
@@ -147,6 +150,14 @@ mod tests {
         assert_eq!(price(0.1234), "0.1234");
         assert_eq!(price(12.5), "12.50");
         assert_eq!(price(f64::NAN), "—");
+    }
+
+    #[test]
+    fn countdown_rounds_up_partial_seconds() {
+        assert_eq!(countdown(0), "0s");
+        assert_eq!(countdown(1), "1s");
+        assert_eq!(countdown(59_001), "1m 00s");
+        assert_eq!(countdown(4 * MINUTE_MS + 12 * SECOND_MS), "4m 12s");
     }
 
     #[test]

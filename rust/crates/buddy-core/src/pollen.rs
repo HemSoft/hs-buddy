@@ -218,6 +218,13 @@ pub fn parse_google_response(json: &str) -> Result<Option<PollenData>, String> {
     Ok(Some(data))
 }
 
+/// Google Pollen forecast URL; the key is the caller's trimmed API key.
+pub fn pollen_url(latitude: f64, longitude: f64, api_key: &str) -> String {
+    format!(
+        "https://pollen.googleapis.com/v1/forecast:lookup?key={api_key}&location.latitude={latitude}&location.longitude={longitude}&days=1"
+    )
+}
+
 fn valid_coordinates(latitude: f64, longitude: f64) -> bool {
     latitude.is_finite()
         && longitude.is_finite()
@@ -251,9 +258,7 @@ pub async fn fetch_pollen(
     if !valid_coordinates(latitude, longitude) {
         return Err(PollenError::Message("Invalid location".to_string()));
     }
-    let url = format!(
-        "https://pollen.googleapis.com/v1/forecast:lookup?key={api_key}         &location.latitude={latitude}&location.longitude={longitude}&days=1"
-    );
+    let url = pollen_url(latitude, longitude, api_key);
     let response = client
         .get(url)
         .send()
@@ -314,6 +319,13 @@ mod tests {
                 .unwrap()
                 .is_none()
         );
+    }
+
+    #[test]
+    fn pollen_url_has_no_whitespace_and_keeps_the_key_intact() {
+        let url = pollen_url(35.8235, -78.8256, "AIza-test-key");
+        assert!(!url.contains(char::is_whitespace), "{url}");
+        assert!(url.contains("?key=AIza-test-key&location.latitude=35.8235"));
     }
 
     #[test]

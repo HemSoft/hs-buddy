@@ -1,7 +1,9 @@
 //! Port of `TitleBar.tsx`. The window is frameless, so File/Edit/View/Help
-//! live here (see the Frameless Window rule in AGENTS.md).
+//! live here (see the Frameless Window rule in AGENTS.md). Edit items dispatch
+//! the component library's own input actions so they act on the focused field.
 
 use gpui_kit::assets::IconName;
+use gpui_kit::base::input::{Copy, Cut, Paste, Redo, SelectAll, Undo};
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::menu::DropdownMenu as _;
 use gpui_kit::component::{ActiveTheme, Icon, Selectable as _, Sizable as _, TitleBar, h_flex};
@@ -10,10 +12,7 @@ use gpui_kit::{
     linear_gradient, px,
 };
 
-use crate::app::{
-    About, BuddyApp, Copy, Cut, Paste, Quit, Redo, Reload, ResetZoom, SelectAll, ToggleFullScreen,
-    Undo, ZoomIn, ZoomOut,
-};
+use crate::app::{About, BuddyApp, Quit, Reload, ToggleFullScreen};
 use crate::settings::Settings;
 use crate::theme::BuddyPalette;
 
@@ -94,11 +93,7 @@ pub fn render(
                         )
                         .child(
                             menu_button("menu-view", "View").dropdown_menu(|menu, _, _| {
-                                menu.menu("Zoom In", Box::new(ZoomIn))
-                                    .menu("Zoom Out", Box::new(ZoomOut))
-                                    .menu("Reset Zoom", Box::new(ResetZoom))
-                                    .separator()
-                                    .menu("Reload", Box::new(Reload))
+                                menu.menu("Reload Configuration", Box::new(Reload))
                                     .separator()
                                     .menu("Full Screen", Box::new(ToggleFullScreen))
                             }),
@@ -120,8 +115,14 @@ pub fn render(
                                 .xsmall()
                                 .compact()
                                 .icon(Icon::new(IconName::Sparkles).size(px(14.0)))
-                                .tooltip("Toggle Copilot Assistant")
-                                .selected(assistant_open),
+                                .tooltip("Toggle Copilot Assistant (panel not ported yet)")
+                                .selected(assistant_open)
+                                .on_click(cx.listener(|_, _, _, cx| {
+                                    Settings::update(cx, |config| {
+                                        config.ui.assistant_open = !config.ui.assistant_open;
+                                    });
+                                    cx.notify();
+                                })),
                         )
                         .child(
                             Button::new("toggle-terminal")
@@ -129,8 +130,14 @@ pub fn render(
                                 .xsmall()
                                 .compact()
                                 .icon(Icon::new(IconName::SquareTerminal).size(px(14.0)))
-                                .tooltip("Toggle Terminal")
-                                .selected(terminal_open),
+                                .tooltip("Toggle Terminal (panel not ported yet)")
+                                .selected(terminal_open)
+                                .on_click(cx.listener(|_, _, _, cx| {
+                                    Settings::update(cx, |config| {
+                                        config.ui.terminal_open = !config.ui.terminal_open;
+                                    });
+                                    cx.notify();
+                                })),
                         ),
                 ),
         )

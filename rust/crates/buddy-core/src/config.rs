@@ -42,8 +42,32 @@ pub struct GitHubAccount {
 #[serde(rename_all = "camelCase", default)]
 pub struct GitHubConfig {
     pub accounts: Vec<GitHubAccount>,
+    /// Durable per-account provider choice keyed by `org/username` (lowercase).
+    pub usage_provider_overrides: BTreeMap<String, UsageProvider>,
+    /// Product-seeded defaults that `usage_provider_overrides` may mirror.
+    pub usage_provider_default_overrides: BTreeMap<String, UsageProvider>,
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+impl GitHubConfig {
+    /// `getUsageProviderOverrideKey`: `org/username`, trimmed and lower-cased.
+    pub fn override_key(account: &GitHubAccount) -> String {
+        format!(
+            "{}/{}",
+            account.org.trim().to_lowercase(),
+            account.username.trim().to_lowercase()
+        )
+    }
+
+    /// The provider the Electron app would use: the override map wins over
+    /// the inline account field.
+    pub fn effective_usage_provider(&self, account: &GitHubAccount) -> Option<UsageProvider> {
+        self.usage_provider_overrides
+            .get(&Self::override_key(account))
+            .copied()
+            .or(account.usage_provider)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -268,7 +292,8 @@ impl AppConfig {
 
     /// Write the whole file atomically (temp file + rename) so electron-store's
     /// watcher never observes a partial document.
-    pub fn save(&self) -> Result<(), ConfigError> {
+    pub fn save(&mut self) -> Result<(), ConfigError> {
+        self.migrate_legacy_weather_location();
         let path = config_path()?;
         let body = serde_json::to_string_pretty(self).expect("AppConfig is always serializable");
         let write = |source| ConfigError::Write {
@@ -281,6 +306,18 @@ impl AppConfig {
         let tmp = path.with_extension("json.tmp");
         std::fs::write(&tmp, body).map_err(write)?;
         std::fs::rename(&tmp, &path).map_err(write)
+    }
+
+    /// Older Electron builds stored the weather location in plaintext under
+    /// `ui.weatherLocation`. Like Electron, move it to protected storage and
+    /// never write the plaintext back.
+    fn migrate_legacy_weather_location(&mut self) {
+        if let Some(location) = self.ui.weather_location.take() {
+            match crate::secrets::save_weather_location(&location) {
+                Ok(()) => log::info!("migrated legacy weather location to the keychain"),
+                Err(err) => log::warn!("could not migrate legacy weather location: {err}"),
+            }
+        }
     }
 
     /// Dashboard card visibility: a card is visible unless explicitly `false`.
@@ -336,7 +373,28 @@ mod tests {
         );
         assert!(!config.is_dashboard_card_visible("finance"));
         assert!(config.is_dashboard_card_visible("weather"));
-        assert!(config.github.extra.contains_key("usageProviderOverrides"));
+        assert_eq!(
+            config
+                .github
+                .usage_provider_overrides
+                .get("hemsoft/hemsoft"),
+            Some(&UsageProvider::Codex)
+        );
+        let inline = GitHubAccount {
+            username: "Franz".into(),
+            org: "Relias".into(),
+            repo_root: None,
+            usage_provider: None,
+            extra: BTreeMap::new(),
+        };
+        assert_eq!(GitHubConfig::override_key(&inline), "relias/franz");
+        assert_eq!(
+            config
+                .github
+                .effective_usage_provider(&config.github.accounts[0]),
+            Some(UsageProvider::Codex)
+        );
+        assert_eq!(config.github.effective_usage_provider(&inline), None);
         assert!(config.ui.extra.contains_key("someFutureFlag"));
         assert!(config.extra.contains_key("copilot"));
         assert!(config.extra.contains_key("weatherLocationCiphertext"));
@@ -346,6 +404,10 @@ mod tests {
         assert_eq!(round_trip["ui"]["someFutureFlag"], true);
         assert_eq!(
             round_trip["github"]["accounts"][0]["usageProvider"],
+            "codex"
+        );
+        assert_eq!(
+            round_trip["github"]["usageProviderOverrides"]["hemsoft/hemsoft"],
             "codex"
         );
     }

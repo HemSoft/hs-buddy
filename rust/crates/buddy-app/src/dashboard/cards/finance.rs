@@ -59,85 +59,94 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
     let remove_bg = hex(DOWN).opacity(0.12);
     let down = hex(DOWN);
 
-    h_flex()
+    // `.finance-quote-row`: a 3px trend-colored left edge around the bordered row.
+    div()
         .w_full()
-        .items_center()
-        .gap(px(8.0))
-        .px(px(10.0))
-        .py(px(5.0))
         .rounded(px(4.0))
-        .bg(secondary)
-        .border_1()
-        .border_color(border)
         .border_l(px(3.0))
-        .hover(move |style| style.border_color(palette.border_secondary))
-        .map(|this| {
-            // border_l above sets width; color it with the trend after the base color.
-            this.border_color(border)
-        })
+        .border_color(trend)
         .child(
             h_flex()
-                .flex_1()
-                .min_w_0()
+                .w_full()
                 .items_center()
-                .gap(px(6.0))
+                .gap(px(8.0))
+                .px(px(10.0))
+                .py(px(5.0))
+                .rounded_r(px(4.0))
+                .bg(secondary)
+                .border_t_1()
+                .border_r_1()
+                .border_b_1()
+                .border_color(border)
+                .hover(move |style| style.border_color(palette.border_secondary))
                 .child(
-                    div()
-                        .text_size(px(9.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(trend)
-                        .child(arrow(quote)),
+                    h_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .items_center()
+                        .gap(px(6.0))
+                        .child(
+                            div()
+                                .text_size(px(9.0))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(trend)
+                                .child(arrow(quote)),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(12.0))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(palette.text_heading)
+                                .truncate()
+                                .child(quote.name.clone()),
+                        )
+                        .child(market_pill(quote.market_open)),
+                )
+                .child(
+                    v_flex()
+                        .items_end()
+                        .flex_shrink_0()
+                        .child(
+                            div()
+                                .text_size(px(13.0))
+                                .font_weight(FontWeight::BOLD)
+                                .text_color(palette.text_heading)
+                                .child(price(quote.price)),
+                        )
+                        .child(
+                            div()
+                                .text_size(px(11.0))
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(trend)
+                                .child(format!("{} {}", arrow(quote), quote.change_text())),
+                        ),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(palette.text_heading)
-                        .truncate()
-                        .child(quote.name.clone()),
-                )
-                .child(market_pill(quote.market_open)),
-        )
-        .child(
-            v_flex()
-                .items_end()
-                .flex_shrink_0()
-                .child(
-                    div()
-                        .text_size(px(13.0))
-                        .font_weight(FontWeight::BOLD)
-                        .text_color(palette.text_heading)
-                        .child(price(quote.price)),
-                )
-                .child(
-                    div()
-                        .text_size(px(11.0))
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(trend)
-                        .child(format!("{} {}", arrow(quote), quote.change_text())),
+                        .id(("finance-remove", index))
+                        .size(px(18.0))
+                        .flex_shrink_0()
+                        .rounded(px(3.0))
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .text_color(palette.text_muted)
+                        .cursor_pointer()
+                        .hover(move |style| style.text_color(down).bg(remove_bg))
+                        .tooltip({
+                            let symbol = symbol.clone();
+                            move |window, cx| {
+                                gpui_kit::component::tooltip::Tooltip::new(format!(
+                                    "Remove {symbol}"
+                                ))
+                                .build(window, cx)
+                            }
+                        })
+                        .on_click(
+                            cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)),
+                        )
+                        .child(Icon::new(IconName::X).size(px(12.0))),
                 ),
-        )
-        .child(
-            div()
-                .id(("finance-remove", index))
-                .size(px(18.0))
-                .flex_shrink_0()
-                .rounded(px(3.0))
-                .flex()
-                .items_center()
-                .justify_center()
-                .text_color(palette.text_muted)
-                .cursor_pointer()
-                .hover(move |style| style.text_color(down).bg(remove_bg))
-                .tooltip({
-                    let symbol = symbol.clone();
-                    move |window, cx| {
-                        gpui_kit::component::tooltip::Tooltip::new(format!("Remove {symbol}"))
-                            .build(window, cx)
-                    }
-                })
-                .on_click(cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)))
-                .child(Icon::new(IconName::X).size(px(12.0))),
         )
 }
 
@@ -270,7 +279,8 @@ pub fn render(
 
     card.child(action_bar(
         ActionBar {
-            id: "finance",
+            refresh_id: "finance-refresh",
+            interval_id: "finance-interval",
             refresh_title: "Refresh market data",
             loading: refresh.loading,
             interval_minutes: refresh.interval_minutes,

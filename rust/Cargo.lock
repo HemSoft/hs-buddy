@@ -765,7 +765,6 @@ dependencies = [
 name = "buddy-app"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "buddy-core",
  "chrono",
  "env_logger",
@@ -780,7 +779,6 @@ dependencies = [
 name = "buddy-core"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "chrono",
  "convex",
  "env_logger",

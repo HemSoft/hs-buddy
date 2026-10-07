@@ -46,7 +46,7 @@ memory than Chromium, 120 fps rendering, and no preload/IPC boundary.
 | Async runtime | GPUI executor for UI, Tokio runtime on a dedicated thread for I/O | `convex` and `reqwest` require Tokio; bridge with channels |
 | HTTP | `reqwest` (rustls) | Open-Meteo, Nominatim, Google Pollen, Yahoo Finance |
 | Backend | `convex = "0.10"` | `buddyStats:get`, `repoBookmarks:list` subscriptions |
-| GitHub | shell out to `gh api` via `tokio::process` | Mirrors `electron/ipc/githubHandlers.ts`; no token handling in-app |
+| GitHub | shell out to `gh api` via `tokio::process` | Mirrors `electron/ipc/githubHandlers.ts`; per-account tokens come from `gh auth token` and are passed to the child process as `GH_TOKEN`, never stored |
 | Config | `serde_json` over electron-store's `config.json` | Read-only at first, then read-write |
 | Secrets | `keyring` crate | Replaces Electron `safeStorage` for the remembered weather location |
 | Icons | Lucide SVGs via gpui-component `Icon` | Same icon set as today |
@@ -56,19 +56,29 @@ memory than Chromium, 120 fps rendering, and no preload/IPC boundary.
 
 ```text
 rust/
-  Cargo.toml              # workspace, [workspace.dependencies] with exact pins
-  rust-toolchain.toml     # pin stable channel
+  Cargo.toml              # workspace, exact pins in [workspace.dependencies]
+  rust-toolchain.toml     # stable channel
+  .cargo/config.toml      # bounded parallelism, mold linker on Linux
   crates/
-    buddy-core/           # no UI: config, models, providers, parsers, tests
-      src/config.rs       # AppConfig mirror of src/types/config.ts
-      src/providers/      # finance.rs, weather.rs, pollen.rs, copilot_usage.rs, convex.rs
-      src/parsers/        # ports of billingParsers.ts, quotaUtils.ts, financeCalc.ts
+    buddy-core/           # no UI: flat modules, each with its own unit tests
+      src/config.rs       # mirror of src/types/config.ts (unknown keys preserved)
+      src/convex_data.rs  # URL resolution + live subscriptions with retry
+      src/copilot_usage.rs# billing parsers, pools, projections, gh fetch
+      src/finance.rs      # Yahoo chart parsing and fetch
+      src/weather.rs      # Open-Meteo, Nominatim, IP location
+      src/pollen.rs       # Google Pollen
+      src/gh.rs           # gh CLI wrapper (tokens never stored)
+      src/secrets.rs      # keyring-backed weather location
+      src/stats.rs, dashboard.rs, format.rs, http.rs
     buddy-app/            # GPUI binary
-      src/main.rs
-      src/shell/          # title_bar.rs, activity_bar.rs, tab_bar.rs, status_bar.rs
-      src/theme.rs        # CSS variables -> gpui-component Theme
-      src/dashboard/      # mod.rs, header.rs, primitives.rs, cards/{command_center,workspace_pulse,weather,finance}.rs
-      src/runtime.rs      # Tokio thread + channel bridge
+      src/main.rs         # app setup, global action handlers
+      src/app.rs          # root view (BuddyApp)
+      src/shell/          # title_bar, activity_bar, tab_bar, status_bar
+      src/theme.rs        # CSS variables -> gpui-component Theme + BuddyPalette
+      src/settings.rs     # config global; reload-merge-save on every edit
+      src/runtime.rs      # Tokio thread + oneshot/mpsc bridge into GPUI
+      src/dashboard/      # mod (view/state), header, primitives, cards/
+      assets/themes/buddy.json
 ```
 
 A separate `rust/` directory keeps knip, e18e, ESLint, and the bundle-size
@@ -194,9 +204,9 @@ DashboardView holds Entity<CardState>
   })
 ```
 
-One `Runtime` struct owns the Tokio handle and the `convex::ConvexClient`.
-Convex subscriptions are long-lived streams forwarded into GPUI with the same
-channel pattern.
+One `Runtime` global owns the Tokio handle. The Convex client lives inside the
+long-running subscription task (`run_dashboard_subscriptions`), which forwards
+updates into GPUI over an unbounded channel and reconnects with backoff.
 
 ## Out of scope for this phase
 
@@ -235,6 +245,8 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
   directory or the executable, then the localhost default. The Workspace
   Pulse card shows the connection status until data arrives. Diagnostic:
   `cargo test -p buddy-core convex_live -- --ignored --nocapture`.
+- Not shown until their sources are ported: Active PRs (needs the pull
+  request views), status-bar PR and job counts, and the View menu zoom items.
 - Verified live on 2026-10-07: Open-Meteo weather and forecast, Yahoo quotes
   for the default watchlist, `gh`-based Copilot path (no accounts configured
   on this machine, so the card shows its empty state).

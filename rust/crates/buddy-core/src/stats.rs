@@ -72,7 +72,8 @@ impl BuddyStats {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct WorkspacePulse {
     pub total_prs_viewed: u64,
-    pub active_prs: u64,
+    /// `None` until the native app can count open pull requests.
+    pub active_prs: Option<u64>,
     pub copilot_pr_reviews: u64,
     pub repos_browsed: u64,
     pub runs_triggered: u64,
@@ -85,15 +86,18 @@ pub struct WorkspacePulse {
 }
 
 impl WorkspacePulse {
-    pub fn from_stats(stats: &BuddyStats, active_prs: u64, bookmarks: u64) -> Self {
-        let total_finished = stats.runs_completed + stats.runs_failed;
+    pub fn from_stats(stats: &BuddyStats, active_prs: Option<u64>, bookmarks: u64) -> Self {
+        let total_finished = stats.runs_completed.saturating_add(stats.runs_failed);
         let success_rate = if total_finished > 0 {
             ((stats.runs_completed as f64 / total_finished as f64) * 100.0).round() as u64
         } else {
             0
         };
         Self {
-            total_prs_viewed: stats.prs_viewed + stats.prs_reviewed + stats.prs_merged_watched,
+            total_prs_viewed: stats
+                .prs_viewed
+                .saturating_add(stats.prs_reviewed)
+                .saturating_add(stats.prs_merged_watched),
             active_prs,
             copilot_pr_reviews: stats.copilot_pr_reviews,
             repos_browsed: stats.repos_browsed,
@@ -121,9 +125,9 @@ mod tests {
             runs_failed: 1,
             ..Default::default()
         };
-        let pulse = WorkspacePulse::from_stats(&stats, 7, 4);
+        let pulse = WorkspacePulse::from_stats(&stats, Some(7), 4);
         assert_eq!(pulse.total_prs_viewed, 16);
-        assert_eq!(pulse.active_prs, 7);
+        assert_eq!(pulse.active_prs, Some(7));
         assert_eq!(pulse.total_finished, 4);
         assert_eq!(pulse.success_rate, 75);
         assert_eq!(pulse.bookmarks, 4);
@@ -150,7 +154,18 @@ mod tests {
 
     #[test]
     fn success_rate_is_zero_without_runs() {
-        let pulse = WorkspacePulse::from_stats(&BuddyStats::default(), 0, 0);
+        let pulse = WorkspacePulse::from_stats(&BuddyStats::default(), None, 0);
         assert_eq!(pulse.success_rate, 0);
+        assert_eq!(pulse.active_prs, None);
+
+        let huge = BuddyStats {
+            runs_completed: u64::MAX,
+            runs_failed: 1,
+            ..Default::default()
+        };
+        assert_eq!(
+            WorkspacePulse::from_stats(&huge, None, 0).total_finished,
+            u64::MAX
+        );
     }
 }

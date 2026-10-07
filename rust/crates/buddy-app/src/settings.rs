@@ -14,12 +14,27 @@ impl Settings {
         cx.global::<Self>()
     }
 
-    /// Mutate the config and persist it; a failed write is logged, not fatal.
+    /// Re-read the file (Electron may have written it meanwhile), apply the
+    /// edit to that fresh copy, persist it, and keep the in-memory copy in
+    /// step. A failed write is logged, not fatal.
     pub fn update(cx: &mut App, edit: impl FnOnce(&mut AppConfig)) {
         let settings = cx.global_mut::<Self>();
-        edit(&mut settings.config);
-        if let Err(err) = settings.config.save() {
+        let mut fresh = match AppConfig::load() {
+            Ok(config) => config,
+            Err(err) => {
+                log::warn!("could not reload configuration before saving: {err}");
+                settings.config.clone()
+            }
+        };
+        edit(&mut fresh);
+        if let Err(err) = fresh.save() {
             log::warn!("could not save configuration: {err}");
         }
+        settings.config = fresh;
+    }
+
+    /// Replace the in-memory configuration (used by Reload).
+    pub fn replace(cx: &mut App, config: AppConfig) {
+        cx.global_mut::<Self>().config = config;
     }
 }

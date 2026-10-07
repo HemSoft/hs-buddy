@@ -9,26 +9,10 @@ use gpui_kit::{
 };
 
 use crate::dashboard::{DashboardEvent, DashboardView};
+use crate::runtime::Runtime;
 use crate::shell::{activity_bar, status_bar, tab_bar, title_bar};
 
-gpui_kit::actions!(
-    buddy,
-    [
-        Quit,
-        About,
-        Reload,
-        ToggleFullScreen,
-        ZoomIn,
-        ZoomOut,
-        ResetZoom,
-        Undo,
-        Redo,
-        Cut,
-        Copy,
-        Paste,
-        SelectAll
-    ]
-);
+gpui_kit::actions!(buddy, [Quit, About, Reload, ToggleFullScreen]);
 
 /// Activity-bar sections, mirroring the ids in `ActivityBar.tsx`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -83,6 +67,8 @@ impl Section {
 pub struct BuddyApp {
     /// `None` means the dashboard is active.
     pub active_section: Option<Section>,
+    /// The account the `gh` CLI is currently using, once resolved.
+    pub active_account: Option<String>,
     dashboard: Entity<DashboardView>,
 }
 
@@ -107,8 +93,22 @@ impl BuddyApp {
         })
         .detach();
 
+        // Resolve the active gh account off the UI thread.
+        let rx = Runtime::global(cx).spawn(buddy_core::gh::active_account());
+        cx.spawn(async move |this, cx| {
+            if let Ok(account) = rx.await {
+                this.update(cx, |this, cx| {
+                    this.active_account = account;
+                    cx.notify();
+                })
+                .ok();
+            }
+        })
+        .detach();
+
         Self {
             active_section: None,
+            active_account: None,
             dashboard,
         }
     }

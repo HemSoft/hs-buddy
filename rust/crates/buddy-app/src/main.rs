@@ -13,10 +13,11 @@ use gpui_kit::{
     WindowOptions, px, size,
 };
 
-use crate::app::{BuddyApp, Quit, ToggleFullScreen};
+use crate::app::{About, BuddyApp, Quit, Reload, ToggleFullScreen};
 use crate::assets::BuddyAssets;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
+use gpui_kit::component::WindowExt as _;
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
@@ -45,6 +46,35 @@ fn main() {
                 KeyBinding::new("f11", ToggleFullScreen, None),
             ]);
             cx.on_action(|_: &Quit, cx| cx.quit());
+            cx.on_action(|_: &ToggleFullScreen, cx| {
+                if let Some(window) = cx.active_window() {
+                    window
+                        .update(cx, |_, window, _| window.toggle_fullscreen())
+                        .ok();
+                }
+            });
+            cx.on_action(|_: &Reload, cx| match AppConfig::load() {
+                Ok(config) => {
+                    theme::install(&config, cx);
+                    Settings::replace(cx, config);
+                    cx.refresh_windows();
+                }
+                Err(err) => log::warn!("reload failed: {err}"),
+            });
+            cx.on_action(|_: &About, cx| {
+                if let Some(window) = cx.active_window() {
+                    window
+                        .update(cx, |_, window, cx| {
+                            window.open_alert_dialog(cx, |alert, _, _| {
+                                alert.title("About Buddy").description(format!(
+                                    "Buddy {} (native GPUI build)\nYour Universal Productivity Companion\nMade with love by HemSoft Developments",
+                                    env!("CARGO_PKG_VERSION")
+                                ))
+                            })
+                        })
+                        .ok();
+                }
+            });
             cx.on_window_closed(|cx, _| {
                 if cx.windows().is_empty() {
                     cx.quit();

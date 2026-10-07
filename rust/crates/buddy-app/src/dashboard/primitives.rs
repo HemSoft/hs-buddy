@@ -363,7 +363,9 @@ pub fn card_header(heading: impl IntoElement, toggle: impl IntoElement) -> Div {
 pub type IntervalHandler = Rc<dyn Fn(u32, &mut App)>;
 
 pub struct ActionBar {
-    pub id: &'static str,
+    /// Stable element ids supplied by the card (no per-render allocation).
+    pub refresh_id: &'static str,
+    pub interval_id: &'static str,
     pub refresh_title: &'static str,
     pub loading: bool,
     pub interval_minutes: u32,
@@ -386,8 +388,6 @@ pub fn action_bar(
         .find(|(value, _)| *value == current)
         .map(|(_, label)| *label)
         .unwrap_or("Off");
-    let refresh_id: &'static str = Box::leak(format!("{}-refresh", bar.id).into_boxed_str());
-    let select_id: &'static str = Box::leak(format!("{}-interval", bar.id).into_boxed_str());
 
     let status = bar.last_refreshed_label.map(|last| {
         let mut text = format!("Updated {last}");
@@ -406,7 +406,7 @@ pub fn action_bar(
                 .items_center()
                 .gap(px(8.0))
                 .child(
-                    Pill::new(refresh_id, "Refresh")
+                    Pill::new(bar.refresh_id, "Refresh")
                         .icon(IconName::RefreshCw)
                         .disabled(bar.loading)
                         .tooltip(bar.refresh_title)
@@ -415,7 +415,7 @@ pub fn action_bar(
                 .children(bar.extra)
                 .child(div().flex_1())
                 .child(
-                    Button::new(select_id)
+                    Button::new(bar.interval_id)
                         .outline()
                         .xsmall()
                         .label(current_label)

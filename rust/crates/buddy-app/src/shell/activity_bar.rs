@@ -1,13 +1,10 @@
 //! Port of `ActivityBar.tsx`: a 48px vertical strip of section icons.
 
 use gpui_kit::assets::IconName;
-use gpui_kit::component::tooltip::Tooltip;
-use gpui_kit::component::{ActiveTheme, Icon, v_flex};
+use gpui_kit::component::button::{Button, ButtonVariants as _};
+use gpui_kit::component::{ActiveTheme, Icon, Selectable as _, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
-use gpui_kit::{
-    AnyElement, Context, InteractiveElement, IntoElement, ParentElement, SharedString,
-    StatefulInteractiveElement, Styled, Window, div, px,
-};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, Window, div, px};
 
 use crate::app::{BuddyApp, Section};
 use crate::theme::BuddyPalette;
@@ -90,9 +87,8 @@ fn item(
 ) -> AnyElement {
     let palette = *BuddyPalette::global(cx);
     let accent = cx.theme().primary;
-    let label: SharedString = label.into();
+    // A real button: focusable, keyboard-operable, and announced by its label.
     div()
-        .id(id)
         .w_full()
         .h(px(48.0))
         .flex()
@@ -104,24 +100,27 @@ fn item(
         } else {
             gpui_kit::transparent_black()
         })
-        .text_color(if active {
-            palette.activity_bar_fg_active
-        } else {
-            palette.activity_bar_fg
-        })
         .when(active, |this| this.bg(palette.activity_bar_hover))
-        .hover(move |style| {
-            style
-                .text_color(palette.activity_bar_fg_active)
-                .bg(palette.activity_bar_hover)
-        })
-        .cursor_pointer()
-        .tooltip(move |window, cx| Tooltip::new(label.clone()).build(window, cx))
-        .on_click(cx.listener(move |this, _, window, cx| {
-            on_click(this, window, cx);
-            cx.notify();
-        }))
-        .child(Icon::new(icon).size(px(24.0)))
+        .child(
+            Button::new(id)
+                .ghost()
+                .compact()
+                .w(px(44.0))
+                .h(px(44.0))
+                .text_color(if active {
+                    palette.activity_bar_fg_active
+                } else {
+                    palette.activity_bar_fg
+                })
+                .icon(Icon::new(icon).size(px(24.0)))
+                .tooltip(label)
+                .accessibility_label(label)
+                .selected(active)
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    on_click(this, window, cx);
+                    cx.notify();
+                })),
+        )
         .into_any_element()
 }
 

@@ -13,7 +13,6 @@ path = "src/main.rs"
 [dependencies]
 buddy-core = { path = "../buddy-core" }
 gpui-kit.workspace = true
-anyhow.workspace = true
 chrono.workspace = true
 env_logger = "0.11"
 log.workspace = true

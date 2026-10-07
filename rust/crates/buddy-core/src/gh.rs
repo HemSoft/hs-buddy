@@ -92,6 +92,50 @@ pub async fn auth_token(username: &str) -> Result<String, GhError> {
     Ok(token)
 }
 
+/// `parseActiveGitHubAccount`: the login whose "Active account: true" follows
+/// its "Logged in to ... account <login>" line in `gh auth status` output.
+pub fn parse_active_account(status_output: &str) -> Option<String> {
+    let lines: Vec<&str> = status_output.lines().collect();
+    for (i, line) in lines.iter().enumerate() {
+        let Some(rest) = line.split("Logged in to ").nth(1) else {
+            continue;
+        };
+        let Some(login) = rest
+            .split(" account ")
+            .nth(1)
+            .and_then(|s| s.split_whitespace().next())
+        else {
+            continue;
+        };
+        if lines[i + 1..(i + 5).min(lines.len())]
+            .iter()
+            .any(|l| l.contains("Active account: true"))
+        {
+            return Some(login.to_string());
+        }
+    }
+    None
+}
+
+/// The account `gh` currently uses, or `None` when gh is missing or logged out.
+pub async fn active_account() -> Option<String> {
+    let mut command = Command::new("gh");
+    command
+        .args(["auth", "status"])
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .kill_on_drop(true);
+    let output = tokio::time::timeout(API_TIMEOUT, command.output())
+        .await
+        .ok()?
+        .ok()?;
+    let mut text = String::from_utf8_lossy(&output.stdout).into_owned();
+    text.push('\n');
+    text.push_str(&String::from_utf8_lossy(&output.stderr));
+    parse_active_account(&text)
+}
+
 /// `gh api <endpoint> [-H header]...` returning stdout.
 pub async fn api(endpoint: &str, token: Option<&str>, headers: &[&str]) -> Result<String, GhError> {
     let mut args = vec!["api", endpoint];
@@ -116,5 +160,15 @@ mod tests {
         assert!(!is_valid_slug("double--dash"));
         assert!(!is_valid_slug("has space"));
         assert!(!is_valid_slug(&"x".repeat(40)));
+    }
+
+    #[test]
+    fn parses_active_account_from_status_output() {
+        let text = "github.com\n  ✓ Logged in to github.com account HemSoft (keyring)\n  - Active account: true\n  - Git operations protocol: ssh\n\n  ✓ Logged in to github.com account fhemmerrelias (keyring)\n  - Active account: false\n";
+        assert_eq!(parse_active_account(text).as_deref(), Some("HemSoft"));
+        assert_eq!(
+            parse_active_account("You are not logged into any GitHub hosts."),
+            None
+        );
     }
 }

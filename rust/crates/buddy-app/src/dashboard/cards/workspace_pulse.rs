@@ -16,8 +16,13 @@ fn member_since(first_launch_ms: u64) -> String {
     if first_launch_ms == 0 {
         return "Today".to_string();
     }
+    // `toLocaleDateString` formats in the host time zone, so convert first.
     chrono::DateTime::from_timestamp_millis(first_launch_ms as i64)
-        .map(|date| date.format("%b %Y").to_string())
+        .map(|date| {
+            date.with_timezone(&chrono::Local)
+                .format("%b %Y")
+                .to_string()
+        })
         .unwrap_or_else(|| "Today".to_string())
 }
 
@@ -29,14 +34,12 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
         .or_else(|| (!view.stats_loaded()).then(|| "Connecting to Convex…".to_string()));
     let count = |n: u64| thousands(n as i64);
 
-    let cards = vec![
+    let mut cards = vec![
         StatCard::new(
             IconName::GitPullRequest,
             count(pulse.total_prs_viewed),
             "PRs Viewed",
         ),
-        StatCard::new(IconName::Activity, count(pulse.active_prs), "Active PRs")
-            .icon_colors(palette.accent_success, hex("#4ec9b0").opacity(0.12)),
         StatCard::new(
             IconName::Sparkles,
             count(pulse.copilot_pr_reviews),
@@ -60,6 +63,13 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
             format!("{} session{plural}", count(pulse.app_launches))
         })),
     ];
+    if let Some(active) = pulse.active_prs {
+        cards.insert(
+            1,
+            StatCard::new(IconName::Activity, count(active), "Active PRs")
+                .icon_colors(palette.accent_success, hex("#4ec9b0").opacity(0.12)),
+        );
+    }
 
     let mut rows: Vec<Vec<StatCard>> = Vec::new();
     for card in cards {

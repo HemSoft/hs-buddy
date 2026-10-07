@@ -426,7 +426,7 @@ fn search_bar(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
         )
         .child(
             Pill::new("weather-go", "Go")
-                .disabled(query_empty)
+                .disabled(query_empty || view.weather_refresh().loading)
                 .tooltip("Search location")
                 .build(
                     cx.listener(|this, _, window, cx| this.submit_weather_search(window, cx)),
@@ -494,7 +494,8 @@ pub fn render(
 
     card.child(action_bar(
         ActionBar {
-            id: "weather",
+            refresh_id: "weather-refresh",
+            interval_id: "weather-interval",
             refresh_title: "Refresh weather data",
             loading: refresh.loading,
             interval_minutes: refresh.interval_minutes,

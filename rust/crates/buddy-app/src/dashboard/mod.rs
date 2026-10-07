@@ -108,6 +108,9 @@ pub struct DashboardView {
     weather: Option<WeatherData>,
     weather_error: Option<String>,
     weather_location: WeatherLocation,
+    /// Bumped whenever the location or an explicit weather request starts;
+    /// responses carrying an older generation are ignored.
+    weather_generation: u64,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -155,6 +158,7 @@ impl DashboardView {
             weather: None,
             weather_error: None,
             weather_location: weather::default_location(),
+            weather_generation: 0,
             weather_refresh: RefreshState::new(WEATHER_DEFAULT_INTERVAL_MINUTES),
             pollen: None,
             pollen_error: None,
@@ -272,14 +276,24 @@ impl DashboardView {
         );
     }
 
+    /// Start a new weather request generation; older in-flight replies are dropped.
+    fn next_weather_generation(&mut self) -> u64 {
+        self.weather_generation += 1;
+        self.weather_generation
+    }
+
     fn load_weather(&mut self, cx: &mut Context<Self>) {
         self.weather_refresh.loading = true;
         let http = self.http.clone();
         let location = self.weather_location.clone();
+        let generation = self.next_weather_generation();
         self.run(
             cx,
             async move { weather::fetch_weather(&http, &location).await },
-            |this, result, _| {
+            move |this, result, _| {
+                if generation != this.weather_generation {
+                    return;
+                }
                 match result {
                     Ok(data) => {
                         this.weather = Some(data);
@@ -299,19 +313,25 @@ impl DashboardView {
             self.weather_location.longitude,
         );
         let api_key = Settings::global(cx).config.ui.pollen_api_key.clone();
+        let generation = self.weather_generation;
         self.run(
             cx,
             async move { pollen::fetch_pollen(&http, lat, lon, &api_key).await },
-            |this, result, _| match result {
-                Ok(data) => {
-                    this.pollen = Some(data);
-                    this.pollen_error = None;
+            move |this, result, _| {
+                if generation != this.weather_generation {
+                    return;
                 }
-                Err(PollenError::NoApiKey) => {
-                    this.pollen = None;
-                    this.pollen_error = None;
+                match result {
+                    Ok(data) => {
+                        this.pollen = Some(data);
+                        this.pollen_error = None;
+                    }
+                    Err(PollenError::NoApiKey) => {
+                        this.pollen = None;
+                        this.pollen_error = None;
+                    }
+                    Err(PollenError::Message(message)) => this.pollen_error = Some(message),
                 }
-                Err(PollenError::Message(message)) => this.pollen_error = Some(message),
             },
         );
     }
@@ -328,9 +348,13 @@ impl DashboardView {
         self.run(
             cx,
             async move { finance::fetch_quotes(&http, &watchlist).await },
-            |this, result, _| {
+            |this, result, cx| {
                 match result {
-                    Ok(quotes) => {
+                    Ok(mut quotes) => {
+                        // Reconcile against the live watchlist: a symbol removed
+                        // while this request was in flight must not come back.
+                        let current = Settings::global(cx).config.finance.watchlist.clone();
+                        quotes.retain(|q| current.contains(&q.symbol));
                         this.quotes = quotes;
                         this.finance_error = None;
                     }
@@ -342,11 +366,11 @@ impl DashboardView {
     }
 
     fn load_copilot(&mut self, cx: &mut Context<Self>) {
-        let accounts = Settings::global(cx).config.github.accounts.clone();
+        let github = Settings::global(cx).config.github.clone();
         self.command_center.loading = true;
         self.run(
             cx,
-            async move { copilot_usage::fetch_report(&accounts, chrono::Utc::now()).await },
+            async move { copilot_usage::fetch_report(&github, chrono::Utc::now()).await },
             |this, report, _| {
                 for (username, error) in &report.errors {
                     log::warn!("copilot usage for {username}: {error}");
@@ -411,7 +435,8 @@ impl DashboardView {
 
     pub fn pulse(&self) -> WorkspacePulse {
         let stats = self.stats.clone().unwrap_or_default();
-        WorkspacePulse::from_stats(&stats, 0, self.repo_bookmark_count as u64)
+        // Active PR counts need the pull-request views, which are not ported yet.
+        WorkspacePulse::from_stats(&stats, None, self.repo_bookmark_count as u64)
     }
 
     /// Connection error, or a reachability hint once the first load is overdue.
@@ -515,6 +540,7 @@ impl DashboardView {
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();
+        let generation = self.next_weather_generation();
         self.run(
             cx,
             async move {
@@ -526,11 +552,16 @@ impl DashboardView {
                 }
                 Ok::<_, String>(location)
             },
-            |this, result, cx| match result {
-                Ok(location) => this.set_weather_location(location, cx),
-                Err(err) => {
-                    this.weather_error = Some(err);
-                    this.weather_refresh.loading = false;
+            move |this, result, cx| {
+                if generation != this.weather_generation {
+                    return;
+                }
+                match result {
+                    Ok(location) => this.set_weather_location(location, cx),
+                    Err(err) => {
+                        this.weather_error = Some(err);
+                        this.weather_refresh.loading = false;
+                    }
                 }
             },
         );
@@ -547,14 +578,20 @@ impl DashboardView {
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();
+        let generation = self.next_weather_generation();
         self.run(
             cx,
             async move { weather::search_location(&http, &query).await },
-            |this, result, cx| match result {
-                Ok(location) => this.set_weather_location(location, cx),
-                Err(err) => {
-                    this.weather_error = Some(err);
-                    this.weather_refresh.loading = false;
+            move |this, result, cx| {
+                if generation != this.weather_generation {
+                    return;
+                }
+                match result {
+                    Ok(location) => this.set_weather_location(location, cx),
+                    Err(err) => {
+                        this.weather_error = Some(err);
+                        this.weather_refresh.loading = false;
+                    }
                 }
             },
         );

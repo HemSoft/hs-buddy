@@ -3,6 +3,7 @@
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use convex::{ConvexClient, FunctionResult};
 use futures::StreamExt;
@@ -102,39 +103,42 @@ fn result_json(result: FunctionResult) -> Result<serde_json::Value, String> {
     }
 }
 
-/// Runs until the receiver is dropped or the connection fails irrecoverably.
+/// Runs until the receiver is dropped. Connection and subscription failures
+/// (backend not started yet, closed by the server) are reported through the
+/// channel and retried with backoff, so starting `npx convex dev` after the
+/// app is already open still connects.
 pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<ConvexUpdate>) {
-    let mut client = match ConvexClient::new(&url).await {
-        Ok(client) => client,
-        Err(err) => {
-            let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "Convex connection failed: {err} ({url}); is the local backend running?"
-            )));
-            return;
+    let mut attempt: u32 = 0;
+    while !tx.is_closed() {
+        match subscribe_once(&url, &tx).await {
+            Ok(()) => return,
+            Err(message) => {
+                attempt += 1;
+                let delay = Duration::from_secs((5u64 << attempt.min(4)).min(60));
+                let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
+                    "{message}; retrying in {}s",
+                    delay.as_secs()
+                )));
+                tokio::time::sleep(delay).await;
+            }
         }
-    };
+    }
+}
 
-    let stats = match client.subscribe("buddyStats:get", BTreeMap::new()).await {
-        Ok(sub) => sub,
-        Err(err) => {
-            let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "buddyStats:get failed: {err} ({url}); is the local backend running?"
-            )));
-            return;
-        }
-    };
-    let bookmarks = match client
+/// One connection lifetime. `Ok` only when the receiver went away.
+async fn subscribe_once(url: &str, tx: &UnboundedSender<ConvexUpdate>) -> Result<(), String> {
+    let hint = "is the local backend running?";
+    let mut client = ConvexClient::new(url)
+        .await
+        .map_err(|err| format!("Convex connection failed: {err} ({url}); {hint}"))?;
+    let stats = client
+        .subscribe("buddyStats:get", BTreeMap::new())
+        .await
+        .map_err(|err| format!("buddyStats:get failed: {err} ({url}); {hint}"))?;
+    let bookmarks = client
         .subscribe("repoBookmarks:list", BTreeMap::new())
         .await
-    {
-        Ok(sub) => sub,
-        Err(err) => {
-            let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "repoBookmarks:list failed: {err} ({url}); is the local backend running?"
-            )));
-            return;
-        }
-    };
+        .map_err(|err| format!("repoBookmarks:list failed: {err} ({url}); {hint}"))?;
 
     let mut merged = futures::stream::select(
         stats.map(|result| ("stats", result)),
@@ -151,15 +155,14 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
             _ => continue,
         };
         if tx.unbounded_send(update).is_err() {
-            break;
+            return Ok(());
         }
     }
-    // The server closed every subscription stream (deployment missing or paused).
-    let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-        "Convex connection to {url} closed; start the local backend (npx convex dev) or set BUDDY_CONVEX_URL"
-    )));
-    // `client` lives until here so the subscriptions stay open.
+    // Keep the client alive until the streams end so subscriptions stay open.
     drop(client);
+    Err(format!(
+        "Convex connection to {url} closed; start the local backend (npx convex dev) or set BUDDY_CONVEX_URL"
+    ))
 }
 
 #[cfg(test)]

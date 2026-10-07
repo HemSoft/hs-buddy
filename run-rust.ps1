@@ -52,7 +52,10 @@ try {
     $onWindows = $IsWindows -or ($env:OS -eq 'Windows_NT')
     $exe = if ($onWindows) { 'buddy.exe' } else { 'buddy' }
     $profileDir = if ($Release) { 'release' } else { 'debug' }
-    $binary = Join-Path (Join-Path (Join-Path $rustDir 'target') $profileDir) $exe
+    # Ask Cargo where it actually put the build (honors CARGO_TARGET_DIR and .cargo/config).
+    $targetDir = (& cargo metadata --format-version 1 --no-deps | ConvertFrom-Json).target_directory
+    if (-not $targetDir) { $targetDir = Join-Path $rustDir 'target' }
+    $binary = Join-Path (Join-Path $targetDir $profileDir) $exe
     Write-Host "Launching $binary" -ForegroundColor Cyan
     & $binary
     exit $LASTEXITCODE

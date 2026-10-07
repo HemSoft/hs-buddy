@@ -9,7 +9,6 @@ description = "Buddy domain models, configuration, and data providers (no UI)"
 [dependencies]
 serde.workspace = true
 serde_json.workspace = true
-anyhow.workspace = true
 thiserror.workspace = true
 log.workspace = true
 tokio.workspace = true

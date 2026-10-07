@@ -304,8 +304,20 @@ impl AppConfig {
             std::fs::create_dir_all(parent).map_err(write)?;
         }
         let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, body).map_err(write)?;
-        std::fs::rename(&tmp, &path).map_err(write)
+        std::fs::write(&tmp, &body).map_err(write)?;
+        // `rename` replaces an existing destination on every supported platform
+        // (Windows uses MOVEFILE_REPLACE_EXISTING). If a reader holds the file
+        // open without share-delete, fall back to an in-place write so the
+        // change is never silently lost.
+        if let Err(rename_err) = std::fs::rename(&tmp, &path) {
+            log::warn!(
+                "atomic replace of {} failed ({rename_err}); writing in place",
+                path.display()
+            );
+            let _ = std::fs::remove_file(&tmp);
+            std::fs::write(&path, body).map_err(write)?;
+        }
+        Ok(())
     }
 
     /// Older Electron builds stored the weather location in plaintext under
@@ -421,12 +433,51 @@ mod tests {
         );
     }
 
+    /// Serializes the tests that set `BUDDY_CONFIG_PATH`.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn env_override_wins_for_config_path() {
-        // SAFETY: tests in this module run single-threaded with respect to this variable.
+        let _guard = ENV_LOCK.lock().unwrap();
+        // SAFETY: serialized by ENV_LOCK; no other thread reads this variable concurrently.
         unsafe { std::env::set_var(CONFIG_PATH_ENV, "/tmp/buddy-test-config.json") };
         let path = config_path().unwrap();
         unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
         assert_eq!(path, PathBuf::from("/tmp/buddy-test-config.json"));
+    }
+
+    /// Runs on every CI platform, including Windows, to prove that saving over
+    /// an existing config.json replaces it.
+    #[test]
+    fn save_replaces_an_existing_file() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("buddy-save-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(
+            &path,
+            "{\"ui\":{\"theme\":\"light\"},\"copilot\":{\"model\":\"x\"}}",
+        )
+        .unwrap();
+        // SAFETY: serialized by ENV_LOCK.
+        unsafe { std::env::set_var(CONFIG_PATH_ENV, &path) };
+
+        let mut first = AppConfig::load().unwrap();
+        assert_eq!(first.ui.theme, ThemeName::Light);
+        first.set_dashboard_card_visible("finance", false);
+        first.save().unwrap();
+        let mut second = AppConfig::load().unwrap();
+        second.finance.watchlist.push("AAPL".into());
+        second.save().unwrap();
+
+        let reread = AppConfig::load().unwrap();
+        unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
+        let _ = std::fs::remove_dir_all(&dir);
+
+        assert!(!reread.is_dashboard_card_visible("finance"));
+        assert!(reread.finance.watchlist.contains(&"AAPL".to_string()));
+        assert_eq!(reread.ui.theme, ThemeName::Light);
+        assert_eq!(reread.extra["copilot"]["model"], "x");
+        assert!(!path.with_extension("json.tmp").exists());
     }
 }

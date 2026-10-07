@@ -79,11 +79,15 @@ pub fn dotenv_value(body: &str, key: &str) -> Option<String> {
             return None;
         }
         let v = v.trim();
-        let v = v
-            .strip_prefix('"')
-            .and_then(|s| s.strip_suffix('"'))
-            .or_else(|| v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
-            .unwrap_or(v);
+        // Quoted values keep everything inside the quotes (including `#`);
+        // unquoted values stop at an inline ` #` comment, as dotenv does.
+        let v = if let Some(inner) = v.strip_prefix('"').and_then(|s| s.split('"').next()) {
+            inner
+        } else if let Some(inner) = v.strip_prefix('\'').and_then(|s| s.split('\'').next()) {
+            inner
+        } else {
+            v.split(" #").next().unwrap_or(v).trim()
+        };
         Some(v.to_string())
     })
 }
@@ -188,6 +192,18 @@ mod tests {
         assert_eq!(
             dotenv_value("VITE_CONVEX_URL='http://localhost:3210'", "VITE_CONVEX_URL").as_deref(),
             Some("http://localhost:3210")
+        );
+        assert_eq!(
+            dotenv_value(
+                "VITE_CONVEX_URL=http://127.0.0.1:3210 # local backend",
+                "VITE_CONVEX_URL"
+            )
+            .as_deref(),
+            Some("http://127.0.0.1:3210")
+        );
+        assert_eq!(
+            dotenv_value("VITE_CONVEX_URL=\"http://h/#frag\" # c", "VITE_CONVEX_URL").as_deref(),
+            Some("http://h/#frag")
         );
     }
 

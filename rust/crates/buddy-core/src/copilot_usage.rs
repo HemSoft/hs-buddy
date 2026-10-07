@@ -362,16 +362,24 @@ pub async fn fetch_account_pool(
     }
     gh::assert_valid_slug(&account.org).map_err(|e| e.to_string())?;
 
-    // Like `tryGetCliToken`, a missing per-account token falls back to the active login.
-    let token = gh::auth_token(&account.username).await.ok();
-    let token = token.as_deref();
+    let token = gh::auth_token(&account.username).await;
 
     if is_personal_namespace(account) {
-        let body = gh::api("/copilot_internal/user", token, &[])
+        // `/copilot_internal/user` answers for whoever the token belongs to, so a
+        // personal account must use its own credential; never fall back to the
+        // active login and show another user's quota (`getCopilotQuota`).
+        let token =
+            token.map_err(|e| format!("No token for account '{}': {e}", account.username))?;
+        let body = gh::api("/copilot_internal/user", Some(&token), &[])
             .await
             .map_err(|e| e.to_string())?;
         return parse_personal_quota(&body, now);
     }
+
+    // Org billing: like `tryGetCliToken`, a missing per-account token falls
+    // back to the active login, which may still have org access.
+    let token = token.ok();
+    let token = token.as_deref();
 
     let (year, month) = (now.year(), now.month());
     let body = fetch_billing_usage_body(&account.org, year, month, token).await?;

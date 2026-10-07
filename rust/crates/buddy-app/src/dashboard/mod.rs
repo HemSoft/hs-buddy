@@ -111,6 +111,8 @@ pub struct DashboardView {
     /// Bumped whenever the location or an explicit weather request starts;
     /// responses carrying an older generation are ignored.
     weather_generation: u64,
+    finance_generation: u64,
+    copilot_generation: u64,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -165,6 +167,8 @@ impl DashboardView {
             weather_error: None,
             weather_location: weather::default_location(),
             weather_generation: 0,
+            finance_generation: 0,
+            copilot_generation: 0,
             weather_refresh: RefreshState::new(WEATHER_DEFAULT_INTERVAL_MINUTES),
             pollen: None,
             pollen_error: None,
@@ -372,10 +376,15 @@ impl DashboardView {
         }
         self.finance_refresh.loading = true;
         let http = self.http.clone();
+        self.finance_generation += 1;
+        let generation = self.finance_generation;
         self.run(
             cx,
             async move { finance::fetch_quotes(&http, &watchlist).await },
-            |this, result, cx| {
+            move |this, result, cx| {
+                if generation != this.finance_generation {
+                    return;
+                }
                 match result {
                     Ok(mut quotes) => {
                         // Reconcile against the live watchlist: a symbol removed
@@ -396,10 +405,15 @@ impl DashboardView {
         let github = Settings::global(cx).config.github.clone();
         self.loaded_github = github.clone();
         self.command_center.loading = true;
+        self.copilot_generation += 1;
+        let generation = self.copilot_generation;
         self.run(
             cx,
             async move { copilot_usage::fetch_report(&github, chrono::Utc::now()).await },
-            |this, report, _| {
+            move |this, report, _| {
+                if generation != this.copilot_generation {
+                    return;
+                }
                 for (username, error) in &report.errors {
                     log::warn!("copilot usage for {username}: {error}");
                 }

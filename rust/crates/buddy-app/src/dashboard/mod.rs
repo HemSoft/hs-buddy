@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::time::{Duration, Instant};
 
-use buddy_core::config::WeatherLocation;
+use buddy_core::config::{GitHubConfig, WeatherLocation};
 use buddy_core::convex_data::{self, ConvexUpdate};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
 use buddy_core::dashboard::{CardId, DASHBOARD_CARDS};
@@ -117,6 +117,11 @@ pub struct DashboardView {
     quotes: Vec<QuoteData>,
     finance_error: Option<String>,
     finance_refresh: RefreshState,
+    /// Inputs the last loads used, so a Settings change (Reload or an
+    /// external edit) refreshes only the cards whose inputs changed.
+    loaded_watchlist: Vec<String>,
+    loaded_github: GitHubConfig,
+    loaded_pollen_key: String,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -130,6 +135,7 @@ impl DashboardView {
             .new(|cx| InputState::new(window, cx).placeholder("Add symbol (e.g. AAPL, ETH-USD)…"));
 
         let subscriptions = vec![
+            cx.observe_global::<Settings>(|this, cx| this.settings_changed(cx)),
             cx.subscribe_in(&weather_search, window, |this, _, event, window, cx| {
                 if matches!(event, InputEvent::PressEnter { .. }) {
                     this.submit_weather_search(window, cx);
@@ -165,6 +171,9 @@ impl DashboardView {
             quotes: Vec::new(),
             finance_error: None,
             finance_refresh: RefreshState::new(FINANCE_DEFAULT_INTERVAL_MINUTES),
+            loaded_watchlist: Vec::new(),
+            loaded_github: GitHubConfig::default(),
+            loaded_pollen_key: String::new(),
             _subscriptions: subscriptions,
         };
 
@@ -199,6 +208,22 @@ impl DashboardView {
             }
         })
         .detach();
+    }
+
+    /// Settings changed (card toggle, Reload, or an edit Electron made that a
+    /// save picked up): re-run only the loads whose inputs differ.
+    fn settings_changed(&mut self, cx: &mut Context<Self>) {
+        let config = Settings::global(cx).config.clone();
+        if config.finance.watchlist != self.loaded_watchlist {
+            self.load_finance(cx);
+        }
+        if config.github != self.loaded_github {
+            self.load_copilot(cx);
+        }
+        if config.ui.pollen_api_key != self.loaded_pollen_key {
+            self.load_pollen(cx);
+        }
+        cx.notify();
     }
 
     fn start_ticker(&self, cx: &mut Context<Self>) {
@@ -313,6 +338,7 @@ impl DashboardView {
             self.weather_location.longitude,
         );
         let api_key = Settings::global(cx).config.ui.pollen_api_key.clone();
+        self.loaded_pollen_key = api_key.clone();
         let generation = self.weather_generation;
         self.run(
             cx,
@@ -338,6 +364,7 @@ impl DashboardView {
 
     fn load_finance(&mut self, cx: &mut Context<Self>) {
         let watchlist = Settings::global(cx).config.finance.watchlist.clone();
+        self.loaded_watchlist = watchlist.clone();
         if watchlist.is_empty() {
             self.quotes.clear();
             self.finance_refresh.mark_refreshed();
@@ -367,6 +394,7 @@ impl DashboardView {
 
     fn load_copilot(&mut self, cx: &mut Context<Self>) {
         let github = Settings::global(cx).config.github.clone();
+        self.loaded_github = github.clone();
         self.command_center.loading = true;
         self.run(
             cx,

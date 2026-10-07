@@ -274,7 +274,8 @@ struct QuotaSnapshots {
 struct PremiumSnapshot {
     entitlement: f64,
     remaining: f64,
-    overage_count: f64,
+    /// May be absent or an explicit `null`; both mean "derive from remaining".
+    overage_count: Option<f64>,
 }
 
 /// `/copilot_internal/user` for a personal namespace (username == org).
@@ -291,7 +292,7 @@ pub fn parse_personal_quota(json: &str, now: DateTime<Utc>) -> Result<UsagePool,
     Ok(UsagePool {
         used: (premium.entitlement - premium.remaining).round() as i64,
         allotment: premium.entitlement.round() as i64,
-        overage_count: premium.overage_count.round().max(0.0) as i64,
+        overage_count: premium.overage_count.unwrap_or(0.0).round().max(0.0) as i64,
         reset_at,
     })
 }
@@ -545,6 +546,15 @@ mod tests {
         assert_eq!(pool.used, 1284);
         assert_eq!(pool.allotment, 3900);
         assert_eq!(pool.overage_count, 0);
+
+        // An explicit null is accepted and derives overage from `remaining`.
+        let nulled = r#"{"quota_snapshots":{"premium_interactions":{"entitlement":100,"remaining":-5,"overage_count":null}}}"#;
+        assert_eq!(
+            parse_personal_quota(nulled, now)
+                .unwrap()
+                .overage_requests(),
+            5
+        );
 
         // GitHub's overage_count is preserved even when `remaining` says zero.
         let overage = r#"{"quota_snapshots":{"premium_interactions":{"entitlement":100,"remaining":0,"overage_count":100}}}"#;

@@ -93,15 +93,27 @@ impl BuddyApp {
         })
         .detach();
 
-        // Resolve the active gh account off the UI thread.
-        let rx = Runtime::global(cx).spawn(buddy_core::gh::active_account());
+        // Resolve the active gh account off the UI thread, and re-check every
+        // 30 seconds like the Electron status bar so `gh auth switch` shows up.
         cx.spawn(async move |this, cx| {
-            if let Ok(account) = rx.await {
-                this.update(cx, |this, cx| {
-                    this.active_account = account;
-                    cx.notify();
-                })
-                .ok();
+            loop {
+                let rx =
+                    cx.update(|cx| Runtime::global(cx).spawn(buddy_core::gh::active_account()));
+                if let Ok(account) = rx.await
+                    && this
+                        .update(cx, |this, cx| {
+                            if this.active_account != account {
+                                this.active_account = account;
+                                cx.notify();
+                            }
+                        })
+                        .is_err()
+                {
+                    break;
+                }
+                cx.background_executor()
+                    .timer(Duration::from_secs(30))
+                    .await;
             }
         })
         .detach();

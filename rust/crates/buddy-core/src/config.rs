@@ -311,11 +311,20 @@ impl AppConfig {
     /// Older Electron builds stored the weather location in plaintext under
     /// `ui.weatherLocation`. Like Electron, move it to protected storage and
     /// never write the plaintext back.
+    ///
+    /// The plaintext is cleared only once the keychain has accepted the value;
+    /// if the keychain is unavailable the saved city is kept rather than lost.
     fn migrate_legacy_weather_location(&mut self) {
-        if let Some(location) = self.ui.weather_location.take() {
-            match crate::secrets::save_weather_location(&location) {
-                Ok(()) => log::info!("migrated legacy weather location to the keychain"),
-                Err(err) => log::warn!("could not migrate legacy weather location: {err}"),
+        let Some(location) = self.ui.weather_location.as_ref() else {
+            return;
+        };
+        match crate::secrets::save_weather_location(location) {
+            Ok(()) => {
+                log::info!("migrated legacy weather location to the keychain");
+                self.ui.weather_location = None;
+            }
+            Err(err) => {
+                log::warn!("keeping legacy weather location in config; keychain unavailable: {err}")
             }
         }
     }

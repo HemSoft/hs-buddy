@@ -2,6 +2,7 @@
 //! `repoBookmarks:list`), forwarded over a channel to the UI runtime.
 
 use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use convex::{ConvexClient, FunctionResult};
 use futures::StreamExt;
@@ -9,17 +10,81 @@ use futures::channel::mpsc::UnboundedSender;
 
 use crate::stats::BuddyStats;
 
-/// Default deployment from `electron/config.ts`.
-pub const DEFAULT_CONVEX_URL: &str = "https://balanced-trout-451.convex.cloud";
+/// Local Convex dev backend (`npx convex dev` / Aspire), matching `.env.local`.
+pub const DEFAULT_CONVEX_URL: &str = "http://127.0.0.1:3210";
 
-/// `BUDDY_CONVEX_URL`, then Vite's `VITE_CONVEX_URL`, then the default.
+/// Resolve the deployment URL the way the Electron app effectively does:
+/// `BUDDY_CONVEX_URL`, then `VITE_CONVEX_URL` from the environment, then
+/// `VITE_CONVEX_URL` from the repo's `.env.local` or `.env` (searched upward
+/// from the working directory and the executable), then the local backend.
 pub fn convex_url() -> String {
-    std::env::var("BUDDY_CONVEX_URL")
-        .or_else(|_| std::env::var("VITE_CONVEX_URL"))
-        .ok()
-        .map(|url| url.trim().to_string())
-        .filter(|url| !url.is_empty())
-        .unwrap_or_else(|| DEFAULT_CONVEX_URL.to_string())
+    for key in ["BUDDY_CONVEX_URL", "VITE_CONVEX_URL"] {
+        if let Some(url) = std::env::var(key).ok().and_then(clean_url) {
+            return url;
+        }
+    }
+    for dir in search_roots() {
+        for file in [".env.local", ".env"] {
+            let path = dir.join(file);
+            if let Ok(body) = std::fs::read_to_string(&path)
+                && let Some(url) = dotenv_value(&body, "VITE_CONVEX_URL").and_then(clean_url)
+            {
+                log::info!("convex url from {}", path.display());
+                return url;
+            }
+        }
+    }
+    DEFAULT_CONVEX_URL.to_string()
+}
+
+fn clean_url(raw: String) -> Option<String> {
+    let trimmed = raw.trim().trim_end_matches('/');
+    (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+/// Directories to probe for env files: cwd and the executable's directory,
+/// each followed by all ancestors.
+fn search_roots() -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    let mut push_chain = |start: Option<PathBuf>| {
+        let mut current = start;
+        while let Some(dir) = current {
+            if !roots.contains(&dir) {
+                roots.push(dir.clone());
+            }
+            current = dir.parent().map(Path::to_path_buf);
+        }
+    };
+    push_chain(std::env::current_dir().ok());
+    push_chain(
+        std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(Path::to_path_buf)),
+    );
+    roots
+}
+
+/// Minimal dotenv lookup: `KEY=value`, optional `export`, `#` comments,
+/// surrounding single or double quotes stripped.
+pub fn dotenv_value(body: &str, key: &str) -> Option<String> {
+    body.lines().find_map(|line| {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            return None;
+        }
+        let line = line.strip_prefix("export ").unwrap_or(line);
+        let (k, v) = line.split_once('=')?;
+        if k.trim() != key {
+            return None;
+        }
+        let v = v.trim();
+        let v = v
+            .strip_prefix('"')
+            .and_then(|s| s.strip_suffix('"'))
+            .or_else(|| v.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')))
+            .unwrap_or(v);
+        Some(v.to_string())
+    })
 }
 
 #[derive(Debug, Clone)]
@@ -43,7 +108,7 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
         Ok(client) => client,
         Err(err) => {
             let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "Convex connection failed: {err} ({url}); check BUDDY_CONVEX_URL"
+                "Convex connection failed: {err} ({url}); is the local backend running?"
             )));
             return;
         }
@@ -53,7 +118,7 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
         Ok(sub) => sub,
         Err(err) => {
             let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "buddyStats:get failed: {err} ({url}); check BUDDY_CONVEX_URL"
+                "buddyStats:get failed: {err} ({url}); is the local backend running?"
             )));
             return;
         }
@@ -65,7 +130,7 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
         Ok(sub) => sub,
         Err(err) => {
             let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                "repoBookmarks:list failed: {err} ({url}); check BUDDY_CONVEX_URL"
+                "repoBookmarks:list failed: {err} ({url}); is the local backend running?"
             )));
             return;
         }
@@ -91,10 +156,46 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
     }
     // The server closed every subscription stream (deployment missing or paused).
     let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-        "Convex connection to {url} closed; check BUDDY_CONVEX_URL"
+        "Convex connection to {url} closed; start the local backend (npx convex dev) or set BUDDY_CONVEX_URL"
     )));
     // `client` lives until here so the subscriptions stay open.
     drop(client);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_vite_convex_url_from_dotenv_text() {
+        let body = "# Deployment used by `npx convex dev`\nCONVEX_DEPLOYMENT=anonymous:anonymous-hs-buddy\nVITE_CONVEX_URL=http://127.0.0.1:3210\nVITE_CONVEX_SITE_URL=http://127.0.0.1:3211\n";
+        assert_eq!(
+            dotenv_value(body, "VITE_CONVEX_URL").as_deref(),
+            Some("http://127.0.0.1:3210")
+        );
+        assert_eq!(dotenv_value(body, "MISSING"), None);
+        assert_eq!(
+            dotenv_value(
+                "export VITE_CONVEX_URL=\"https://x.convex.cloud/\"",
+                "VITE_CONVEX_URL"
+            )
+            .as_deref(),
+            Some("https://x.convex.cloud/")
+        );
+        assert_eq!(
+            dotenv_value("VITE_CONVEX_URL='http://localhost:3210'", "VITE_CONVEX_URL").as_deref(),
+            Some("http://localhost:3210")
+        );
+    }
+
+    #[test]
+    fn strips_trailing_slash_and_rejects_empty() {
+        assert_eq!(
+            clean_url(" http://127.0.0.1:3210/ ".into()).as_deref(),
+            Some("http://127.0.0.1:3210")
+        );
+        assert_eq!(clean_url("   ".into()), None);
+    }
 }
 
 #[cfg(test)]

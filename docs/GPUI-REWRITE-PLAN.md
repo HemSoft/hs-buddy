@@ -159,7 +159,7 @@ run on the Tokio thread, result delivered to the GPUI entity via channel, then
 4. **Workspace Pulse.** `convex` client subscribed to `buddyStats:get` and
    `repoBookmarks:list`. Derived values (`totalPrsViewed`, success rate,
    member-since) ported from `WelcomePanel.tsx`. Convex URL from
-   `VITE_CONVEX_URL` or the hard-coded default in `electron/config.ts`.
+   `VITE_CONVEX_URL` (env or `.env.local`) or the local backend default.
    Read-only in this phase: no session start/end mutations yet, so the uptime
    badge shows stored uptime plus local session time.
 5. **Command Center.** Port `billingParsers.ts` and `quotaUtils.ts`
@@ -227,13 +227,14 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
   `lastSessionStart` delta when present, else the local session.
 - Fonts: Inter and Cascadia Code are applied only when installed; otherwise
   the system font is used. Bundling both as assets is a follow-up.
-- **Open item: Convex deployment URL.** The default
-  `https://balanced-trout-451.convex.cloud` from `electron/config.ts` answers
-  like a nonexistent deployment (HTTP 404 on `/api/query`, WebSocket closed on
-  connect), and no `.env.local` exists on the Linux dev box. Set
-  `BUDDY_CONVEX_URL` (or `VITE_CONVEX_URL`) to the real deployment; the
-  Workspace Pulse card shows the connection status until data arrives.
-  Diagnostic: `cargo test -p buddy-core convex_live -- --ignored --nocapture`.
+- **Convex runs locally.** Franz's decision (2026-10-07): the backend is the
+  local dev deployment (`npx convex dev` / Aspire, `http://127.0.0.1:3210`),
+  not Convex Cloud, since nothing mobile consumes it yet. The native app
+  resolves the URL like Vite: `BUDDY_CONVEX_URL`, then `VITE_CONVEX_URL` from
+  the environment, then `.env.local` / `.env` found upward from the working
+  directory or the executable, then the localhost default. The Workspace
+  Pulse card shows the connection status until data arrives. Diagnostic:
+  `cargo test -p buddy-core convex_live -- --ignored --nocapture`.
 - Verified live on 2026-10-07: Open-Meteo weather and forecast, Yahoo quotes
   for the default watchlist, `gh`-based Copilot path (no accounts configured
   on this machine, so the card shows its empty state).

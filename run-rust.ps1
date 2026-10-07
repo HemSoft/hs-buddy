@@ -7,7 +7,7 @@
 .EXAMPLE
   ./run-rust.ps1                       # debug build, run
   ./run-rust.ps1 -Release              # optimized build, run
-  ./run-rust.ps1 -ConvexUrl https://my-deployment.convex.cloud
+  ./run-rust.ps1 -ConvexUrl http://127.0.0.1:3210   # default; read from .env.local when present
   ./run-rust.ps1 -ConfigPath C:\path\to\config.json -LogLevel debug
   ./run-rust.ps1 -BuildOnly
 #>

@@ -117,7 +117,7 @@ requests. Keep the required acceptance check in place while investigating.
 Removing the check would allow merges without the policy's evidence.
 
 For a read-only local evaluation, supply a token through `GH_TOKEN` and run
-`GITHUB_REPOSITORY=HemSoft/hs-buddy bun scripts/run-ai-review-automerge.ts` before transfer, or `GITHUB_REPOSITORY=hemsoft-dev/hs-buddy bun scripts/run-ai-review-automerge.ts` after transfer. The local script requires the current canonical repository explicitly. Set `PR_NUMBER` to limit the evaluation.
+set `GITHUB_REPOSITORY` to `HemSoft/hs-buddy` before transfer or `hemsoft-dev/hs-buddy` after transfer, then run `bun scripts/run-ai-review-automerge.ts`. The local script requires the current canonical repository explicitly. Set `PR_NUMBER` to limit the evaluation.
 Only `--apply` permits writes, and only the configured App can publish the
 required check. Never paste tokens into commands, logs, or PR descriptions.
 
@@ -146,4 +146,4 @@ authorizes it, after reporting the actual cleanup result.
 
 The trusted controller supports repository ID1229335234 at `HemSoft/hs-buddy` and `hemsoft-dev/hs-buddy`. The workflow checks both the immutable ID and approved full name, then mints an App token scoped to the actual repository owner. The script rejects unrelated owners and repository names. This preparation preserves the existing `AI_AUTOMERGE_ENABLED` value and permission ceiling; it does not enable auto-merge or transfer the App. Complete the App installation and credential gates in [SFL migration issue138](https://github.com/HemSoft/set-it-free-loop/issues/138) before repository transfer.
 
-The enforced security audit also requires sharp0.35.5 for [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). The compatible patch updates its locked platform packages and librsvg dependency without regenerating product icons.
+The enforced security audit also requires sharp 0.35.5 for [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). The compatible patch updates its locked platform packages and librsvg dependency without regenerating product icons.

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   CODEX_ACTOR_ID,
+  approvedControllerRepository,
   eligibleForAutoMerge,
   evaluateReview,
   type ReviewSnapshot,
@@ -262,5 +263,28 @@ describe('human review decisions', () => {
       submitted_at: '2026-09-06T17:10:00Z',
     })
     expect(evaluateReview(data).accepted).toBe(true)
+  })
+})
+
+describe('organization controller scope', () => {
+  it('accepts the same repository at its legacy and destination owners', () => {
+    expect(() => approvedControllerRepository()).toThrow('GITHUB_REPOSITORY')
+    expect(approvedControllerRepository('HemSoft/hs-buddy')).toBe('HemSoft/hs-buddy')
+    expect(approvedControllerRepository('hemsoft-dev/hs-buddy')).toBe('hemsoft-dev/hs-buddy')
+  })
+
+  it.each(['other/hs-buddy', 'HemSoft/other', 'hemsoft-dev/other', '', '../hs-buddy'])(
+    'rejects an unapproved repository %s',
+    repository => {
+      expect(() => approvedControllerRepository(repository)).toThrow('approved hs-buddy')
+    }
+  )
+
+  it('preserves same-repository eligibility at the destination', () => {
+    const data = snapshot()
+    data.pull.head.repo = { full_name: 'hemsoft-dev/hs-buddy' }
+    expect(eligibleForAutoMerge(data, 'hemsoft-dev/hs-buddy')).toBe(true)
+    data.pull.head.repo = { full_name: 'attacker/hs-buddy' }
+    expect(eligibleForAutoMerge(data, 'hemsoft-dev/hs-buddy')).toBe(false)
   })
 })

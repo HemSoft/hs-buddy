@@ -359,6 +359,15 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
     )
 }
 
+/// Inline notice shown above retained data after a failed refresh.
+fn stale_notice(error: &str, cx: &App) -> Div {
+    div()
+        .w_full()
+        .text_size(px(11.0))
+        .text_color(BuddyPalette::global(cx).accent_error)
+        .child(format!("Showing the last successful forecast. {error}"))
+}
+
 fn pollen_area(view: &DashboardView, cx: &mut Context<DashboardView>) -> Option<Div> {
     let palette = *BuddyPalette::global(cx);
     let header = |cx: &App| {
@@ -375,12 +384,21 @@ fn pollen_area(view: &DashboardView, cx: &mut Context<DashboardView>) -> Option<
 
     if let Some(pollen) = view.pollen() {
         let pollen = pollen.clone();
+        let stale = view.pollen_error().map(str::to_string);
         let detail = pollen_detail(&pollen, view.pollen_detail_open(), cx);
         return Some(
             v_flex()
                 .w_full()
                 .gap(px(8.0))
                 .child(header(cx))
+                .when_some(stale, |this, error| {
+                    this.child(
+                        div()
+                            .text_size(px(11.0))
+                            .text_color(palette.accent_error)
+                            .child(format!("Showing the last successful pollen data. {error}")),
+                    )
+                })
                 .child(h_flex().w_full().gap(px(10.0)).children(
                     PollenType::ALL.map(|kind| pollen_badge(kind, pollen.index_for(kind), cx)),
                 ))
@@ -458,6 +476,9 @@ pub fn render(
 
     if !expanded {
         if let Some(data) = &data {
+            if let Some(error) = view.weather_error() {
+                card = card.child(stale_notice(error, cx));
+            }
             card = card.child(collapsed_summary(data, sun, cx));
         }
         return card.into_any_element();
@@ -474,13 +495,7 @@ pub fn render(
         }
         (Some(data), error) => {
             if let Some(error) = error {
-                card = card.child(
-                    div()
-                        .w_full()
-                        .text_size(px(11.0))
-                        .text_color(BuddyPalette::global(cx).accent_error)
-                        .child(format!("Showing the last successful forecast. {error}")),
-                );
+                card = card.child(stale_notice(error, cx));
             }
             card = card.children(current_section(data, sun, cx));
             if let Some(pollen) = pollen_area(view, cx) {

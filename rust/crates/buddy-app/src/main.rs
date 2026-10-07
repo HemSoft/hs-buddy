@@ -38,7 +38,9 @@ fn initial_window_bounds(cx: &App) -> WindowBounds {
     if !on_a_display {
         return fallback();
     }
-    if state.is_maximized {
+    if state.is_full_screen {
+        WindowBounds::Fullscreen(bounds)
+    } else if state.is_maximized {
         WindowBounds::Maximized(bounds)
     } else {
         WindowBounds::Windowed(bounds)

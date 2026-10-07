@@ -109,7 +109,9 @@ impl RefreshState {
         if self.interval_minutes == 0 {
             return None;
         }
-        let at = self.last_refreshed?;
+        // The schedule runs from the last attempt, so the countdown must too;
+        // "Updated" keeps using the last success.
+        let at = self.last_attempt.or(self.last_refreshed)?;
         let period = Duration::from_secs(u64::from(self.interval_minutes) * 60);
         let remaining = period.saturating_sub(at.elapsed());
         Some(buddy_core::format::countdown(remaining.as_millis() as u64))
@@ -143,6 +145,9 @@ pub struct DashboardView {
     /// Keychain writes are serialized so the latest selection always wins.
     weather_persist_in_flight: bool,
     weather_persist_dirty: bool,
+    /// A legacy plaintext location is cleared from config only once the
+    /// keychain has accepted a value.
+    legacy_location_pending: bool,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -204,6 +209,7 @@ impl DashboardView {
             copilot_period: None,
             weather_persist_in_flight: false,
             weather_persist_dirty: false,
+            legacy_location_pending: false,
             weather_refresh: RefreshState::new(interval_for(
                 &intervals,
                 CardId::Weather,
@@ -229,7 +235,9 @@ impl DashboardView {
         if this.card_visible(CardId::Finance, cx) {
             this.load_finance(cx);
         }
-        this.load_copilot(cx);
+        if this.card_visible(CardId::CommandCenter, cx) {
+            this.load_copilot(cx);
+        }
         this.start_convex(cx);
         this.start_ticker(cx);
         this
@@ -278,7 +286,11 @@ impl DashboardView {
         {
             self.load_finance(cx);
         }
-        if config.github != self.loaded_github {
+        let command_center_visible = config.is_dashboard_card_visible(CardId::CommandCenter.key());
+        if command_center_visible
+            && (config.github != self.loaded_github
+                || (self.copilot_period.is_none() && !self.command_center.loading))
+        {
             self.load_copilot(cx);
         }
         if weather_visible && self.weather_refresh.never_attempted() {
@@ -315,6 +327,7 @@ impl DashboardView {
         let period = (now.year(), now.month());
         if matches!(self.copilot_period, Some(loaded) if loaded != period)
             && !self.command_center.loading
+            && self.card_visible(CardId::CommandCenter, cx)
         {
             self.load_copilot(cx);
         }
@@ -359,8 +372,10 @@ impl DashboardView {
         // it now so a later save cannot resurrect it over a newer choice.
         if let Some(legacy) = Settings::global(cx).config.ui.weather_location.clone() {
             self.weather_location = legacy;
+            // The plaintext copy is removed in the persist callback, only after
+            // the keychain has accepted a value; a failed write keeps it.
+            self.legacy_location_pending = true;
             self.persist_weather_location(cx);
-            Settings::update(cx, |config| config.ui.weather_location = None);
             self.start_weather_if_visible(cx);
             return;
         }
@@ -412,8 +427,15 @@ impl DashboardView {
             },
             |this, (saved, result), cx| {
                 this.weather_persist_in_flight = false;
-                if let Ok(Err(err)) = result {
-                    log::warn!("could not remember weather location: {err}");
+                match result {
+                    Ok(Ok(())) => {
+                        if this.legacy_location_pending {
+                            this.legacy_location_pending = false;
+                            Settings::update(cx, |config| config.ui.weather_location = None);
+                        }
+                    }
+                    Ok(Err(err)) => log::warn!("could not remember weather location: {err}"),
+                    Err(err) => log::warn!("keychain task failed: {err}"),
                 }
                 if this.weather_persist_dirty || saved != this.weather_location {
                     this.persist_weather_location(cx);
@@ -534,15 +556,18 @@ impl DashboardView {
         self.command_center.loading = true;
         self.copilot_generation += 1;
         let generation = self.copilot_generation;
+        // The report is for the month the request was made in, even if it
+        // completes after a rollover; the ticker then refetches.
+        let requested_at = chrono::Utc::now();
+        let period = (requested_at.year(), requested_at.month());
         self.run(
             cx,
-            async move { copilot_usage::fetch_report(&github, chrono::Utc::now()).await },
+            async move { copilot_usage::fetch_report(&github, requested_at).await },
             move |this, report, _| {
                 if generation != this.copilot_generation {
                     return;
                 }
-                let now = chrono::Utc::now();
-                this.copilot_period = Some((now.year(), now.month()));
+                this.copilot_period = Some(period);
                 for (username, error) in &report.errors {
                     log::warn!("copilot usage for {username}: {error}");
                 }
@@ -808,9 +833,15 @@ impl DashboardView {
         self.run(
             cx,
             async move { finance::fetch_quote(&http, &symbol).await },
-            |this, result, _| match result {
+            |this, result, cx| match result {
                 Ok(quote) => {
-                    if !this.quotes.iter().any(|q| q.symbol == quote.symbol) {
+                    // The symbol may have been removed again while this was in flight.
+                    let still_tracked = Settings::global(cx)
+                        .config
+                        .finance
+                        .watchlist
+                        .contains(&quote.symbol);
+                    if still_tracked && !this.quotes.iter().any(|q| q.symbol == quote.symbol) {
                         this.quotes.push(quote);
                     }
                     this.finance_error = None;

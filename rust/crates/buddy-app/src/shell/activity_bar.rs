@@ -131,7 +131,8 @@ pub fn render(app: &BuddyApp, cx: &mut Context<BuddyApp>) -> impl IntoElement + 
     let palette = *BuddyPalette::global(cx);
     let dashboard_active = app.active_section.is_none();
 
-    // Scrolls when the window is shorter than the eleven 48px items need.
+    // Scrolls when the window is shorter than the twelve 48px entries
+    // (Dashboard plus eleven sections) need.
     v_flex()
         .id("activity-bar")
         .w(px(ACTIVITY_BAR_WIDTH))

@@ -252,9 +252,12 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
   schema tolerates unknown top-level keys, so the section round-trips.
 - Window geometry is restored from Electron's `window-state.json` (same
   folder as `config.json`) when it still lands on a connected display.
-- Hidden dashboard cards never fetch; a card starts loading when it becomes
-  visible. Failed refreshes keep the last good data, flag it, and retry on the
-  normal interval.
+- Hidden Weather, Finance, and Command Center cards never fetch; a card
+  starts loading when it becomes visible. The Convex subscription stays on
+  regardless of Workspace Pulse, because the header's uptime badge uses it.
+  Failed Weather and Finance refreshes keep the last good data, flag it
+  inline, and retry on the normal interval; the Command Center replaces its
+  report on each fetch and shows per-account errors instead.
 - Verified live on 2026-10-07: Open-Meteo weather and forecast, Yahoo quotes
   for the default watchlist, `gh`-based Copilot path (no accounts configured
   on this machine, so the card shows its empty state).

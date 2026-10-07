@@ -381,6 +381,9 @@ impl DashboardView {
         }
         let visible = self.card_visible(CardId::Weather, cx);
         self.weather_refresh.loading = visible;
+        // If the user picks a location while the keychain lookup is pending,
+        // the generation moves on and the stale restore is dropped.
+        let generation = self.weather_generation;
         self.run(
             cx,
             async move {
@@ -389,7 +392,10 @@ impl DashboardView {
                     .ok()
                     .flatten()
             },
-            |this, saved, cx| {
+            move |this, saved, cx| {
+                if generation != this.weather_generation {
+                    return;
+                }
                 if let Some(location) = saved {
                     this.weather_location = location;
                 }
@@ -828,27 +834,9 @@ impl DashboardView {
         {
             return;
         }
-        Settings::update(cx, |config| config.finance.watchlist.push(symbol.clone()));
-        let http = self.http.clone();
-        self.run(
-            cx,
-            async move { finance::fetch_quote(&http, &symbol).await },
-            |this, result, cx| match result {
-                Ok(quote) => {
-                    // The symbol may have been removed again while this was in flight.
-                    let still_tracked = Settings::global(cx)
-                        .config
-                        .finance
-                        .watchlist
-                        .contains(&quote.symbol);
-                    if still_tracked && !this.quotes.iter().any(|q| q.symbol == quote.symbol) {
-                        this.quotes.push(quote);
-                    }
-                    this.finance_error = None;
-                }
-                Err(err) => this.finance_error = Some(err),
-            },
-        );
+        // Persisting the watchlist fires the Settings observer, which reloads
+        // all quotes; a separate one-off request would only race with it.
+        Settings::update(cx, |config| config.finance.watchlist.push(symbol));
         cx.notify();
     }
 

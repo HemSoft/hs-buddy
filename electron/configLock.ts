@@ -18,6 +18,10 @@
  *   crashed too; it is never removed, it is claimed the same way one level
  *   down (`claim/claim`), so no waiter ever deletes or renames anything it
  *   does not own and a live lock or claim cannot be stolen;
+ * - ownership: a holder re-checks right before writing that the lock is
+ *   still the instance it created (a process suspended longer than the
+ *   stale window has lost it) and re-acquires if not; the native side also
+ *   keeps its size+mtime stamp check, so a stolen lock cannot lose a write;
  * - release: the holder removes its marker (if any) and the directory;
  * - bounded: a writer that cannot acquire within the timeout proceeds anyway
  *   (logged), because a wedged lock must never freeze either app.
@@ -35,8 +39,12 @@
 import { mkdirSync, rmdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
-/** A holder that has not touched its lock for this long is presumed dead. */
-export const STALE_AFTER_MS = 10_000
+/**
+ * A holder that has not touched its lock for this long is presumed dead. Long
+ * enough that a process suspended for a while keeps its lock; short enough
+ * that a crashed holder costs writers only a brief spell of unlocked writes.
+ */
+export const STALE_AFTER_MS = 30_000
 /** How long a writer waits for the lock before proceeding unlocked. */
 const DEFAULT_TIMEOUT_MS = 1_000
 const POLL_MS = 10
@@ -120,22 +128,44 @@ function claimLevel(level: string, now: () => number): LevelOutcome {
   return current === null ? 'retry' : 'held'
 }
 
+/** The holder's view of its lock. */
+export interface ConfigLockHandle {
+  release: () => void
+  /** Whether the lock is still the instance this holder created or claimed. */
+  held: () => boolean
+}
+
+function handleFor(chain: string[], now: () => number): ConfigLockHandle {
+  const owned = chain[chain.length - 1]
+  const identity = observe(owned, now())?.identity
+  const held = (): boolean => {
+    const current = observe(owned, now())?.identity
+    return identity !== undefined && current !== undefined && sameInstance(current, identity)
+  }
+  return {
+    // Never remove a lock that is no longer ours (taken over while this
+    // process was suspended): that would strip the new holder's lock.
+    release: () => {
+      if (identity === undefined || held()) releaseChain(chain)
+    },
+    held,
+  }
+}
+
 /**
- * Take over a stale lock in place. Returns a release function when this
- * waiter now owns the chain, `null` when a live holder or claimer is ahead
- * (or the directory is not the stale instance observed), and `'retry'` when
- * a level vanished underneath (its owner released it).
+ * Take over a stale lock in place. Returns a handle when this waiter now
+ * owns the chain, `null` when a live holder or claimer is ahead (or the
+ * directory is not the stale instance observed), and `'retry'` when a level
+ * vanished underneath (its owner released it).
  */
-function claimStale(dir: string, now: () => number): (() => void) | null | 'retry' {
+function claimStale(dir: string, now: () => number): ConfigLockHandle | null | 'retry' {
   const chain = [dir]
   for (let depth = 0; depth < MAX_CLAIM_DEPTH; depth += 1) {
     const level = chain[chain.length - 1]
     const outcome = claimLevel(level, now)
     if (outcome === 'owned') {
       chain.push(join(level, CLAIM))
-      return () => {
-        releaseChain(chain)
-      }
+      return handleFor(chain, now)
     }
     if (outcome === 'retry') return 'retry'
     if (outcome === 'held') return null
@@ -157,8 +187,10 @@ function releaseChain(chain: string[]): void {
 
 export interface LockOptions {
   timeoutMs?: number
-  /** Injectable clock for tests. */
+  /** Injectable wall clock (for mtime comparisons) for tests. */
   now?: () => number
+  /** Injectable monotonic clock (for the deadline) for tests. */
+  monotonic?: () => number
   /** Injectable sleep for tests. */
   sleep?: (ms: number) => void
   warn?: (message: string) => void
@@ -167,6 +199,7 @@ export interface LockOptions {
 interface ResolvedOptions {
   timeoutMs: number
   now: () => number
+  monotonic: () => number
   sleep: (ms: number) => void
   warn: (message: string) => void
 }
@@ -175,6 +208,7 @@ function resolveOptions(options: LockOptions): ResolvedOptions {
   return {
     timeoutMs: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
     now: options.now ?? Date.now,
+    monotonic: options.monotonic ?? (() => performance.now()),
     sleep: options.sleep ?? sleepSync,
     warn:
       options.warn ??
@@ -185,23 +219,21 @@ function resolveOptions(options: LockOptions): ResolvedOptions {
 }
 
 /**
- * Acquire the lock for `configPath`. Returns a release function, or `null`
- * when the wait ran out and the caller should proceed unlocked.
+ * Acquire the lock for `configPath`. Returns a handle, or `null` when the
+ * wait ran out and the caller should proceed unlocked.
  */
 export function acquireConfigLock(
   configPath: string,
   options: LockOptions = {}
-): (() => void) | null {
-  const { timeoutMs, now, sleep, warn } = resolveOptions(options)
+): ConfigLockHandle | null {
+  const { timeoutMs, now, monotonic, sleep, warn } = resolveOptions(options)
   const dir = lockDirFor(configPath)
-  const deadline = now() + timeoutMs
+  // The deadline is measured on a monotonic clock: a wall clock stepping
+  // backwards must not extend the wait.
+  const deadline = monotonic() + timeoutMs
   for (;;) {
     const outcome = tryCreate(dir)
-    if (outcome === 'created') {
-      return () => {
-        removeQuietly(dir)
-      }
-    }
+    if (outcome === 'created') return handleFor([dir], now)
     if (outcome !== 'exists') {
       // No lock directory can exist here (unwritable parent, say): there is
       // nothing to coordinate on, so proceed unlocked.
@@ -212,7 +244,7 @@ export function acquireConfigLock(
     if (claimed === 'retry') continue
     if (claimed) return claimed
     // Held by a live holder or claimer: wait for it like any other lock.
-    if (now() >= deadline) {
+    if (monotonic() >= deadline) {
       warn(`[configLock] ${dir} busy for ${timeoutMs}ms; proceeding unlocked`)
       return null
     }
@@ -220,12 +252,23 @@ export function acquireConfigLock(
   }
 }
 
-/** Run `fn` while holding the config lock (or unlocked after the timeout). */
+/**
+ * Run `fn` while holding the config lock (or unlocked after the timeout).
+ * If the lock was lost between acquisition and the write (this process was
+ * suspended past the stale window), it is acquired again first.
+ */
 export function withConfigLock<T>(configPath: string, fn: () => T, options: LockOptions = {}): T {
-  const release = acquireConfigLock(configPath, options)
+  let handle = acquireConfigLock(configPath, options)
+  if (handle && !handle.held()) {
+    options.warn?.(
+      `[configLock] ${lockDirFor(configPath)} was taken over while waiting; re-acquiring`
+    )
+    handle.release()
+    handle = acquireConfigLock(configPath, options)
+  }
   try {
     return fn()
   } finally {
-    release?.()
+    handle?.release()
   }
 }

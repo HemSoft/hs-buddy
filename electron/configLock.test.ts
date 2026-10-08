@@ -37,7 +37,7 @@ describe('configLock', () => {
     const release = acquireConfigLock(configPath)
     expect(release).not.toBeNull()
     expect(existsSync(lockDir)).toBe(true)
-    release?.()
+    release?.release()
     expect(existsSync(lockDir)).toBe(false)
   })
 
@@ -49,13 +49,18 @@ describe('configLock', () => {
       clock += ms
     })
     const warn = vi.fn()
-    const second = acquireConfigLock(configPath, { timeoutMs: 100, now: () => clock, sleep, warn })
+    const second = acquireConfigLock(configPath, {
+      timeoutMs: 100,
+      monotonic: () => clock,
+      sleep,
+      warn,
+    })
     expect(second).toBeNull()
     expect(sleep).toHaveBeenCalled()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('busy for 100ms'))
     // The holder's lock is untouched by the loser.
     expect(existsSync(lockDir)).toBe(true)
-    held?.()
+    held.release()
   })
 
   it('waits in real time with the default sleep, then gives up quietly', () => {
@@ -66,7 +71,7 @@ describe('configLock', () => {
     // default no-op warning.
     expect(acquireConfigLock(configPath, { timeoutMs: 40 })).toBeNull()
     expect(Date.now() - started).toBeGreaterThanOrEqual(10)
-    held?.()
+    held.release()
   })
 })
 
@@ -82,7 +87,7 @@ describe('configLock stale takeover', () => {
     expect(sleep).not.toHaveBeenCalled()
     // Taken over in place: the same directory, now carrying the marker.
     expect(existsSync(join(lockDir, 'claim'))).toBe(true)
-    release?.()
+    release?.release()
     expect(existsSync(lockDir)).toBe(false)
   })
 
@@ -94,7 +99,7 @@ describe('configLock stale takeover', () => {
     const late = acquireConfigLock(configPath, { timeoutMs: 30, sleep: vi.fn() })
     expect(late).toBeNull()
     expect(existsSync(lockDir)).toBe(true)
-    owner?.()
+    owner?.release()
   })
 
   it('withdraws a claim when the directory is not the stale instance it observed', () => {
@@ -112,15 +117,14 @@ describe('configLock stale takeover', () => {
       }
       return Date.now()
     }
-    let clock = Date.now()
+    let mono = 0
     const release = acquireConfigLock(configPath, {
       timeoutMs: 30,
-      now: () => {
-        const t = now()
-        clock += 20
-        return Math.max(t, clock)
-      },
-      sleep: vi.fn(),
+      now,
+      monotonic: () => mono,
+      sleep: vi.fn((ms: number) => {
+        mono += ms
+      }),
     })
     // The fresh lock belongs to someone else: no takeover, timed out.
     expect(release).toBeNull()
@@ -136,7 +140,7 @@ describe('configLock stale takeover', () => {
     const sleep = vi.fn((ms: number) => {
       clock += ms
     })
-    const release = acquireConfigLock(configPath, { timeoutMs: 50, now: () => clock, sleep })
+    const release = acquireConfigLock(configPath, { timeoutMs: 50, monotonic: () => clock, sleep })
     expect(release).toBeNull()
     // No busy spin: the loser slept and respected the deadline.
     expect(sleep).toHaveBeenCalled()
@@ -156,7 +160,7 @@ describe('configLock claim chains', () => {
     expect(release).not.toBeNull()
     // Nothing of the dead claimer was removed; the takeover nested below it.
     expect(existsSync(join(lockDir, 'claim', 'claim'))).toBe(true)
-    release?.()
+    release?.release()
     expect(existsSync(lockDir)).toBe(false)
   })
 
@@ -170,7 +174,7 @@ describe('configLock claim chains', () => {
     const sleep = vi.fn((ms: number) => {
       clock += ms
     })
-    const release = acquireConfigLock(configPath, { timeoutMs: 50, now: () => clock, sleep })
+    const release = acquireConfigLock(configPath, { timeoutMs: 50, monotonic: () => clock, sleep })
     expect(release).toBeNull()
     expect(sleep).toHaveBeenCalled()
     expect(existsSync(join(lockDir, 'claim', 'claim'))).toBe(true)
@@ -187,17 +191,73 @@ describe('configLock claim chains', () => {
     }
     const release = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn(), now })
     expect(release).not.toBeNull()
-    release?.()
+    release?.release()
   })
 })
 
 describe('configLock release and fallback', () => {
   useTempConfig()
 
+  it('reports whether the lock is still the instance it created', () => {
+    const handle = acquireConfigLock(configPath)
+    expect(handle?.held()).toBe(true)
+    // Taken over while this process was suspended: released and re-created.
+    rmSync(lockDir, { recursive: true, force: true })
+    mkdirSync(lockDir)
+    expect(handle?.held()).toBe(false)
+    // Releasing must not strip the new holder's lock.
+    handle?.release()
+    expect(existsSync(lockDir)).toBe(true)
+  })
+
+  it('re-acquires before writing when the lock was lost meanwhile', () => {
+    const warn = vi.fn()
+    let reads = 0
+    const now = () => {
+      reads += 1
+      // After the handle recorded its identity (first read), replace the
+      // lock before the ownership check (second read).
+      if (reads === 2) {
+        rmSync(lockDir, { recursive: true, force: true })
+        mkdirSync(lockDir)
+        ageDir(lockDir)
+      }
+      return Date.now()
+    }
+    const ran = withConfigLock(configPath, () => existsSync(join(lockDir, 'claim')), {
+      now,
+      warn,
+      sleep: vi.fn(),
+    })
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('re-acquiring'))
+    // The replacement was stale, so the second acquisition claimed it.
+    expect(ran).toBe(true)
+    expect(existsSync(lockDir)).toBe(false)
+  })
+
+  it('measures the deadline on the monotonic clock, not wall time', () => {
+    const held = acquireConfigLock(configPath)
+    let mono = 0
+    const sleep = vi.fn((ms: number) => {
+      mono += ms
+    })
+    // Wall time runs backwards; the wait must still end after 50 ms.
+    let wall = 10_000_000
+    const release = acquireConfigLock(configPath, {
+      timeoutMs: 50,
+      now: () => (wall -= 1_000),
+      monotonic: () => mono,
+      sleep,
+    })
+    expect(release).toBeNull()
+    expect(mono).toBeGreaterThanOrEqual(50)
+    held?.release()
+  })
+
   it('tolerates releasing twice', () => {
     const release = acquireConfigLock(configPath)
-    release?.()
-    expect(() => release?.()).not.toThrow()
+    release?.release()
+    expect(() => release?.release()).not.toThrow()
     expect(existsSync(lockDir)).toBe(false)
   })
 

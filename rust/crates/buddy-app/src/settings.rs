@@ -61,6 +61,12 @@ impl Settings {
                 }
             };
             edit(&mut fresh);
+            if _lock.as_ref().is_some_and(|lock| !lock.is_held()) {
+                // Suspended past the stale window: another writer may have
+                // taken the lock; the stamp check below is what protects
+                // their write, this only explains a refused save.
+                log::warn!("config lock was taken over while editing; relying on the stamp check");
+            }
             match fresh.save_if_unchanged_at(&path, &stamp) {
                 Ok(true) => {
                     Self::install(cx, fresh);

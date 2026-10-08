@@ -17,6 +17,10 @@
 //!   that crashed too; it is never removed, it is claimed the same way one
 //!   level down (`claim/claim`), so no waiter ever deletes or renames
 //!   anything it does not own and a live lock or claim cannot be stolen;
+//! - ownership: a holder can ask whether the lock is still the instance it
+//!   created or claimed ([`ConfigLock::is_held`]); a process suspended
+//!   longer than the stale window has lost it. The caller's size+mtime
+//!   stamp check then refuses the write, so a stolen lock cannot lose one;
 //! - release: the holder removes its marker (if any) and the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
@@ -27,7 +31,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant, SystemTime};
 
 /// A holder that has not touched its lock for this long is presumed dead.
-pub const STALE_AFTER: Duration = Duration::from_secs(10);
+/// Long enough that a process suspended for a while keeps its lock; short
+/// enough that a crashed holder costs writers only a brief spell of unlocked
+/// writes.
+pub const STALE_AFTER: Duration = Duration::from_secs(30);
 /// How long a writer waits for the lock before proceeding unlocked.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(500);
 const POLL: Duration = Duration::from_millis(10);
@@ -38,6 +45,8 @@ const CLAIM: &str = "claim";
 pub struct ConfigLock {
     /// The lock directory, then each claim marker down to the one owned.
     chain: Vec<PathBuf>,
+    /// The owned level as it was when acquired.
+    identity: Option<Identity>,
 }
 
 /// Consecutive crashed claimers nest one level each; deeper than this, wait.
@@ -103,7 +112,7 @@ impl ConfigLock {
         let deadline = Instant::now() + timeout;
         loop {
             match std::fs::create_dir(&dir) {
-                Ok(()) => return Ok(Some(Self { chain: vec![dir] })),
+                Ok(()) => return Ok(Some(Self::owned(vec![dir]))),
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                     match claim_stale(&dir) {
                         Claim::Owned(lock) => return Ok(Some(lock)),
@@ -148,7 +157,7 @@ fn claim_stale(dir: &Path) -> Claim {
                 return match observe(&level) {
                     Some(current) if current.identity == seen.identity => {
                         chain.push(marker);
-                        Claim::Owned(ConfigLock { chain })
+                        Claim::Owned(ConfigLock::owned(chain))
                     }
                     Some(_) => {
                         let _ = std::fs::remove_dir(&marker);
@@ -172,10 +181,32 @@ fn claim_stale(dir: &Path) -> Claim {
     Claim::Held
 }
 
+impl ConfigLock {
+    fn owned(chain: Vec<PathBuf>) -> Self {
+        let identity = chain.last().and_then(|p| observe(p)).map(|o| o.identity);
+        Self { chain, identity }
+    }
+
+    /// Whether the lock is still the instance this holder created or
+    /// claimed. False once a waiter took it over (this process was suspended
+    /// past the stale window) or it vanished.
+    pub fn is_held(&self) -> bool {
+        match (&self.identity, self.chain.last().and_then(|p| observe(p))) {
+            (Some(mine), Some(current)) => current.identity == *mine,
+            _ => false,
+        }
+    }
+}
+
 impl Drop for ConfigLock {
     /// Remove the chain deepest first; stop at the first level that is not
     /// empty (a later claimer nested below after this lock went stale).
+    /// A lock that is no longer ours (taken over while this process was
+    /// suspended) is left alone: removing it would strip the new holder.
     fn drop(&mut self) {
+        if self.identity.is_some() && !self.is_held() {
+            return;
+        }
         for level in self.chain.iter().rev() {
             if std::fs::remove_dir(level).is_err() {
                 return;
@@ -349,6 +380,26 @@ mod tests {
         let config = temp_config("vanished");
         let dir = lock_dir(&config);
         assert!(matches!(claim_stale(&dir), Claim::Retry));
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn reports_whether_the_lock_is_still_the_instance_created() {
+        let config = temp_config("held-check");
+        let dir = lock_dir(&config);
+        let guard = ConfigLock::acquire(&config, DEFAULT_TIMEOUT)
+            .unwrap()
+            .unwrap();
+        assert!(guard.is_held());
+        // Taken over while this process was suspended: released, re-created.
+        std::fs::remove_dir(&dir).unwrap();
+        std::fs::create_dir(&dir).unwrap();
+        assert!(!guard.is_held());
+        drop(guard);
+        assert!(
+            dir.is_dir(),
+            "releasing must not strip the new holder's lock"
+        );
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

@@ -1,6 +1,6 @@
 //! The loaded configuration as a GPUI global, shared by the shell and views.
 
-use buddy_core::config::AppConfig;
+use buddy_core::config::{AppConfig, UiConfig};
 use gpui_kit::{App, Global};
 
 pub struct Settings {
@@ -39,7 +39,17 @@ impl Settings {
             edit(&mut fresh);
             match fresh.save_if_unchanged(&stamp) {
                 Ok(true) => {
+                    // The reload may have merged appearance changes Electron
+                    // made meanwhile; the GPUI theme is derived state and has
+                    // to follow, as it does on Reload Configuration.
+                    let appearance_changed =
+                        appearance_differs(&cx.global::<Self>().config.ui, &fresh.ui);
                     cx.global_mut::<Self>().config = fresh;
+                    if appearance_changed {
+                        let config = cx.global::<Self>().config.clone();
+                        crate::theme::install(&config, cx);
+                        cx.refresh_windows();
+                    }
                     return true;
                 }
                 Ok(false) if attempt < ATTEMPTS => {
@@ -74,4 +84,17 @@ impl Settings {
     pub fn replace(cx: &mut App, config: AppConfig) {
         cx.global_mut::<Self>().config = config;
     }
+}
+
+/// The `ui` fields `theme::install` reads.
+fn appearance_differs(a: &UiConfig, b: &UiConfig) -> bool {
+    a.theme != b.theme
+        || a.accent_color != b.accent_color
+        || a.bg_primary != b.bg_primary
+        || a.bg_secondary != b.bg_secondary
+        || a.font_color != b.font_color
+        || a.font_family != b.font_family
+        || a.mono_font_family != b.mono_font_family
+        || a.status_bar_bg != b.status_bar_bg
+        || a.status_bar_fg != b.status_bar_fg
 }

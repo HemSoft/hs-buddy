@@ -883,13 +883,16 @@ impl DashboardView {
     }
 
     pub fn set_weather_interval(&mut self, minutes: u32, cx: &mut Context<Self>) {
-        self.weather_refresh.interval_minutes = minutes;
-        Settings::update(cx, |config| {
+        // Applied only once saved; the dropdown must not show an interval a
+        // restart would undo (the observer also re-derives it from disk).
+        if Settings::update(cx, |config| {
             config
                 .native
                 .auto_refresh
                 .insert(CardId::Weather.key().to_string(), minutes);
-        });
+        }) {
+            self.weather_refresh.interval_minutes = minutes;
+        }
         cx.notify();
     }
 
@@ -984,13 +987,14 @@ impl DashboardView {
     }
 
     pub fn set_finance_interval(&mut self, minutes: u32, cx: &mut Context<Self>) {
-        self.finance_refresh.interval_minutes = minutes;
-        Settings::update(cx, |config| {
+        if Settings::update(cx, |config| {
             config
                 .native
                 .auto_refresh
                 .insert(CardId::Finance.key().to_string(), minutes);
-        });
+        }) {
+            self.finance_refresh.interval_minutes = minutes;
+        }
         cx.notify();
     }
 
@@ -1000,15 +1004,18 @@ impl DashboardView {
         if !finance::is_valid_symbol(&symbol) {
             return;
         }
-        self.finance_add
-            .update(cx, |state, cx| state.set_value("", window, cx));
         // Compared normalized, so a raw ` aapl ` entry already counts as AAPL.
-        if self.watchlist(cx).contains(&symbol) {
-            return;
-        }
+        let already_tracked = self.watchlist(cx).contains(&symbol);
         // Persisting the watchlist fires the Settings observer, which reloads
         // all quotes; a separate one-off request would only race with it.
-        Settings::update(cx, |config| config.finance.watchlist.push(symbol.clone()));
+        let saved = already_tracked
+            || Settings::update(cx, |config| config.finance.watchlist.push(symbol.clone()));
+        // The field is cleared only when the entry is tracked; a failed save
+        // leaves it in place for another try.
+        if saved {
+            self.finance_add
+                .update(cx, |state, cx| state.set_value("", window, cx));
+        }
         cx.notify();
     }
 

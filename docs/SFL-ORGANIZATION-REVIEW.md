@@ -34,3 +34,9 @@ A third request cannot bypass an unresolved second request on the same head. Wai
 This change verifies the rc28 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
 
 The rc28 observer authenticates exact current requests and trusted review context before admitting registry-free marker runs. It retains verified active-run request identity across later edits, deletion or access loss; ordinary marker quotations cannot block another valid result. Publication repair preserves the primary API failure while restoring a blocking gate. Installed and live validation remain separate.
+
+## Review request verification after the organization move
+
+Use `gh sfl review --repo hemsoft-dev/hs-buddy --pr <number>` to register one review for the current head and base. The installed observer verifies the unchanged request, its author access, and the Actions context before admitting it. Wait for that request to finish before requesting another review on the same head.
+
+The signed 2.1.0-rc.28 observer is installed on main. This documentation change checks its real Actions execution separately from the installed workflow failure scenarios. The manual Auditor and Dispatcher remain consumer owned.

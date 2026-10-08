@@ -1,0 +1,98 @@
+name: Rust
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+      # build.rs embeds the version from package.json; a release bump must
+      # produce native binaries too.
+      - "package.json"
+  pull_request:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+      - "package.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: rust
+
+jobs:
+  check:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-2025, macos-15]
+    env:
+      CARGO_TERM_COLOR: always
+      CARGO_BUILD_JOBS: 4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Linux build dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake clang pkg-config mold \
+            libxkbcommon-dev libxkbcommon-x11-dev libwayland-dev libvulkan-dev \
+            libxcb1-dev libxcb-xkb-dev libfontconfig1-dev libasound2-dev \
+            libssl-dev libdbus-1-dev
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable, 2026-10-07
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: rust
+
+      - name: Format
+        run: cargo fmt --all --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      # Advisory, license and source gate for the Rust dependency graph
+      # (policy in rust/deny.toml). Once per run is enough.
+      - name: Dependency audit (cargo-deny)
+        if: runner.os == 'Linux'
+        uses: EmbarkStudios/cargo-deny-action@3c6349835b2b7b196a839186cb8b78e02f7b5f25 # v2.1.1
+        with:
+          manifest-path: rust/Cargo.toml
+          command: check
+          rust-version: stable
+
+      - name: Build (release)
+        run: cargo build --release -p buddy-app
+
+      # upload-artifact drops file modes; a tar archive keeps the executable bit.
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        # Runs in `rust/`; the archive goes to the workspace root for upload.
+        run: tar -czf "$GITHUB_WORKSPACE/buddy-${{ matrix.os }}.tar.gz" -C target/release buddy
+      - name: Upload binary
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: buddy-${{ matrix.os }}
+          path: |
+            buddy-${{ matrix.os }}.tar.gz
+            rust/target/release/buddy.exe
+          if-no-files-found: ignore

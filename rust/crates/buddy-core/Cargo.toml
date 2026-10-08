@@ -1,0 +1,30 @@
+[package]
+name = "buddy-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Buddy domain models, configuration, and data providers (no UI)"
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+log.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+convex.workspace = true
+keyring.workspace = true
+futures.workspace = true
+chrono.workspace = true
+sys-locale = "0.3"
+icu_decimal = "2"
+fixed_decimal = { version = "0.7", features = ["ryu"] }
+icu_locale_core = "2"
+icu_experimental = "0.6"
+icu_datetime = "2"
+icu_calendar = "2"
+icu_time = "2"
+
+[dev-dependencies]
+env_logger = "0.11"

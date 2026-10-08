@@ -1,0 +1,17 @@
+//! Buddy core: configuration, domain models, and data providers.
+//!
+//! This crate has no UI dependencies so its logic can be unit-tested quickly
+//! and shared by any front end.
+
+pub mod config;
+pub mod convex_data;
+pub mod copilot_usage;
+pub mod dashboard;
+pub mod finance;
+pub mod format;
+pub mod gh;
+pub mod http;
+pub mod pollen;
+pub mod secrets;
+pub mod stats;
+pub mod weather;

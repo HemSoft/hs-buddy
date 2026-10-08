@@ -45,8 +45,11 @@ const CLAIM: &str = "claim";
 pub struct ConfigLock {
     /// The lock directory, then each claim marker down to the one owned.
     chain: Vec<PathBuf>,
-    /// The owned level as it was when acquired.
-    identity: Option<Identity>,
+    /// The owned level as it was when acquired: its instance identity and
+    /// its mtime, which only changes when someone nests a claim inside it.
+    /// Windows reuses a recreated directory's creation time for a while
+    /// (tunnelling), so the mtime is what tells a recreated lock apart there.
+    owned: Option<(Identity, Option<SystemTime>)>,
 }
 
 /// Consecutive crashed claimers nest one level each; deeper than this, wait.
@@ -82,14 +85,14 @@ struct Identity {
 
 struct Observation {
     identity: Identity,
+    modified: Option<SystemTime>,
     stale: bool,
 }
 
 fn observe(dir: &Path) -> Option<Observation> {
     let meta = std::fs::metadata(dir).ok()?;
-    let stale = meta
-        .modified()
-        .ok()
+    let modified = meta.modified().ok();
+    let stale = modified
         .and_then(|m| m.elapsed().ok())
         .is_some_and(|age| age > STALE_AFTER);
     Some(Observation {
@@ -98,6 +101,7 @@ fn observe(dir: &Path) -> Option<Observation> {
             ino: std::os::unix::fs::MetadataExt::ino(&meta),
             created: meta.created().ok(),
         },
+        modified,
         stale,
     })
 }
@@ -183,21 +187,30 @@ fn claim_stale(dir: &Path) -> Claim {
 
 impl ConfigLock {
     fn owned(chain: Vec<PathBuf>) -> Self {
-        let identity = chain.last().and_then(|p| observe(p)).map(|o| o.identity);
-        Self { chain, identity }
+        let owned = chain
+            .last()
+            .and_then(|p| observe(p))
+            .map(|o| (o.identity, o.modified));
+        Self { chain, owned }
     }
 
     /// Whether the lock is still the instance this holder created or
     /// claimed. False once a waiter took it over (this process was suspended
     /// past the stale window) or it vanished.
     pub fn is_held(&self) -> bool {
-        let Some(owned) = self.chain.last() else {
+        let Some(path) = self.chain.last() else {
             return false;
         };
-        match (&self.identity, observe(owned)) {
+        match (&self.owned, observe(path)) {
             // A takeover leaves the directory in place and nests a marker
-            // inside it.
-            (Some(mine), Some(current)) => current.identity == *mine && !owned.join(CLAIM).exists(),
+            // inside it, which also changes its mtime; a released and
+            // recreated directory has a new mtime even where the creation
+            // time was tunnelled.
+            (Some((identity, modified)), Some(current)) => {
+                current.identity == *identity
+                    && current.modified == *modified
+                    && !path.join(CLAIM).exists()
+            }
             _ => false,
         }
     }
@@ -209,7 +222,7 @@ impl Drop for ConfigLock {
     /// A lock that is no longer ours (taken over while this process was
     /// suspended) is left alone: removing it would strip the new holder.
     fn drop(&mut self) {
-        if self.identity.is_some() && !self.is_held() {
+        if self.owned.is_some() && !self.is_held() {
             return;
         }
         for level in self.chain.iter().rev() {

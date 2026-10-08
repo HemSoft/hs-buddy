@@ -61,6 +61,7 @@ interface Identity {
 
 interface Observation {
   identity: Identity
+  mtimeMs: number
   stale: boolean
 }
 
@@ -69,6 +70,7 @@ function observe(dir: string, now: number): Observation | null {
     const stat = statSync(dir)
     return {
       identity: { ino: stat.ino, birthtimeMs: stat.birthtimeMs },
+      mtimeMs: stat.mtimeMs,
       stale: now - stat.mtimeMs > STALE_AFTER_MS,
     }
   } catch (_: unknown) {
@@ -161,10 +163,19 @@ export interface ConfigLockHandle {
 
 function handleFor(chain: string[], now: () => number): ConfigLockHandle {
   const owned = chain[chain.length - 1]
-  const identity = observe(owned, now())?.identity
+  // The owned level as it was when acquired: its instance identity and its
+  // mtime, which only changes when someone nests a claim inside it. Windows
+  // reuses a recreated directory's creation time for a while (tunnelling),
+  // so the mtime is what tells a recreated lock apart there.
+  const acquired = observe(owned, now())
   const held = (): boolean => {
-    const current = observe(owned, now())?.identity
-    if (identity === undefined || current === undefined || !sameInstance(current, identity)) {
+    const current = observe(owned, now())
+    if (
+      acquired === null ||
+      current === null ||
+      !sameInstance(current.identity, acquired.identity) ||
+      current.mtimeMs !== acquired.mtimeMs
+    ) {
       return false
     }
     // A takeover leaves the directory in place and nests a marker inside it.
@@ -174,7 +185,7 @@ function handleFor(chain: string[], now: () => number): ConfigLockHandle {
     // Never remove a lock that is no longer ours (taken over while this
     // process was suspended): that would strip the new holder's lock.
     release: () => {
-      if (identity === undefined || held()) releaseChain(chain)
+      if (acquired === null || held()) releaseChain(chain)
     },
     held,
   }

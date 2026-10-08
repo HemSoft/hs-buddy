@@ -449,29 +449,32 @@ class ConfigManager {
 
   // Migration helper from environment variables
   migrateFromEnv(): void {
-    // Check if we already have accounts - don't overwrite
-    if (this.getGitHubAccounts().length > 0) {
-      console.log('[ConfigManager] GitHub accounts already configured, skipping migration')
-      return
-    }
-
     // Try to read the .env file pattern (legacy support)
     const username = process.env.VITE_GITHUB_USERNAME
     const org = process.env.VITE_GITHUB_ORG
 
-    if (username && org) {
+    // Decide and write under one lock: two instances starting together must
+    // not both see an empty list and then race to add the same account.
+    const migrated = this.locked(() => {
+      // Check if we already have accounts - don't overwrite
+      if (this.getGitHubAccounts().length > 0) {
+        console.log('[ConfigManager] GitHub accounts already configured, skipping migration')
+        return false
+      }
+      if (!username || !org) {
+        console.log('[ConfigManager] No environment variables found for migration')
+        console.log('[ConfigManager] Add accounts manually through Settings or edit config.json')
+        return false
+      }
       console.log('[ConfigManager] Migrating from environment variables...')
-      this.addGitHubAccount({
-        username,
-        org,
-      })
+      this.write('github.accounts', [{ username, org }])
+      return true
+    })
+    if (migrated) {
       console.log('[ConfigManager] Migration complete - now using GitHub CLI authentication')
       console.log(
         '[ConfigManager] You can remove VITE_GITHUB_USERNAME and VITE_GITHUB_ORG from .env (no longer needed)'
       )
-    } else {
-      console.log('[ConfigManager] No environment variables found for migration')
-      console.log('[ConfigManager] Add accounts manually through Settings or edit config.json')
     }
   }
 

@@ -519,6 +519,14 @@ describe('config', () => {
       expect(accounts).toEqual([{ username: 'envuser', org: 'envorg' }])
     })
 
+    it('keeps the account another instance migrated first, without a duplicate', () => {
+      vi.stubEnv('VITE_GITHUB_USERNAME', 'envuser')
+      vi.stubEnv('VITE_GITHUB_ORG', 'envorg')
+      configManager.addGitHubAccount({ username: 'envuser', org: 'envorg' })
+      expect(() => configManager.migrateFromEnv()).not.toThrow()
+      expect(configManager.getGitHubAccounts()).toEqual([{ username: 'envuser', org: 'envorg' }])
+    })
+
     it('handles missing env vars gracefully', () => {
       vi.stubEnv('VITE_GITHUB_USERNAME', '')
       vi.stubEnv('VITE_GITHUB_ORG', '')

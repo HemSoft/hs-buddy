@@ -89,18 +89,16 @@ struct Identity {
 struct Observation {
     identity: Identity,
     stale: bool,
+    /// Dated past the window into the future: written before a clock set-back.
+    future: bool,
 }
 
 fn observe(dir: &Path) -> Option<Observation> {
     let meta = std::fs::metadata(dir).ok()?;
-    // A marker dated in the future (written before the clock was set back)
-    // is just as abandoned as one far in the past.
-    let stale = meta.modified().ok().is_some_and(|modified| {
-        let skew = SystemTime::now()
-            .duration_since(modified)
-            .unwrap_or_else(|future| future.duration());
-        skew > STALE_AFTER
-    });
+    let modified = meta.modified().ok();
+    let now = SystemTime::now();
+    let stale = modified.is_some_and(|m| now.duration_since(m).is_ok_and(|age| age > STALE_AFTER));
+    let future = modified.is_some_and(|m| m.duration_since(now).is_ok_and(|by| by > STALE_AFTER));
     Some(Observation {
         identity: Identity {
             #[cfg(unix)]
@@ -108,7 +106,35 @@ fn observe(dir: &Path) -> Option<Observation> {
             created: meta.created().ok(),
         },
         stale,
+        future,
     })
+}
+
+/// Open `dir` so that its timestamps can be changed.
+fn open_for_timestamps(dir: &Path) -> std::io::Result<std::fs::File> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // A directory handle needs backup semantics to open at all and
+        // write-attributes access for `set_modified` to succeed.
+        const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+        const FILE_READ_ATTRIBUTES: u32 = 0x0080;
+        const FILE_WRITE_ATTRIBUTES: u32 = 0x0100;
+        std::fs::OpenOptions::new()
+            .access_mode(FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+            .open(dir)
+    }
+    #[cfg(not(windows))]
+    std::fs::File::open(dir)
+}
+
+/// Re-date a level written before the clock was set back, so its age can
+/// be judged again from now on.
+fn redate(level: &Path) {
+    if let Ok(file) = open_for_timestamps(level) {
+        let _ = file.set_modified(SystemTime::now());
+    }
 }
 
 fn read_owner(level: &Path) -> Option<String> {
@@ -180,6 +206,14 @@ fn claim_stale(dir: &Path) -> Claim {
         let Some(seen) = observe(&level) else {
             return Claim::Retry;
         };
+        if seen.future {
+            // Written before the clock was set back, so its age cannot be
+            // judged: re-date it to now and wait. A live owner keeps it (its
+            // token is untouched); an abandoned one goes stale after the
+            // window as usual.
+            redate(&level);
+            return Claim::Held;
+        }
         if !seen.stale {
             return Claim::Held;
         }
@@ -288,18 +322,21 @@ impl ConfigLock {
 }
 
 impl Drop for ConfigLock {
-    /// Remove the chain deepest first: the owned level's token and
-    /// directory, then each dead claimer's level above it. Stop at the first
-    /// level that is not empty (a later claimer nested below it after this
-    /// lock went stale). A lock that is no longer ours (taken over while
-    /// this process was suspended) is left alone: removing it would strip
-    /// the new holder.
+    /// Release the chain. The displaced owners above the owned level lose
+    /// their tokens first, so none of them can read its token back as
+    /// ownership once the claim marker that displaced it is gone. Then the
+    /// levels are removed deepest first; stop at the first level that is
+    /// not empty (a later claimer nested below it after this lock went
+    /// stale). A lock that is no longer ours (taken over while this process
+    /// was suspended) is left alone: removing it would strip the new holder.
     fn drop(&mut self) {
         if self.token.is_some() && !self.is_held() {
             return;
         }
-        for level in self.chain.iter().rev() {
+        for level in &self.chain {
             let _ = std::fs::remove_file(level.join(OWNER));
+        }
+        for level in self.chain.iter().rev() {
             if std::fs::remove_dir(level).is_err() {
                 return;
             }
@@ -326,24 +363,10 @@ mod tests {
 
     /// Date `dir` at `at`, which may lie in the future.
     fn touch_dir(dir: &Path, at: SystemTime) {
-        #[cfg(windows)]
-        let file = {
-            use std::os::windows::fs::OpenOptionsExt as _;
-            // A directory handle needs backup semantics to open at all and
-            // write-attributes access for `set_modified` to succeed.
-            const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
-            const FILE_READ_ATTRIBUTES: u32 = 0x0080;
-            const FILE_WRITE_ATTRIBUTES: u32 = 0x0100;
-            std::fs::OpenOptions::new()
-                .access_mode(FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES)
-                .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
-                .open(dir)
-                .expect("open the directory with backup semantics")
-        };
-        #[cfg(not(windows))]
-        let file = std::fs::File::open(dir).expect("open the directory");
-        file.set_modified(at)
-            .expect("set the lock's mtime into the past");
+        open_for_timestamps(dir)
+            .expect("open the directory for its timestamps")
+            .set_modified(at)
+            .expect("set the lock's mtime");
     }
 
     #[test]
@@ -620,7 +643,7 @@ mod tests {
     }
 
     #[test]
-    fn a_lock_dated_in_the_future_is_stale() {
+    fn a_lock_from_the_future_is_redated_not_stolen() {
         let config = temp_config("future");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
@@ -630,13 +653,41 @@ mod tests {
             SystemTime::now() + STALE_AFTER + Duration::from_secs(60),
         );
         let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(guard.is_none(), "a live owner keeps a future-dated lock");
+        let modified = std::fs::metadata(&dir).unwrap().modified().unwrap();
         assert!(
-            guard.is_some(),
-            "a future-dated lock must not block forever"
+            SystemTime::now().duration_since(modified).unwrap() < Duration::from_secs(5),
+            "the lock is re-dated to now"
         );
-        assert!(guard.as_ref().unwrap().is_held());
-        drop(guard);
+        // Abandoned after all: it goes stale after the window as usual.
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(guard.is_some_and(|g| g.is_held()));
         assert!(!dir.exists());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_displaced_owner_is_invalidated_before_its_marker_is_removed() {
+        let config = temp_config("displaced");
+        let dir = lock_dir(&config);
+        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT)
+            .unwrap()
+            .unwrap();
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let second = ConfigLock::acquire(&config, Duration::from_millis(200))
+            .unwrap()
+            .unwrap();
+        assert!(second.is_held());
+        // Something keeps the claim marker from being removed, so the
+        // release stops there; the displaced owner's token must be gone.
+        std::fs::write(dir.join(CLAIM).join("stray"), b"").unwrap();
+        drop(second);
+        assert!(dir.join(CLAIM).is_dir());
+        assert!(!dir.join(OWNER).exists());
+        assert!(!first.is_held());
+        drop(first);
+        assert!(dir.join(CLAIM).is_dir(), "a lost lock is not released");
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

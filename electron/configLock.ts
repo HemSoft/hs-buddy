@@ -49,6 +49,7 @@ import {
   rmdirSync,
   statSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -79,8 +80,9 @@ interface Identity {
 
 interface Observation {
   identity: Identity
-  mtimeMs: number
   stale: boolean
+  /** Dated past the window into the future: written before a clock set-back. */
+  future: boolean
 }
 
 function observe(dir: string, now: number): Observation | null {
@@ -88,14 +90,20 @@ function observe(dir: string, now: number): Observation | null {
     const stat = statSync(dir)
     return {
       identity: { ino: stat.ino, birthtimeMs: stat.birthtimeMs },
-      mtimeMs: stat.mtimeMs,
-      // A marker dated in the future (written before the clock was set
-      // back) is just as abandoned as one far in the past.
-      stale: Math.abs(now - stat.mtimeMs) > STALE_AFTER_MS,
+      stale: now - stat.mtimeMs > STALE_AFTER_MS,
+      future: stat.mtimeMs - now > STALE_AFTER_MS,
     }
   } catch (_: unknown) {
     // Vanished between EEXIST and stat: the holder released it.
     return null
+  }
+}
+
+function redate(level: string, now: number): void {
+  try {
+    utimesSync(level, now / 1000, now / 1000)
+  } catch (_: unknown) {
+    /* vanished; observed again on the next poll */
   }
 }
 
@@ -183,6 +191,13 @@ type LevelOutcome = 'owned' | 'held' | 'retry' | 'descend'
 function claimLevel(level: string, now: () => number): LevelOutcome {
   const seen = observe(level, now())
   if (seen === null) return 'retry'
+  if (seen.future) {
+    // Written before the clock was set back, so its age cannot be judged:
+    // re-date it to now and wait. A live owner keeps it (its token is
+    // untouched); an abandoned one goes stale after the window as usual.
+    redate(level, now())
+    return 'held'
+  }
   if (!seen.stale) return 'held'
   const seenOwner = readOwner(level)
   const outcome = tryCreate(join(level, CLAIM))
@@ -191,19 +206,25 @@ function claimLevel(level: string, now: () => number): LevelOutcome {
   if (outcome === 'exists') return 'descend'
   if (outcome !== 'created') return 'held'
   // Creating the marker refreshed the level's mtime, so other waiters now
-  // see it fresh; keep it only if the level is still the instance observed:
-  // same inode and birth time, and the same owner token (a released and
-  // recreated level carries a different token, or none yet).
+  // see it fresh; keep it only if the level is still the instance observed.
   const current = observe(level, now())
-  if (
-    current !== null &&
-    sameInstance(current.identity, seen.identity) &&
-    readOwner(level) === seenOwner
-  ) {
-    return 'owned'
-  }
+  if (current !== null && stillObserved(level, current, seen, seenOwner)) return 'owned'
   removeQuietly(join(level, CLAIM))
   return current === null ? 'retry' : 'held'
+}
+
+/**
+ * Whether `level` is still the instance observed before claiming it: same
+ * inode and birth time, and the same owner token (a released and recreated
+ * level carries a different token, or none yet).
+ */
+function stillObserved(
+  level: string,
+  current: Observation,
+  seen: Observation,
+  seenOwner: string | null
+): boolean {
+  return sameInstance(current.identity, seen.identity) && readOwner(level) === seenOwner
 }
 
 /** The holder's view of its lock. */
@@ -256,7 +277,14 @@ function claimStale(dir: string, now: () => number): ConfigLockHandle | null | '
 
 /** Remove stale moved-aside markers left in `parent` by a crashed recoverer. */
 function sweepLeftovers(parent: string, now: () => number): void {
-  for (const entry of readdirSync(parent)) {
+  let entries: string[]
+  try {
+    entries = readdirSync(parent)
+  } catch (_: unknown) {
+    // The chain was released meanwhile; acquisition starts over.
+    return
+  }
+  for (const entry of entries) {
     const leftover = join(parent, entry)
     if (entry.startsWith(DEAD) && observe(leftover, now())?.stale) {
       rmSync(leftover, { recursive: true, force: true })
@@ -294,19 +322,26 @@ function dropDeadMarker(path: string, now: () => number): void {
   }
 }
 
+function unlinkQuietly(path: string): void {
+  try {
+    unlinkSync(path)
+  } catch (_: unknown) {
+    /* already gone */
+  }
+}
+
 /**
- * Remove the chain deepest first: the owned level's token file and
- * directory, then each dead claimer's level above it (its token file and
- * directory). Stop at the first level that is not empty, which means a
- * later claimer nested below it after this lock went stale.
+ * Release the chain. The displaced owners above the owned level lose their
+ * tokens first, so none of them can read its token back as ownership once
+ * the claim marker that displaced it is gone. Then the levels are removed
+ * deepest first: the owned level's token and directory, then each dead
+ * claimer's directory above it. Stop at the first level that is not empty,
+ * which means a later claimer nested below it after this lock went stale.
  */
 function releaseChain(chain: string[]): void {
+  for (let i = 0; i < chain.length - 1; i += 1) unlinkQuietly(join(chain[i], OWNER))
+  unlinkQuietly(join(chain[chain.length - 1], OWNER))
   for (let i = chain.length - 1; i >= 0; i -= 1) {
-    try {
-      unlinkSync(join(chain[i], OWNER))
-    } catch (_: unknown) {
-      /* no token at this level */
-    }
     try {
       rmdirSync(chain[i])
     } catch (_: unknown) {

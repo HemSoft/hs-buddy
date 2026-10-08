@@ -18,6 +18,7 @@ import { STALE_AFTER_MS, acquireConfigLock, lockDirFor, withConfigLock } from '.
 const hooks = vi.hoisted(() => ({
   existsSync: null as ((path: string) => boolean) | null,
   renameSync: null as ((from: string, to: string) => void) | null,
+  readdirSync: null as ((path: string) => void) | null,
 }))
 
 vi.mock('node:fs', async importOriginal => {
@@ -29,6 +30,10 @@ vi.mock('node:fs', async importOriginal => {
     renameSync: (from: Parameters<typeof actual.renameSync>[0], to: string) => {
       hooks.renameSync?.(String(from), to)
       actual.renameSync(from, to)
+    },
+    readdirSync: (path: Parameters<typeof actual.readdirSync>[0]) => {
+      hooks.readdirSync?.(String(path))
+      return actual.readdirSync(path)
     },
   }
 })
@@ -52,6 +57,23 @@ function useTempConfig(): void {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true })
   })
+}
+
+/** Nest `levels` claim markers under the lock dir, as crashed claimers leave. */
+function buildDeadChain(levels: number): void {
+  let level = lockDir
+  for (let depth = 0; depth < levels; depth += 1) {
+    mkdirSync(level)
+    level = join(level, 'claim')
+  }
+}
+
+function ageDeadChain(levels: number): void {
+  let level = lockDir
+  for (let depth = 0; depth < levels; depth += 1) {
+    ageDir(level)
+    level = join(level, 'claim')
+  }
 }
 
 describe('configLock', () => {
@@ -379,6 +401,22 @@ describe('configLock recovery', () => {
 describe('configLock lost ownership', () => {
   useTempConfig()
 
+  it('invalidates the displaced owner before removing the claim that displaced it', () => {
+    const first = acquireConfigLock(configPath)
+    ageDir(lockDir)
+    const second = acquireConfigLock(configPath, { timeoutMs: 50, sleep: vi.fn() })
+    expect(second?.held()).toBe(true)
+    // Something keeps the claim marker from being removed, so the release
+    // stops there; the displaced owner's token must already be gone.
+    writeFileSync(join(lockDir, 'claim', 'stray'), '')
+    second?.release()
+    expect(existsSync(join(lockDir, 'claim'))).toBe(true)
+    expect(existsSync(join(lockDir, 'owner'))).toBe(false)
+    expect(first?.held()).toBe(false)
+    first?.release()
+    expect(existsSync(join(lockDir, 'claim'))).toBe(true)
+  })
+
   it('treats a nested claim as lost ownership', () => {
     const first = acquireConfigLock(configPath)
     expect(first?.held()).toBe(true)
@@ -401,16 +439,8 @@ describe('configLock dead chains', () => {
 
   it('recovers a chain that reached the depth limit', () => {
     // Eight successive claimers crashed, each owning a deeper stale marker.
-    let level = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      mkdirSync(level)
-      level = join(level, 'claim')
-    }
-    let walk = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      ageDir(walk)
-      walk = join(walk, 'claim')
-    }
+    buildDeadChain(9)
+    ageDeadChain(9)
     // Dropping the deepest marker refreshes its parent, so the next attempt
     // claims it once the stale window has passed again.
     let wall = Date.now()
@@ -425,16 +455,8 @@ describe('configLock dead chains', () => {
   })
 
   it('never deletes a marker recreated under the dead one it observed', () => {
-    let level = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      mkdirSync(level)
-      level = join(level, 'claim')
-    }
-    let walk = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      ageDir(walk)
-      walk = join(walk, 'claim')
-    }
+    buildDeadChain(9)
+    ageDeadChain(9)
     const deepest = join(lockDir, ...Array<string>(8).fill('claim'))
     // Between observing the dead marker and moving it aside, another
     // writer replaces it with its own fresh claim.
@@ -451,18 +473,10 @@ describe('configLock dead chains', () => {
   })
 
   it('sweeps stale leftovers of a recoverer that crashed mid-way', () => {
-    let level = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      mkdirSync(level)
-      level = join(level, 'claim')
-    }
+    buildDeadChain(9)
     const parent = join(lockDir, ...Array<string>(7).fill('claim'))
     mkdirSync(join(parent, 'dead-leftover'))
-    let walk = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      ageDir(walk)
-      walk = join(walk, 'claim')
-    }
+    ageDeadChain(9)
     ageDir(join(parent, 'dead-leftover'))
     let wall = Date.now()
     const sleep = vi.fn(() => {
@@ -474,11 +488,41 @@ describe('configLock dead chains', () => {
     expect(existsSync(lockDir)).toBe(false)
   })
 
-  it('treats a lock dated in the future as stale', () => {
+  it('returns to acquisition when the chain vanishes during the leftover sweep', () => {
+    buildDeadChain(9)
+    ageDeadChain(9)
+    // Another waiter recovered and released the whole chain meanwhile.
+    hooks.readdirSync = () => {
+      hooks.readdirSync = null
+      rmSync(lockDir, { recursive: true, force: true })
+    }
+    const handle = acquireConfigLock(configPath, { timeoutMs: 50, sleep: vi.fn() })
+    expect(handle?.held()).toBe(true)
+    handle?.release()
+  })
+})
+
+describe('configLock clock set-back', () => {
+  useTempConfig()
+
+  it('re-dates a lock from the future instead of stealing it', () => {
     mkdirSync(lockDir)
     // The holder wrote it before the clock was set back past the window.
-    const now = () => Date.now() - STALE_AFTER_MS - 5_000
-    const handle = acquireConfigLock(configPath, { timeoutMs: 50, now, sleep: vi.fn() })
+    const ahead = (Date.now() + STALE_AFTER_MS + 60_000) / 1000
+    utimesSync(lockDir, ahead, ahead)
+    expect(acquireConfigLock(configPath, { timeoutMs: 50, sleep: vi.fn() })).toBeNull()
+    expect(Math.abs(fs.statSync(lockDir).mtimeMs - Date.now())).toBeLessThan(5_000)
+  })
+
+  it('recovers an abandoned lock from the future once the window has passed', () => {
+    mkdirSync(lockDir)
+    let wall = Date.now()
+    const ahead = (wall + STALE_AFTER_MS + 60_000) / 1000
+    utimesSync(lockDir, ahead, ahead)
+    const sleep = vi.fn(() => {
+      wall += STALE_AFTER_MS + 1_000
+    })
+    const handle = acquireConfigLock(configPath, { timeoutMs: 500, now: () => wall, sleep })
     expect(handle?.held()).toBe(true)
     handle?.release()
     expect(existsSync(lockDir)).toBe(false)

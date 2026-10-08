@@ -7,14 +7,16 @@
 //! implements the same protocol:
 //!
 //! - acquire: `mkdir`; on `AlreadyExists`, wait and retry;
-//! - stale: a lock older than [`STALE_AFTER`] belongs to a crashed holder
-//!   and is removed before retrying;
+//! - stale: a lock older than [`STALE_AFTER`] belongs to a crashed holder.
+//!   A waiter claims it by renaming it to a unique name (atomic, so only
+//!   one waiter wins; the others see it gone and simply retry `mkdir`), then
+//!   deletes the renamed directory; it never removes the live lock path;
 //! - release: remove the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// A holder that has not touched its lock for this long is presumed dead.
 pub const STALE_AFTER: Duration = Duration::from_secs(10);
@@ -52,9 +54,7 @@ impl ConfigLock {
                 Ok(()) => return Ok(Some(Self { dir })),
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                     if is_stale(&dir) {
-                        // A crashed holder; the removal may race another
-                        // waiter doing the same, which is fine.
-                        let _ = std::fs::remove_dir(&dir);
+                        claim_stale(&dir);
                         continue;
                     }
                     if Instant::now() >= deadline {
@@ -82,6 +82,25 @@ fn is_stale(dir: &Path) -> bool {
         .is_some_and(|age| age > STALE_AFTER)
 }
 
+/// Take a stale lock out of the way without ever touching a live one: the
+/// rename is atomic, so of several waiters exactly one moves it and the
+/// rest find the path free (or freshly re-acquired by someone else).
+fn claim_stale(dir: &Path) {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let mut name = dir
+        .file_name()
+        .map(|n| n.to_os_string())
+        .unwrap_or_default();
+    name.push(format!(".stale-{}-{nanos}", std::process::id()));
+    let claimed = dir.with_file_name(name);
+    if std::fs::rename(dir, &claimed).is_ok() {
+        let _ = std::fs::remove_dir_all(&claimed);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -91,6 +110,25 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         dir.join("config.json")
+    }
+
+    /// Age a directory's mtime; opening a directory needs backup semantics
+    /// on Windows, where `File::open` on a directory is refused.
+    fn age_dir(dir: &Path, by: Duration) {
+        #[cfg(windows)]
+        let file = {
+            use std::os::windows::fs::OpenOptionsExt as _;
+            const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+            std::fs::OpenOptions::new()
+                .read(true)
+                .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
+                .open(dir)
+                .expect("open the directory with backup semantics")
+        };
+        #[cfg(not(windows))]
+        let file = std::fs::File::open(dir).expect("open the directory");
+        file.set_modified(SystemTime::now() - by)
+            .expect("set the lock's mtime into the past");
     }
 
     #[test]
@@ -131,12 +169,39 @@ mod tests {
         let config = temp_config("stale");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
-        let old = std::time::SystemTime::now() - STALE_AFTER - Duration::from_secs(5);
-        std::fs::File::open(&dir)
-            .and_then(|f| f.set_modified(old))
-            .expect("set the lock's mtime into the past");
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
         let guard = ConfigLock::acquire(&config, Duration::from_millis(200)).unwrap();
         assert!(guard.is_some(), "a stale lock must not block a writer");
+        // The claimed copy is gone too.
+        let leftovers = std::fs::read_dir(config.parent().unwrap())
+            .unwrap()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_name().to_string_lossy().contains(".stale-"))
+            .count();
+        assert_eq!(leftovers, 0);
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_lock_re_acquired_after_takeover_is_not_removed_by_a_late_waiter() {
+        // Waiter A has already claimed the stale lock and acquired a fresh
+        // one; waiter B, still holding the stale verdict, must not delete it.
+        let config = temp_config("late");
+        let dir = lock_dir(&config);
+        std::fs::create_dir(&dir).unwrap();
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let a = ConfigLock::acquire(&config, Duration::from_millis(200))
+            .unwrap()
+            .unwrap();
+        // B's claim attempt on the (now fresh) directory: not stale, so
+        // `claim_stale` is never reached; and even a direct call must leave
+        // a fresh lock alone because the rename target is only moved when
+        // the stale directory still exists under that name.
+        assert!(!is_stale(&dir));
+        let b = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(b.is_none());
+        assert!(dir.is_dir(), "A's fresh lock survives B's attempt");
+        drop(a);
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

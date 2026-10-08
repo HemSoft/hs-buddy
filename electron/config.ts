@@ -162,9 +162,23 @@ class ConfigManager {
    * inside `set`, so the lock covers the whole read-modify-write.
    */
   private write<K extends string>(key: K, value: unknown): void {
-    withConfigLock(this.store.path, () => this.store.set(key, value as never), {
-      warn: message => console.warn(message),
-    })
+    this.locked(() => this.store.set(key, value as never))
+  }
+
+  private lockDepth = 0
+
+  /**
+   * Run a read-modify-write under the shared lock. Nested calls (a mutator
+   * calling `write`) reuse the lock already held instead of waiting on it.
+   */
+  private locked<T>(fn: () => T): T {
+    if (this.lockDepth > 0) return fn()
+    this.lockDepth += 1
+    try {
+      return withConfigLock(this.store.path, fn, { warn: message => console.warn(message) })
+    } finally {
+      this.lockDepth -= 1
+    }
   }
 
   private reconcileUsageProviderOverrides(): UsageProviderOverrides {
@@ -193,11 +207,13 @@ class ConfigManager {
     overrides: UsageProviderOverrides,
     defaultOverrides: UsageProviderOverrides
   ): void {
-    const github = this.store.get('github', defaultConfig.github)
-    this.write('github', {
-      ...github,
-      usageProviderOverrides: overrides,
-      usageProviderDefaultOverrides: defaultOverrides,
+    this.locked(() => {
+      const github = this.store.get('github', defaultConfig.github)
+      this.write('github', {
+        ...github,
+        usageProviderOverrides: overrides,
+        usageProviderDefaultOverrides: defaultOverrides,
+      })
     })
   }
 
@@ -212,35 +228,43 @@ class ConfigManager {
   }
 
   addGitHubAccount(account: GitHubAccount): void {
-    const accounts = this.getGitHubAccounts()
-    // Check for duplicates
-    const exists = accounts.some(a => a.username === account.username && a.org === account.org)
-    if (exists) {
-      throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
-    }
-    accounts.push(account)
-    this.write('github.accounts', accounts)
+    // Read and write under one lock so two processes cannot both read the
+    // same list and then serialise two stale replacements.
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      // Check for duplicates
+      const exists = accounts.some(a => a.username === account.username && a.org === account.org)
+      if (exists) {
+        throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
+      }
+      accounts.push(account)
+      this.write('github.accounts', accounts)
+    })
   }
 
   removeGitHubAccount(username: string, org: string): void {
-    const accounts = this.getGitHubAccounts()
-    const filtered = accounts.filter(a => !(a.username === username && a.org === org))
-    this.write('github.accounts', filtered)
-    this.setUsageProviderOverride(username, org, null)
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      const filtered = accounts.filter(a => !(a.username === username && a.org === org))
+      this.write('github.accounts', filtered)
+      this.setUsageProviderOverride(username, org, null)
+    })
   }
 
   updateGitHubAccount(username: string, org: string, updates: Partial<GitHubAccount>): void {
-    const accounts = this.getGitHubAccounts()
-    const index = accounts.findIndex(a => a.username === username && a.org === org)
-    if (index === -1) {
-      throw new Error(`GitHub account ${username}@${org} not found`)
-    }
-    const previousKey = getUsageProviderOverrideKey(accounts[index])
-    accounts[index] = { ...accounts[index], ...updates }
-    this.write('github.accounts', accounts)
-    if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
-      this.setUsageProviderOverride(username, org, null)
-    }
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      const index = accounts.findIndex(a => a.username === username && a.org === org)
+      if (index === -1) {
+        throw new Error(`GitHub account ${username}@${org} not found`)
+      }
+      const previousKey = getUsageProviderOverrideKey(accounts[index])
+      accounts[index] = { ...accounts[index], ...updates }
+      this.write('github.accounts', accounts)
+      if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
+        this.setUsageProviderOverride(username, org, null)
+      }
+    })
   }
 
   replaceGitHubAccounts(accounts: GitHubAccount[]): void {
@@ -253,16 +277,18 @@ class ConfigManager {
       accountKeys.add(key)
     }
 
-    this.write('github.accounts', accounts)
-    const overrides = Object.fromEntries(
-      Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
-    )
-    const defaultOverrides = Object.fromEntries(
-      Object.entries(this.getUsageProviderDefaultOverrides()).filter(([key]) =>
-        accountKeys.has(key)
+    this.locked(() => {
+      this.write('github.accounts', accounts)
+      const overrides = Object.fromEntries(
+        Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
       )
-    )
-    this.persistUsageProviderState(overrides, defaultOverrides)
+      const defaultOverrides = Object.fromEntries(
+        Object.entries(this.getUsageProviderDefaultOverrides()).filter(([key]) =>
+          accountKeys.has(key)
+        )
+      )
+      this.persistUsageProviderState(overrides, defaultOverrides)
+    })
   }
 
   getUsageProviderOverrides(): UsageProviderOverrides {
@@ -275,18 +301,20 @@ class ConfigManager {
   }
 
   setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {
-    const overrides = { ...this.getUsageProviderOverrides() }
-    const key = getUsageProviderOverrideKey({ username, org })
-    const defaultOverrides = {
-      ...this.store.get('github.usageProviderDefaultOverrides', {}),
-    }
-    delete defaultOverrides[key]
-    if (provider === null) {
-      delete overrides[key]
-    } else {
-      overrides[key] = provider
-    }
-    this.persistUsageProviderState(overrides, defaultOverrides)
+    this.locked(() => {
+      const overrides = { ...this.getUsageProviderOverrides() }
+      const key = getUsageProviderOverrideKey({ username, org })
+      const defaultOverrides = {
+        ...this.store.get('github.usageProviderDefaultOverrides', {}),
+      }
+      delete defaultOverrides[key]
+      if (provider === null) {
+        delete overrides[key]
+      } else {
+        overrides[key] = provider
+      }
+      this.persistUsageProviderState(overrides, defaultOverrides)
+    })
   }
 
   /** Called after Electron is ready, even when the Weather card is hidden. */
@@ -403,8 +431,10 @@ class ConfigManager {
   }
 
   reset(): void {
-    this.weatherLocation.set(null)
-    this.store.clear()
+    this.locked(() => {
+      this.weatherLocation.set(null)
+      this.store.clear()
+    })
     console.log('[ConfigManager] Configuration reset to defaults')
   }
 }

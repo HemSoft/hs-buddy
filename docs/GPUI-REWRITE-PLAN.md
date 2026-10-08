@@ -241,10 +241,7 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
 
 Both apps read-modify-write the same file, so both take the same advisory
 lock around a write: the directory `config.json.lock` next to it, created
-with `mkdir` (atomic everywhere, no file-locking API needed). A lock older
-than 10 seconds belongs to a crashed holder and is taken over; a writer that
-cannot get the lock within 2 seconds proceeds unlocked and logs it, so a
-wedged lock never freezes either app. Electron holds it around each
+with `mkdir` (atomic everywhere, no file-locking API needed). A lock older than 10 seconds belongs to a crashed holder and is claimed by renaming it away (atomic, so one waiter wins and a freshly re-acquired lock is never removed); a writer that cannot get the lock in time (2 seconds natively, 250 ms in Electron, whose wait blocks the main process) proceeds unlocked and logs it, so a wedged lock never freezes either app. Electron holds it around each
 `store.set` (`electron/configLock.ts`; `conf` re-reads the file inside
 `set`), the native app across the whole load-edit-save of
 `Settings::update` (`rust/crates/buddy-core/src/config_lock.rs`). The native

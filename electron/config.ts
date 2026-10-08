@@ -162,7 +162,9 @@ class ConfigManager {
    * inside `set`, so the lock covers the whole read-modify-write.
    */
   private write<K extends string>(key: K, value: unknown): void {
-    this.locked(() => this.store.set(key, value as never))
+    this.locked(() => {
+      this.store.set(key, value as never)
+    })
   }
 
   private lockDepth = 0
@@ -175,7 +177,11 @@ class ConfigManager {
     if (this.lockDepth > 0) return fn()
     this.lockDepth += 1
     try {
-      return withConfigLock(this.store.path, fn, { warn: message => console.warn(message) })
+      return withConfigLock(this.store.path, fn, {
+        warn: message => {
+          console.warn(message)
+        },
+      })
     } finally {
       this.lockDepth -= 1
     }

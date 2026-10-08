@@ -10,11 +10,11 @@ function ageDir(dir: string): void {
   utimesSync(dir, past, past)
 }
 
-describe('configLock', () => {
-  let dir: string
-  let configPath: string
-  let lockDir: string
+let dir = ''
+let configPath = ''
+let lockDir = ''
 
+function useTempConfig(): void {
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'buddy-config-lock-'))
     configPath = join(dir, 'config.json')
@@ -24,6 +24,10 @@ describe('configLock', () => {
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true })
   })
+}
+
+describe('configLock', () => {
+  useTempConfig()
 
   it('names the lock directory next to the config file', () => {
     expect(lockDirFor('/x/Buddy/config.json')).toBe('/x/Buddy/config.json.lock')
@@ -64,6 +68,10 @@ describe('configLock', () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(10)
     held?.()
   })
+})
+
+describe('configLock stale takeover', () => {
+  useTempConfig()
 
   it('takes over a stale lock in place and releases it fully', () => {
     mkdirSync(lockDir)
@@ -134,16 +142,38 @@ describe('configLock', () => {
     expect(sleep).toHaveBeenCalled()
     expect(existsSync(join(lockDir, 'claim'))).toBe(true)
   })
+})
 
-  it('clears a marker left by a crashed claimer and takes the lock over', () => {
+describe('configLock claim chains', () => {
+  useTempConfig()
+
+  it('claims through a marker left by a crashed claimer and releases the whole chain', () => {
     mkdirSync(lockDir)
     mkdirSync(join(lockDir, 'claim'))
     ageDir(join(lockDir, 'claim'))
     ageDir(lockDir)
     const release = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn() })
     expect(release).not.toBeNull()
+    // Nothing of the dead claimer was removed; the takeover nested below it.
+    expect(existsSync(join(lockDir, 'claim', 'claim'))).toBe(true)
     release?.()
     expect(existsSync(lockDir)).toBe(false)
+  })
+
+  it('does not disturb a live claimer that is already nested below a dead one', () => {
+    mkdirSync(lockDir)
+    mkdirSync(join(lockDir, 'claim'))
+    ageDir(join(lockDir, 'claim'))
+    ageDir(lockDir)
+    mkdirSync(join(lockDir, 'claim', 'claim')) // a live claimer, fresh
+    let clock = 1_000
+    const sleep = vi.fn((ms: number) => {
+      clock += ms
+    })
+    const release = acquireConfigLock(configPath, { timeoutMs: 50, now: () => clock, sleep })
+    expect(release).toBeNull()
+    expect(sleep).toHaveBeenCalled()
+    expect(existsSync(join(lockDir, 'claim', 'claim'))).toBe(true)
   })
 
   it('retries when a stale lock vanishes before it can be observed', () => {
@@ -159,6 +189,10 @@ describe('configLock', () => {
     expect(release).not.toBeNull()
     release?.()
   })
+})
+
+describe('configLock release and fallback', () => {
+  useTempConfig()
 
   it('tolerates releasing twice', () => {
     const release = acquireConfigLock(configPath)

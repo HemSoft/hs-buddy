@@ -13,10 +13,10 @@
 //!   wins), then checks that the directory is still the instance it observed
 //!   (same identity). A mismatch means the stale lock was released and a
 //!   fresh one created meanwhile, so the waiter withdraws its marker and goes
-//!   back to waiting. A marker that is itself older than [`STALE_AFTER`]
-//!   belongs to a claimer that crashed too and is removed before claiming.
-//!   Nothing else is ever renamed or removed by a waiter, so a live lock
-//!   cannot be stolen;
+//!   back to waiting. A marker that is itself stale belongs to a claimer
+//!   that crashed too; it is never removed, it is claimed the same way one
+//!   level down (`claim/claim`), so no waiter ever deletes or renames
+//!   anything it does not own and a live lock or claim cannot be stolen;
 //! - release: the holder removes its marker (if any) and the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
@@ -36,8 +36,19 @@ const CLAIM: &str = "claim";
 /// Holds the lock; dropping it releases.
 #[derive(Debug)]
 pub struct ConfigLock {
-    dir: PathBuf,
-    claimed: bool,
+    /// The lock directory, then each claim marker down to the one owned.
+    chain: Vec<PathBuf>,
+}
+
+/// Consecutive crashed claimers nest one level each; deeper than this, wait.
+const MAX_CLAIM_DEPTH: usize = 8;
+
+enum Claim {
+    Owned(ConfigLock),
+    /// A live holder or claimer is ahead: wait.
+    Held,
+    /// A level vanished underneath (its owner released it): try again.
+    Retry,
 }
 
 /// The lock directory for a config file: `config.json.lock`.
@@ -92,21 +103,15 @@ impl ConfigLock {
         let deadline = Instant::now() + timeout;
         loop {
             match std::fs::create_dir(&dir) {
-                Ok(()) => {
-                    return Ok(Some(Self {
-                        dir,
-                        claimed: false,
-                    }));
-                }
+                Ok(()) => return Ok(Some(Self { chain: vec![dir] })),
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if let Some(seen) = observe(&dir)
-                        && seen.stale
-                        && let Some(lock) = claim_stale(&dir, &seen.identity)
-                    {
-                        return Ok(Some(lock));
+                    match claim_stale(&dir) {
+                        Claim::Owned(lock) => return Ok(Some(lock)),
+                        Claim::Retry => continue,
+                        Claim::Held => {}
                     }
-                    // Another claimer holds the marker, or the directory was
-                    // replaced: wait like for any other held lock.
+                    // Held by a live holder or claimer: wait like for any
+                    // other lock.
                     if Instant::now() >= deadline {
                         return Ok(None);
                     }
@@ -119,38 +124,63 @@ impl ConfigLock {
 }
 
 /// Take over a stale lock in place: become the owner of the existing
-/// directory, never removing or renaming it from under a live holder.
-fn claim_stale(dir: &Path, observed: &Identity) -> Option<ConfigLock> {
-    let marker = dir.join(CLAIM);
-    // A claimer that crashed leaves its marker behind; once the marker is as
-    // old as a stale lock, it is nobody's and may be cleared.
-    if observe(&marker).is_some_and(|m| m.stale) {
-        let _ = std::fs::remove_dir(&marker);
-    }
-    if std::fs::create_dir(&marker).is_err() {
-        // Another waiter claimed it first, or it vanished: back to waiting.
-        return None;
-    }
-    // Creating the marker refreshed the directory's mtime, so other waiters
-    // now see a fresh lock; make sure it is still the stale instance seen.
-    match observe(dir) {
-        Some(current) if current.identity == *observed => Some(ConfigLock {
-            dir: dir.to_path_buf(),
-            claimed: true,
-        }),
-        _ => {
-            let _ = std::fs::remove_dir(&marker);
-            None
+/// directory (or, below a crashed claimer's marker, of a deeper marker),
+/// never removing or renaming anything from under a live holder.
+fn claim_stale(dir: &Path) -> Claim {
+    let mut chain = vec![dir.to_path_buf()];
+    for _ in 0..MAX_CLAIM_DEPTH {
+        let level = chain
+            .last()
+            .expect("chain starts with the lock dir")
+            .clone();
+        let Some(seen) = observe(&level) else {
+            return Claim::Retry;
+        };
+        if !seen.stale {
+            return Claim::Held;
+        }
+        let marker = level.join(CLAIM);
+        match std::fs::create_dir(&marker) {
+            Ok(()) => {
+                // Creating the marker refreshed the level's mtime, so other
+                // waiters now see it fresh; keep it only if the level is
+                // still the instance that was observed.
+                return match observe(&level) {
+                    Some(current) if current.identity == seen.identity => {
+                        chain.push(marker);
+                        Claim::Owned(ConfigLock { chain })
+                    }
+                    Some(_) => {
+                        let _ = std::fs::remove_dir(&marker);
+                        Claim::Held
+                    }
+                    None => {
+                        let _ = std::fs::remove_dir(&marker);
+                        Claim::Retry
+                    }
+                };
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
+                // A marker exists: fresh means a live claimer is ahead;
+                // stale means it belongs to a crashed one and is claimed
+                // one level down.
+                chain.push(marker);
+            }
+            Err(_) => return Claim::Held,
         }
     }
+    Claim::Held
 }
 
 impl Drop for ConfigLock {
+    /// Remove the chain deepest first; stop at the first level that is not
+    /// empty (a later claimer nested below after this lock went stale).
     fn drop(&mut self) {
-        if self.claimed {
-            let _ = std::fs::remove_dir(self.dir.join(CLAIM));
+        for level in self.chain.iter().rev() {
+            if std::fs::remove_dir(level).is_err() {
+                return;
+            }
         }
-        let _ = std::fs::remove_dir(&self.dir);
     }
 }
 
@@ -268,7 +298,7 @@ mod tests {
     }
 
     #[test]
-    fn a_marker_left_by_a_crashed_claimer_is_cleared() {
+    fn a_marker_left_by_a_crashed_claimer_is_claimed_one_level_down() {
         let config = temp_config("deadclaim");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
@@ -277,25 +307,48 @@ mod tests {
         age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
         let guard = ConfigLock::acquire(&config, Duration::from_millis(200)).unwrap();
         assert!(guard.is_some(), "a dead claimer must not wedge the lock");
+        // Nothing of the dead claimer was removed; the takeover nested below.
+        assert!(dir.join(CLAIM).join(CLAIM).is_dir());
         drop(guard);
-        assert!(!dir.exists());
+        assert!(!dir.exists(), "the whole chain is released");
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 
     #[test]
-    fn a_claim_on_a_replaced_directory_is_withdrawn() {
-        let config = temp_config("replaced");
+    fn a_live_claimer_below_a_dead_one_is_not_disturbed() {
+        let config = temp_config("nested");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
+        std::fs::create_dir(dir.join(CLAIM)).unwrap();
+        age_dir(&dir.join(CLAIM), STALE_AFTER + Duration::from_secs(5));
         age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
-        let stale = observe(&dir).unwrap().identity;
-        // The stale holder releases and a fresh writer re-creates the lock.
-        std::fs::remove_dir(&dir).unwrap();
+        // A live claimer already nested below the dead one (fresh marker).
+        std::fs::create_dir(dir.join(CLAIM).join(CLAIM)).unwrap();
+        let started = Instant::now();
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(guard.is_none());
+        assert!(started.elapsed() >= Duration::from_millis(100));
+        assert!(dir.join(CLAIM).join(CLAIM).is_dir());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_fresh_directory_is_never_claimed() {
+        let config = temp_config("replaced");
+        let dir = lock_dir(&config);
+        // The stale holder released and a fresh writer re-created the lock.
         std::fs::create_dir(&dir).unwrap();
-        let claim = claim_stale(&dir, &stale);
-        assert!(claim.is_none(), "the fresh lock belongs to someone else");
-        assert!(!dir.join(CLAIM).exists(), "the marker is withdrawn");
+        assert!(matches!(claim_stale(&dir), Claim::Held));
+        assert!(!dir.join(CLAIM).exists(), "no marker is left behind");
         assert!(dir.is_dir());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_vanished_directory_asks_for_a_retry() {
+        let config = temp_config("vanished");
+        let dir = lock_dir(&config);
+        assert!(matches!(claim_stale(&dir), Claim::Retry));
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

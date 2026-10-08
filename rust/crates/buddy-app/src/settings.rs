@@ -80,6 +80,10 @@ impl Settings {
                 }
             }
         }
+        // Every attempt was spent (conflicts, or ownership lost on the last
+        // one): the file may have changed meanwhile, so follow the disk.
+        log::warn!("configuration kept changing or the lock kept moving; edit not saved");
+        Self::resync(cx, &path);
         false
     }
 

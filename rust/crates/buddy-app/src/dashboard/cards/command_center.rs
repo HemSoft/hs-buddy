@@ -40,7 +40,7 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
         .unwrap_or_else(|| "…".to_string());
     let projected_overage = match summary.projected_overage_cost {
         Some(cost) if cost > 0.0 => currency(cost),
-        _ => "$0.00".to_string(),
+        _ => currency(0.0),
     };
 
     let open_label = if has_accounts {

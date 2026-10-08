@@ -221,7 +221,7 @@ pub async fn fetch_quote_batch(client: &reqwest::Client, symbols: &[String]) -> 
     for (symbol, result) in symbols.iter().zip(results) {
         match result {
             Ok(quote) => batch.quotes.push(quote),
-            Err(err) => batch.failed.push((symbol.clone(), err)),
+            Err(err) => batch.failed.push((normalize_symbol(symbol), err)),
         }
     }
     batch

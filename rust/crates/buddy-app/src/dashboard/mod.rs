@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use buddy_core::config::{GitHubConfig, WeatherLocation};
 use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
-use buddy_core::dashboard::{CardId, DASHBOARD_CARDS};
+use buddy_core::dashboard::{CardId, DASHBOARD_CARDS, INTERVAL_OPTIONS};
 use buddy_core::finance::{self, QuoteData};
 use buddy_core::pollen::{self, PollenData, PollenError};
 use buddy_core::stats::{BuddyStats, WorkspacePulse};
@@ -47,9 +47,15 @@ pub enum DashboardEvent {
     Navigate(Section),
 }
 
-/// Persisted per-card interval, else the card's default.
+/// Persisted per-card interval when it is one of the offered options,
+/// else the card's default (an unsupported value would be scheduled but
+/// labelled "Off").
 fn interval_for(intervals: &BTreeMap<String, u32>, card: CardId, default: u32) -> u32 {
-    intervals.get(card.key()).copied().unwrap_or(default)
+    intervals
+        .get(card.key())
+        .copied()
+        .filter(|minutes| INTERVAL_OPTIONS.iter().any(|(option, _)| option == minutes))
+        .unwrap_or(default)
 }
 
 /// Per-card refresh bookkeeping (`useAutoRefresh`).
@@ -425,13 +431,22 @@ impl DashboardView {
         self.run(
             cx,
             async move {
-                tokio::task::spawn_blocking(secrets::load_weather_location)
+                tokio::task::spawn_blocking(secrets::try_load_weather_location)
                     .await
-                    .ok()
-                    .flatten()
+                    .unwrap_or_else(|err| Err(err.to_string()))
             },
             |this, saved, cx| {
                 this.restore_pending = false;
+                // An unreadable keychain is not an empty one: it may hold a
+                // newer city, so the legacy plaintext must not be written
+                // over it; it stays in the config for a later attempt.
+                let (saved, keychain_readable) = match saved {
+                    Ok(saved) => (saved, true),
+                    Err(err) => {
+                        log::warn!("could not read the saved weather location: {err}");
+                        (None, false)
+                    }
+                };
                 // A lookup the user started meanwhile wins; its loads are
                 // already running. Keep the saved city so a failed lookup can
                 // still fall back to it instead of the default.
@@ -446,7 +461,7 @@ impl DashboardView {
                 if let Some(location) = saved {
                     this.weather_location = location;
                 }
-                if this.legacy_location_pending {
+                if this.legacy_location_pending && keychain_readable {
                     // Moves the city to the keychain (a re-write of the same
                     // value when it came from there) and clears the plaintext
                     // on success.
@@ -601,7 +616,7 @@ impl DashboardView {
                 // Reconcile against the live watchlist: a symbol removed while
                 // this request was in flight must not come back, and quotes
                 // kept from before must not outlive their symbols.
-                let current = Settings::global(cx).config.finance.watchlist.clone();
+                let current = this.watchlist(cx);
                 this.quotes.retain(|q| current.contains(&q.symbol));
                 this.failed_symbols.retain(|s| current.contains(s));
                 let all_failed = batch.quotes.is_empty() && !batch.failed.is_empty();
@@ -788,9 +803,16 @@ impl DashboardView {
         &self.finance_add
     }
 
-    /// The configured watchlist, in display order.
+    /// The configured watchlist, normalized like the quotes (`AAPL` for
+    /// ` aapl `), in display order.
     pub fn watchlist(&self, cx: &App) -> Vec<String> {
-        Settings::global(cx).config.finance.watchlist.clone()
+        Settings::global(cx)
+            .config
+            .finance
+            .watchlist
+            .iter()
+            .map(|symbol| finance::normalize_symbol(symbol))
+            .collect()
     }
 
     /// Symbols whose last completed request failed.
@@ -957,9 +979,12 @@ impl DashboardView {
     pub fn remove_symbol(&mut self, symbol: &str, cx: &mut Context<Self>) {
         self.quotes.retain(|q| q.symbol != symbol);
         self.failed_symbols.retain(|s| s != symbol);
-        let symbol = symbol.to_string();
+        let symbol = finance::normalize_symbol(symbol);
         Settings::update(cx, |config| {
-            config.finance.watchlist.retain(|s| *s != symbol)
+            config
+                .finance
+                .watchlist
+                .retain(|s| finance::normalize_symbol(s) != symbol)
         });
         cx.notify();
     }

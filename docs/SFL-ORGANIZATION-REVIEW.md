@@ -1,6 +1,6 @@
 # SFL organization review
 
-This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.21` release at source `89425320ace3127a829d86e3b642fe2b31fd979e`. Existing model policy and repository-scoped App credentials remain in place.
+This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.22` release at source `ef807fc3ac3cb734efa70435a6a3970223680476`. Existing model policy and repository-scoped App credentials remain in place.
 
 ## Update and inspect
 

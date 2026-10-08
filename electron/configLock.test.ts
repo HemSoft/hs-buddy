@@ -65,6 +65,24 @@ describe('configLock', () => {
     expect(existsSync(lockDir)).toBe(false)
   })
 
+  it('waits in real time with the default sleep, then gives up quietly', () => {
+    const held = acquireConfigLock(configPath)
+    expect(held).not.toBeNull()
+    const started = Date.now()
+    // No injected clock, sleep or warn: exercises the real 25 ms poll and
+    // the default no-op warning.
+    expect(acquireConfigLock(configPath, { timeoutMs: 40 })).toBeNull()
+    expect(Date.now() - started).toBeGreaterThanOrEqual(25)
+    held?.()
+  })
+
+  it('tolerates releasing twice', () => {
+    const release = acquireConfigLock(configPath)
+    release?.()
+    expect(() => release?.()).not.toThrow()
+    expect(existsSync(lockDirFor(configPath))).toBe(false)
+  })
+
   it('runs the callback under the lock and releases even when it throws', () => {
     expect(() =>
       withConfigLock(configPath, () => {

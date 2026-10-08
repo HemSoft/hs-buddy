@@ -551,5 +551,7 @@ describe('runs', () => {
     })
     expect(counts[olderJobId]).toEqual({ total: 2, completed: 1, failed: 1 })
     expect(counts[newerJobId]).toEqual({ total: 1001, completed: 501, failed: 500 })
-  })
+    // The fixture seeds 1,003 records and executes the scheduled backfill under coverage.
+    // Keep its count assertions intact while allowing normal CI instrumentation overhead.
+  }, 15_000)
 })

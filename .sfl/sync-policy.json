@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "unmanagedWorkflows": [
+    "sfl-auditor.yml",
+    "sfl-dispatcher.yml",
+    "issue-processor.md"
+  ]
+}

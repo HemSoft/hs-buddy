@@ -848,7 +848,8 @@ impl DashboardView {
         let mut symbols: Vec<String> = Vec::new();
         for symbol in &Settings::global(cx).config.finance.watchlist {
             let symbol = finance::normalize_symbol(symbol);
-            if !symbols.contains(&symbol) {
+            // Blank entries from a hand-edited file are dropped, as Electron does.
+            if !symbol.is_empty() && !symbols.contains(&symbol) {
                 symbols.push(symbol);
             }
         }

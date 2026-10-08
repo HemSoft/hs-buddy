@@ -272,6 +272,8 @@ impl WindowState {
 pub enum ConfigError {
     #[error("could not determine a configuration directory")]
     NoConfigDir,
+    #[error("keychain migration could not be undone: {0}")]
+    Keychain(String),
     #[error("failed to read {path}: {source}")]
     Read {
         path: PathBuf,
@@ -458,12 +460,14 @@ impl AppConfig {
         {
             let _ = std::fs::remove_file(&tmp);
             // The keychain write above belongs to this snapshot; undo it so
-            // the retry (which reloads the newer file) migrates that one.
+            // the retry (which reloads the newer file) migrates that one. If
+            // the undo fails the retry would treat this stale entry as the
+            // newer value, so the save fails outright instead.
             if let Some(location) = migrated {
-                if let Err(err) = crate::secrets::clear_weather_location() {
-                    log::warn!("could not undo the keychain migration: {err}");
-                }
                 self.ui.weather_location = Some(location);
+                if let Err(err) = crate::secrets::clear_weather_location() {
+                    return Err(ConfigError::Keychain(err));
+                }
             }
             return Ok(false);
         }

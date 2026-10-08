@@ -22,7 +22,8 @@ const outputExpressions: Record<keyof AuditorCounts, string> = {
   orphanedLabels: '${{ steps.orphaned-labels.outputs.orphaned_labels_fixed }}',
   orphanedPrs: '${{ steps.orphaned-prs.outputs.orphaned_prs_found }}',
   paused: '${{ steps.paused.outputs.unexplained_pause_found }}',
-  reviewPrerequisites: '${{ steps.sfl-review-prerequisites.outputs.sfl_review_prerequisites_missing }}',
+  reviewPrerequisites:
+    '${{ steps.sfl-review-prerequisites.outputs.sfl_review_prerequisites_missing }}',
   staleUnclaimed: '${{ steps.stale-unclaimed.outputs.stale_unclaimed_found }}',
   stalledPrs: '${{ steps.stalled-prs.outputs.stalled_prs_found }}',
 }

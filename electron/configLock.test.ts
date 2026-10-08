@@ -68,7 +68,7 @@ describe('configLock', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('busy for 100ms'))
     // The holder's lock is untouched by the loser.
     expect(existsSync(lockDir)).toBe(true)
-    held.release()
+    held?.release()
   })
 
   it('waits in real time with the default sleep, then gives up quietly', () => {
@@ -79,7 +79,7 @@ describe('configLock', () => {
     // default no-op warning.
     expect(acquireConfigLock(configPath, { timeoutMs: 40 })).toBeNull()
     expect(Date.now() - started).toBeGreaterThanOrEqual(10)
-    held.release()
+    held?.release()
   })
 })
 

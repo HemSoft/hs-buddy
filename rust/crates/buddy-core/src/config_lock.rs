@@ -237,9 +237,13 @@ mod tests {
         #[cfg(windows)]
         let file = {
             use std::os::windows::fs::OpenOptionsExt as _;
+            // A directory handle needs backup semantics to open at all and
+            // write-attributes access for `set_modified` to succeed.
             const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+            const FILE_READ_ATTRIBUTES: u32 = 0x0080;
+            const FILE_WRITE_ATTRIBUTES: u32 = 0x0100;
             std::fs::OpenOptions::new()
-                .read(true)
+                .access_mode(FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES)
                 .custom_flags(FILE_FLAG_BACKUP_SEMANTICS)
                 .open(dir)
                 .expect("open the directory with backup semantics")

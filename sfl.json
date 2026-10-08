@@ -37,18 +37,6 @@
         ]
       },
       {
-        "name": "issue-processor",
-        "profile": "codex-gpt-55-high",
-        "provider": "codex",
-        "model": "gpt-5.5",
-        "effort": "high",
-        "renderedModel": "gpt-5.5?effort=high",
-        "requiredSecretsAnyOf": [
-          "CODEX_API_KEY",
-          "OPENAI_API_KEY"
-        ]
-      },
-      {
         "name": "pr-analyzer-general",
         "profile": "codex-gpt-55-high",
         "provider": "codex",
@@ -134,6 +122,18 @@
       },
       {
         "name": "simplisticate",
+        "profile": "codex-gpt-55-high",
+        "provider": "codex",
+        "model": "gpt-5.5",
+        "effort": "high",
+        "renderedModel": "gpt-5.5?effort=high",
+        "requiredSecretsAnyOf": [
+          "CODEX_API_KEY",
+          "OPENAI_API_KEY"
+        ]
+      },
+      {
+        "name": "issue-processor",
         "profile": "codex-gpt-55-high",
         "provider": "codex",
         "model": "gpt-5.5",

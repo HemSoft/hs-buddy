@@ -191,6 +191,15 @@ the same machine.
 - `cargo-deny` for licenses and advisories, parallel to Dependabot.
 - Release artifacts: single binary per platform, no installer yet.
 
+Landed in the first pull request: the matrix job above plus a `cargo-deny`
+gate (policy in `rust/deny.toml`: advisories, licenses, sources; unmaintained
+notices enforced for the workspace's own dependencies) and a weekly
+Dependabot `cargo` entry for `rust/`. Unix binaries are uploaded as tarballs
+so the executable bit survives; Windows release builds use the GUI subsystem.
+The native version is read from `package.json` at build time, so the header
+and About dialog follow the release workflow. Still open: installers and
+code signing, bundled fonts.
+
 ## Async model (so every card works the same way)
 
 ```text

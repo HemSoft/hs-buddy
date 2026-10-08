@@ -1,10 +1,14 @@
 //! Number and duration formatting matching the Electron renderer's output
 //! (`toLocaleString`, `formatCurrency`, `formatUptime`, `formatPrice`).
 //!
-//! Digits, separators and the USD symbol follow the system locale through
-//! ICU4X, as `Intl.NumberFormat(undefined, ...)` does in the renderer.
+//! Digits, separators, the USD symbol and month names follow the system
+//! locale through ICU4X, as `Intl.NumberFormat(undefined, ...)` and
+//! `toLocaleDateString(undefined, ...)` do in the renderer.
 
 use fixed_decimal::{Decimal, FloatPrecision, Sign, SignedRoundingMode, UnsignedRoundingMode};
+use icu_calendar::Date;
+use icu_datetime::DateTimeFormatter;
+use icu_datetime::fieldsets::YM;
 use icu_decimal::DecimalFormatter;
 use icu_decimal::options::DecimalFormatterOptions;
 use icu_experimental::dimension::currency::CurrencyType;
@@ -12,22 +16,23 @@ use icu_experimental::dimension::currency::formatter::CurrencyFormatter;
 use icu_experimental::dimension::currency::options::CurrencyFormatterOptions;
 use icu_locale_core::{Locale, locale};
 
-/// Locale-aware number formatting.
-pub struct NumberFormat {
+/// Locale-aware number and date formatting.
+pub struct LocaleFormat {
     formatter: DecimalFormatter,
     usd: CurrencyFormatter<DecimalFormatter>,
+    month_year: DateTimeFormatter<YM>,
 }
 
 thread_local! {
     // ICU4X formatters hold `Rc` data, so the shared instance is per thread.
-    static SYSTEM: NumberFormat = NumberFormat::system();
+    static SYSTEM: LocaleFormat = LocaleFormat::system();
 }
 
 /// JavaScript's `toFixed`/`Intl` tie rule: halves round away from zero.
 const HALF_EXPAND: SignedRoundingMode =
     SignedRoundingMode::Unsigned(UnsignedRoundingMode::HalfExpand);
 
-impl NumberFormat {
+impl LocaleFormat {
     pub fn for_locale(locale: &Locale) -> Self {
         Self::try_for_locale(locale).unwrap_or_else(|err| {
             log::warn!("no number formatting data for {locale}: {err}; using en-US");
@@ -45,7 +50,13 @@ impl NumberFormat {
             CurrencyFormatterOptions::default(),
         )
         .map_err(|err| err.to_string())?;
-        Ok(Self { formatter, usd })
+        let month_year = DateTimeFormatter::try_new(locale.into(), YM::medium())
+            .map_err(|err| err.to_string())?;
+        Ok(Self {
+            formatter,
+            usd,
+            month_year,
+        })
     }
 
     /// The process locale (`LANG`, the Windows user locale, macOS
@@ -117,6 +128,14 @@ impl NumberFormat {
         number.absolute.pad_end(-2);
         self.formatter.format(&number).to_string()
     }
+
+    /// `toLocaleDateString(undefined, { month: "short", year: "numeric" })`:
+    /// the locale's medium year-month (`Oct 2026`, `oct. 2026`, `10/2026`
+    /// for German, `2026/10` for Japanese). `None` for an impossible month.
+    pub fn month_year(&self, year: i32, month: u32) -> Option<String> {
+        let date = Date::try_new_iso(year, u8::try_from(month).ok()?, 1).ok()?;
+        Some(self.month_year.format(&date).to_string())
+    }
 }
 
 /// JavaScript's spelling of the values a `Decimal` cannot hold.
@@ -148,6 +167,11 @@ pub fn currency(amount: f64) -> String {
 /// `formatPrice`, system locale digits.
 pub fn price(value: f64) -> String {
     SYSTEM.with(|f| f.price(value))
+}
+
+/// Short month and year in the system locale.
+pub fn month_year(year: i32, month: u32) -> Option<String> {
+    SYSTEM.with(|f| f.month_year(year, month))
 }
 
 const SECOND_MS: u64 = 1_000;
@@ -208,8 +232,18 @@ pub fn countdown(ms: u64) -> String {
 mod tests {
     use super::*;
 
-    fn en_us() -> NumberFormat {
-        NumberFormat::for_locale(&locale!("en-US"))
+    fn en_us() -> LocaleFormat {
+        LocaleFormat::for_locale(&locale!("en-US"))
+    }
+
+    #[test]
+    fn formats_month_and_year_like_to_locale_date_string() {
+        assert_eq!(en_us().month_year(2026, 10).as_deref(), Some("Oct 2026"));
+        let fr = LocaleFormat::for_locale(&locale!("fr-FR"));
+        assert_eq!(fr.month_year(2026, 10).as_deref(), Some("oct. 2026"));
+        let de = LocaleFormat::for_locale(&locale!("de-DE"));
+        assert_eq!(de.month_year(2026, 10).as_deref(), Some("10/2026"));
+        assert_eq!(en_us().month_year(2026, 13), None);
     }
 
     #[test]
@@ -249,24 +283,24 @@ mod tests {
 
     #[test]
     fn follows_the_locale_separators() {
-        let de = NumberFormat::for_locale(&locale!("de-DE"));
+        let de = LocaleFormat::for_locale(&locale!("de-DE"));
         assert_eq!(de.thousands(1_234_567), "1.234.567");
         assert_eq!(de.decimal(1234.5, 2), "1.234,50");
         assert_eq!(de.currency(1234.567), "1.234,57\u{a0}$");
         assert_eq!(de.currency(-3.5), "-3,50\u{a0}$");
         assert_eq!(de.price(0.1234), "0,1234");
-        let fr = NumberFormat::for_locale(&locale!("fr-FR"));
+        let fr = LocaleFormat::for_locale(&locale!("fr-FR"));
         assert_eq!(fr.decimal(1234.5, 2), "1\u{202f}234,50");
         assert_eq!(fr.currency(1234.567), "1\u{202f}234,57\u{a0}$US");
-        let ja = NumberFormat::for_locale(&locale!("ja-JP"));
+        let ja = LocaleFormat::for_locale(&locale!("ja-JP"));
         assert_eq!(ja.currency(1234.567), "$1,234.57");
-        let hi = NumberFormat::for_locale(&locale!("hi-IN"));
+        let hi = LocaleFormat::for_locale(&locale!("hi-IN"));
         assert_eq!(hi.thousands(12_345_678), "1,23,45,678");
     }
 
     #[test]
     fn unknown_locales_fall_back_to_en_us() {
-        let f = NumberFormat::for_locale(&locale!("xx-ZZ"));
+        let f = LocaleFormat::for_locale(&locale!("xx-ZZ"));
         assert_eq!(f.thousands(1_000), "1,000");
     }
 

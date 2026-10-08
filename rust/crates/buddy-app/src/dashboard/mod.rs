@@ -409,17 +409,15 @@ impl DashboardView {
     // ── Loads ────────────────────────────────────────────────────────────
 
     fn restore_weather_location(&mut self, cx: &mut Context<Self>) {
-        // A legacy plaintext `ui.weatherLocation` is the user's saved city from
-        // an older Electron build: adopt it, move it to the keychain, and clear
-        // it now so a later save cannot resurrect it over a newer choice.
+        // An older Electron build may have left a plaintext `ui.weatherLocation`.
+        // It is shown until the keychain answers and loses to a keychain value,
+        // which is always the newer of the two: the app writes the keychain
+        // only after the user chose a city or migrated this very value.
         if let Some(legacy) = Settings::global(cx).config.ui.weather_location.clone() {
             self.weather_location = legacy;
             // The plaintext copy is removed in the persist callback, only after
             // the keychain has accepted a value; a failed write keeps it.
             self.legacy_location_pending = true;
-            self.persist_weather_location(cx);
-            self.start_weather_if_visible(cx);
-            return;
         }
         let visible = self.card_visible(CardId::Weather, cx);
         self.weather_refresh.loading = visible;
@@ -447,6 +445,12 @@ impl DashboardView {
                 }
                 if let Some(location) = saved {
                     this.weather_location = location;
+                }
+                if this.legacy_location_pending {
+                    // Moves the city to the keychain (a re-write of the same
+                    // value when it came from there) and clears the plaintext
+                    // on success.
+                    this.persist_weather_location(cx);
                 }
                 this.weather_refresh.loading = false;
                 this.start_weather_if_visible(cx);
@@ -594,6 +598,12 @@ impl DashboardView {
                 if generation != this.finance_generation {
                     return;
                 }
+                // Reconcile against the live watchlist: a symbol removed while
+                // this request was in flight must not come back, and quotes
+                // kept from before must not outlive their symbols.
+                let current = Settings::global(cx).config.finance.watchlist.clone();
+                this.quotes.retain(|q| current.contains(&q.symbol));
+                this.failed_symbols.retain(|s| current.contains(s));
                 let all_failed = batch.quotes.is_empty() && !batch.failed.is_empty();
                 let first_error = batch.failed.first().map(|(_, err)| err.clone());
                 if all_failed && !this.quotes.is_empty() {
@@ -603,9 +613,6 @@ impl DashboardView {
                     this.finance_refresh.mark_failed();
                     return;
                 }
-                // Reconcile against the live watchlist: a symbol removed while
-                // this request was in flight must not come back.
-                let current = Settings::global(cx).config.finance.watchlist.clone();
                 let mut quotes = batch.quotes;
                 quotes.retain(|q| current.contains(&q.symbol));
                 this.quotes = quotes;

@@ -307,6 +307,23 @@ pub fn config_path() -> Result<PathBuf, ConfigError> {
         .unwrap_or_else(|| candidates[0].clone()))
 }
 
+/// Create `path` holding `body`, readable only by its owner on Unix.
+fn write_private(path: &std::path::Path, body: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
+    // A temp file left by an interrupted save would keep its old mode.
+    let _ = std::fs::remove_file(path);
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(body.as_bytes())?;
+    file.sync_all()
+}
+
 fn platform_config_root() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
         return std::env::var_os("APPDATA").map(PathBuf::from);
@@ -359,21 +376,23 @@ impl AppConfig {
             std::fs::create_dir_all(parent).map_err(write)?;
         }
         let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, &body).map_err(write)?;
-        // Keep the existing file's permissions (a 0600 config stays 0600);
-        // a brand-new config is private from the start. If they cannot be
-        // applied, keep the old file rather than leave a world-readable one.
+        // The temp file is private from its first byte. It then takes the
+        // existing file's permissions (a group-readable config stays so) or
+        // stays 0600 for a brand-new config. If the existing file cannot be
+        // inspected or the mode cannot be applied, the old file is kept.
         #[cfg(unix)]
+        let permissions = match std::fs::metadata(&path) {
+            Ok(meta) => Some(meta.permissions()),
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => None,
+            Err(err) => return Err(write(err)),
+        };
+        write_private(&tmp, &body).map_err(write)?;
+        #[cfg(unix)]
+        if let Some(permissions) = permissions
+            && let Err(err) = std::fs::set_permissions(&tmp, permissions)
         {
-            use std::os::unix::fs::PermissionsExt as _;
-            let permissions = match std::fs::metadata(&path) {
-                Ok(meta) => meta.permissions(),
-                Err(_) => std::fs::Permissions::from_mode(0o600),
-            };
-            if let Err(err) = std::fs::set_permissions(&tmp, permissions) {
-                let _ = std::fs::remove_file(&tmp);
-                return Err(write(err));
-            }
+            let _ = std::fs::remove_file(&tmp);
+            return Err(write(err));
         }
         // `rename` replaces an existing destination on every supported platform
         // (Windows uses MOVEFILE_REPLACE_EXISTING). If a reader holds the file
@@ -400,6 +419,14 @@ impl AppConfig {
         let Some(location) = self.ui.weather_location.as_ref() else {
             return;
         };
+        // A keychain entry is always the newer of the two: the app writes the
+        // keychain only after the user chose a city or migrated this very
+        // value. Never overwrite it with the plaintext.
+        if crate::secrets::load_weather_location().is_some() {
+            log::info!("dropping the legacy weather location; the keychain already holds one");
+            self.ui.weather_location = None;
+            return;
+        }
         match crate::secrets::save_weather_location(location) {
             Ok(()) => {
                 log::info!("migrated legacy weather location to the keychain");

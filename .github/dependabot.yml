@@ -40,4 +40,14 @@ updates:
   schedule:
     day: monday
     interval: weekly
+- commit-message:
+    prefix: "chore(deps):"
+  directory: /rust
+  labels:
+  - dependencies
+  open-pull-requests-limit: 5
+  package-ecosystem: cargo
+  schedule:
+    day: monday
+    interval: weekly
 version: 2

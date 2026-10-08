@@ -97,6 +97,11 @@ pub fn aspire_cert_env_removals(
     removals
 }
 
+/// Copilot billing and the configured accounts live on github.com; pinning
+/// the host keeps a `GH_HOST` pointing at an Enterprise Server from
+/// redirecting these calls.
+const GITHUB_HOST: &str = "github.com";
+
 /// A `gh` child with captured output and the Aspire certificate overrides
 /// removed. Every `gh` invocation goes through here.
 fn gh_command(args: &[&str]) -> Command {
@@ -149,7 +154,19 @@ async fn run(args: &[&str], token: Option<&str>, timeout: Duration) -> Result<St
 /// `gh auth token --user <username>`.
 pub async fn auth_token(username: &str) -> Result<String, GhError> {
     assert_valid_slug(username)?;
-    let token = run(&["auth", "token", "--user", username], None, API_TIMEOUT).await?;
+    let token = run(
+        &[
+            "auth",
+            "token",
+            "--hostname",
+            GITHUB_HOST,
+            "--user",
+            username,
+        ],
+        None,
+        API_TIMEOUT,
+    )
+    .await?;
     if token.is_empty() {
         return Err(GhError::Failed(format!(
             "No token for account '{username}'"
@@ -185,7 +202,7 @@ pub fn parse_active_account(status_output: &str) -> Option<String> {
 
 /// The account `gh` currently uses, or `None` when gh is missing or logged out.
 pub async fn active_account() -> Option<String> {
-    let mut command = gh_command(&["auth", "status"]);
+    let mut command = gh_command(&["auth", "status", "--hostname", GITHUB_HOST]);
     let output = tokio::time::timeout(API_TIMEOUT, command.output())
         .await
         .ok()?
@@ -198,7 +215,7 @@ pub async fn active_account() -> Option<String> {
 
 /// `gh api <endpoint> [-H header]...` returning stdout.
 pub async fn api(endpoint: &str, token: Option<&str>, headers: &[&str]) -> Result<String, GhError> {
-    let mut args = vec!["api", endpoint];
+    let mut args = vec!["api", "--hostname", GITHUB_HOST, endpoint];
     for header in headers {
         args.push("-H");
         args.push(header);

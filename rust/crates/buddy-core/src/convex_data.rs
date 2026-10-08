@@ -16,8 +16,9 @@ pub const DEFAULT_CONVEX_URL: &str = "http://127.0.0.1:3210";
 
 /// Resolve the deployment URL the way the Electron app effectively does:
 /// `BUDDY_CONVEX_URL`, then `VITE_CONVEX_URL` from the environment, then
-/// `VITE_CONVEX_URL` from the repo's `.env.local` or `.env` (searched upward
-/// from the working directory and the executable), then the local backend.
+/// `VITE_CONVEX_URL` from the Buddy checkout's `.env.local` or `.env`
+/// (the checkout root found upward from the working directory or the
+/// executable), then the local backend.
 pub fn convex_url() -> String {
     for key in ["BUDDY_CONVEX_URL", "VITE_CONVEX_URL"] {
         if let Some(url) = std::env::var(key).ok().and_then(clean_url) {
@@ -43,14 +44,16 @@ fn clean_url(raw: String) -> Option<String> {
     (!trimmed.is_empty()).then(|| trimmed.to_string())
 }
 
-/// Directories to probe for env files: cwd and the executable's directory,
-/// each followed by all ancestors.
+/// Directories to probe for env files: the Buddy checkout roots found above
+/// the working directory and above the executable. Only a directory that is
+/// recognisably this repository counts, so a binary launched from inside an
+/// unrelated project cannot pick up that project's `VITE_CONVEX_URL`.
 fn search_roots() -> Vec<PathBuf> {
     let mut roots = Vec::new();
     let mut push_chain = |start: Option<PathBuf>| {
         let mut current = start;
         while let Some(dir) = current {
-            if !roots.contains(&dir) {
+            if is_buddy_checkout(&dir) && !roots.contains(&dir) {
                 roots.push(dir.clone());
             }
             current = dir.parent().map(Path::to_path_buf);
@@ -63,6 +66,14 @@ fn search_roots() -> Vec<PathBuf> {
             .and_then(|exe| exe.parent().map(Path::to_path_buf)),
     );
     roots
+}
+
+/// The repository root: the Electron package, the Convex functions and the
+/// Rust workspace side by side.
+fn is_buddy_checkout(dir: &Path) -> bool {
+    dir.join("package.json").is_file()
+        && dir.join("convex").is_dir()
+        && dir.join("rust").join("Cargo.toml").is_file()
 }
 
 /// Minimal dotenv lookup: `KEY=value`, optional `export`, `#` comments,

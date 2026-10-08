@@ -39,17 +39,7 @@ impl Settings {
             edit(&mut fresh);
             match fresh.save_if_unchanged(&stamp) {
                 Ok(true) => {
-                    // The reload may have merged appearance changes Electron
-                    // made meanwhile; the GPUI theme is derived state and has
-                    // to follow, as it does on Reload Configuration.
-                    let appearance_changed =
-                        appearance_differs(&cx.global::<Self>().config.ui, &fresh.ui);
-                    cx.global_mut::<Self>().config = fresh;
-                    if appearance_changed {
-                        let config = cx.global::<Self>().config.clone();
-                        crate::theme::install(&config, cx);
-                        cx.refresh_windows();
-                    }
+                    Self::install(cx, fresh);
                     return true;
                 }
                 Ok(false) if attempt < ATTEMPTS => {
@@ -75,8 +65,21 @@ impl Settings {
     /// restart would undo.
     fn resync(cx: &mut App) {
         match AppConfig::load() {
-            Ok(disk) => cx.global_mut::<Self>().config = disk,
+            Ok(disk) => Self::install(cx, disk),
             Err(err) => log::warn!("configuration left as last loaded; reload failed: {err}"),
+        }
+    }
+
+    /// Make `config` the in-memory configuration. The GPUI theme is derived
+    /// state and follows whenever an appearance field changed (Electron may
+    /// have edited the shared file meanwhile), as on Reload Configuration.
+    fn install(cx: &mut App, config: AppConfig) {
+        let appearance_changed = appearance_differs(&cx.global::<Self>().config.ui, &config.ui);
+        cx.global_mut::<Self>().config = config;
+        if appearance_changed {
+            let config = cx.global::<Self>().config.clone();
+            crate::theme::install(&config, cx);
+            cx.refresh_windows();
         }
     }
 

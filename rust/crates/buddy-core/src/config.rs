@@ -414,8 +414,14 @@ impl AppConfig {
     }
 
     fn save_checked(&mut self, expected: Option<&Option<FileStamp>>) -> Result<bool, ConfigError> {
-        self.migrate_legacy_weather_location();
         let path = config_path()?;
+        // Nothing to migrate or write for a snapshot that is already stale.
+        if let Some(expected) = expected
+            && FileStamp::of(&path) != *expected
+        {
+            return Ok(false);
+        }
+        let migrated = self.migrate_legacy_weather_location();
         let body = serde_json::to_string_pretty(self).expect("AppConfig is always serializable");
         let write = |source| ConfigError::Write {
             path: path.clone(),
@@ -451,6 +457,14 @@ impl AppConfig {
             && FileStamp::of(&path) != *expected
         {
             let _ = std::fs::remove_file(&tmp);
+            // The keychain write above belongs to this snapshot; undo it so
+            // the retry (which reloads the newer file) migrates that one.
+            if let Some(location) = migrated {
+                if let Err(err) = crate::secrets::clear_weather_location() {
+                    log::warn!("could not undo the keychain migration: {err}");
+                }
+                self.ui.weather_location = Some(location);
+            }
             return Ok(false);
         }
         // `rename` replaces an existing destination on every supported platform
@@ -481,10 +495,11 @@ impl AppConfig {
     ///
     /// The plaintext is cleared only once the keychain has accepted the value;
     /// if the keychain is unavailable the saved city is kept rather than lost.
-    fn migrate_legacy_weather_location(&mut self) {
-        let Some(location) = self.ui.weather_location.as_ref() else {
-            return;
-        };
+    ///
+    /// Returns the location when it was written to a previously empty
+    /// keychain, so a caller that then abandons this snapshot can undo it.
+    fn migrate_legacy_weather_location(&mut self) -> Option<WeatherLocation> {
+        let location = self.ui.weather_location.as_ref()?;
         // A keychain entry is always the newer of the two: the app writes the
         // keychain only after the user chose a city or migrated this very
         // value. Never overwrite it with the plaintext, and do not migrate at
@@ -493,21 +508,24 @@ impl AppConfig {
             Ok(Some(_)) => {
                 log::info!("dropping the legacy weather location; the keychain already holds one");
                 self.ui.weather_location = None;
-                return;
+                return None;
             }
             Ok(None) => {}
             Err(err) => {
                 log::warn!("keeping legacy weather location in config; keychain unreadable: {err}");
-                return;
+                return None;
             }
         }
         match crate::secrets::save_weather_location(location) {
             Ok(()) => {
                 log::info!("migrated legacy weather location to the keychain");
-                self.ui.weather_location = None;
+                self.ui.weather_location.take()
             }
             Err(err) => {
-                log::warn!("keeping legacy weather location in config; keychain unavailable: {err}")
+                log::warn!(
+                    "keeping legacy weather location in config; keychain unavailable: {err}"
+                );
+                None
             }
         }
     }

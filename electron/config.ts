@@ -1,4 +1,6 @@
+import { app } from 'electron'
 import Store from 'electron-store'
+import { join } from 'node:path'
 
 import { withConfigLock } from './configLock'
 import { ProtectedWeatherLocation } from './services/protectedWeatherLocation'
@@ -121,18 +123,47 @@ function seedInitialOverrides(
  * Authentication is handled securely by GitHub CLI in system keychain.
  * Remembered weather coordinates are stored only as OS-encrypted ciphertext.
  */
+/** Where electron-store will put `config.json`, or null outside Electron (tests). */
+function expectedConfigPath(): string | null {
+  // The electron mock used by unit tests exports no `app`.
+  const electronApp = app as typeof app | undefined
+  if (!electronApp || typeof electronApp.getPath !== 'function') return null
+  try {
+    return join(electronApp.getPath('userData'), 'config.json')
+  } catch (_: unknown) {
+    return null
+  }
+}
+
 class ConfigManager {
   private store: Store<AppConfig>
   private weatherLocation: ProtectedWeatherLocation
 
   constructor() {
-    this.store = new Store<AppConfig>({
-      schema: configSchema,
-      defaults: defaultConfig,
-      name: 'config', // Creates config.json in userData
-      clearInvalidConfig: false, // Preserve config even if validation fails
-      watch: true, // Watch for external changes
-    })
+    // `conf` writes merged defaults during construction when the on-disk
+    // object differs, so even initialization is a write that must not race
+    // the native app: take the lock on the path the store will use.
+    const expectedPath = expectedConfigPath()
+    const createStore = (): Store<AppConfig> =>
+      new Store<AppConfig>({
+        schema: configSchema,
+        defaults: defaultConfig,
+        name: 'config', // Creates config.json in userData
+        clearInvalidConfig: false, // Preserve config even if validation fails
+        watch: true, // Watch for external changes
+      })
+    this.store = expectedPath
+      ? withConfigLock(expectedPath, createStore, {
+          warn: message => {
+            console.warn(message)
+          },
+        })
+      : createStore()
+    if (expectedPath && this.store.path !== expectedPath) {
+      console.warn(
+        `[ConfigManager] store path ${this.store.path} differs from the locked ${expectedPath}`
+      )
+    }
 
     const legacyLocation = this.store.get('ui', defaultConfig.ui).weatherLocation ?? null
     // Remove plaintext before any further config writes, including before app ready.

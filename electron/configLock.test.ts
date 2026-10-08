@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -270,11 +270,43 @@ describe('configLock release and fallback', () => {
     ).toThrow('boom')
     expect(existsSync(lockDir)).toBe(false)
   })
+})
+
+describe('configLock recovery', () => {
+  useTempConfig()
+
+  it('creates a missing config directory rather than giving up the lock', () => {
+    const warn = vi.fn()
+    const nested = join(dir, 'missing', 'deeper', 'config.json')
+    const handle = acquireConfigLock(nested, { warn })
+    expect(handle).not.toBeNull()
+    expect(existsSync(lockDirFor(nested))).toBe(true)
+    expect(warn).not.toHaveBeenCalled()
+    handle?.release()
+  })
 
   it('proceeds unlocked when the lock directory cannot be created', () => {
     const warn = vi.fn()
-    const release = acquireConfigLock(join(dir, 'missing', 'deeper', 'config.json'), { warn })
+    // A file where the config directory should be: no lock can live there.
+    writeFileSync(join(dir, 'notadir'), '')
+    const release = acquireConfigLock(join(dir, 'notadir', 'config.json'), { warn })
     expect(release).toBeNull()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('proceeding unlocked'))
+  })
+
+  it('treats a nested claim as lost ownership', () => {
+    const first = acquireConfigLock(configPath)
+    expect(first?.held()).toBe(true)
+    // This process was suspended past the stale window and another writer
+    // took the lock over in place.
+    ageDir(lockDir)
+    const second = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn() })
+    expect(second).not.toBeNull()
+    expect(first?.held()).toBe(false)
+    expect(second?.held()).toBe(true)
+    first?.release()
+    expect(existsSync(join(lockDir, 'claim'))).toBe(true)
+    second?.release()
+    expect(existsSync(lockDir)).toBe(false)
   })
 })

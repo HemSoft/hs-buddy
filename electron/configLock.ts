@@ -36,8 +36,8 @@
  * load-edit-save with the Windows rename retries (250 ms) and, once, the
  * legacy keychain migration.
  */
-import { mkdirSync, rmdirSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { existsSync, mkdirSync, rmdirSync, statSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 
 /**
  * A holder that has not touched its lock for this long is presumed dead. Long
@@ -97,6 +97,30 @@ function tryCreate(path: string): CreateOutcome {
   }
 }
 
+/**
+ * The config directory may not exist yet (first launch, or deleted while the
+ * app runs); the stores create it before writing, so the lock must too.
+ */
+function createParent(dir: string): boolean {
+  try {
+    mkdirSync(dirname(dir), { recursive: true })
+    return true
+  } catch (_: unknown) {
+    return false
+  }
+}
+
+/** Once per acquisition, a missing config directory is created and retried. */
+function recoverMissingParent(
+  outcome: { failed: string },
+  dir: string,
+  recovery: { parentCreated: boolean }
+): boolean {
+  if (outcome.failed !== 'ENOENT' || recovery.parentCreated) return false
+  recovery.parentCreated = true
+  return createParent(dir)
+}
+
 function removeQuietly(path: string): void {
   try {
     rmdirSync(path)
@@ -140,7 +164,11 @@ function handleFor(chain: string[], now: () => number): ConfigLockHandle {
   const identity = observe(owned, now())?.identity
   const held = (): boolean => {
     const current = observe(owned, now())?.identity
-    return identity !== undefined && current !== undefined && sameInstance(current, identity)
+    if (identity === undefined || current === undefined || !sameInstance(current, identity)) {
+      return false
+    }
+    // A takeover leaves the directory in place and nests a marker inside it.
+    return !existsSync(join(owned, CLAIM))
   }
   return {
     // Never remove a lock that is no longer ours (taken over while this
@@ -231,12 +259,14 @@ export function acquireConfigLock(
   // The deadline is measured on a monotonic clock: a wall clock stepping
   // backwards must not extend the wait.
   const deadline = monotonic() + timeoutMs
+  const recovery = { parentCreated: false }
   for (;;) {
     const outcome = tryCreate(dir)
     if (outcome === 'created') return handleFor([dir], now)
     if (outcome !== 'exists') {
-      // No lock directory can exist here (unwritable parent, say): there is
-      // nothing to coordinate on, so proceed unlocked.
+      if (recoverMissingParent(outcome, dir, recovery)) continue
+      // Anything else (unwritable parent, say) means there is nothing to
+      // coordinate on: proceed unlocked.
       warn(`[configLock] cannot create ${dir} (${outcome.failed}); proceeding unlocked`)
       return null
     }

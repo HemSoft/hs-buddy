@@ -191,8 +191,13 @@ impl ConfigLock {
     /// claimed. False once a waiter took it over (this process was suspended
     /// past the stale window) or it vanished.
     pub fn is_held(&self) -> bool {
-        match (&self.identity, self.chain.last().and_then(|p| observe(p))) {
-            (Some(mine), Some(current)) => current.identity == *mine,
+        let Some(owned) = self.chain.last() else {
+            return false;
+        };
+        match (&self.identity, observe(owned)) {
+            // A takeover leaves the directory in place and nests a marker
+            // inside it.
+            (Some(mine), Some(current)) => current.identity == *mine && !owned.join(CLAIM).exists(),
             _ => false,
         }
     }
@@ -400,6 +405,31 @@ mod tests {
             dir.is_dir(),
             "releasing must not strip the new holder's lock"
         );
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_nested_claim_means_the_old_holder_lost_the_lock() {
+        let config = temp_config("nested-takeover");
+        let dir = lock_dir(&config);
+        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT)
+            .unwrap()
+            .unwrap();
+        assert!(first.is_held());
+        // Suspended past the stale window; another writer takes over in place.
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let second = ConfigLock::acquire(&config, Duration::from_millis(200))
+            .unwrap()
+            .unwrap();
+        assert!(!first.is_held());
+        assert!(second.is_held());
+        drop(first);
+        assert!(
+            dir.join(CLAIM).is_dir(),
+            "the old holder leaves the new one alone"
+        );
+        drop(second);
+        assert!(!dir.exists());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

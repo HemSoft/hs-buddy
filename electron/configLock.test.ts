@@ -440,7 +440,14 @@ describe('configLock dead chains', () => {
   it('recovers a chain that reached the depth limit', () => {
     // Eight successive claimers crashed, each owning a deeper stale marker.
     buildDeadChain(9)
+    const parent = join(lockDir, ...Array<string>(7).fill('claim'))
+    writeFileSync(join(parent, 'owner'), 'displaced')
     ageDeadChain(9)
+    // The displaced parent owner is invalidated before its marker moves.
+    hooks.renameSync = () => {
+      hooks.renameSync = null
+      expect(existsSync(join(parent, 'owner'))).toBe(false)
+    }
     // Dropping the deepest marker refreshes its parent, so the next attempt
     // claims it once the stale window has passed again.
     let wall = Date.now()

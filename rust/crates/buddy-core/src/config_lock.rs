@@ -284,6 +284,9 @@ fn drop_dead_marker(path: &Path) {
     let Some(seen) = observe(path).filter(|o| o.stale) else {
         return;
     };
+    // The parent's owner was displaced by this marker; without the marker
+    // it would read its token back as ownership, so invalidate it first.
+    let _ = std::fs::remove_file(parent.join(OWNER));
     let aside = parent.join(format!("{DEAD}{}", new_token()));
     if std::fs::rename(path, &aside).is_err() {
         return;
@@ -337,11 +340,32 @@ impl Drop for ConfigLock {
             let _ = std::fs::remove_file(level.join(OWNER));
         }
         for level in self.chain.iter().rev() {
-            if std::fs::remove_dir(level).is_err() {
+            if !remove_level(level) {
                 return;
             }
         }
     }
+}
+
+/// Removal attempts for a level whose token was just deleted (see [`remove_level`]).
+const REMOVE_ATTEMPTS: u32 = 10;
+const REMOVE_RETRY: Duration = Duration::from_millis(5);
+
+/// Remove an empty level. Windows keeps a just-deleted token file in the
+/// directory until every handle on it closes (an indexer or antivirus scan
+/// of the new file is enough), so a failure is retried briefly before it is
+/// taken to mean the level is in use.
+fn remove_level(level: &Path) -> bool {
+    for attempt in 1.. {
+        if std::fs::remove_dir(level).is_ok() {
+            return true;
+        }
+        if attempt >= REMOVE_ATTEMPTS {
+            return false;
+        }
+        std::thread::sleep(REMOVE_RETRY);
+    }
+    false
 }
 
 #[cfg(test)]
@@ -621,6 +645,25 @@ mod tests {
             .map(|e| e.unwrap().file_name())
             .collect();
         assert_eq!(names, vec![std::ffi::OsString::from(CLAIM)]);
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn the_displaced_parent_owner_is_invalidated_before_its_marker_moves() {
+        let config = temp_config("parent-owner");
+        let dir = lock_dir(&config);
+        let marker = dir.join(CLAIM);
+        std::fs::create_dir_all(&marker).unwrap();
+        std::fs::write(dir.join(OWNER), "displaced").unwrap();
+        for d in [&dir, &marker] {
+            age_dir(d, STALE_AFTER + Duration::from_secs(5));
+        }
+        drop_dead_marker(&marker);
+        assert!(
+            !dir.join(OWNER).exists(),
+            "the displaced owner's token is gone"
+        );
+        assert!(!marker.exists());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

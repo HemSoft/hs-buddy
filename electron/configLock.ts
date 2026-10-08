@@ -304,6 +304,9 @@ function dropDeadMarker(path: string, now: () => number): void {
   sweepLeftovers(parent, now)
   const seen = observe(path, now())
   if (seen === null || !seen.stale) return
+  // The parent's owner was displaced by this marker; without the marker it
+  // would read its token back as ownership, so invalidate it first.
+  unlinkQuietly(join(parent, OWNER))
   const aside = join(parent, `${DEAD}${newToken()}`)
   try {
     renameSync(path, aside)
@@ -342,10 +345,28 @@ function releaseChain(chain: string[]): void {
   for (let i = 0; i < chain.length - 1; i += 1) unlinkQuietly(join(chain[i], OWNER))
   unlinkQuietly(join(chain[chain.length - 1], OWNER))
   for (let i = chain.length - 1; i >= 0; i -= 1) {
+    if (!removeDir(chain[i])) return
+  }
+}
+
+/** Removal attempts for a level whose token was just deleted (see `removeDir`). */
+const REMOVE_ATTEMPTS = 10
+const REMOVE_RETRY_MS = 5
+
+/**
+ * Remove an empty level. Windows keeps a just-deleted token file in the
+ * directory until every handle on it closes (an indexer or antivirus scan
+ * of the new file is enough), so a failure is retried briefly before it is
+ * taken to mean the level is in use.
+ */
+function removeDir(level: string): boolean {
+  for (let attempt = 1; ; attempt += 1) {
     try {
-      rmdirSync(chain[i])
+      rmdirSync(level)
+      return true
     } catch (_: unknown) {
-      return
+      if (attempt >= REMOVE_ATTEMPTS) return false
+      sleepSync(REMOVE_RETRY_MS)
     }
   }
 }

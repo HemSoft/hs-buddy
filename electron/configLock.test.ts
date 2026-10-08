@@ -7,6 +7,7 @@ import {
   writeFileSync,
   symlinkSync,
 } from 'node:fs'
+import * as fs from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -16,6 +17,7 @@ import { STALE_AFTER_MS, acquireConfigLock, lockDirFor, withConfigLock } from '.
 /** One-shot interception points for the lock's file-system calls. */
 const hooks = vi.hoisted(() => ({
   existsSync: null as ((path: string) => boolean) | null,
+  renameSync: null as ((from: string, to: string) => void) | null,
 }))
 
 vi.mock('node:fs', async importOriginal => {
@@ -24,6 +26,10 @@ vi.mock('node:fs', async importOriginal => {
     ...actual,
     existsSync: (path: Parameters<typeof actual.existsSync>[0]) =>
       hooks.existsSync?.(String(path)) ?? actual.existsSync(path),
+    renameSync: (from: Parameters<typeof actual.renameSync>[0], to: string) => {
+      hooks.renameSync?.(String(from), to)
+      actual.renameSync(from, to)
+    },
   }
 })
 
@@ -220,31 +226,6 @@ describe('configLock claim chains', () => {
 describe('configLock release and fallback', () => {
   useTempConfig()
 
-  it('recovers a chain that reached the depth limit', () => {
-    // Eight successive claimers crashed, each owning a deeper stale marker.
-    let level = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      mkdirSync(level)
-      level = join(level, 'claim')
-    }
-    let walk = lockDir
-    for (let depth = 0; depth < 9; depth += 1) {
-      ageDir(walk)
-      walk = join(walk, 'claim')
-    }
-    // Dropping the deepest marker refreshes its parent, so the next attempt
-    // claims it once the stale window has passed again.
-    let wall = Date.now()
-    const sleep = vi.fn(() => {
-      wall += STALE_AFTER_MS + 1_000
-    })
-    const handle = acquireConfigLock(configPath, { timeoutMs: 500, now: () => wall, sleep })
-    expect(handle).not.toBeNull()
-    expect(handle?.held()).toBe(true)
-    handle?.release()
-    expect(existsSync(lockDir)).toBe(false)
-  })
-
   it('reports whether the lock is still the instance it created', () => {
     const handle = acquireConfigLock(configPath)
     expect(handle?.held()).toBe(true)
@@ -283,11 +264,12 @@ describe('configLock release and fallback', () => {
     const sleep = vi.fn((ms: number) => {
       mono += ms
     })
-    // Wall time runs backwards; the wait must still end after 50 ms.
-    let wall = 10_000_000
+    // Wall time runs backwards (within the stale window, so the lock stays
+    // fresh); the wait must still end after 50 ms.
+    let wall = Date.now()
     const release = acquireConfigLock(configPath, {
       timeoutMs: 50,
-      now: () => (wall -= 1_000),
+      now: () => (wall -= 100),
       monotonic: () => mono,
       sleep,
     })
@@ -410,6 +392,95 @@ describe('configLock lost ownership', () => {
     first?.release()
     expect(existsSync(join(lockDir, 'claim'))).toBe(true)
     second?.release()
+    expect(existsSync(lockDir)).toBe(false)
+  })
+})
+
+describe('configLock dead chains', () => {
+  useTempConfig()
+
+  it('recovers a chain that reached the depth limit', () => {
+    // Eight successive claimers crashed, each owning a deeper stale marker.
+    let level = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      mkdirSync(level)
+      level = join(level, 'claim')
+    }
+    let walk = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      ageDir(walk)
+      walk = join(walk, 'claim')
+    }
+    // Dropping the deepest marker refreshes its parent, so the next attempt
+    // claims it once the stale window has passed again.
+    let wall = Date.now()
+    const sleep = vi.fn(() => {
+      wall += STALE_AFTER_MS + 1_000
+    })
+    const handle = acquireConfigLock(configPath, { timeoutMs: 500, now: () => wall, sleep })
+    expect(handle).not.toBeNull()
+    expect(handle?.held()).toBe(true)
+    handle?.release()
+    expect(existsSync(lockDir)).toBe(false)
+  })
+
+  it('never deletes a marker recreated under the dead one it observed', () => {
+    let level = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      mkdirSync(level)
+      level = join(level, 'claim')
+    }
+    let walk = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      ageDir(walk)
+      walk = join(walk, 'claim')
+    }
+    const deepest = join(lockDir, ...Array<string>(8).fill('claim'))
+    // Between observing the dead marker and moving it aside, another
+    // writer replaces it with its own fresh claim.
+    hooks.renameSync = from => {
+      hooks.renameSync = null
+      if (from !== deepest) throw new Error(`unexpected rename of ${from}`)
+      rmSync(deepest, { recursive: true, force: true })
+      mkdirSync(deepest)
+      writeFileSync(join(deepest, 'owner'), 'other')
+    }
+    expect(acquireConfigLock(configPath, { timeoutMs: 50, sleep: vi.fn() })).toBeNull()
+    expect(fs.readFileSync(join(deepest, 'owner'), 'utf8')).toBe('other')
+    expect(fs.readdirSync(join(lockDir, ...Array<string>(7).fill('claim')))).toEqual(['claim'])
+  })
+
+  it('sweeps stale leftovers of a recoverer that crashed mid-way', () => {
+    let level = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      mkdirSync(level)
+      level = join(level, 'claim')
+    }
+    const parent = join(lockDir, ...Array<string>(7).fill('claim'))
+    mkdirSync(join(parent, 'dead-leftover'))
+    let walk = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      ageDir(walk)
+      walk = join(walk, 'claim')
+    }
+    ageDir(join(parent, 'dead-leftover'))
+    let wall = Date.now()
+    const sleep = vi.fn(() => {
+      wall += STALE_AFTER_MS + 1_000
+    })
+    const handle = acquireConfigLock(configPath, { timeoutMs: 500, now: () => wall, sleep })
+    expect(handle).not.toBeNull()
+    handle?.release()
+    expect(existsSync(lockDir)).toBe(false)
+  })
+
+  it('treats a lock dated in the future as stale', () => {
+    mkdirSync(lockDir)
+    // The holder wrote it before the clock was set back past the window.
+    const now = () => Date.now() - STALE_AFTER_MS - 5_000
+    const handle = acquireConfigLock(configPath, { timeoutMs: 50, now, sleep: vi.fn() })
+    expect(handle?.held()).toBe(true)
+    handle?.release()
     expect(existsSync(lockDir)).toBe(false)
   })
 })

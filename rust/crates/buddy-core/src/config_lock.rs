@@ -42,6 +42,8 @@ const POLL: Duration = Duration::from_millis(10);
 const CLAIM: &str = "claim";
 /// The owner's token file inside the level it owns.
 const OWNER: &str = "owner";
+/// Prefix of a dead marker moved aside before removal (see [`drop_dead_marker`]).
+const DEAD: &str = "dead-";
 
 /// Holds the lock; dropping it releases.
 #[derive(Debug)]
@@ -91,10 +93,14 @@ struct Observation {
 
 fn observe(dir: &Path) -> Option<Observation> {
     let meta = std::fs::metadata(dir).ok()?;
-    let modified = meta.modified().ok();
-    let stale = modified
-        .and_then(|m| m.elapsed().ok())
-        .is_some_and(|age| age > STALE_AFTER);
+    // A marker dated in the future (written before the clock was set back)
+    // is just as abandoned as one far in the past.
+    let stale = meta.modified().ok().is_some_and(|modified| {
+        let skew = SystemTime::now()
+            .duration_since(modified)
+            .unwrap_or_else(|future| future.duration());
+        skew > STALE_AFTER
+    });
     Some(Observation {
         identity: Identity {
             #[cfg(unix)]
@@ -216,12 +222,48 @@ fn claim_stale(dir: &Path) -> Claim {
     // Every level down to the limit is a stale marker of a crashed claimer
     // and nobody alive owns any of it: drop the deepest one so the chain can
     // be claimed again instead of wedging every later writer.
-    if let Some(deepest) = chain.last()
-        && observe(deepest).is_some_and(|o| o.stale)
-    {
-        let _ = std::fs::remove_dir_all(deepest);
+    if let Some(deepest) = chain.last() {
+        drop_dead_marker(deepest);
     }
     Claim::Retry
+}
+
+/// Remove the stale marker at `path` without ever deleting whatever else may
+/// occupy that path by then: move it aside first (atomic), then delete the
+/// moved directory only if it is still the stale instance observed, else put
+/// it back. Stale leftovers of a recoverer that crashed in between are swept
+/// too; nothing can own a moved-aside marker.
+fn drop_dead_marker(path: &Path) {
+    let Some(parent) = path.parent() else {
+        return;
+    };
+    if let Ok(entries) = std::fs::read_dir(parent) {
+        for entry in entries.flatten() {
+            let leftover = entry.path();
+            if entry.file_name().to_string_lossy().starts_with(DEAD)
+                && observe(&leftover).is_some_and(|o| o.stale)
+            {
+                let _ = std::fs::remove_dir_all(&leftover);
+            }
+        }
+    }
+    let Some(seen) = observe(path).filter(|o| o.stale) else {
+        return;
+    };
+    let aside = parent.join(format!("{DEAD}{}", new_token()));
+    if std::fs::rename(path, &aside).is_err() {
+        return;
+    }
+    match observe(&aside) {
+        Some(moved) if moved.stale && moved.identity == seen.identity => {
+            let _ = std::fs::remove_dir_all(&aside);
+        }
+        // Claimed meanwhile; if it cannot go back, the mover's token check
+        // reports the loss.
+        _ => {
+            let _ = std::fs::rename(&aside, path);
+        }
+    }
 }
 
 impl ConfigLock {
@@ -279,6 +321,11 @@ mod tests {
     /// Age a directory's mtime; opening a directory needs backup semantics
     /// on Windows, where `File::open` on a directory is refused.
     fn age_dir(dir: &Path, by: Duration) {
+        touch_dir(dir, SystemTime::now() - by);
+    }
+
+    /// Date `dir` at `at`, which may lie in the future.
+    fn touch_dir(dir: &Path, at: SystemTime) {
         #[cfg(windows)]
         let file = {
             use std::os::windows::fs::OpenOptionsExt as _;
@@ -295,7 +342,7 @@ mod tests {
         };
         #[cfg(not(windows))]
         let file = std::fs::File::open(dir).expect("open the directory");
-        file.set_modified(SystemTime::now() - by)
+        file.set_modified(at)
             .expect("set the lock's mtime into the past");
     }
 
@@ -525,6 +572,71 @@ mod tests {
         assert!(guard.as_ref().unwrap().is_held());
         drop(guard);
         assert!(!dir.exists(), "the whole chain is released");
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_marker_recreated_under_the_dead_one_is_left_alone() {
+        let config = temp_config("recreated");
+        let dir = lock_dir(&config);
+        let marker = dir.join(CLAIM);
+        std::fs::create_dir_all(&marker).unwrap();
+        age_dir(&marker, STALE_AFTER + Duration::from_secs(5));
+        // Another writer replaced the dead marker with its own fresh claim
+        // right after it was observed stale: a fresh instance must survive
+        // the cleanup even if the file system reuses the identity.
+        std::fs::remove_dir(&marker).unwrap();
+        std::fs::create_dir(&marker).unwrap();
+        std::fs::write(marker.join(OWNER), "other").unwrap();
+        drop_dead_marker(&marker);
+        assert_eq!(
+            std::fs::read_to_string(marker.join(OWNER)).unwrap(),
+            "other"
+        );
+        let names: Vec<_> = std::fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names, vec![std::ffi::OsString::from(CLAIM)]);
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn stale_leftovers_of_a_crashed_recoverer_are_swept() {
+        let config = temp_config("leftover");
+        let dir = lock_dir(&config);
+        let marker = dir.join(CLAIM);
+        let leftover = dir.join("dead-leftover");
+        std::fs::create_dir_all(&marker).unwrap();
+        std::fs::create_dir(&leftover).unwrap();
+        for d in [&dir, &marker, &leftover] {
+            age_dir(d, STALE_AFTER + Duration::from_secs(5));
+        }
+        drop_dead_marker(&marker);
+        assert!(!leftover.exists(), "the stale leftover is swept");
+        assert!(!marker.exists(), "the dead marker is dropped");
+        assert!(dir.is_dir());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_lock_dated_in_the_future_is_stale() {
+        let config = temp_config("future");
+        let dir = lock_dir(&config);
+        std::fs::create_dir(&dir).unwrap();
+        // The holder wrote it before the clock was set back past the window.
+        touch_dir(
+            &dir,
+            SystemTime::now() + STALE_AFTER + Duration::from_secs(60),
+        );
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(
+            guard.is_some(),
+            "a future-dated lock must not block forever"
+        );
+        assert!(guard.as_ref().unwrap().is_held());
+        drop(guard);
+        assert!(!dir.exists());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

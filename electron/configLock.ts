@@ -42,7 +42,9 @@ import { randomBytes } from 'node:crypto'
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   rmdirSync,
   statSync,
@@ -63,6 +65,8 @@ const POLL_MS = 10
 const CLAIM = 'claim'
 /** The owner's token file inside the level it owns. */
 const OWNER = 'owner'
+/** Prefix of a dead marker moved aside before removal (see `dropDeadMarker`). */
+const DEAD = 'dead-'
 
 export function lockDirFor(configPath: string): string {
   return `${configPath}.lock`
@@ -85,7 +89,9 @@ function observe(dir: string, now: number): Observation | null {
     return {
       identity: { ino: stat.ino, birthtimeMs: stat.birthtimeMs },
       mtimeMs: stat.mtimeMs,
-      stale: now - stat.mtimeMs > STALE_AFTER_MS,
+      // A marker dated in the future (written before the clock was set
+      // back) is just as abandoned as one far in the past.
+      stale: Math.abs(now - stat.mtimeMs) > STALE_AFTER_MS,
     }
   } catch (_: unknown) {
     // Vanished between EEXIST and stat: the holder released it.
@@ -244,9 +250,48 @@ function claimStale(dir: string, now: () => number): ConfigLockHandle | null | '
   // Every level down to the limit is a stale marker of a crashed claimer and
   // nobody alive owns any of it: drop the deepest one so the chain can be
   // claimed again instead of wedging every later writer.
-  const deepest = chain[chain.length - 1]
-  if (observe(deepest, now())?.stale) rmSync(deepest, { recursive: true, force: true })
+  dropDeadMarker(chain[chain.length - 1], now)
   return 'retry'
+}
+
+/** Remove stale moved-aside markers left in `parent` by a crashed recoverer. */
+function sweepLeftovers(parent: string, now: () => number): void {
+  for (const entry of readdirSync(parent)) {
+    const leftover = join(parent, entry)
+    if (entry.startsWith(DEAD) && observe(leftover, now())?.stale) {
+      rmSync(leftover, { recursive: true, force: true })
+    }
+  }
+}
+
+/**
+ * Remove the stale marker at `path` without ever deleting whatever else may
+ * occupy that path by then: move it aside first (atomic), then delete the
+ * moved directory only if it is still the stale instance observed, else
+ * put it back. Stale leftovers of a recoverer that crashed in between are
+ * swept too; nothing can own a moved-aside marker.
+ */
+function dropDeadMarker(path: string, now: () => number): void {
+  const parent = dirname(path)
+  sweepLeftovers(parent, now)
+  const seen = observe(path, now())
+  if (seen === null || !seen.stale) return
+  const aside = join(parent, `${DEAD}${newToken()}`)
+  try {
+    renameSync(path, aside)
+  } catch (_: unknown) {
+    return
+  }
+  const moved = observe(aside, now())
+  if (moved !== null && moved.stale && sameInstance(moved.identity, seen.identity)) {
+    rmSync(aside, { recursive: true, force: true })
+    return
+  }
+  try {
+    renameSync(aside, path)
+  } catch (_: unknown) {
+    /* claimed meanwhile; the mover's token check reports the loss */
+  }
 }
 
 /**

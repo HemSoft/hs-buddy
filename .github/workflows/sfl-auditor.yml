@@ -417,7 +417,7 @@ jobs:
           RECOVERY="Verify the manifest source before redeploying from a supported SFL release."
           case "$EXPECTED_SOURCE_REPO" in
             HemSoft/set-it-free-loop|hemsoft-dev/set-it-free-loop)
-              RECOVERY="Run \`deployment/scripts/deploy-workflow.ps1 -Tier review -SourceRepository $EXPECTED_SOURCE_REPO\` and \`deployment/governance/setup-labels.ps1\` from \`$EXPECTED_SOURCE_REPO\`. For an installed wider tier, use the matching source CLI's \`gh sfl sync\` to update all components together."
+              RECOVERY="Use the canonical gh-sfl CLI 2.1.0-rc.19 or newer and run \`gh sfl sync --repo $REPO --pr\` with this repository's \`.sfl/sync-policy.json\` intact. Earlier CLI releases ignore the consumer-owned policy and must not be used for full sync. Preserve the manual Auditor/Dispatcher triggers and retired issue processor."
               ;;
           esac
 

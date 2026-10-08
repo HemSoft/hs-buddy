@@ -41,17 +41,7 @@ impl Settings {
                 return false;
             }
         };
-        let _lock = match ConfigLock::acquire(&path, DEFAULT_TIMEOUT) {
-            Ok(Some(lock)) => Some(lock),
-            Ok(None) => {
-                log::warn!("config lock busy for {DEFAULT_TIMEOUT:?}; saving unlocked");
-                None
-            }
-            Err(err) => {
-                log::warn!("config lock unavailable ({err}); saving unlocked");
-                None
-            }
-        };
+        let mut lock = acquire_lock(&path);
         for attempt in 1..=ATTEMPTS {
             let (mut fresh, stamp) = match AppConfig::load_with_stamp_from(&path) {
                 Ok(loaded) => loaded,
@@ -61,11 +51,14 @@ impl Settings {
                 }
             };
             edit(&mut fresh);
-            if _lock.as_ref().is_some_and(|lock| !lock.is_held()) {
-                // Suspended past the stale window: another writer may have
-                // taken the lock; the stamp check below is what protects
-                // their write, this only explains a refused save.
-                log::warn!("config lock was taken over while editing; relying on the stamp check");
+            if lock.as_ref().is_some_and(|held| !held.is_held()) {
+                // Suspended past the stale window: another writer owns the
+                // lock now and may be mid-edit, so do not write under it.
+                // Take the lock again (the old guard leaves theirs alone) and
+                // start over from a fresh read.
+                log::warn!("config lock was taken over while editing; re-acquiring");
+                lock = acquire_lock(&path);
+                continue;
             }
             match fresh.save_if_unchanged_at(&path, &stamp) {
                 Ok(true) => {
@@ -130,4 +123,20 @@ fn appearance_differs(a: &UiConfig, b: &UiConfig) -> bool {
         || a.mono_font_family != b.mono_font_family
         || a.status_bar_bg != b.status_bar_bg
         || a.status_bar_fg != b.status_bar_fg
+}
+
+/// The shared lock for `path`, or `None` (logged) when it is busy or
+/// unavailable, in which case the save proceeds unlocked.
+fn acquire_lock(path: &std::path::Path) -> Option<ConfigLock> {
+    match ConfigLock::acquire(path, DEFAULT_TIMEOUT) {
+        Ok(Some(lock)) => Some(lock),
+        Ok(None) => {
+            log::warn!("config lock busy for {DEFAULT_TIMEOUT:?}; saving unlocked");
+            None
+        }
+        Err(err) => {
+            log::warn!("config lock unavailable ({err}); saving unlocked");
+            None
+        }
+    }
 }

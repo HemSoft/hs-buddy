@@ -47,17 +47,27 @@ impl Settings {
                 }
                 Ok(false) => {
                     log::warn!("configuration kept changing on disk; edit not saved");
-                    cx.global_mut::<Self>().config = fresh;
+                    Self::resync(cx);
                     return false;
                 }
                 Err(err) => {
                     log::warn!("could not save configuration: {err}");
-                    cx.global_mut::<Self>().config = fresh;
+                    Self::resync(cx);
                     return false;
                 }
             }
         }
         false
+    }
+
+    /// After a failed save the in-memory copy must reflect the disk, not the
+    /// edit that never landed, so the UI does not show a state that a
+    /// restart would undo.
+    fn resync(cx: &mut App) {
+        match AppConfig::load() {
+            Ok(disk) => cx.global_mut::<Self>().config = disk,
+            Err(err) => log::warn!("configuration left as last loaded; reload failed: {err}"),
+        }
     }
 
     /// Replace the in-memory configuration (used by Reload).

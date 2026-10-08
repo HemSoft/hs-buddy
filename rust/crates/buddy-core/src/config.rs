@@ -215,11 +215,14 @@ impl Default for FinanceConfig {
 pub struct NativeConfig {
     /// Auto-refresh interval in minutes per dashboard card id; 0 is off.
     pub auto_refresh: BTreeMap<String, u32>,
+    /// Keys a newer native build may add; preserved like every other section.
+    #[serde(flatten)]
+    pub extra: BTreeMap<String, serde_json::Value>,
 }
 
 impl NativeConfig {
     fn is_default(&self) -> bool {
-        self.auto_refresh.is_empty()
+        self.auto_refresh.is_empty() && self.extra.is_empty()
     }
 }
 

@@ -328,7 +328,7 @@ impl DashboardView {
         let weather_visible = config.is_dashboard_card_visible(CardId::Weather.key());
         let finance_visible = config.is_dashboard_card_visible(CardId::Finance.key());
         if finance_visible
-            && (config.finance.watchlist != self.loaded_watchlist
+            && (self.watchlist(cx) != self.loaded_watchlist
                 || self.finance_refresh.never_attempted())
         {
             self.load_finance(cx);
@@ -604,7 +604,8 @@ impl DashboardView {
     }
 
     fn load_finance(&mut self, cx: &mut Context<Self>) {
-        let watchlist = Settings::global(cx).config.finance.watchlist.clone();
+        // Normalized and deduplicated: one request and one row per symbol.
+        let watchlist = self.watchlist(cx);
         self.loaded_watchlist = watchlist.clone();
         if watchlist.is_empty() {
             // Invalidate any in-flight request so its late failure cannot
@@ -849,7 +850,7 @@ impl DashboardView {
     }
 
     pub fn watchlist_len(&self, cx: &App) -> usize {
-        Settings::global(cx).config.finance.watchlist.len()
+        self.watchlist(cx).len()
     }
 
     // ── Actions ──────────────────────────────────────────────────────────

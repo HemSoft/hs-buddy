@@ -16,16 +16,18 @@ impl Settings {
 
     /// Re-read the file (Electron may have written it meanwhile), apply the
     /// edit to that fresh copy, persist it, and keep the in-memory copy in
-    /// step. A failed write is logged, not fatal.
+    /// step. If the file cannot be read, the edit is abandoned rather than
+    /// serializing a fallback over a file that may still hold recoverable
+    /// data; a failed write is logged, not fatal.
     pub fn update(cx: &mut App, edit: impl FnOnce(&mut AppConfig)) {
-        let settings = cx.global_mut::<Self>();
         let mut fresh = match AppConfig::load() {
             Ok(config) => config,
             Err(err) => {
-                log::warn!("could not reload configuration before saving: {err}");
-                settings.config.clone()
+                log::warn!("not saving: configuration could not be reloaded ({err})");
+                return;
             }
         };
+        let settings = cx.global_mut::<Self>();
         edit(&mut fresh);
         if let Err(err) = fresh.save() {
             log::warn!("could not save configuration: {err}");

@@ -60,13 +60,20 @@ impl GitHubConfig {
         )
     }
 
-    /// The provider the Electron app would use: the override map wins over
-    /// the inline account field.
+    /// The provider the Electron app would use. An explicit user override wins;
+    /// a product-seeded default (mirrored in `usage_provider_default_overrides`)
+    /// yields to an explicit inline provider on the account, as
+    /// `reconcileUsageProviderOverrides` does.
     pub fn effective_usage_provider(&self, account: &GitHubAccount) -> Option<UsageProvider> {
-        self.usage_provider_overrides
-            .get(&Self::override_key(account))
-            .copied()
-            .or(account.usage_provider)
+        let key = Self::override_key(account);
+        let override_ = self.usage_provider_overrides.get(&key).copied();
+        let seeded = override_.is_some()
+            && self.usage_provider_default_overrides.get(&key).copied() == override_;
+        match (override_, account.usage_provider) {
+            (Some(_), Some(inline)) if seeded => Some(inline),
+            (Some(explicit), _) => Some(explicit),
+            (None, inline) => inline,
+        }
     }
 }
 
@@ -460,6 +467,22 @@ mod tests {
             Some(UsageProvider::Codex)
         );
         assert_eq!(config.github.effective_usage_provider(&inline), None);
+
+        // A seeded default yields to an explicit inline provider; a user override does not.
+        let mut github = config.github.clone();
+        github.accounts[0].usage_provider = Some(UsageProvider::Copilot);
+        github
+            .usage_provider_default_overrides
+            .insert("hemsoft/hemsoft".into(), UsageProvider::Codex);
+        assert_eq!(
+            github.effective_usage_provider(&github.accounts[0]),
+            Some(UsageProvider::Copilot)
+        );
+        github.usage_provider_default_overrides.clear();
+        assert_eq!(
+            github.effective_usage_provider(&github.accounts[0]),
+            Some(UsageProvider::Codex)
+        );
         assert!(config.ui.extra.contains_key("someFutureFlag"));
         assert!(config.extra.contains_key("copilot"));
         assert!(config.extra.contains_key("weatherLocationCiphertext"));

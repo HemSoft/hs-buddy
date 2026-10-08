@@ -148,6 +148,11 @@ pub struct DashboardView {
     /// A legacy plaintext location is cleared from config only once the
     /// keychain has accepted a value.
     legacy_location_pending: bool,
+    /// The startup keychain lookup has not completed yet; the first weather
+    /// load waits for it unless the user explicitly picks a location.
+    restore_pending: bool,
+    /// The user chose a location this session; a late restore must not undo it.
+    location_chosen_by_user: bool,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -210,6 +215,8 @@ impl DashboardView {
             weather_persist_in_flight: false,
             weather_persist_dirty: false,
             legacy_location_pending: false,
+            restore_pending: false,
+            location_chosen_by_user: false,
             weather_refresh: RefreshState::new(interval_for(
                 &intervals,
                 CardId::Weather,
@@ -294,8 +301,8 @@ impl DashboardView {
             self.load_copilot(cx);
         }
         if weather_visible && self.weather_refresh.never_attempted() {
-            self.load_weather(cx);
-            self.load_pollen(cx);
+            // Defers to the restore callback while the keychain lookup is pending.
+            self.start_weather_if_visible(cx);
         } else if weather_visible && config.ui.pollen_api_key != self.loaded_pollen_key {
             self.load_pollen(cx);
         }
@@ -381,9 +388,7 @@ impl DashboardView {
         }
         let visible = self.card_visible(CardId::Weather, cx);
         self.weather_refresh.loading = visible;
-        // If the user picks a location while the keychain lookup is pending,
-        // the generation moves on and the stale restore is dropped.
-        let generation = self.weather_generation;
+        self.restore_pending = true;
         self.run(
             cx,
             async move {
@@ -392,8 +397,11 @@ impl DashboardView {
                     .ok()
                     .flatten()
             },
-            move |this, saved, cx| {
-                if generation != this.weather_generation {
+            |this, saved, cx| {
+                this.restore_pending = false;
+                // A location the user picked during the lookup wins; its loads
+                // are already running.
+                if this.location_chosen_by_user {
                     return;
                 }
                 if let Some(location) = saved {
@@ -406,7 +414,7 @@ impl DashboardView {
     }
 
     fn start_weather_if_visible(&mut self, cx: &mut Context<Self>) {
-        if self.card_visible(CardId::Weather, cx) {
+        if self.card_visible(CardId::Weather, cx) && !self.restore_pending {
             self.load_weather(cx);
             self.load_pollen(cx);
         }
@@ -584,6 +592,7 @@ impl DashboardView {
     }
 
     fn set_weather_location(&mut self, location: WeatherLocation, cx: &mut Context<Self>) {
+        self.location_chosen_by_user = true;
         self.weather_location = location;
         self.weather = None;
         self.pollen = None;

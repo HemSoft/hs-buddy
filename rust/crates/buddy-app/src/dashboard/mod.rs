@@ -158,6 +158,8 @@ pub struct DashboardView {
     /// Saved city that arrived while a user lookup was running; applied if
     /// that lookup fails, dropped once a location is chosen.
     restored_location: Option<WeatherLocation>,
+    /// A user-started location lookup (search or IP) has not finished yet.
+    lookup_in_flight: bool,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -225,6 +227,7 @@ impl DashboardView {
             restore_pending: false,
             location_chosen_by_user: false,
             restored_location: None,
+            lookup_in_flight: false,
             weather_refresh: RefreshState::new(interval_for(
                 &intervals,
                 CardId::Weather,
@@ -421,7 +424,11 @@ impl DashboardView {
                 // already running. Keep the saved city so a failed lookup can
                 // still fall back to it instead of the default.
                 if this.location_chosen_by_user {
-                    this.restored_location = saved;
+                    // Only a lookup still running can fail back to the saved
+                    // city; a choice already applied stands.
+                    if this.lookup_in_flight {
+                        this.restored_location = saved;
+                    }
                     return;
                 }
                 if let Some(location) = saved {
@@ -621,6 +628,7 @@ impl DashboardView {
 
     fn set_weather_location(&mut self, location: WeatherLocation, cx: &mut Context<Self>) {
         self.location_chosen_by_user = true;
+        self.lookup_in_flight = false;
         self.restored_location = None;
         self.weather_location = location;
         self.weather = None;
@@ -746,6 +754,11 @@ impl DashboardView {
         &self.finance_add
     }
 
+    /// The configured watchlist, in display order.
+    pub fn watchlist(&self, cx: &App) -> Vec<String> {
+        Settings::global(cx).config.finance.watchlist.clone()
+    }
+
     pub fn watchlist_len(&self, cx: &App) -> usize {
         Settings::global(cx).config.finance.watchlist.len()
     }
@@ -783,6 +796,7 @@ impl DashboardView {
     pub fn use_my_location(&mut self, cx: &mut Context<Self>) {
         // Marked at the start so a pending startup restore cannot win the race.
         self.location_chosen_by_user = true;
+        self.lookup_in_flight = true;
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();
@@ -816,6 +830,7 @@ impl DashboardView {
     /// still in flight applies on arrival as usual.
     fn weather_lookup_failed(&mut self, err: String, cx: &mut Context<Self>) {
         self.location_chosen_by_user = false;
+        self.lookup_in_flight = false;
         self.weather_refresh.loading = false;
         if let Some(location) = self.restored_location.take() {
             self.weather_location = location;
@@ -832,6 +847,7 @@ impl DashboardView {
         self.weather_search
             .update(cx, |state, cx| state.set_value("", window, cx));
         self.location_chosen_by_user = true;
+        self.lookup_in_flight = true;
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();

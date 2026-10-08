@@ -57,12 +57,6 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
     let border = theme.border;
     let trend = trend_color(quote);
     let symbol = quote.symbol.clone();
-    let remove = ButtonCustomVariant::new(cx)
-        .color(theme.transparent)
-        .foreground(palette.text_muted)
-        .hover(hex(DOWN).opacity(0.12))
-        .active(hex(DOWN).opacity(0.2))
-        .shadow(false);
 
     // `.finance-quote-row`: a 3px trend-colored left edge around the bordered row.
     div()
@@ -126,19 +120,7 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
                                 .child(format!("{} {}", arrow(quote), quote.change_text())),
                         ),
                 )
-                .child(
-                    Button::new(("finance-remove", index))
-                        .custom(remove)
-                        .accessibility_label(format!("Remove {symbol}"))
-                        .tooltip(format!("Remove {symbol}"))
-                        .size(px(18.0))
-                        .p(px(0.0))
-                        .rounded(px(3.0))
-                        .child(Icon::new(IconName::X).size(px(12.0)))
-                        .on_click(
-                            cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)),
-                        ),
-                ),
+                .child(remove_button(("finance-remove", index), symbol, cx)),
         )
 }
 
@@ -178,6 +160,87 @@ fn collapsed_summary(quotes: &[QuoteData], cx: &App) -> Option<Div> {
                     )
             })),
     )
+}
+
+/// `.finance-remove-btn`: the 18px ✕ that drops a symbol from the watchlist.
+fn remove_button(
+    id: (&'static str, usize),
+    symbol: String,
+    cx: &mut Context<DashboardView>,
+) -> Button {
+    let palette = *BuddyPalette::global(cx);
+    let colors = ButtonCustomVariant::new(cx)
+        .color(cx.theme().transparent)
+        .foreground(palette.text_muted)
+        .hover(hex(DOWN).opacity(0.12))
+        .active(hex(DOWN).opacity(0.2))
+        .shadow(false);
+    Button::new(id)
+        .custom(colors)
+        .accessibility_label(format!("Remove {symbol}"))
+        .tooltip(format!("Remove {symbol}"))
+        .size(px(18.0))
+        .p(px(0.0))
+        .rounded(px(3.0))
+        .child(Icon::new(IconName::X).size(px(12.0)))
+        .on_click(cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)))
+}
+
+/// A watchlist symbol without a quote (rejected or no longer served by
+/// Yahoo): shown so it can still be removed.
+fn missing_row(index: usize, symbol: &str, cx: &mut Context<DashboardView>) -> Div {
+    let theme = cx.theme();
+    let secondary = theme.secondary;
+    let border = theme.border;
+    let palette = *BuddyPalette::global(cx);
+    div()
+        .w_full()
+        .rounded(px(4.0))
+        .border_l(px(3.0))
+        .border_color(palette.text_muted)
+        .child(
+            h_flex()
+                .w_full()
+                .items_center()
+                .gap(px(8.0))
+                .px(px(10.0))
+                .py(px(5.0))
+                .rounded_r(px(4.0))
+                .bg(secondary)
+                .border_t_1()
+                .border_r_1()
+                .border_b_1()
+                .border_color(border)
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_size(px(12.0))
+                        .font_weight(FontWeight::BOLD)
+                        .text_color(palette.text_heading)
+                        .truncate()
+                        .child(symbol.to_string()),
+                )
+                .child(
+                    div()
+                        .text_size(px(11.0))
+                        .text_color(palette.text_muted)
+                        .child("No quote available"),
+                )
+                .child(remove_button(
+                    ("finance-remove-missing", index),
+                    symbol.to_string(),
+                    cx,
+                )),
+        )
+}
+
+fn stale_notice(error: &str, cx: &App) -> Div {
+    div()
+        .w_full()
+        .text_size(px(11.0))
+        .text_color(BuddyPalette::global(cx).accent_error)
+        .child(format!("Showing the last successful quotes. {error}"))
 }
 
 fn add_row(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
@@ -233,10 +296,16 @@ pub fn render(
     let mut card = section(Some(accent), cx).child(card_header(heading, toggle));
 
     if !expanded {
+        // A failed refresh keeps the last quotes; say so in this view too.
+        let stale = view
+            .finance_error()
+            .filter(|_| !quotes.is_empty())
+            .map(str::to_string);
         return card
             .when_some(collapsed_summary(&quotes, cx), |this, summary| {
                 this.child(summary)
             })
+            .when_some(stale, |this, error| this.child(stale_notice(&error, cx)))
             .into_any_element();
     }
 
@@ -250,14 +319,33 @@ pub fn render(
         });
     }
 
-    if !quotes.is_empty() {
+    // Symbols the fetch dropped stay listed (after the first result, so the
+    // initial load does not flash them) so they can be removed.
+    let missing: Vec<String> = if quotes.is_empty() && view.finance_error().is_none() {
+        Vec::new()
+    } else {
+        view.watchlist(cx)
+            .into_iter()
+            .filter(|symbol| !quotes.iter().any(|quote| &quote.symbol == symbol))
+            .collect()
+    };
+    if !quotes.is_empty() || !missing.is_empty() {
         card = card.child(
-            v_flex().w_full().gap(px(1.0)).children(
-                quotes
-                    .iter()
-                    .enumerate()
-                    .map(|(i, quote)| quote_row(i, quote, cx)),
-            ),
+            v_flex()
+                .w_full()
+                .gap(px(1.0))
+                .children(
+                    quotes
+                        .iter()
+                        .enumerate()
+                        .map(|(i, quote)| quote_row(i, quote, cx)),
+                )
+                .children(
+                    missing
+                        .iter()
+                        .enumerate()
+                        .map(|(i, symbol)| missing_row(i, symbol, cx)),
+                ),
         );
     }
 

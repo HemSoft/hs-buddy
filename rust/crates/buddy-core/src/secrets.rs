@@ -12,9 +12,19 @@ fn entry() -> Result<Entry, String> {
     Entry::new(SERVICE, WEATHER_LOCATION_KEY).map_err(|err| err.to_string())
 }
 
+/// The remembered location: `Ok(None)` when the keychain has no entry,
+/// `Err` when it could not be read (locked, unavailable, denied).
+pub fn try_load_weather_location() -> Result<Option<WeatherLocation>, String> {
+    match entry()?.get_password() {
+        Ok(secret) => Ok(serde_json::from_str(&secret).ok()),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(err) => Err(err.to_string()),
+    }
+}
+
+/// The remembered location, treating an unreadable keychain as empty.
 pub fn load_weather_location() -> Option<WeatherLocation> {
-    let secret = entry().ok()?.get_password().ok()?;
-    serde_json::from_str(&secret).ok()
+    try_load_weather_location().ok().flatten()
 }
 
 pub fn save_weather_location(location: &WeatherLocation) -> Result<(), String> {

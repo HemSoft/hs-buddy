@@ -1,7 +1,6 @@
 //! `WorkspacePulseCard`: lifetime activity counters.
 
 use buddy_core::format::{month_year, thousands};
-use chrono::Datelike as _;
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
@@ -19,10 +18,7 @@ fn member_since(first_launch_ms: u64) -> String {
     }
     // `toLocaleDateString` formats in the host time zone, so convert first.
     chrono::DateTime::from_timestamp_millis(first_launch_ms as i64)
-        .and_then(|date| {
-            let local = date.with_timezone(&chrono::Local);
-            month_year(local.year(), local.month())
-        })
+        .and_then(|date| month_year(date.with_timezone(&chrono::Local).date_naive()))
         .unwrap_or_else(|| "Today".to_string())
 }
 

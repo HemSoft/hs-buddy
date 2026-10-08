@@ -5,6 +5,7 @@
 //! locale through ICU4X, as `Intl.NumberFormat(undefined, ...)` and
 //! `toLocaleDateString(undefined, ...)` do in the renderer.
 
+use chrono::Datelike as _;
 use fixed_decimal::{Decimal, FloatPrecision, Sign, SignedRoundingMode, UnsignedRoundingMode};
 use icu_calendar::Date;
 use icu_datetime::DateTimeFormatter;
@@ -131,9 +132,15 @@ impl LocaleFormat {
 
     /// `toLocaleDateString(undefined, { month: "short", year: "numeric" })`:
     /// the locale's medium year-month (`Oct 2026`, `oct. 2026`, `10/2026`
-    /// for German, `2026/10` for Japanese). `None` for an impossible month.
-    pub fn month_year(&self, year: i32, month: u32) -> Option<String> {
-        let date = Date::try_new_iso(year, u8::try_from(month).ok()?, 1).ok()?;
+    /// for German, `2026/10` for Japanese). The full date is passed so a
+    /// locale on a non-Gregorian calendar lands in the right month and year.
+    pub fn month_year(&self, date: chrono::NaiveDate) -> Option<String> {
+        let date = Date::try_new_iso(
+            date.year(),
+            u8::try_from(date.month()).ok()?,
+            u8::try_from(date.day()).ok()?,
+        )
+        .ok()?;
         Some(self.month_year.format(&date).to_string())
     }
 }
@@ -169,9 +176,9 @@ pub fn price(value: f64) -> String {
     SYSTEM.with(|f| f.price(value))
 }
 
-/// Short month and year in the system locale.
-pub fn month_year(year: i32, month: u32) -> Option<String> {
-    SYSTEM.with(|f| f.month_year(year, month))
+/// Short month and year of `date` in the system locale.
+pub fn month_year(date: chrono::NaiveDate) -> Option<String> {
+    SYSTEM.with(|f| f.month_year(date))
 }
 
 const SECOND_MS: u64 = 1_000;
@@ -238,12 +245,15 @@ mod tests {
 
     #[test]
     fn formats_month_and_year_like_to_locale_date_string() {
-        assert_eq!(en_us().month_year(2026, 10).as_deref(), Some("Oct 2026"));
+        let day = chrono::NaiveDate::from_ymd_opt(2026, 10, 7).unwrap();
+        assert_eq!(en_us().month_year(day).as_deref(), Some("Oct 2026"));
         let fr = LocaleFormat::for_locale(&locale!("fr-FR"));
-        assert_eq!(fr.month_year(2026, 10).as_deref(), Some("oct. 2026"));
+        assert_eq!(fr.month_year(day).as_deref(), Some("oct. 2026"));
         let de = LocaleFormat::for_locale(&locale!("de-DE"));
-        assert_eq!(de.month_year(2026, 10).as_deref(), Some("10/2026"));
-        assert_eq!(en_us().month_year(2026, 13), None);
+        assert_eq!(de.month_year(day).as_deref(), Some("10/2026"));
+        // A locale on another calendar places the day in its own month/year.
+        let thai = LocaleFormat::for_locale(&locale!("th-TH-u-ca-buddhist"));
+        assert_eq!(thai.month_year(day).as_deref(), Some("ต.ค. 2569"));
     }
 
     #[test]

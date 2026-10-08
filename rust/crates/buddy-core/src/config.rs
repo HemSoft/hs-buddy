@@ -421,11 +421,19 @@ impl AppConfig {
         };
         // A keychain entry is always the newer of the two: the app writes the
         // keychain only after the user chose a city or migrated this very
-        // value. Never overwrite it with the plaintext.
-        if crate::secrets::load_weather_location().is_some() {
-            log::info!("dropping the legacy weather location; the keychain already holds one");
-            self.ui.weather_location = None;
-            return;
+        // value. Never overwrite it with the plaintext, and do not migrate at
+        // all while the keychain cannot be read (it might hold a newer city).
+        match crate::secrets::try_load_weather_location() {
+            Ok(Some(_)) => {
+                log::info!("dropping the legacy weather location; the keychain already holds one");
+                self.ui.weather_location = None;
+                return;
+            }
+            Ok(None) => {}
+            Err(err) => {
+                log::warn!("keeping legacy weather location in config; keychain unreadable: {err}");
+                return;
+            }
         }
         match crate::secrets::save_weather_location(location) {
             Ok(()) => {

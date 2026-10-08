@@ -1,4 +1,14 @@
+const userDataDir = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  return mkdtempSync(join(tmpdir(), 'buddy-config-test-'))
+})
+
 vi.mock('electron', () => ({
+  // The config manager takes the shared lock on `<userData>/config.json`
+  // while constructing the store; give it a real, writable directory.
+  app: { getPath: vi.fn(() => userDataDir) },
   safeStorage: {
     isEncryptionAvailable: vi.fn(() => false),
     getSelectedStorageBackend: vi.fn(() => 'gnome_libsecret'),
@@ -507,6 +517,14 @@ describe('config', () => {
       configManager.migrateFromEnv()
       const accounts = configManager.getGitHubAccounts()
       expect(accounts).toEqual([{ username: 'envuser', org: 'envorg' }])
+    })
+
+    it('keeps the account another instance migrated first, without a duplicate', () => {
+      vi.stubEnv('VITE_GITHUB_USERNAME', 'envuser')
+      vi.stubEnv('VITE_GITHUB_ORG', 'envorg')
+      configManager.addGitHubAccount({ username: 'envuser', org: 'envorg' })
+      expect(() => configManager.migrateFromEnv()).not.toThrow()
+      expect(configManager.getGitHubAccounts()).toEqual([{ username: 'envuser', org: 'envorg' }])
     })
 
     it('handles missing env vars gracefully', () => {

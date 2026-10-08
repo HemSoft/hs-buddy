@@ -40,17 +40,17 @@ memory than Chromium, 120 fps rendering, and no preload/IPC boundary.
 
 ## Target stack
 
-| Concern | Choice | Notes |
-| --- | --- | --- |
-| UI framework | `gpui-kit = "=0.7.1"` | Re-exports gpui, gpui-base, gpui-component, default assets |
-| Async runtime | GPUI executor for UI, Tokio runtime on a dedicated thread for I/O | `convex` and `reqwest` require Tokio; bridge with channels |
-| HTTP | `reqwest` (rustls) | Open-Meteo, Nominatim, Google Pollen, Yahoo Finance |
-| Backend | `convex = "0.10"` | `buddyStats:get`, `repoBookmarks:list` subscriptions |
-| GitHub | shell out to `gh api` via `tokio::process` | Mirrors `electron/ipc/githubHandlers.ts`; per-account tokens come from `gh auth token` and are passed to the child process as `GH_TOKEN`, never stored |
-| Config | `serde_json` over electron-store's `config.json` | Read-only at first, then read-write |
-| Secrets | `keyring` crate | Replaces Electron `safeStorage` for the remembered weather location |
-| Icons | Lucide SVGs via gpui-component `Icon` | Same icon set as today |
-| Errors | `thiserror` + `anyhow` | |
+| Concern       | Choice                                                            | Notes                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| UI framework  | `gpui-kit = "=0.7.1"`                                             | Re-exports gpui, gpui-base, gpui-component, default assets                                                                                             |
+| Async runtime | GPUI executor for UI, Tokio runtime on a dedicated thread for I/O | `convex` and `reqwest` require Tokio; bridge with channels                                                                                             |
+| HTTP          | `reqwest` (rustls)                                                | Open-Meteo, Nominatim, Google Pollen, Yahoo Finance                                                                                                    |
+| Backend       | `convex = "0.10"`                                                 | `buddyStats:get`, `repoBookmarks:list` subscriptions                                                                                                   |
+| GitHub        | shell out to `gh api` via `tokio::process`                        | Mirrors `electron/ipc/githubHandlers.ts`; per-account tokens come from `gh auth token` and are passed to the child process as `GH_TOKEN`, never stored |
+| Config        | `serde_json` over electron-store's `config.json`                  | Read-only at first, then read-write                                                                                                                    |
+| Secrets       | `keyring` crate                                                   | Replaces Electron `safeStorage` for the remembered weather location                                                                                    |
+| Icons         | Lucide SVGs via gpui-component `Icon`                             | Same icon set as today                                                                                                                                 |
+| Errors        | `thiserror` + `anyhow`                                            |                                                                                                                                                        |
 
 ## Repository layout
 
@@ -132,15 +132,15 @@ Exit criterion: shell renders with the user's saved theme; no data yet.
 
 Port `WelcomePanel.tsx` and `src/components/dashboard/*` one to one:
 
-| React | Rust |
-| --- | --- |
-| `SectionHeading` | `primitives::section_heading(kicker, title, caption)` |
-| `StatCard` | `primitives::stat_card(icon, value, label, subtitle, accent)` |
-| `CardHeader` (collapse) | `primitives::card_header(expanded, on_toggle)` |
-| `CardActionBar` | `primitives::card_action_bar(refresh, interval, labels)` |
-| `WelcomeHeader` + uptime badge + `DashboardConfigDropdown` | `header.rs` (uptime ticks via `cx.spawn` 1 s timer) |
-| `dashboard-grid` (2 columns, span 2) | `v_flex` of rows; span-2 cards take a full row, span-1 cards pair up |
-| `QuickActionsBar`, `WelcomeFooter` | `dashboard/mod.rs` |
+| React                                                      | Rust                                                                 |
+| ---------------------------------------------------------- | -------------------------------------------------------------------- |
+| `SectionHeading`                                           | `primitives::section_heading(kicker, title, caption)`                |
+| `StatCard`                                                 | `primitives::stat_card(icon, value, label, subtitle, accent)`        |
+| `CardHeader` (collapse)                                    | `primitives::card_header(expanded, on_toggle)`                       |
+| `CardActionBar`                                            | `primitives::card_action_bar(refresh, interval, labels)`             |
+| `WelcomeHeader` + uptime badge + `DashboardConfigDropdown` | `header.rs` (uptime ticks via `cx.spawn` 1 s timer)                  |
+| `dashboard-grid` (2 columns, span 2)                       | `v_flex` of rows; span-2 cards take a full row, span-1 cards pair up |
+| `QuickActionsBar`, `WelcomeFooter`                         | `dashboard/mod.rs`                                                   |
 
 Cards: Command Center (span 2), Workspace Pulse, Weather, Finance. Each card
 takes a plain struct and renders; data is hard-coded fixtures in this phase.
@@ -236,6 +236,16 @@ Aspire, settings UI. Each gets its own plan once the shell is proven.
    node is group-restricted for this shell, so verification ran on `llvmpipe`.
 
 ## Implementation notes
+
+### Shared `config.json` writers
+
+Both apps read-modify-write the same file, so both take the same advisory
+lock around a write: the directory `config.json.lock` next to it, created
+with `mkdir` (atomic everywhere, no file-locking API needed). A lock older than 30 seconds belongs to a crashed holder (a process suspended for less keeps its lock; an owner writes a unique `owner` token into the level it holds, re-checks right before writing that its token is still there with no claim nested inside it, re-acquires if not, and repeats the write under a fresh lock if ownership was lost during the write itself, and the native stamp check refuses a write after a takeover) and is taken over in place: the waiter creates a `claim` marker inside it (atomic, so one waiter wins) and keeps it only if the directory is still the stale instance it observed, so a freshly re-acquired lock is never stolen; a marker that is itself stale belongs to a claimer that crashed and is claimed the same way one level down, so nothing live is ever renamed or removed by a waiter; a chain of eight dead claimers is the limit, past which a waiter invalidates the displaced owner above the deepest stale marker, moves that marker aside (atomic rename), deletes it only if it is still the stale instance it observed, and otherwise puts it back, so the chain can be claimed again once its parent goes stale. A lock dated more than 30 seconds in the future (written before the clock was set back) is re-dated to now by the waiter and treated as fresh, so a live owner keeps it and an abandoned one goes stale after the window. A releasing claimant deletes the displaced owners' tokens before removing the markers that displaced them, so a resumed owner can never read ownership back. A writer that cannot get the lock in time (500 ms natively, 1 second in Electron, measured on a monotonic clock; both waits block a UI thread only under actual contention and cover the other side's worst-case hold) proceeds unlocked and logs it, so a wedged lock never freezes either app. Electron holds it around each `store.set` and around store construction, which also writes (`electron/configLock.ts`; `conf` re-reads the file inside
+`set`), the native app across the whole load-edit-save of
+`Settings::update` (`rust/crates/buddy-core/src/config_lock.rs`). The native
+size+mtime stamp check stays as the guard against a writer that does not
+take the lock.
 
 - "Use My Location" has no native equivalent of the browser geolocation API;
   the native app approximates from the public IP (`ipapi.co`) and then reverse

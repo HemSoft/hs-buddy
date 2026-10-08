@@ -1,4 +1,8 @@
+import * as electron from 'electron'
 import Store from 'electron-store'
+import { join } from 'node:path'
+
+import { withConfigLock, type LockOptions } from './configLock'
 import { ProtectedWeatherLocation } from './services/protectedWeatherLocation'
 import {
   configSchema,
@@ -119,27 +123,56 @@ function seedInitialOverrides(
  * Authentication is handled securely by GitHub CLI in system keychain.
  * Remembered weather coordinates are stored only as OS-encrypted ciphertext.
  */
+/** Where electron-store will put `config.json`, or null outside Electron (tests). */
+function expectedConfigPath(): string | null {
+  // Some unit tests mock `electron` without `app`; reading a missing export
+  // from such a mock throws, so the lookup is guarded as a whole.
+  try {
+    const electronApp = (electron as { app?: typeof electron.app }).app
+    return electronApp ? join(electronApp.getPath('userData'), 'config.json') : null
+  } catch (_: unknown) {
+    return null
+  }
+}
+
 class ConfigManager {
   private store: Store<AppConfig>
   private weatherLocation: ProtectedWeatherLocation
 
   constructor() {
-    this.store = new Store<AppConfig>({
-      schema: configSchema,
-      defaults: defaultConfig,
-      name: 'config', // Creates config.json in userData
-      clearInvalidConfig: false, // Preserve config even if validation fails
-      watch: true, // Watch for external changes
-    })
+    // `conf` writes merged defaults during construction when the on-disk
+    // object differs, so even initialization is a write that must not race
+    // the native app: take the lock on the path the store will use.
+    const expectedPath = expectedConfigPath()
+    const createStore = (): Store<AppConfig> =>
+      new Store<AppConfig>({
+        schema: configSchema,
+        defaults: defaultConfig,
+        name: 'config', // Creates config.json in userData
+        clearInvalidConfig: false, // Preserve config even if validation fails
+        watch: true, // Watch for external changes
+      })
+    this.store = expectedPath
+      ? withConfigLock(expectedPath, createStore, {
+          warn: message => {
+            console.warn(message)
+          },
+        })
+      : createStore()
+    if (expectedPath && this.store.path !== expectedPath) {
+      console.warn(
+        `[ConfigManager] store path ${this.store.path} differs from the locked ${expectedPath}`
+      )
+    }
 
     const legacyLocation = this.store.get('ui', defaultConfig.ui).weatherLocation ?? null
     // Remove plaintext before any further config writes, including before app ready.
-    if (legacyLocation !== null) this.store.set('ui.weatherLocation', null)
+    if (legacyLocation !== null) this.write('ui.weatherLocation', null)
     this.weatherLocation = new ProtectedWeatherLocation(
       {
         read: () => this.store.get('weatherLocationCiphertext', ''),
         write: ciphertext => {
-          this.store.set('weatherLocationCiphertext', ciphertext)
+          this.write('weatherLocationCiphertext', ciphertext)
         },
       },
       legacyLocation
@@ -153,7 +186,52 @@ class ConfigManager {
     console.log('[ConfigManager] Store location:', this.store.path)
   }
 
+  /**
+   * Every write goes through the shared `config.json.lock` so the native app
+   * (which holds the same lock across its read-modify-write) and this
+   * process cannot overwrite each other's changes. `conf` re-reads the file
+   * inside `set`, so the lock covers the whole read-modify-write.
+   */
+  private write<K extends string>(key: K, value: unknown): void {
+    // A single `set` is idempotent, so it may be repeated if the lock turns
+    // out to have been lost during the write; transactions in `locked`
+    // are not replayed (see withConfigLock).
+    this.locked(
+      () => {
+        this.store.set(key, value as never)
+      },
+      { onLostDuringWrite: 'repeat' }
+    )
+  }
+
+  private lockDepth = 0
+
+  /**
+   * Run a read-modify-write under the shared lock. Nested calls (a mutator
+   * calling `write`) reuse the lock already held instead of waiting on it.
+   */
+  private locked<T>(fn: () => T, options: Pick<LockOptions, 'onLostDuringWrite'> = {}): T {
+    if (this.lockDepth > 0) return fn()
+    this.lockDepth += 1
+    try {
+      return withConfigLock(this.store.path, fn, {
+        ...options,
+        warn: message => {
+          console.warn(message)
+        },
+      })
+    } finally {
+      this.lockDepth -= 1
+    }
+  }
+
   private reconcileUsageProviderOverrides(): UsageProviderOverrides {
+    // Read, normalise and persist under one lock so another process's
+    // provider selection cannot land between the read and the write.
+    return this.locked(() => this.reconcileUsageProviderOverridesLocked())
+  }
+
+  private reconcileUsageProviderOverridesLocked(): UsageProviderOverrides {
     const accounts = this.getGitHubAccounts()
     const accountByKey = new Map(
       accounts.map(account => [getUsageProviderOverrideKey(account), account])
@@ -179,11 +257,13 @@ class ConfigManager {
     overrides: UsageProviderOverrides,
     defaultOverrides: UsageProviderOverrides
   ): void {
-    const github = this.store.get('github', defaultConfig.github)
-    this.store.set('github', {
-      ...github,
-      usageProviderOverrides: overrides,
-      usageProviderDefaultOverrides: defaultOverrides,
+    this.locked(() => {
+      const github = this.store.get('github', defaultConfig.github)
+      this.write('github', {
+        ...github,
+        usageProviderOverrides: overrides,
+        usageProviderDefaultOverrides: defaultOverrides,
+      })
     })
   }
 
@@ -198,35 +278,43 @@ class ConfigManager {
   }
 
   addGitHubAccount(account: GitHubAccount): void {
-    const accounts = this.getGitHubAccounts()
-    // Check for duplicates
-    const exists = accounts.some(a => a.username === account.username && a.org === account.org)
-    if (exists) {
-      throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
-    }
-    accounts.push(account)
-    this.store.set('github.accounts', accounts)
+    // Read and write under one lock so two processes cannot both read the
+    // same list and then serialise two stale replacements.
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      // Check for duplicates
+      const exists = accounts.some(a => a.username === account.username && a.org === account.org)
+      if (exists) {
+        throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
+      }
+      accounts.push(account)
+      this.write('github.accounts', accounts)
+    })
   }
 
   removeGitHubAccount(username: string, org: string): void {
-    const accounts = this.getGitHubAccounts()
-    const filtered = accounts.filter(a => !(a.username === username && a.org === org))
-    this.store.set('github.accounts', filtered)
-    this.setUsageProviderOverride(username, org, null)
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      const filtered = accounts.filter(a => !(a.username === username && a.org === org))
+      this.write('github.accounts', filtered)
+      this.setUsageProviderOverride(username, org, null)
+    })
   }
 
   updateGitHubAccount(username: string, org: string, updates: Partial<GitHubAccount>): void {
-    const accounts = this.getGitHubAccounts()
-    const index = accounts.findIndex(a => a.username === username && a.org === org)
-    if (index === -1) {
-      throw new Error(`GitHub account ${username}@${org} not found`)
-    }
-    const previousKey = getUsageProviderOverrideKey(accounts[index])
-    accounts[index] = { ...accounts[index], ...updates }
-    this.store.set('github.accounts', accounts)
-    if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
-      this.setUsageProviderOverride(username, org, null)
-    }
+    this.locked(() => {
+      const accounts = this.getGitHubAccounts()
+      const index = accounts.findIndex(a => a.username === username && a.org === org)
+      if (index === -1) {
+        throw new Error(`GitHub account ${username}@${org} not found`)
+      }
+      const previousKey = getUsageProviderOverrideKey(accounts[index])
+      accounts[index] = { ...accounts[index], ...updates }
+      this.write('github.accounts', accounts)
+      if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
+        this.setUsageProviderOverride(username, org, null)
+      }
+    })
   }
 
   replaceGitHubAccounts(accounts: GitHubAccount[]): void {
@@ -239,16 +327,18 @@ class ConfigManager {
       accountKeys.add(key)
     }
 
-    this.store.set('github.accounts', accounts)
-    const overrides = Object.fromEntries(
-      Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
-    )
-    const defaultOverrides = Object.fromEntries(
-      Object.entries(this.getUsageProviderDefaultOverrides()).filter(([key]) =>
-        accountKeys.has(key)
+    this.locked(() => {
+      this.write('github.accounts', accounts)
+      const overrides = Object.fromEntries(
+        Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
       )
-    )
-    this.persistUsageProviderState(overrides, defaultOverrides)
+      const defaultOverrides = Object.fromEntries(
+        Object.entries(this.getUsageProviderDefaultOverrides()).filter(([key]) =>
+          accountKeys.has(key)
+        )
+      )
+      this.persistUsageProviderState(overrides, defaultOverrides)
+    })
   }
 
   getUsageProviderOverrides(): UsageProviderOverrides {
@@ -261,18 +351,20 @@ class ConfigManager {
   }
 
   setUsageProviderOverride(username: string, org: string, provider: UsageProvider | null): void {
-    const overrides = { ...this.getUsageProviderOverrides() }
-    const key = getUsageProviderOverrideKey({ username, org })
-    const defaultOverrides = {
-      ...this.store.get('github.usageProviderDefaultOverrides', {}),
-    }
-    delete defaultOverrides[key]
-    if (provider === null) {
-      delete overrides[key]
-    } else {
-      overrides[key] = provider
-    }
-    this.persistUsageProviderState(overrides, defaultOverrides)
+    this.locked(() => {
+      const overrides = { ...this.getUsageProviderOverrides() }
+      const key = getUsageProviderOverrideKey({ username, org })
+      const defaultOverrides = {
+        ...this.store.get('github.usageProviderDefaultOverrides', {}),
+      }
+      delete defaultOverrides[key]
+      if (provider === null) {
+        delete overrides[key]
+      } else {
+        overrides[key] = provider
+      }
+      this.persistUsageProviderState(overrides, defaultOverrides)
+    })
   }
 
   /** Called after Electron is ready, even when the Weather card is hidden. */
@@ -293,7 +385,7 @@ class ConfigManager {
       this.weatherLocation.set(value as AppConfig['ui']['weatherLocation'])
       return
     }
-    this.store.set(`ui.${key}`, value)
+    this.write(`ui.${key}`, value)
   }
 
   // Copilot Settings (PR Review Prompt Template — still used via IPC)
@@ -302,7 +394,7 @@ class ConfigManager {
   }
 
   setCopilotPRReviewPromptTemplate(template: string): void {
-    this.store.set('copilot.prReviewPromptTemplate', template)
+    this.write('copilot.prReviewPromptTemplate', template)
   }
 
   // Automation Settings
@@ -311,7 +403,7 @@ class ConfigManager {
   }
 
   setScheduleForecastDays(days: number): void {
-    this.store.set('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)))
+    this.write('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)))
   }
 
   // Notification Settings
@@ -320,7 +412,7 @@ class ConfigManager {
   }
 
   setNotificationSoundEnabled(enabled: boolean): void {
-    this.store.set('notifications.playSoundOnReviewComplete', enabled)
+    this.write('notifications.playSoundOnReviewComplete', enabled)
   }
 
   getNotificationSoundPath(): string {
@@ -328,7 +420,7 @@ class ConfigManager {
   }
 
   setNotificationSoundPath(filePath: string): void {
-    this.store.set('notifications.reviewCompleteSoundPath', filePath)
+    this.write('notifications.reviewCompleteSoundPath', filePath)
   }
 
   // Finance Settings
@@ -347,7 +439,7 @@ class ConfigManager {
         })
       )
     )
-    this.store.set('finance.watchlist', cleaned)
+    this.write('finance.watchlist', cleaned)
   }
 
   // Full config access
@@ -357,29 +449,32 @@ class ConfigManager {
 
   // Migration helper from environment variables
   migrateFromEnv(): void {
-    // Check if we already have accounts - don't overwrite
-    if (this.getGitHubAccounts().length > 0) {
-      console.log('[ConfigManager] GitHub accounts already configured, skipping migration')
-      return
-    }
-
     // Try to read the .env file pattern (legacy support)
     const username = process.env.VITE_GITHUB_USERNAME
     const org = process.env.VITE_GITHUB_ORG
 
-    if (username && org) {
+    // Decide and write under one lock: two instances starting together must
+    // not both see an empty list and then race to add the same account.
+    const migrated = this.locked(() => {
+      // Check if we already have accounts - don't overwrite
+      if (this.getGitHubAccounts().length > 0) {
+        console.log('[ConfigManager] GitHub accounts already configured, skipping migration')
+        return false
+      }
+      if (!username || !org) {
+        console.log('[ConfigManager] No environment variables found for migration')
+        console.log('[ConfigManager] Add accounts manually through Settings or edit config.json')
+        return false
+      }
       console.log('[ConfigManager] Migrating from environment variables...')
-      this.addGitHubAccount({
-        username,
-        org,
-      })
+      this.write('github.accounts', [{ username, org }])
+      return true
+    })
+    if (migrated) {
       console.log('[ConfigManager] Migration complete - now using GitHub CLI authentication')
       console.log(
         '[ConfigManager] You can remove VITE_GITHUB_USERNAME and VITE_GITHUB_ORG from .env (no longer needed)'
       )
-    } else {
-      console.log('[ConfigManager] No environment variables found for migration')
-      console.log('[ConfigManager] Add accounts manually through Settings or edit config.json')
     }
   }
 
@@ -389,8 +484,10 @@ class ConfigManager {
   }
 
   reset(): void {
-    this.weatherLocation.set(null)
-    this.store.clear()
+    this.locked(() => {
+      this.weatherLocation.set(null)
+      this.store.clear()
+    })
     console.log('[ConfigManager] Configuration reset to defaults')
   }
 }

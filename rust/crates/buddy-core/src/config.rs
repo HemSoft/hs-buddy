@@ -5,7 +5,7 @@
 //! field has the same default as `defaultConfig` in TypeScript.
 
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -382,29 +382,43 @@ impl AppConfig {
         Self::load_with_stamp().map(|(config, _)| config)
     }
 
+    /// Load from `path`; a missing file yields defaults.
+    pub fn load_from(path: &Path) -> Result<Self, ConfigError> {
+        Self::load_with_stamp_from(path).map(|(config, _)| config)
+    }
+
     /// Load together with the file's identity at that moment, for
     /// [`save_if_unchanged`](Self::save_if_unchanged).
     pub fn load_with_stamp() -> Result<(Self, Option<FileStamp>), ConfigError> {
-        let path = config_path()?;
-        let stamp = FileStamp::of(&path);
-        match std::fs::read_to_string(&path) {
+        Self::load_with_stamp_from(&config_path()?)
+    }
+
+    /// [`load_with_stamp`](Self::load_with_stamp) for an already resolved
+    /// path, so a caller holding the lock for that path reads and writes
+    /// the same file even if a higher-priority candidate appears meanwhile.
+    pub fn load_with_stamp_from(path: &Path) -> Result<(Self, Option<FileStamp>), ConfigError> {
+        let stamp = FileStamp::of(path);
+        match std::fs::read_to_string(path) {
             Ok(body) => Self::from_json(&body)
                 .map(|config| (config, stamp))
                 .map_err(|source| ConfigError::Parse {
-                    path: path.clone(),
+                    path: path.to_path_buf(),
                     source,
                 }),
             Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
                 Ok((Self::default(), None))
             }
-            Err(source) => Err(ConfigError::Read { path, source }),
+            Err(source) => Err(ConfigError::Read {
+                path: path.to_path_buf(),
+                source,
+            }),
         }
     }
 
     /// Write the whole file atomically (temp file + rename) so electron-store's
     /// watcher never observes a partial document.
     pub fn save(&mut self) -> Result<(), ConfigError> {
-        self.save_checked(None).map(|_| ())
+        self.save_checked(&config_path()?, None).map(|_| ())
     }
 
     /// Save only if the file is still the one loaded with `stamp` (`None`
@@ -412,11 +426,25 @@ impl AppConfig {
     /// got there first, so the caller can reload and apply its edit again
     /// instead of overwriting that writer's change with a stale snapshot.
     pub fn save_if_unchanged(&mut self, stamp: &Option<FileStamp>) -> Result<bool, ConfigError> {
-        self.save_checked(Some(stamp))
+        self.save_checked(&config_path()?, Some(stamp))
     }
 
-    fn save_checked(&mut self, expected: Option<&Option<FileStamp>>) -> Result<bool, ConfigError> {
-        let path = config_path()?;
+    /// [`save_if_unchanged`](Self::save_if_unchanged) for an already
+    /// resolved path (the one the caller holds the lock for).
+    pub fn save_if_unchanged_at(
+        &mut self,
+        path: &Path,
+        stamp: &Option<FileStamp>,
+    ) -> Result<bool, ConfigError> {
+        self.save_checked(path, Some(stamp))
+    }
+
+    fn save_checked(
+        &mut self,
+        path: &Path,
+        expected: Option<&Option<FileStamp>>,
+    ) -> Result<bool, ConfigError> {
+        let path = path.to_path_buf();
         // Nothing to migrate or write for a snapshot that is already stale.
         if let Some(expected) = expected
             && FileStamp::of(&path) != *expected

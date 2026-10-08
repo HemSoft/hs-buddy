@@ -5,6 +5,7 @@ mod runtime;
 mod settings;
 mod shell;
 mod theme;
+mod window_geometry;
 
 use buddy_core::config::{AppConfig, WindowState};
 use gpui_kit::component::TitleBar;
@@ -17,6 +18,7 @@ use crate::app::{About, BuddyApp, Quit, Reload, ToggleFullScreen};
 use crate::assets::BuddyAssets;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
+use crate::window_geometry::{DisplayArea, resolve_window_bounds};
 use gpui_kit::component::WindowExt as _;
 
 /// Reuse the geometry Electron saved in `window-state.json` when it still
@@ -27,17 +29,21 @@ fn initial_window_bounds(cx: &App) -> WindowBounds {
     let Some(state) = WindowState::load() else {
         return fallback();
     };
-    let bounds: Bounds<Pixels> = Bounds {
+    let saved: Bounds<Pixels> = Bounds {
         origin: point(px(state.x as f32), px(state.y as f32)),
         size: size(px(state.width as f32), px(state.height as f32)),
     };
-    let on_a_display = cx
-        .displays()
-        .iter()
-        .any(|display| display.bounds().contains(&bounds.center()));
-    if !on_a_display {
+    // Displays may have moved or shrunk since the state was written: fit the
+    // window to the matching display's work area (`resolveWindowBounds`).
+    let area = |display: &std::rc::Rc<dyn gpui_kit::PlatformDisplay>| DisplayArea {
+        bounds: display.bounds(),
+        work_area: display.visible_bounds(),
+    };
+    let displays: Vec<DisplayArea> = cx.displays().iter().map(area).collect();
+    let primary = cx.primary_display().map(|display| area(&display));
+    let Some(bounds) = resolve_window_bounds(saved, &displays, primary.as_ref()) else {
         return fallback();
-    }
+    };
     if state.is_full_screen {
         WindowBounds::Fullscreen(bounds)
     } else if state.is_maximized {

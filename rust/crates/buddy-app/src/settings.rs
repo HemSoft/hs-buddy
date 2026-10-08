@@ -19,20 +19,28 @@ impl Settings {
     /// step. If the file cannot be read, the edit is abandoned rather than
     /// serializing a fallback over a file that may still hold recoverable
     /// data; a failed write is logged, not fatal.
-    pub fn update(cx: &mut App, edit: impl FnOnce(&mut AppConfig)) {
+    ///
+    /// Returns `true` once the edit is on disk, so callers that must not
+    /// forget a pending change can keep it pending.
+    pub fn update(cx: &mut App, edit: impl FnOnce(&mut AppConfig)) -> bool {
         let mut fresh = match AppConfig::load() {
             Ok(config) => config,
             Err(err) => {
                 log::warn!("not saving: configuration could not be reloaded ({err})");
-                return;
+                return false;
             }
         };
         let settings = cx.global_mut::<Self>();
         edit(&mut fresh);
-        if let Err(err) = fresh.save() {
-            log::warn!("could not save configuration: {err}");
-        }
+        let saved = match fresh.save() {
+            Ok(()) => true,
+            Err(err) => {
+                log::warn!("could not save configuration: {err}");
+                false
+            }
+        };
         settings.config = fresh;
+        saved
     }
 
     /// Replace the in-memory configuration (used by Reload).

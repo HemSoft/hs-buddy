@@ -357,9 +357,14 @@ impl AppConfig {
         let tmp = path.with_extension("json.tmp");
         std::fs::write(&tmp, &body).map_err(write)?;
         // Keep the existing file's permissions (a 0600 config stays 0600).
+        // If they cannot be copied, keep the old file rather than replace a
+        // private config with a world-readable one.
         #[cfg(unix)]
-        if let Ok(meta) = std::fs::metadata(&path) {
-            let _ = std::fs::set_permissions(&tmp, meta.permissions());
+        if let Ok(meta) = std::fs::metadata(&path)
+            && let Err(err) = std::fs::set_permissions(&tmp, meta.permissions())
+        {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(write(err));
         }
         // `rename` replaces an existing destination on every supported platform
         // (Windows uses MOVEFILE_REPLACE_EXISTING). If a reader holds the file

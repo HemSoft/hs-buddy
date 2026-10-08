@@ -69,11 +69,15 @@ jobs:
       - name: Build (release)
         run: cargo build --release -p buddy-app
 
+      # upload-artifact drops file modes; a tar archive keeps the executable bit.
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        run: tar -C rust/target/release -czf "buddy-${{ matrix.os }}.tar.gz" buddy
       - name: Upload binary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: buddy-${{ matrix.os }}
           path: |
-            rust/target/release/buddy
+            buddy-${{ matrix.os }}.tar.gz
             rust/target/release/buddy.exe
           if-no-files-found: ignore

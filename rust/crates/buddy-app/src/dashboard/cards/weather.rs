@@ -6,12 +6,13 @@ use buddy_core::dashboard::CardId;
 use buddy_core::pollen::{PollenData, PollenType, level_color_hex, level_label};
 use buddy_core::weather::{ForecastDay, WeatherData, WeatherGlyph, code_glyph};
 use gpui_kit::assets::IconName;
+use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::Input;
 use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, Window, div, px,
+    ParentElement, Styled, Window, div, px,
 };
 
 use crate::dashboard::DashboardView;
@@ -266,18 +267,18 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
         return None;
     }
     let palette = *BuddyPalette::global(cx);
-    let toggle = h_flex()
-        .id("pollen-detail-toggle")
-        .items_center()
-        .gap(px(4.0))
+    let toggle = Button::new("pollen-detail-toggle")
+        .text()
+        .accessibility_label(if open {
+            "Hide species detail"
+        } else {
+            "Show species detail"
+        })
+        .toggled(open)
         .py(px(4.0))
-        .text_size(px(10.0))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(palette.text_muted)
-        .cursor_pointer()
-        .hover(move |style| style.text_color(palette.text_secondary))
-        .on_click(cx.listener(|this, _, _, cx| this.toggle_pollen_detail(cx)))
-        .child("SPECIES DETAIL")
+        .child(div().text_size(px(10.0)).child("SPECIES DETAIL"))
         .child(
             Icon::new(if open {
                 IconName::ChevronUp
@@ -285,7 +286,8 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
                 IconName::ChevronDown
             })
             .size(px(12.0)),
-        );
+        )
+        .on_click(cx.listener(|this, _, _, cx| this.toggle_pollen_detail(cx)));
 
     let content = open.then(|| {
         v_flex()

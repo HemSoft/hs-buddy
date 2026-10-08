@@ -97,7 +97,9 @@ pub fn aspire_cert_env_removals(
     removals
 }
 
-async fn run(args: &[&str], token: Option<&str>, timeout: Duration) -> Result<String, GhError> {
+/// A `gh` child with captured output and the Aspire certificate overrides
+/// removed. Every `gh` invocation goes through here.
+fn gh_command(args: &[&str]) -> Command {
     let mut command = Command::new("gh");
     command
         .args(args)
@@ -113,6 +115,11 @@ async fn run(args: &[&str], token: Option<&str>, timeout: Duration) -> Result<St
     ) {
         command.env_remove(key);
     }
+    command
+}
+
+async fn run(args: &[&str], token: Option<&str>, timeout: Duration) -> Result<String, GhError> {
+    let mut command = gh_command(args);
     if let Some(token) = token {
         command.env("GH_TOKEN", token);
     }
@@ -178,13 +185,7 @@ pub fn parse_active_account(status_output: &str) -> Option<String> {
 
 /// The account `gh` currently uses, or `None` when gh is missing or logged out.
 pub async fn active_account() -> Option<String> {
-    let mut command = Command::new("gh");
-    command
-        .args(["auth", "status"])
-        .stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
+    let mut command = gh_command(&["auth", "status"]);
     let output = tokio::time::timeout(API_TIMEOUT, command.output())
         .await
         .ok()?

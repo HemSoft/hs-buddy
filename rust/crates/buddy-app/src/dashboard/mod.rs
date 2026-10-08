@@ -155,6 +155,9 @@ pub struct DashboardView {
     restore_pending: bool,
     /// The user chose a location this session; a late restore must not undo it.
     location_chosen_by_user: bool,
+    /// Saved city that arrived while a user lookup was running; applied if
+    /// that lookup fails, dropped once a location is chosen.
+    restored_location: Option<WeatherLocation>,
     weather_refresh: RefreshState,
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
@@ -221,6 +224,7 @@ impl DashboardView {
             legacy_location_pending: false,
             restore_pending: false,
             location_chosen_by_user: false,
+            restored_location: None,
             weather_refresh: RefreshState::new(interval_for(
                 &intervals,
                 CardId::Weather,
@@ -413,9 +417,11 @@ impl DashboardView {
             },
             |this, saved, cx| {
                 this.restore_pending = false;
-                // A location the user picked during the lookup wins; its loads
-                // are already running.
+                // A lookup the user started meanwhile wins; its loads are
+                // already running. Keep the saved city so a failed lookup can
+                // still fall back to it instead of the default.
                 if this.location_chosen_by_user {
+                    this.restored_location = saved;
                     return;
                 }
                 if let Some(location) = saved {
@@ -457,9 +463,13 @@ impl DashboardView {
                 this.weather_persist_in_flight = false;
                 match result {
                     Ok(Ok(())) => {
-                        if this.legacy_location_pending {
+                        // The plaintext copy goes only once the keychain holds
+                        // the value, and the flag stays set until that removal
+                        // is on disk so a failed write is retried next time.
+                        if this.legacy_location_pending
+                            && Settings::update(cx, |config| config.ui.weather_location = None)
+                        {
                             this.legacy_location_pending = false;
-                            Settings::update(cx, |config| config.ui.weather_location = None);
                         }
                     }
                     Ok(Err(err)) => log::warn!("could not remember weather location: {err}"),
@@ -611,6 +621,7 @@ impl DashboardView {
 
     fn set_weather_location(&mut self, location: WeatherLocation, cx: &mut Context<Self>) {
         self.location_chosen_by_user = true;
+        self.restored_location = None;
         self.weather_location = location;
         self.weather = None;
         self.pollen = None;
@@ -793,14 +804,24 @@ impl DashboardView {
                 }
                 match result {
                     Ok(location) => this.set_weather_location(location, cx),
-                    Err(err) => {
-                        this.weather_error = Some(err);
-                        this.weather_refresh.loading = false;
-                    }
+                    Err(err) => this.weather_lookup_failed(err, cx),
                 }
             },
         );
         cx.notify();
+    }
+
+    /// A user-started location lookup failed: nothing was chosen after all.
+    /// A saved city that arrived during the lookup is applied now; a restore
+    /// still in flight applies on arrival as usual.
+    fn weather_lookup_failed(&mut self, err: String, cx: &mut Context<Self>) {
+        self.location_chosen_by_user = false;
+        self.weather_refresh.loading = false;
+        if let Some(location) = self.restored_location.take() {
+            self.weather_location = location;
+            self.start_weather_if_visible(cx);
+        }
+        self.weather_error = Some(err);
     }
 
     pub fn submit_weather_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -824,10 +845,7 @@ impl DashboardView {
                 }
                 match result {
                     Ok(location) => this.set_weather_location(location, cx),
-                    Err(err) => {
-                        this.weather_error = Some(err);
-                        this.weather_refresh.loading = false;
-                    }
+                    Err(err) => this.weather_lookup_failed(err, cx),
                 }
             },
         );

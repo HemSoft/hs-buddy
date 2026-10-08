@@ -4,14 +4,13 @@ use std::rc::Rc;
 
 use buddy_core::dashboard::INTERVAL_OPTIONS;
 use gpui_kit::assets::IconName;
-use gpui_kit::component::button::Button;
+use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
 use gpui_kit::component::menu::{DropdownMenu as _, PopupMenuItem};
-use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, Disableable as _, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    AnyElement, App, Background, BoxShadow, ClickEvent, Div, FontWeight, Hsla, InteractiveElement,
-    IntoElement, ParentElement, SharedString, Stateful, StatefulInteractiveElement, Styled, Window,
-    div, point, px,
+    AnyElement, App, Background, BoxShadow, ClickEvent, Div, FontWeight, Hsla, IntoElement,
+    ParentElement, SharedString, Styled, Window, div, point, px,
 };
 
 use crate::theme::BuddyPalette;
@@ -249,62 +248,51 @@ impl Pill {
         self
     }
 
+    /// A real [`Button`]: focusable, in the tab order, and activated by
+    /// keyboard as well as pointer.
     pub fn build(
         self,
         on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
         cx: &App,
-    ) -> Stateful<Div> {
+    ) -> Button {
         let theme = cx.theme();
-        let palette = *BuddyPalette::global(cx);
-        let primary = theme.primary;
         let icon_color = if self.accent_icon {
-            primary
+            theme.primary
         } else {
             theme.foreground
         };
-        let tooltip = self.tooltip.clone();
-        h_flex()
-            .id(self.id)
-            .flex_shrink_0()
-            .items_center()
-            .gap(px(7.0))
+        Button::new(self.id)
+            .custom(pill_variant(cx))
+            .accessibility_label(self.label.clone())
+            .border_1()
+            .border_color(theme.border)
             .px(px(12.0))
             .py(px(8.0))
             .rounded(px(8.0))
-            .border_1()
-            .border_color(theme.border)
-            .bg(theme.secondary)
-            .text_size(px(12.0))
             .font_weight(FontWeight::SEMIBOLD)
-            .text_color(theme.foreground)
-            .whitespace_nowrap()
             .when_some(self.icon, |this, icon| {
                 this.child(Icon::new(icon).size(px(14.0)).text_color(icon_color))
             })
-            .child(self.label)
+            .child(div().text_size(px(12.0)).child(self.label))
             .when_some(self.trailing, |this, icon| {
                 this.child(Icon::new(icon).size(px(14.0)))
             })
-            .when_some(tooltip, |this, tooltip| {
-                this.tooltip(move |window, cx| {
-                    gpui_kit::component::tooltip::Tooltip::new(tooltip.clone()).build(window, cx)
-                })
-            })
-            .map(|this| {
-                if self.disabled {
-                    this.opacity(0.55).cursor_not_allowed()
-                } else {
-                    this.cursor_pointer()
-                        .hover(move |style| {
-                            style
-                                .border_color(primary)
-                                .bg(palette.bg_hover)
-                                .text_color(palette.text_heading)
-                        })
-                        .on_click(on_click)
-                }
-            })
+            .when_some(self.tooltip, |this, tooltip| this.tooltip(tooltip))
+            .disabled(self.disabled)
+            .on_click(on_click)
     }
+}
+
+/// `.pill-btn` colours: secondary surface, hover highlight, foreground text.
+fn pill_variant(cx: &App) -> ButtonCustomVariant {
+    let theme = cx.theme();
+    let palette = *BuddyPalette::global(cx);
+    ButtonCustomVariant::new(cx)
+        .color(theme.secondary)
+        .foreground(theme.foreground)
+        .hover(palette.bg_hover)
+        .active(palette.bg_hover)
+        .shadow(false)
 }
 
 /// `.card-collapse-btn`: 28px chevron toggle.
@@ -313,40 +301,27 @@ pub fn collapse_button(
     expanded: bool,
     on_toggle: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
     cx: &App,
-) -> Stateful<Div> {
+) -> Button {
     let theme = cx.theme();
     let palette = *BuddyPalette::global(cx);
-    let primary = theme.primary;
     let icon = if expanded {
         IconName::ChevronUp
     } else {
         IconName::ChevronDown
     };
-    div()
-        .id(id)
+    let title = if expanded { "Collapse" } else { "Expand" };
+    Button::new(id)
+        .custom(pill_variant(cx))
+        .accessibility_label(title)
+        .tooltip(title)
         .size(px(28.0))
-        .flex_shrink_0()
+        .p(px(0.0))
         .rounded(px(6.0))
         .border_1()
         .border_color(theme.border)
-        .bg(theme.secondary)
         .text_color(palette.text_secondary)
-        .flex()
-        .items_center()
-        .justify_center()
-        .cursor_pointer()
-        .hover(move |style| {
-            style
-                .border_color(primary)
-                .bg(palette.bg_hover)
-                .text_color(palette.text_heading)
-        })
-        .tooltip(move |window, cx| {
-            gpui_kit::component::tooltip::Tooltip::new(if expanded { "Collapse" } else { "Expand" })
-                .build(window, cx)
-        })
-        .on_click(on_toggle)
         .child(Icon::new(icon).size(px(16.0)))
+        .on_click(on_toggle)
 }
 
 /// `CardHeader`: heading on the left, collapse toggle on the right.

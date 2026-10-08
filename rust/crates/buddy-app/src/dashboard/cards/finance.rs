@@ -6,12 +6,13 @@ use buddy_core::dashboard::CardId;
 use buddy_core::finance::QuoteData;
 use buddy_core::format::price;
 use gpui_kit::assets::IconName;
+use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
 use gpui_kit::component::input::Input;
 use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, StatefulInteractiveElement, Styled, Window, div, px,
+    ParentElement, Styled, Window, div, px,
 };
 
 use crate::dashboard::DashboardView;
@@ -56,8 +57,12 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
     let border = theme.border;
     let trend = trend_color(quote);
     let symbol = quote.symbol.clone();
-    let remove_bg = hex(DOWN).opacity(0.12);
-    let down = hex(DOWN);
+    let remove = ButtonCustomVariant::new(cx)
+        .color(theme.transparent)
+        .foreground(palette.text_muted)
+        .hover(hex(DOWN).opacity(0.12))
+        .active(hex(DOWN).opacity(0.2))
+        .shadow(false);
 
     // `.finance-quote-row`: a 3px trend-colored left edge around the bordered row.
     div()
@@ -122,30 +127,17 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
                         ),
                 )
                 .child(
-                    div()
-                        .id(("finance-remove", index))
+                    Button::new(("finance-remove", index))
+                        .custom(remove)
+                        .accessibility_label(format!("Remove {symbol}"))
+                        .tooltip(format!("Remove {symbol}"))
                         .size(px(18.0))
-                        .flex_shrink_0()
+                        .p(px(0.0))
                         .rounded(px(3.0))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .text_color(palette.text_muted)
-                        .cursor_pointer()
-                        .hover(move |style| style.text_color(down).bg(remove_bg))
-                        .tooltip({
-                            let symbol = symbol.clone();
-                            move |window, cx| {
-                                gpui_kit::component::tooltip::Tooltip::new(format!(
-                                    "Remove {symbol}"
-                                ))
-                                .build(window, cx)
-                            }
-                        })
+                        .child(Icon::new(IconName::X).size(px(12.0)))
                         .on_click(
                             cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)),
-                        )
-                        .child(Icon::new(IconName::X).size(px(12.0))),
+                        ),
                 ),
         )
 }

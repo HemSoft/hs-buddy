@@ -13,8 +13,10 @@
 //!   wins), then checks that the directory is still the instance it observed
 //!   (same identity). A mismatch means the stale lock was released and a
 //!   fresh one created meanwhile, so the waiter withdraws its marker and goes
-//!   back to waiting. Nothing is ever renamed or removed by a waiter, so a
-//!   live lock cannot be stolen;
+//!   back to waiting. A marker that is itself older than [`STALE_AFTER`]
+//!   belongs to a claimer that crashed too and is removed before claiming.
+//!   Nothing else is ever renamed or removed by a waiter, so a live lock
+//!   cannot be stolen;
 //! - release: the holder removes its marker (if any) and the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
@@ -99,12 +101,12 @@ impl ConfigLock {
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
                     if let Some(seen) = observe(&dir)
                         && seen.stale
+                        && let Some(lock) = claim_stale(&dir, &seen.identity)
                     {
-                        if let Some(lock) = claim_stale(&dir, &seen.identity) {
-                            return Ok(Some(lock));
-                        }
-                        continue;
+                        return Ok(Some(lock));
                     }
+                    // Another claimer holds the marker, or the directory was
+                    // replaced: wait like for any other held lock.
                     if Instant::now() >= deadline {
                         return Ok(None);
                     }
@@ -120,6 +122,11 @@ impl ConfigLock {
 /// directory, never removing or renaming it from under a live holder.
 fn claim_stale(dir: &Path, observed: &Identity) -> Option<ConfigLock> {
     let marker = dir.join(CLAIM);
+    // A claimer that crashed leaves its marker behind; once the marker is as
+    // old as a stale lock, it is nobody's and may be cleared.
+    if observe(&marker).is_some_and(|m| m.stale) {
+        let _ = std::fs::remove_dir(&marker);
+    }
     if std::fs::create_dir(&marker).is_err() {
         // Another waiter claimed it first, or it vanished: back to waiting.
         return None;
@@ -244,16 +251,34 @@ mod tests {
     }
 
     #[test]
-    fn only_one_claimer_wins_a_stale_lock() {
+    fn only_one_claimer_wins_a_stale_lock_and_the_loser_keeps_polling() {
         let config = temp_config("claimed");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
         age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
-        // Another waiter already holds the marker.
+        // Another waiter claimed it just now (a fresh marker).
         std::fs::create_dir(dir.join(CLAIM)).unwrap();
+        let started = Instant::now();
         let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
         assert!(guard.is_none());
+        // No busy spin: the deadline was honoured, not skipped.
+        assert!(started.elapsed() >= Duration::from_millis(100));
         assert!(dir.join(CLAIM).is_dir());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_marker_left_by_a_crashed_claimer_is_cleared() {
+        let config = temp_config("deadclaim");
+        let dir = lock_dir(&config);
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::create_dir(dir.join(CLAIM)).unwrap();
+        age_dir(&dir.join(CLAIM), STALE_AFTER + Duration::from_secs(5));
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(200)).unwrap();
+        assert!(guard.is_some(), "a dead claimer must not wedge the lock");
+        drop(guard);
+        assert!(!dir.exists());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

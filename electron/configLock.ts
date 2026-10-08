@@ -14,8 +14,10 @@
  *   checks that the directory is still the instance it observed (same inode
  *   and birth time). A mismatch means the stale lock was released and a
  *   fresh one created meanwhile, so the waiter withdraws its marker and goes
- *   back to waiting. Nothing is ever renamed or removed by a waiter, so a
- *   live lock cannot be stolen;
+ *   back to waiting. A marker that is itself older than `STALE_AFTER_MS`
+ *   belongs to a claimer that crashed too and is removed before claiming.
+ *   Nothing else is ever renamed or removed by a waiter, so a live lock
+ *   cannot be stolen;
  * - release: the holder removes its marker (if any) and the directory;
  * - bounded: a writer that cannot acquire within the timeout proceeds anyway
  *   (logged), because a wedged lock must never freeze either app.
@@ -102,6 +104,9 @@ function removeQuietly(path: string): void {
  */
 function claimStale(dir: string, observed: Identity, now: () => number): (() => void) | null {
   const marker = join(dir, CLAIM)
+  // A claimer that crashed leaves its marker behind; once the marker is as
+  // old as a stale lock, it is nobody's and may be cleared.
+  if (observe(marker, now())?.stale) removeQuietly(marker)
   if (tryCreate(marker) !== 'created') return null
   const current = observe(dir, now())
   if (current !== null && sameInstance(current.identity, observed)) {
@@ -165,7 +170,8 @@ export function acquireConfigLock(
     if (seen?.stale) {
       const release = claimStale(dir, seen.identity, now)
       if (release) return release
-      continue
+      // Another claimer holds the marker, or the directory was replaced:
+      // fall through to the deadline and the poll like any other wait.
     }
     if (now() >= deadline) {
       warn(`[configLock] ${dir} busy for ${timeoutMs}ms; proceeding unlocked`)

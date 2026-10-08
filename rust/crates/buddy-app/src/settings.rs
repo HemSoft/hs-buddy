@@ -32,23 +32,28 @@ impl Settings {
         // Serialize the whole read-modify-write against Electron, which takes
         // the same `config.json.lock`; the stamp check below stays as the
         // guard for a writer that does not (see electron/configLock.ts).
-        let _lock = match config_path().map(|path| ConfigLock::acquire(&path, DEFAULT_TIMEOUT)) {
-            Ok(Ok(Some(lock))) => Some(lock),
-            Ok(Ok(None)) => {
-                log::warn!("config lock busy for {DEFAULT_TIMEOUT:?}; saving unlocked");
-                None
-            }
-            Ok(Err(err)) => {
-                log::warn!("config lock unavailable ({err}); saving unlocked");
-                None
-            }
+        // One resolved path for the lock, the reads and the write: a
+        // candidate file Electron creates meanwhile must not redirect them.
+        let path = match config_path() {
+            Ok(path) => path,
             Err(err) => {
                 log::warn!("not saving: configuration path unknown ({err})");
                 return false;
             }
         };
+        let _lock = match ConfigLock::acquire(&path, DEFAULT_TIMEOUT) {
+            Ok(Some(lock)) => Some(lock),
+            Ok(None) => {
+                log::warn!("config lock busy for {DEFAULT_TIMEOUT:?}; saving unlocked");
+                None
+            }
+            Err(err) => {
+                log::warn!("config lock unavailable ({err}); saving unlocked");
+                None
+            }
+        };
         for attempt in 1..=ATTEMPTS {
-            let (mut fresh, stamp) = match AppConfig::load_with_stamp() {
+            let (mut fresh, stamp) = match AppConfig::load_with_stamp_from(&path) {
                 Ok(loaded) => loaded,
                 Err(err) => {
                     log::warn!("not saving: configuration could not be reloaded ({err})");
@@ -56,7 +61,7 @@ impl Settings {
                 }
             };
             edit(&mut fresh);
-            match fresh.save_if_unchanged(&stamp) {
+            match fresh.save_if_unchanged_at(&path, &stamp) {
                 Ok(true) => {
                     Self::install(cx, fresh);
                     return true;
@@ -66,12 +71,12 @@ impl Settings {
                 }
                 Ok(false) => {
                     log::warn!("configuration kept changing on disk; edit not saved");
-                    Self::resync(cx);
+                    Self::resync(cx, &path);
                     return false;
                 }
                 Err(err) => {
                     log::warn!("could not save configuration: {err}");
-                    Self::resync(cx);
+                    Self::resync(cx, &path);
                     return false;
                 }
             }
@@ -82,8 +87,8 @@ impl Settings {
     /// After a failed save the in-memory copy must reflect the disk, not the
     /// edit that never landed, so the UI does not show a state that a
     /// restart would undo.
-    fn resync(cx: &mut App) {
-        match AppConfig::load() {
+    fn resync(cx: &mut App, path: &std::path::Path) {
+        match AppConfig::load_from(path) {
             Ok(disk) => Self::install(cx, disk),
             Err(err) => log::warn!("configuration left as last loaded; reload failed: {err}"),
         }

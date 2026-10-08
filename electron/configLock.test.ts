@@ -120,13 +120,30 @@ describe('configLock', () => {
     expect(existsSync(lockDir)).toBe(true)
   })
 
-  it('only one of two claimers wins a stale lock', () => {
+  it('only one of two claimers wins a stale lock, and the loser keeps polling', () => {
     mkdirSync(lockDir)
     ageDir(lockDir)
-    mkdirSync(join(lockDir, 'claim')) // another waiter already claimed it
-    const release = acquireConfigLock(configPath, { timeoutMs: 30, sleep: vi.fn() })
+    mkdirSync(join(lockDir, 'claim')) // another waiter claimed it just now
+    let clock = 1_000
+    const sleep = vi.fn((ms: number) => {
+      clock += ms
+    })
+    const release = acquireConfigLock(configPath, { timeoutMs: 50, now: () => clock, sleep })
     expect(release).toBeNull()
+    // No busy spin: the loser slept and respected the deadline.
+    expect(sleep).toHaveBeenCalled()
     expect(existsSync(join(lockDir, 'claim'))).toBe(true)
+  })
+
+  it('clears a marker left by a crashed claimer and takes the lock over', () => {
+    mkdirSync(lockDir)
+    mkdirSync(join(lockDir, 'claim'))
+    ageDir(join(lockDir, 'claim'))
+    ageDir(lockDir)
+    const release = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn() })
+    expect(release).not.toBeNull()
+    release?.()
+    expect(existsSync(lockDir)).toBe(false)
   })
 
   it('retries when a stale lock vanishes before it can be observed', () => {

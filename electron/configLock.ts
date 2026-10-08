@@ -18,10 +18,12 @@
  *   crashed too; it is never removed, it is claimed the same way one level
  *   down (`claim/claim`), so no waiter ever deletes or renames anything it
  *   does not own and a live lock or claim cannot be stolen;
- * - ownership: a holder re-checks right before writing that the lock is
- *   still the instance it created (a process suspended longer than the
- *   stale window has lost it) and re-acquires if not; the native side also
- *   keeps its size+mtime stamp check, so a stolen lock cannot lose a write;
+ * - ownership: an owner writes a unique token into the level it owns
+ *   (`owner`), and a holder re-checks right before writing that its token
+ *   is still there and no claim is nested inside (a process suspended longer
+ *   than the stale window has lost it), re-acquiring if not; the native side
+ *   also keeps its size+mtime stamp check, so a stolen lock cannot lose a
+ *   write;
  * - release: the holder removes its marker (if any) and the directory;
  * - bounded: a writer that cannot acquire within the timeout proceeds anyway
  *   (logged), because a wedged lock must never freeze either app.
@@ -36,7 +38,17 @@
  * load-edit-save with the Windows rename retries (250 ms) and, once, the
  * legacy keychain migration.
  */
-import { existsSync, mkdirSync, rmdirSync, statSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  rmdirSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
 
 /**
@@ -49,6 +61,8 @@ export const STALE_AFTER_MS = 30_000
 const DEFAULT_TIMEOUT_MS = 1_000
 const POLL_MS = 10
 const CLAIM = 'claim'
+/** The owner's token file inside the level it owns. */
+const OWNER = 'owner'
 
 export function lockDirFor(configPath: string): string {
   return `${configPath}.lock`
@@ -81,6 +95,29 @@ function observe(dir: string, now: number): Observation | null {
 
 function sameInstance(a: Identity, b: Identity): boolean {
   return a.ino === b.ino && a.birthtimeMs === b.birthtimeMs
+}
+
+function readOwner(level: string): string | null {
+  try {
+    return readFileSync(join(level, OWNER), 'utf8')
+  } catch (_: unknown) {
+    return null
+  }
+}
+
+function newToken(): string {
+  return `${process.pid}-${process.hrtime.bigint()}-${randomBytes(6).toString('hex')}`
+}
+
+/** Mark `level` as owned by this handle; returns the token, or null if it cannot be written. */
+function takeOwnership(level: string): string | null {
+  const token = newToken()
+  try {
+    writeFileSync(join(level, OWNER), token, { flag: 'wx' })
+    return token
+  } catch (_: unknown) {
+    return null
+  }
 }
 
 function sleepSync(ms: number): void {
@@ -141,15 +178,24 @@ function claimLevel(level: string, now: () => number): LevelOutcome {
   const seen = observe(level, now())
   if (seen === null) return 'retry'
   if (!seen.stale) return 'held'
+  const seenOwner = readOwner(level)
   const outcome = tryCreate(join(level, CLAIM))
   // A marker exists: fresh means a live claimer is ahead; stale means it
   // belongs to a crashed one and is claimed one level down.
   if (outcome === 'exists') return 'descend'
   if (outcome !== 'created') return 'held'
   // Creating the marker refreshed the level's mtime, so other waiters now
-  // see it fresh; keep it only if the level is still the instance observed.
+  // see it fresh; keep it only if the level is still the instance observed:
+  // same inode and birth time, and the same owner token (a released and
+  // recreated level carries a different token, or none yet).
   const current = observe(level, now())
-  if (current !== null && sameInstance(current.identity, seen.identity)) return 'owned'
+  if (
+    current !== null &&
+    sameInstance(current.identity, seen.identity) &&
+    readOwner(level) === seenOwner
+  ) {
+    return 'owned'
+  }
   removeQuietly(join(level, CLAIM))
   return current === null ? 'retry' : 'held'
 }
@@ -161,31 +207,16 @@ export interface ConfigLockHandle {
   held: () => boolean
 }
 
-function handleFor(chain: string[], now: () => number): ConfigLockHandle {
+function handleFor(chain: string[]): ConfigLockHandle {
   const owned = chain[chain.length - 1]
-  // The owned level as it was when acquired: its instance identity and its
-  // mtime, which only changes when someone nests a claim inside it. Windows
-  // reuses a recreated directory's creation time for a while (tunnelling),
-  // so the mtime is what tells a recreated lock apart there.
-  const acquired = observe(owned, now())
-  const held = (): boolean => {
-    const current = observe(owned, now())
-    if (
-      acquired === null ||
-      current === null ||
-      !sameInstance(current.identity, acquired.identity) ||
-      current.mtimeMs !== acquired.mtimeMs
-    ) {
-      return false
-    }
-    // A takeover leaves the directory in place and nests a marker inside it.
-    return !existsSync(join(owned, CLAIM))
-  }
+  const token = takeOwnership(owned)
+  const held = (): boolean =>
+    token !== null && !existsSync(join(owned, CLAIM)) && readOwner(owned) === token
   return {
     // Never remove a lock that is no longer ours (taken over while this
     // process was suspended): that would strip the new holder's lock.
     release: () => {
-      if (acquired === null || held()) releaseChain(chain)
+      if (token === null || held()) releaseChain(chain)
     },
     held,
   }
@@ -204,18 +235,33 @@ function claimStale(dir: string, now: () => number): ConfigLockHandle | null | '
     const outcome = claimLevel(level, now)
     if (outcome === 'owned') {
       chain.push(join(level, CLAIM))
-      return handleFor(chain, now)
+      return handleFor(chain)
     }
     if (outcome === 'retry') return 'retry'
     if (outcome === 'held') return null
     chain.push(join(level, CLAIM))
   }
-  return null
+  // Every level down to the limit is a stale marker of a crashed claimer and
+  // nobody alive owns any of it: drop the deepest one so the chain can be
+  // claimed again instead of wedging every later writer.
+  const deepest = chain[chain.length - 1]
+  if (observe(deepest, now())?.stale) rmSync(deepest, { recursive: true, force: true })
+  return 'retry'
 }
 
-/** Remove the chain deepest first; stop at the first level that is not empty. */
+/**
+ * Remove the chain deepest first: the owned level's token file and
+ * directory, then each dead claimer's level above it (its token file and
+ * directory). Stop at the first level that is not empty, which means a
+ * later claimer nested below it after this lock went stale.
+ */
 function releaseChain(chain: string[]): void {
   for (let i = chain.length - 1; i >= 0; i -= 1) {
+    try {
+      unlinkSync(join(chain[i], OWNER))
+    } catch (_: unknown) {
+      /* no token at this level */
+    }
     try {
       rmdirSync(chain[i])
     } catch (_: unknown) {
@@ -280,7 +326,7 @@ export function acquireConfigLock(
   const recovery = { parentCreated: false }
   for (;;) {
     const outcome = tryCreate(dir)
-    if (outcome === 'created') return handleFor([dir], now)
+    if (outcome === 'created') return handleFor([dir])
     if (outcome !== 'exists') {
       if (recoverMissingParent(outcome, dir, recovery)) continue
       // Anything else (unwritable parent, say) means there is nothing to

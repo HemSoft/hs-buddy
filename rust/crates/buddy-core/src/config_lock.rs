@@ -17,10 +17,11 @@
 //!   that crashed too; it is never removed, it is claimed the same way one
 //!   level down (`claim/claim`), so no waiter ever deletes or renames
 //!   anything it does not own and a live lock or claim cannot be stolen;
-//! - ownership: a holder can ask whether the lock is still the instance it
-//!   created or claimed ([`ConfigLock::is_held`]); a process suspended
-//!   longer than the stale window has lost it. The caller's size+mtime
-//!   stamp check then refuses the write, so a stolen lock cannot lose one;
+//! - ownership: an owner writes a unique token into the level it owns
+//!   (`owner`); [`ConfigLock::is_held`] reports whether that token is still
+//!   there with no claim nested inside. A process suspended longer than the
+//!   stale window has lost it. The caller's size+mtime stamp check then
+//!   refuses the write, so a stolen lock cannot lose one;
 //! - release: the holder removes its marker (if any) and the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
@@ -28,7 +29,7 @@
 //!   here is short; it runs on the GPUI thread only under actual contention.
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 /// A holder that has not touched its lock for this long is presumed dead.
 /// Long enough that a process suspended for a while keeps its lock; short
@@ -39,17 +40,17 @@ pub const STALE_AFTER: Duration = Duration::from_secs(30);
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(500);
 const POLL: Duration = Duration::from_millis(10);
 const CLAIM: &str = "claim";
+/// The owner's token file inside the level it owns.
+const OWNER: &str = "owner";
 
 /// Holds the lock; dropping it releases.
 #[derive(Debug)]
 pub struct ConfigLock {
     /// The lock directory, then each claim marker down to the one owned.
     chain: Vec<PathBuf>,
-    /// The owned level as it was when acquired: its instance identity and
-    /// its mtime, which only changes when someone nests a claim inside it.
-    /// Windows reuses a recreated directory's creation time for a while
-    /// (tunnelling), so the mtime is what tells a recreated lock apart there.
-    owned: Option<(Identity, Option<SystemTime>)>,
+    /// This owner's token, written into the owned level; `None` when it
+    /// could not be written (the lock is then released unconditionally).
+    token: Option<String>,
 }
 
 /// Consecutive crashed claimers nest one level each; deeper than this, wait.
@@ -85,7 +86,6 @@ struct Identity {
 
 struct Observation {
     identity: Identity,
-    modified: Option<SystemTime>,
     stale: bool,
 }
 
@@ -101,9 +101,34 @@ fn observe(dir: &Path) -> Option<Observation> {
             ino: std::os::unix::fs::MetadataExt::ino(&meta),
             created: meta.created().ok(),
         },
-        modified,
         stale,
     })
+}
+
+fn read_owner(level: &Path) -> Option<String> {
+    std::fs::read_to_string(level.join(OWNER)).ok()
+}
+
+fn new_token() -> String {
+    static COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or_default();
+    let count = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    format!("{}-{nanos}-{count}", std::process::id())
+}
+
+/// Mark `level` as owned; `None` when the token cannot be written.
+fn take_ownership(level: &Path) -> Option<String> {
+    let token = new_token();
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(level.join(OWNER))
+        .and_then(|mut file| std::io::Write::write_all(&mut file, token.as_bytes()))
+        .ok()
+        .map(|()| token)
 }
 
 impl ConfigLock {
@@ -152,14 +177,20 @@ fn claim_stale(dir: &Path) -> Claim {
         if !seen.stale {
             return Claim::Held;
         }
+        let seen_owner = read_owner(&level);
         let marker = level.join(CLAIM);
         match std::fs::create_dir(&marker) {
             Ok(()) => {
                 // Creating the marker refreshed the level's mtime, so other
                 // waiters now see it fresh; keep it only if the level is
-                // still the instance that was observed.
+                // still the instance observed: same identity and the same
+                // owner token (a released and recreated level carries a
+                // different token, or none yet).
                 return match observe(&level) {
-                    Some(current) if current.identity == seen.identity => {
+                    Some(current)
+                        if current.identity == seen.identity
+                            && read_owner(&level) == seen_owner =>
+                    {
                         chain.push(marker);
                         Claim::Owned(ConfigLock::owned(chain))
                     }
@@ -182,50 +213,51 @@ fn claim_stale(dir: &Path) -> Claim {
             Err(_) => return Claim::Held,
         }
     }
-    Claim::Held
+    // Every level down to the limit is a stale marker of a crashed claimer
+    // and nobody alive owns any of it: drop the deepest one so the chain can
+    // be claimed again instead of wedging every later writer.
+    if let Some(deepest) = chain.last()
+        && observe(deepest).is_some_and(|o| o.stale)
+    {
+        let _ = std::fs::remove_dir_all(deepest);
+    }
+    Claim::Retry
 }
 
 impl ConfigLock {
     fn owned(chain: Vec<PathBuf>) -> Self {
-        let owned = chain
-            .last()
-            .and_then(|p| observe(p))
-            .map(|o| (o.identity, o.modified));
-        Self { chain, owned }
+        let token = chain.last().and_then(|p| take_ownership(p));
+        Self { chain, token }
     }
 
     /// Whether the lock is still the instance this holder created or
-    /// claimed. False once a waiter took it over (this process was suspended
-    /// past the stale window) or it vanished.
+    /// claimed: its token is still in place and no claim is nested inside.
+    /// False once a waiter took it over (this process was suspended past
+    /// the stale window), it was released and recreated, or it vanished.
     pub fn is_held(&self) -> bool {
         let Some(path) = self.chain.last() else {
             return false;
         };
-        match (&self.owned, observe(path)) {
-            // A takeover leaves the directory in place and nests a marker
-            // inside it, which also changes its mtime; a released and
-            // recreated directory has a new mtime even where the creation
-            // time was tunnelled.
-            (Some((identity, modified)), Some(current)) => {
-                current.identity == *identity
-                    && current.modified == *modified
-                    && !path.join(CLAIM).exists()
-            }
-            _ => false,
+        match &self.token {
+            Some(token) => read_owner(path).as_deref() == Some(token) && !path.join(CLAIM).exists(),
+            None => false,
         }
     }
 }
 
 impl Drop for ConfigLock {
-    /// Remove the chain deepest first; stop at the first level that is not
-    /// empty (a later claimer nested below after this lock went stale).
-    /// A lock that is no longer ours (taken over while this process was
-    /// suspended) is left alone: removing it would strip the new holder.
+    /// Remove the chain deepest first: the owned level's token and
+    /// directory, then each dead claimer's level above it. Stop at the first
+    /// level that is not empty (a later claimer nested below it after this
+    /// lock went stale). A lock that is no longer ours (taken over while
+    /// this process was suspended) is left alone: removing it would strip
+    /// the new holder.
     fn drop(&mut self) {
-        if self.owned.is_some() && !self.is_held() {
+        if self.token.is_some() && !self.is_held() {
             return;
         }
         for level in self.chain.iter().rev() {
+            let _ = std::fs::remove_file(level.join(OWNER));
             if std::fs::remove_dir(level).is_err() {
                 return;
             }
@@ -414,7 +446,7 @@ mod tests {
             .unwrap();
         assert!(guard.is_held());
         // Taken over while this process was suspended: released, re-created.
-        std::fs::remove_dir(&dir).unwrap();
+        std::fs::remove_dir_all(&dir).unwrap();
         std::fs::create_dir(&dir).unwrap();
         assert!(!guard.is_held());
         drop(guard);
@@ -461,6 +493,38 @@ mod tests {
         let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
         assert!(guard.is_none());
         assert!(started.elapsed() >= Duration::from_millis(100));
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_chain_at_the_depth_limit_is_recovered() {
+        let config = temp_config("depth");
+        let dir = lock_dir(&config);
+        // Nine nested stale markers: successive claimers all crashed.
+        let mut level = dir.clone();
+        for _ in 0..9 {
+            std::fs::create_dir(&level).unwrap();
+            level = level.join(CLAIM);
+        }
+        let mut walk = dir.clone();
+        for _ in 0..9 {
+            age_dir(&walk, STALE_AFTER + Duration::from_secs(5));
+            walk = walk.join(CLAIM);
+        }
+        // The first attempt drops the deepest marker, which refreshes its
+        // parent; once that goes stale again the chain is claimed.
+        let first = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(first.is_none(), "the refreshed parent is held for a window");
+        let mut walk = dir.clone();
+        for _ in 0..8 {
+            age_dir(&walk, STALE_AFTER + Duration::from_secs(5));
+            walk = walk.join(CLAIM);
+        }
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(500)).unwrap();
+        assert!(guard.is_some(), "a dead chain must not wedge the lock");
+        assert!(guard.as_ref().unwrap().is_held());
+        drop(guard);
+        assert!(!dir.exists(), "the whole chain is released");
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

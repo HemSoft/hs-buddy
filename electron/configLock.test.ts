@@ -13,6 +13,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { STALE_AFTER_MS, acquireConfigLock, lockDirFor, withConfigLock } from './configLock'
 
+/** One-shot interception points for the lock's file-system calls. */
+const hooks = vi.hoisted(() => ({
+  existsSync: null as ((path: string) => boolean) | null,
+}))
+
+vi.mock('node:fs', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+  return {
+    ...actual,
+    existsSync: (path: Parameters<typeof actual.existsSync>[0]) =>
+      hooks.existsSync?.(String(path)) ?? actual.existsSync(path),
+  }
+})
+
 function ageDir(dir: string): void {
   const past = (Date.now() - STALE_AFTER_MS - 5_000) / 1000
   utimesSync(dir, past, past)
@@ -206,6 +220,31 @@ describe('configLock claim chains', () => {
 describe('configLock release and fallback', () => {
   useTempConfig()
 
+  it('recovers a chain that reached the depth limit', () => {
+    // Eight successive claimers crashed, each owning a deeper stale marker.
+    let level = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      mkdirSync(level)
+      level = join(level, 'claim')
+    }
+    let walk = lockDir
+    for (let depth = 0; depth < 9; depth += 1) {
+      ageDir(walk)
+      walk = join(walk, 'claim')
+    }
+    // Dropping the deepest marker refreshes its parent, so the next attempt
+    // claims it once the stale window has passed again.
+    let wall = Date.now()
+    const sleep = vi.fn(() => {
+      wall += STALE_AFTER_MS + 1_000
+    })
+    const handle = acquireConfigLock(configPath, { timeoutMs: 500, now: () => wall, sleep })
+    expect(handle).not.toBeNull()
+    expect(handle?.held()).toBe(true)
+    handle?.release()
+    expect(existsSync(lockDir)).toBe(false)
+  })
+
   it('reports whether the lock is still the instance it created', () => {
     const handle = acquireConfigLock(configPath)
     expect(handle?.held()).toBe(true)
@@ -220,23 +259,18 @@ describe('configLock release and fallback', () => {
 
   it('re-acquires before writing when the lock was lost meanwhile', () => {
     const warn = vi.fn()
-    let reads = 0
-    const now = () => {
-      reads += 1
-      // After the handle recorded its identity (first read), replace the
-      // lock before the ownership check (second read).
-      if (reads === 2) {
-        rmSync(lockDir, { recursive: true, force: true })
-        mkdirSync(lockDir)
-        ageDir(lockDir)
-      }
-      return Date.now()
+    const claim = join(lockDir, 'claim')
+    // Replace the lock during the ownership check that follows acquisition
+    // (the first look for a nested claim), as a takeover during a long
+    // suspension would.
+    hooks.existsSync = path => {
+      hooks.existsSync = null
+      rmSync(lockDir, { recursive: true, force: true })
+      mkdirSync(lockDir)
+      ageDir(lockDir)
+      return path === claim
     }
-    const ran = withConfigLock(configPath, () => existsSync(join(lockDir, 'claim')), {
-      now,
-      warn,
-      sleep: vi.fn(),
-    })
+    const ran = withConfigLock(configPath, () => existsSync(claim), { warn, sleep: vi.fn() })
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('re-acquiring'))
     // The replacement was stale, so the second acquisition claimed it.
     expect(ran).toBe(true)

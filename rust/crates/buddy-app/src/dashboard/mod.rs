@@ -638,7 +638,18 @@ impl DashboardView {
                 let first_error = batch.failed.first().map(|(_, err)| err.clone());
                 if all_failed && !this.quotes.is_empty() {
                     // An outage is not a verdict on any symbol: keep the last
-                    // quotes (and the symbols already known to fail) on screen.
+                    // quotes on screen. Every symbol without one did fail just
+                    // now, so list those (a newly added ticker included) with
+                    // their remove buttons.
+                    this.failed_symbols = batch
+                        .failed
+                        .into_iter()
+                        .map(|(symbol, _)| symbol)
+                        .filter(|symbol| {
+                            current.contains(symbol)
+                                && !this.quotes.iter().any(|q| &q.symbol == symbol)
+                        })
+                        .collect();
                     this.finance_error = first_error;
                     this.finance_refresh.mark_failed();
                     return;
@@ -1002,15 +1013,19 @@ impl DashboardView {
     }
 
     pub fn remove_symbol(&mut self, symbol: &str, cx: &mut Context<Self>) {
-        self.quotes.retain(|q| q.symbol != symbol);
-        self.failed_symbols.retain(|s| s != symbol);
         let symbol = finance::normalize_symbol(symbol);
-        Settings::update(cx, |config| {
+        let saved = Settings::update(cx, |config| {
             config
                 .finance
                 .watchlist
                 .retain(|s| finance::normalize_symbol(s) != symbol)
         });
+        // The row goes only once the removal is on disk; otherwise the symbol
+        // is still tracked and keeps its quote (and remove button).
+        if saved {
+            self.quotes.retain(|q| q.symbol != symbol);
+            self.failed_symbols.retain(|s| *s != symbol);
+        }
         cx.notify();
     }
 

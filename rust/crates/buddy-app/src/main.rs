@@ -1,3 +1,7 @@
+// A desktop app: release builds on Windows must not open a console window
+// next to the GPUI window. Debug builds keep it so `RUST_LOG` output shows.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
+
 mod app;
 mod assets;
 mod dashboard;

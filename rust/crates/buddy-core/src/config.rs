@@ -311,15 +311,19 @@ fn platform_config_root() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
         return std::env::var_os("APPDATA").map(PathBuf::from);
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from)?;
     if cfg!(target_os = "macos") {
+        let home = std::env::var_os("HOME").map(PathBuf::from)?;
         return Some(home.join("Library").join("Application Support"));
     }
-    Some(
-        std::env::var_os("XDG_CONFIG_HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| home.join(".config")),
-    )
+    // An absolute XDG_CONFIG_HOME stands on its own (HOME may be unset in
+    // service-style launches); the XDG spec says to ignore a relative one.
+    if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from)
+        && xdg.is_absolute()
+    {
+        return Some(xdg);
+    }
+    let home = std::env::var_os("HOME").map(PathBuf::from)?;
+    Some(home.join(".config"))
 }
 
 impl AppConfig {

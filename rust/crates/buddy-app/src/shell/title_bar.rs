@@ -115,6 +115,7 @@ pub fn render(
                                 .xsmall()
                                 .compact()
                                 .icon(Icon::new(IconName::Sparkles).size(px(14.0)))
+                                .accessibility_label("Toggle Copilot Assistant")
                                 .tooltip("Toggle Copilot Assistant (panel not ported yet)")
                                 .selected(assistant_open)
                                 .on_click(cx.listener(|_, _, _, cx| {
@@ -130,6 +131,7 @@ pub fn render(
                                 .xsmall()
                                 .compact()
                                 .icon(Icon::new(IconName::SquareTerminal).size(px(14.0)))
+                                .accessibility_label("Toggle Terminal")
                                 .tooltip("Toggle Terminal (panel not ported yet)")
                                 .selected(terminal_open)
                                 .on_click(cx.listener(|_, _, _, cx| {

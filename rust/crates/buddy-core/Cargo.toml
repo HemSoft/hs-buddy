@@ -17,6 +17,10 @@ convex.workspace = true
 keyring.workspace = true
 futures.workspace = true
 chrono.workspace = true
+sys-locale = "0.3"
+icu_decimal = "2"
+fixed_decimal = { version = "0.7", features = ["ryu"] }
+icu_locale_core = "2"
 
 [dev-dependencies]
 env_logger = "0.11"

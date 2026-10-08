@@ -1,70 +1,116 @@
 //! Number and duration formatting matching the Electron renderer's output
 //! (`toLocaleString`, `formatCurrency`, `formatUptime`, `formatPrice`).
+//!
+//! Digits are grouped and separated for the system locale through ICU4X,
+//! as `Intl.NumberFormat(undefined, ...)` does in the renderer. The currency
+//! symbol keeps the en-US `$` prefix: amounts are USD and ICU4X has no
+//! stable currency formatter yet.
 
-/// `n.toLocaleString()` for an integer in the en-US locale.
-pub fn thousands(n: i64) -> String {
-    let digits = n.unsigned_abs().to_string();
-    let mut out = String::with_capacity(digits.len() + digits.len() / 3 + 1);
-    for (i, ch) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i).is_multiple_of(3) {
-            out.push(',');
+use fixed_decimal::{Decimal, FloatPrecision, Sign, SignedRoundingMode, UnsignedRoundingMode};
+use icu_decimal::DecimalFormatter;
+use icu_decimal::options::DecimalFormatterOptions;
+use icu_locale_core::{Locale, locale};
+
+/// Locale-aware digit formatting.
+pub struct NumberFormat {
+    formatter: DecimalFormatter,
+}
+
+thread_local! {
+    // ICU4X formatters hold `Rc` data, so the shared instance is per thread.
+    static SYSTEM: NumberFormat = NumberFormat::system();
+}
+
+/// JavaScript's `toFixed`/`Intl` tie rule: halves round away from zero.
+const HALF_EXPAND: SignedRoundingMode =
+    SignedRoundingMode::Unsigned(UnsignedRoundingMode::HalfExpand);
+
+impl NumberFormat {
+    pub fn for_locale(locale: &Locale) -> Self {
+        let options = DecimalFormatterOptions::default();
+        let formatter = DecimalFormatter::try_new(locale.into(), options).unwrap_or_else(|err| {
+            log::warn!("no number formatting data for {locale}: {err}; using en-US");
+            DecimalFormatter::try_new((&locale!("en-US")).into(), options)
+                .expect("en-US decimal data is compiled in")
+        });
+        Self { formatter }
+    }
+
+    /// The process locale (`LANG`, the Windows user locale, macOS
+    /// preferences), en-US when it is unset or unparsable.
+    pub fn system() -> Self {
+        let locale = sys_locale::get_locale()
+            .and_then(|tag| Locale::try_from_str(&tag).ok())
+            .unwrap_or(locale!("en-US"));
+        Self::for_locale(&locale)
+    }
+
+    /// `n.toLocaleString()` for an integer.
+    pub fn thousands(&self, n: i64) -> String {
+        self.formatter.format(&Decimal::from(n)).to_string()
+    }
+
+    /// A number with grouped integer digits and exactly `decimals` fraction digits.
+    pub fn decimal(&self, value: f64, decimals: usize) -> String {
+        let position = -(decimals.min(i16::MAX as usize) as i16);
+        let Ok(number) = Decimal::try_from_f64(value, FloatPrecision::RoundTrip) else {
+            return format!("{value:.decimals$}");
+        };
+        let mut number = number.rounded_with_mode(position, HALF_EXPAND);
+        number.absolute.pad_end(position);
+        if value == 0.0 {
+            number.sign = Sign::None;
         }
-        out.push(ch);
+        self.formatter.format(&number).to_string()
     }
-    if n < 0 {
-        out.insert(0, '-');
+
+    /// `formatCurrency` from `quotaUtils.ts`: USD with two fraction digits.
+    pub fn currency(&self, amount: f64) -> String {
+        if amount.is_sign_negative() {
+            format!("-${}", self.decimal(-amount, 2))
+        } else {
+            format!("${}", self.decimal(amount, 2))
+        }
     }
-    out
+
+    /// `formatPrice` from `FinanceCard.tsx`: two decimals at or above 1000,
+    /// otherwise up to four significant fraction digits with trailing zeros
+    /// trimmed down to two.
+    pub fn price(&self, value: f64) -> String {
+        if !value.is_finite() {
+            return "—".to_string();
+        }
+        if value >= 1000.0 {
+            return self.decimal(value, 2);
+        }
+        let Ok(number) = Decimal::try_from_f64(value, FloatPrecision::RoundTrip) else {
+            return format!("{value:.2}");
+        };
+        let mut number = number.rounded_with_mode(-4, HALF_EXPAND);
+        number.absolute.trim_end();
+        number.absolute.pad_end(-2);
+        self.formatter.format(&number).to_string()
+    }
 }
 
-/// A number with grouped integer digits and exactly `decimals` fraction digits.
+/// `n.toLocaleString()` in the system locale.
+pub fn thousands(n: i64) -> String {
+    SYSTEM.with(|f| f.thousands(n))
+}
+
+/// Grouped digits with exactly `decimals` fraction digits, system locale.
 pub fn decimal(value: f64, decimals: usize) -> String {
-    let rounded = format!("{value:.decimals$}");
-    let (int_part, frac_part) = match rounded.split_once('.') {
-        Some((i, f)) => (i, Some(f)),
-        None => (rounded.as_str(), None),
-    };
-    let negative = int_part.starts_with('-');
-    let grouped = thousands(int_part.trim_start_matches('-').parse::<i64>().unwrap_or(0));
-    let mut out = String::new();
-    if negative {
-        out.push('-');
-    }
-    out.push_str(&grouped);
-    if let Some(frac) = frac_part {
-        out.push('.');
-        out.push_str(frac);
-    }
-    out
+    SYSTEM.with(|f| f.decimal(value, decimals))
 }
 
-/// `formatCurrency` from `quotaUtils.ts`: USD with two fraction digits.
+/// `formatCurrency`: USD with two fraction digits, system locale digits.
 pub fn currency(amount: f64) -> String {
-    if amount.is_sign_negative() {
-        format!("-${}", decimal(-amount, 2))
-    } else {
-        format!("${}", decimal(amount, 2))
-    }
+    SYSTEM.with(|f| f.currency(amount))
 }
 
-/// `formatPrice` from `FinanceCard.tsx`: two decimals at or above 1000,
-/// otherwise up to four significant fraction digits with trailing zeros
-/// trimmed down to two.
+/// `formatPrice`, system locale digits.
 pub fn price(value: f64) -> String {
-    if !value.is_finite() {
-        return "—".to_string();
-    }
-    if value >= 1000.0 {
-        return decimal(value, 2);
-    }
-    let four = decimal(value, 4);
-    let trimmed = four.trim_end_matches('0');
-    let (int_part, frac) = trimmed.split_once('.').unwrap_or((trimmed, ""));
-    if frac.len() >= 2 {
-        format!("{int_part}.{frac}")
-    } else {
-        format!("{int_part}.{frac:0<2}")
-    }
+    SYSTEM.with(|f| f.price(value))
 }
 
 const SECOND_MS: u64 = 1_000;
@@ -125,31 +171,58 @@ pub fn countdown(ms: u64) -> String {
 mod tests {
     use super::*;
 
+    fn en_us() -> NumberFormat {
+        NumberFormat::for_locale(&locale!("en-US"))
+    }
+
     #[test]
     fn groups_thousands() {
-        assert_eq!(thousands(0), "0");
-        assert_eq!(thousands(999), "999");
-        assert_eq!(thousands(1_000), "1,000");
-        assert_eq!(thousands(1_234_567), "1,234,567");
-        assert_eq!(thousands(-1_234), "-1,234");
+        let f = en_us();
+        assert_eq!(f.thousands(0), "0");
+        assert_eq!(f.thousands(999), "999");
+        assert_eq!(f.thousands(1_000), "1,000");
+        assert_eq!(f.thousands(1_234_567), "1,234,567");
+        assert_eq!(f.thousands(-1_234), "-1,234");
     }
 
     #[test]
     fn formats_currency_like_intl() {
-        assert_eq!(currency(0.0), "$0.00");
-        assert_eq!(currency(12.4), "$12.40");
-        assert_eq!(currency(1234.567), "$1,234.57");
-        assert_eq!(currency(-3.5), "-$3.50");
-        assert_eq!(currency(-0.0), "-$0.00");
+        let f = en_us();
+        assert_eq!(f.currency(0.0), "$0.00");
+        assert_eq!(f.currency(12.4), "$12.40");
+        assert_eq!(f.currency(1234.567), "$1,234.57");
+        assert_eq!(f.currency(-3.5), "-$3.50");
+        assert_eq!(f.currency(-0.0), "-$0.00");
+        assert_eq!(f.decimal(-0.0, 2), "0.00");
     }
 
     #[test]
     fn formats_prices_like_finance_card() {
-        assert_eq!(price(5234.18), "5,234.18");
-        assert_eq!(price(63_412.9), "63,412.90");
-        assert_eq!(price(0.1234), "0.1234");
-        assert_eq!(price(12.5), "12.50");
-        assert_eq!(price(f64::NAN), "—");
+        let f = en_us();
+        assert_eq!(f.price(5234.18), "5,234.18");
+        assert_eq!(f.price(63_412.9), "63,412.90");
+        assert_eq!(f.price(0.1234), "0.1234");
+        assert_eq!(f.price(12.5), "12.50");
+        assert_eq!(f.price(f64::NAN), "—");
+    }
+
+    #[test]
+    fn follows_the_locale_separators() {
+        let de = NumberFormat::for_locale(&locale!("de-DE"));
+        assert_eq!(de.thousands(1_234_567), "1.234.567");
+        assert_eq!(de.decimal(1234.5, 2), "1.234,50");
+        assert_eq!(de.currency(1234.567), "$1.234,57");
+        assert_eq!(de.price(0.1234), "0,1234");
+        let fr = NumberFormat::for_locale(&locale!("fr-FR"));
+        assert_eq!(fr.decimal(1234.5, 2), "1\u{202f}234,50");
+        let hi = NumberFormat::for_locale(&locale!("hi-IN"));
+        assert_eq!(hi.thousands(12_345_678), "1,23,45,678");
+    }
+
+    #[test]
+    fn unknown_locales_fall_back_to_en_us() {
+        let f = NumberFormat::for_locale(&locale!("xx-ZZ"));
+        assert_eq!(f.thousands(1_000), "1,000");
     }
 
     #[test]

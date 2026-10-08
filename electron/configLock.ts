@@ -215,6 +215,13 @@ function releaseChain(chain: string[]): void {
 
 export interface LockOptions {
   timeoutMs?: number
+  /**
+   * What to do when the lock turns out to have been taken over during the
+   * callback: `'repeat'` runs the callback once more under a fresh lock
+   * (only for an idempotent write such as a single `store.set`); the default
+   * `'warn'` just reports it, since a transaction may not be replayable.
+   */
+  onLostDuringWrite?: 'repeat' | 'warn'
   /** Injectable wall clock (for mtime comparisons) for tests. */
   now?: () => number
   /** Injectable monotonic clock (for the deadline) for tests. */
@@ -286,35 +293,44 @@ export function acquireConfigLock(
 /**
  * Run `fn` while holding the config lock (or unlocked after the timeout).
  * If the lock was lost between acquisition and the write (this process was
- * suspended past the stale window), it is acquired again first.
+ * suspended past the stale window), it is acquired again first. If it was
+ * lost during the write itself, another writer may have landed in between
+ * and been overwritten: an idempotent write (`onLostDuringWrite: 'repeat'`)
+ * is repeated once under a fresh lock so it re-applies on top of whatever
+ * landed; anything else is reported, because a transaction such as adding
+ * an account cannot be replayed safely.
  */
-export function withConfigLock<T>(configPath: string, fn: () => T, options: LockOptions = {}): T {
-  let handle = acquireConfigLock(configPath, options)
-  if (handle && !handle.held()) {
-    options.warn?.(
-      `[configLock] ${lockDirFor(configPath)} was taken over while waiting; re-acquiring`
-    )
-    handle.release()
-    handle = acquireConfigLock(configPath, options)
-  }
+/** Acquire, and acquire again if the lock was lost while waiting. */
+function acquireHeld(configPath: string, options: LockOptions): ConfigLockHandle | null {
+  const handle = acquireConfigLock(configPath, options)
+  if (handle === null || handle.held()) return handle
+  options.warn?.(
+    `[configLock] ${lockDirFor(configPath)} was taken over while waiting; re-acquiring`
+  )
+  handle.release()
+  return acquireConfigLock(configPath, options)
+}
+
+/** Run `fn` under `handle` (or unlocked); report whether the lock survived. */
+function runHeld<T>(handle: ConfigLockHandle | null, fn: () => T): { result: T; kept: boolean } {
   try {
     const result = fn()
-    if (handle === null || handle.held()) return result
+    return { result, kept: handle === null || handle.held() }
   } finally {
     handle?.release()
   }
-  // The lock was lost during the write itself (this process was suspended
-  // inside it past the stale window), so another writer may have landed in
-  // between and the write just made may have overwritten it. The write is a
-  // read-modify-write of the current file, so repeating it under a fresh
-  // lock re-applies this change on top of whatever landed meanwhile.
-  options.warn?.(
-    `[configLock] ${lockDirFor(configPath)} was taken over during the write; repeating it`
-  )
-  const again = acquireConfigLock(configPath, options)
-  try {
-    return fn()
-  } finally {
-    again?.release()
+}
+
+export function withConfigLock<T>(configPath: string, fn: () => T, options: LockOptions = {}): T {
+  const first = runHeld(acquireHeld(configPath, options), fn)
+  if (first.kept) return first.result
+  const dir = lockDirFor(configPath)
+  if (options.onLostDuringWrite !== 'repeat') {
+    options.warn?.(
+      `[configLock] ${dir} was taken over during the write; a concurrent change may have been overwritten`
+    )
+    return first.result
   }
+  options.warn?.(`[configLock] ${dir} was taken over during the write; repeating it`)
+  return runHeld(acquireConfigLock(configPath, options), fn).result
 }

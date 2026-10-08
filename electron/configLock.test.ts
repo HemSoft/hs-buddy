@@ -302,7 +302,7 @@ describe('configLock recovery', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('busy for 40ms'))
   })
 
-  it('repeats the write when the lock was lost during it', () => {
+  it('repeats an idempotent write when the lock was lost during it', () => {
     const warn = vi.fn()
     let runs = 0
     const result = withConfigLock(
@@ -317,10 +317,27 @@ describe('configLock recovery', () => {
         }
         return runs
       },
-      { warn, sleep: vi.fn(), timeoutMs: 50 }
+      { warn, sleep: vi.fn(), timeoutMs: 50, onLostDuringWrite: 'repeat' }
     )
     expect(result).toBe(2)
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('during the write'))
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('repeating it'))
+  })
+
+  it('only reports a lost lock for a transaction that cannot be replayed', () => {
+    const warn = vi.fn()
+    let runs = 0
+    const result = withConfigLock(
+      configPath,
+      () => {
+        runs += 1
+        ageDir(lockDir)
+        mkdirSync(join(lockDir, 'claim'))
+        return runs
+      },
+      { warn, sleep: vi.fn(), timeoutMs: 50 }
+    )
+    expect(result).toBe(1)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('may have been overwritten'))
   })
 
   it('creates a missing config directory rather than giving up the lock', () => {
@@ -341,6 +358,10 @@ describe('configLock recovery', () => {
     expect(release).toBeNull()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('proceeding unlocked'))
   })
+})
+
+describe('configLock lost ownership', () => {
+  useTempConfig()
 
   it('treats a nested claim as lost ownership', () => {
     const first = acquireConfigLock(configPath)

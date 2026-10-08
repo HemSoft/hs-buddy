@@ -2,7 +2,7 @@ import * as electron from 'electron'
 import Store from 'electron-store'
 import { join } from 'node:path'
 
-import { withConfigLock } from './configLock'
+import { withConfigLock, type LockOptions } from './configLock'
 import { ProtectedWeatherLocation } from './services/protectedWeatherLocation'
 import {
   configSchema,
@@ -193,9 +193,15 @@ class ConfigManager {
    * inside `set`, so the lock covers the whole read-modify-write.
    */
   private write<K extends string>(key: K, value: unknown): void {
-    this.locked(() => {
-      this.store.set(key, value as never)
-    })
+    // A single `set` is idempotent, so it may be repeated if the lock turns
+    // out to have been lost during the write; transactions in `locked`
+    // are not replayed (see withConfigLock).
+    this.locked(
+      () => {
+        this.store.set(key, value as never)
+      },
+      { onLostDuringWrite: 'repeat' }
+    )
   }
 
   private lockDepth = 0
@@ -204,11 +210,12 @@ class ConfigManager {
    * Run a read-modify-write under the shared lock. Nested calls (a mutator
    * calling `write`) reuse the lock already held instead of waiting on it.
    */
-  private locked<T>(fn: () => T): T {
+  private locked<T>(fn: () => T, options: Pick<LockOptions, 'onLostDuringWrite'> = {}): T {
     if (this.lockDepth > 0) return fn()
     this.lockDepth += 1
     try {
       return withConfigLock(this.store.path, fn, {
+        ...options,
         warn: message => {
           console.warn(message)
         },

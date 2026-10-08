@@ -5,23 +5,26 @@
 //! locale through ICU4X, as `Intl.NumberFormat(undefined, ...)` and
 //! `toLocaleDateString(undefined, ...)` do in the renderer.
 
-use chrono::Datelike as _;
+use chrono::{Datelike as _, Timelike as _};
 use fixed_decimal::{Decimal, FloatPrecision, Sign, SignedRoundingMode, UnsignedRoundingMode};
 use icu_calendar::Date;
 use icu_datetime::DateTimeFormatter;
-use icu_datetime::fieldsets::YM;
+use icu_datetime::fieldsets::{T, YM};
+use icu_datetime::options::Alignment;
 use icu_decimal::DecimalFormatter;
 use icu_decimal::options::DecimalFormatterOptions;
 use icu_experimental::dimension::currency::CurrencyType;
 use icu_experimental::dimension::currency::formatter::CurrencyFormatter;
 use icu_experimental::dimension::currency::options::CurrencyFormatterOptions;
 use icu_locale_core::{Locale, locale};
+use icu_time::Time;
 
 /// Locale-aware number and date formatting.
 pub struct LocaleFormat {
     formatter: DecimalFormatter,
     usd: CurrencyFormatter<DecimalFormatter>,
     month_year: DateTimeFormatter<YM>,
+    clock: DateTimeFormatter<T>,
 }
 
 thread_local! {
@@ -53,10 +56,14 @@ impl LocaleFormat {
         .map_err(|err| err.to_string())?;
         let month_year = DateTimeFormatter::try_new(locale.into(), YM::medium())
             .map_err(|err| err.to_string())?;
+        let clock =
+            DateTimeFormatter::try_new(locale.into(), T::hms().with_alignment(Alignment::Column))
+                .map_err(|err| err.to_string())?;
         Ok(Self {
             formatter,
             usd,
             month_year,
+            clock,
         })
     }
 
@@ -143,6 +150,20 @@ impl LocaleFormat {
         .ok()?;
         Some(self.month_year.format(&date).to_string())
     }
+
+    /// `toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit",
+    /// second: "2-digit" })`: the locale's hour cycle (`03:04:05 PM`,
+    /// `15:04:05`).
+    pub fn clock(&self, time: chrono::NaiveTime) -> Option<String> {
+        let time = Time::try_new(
+            u8::try_from(time.hour()).ok()?,
+            u8::try_from(time.minute()).ok()?,
+            u8::try_from(time.second().min(59)).ok()?,
+            0,
+        )
+        .ok()?;
+        Some(self.clock.format(&time).to_string())
+    }
 }
 
 /// JavaScript's spelling of the values a `Decimal` cannot hold.
@@ -179,6 +200,11 @@ pub fn price(value: f64) -> String {
 /// Short month and year of `date` in the system locale.
 pub fn month_year(date: chrono::NaiveDate) -> Option<String> {
     SYSTEM.with(|f| f.month_year(date))
+}
+
+/// Wall-clock time with seconds in the system locale's hour cycle.
+pub fn clock(time: chrono::NaiveTime) -> Option<String> {
+    SYSTEM.with(|f| f.clock(time))
 }
 
 const SECOND_MS: u64 = 1_000;
@@ -241,6 +267,16 @@ mod tests {
 
     fn en_us() -> LocaleFormat {
         LocaleFormat::for_locale(&locale!("en-US"))
+    }
+
+    #[test]
+    fn formats_the_clock_in_the_locale_hour_cycle() {
+        let time = chrono::NaiveTime::from_hms_opt(15, 4, 5).unwrap();
+        assert_eq!(en_us().clock(time).as_deref(), Some("03:04:05\u{202f}PM"));
+        let de = LocaleFormat::for_locale(&locale!("de-DE"));
+        assert_eq!(de.clock(time).as_deref(), Some("15:04:05"));
+        let h24 = LocaleFormat::for_locale(&locale!("en-US-u-hc-h23"));
+        assert_eq!(h24.clock(time).as_deref(), Some("15:04:05"));
     }
 
     #[test]

@@ -30,7 +30,10 @@ pub fn render(app: &BuddyApp, cx: &App) -> impl IntoElement + use<> {
         .active_account
         .clone()
         .unwrap_or_else(|| "No gh account".to_string());
-    let clock = chrono::Local::now().format("%-I:%M %p").to_string();
+    // `formatTime(now, { seconds: true })`: the locale's clock convention.
+    let now = chrono::Local::now();
+    let clock = buddy_core::format::clock(now.time())
+        .unwrap_or_else(|| now.format("%-I:%M:%S %p").to_string());
 
     StatusBar::new()
         .h(px(STATUS_BAR_HEIGHT))

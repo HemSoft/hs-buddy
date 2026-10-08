@@ -310,7 +310,8 @@ pub fn config_path() -> Result<PathBuf, ConfigError> {
 /// Create `path` holding `body`, readable only by its owner on Unix.
 fn write_private(path: &std::path::Path, body: &str) -> std::io::Result<()> {
     use std::io::Write as _;
-    // A temp file left by an interrupted save would keep its old mode.
+    // A temp file left by an interrupted save of a process with the same id
+    // would keep its old mode; no live process can own this name.
     let _ = std::fs::remove_file(path);
     let mut options = std::fs::OpenOptions::new();
     options.write(true).create_new(true);
@@ -375,7 +376,9 @@ impl AppConfig {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(write)?;
         }
-        let tmp = path.with_extension("json.tmp");
+        // Per-process name: two instances saving at once must not share (or
+        // unlink) each other's temp file.
+        let tmp = path.with_extension(format!("json.{}.tmp", std::process::id()));
         // The temp file is private from its first byte. It then takes the
         // existing file's permissions (a group-readable config stays so) or
         // stays 0600 for a brand-new config. If the existing file cannot be

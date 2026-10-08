@@ -962,12 +962,8 @@ impl DashboardView {
         }
         self.finance_add
             .update(cx, |state, cx| state.set_value("", window, cx));
-        if Settings::global(cx)
-            .config
-            .finance
-            .watchlist
-            .contains(&symbol)
-        {
+        // Compared normalized, so a raw ` aapl ` entry already counts as AAPL.
+        if self.watchlist(cx).contains(&symbol) {
             return;
         }
         // Persisting the watchlist fires the Settings observer, which reloads

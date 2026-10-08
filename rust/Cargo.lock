@@ -790,6 +790,7 @@ dependencies = [
  "icu_decimal",
  "icu_experimental",
  "icu_locale_core",
+ "icu_time",
  "keyring",
  "log",
  "reqwest",

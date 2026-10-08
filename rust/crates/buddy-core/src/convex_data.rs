@@ -96,7 +96,19 @@ pub fn dotenv_value(body: &str, key: &str) -> Option<String> {
 pub enum ConvexUpdate {
     Stats(BuddyStats),
     RepoBookmarkCount(usize),
-    Error(String),
+    /// A failure attributed to one subscription (or the connection itself),
+    /// so the UI can clear it only when that same source recovers.
+    Error {
+        source: ConvexSource,
+        message: String,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConvexSource {
+    Connection,
+    Stats,
+    Bookmarks,
 }
 
 fn result_json(result: FunctionResult) -> Result<serde_json::Value, String> {
@@ -116,56 +128,92 @@ pub async fn run_dashboard_subscriptions(url: String, tx: UnboundedSender<Convex
     while !tx.is_closed() {
         match subscribe_once(&url, &tx).await {
             Ok(()) => return,
-            Err(message) => {
+            Err((message, delivered)) => {
+                // A connection that delivered data restarts the backoff, so a
+                // transient drop after hours of service reconnects quickly.
+                if delivered {
+                    attempt = 0;
+                }
                 attempt += 1;
                 let delay = Duration::from_secs((5u64 << attempt.min(4)).min(60));
-                let _ = tx.unbounded_send(ConvexUpdate::Error(format!(
-                    "{message}; retrying in {}s",
-                    delay.as_secs()
-                )));
+                let _ = tx.unbounded_send(ConvexUpdate::Error {
+                    source: ConvexSource::Connection,
+                    message: format!("{message}; retrying in {}s", delay.as_secs()),
+                });
                 tokio::time::sleep(delay).await;
             }
         }
     }
 }
 
-/// One connection lifetime. `Ok` only when the receiver went away.
-async fn subscribe_once(url: &str, tx: &UnboundedSender<ConvexUpdate>) -> Result<(), String> {
+/// One connection lifetime. `Ok` only when the receiver went away; `Err`
+/// carries the message and whether any update was delivered first.
+async fn subscribe_once(
+    url: &str,
+    tx: &UnboundedSender<ConvexUpdate>,
+) -> Result<(), (String, bool)> {
     let hint = "is the local backend running?";
-    let mut client = ConvexClient::new(url)
-        .await
-        .map_err(|err| format!("Convex connection failed: {err} ({url}); {hint}"))?;
+    let mut client = ConvexClient::new(url).await.map_err(|err| {
+        (
+            format!("Convex connection failed: {err} ({url}); {hint}"),
+            false,
+        )
+    })?;
     let stats = client
         .subscribe("buddyStats:get", BTreeMap::new())
         .await
-        .map_err(|err| format!("buddyStats:get failed: {err} ({url}); {hint}"))?;
+        .map_err(|err| {
+            (
+                format!("buddyStats:get failed: {err} ({url}); {hint}"),
+                false,
+            )
+        })?;
     let bookmarks = client
         .subscribe("repoBookmarks:list", BTreeMap::new())
         .await
-        .map_err(|err| format!("repoBookmarks:list failed: {err} ({url}); {hint}"))?;
+        .map_err(|err| {
+            (
+                format!("repoBookmarks:list failed: {err} ({url}); {hint}"),
+                false,
+            )
+        })?;
 
     let mut merged = futures::stream::select(
         stats.map(|result| ("stats", result)),
         bookmarks.map(|result| ("bookmarks", result)),
     );
 
+    let mut delivered = false;
     while let Some((source, result)) = merged.next().await {
         let update = match (source, result_json(result)) {
             ("stats", Ok(json)) => ConvexUpdate::Stats(BuddyStats::from_json(&json)),
             ("bookmarks", Ok(json)) => {
                 ConvexUpdate::RepoBookmarkCount(json.as_array().map(Vec::len).unwrap_or(0))
             }
-            (_, Err(message)) => ConvexUpdate::Error(message),
+            ("stats", Err(message)) => ConvexUpdate::Error {
+                source: ConvexSource::Stats,
+                message,
+            },
+            (_, Err(message)) => ConvexUpdate::Error {
+                source: ConvexSource::Bookmarks,
+                message,
+            },
             _ => continue,
         };
+        if !matches!(update, ConvexUpdate::Error { .. }) {
+            delivered = true;
+        }
         if tx.unbounded_send(update).is_err() {
             return Ok(());
         }
     }
     // Keep the client alive until the streams end so subscriptions stay open.
     drop(client);
-    Err(format!(
-        "Convex connection to {url} closed; start the local backend (npx convex dev) or set BUDDY_CONVEX_URL"
+    Err((
+        format!(
+            "Convex connection to {url} closed; start the local backend (npx convex dev) or set BUDDY_CONVEX_URL"
+        ),
+        delivered,
     ))
 }
 

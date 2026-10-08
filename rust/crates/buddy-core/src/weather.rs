@@ -153,8 +153,10 @@ fn day_name(date: &str, index: usize) -> String {
         .to_string()
 }
 
+/// `Math.round` semantics: halves round toward positive infinity, so -2.5
+/// becomes -2 as in the Electron renderer (Rust's `round` would give -3).
 fn round(value: f64) -> i32 {
-    value.round() as i32
+    (value + 0.5).floor() as i32
 }
 
 /// Port of the response mapping in `fetchWeather`.
@@ -409,6 +411,14 @@ mod tests {
       "current":{"time":"2026-10-07T02:30","temperature_2m":71.6,"relative_humidity_2m":54.4,"weather_code":2,"wind_speed_10m":6.8},
       "daily":{"time":["2026-10-07","2026-10-08","2026-10-09"],
                "temperature_2m_max":[78.3,79.1,70.9],"temperature_2m_min":[60.8,59.6,58.2],"weather_code":[2,1,61]}}"#;
+
+    #[test]
+    fn rounds_like_math_round() {
+        assert_eq!(round(-2.5), -2);
+        assert_eq!(round(2.5), 3);
+        assert_eq!(round(-2.6), -3);
+        assert_eq!(round(71.6), 72);
+    }
 
     #[test]
     fn forecast_url_has_no_whitespace() {

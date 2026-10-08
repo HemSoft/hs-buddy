@@ -356,6 +356,11 @@ impl AppConfig {
         }
         let tmp = path.with_extension("json.tmp");
         std::fs::write(&tmp, &body).map_err(write)?;
+        // Keep the existing file's permissions (a 0600 config stays 0600).
+        #[cfg(unix)]
+        if let Ok(meta) = std::fs::metadata(&path) {
+            let _ = std::fs::set_permissions(&tmp, meta.permissions());
+        }
         // `rename` replaces an existing destination on every supported platform
         // (Windows uses MOVEFILE_REPLACE_EXISTING). If a reader holds the file
         // open without share-delete, fall back to an in-place write so the
@@ -533,6 +538,27 @@ mod tests {
         let path = config_path().unwrap();
         unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
         assert_eq!(path, PathBuf::from("/tmp/buddy-test-config.json"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn save_preserves_restrictive_file_mode() {
+        use std::os::unix::fs::PermissionsExt;
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("buddy-mode-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, "{}").unwrap();
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600)).unwrap();
+        // SAFETY: serialized by ENV_LOCK.
+        unsafe { std::env::set_var(CONFIG_PATH_ENV, &path) };
+        let mut config = AppConfig::load().unwrap();
+        config.set_dashboard_card_visible("weather", false);
+        config.save().unwrap();
+        let mode = std::fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(mode, 0o600);
     }
 
     /// Runs on every CI platform, including Windows, to prove that saving over

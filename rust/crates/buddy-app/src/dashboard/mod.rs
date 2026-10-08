@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use std::collections::BTreeMap;
 
 use buddy_core::config::{GitHubConfig, WeatherLocation};
-use buddy_core::convex_data::{self, ConvexUpdate};
+use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
 use buddy_core::dashboard::{CardId, DASHBOARD_CARDS};
 use buddy_core::finance::{self, QuoteData};
@@ -127,7 +127,9 @@ pub struct DashboardView {
     session_start: Instant,
     stats: Option<BuddyStats>,
     repo_bookmark_count: usize,
-    convex_error: Option<String>,
+    convex_connection_error: Option<String>,
+    convex_stats_error: Option<String>,
+    convex_bookmarks_error: Option<String>,
     convex_started: Instant,
     command_center: CommandCenterSummary,
     copilot_errors: Vec<(String, String)>,
@@ -200,7 +202,9 @@ impl DashboardView {
             session_start: Instant::now(),
             stats: None,
             repo_bookmark_count: 0,
-            convex_error: None,
+            convex_connection_error: None,
+            convex_stats_error: None,
+            convex_bookmarks_error: None,
             convex_started: Instant::now(),
             command_center: CommandCenterSummary::default(),
             copilot_errors: Vec::new(),
@@ -353,12 +357,22 @@ impl DashboardView {
                     match update {
                         ConvexUpdate::Stats(stats) => {
                             this.stats = Some(stats);
-                            this.convex_error = None;
+                            this.convex_connection_error = None;
+                            this.convex_stats_error = None;
                         }
-                        ConvexUpdate::RepoBookmarkCount(count) => this.repo_bookmark_count = count,
-                        ConvexUpdate::Error(message) => {
-                            log::warn!("convex: {message}");
-                            this.convex_error = Some(message);
+                        ConvexUpdate::RepoBookmarkCount(count) => {
+                            this.repo_bookmark_count = count;
+                            this.convex_connection_error = None;
+                            this.convex_bookmarks_error = None;
+                        }
+                        ConvexUpdate::Error { source, message } => {
+                            log::warn!("convex ({source:?}): {message}");
+                            let slot = match source {
+                                ConvexSource::Connection => &mut this.convex_connection_error,
+                                ConvexSource::Stats => &mut this.convex_stats_error,
+                                ConvexSource::Bookmarks => &mut this.convex_bookmarks_error,
+                            };
+                            *slot = Some(message);
                         }
                     }
                     cx.notify();
@@ -529,7 +543,11 @@ impl DashboardView {
         let watchlist = Settings::global(cx).config.finance.watchlist.clone();
         self.loaded_watchlist = watchlist.clone();
         if watchlist.is_empty() {
+            // Invalidate any in-flight request so its late failure cannot
+            // surface on an empty card, and drop the previous list's error.
+            self.finance_generation += 1;
             self.quotes.clear();
+            self.finance_error = None;
             self.finance_refresh.mark_refreshed();
             return;
         }
@@ -645,7 +663,12 @@ impl DashboardView {
 
     /// Connection error, or a reachability hint once the first load is overdue.
     pub fn convex_error(&self) -> Option<String> {
-        if let Some(error) = &self.convex_error {
+        if let Some(error) = self
+            .convex_connection_error
+            .as_ref()
+            .or(self.convex_stats_error.as_ref())
+            .or(self.convex_bookmarks_error.as_ref())
+        {
             return Some(error.clone());
         }
         (self.stats.is_none() && self.convex_started.elapsed() > CONVEX_STARTUP_GRACE)
@@ -747,6 +770,8 @@ impl DashboardView {
 
     /// "Use My Location": approximate from the public IP, then name it.
     pub fn use_my_location(&mut self, cx: &mut Context<Self>) {
+        // Marked at the start so a pending startup restore cannot win the race.
+        self.location_chosen_by_user = true;
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();
@@ -785,6 +810,7 @@ impl DashboardView {
         }
         self.weather_search
             .update(cx, |state, cx| state.set_value("", window, cx));
+        self.location_chosen_by_user = true;
         self.weather_refresh.loading = true;
         self.weather_error = None;
         let http = self.http.clone();

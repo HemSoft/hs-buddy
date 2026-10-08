@@ -6,10 +6,14 @@ on:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      # build.rs embeds the version from package.json; a release bump must
+      # produce native binaries too.
+      - "package.json"
   pull_request:
     paths:
       - "rust/**"
       - ".github/workflows/rust.yml"
+      - "package.json"
 
 permissions:
   contents: read

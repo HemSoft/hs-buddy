@@ -119,8 +119,12 @@ pub fn render(
                                 .tooltip("Toggle Copilot Assistant (panel not ported yet)")
                                 .selected(assistant_open)
                                 .on_click(cx.listener(|_, _, _, cx| {
-                                    Settings::update(cx, |config| {
-                                        config.ui.assistant_open = !config.ui.assistant_open;
+                                    // The state this click asks for, decided
+                                    // once: a retried save must not toggle a
+                                    // value Electron changed meanwhile.
+                                    let open = !Settings::global(cx).config.ui.assistant_open;
+                                    Settings::update(cx, move |config| {
+                                        config.ui.assistant_open = open;
                                     });
                                     cx.notify();
                                 })),
@@ -135,8 +139,9 @@ pub fn render(
                                 .tooltip("Toggle Terminal (panel not ported yet)")
                                 .selected(terminal_open)
                                 .on_click(cx.listener(|_, _, _, cx| {
-                                    Settings::update(cx, |config| {
-                                        config.ui.terminal_open = !config.ui.terminal_open;
+                                    let open = !Settings::global(cx).config.ui.terminal_open;
+                                    Settings::update(cx, move |config| {
+                                        config.ui.terminal_open = open;
                                     });
                                     cx.notify();
                                 })),

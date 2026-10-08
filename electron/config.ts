@@ -125,12 +125,11 @@ function seedInitialOverrides(
  */
 /** Where electron-store will put `config.json`, or null outside Electron (tests). */
 function expectedConfigPath(): string | null {
-  // Unit tests mock `electron` without `app`; reading a missing export from
-  // such a mock throws, so the lookup is guarded as a whole.
+  // Some unit tests mock `electron` without `app`; reading a missing export
+  // from such a mock throws, so the lookup is guarded as a whole.
   try {
     const electronApp = (electron as { app?: typeof electron.app }).app
-    if (!electronApp || typeof electronApp.getPath !== 'function') return null
-    return join(electronApp.getPath('userData'), 'config.json')
+    return electronApp ? join(electronApp.getPath('userData'), 'config.json') : null
   } catch (_: unknown) {
     return null
   }

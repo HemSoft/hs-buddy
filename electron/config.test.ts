@@ -1,4 +1,14 @@
+const userDataDir = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  return mkdtempSync(join(tmpdir(), 'buddy-config-test-'))
+})
+
 vi.mock('electron', () => ({
+  // The config manager takes the shared lock on `<userData>/config.json`
+  // while constructing the store; give it a real, writable directory.
+  app: { getPath: vi.fn(() => userDataDir) },
   safeStorage: {
     isEncryptionAvailable: vi.fn(() => false),
     getSelectedStorageBackend: vi.fn(() => 'gnome_libsecret'),

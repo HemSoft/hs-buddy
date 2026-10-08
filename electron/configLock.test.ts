@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+  symlinkSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -274,6 +282,46 @@ describe('configLock release and fallback', () => {
 
 describe('configLock recovery', () => {
   useTempConfig()
+
+  it('honours the deadline when the lock path cannot be observed', () => {
+    // A dangling symlink: mkdir says it exists, stat cannot follow it.
+    symlinkSync(join(dir, 'gone'), lockDir)
+    let mono = 0
+    const sleep = vi.fn((ms: number) => {
+      mono += ms
+    })
+    const warn = vi.fn()
+    const handle = acquireConfigLock(configPath, {
+      timeoutMs: 40,
+      monotonic: () => mono,
+      sleep,
+      warn,
+    })
+    expect(handle).toBeNull()
+    expect(sleep).toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('busy for 40ms'))
+  })
+
+  it('repeats the write when the lock was lost during it', () => {
+    const warn = vi.fn()
+    let runs = 0
+    const result = withConfigLock(
+      configPath,
+      () => {
+        runs += 1
+        if (runs === 1) {
+          // Suspended inside the write past the stale window: another
+          // writer took the lock over in place.
+          ageDir(lockDir)
+          mkdirSync(join(lockDir, 'claim'))
+        }
+        return runs
+      },
+      { warn, sleep: vi.fn(), timeoutMs: 50 }
+    )
+    expect(result).toBe(2)
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('during the write'))
+  })
 
   it('creates a missing config directory rather than giving up the lock', () => {
     const warn = vi.fn()

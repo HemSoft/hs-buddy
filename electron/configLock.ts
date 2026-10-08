@@ -271,9 +271,10 @@ export function acquireConfigLock(
       return null
     }
     const claimed = claimStale(dir, now)
-    if (claimed === 'retry') continue
-    if (claimed) return claimed
-    // Held by a live holder or claimer: wait for it like any other lock.
+    if (claimed !== null && claimed !== 'retry') return claimed
+    // Held by a live holder or claimer, or not observable at all (a dangling
+    // symlink at the lock path, say): wait like for any other lock, so the
+    // deadline always applies.
     if (monotonic() >= deadline) {
       warn(`[configLock] ${dir} busy for ${timeoutMs}ms; proceeding unlocked`)
       return null
@@ -297,8 +298,23 @@ export function withConfigLock<T>(configPath: string, fn: () => T, options: Lock
     handle = acquireConfigLock(configPath, options)
   }
   try {
-    return fn()
+    const result = fn()
+    if (handle === null || handle.held()) return result
   } finally {
     handle?.release()
+  }
+  // The lock was lost during the write itself (this process was suspended
+  // inside it past the stale window), so another writer may have landed in
+  // between and the write just made may have overwritten it. The write is a
+  // read-modify-write of the current file, so repeating it under a fresh
+  // lock re-applies this change on top of whatever landed meanwhile.
+  options.warn?.(
+    `[configLock] ${lockDirFor(configPath)} was taken over during the write; repeating it`
+  )
+  const again = acquireConfigLock(configPath, options)
+  try {
+    return fn()
+  } finally {
+    again?.release()
   }
 }

@@ -56,7 +56,8 @@ enum Claim {
     Owned(ConfigLock),
     /// A live holder or claimer is ahead: wait.
     Held,
-    /// A level vanished underneath (its owner released it): try again.
+    /// A level vanished underneath (its owner released it) or cannot be
+    /// observed: wait and try again.
     Retry,
 }
 
@@ -114,13 +115,12 @@ impl ConfigLock {
             match std::fs::create_dir(&dir) {
                 Ok(()) => return Ok(Some(Self::owned(vec![dir]))),
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                    match claim_stale(&dir) {
-                        Claim::Owned(lock) => return Ok(Some(lock)),
-                        Claim::Retry => continue,
-                        Claim::Held => {}
+                    if let Claim::Owned(lock) = claim_stale(&dir) {
+                        return Ok(Some(lock));
                     }
-                    // Held by a live holder or claimer: wait like for any
-                    // other lock.
+                    // Held by a live holder or claimer, or not observable at
+                    // all (a dangling symlink at the lock path, say): wait
+                    // like for any other lock, so the deadline always applies.
                     if Instant::now() >= deadline {
                         return Ok(None);
                     }
@@ -430,6 +430,20 @@ mod tests {
         );
         drop(second);
         assert!(!dir.exists());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn an_unobservable_lock_path_still_honours_the_deadline() {
+        let config = temp_config("dangling");
+        let dir = lock_dir(&config);
+        // A dangling symlink: mkdir says it exists, metadata cannot follow it.
+        std::os::unix::fs::symlink(config.with_file_name("gone"), &dir).unwrap();
+        let started = Instant::now();
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(guard.is_none());
+        assert!(started.elapsed() >= Duration::from_millis(100));
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

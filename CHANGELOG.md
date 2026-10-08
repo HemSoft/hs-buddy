@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1307] - 2026-10-08
+
+### Changed
+
+- Identify signed rc28 consumer reviewer upgrade
+
 ## [0.1.1306] - 2026-10-06
 
 ### Changed

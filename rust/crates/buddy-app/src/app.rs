@@ -73,12 +73,21 @@ pub struct BuddyApp {
 }
 
 impl BuddyApp {
+    /// Show a section (`None` is the dashboard); the dashboard pauses its
+    /// refreshes while hidden.
+    pub fn set_section(&mut self, section: Option<Section>, cx: &mut Context<Self>) {
+        self.active_section = section;
+        self.dashboard.update(cx, |dashboard, cx| {
+            dashboard.set_active(section.is_none(), cx)
+        });
+        cx.notify();
+    }
+
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let dashboard = cx.new(|cx| DashboardView::new(window, cx));
         cx.subscribe(&dashboard, |this, _, event, cx| {
             let DashboardEvent::Navigate(section) = event;
-            this.active_section = Some(*section);
-            cx.notify();
+            this.set_section(Some(*section), cx);
         })
         .detach();
 

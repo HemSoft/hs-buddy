@@ -172,6 +172,8 @@ pub struct DashboardView {
     quotes: Vec<QuoteData>,
     /// Watchlist symbols whose last completed request failed.
     failed_symbols: Vec<String>,
+    /// The dashboard is the shown section; refreshes pause while it is not.
+    active: bool,
     finance_error: Option<String>,
     finance_refresh: RefreshState,
     /// Inputs the last loads used, so a Settings change (Reload or an
@@ -194,13 +196,19 @@ impl DashboardView {
         let subscriptions = vec![
             cx.observe_global::<Settings>(|this, cx| this.settings_changed(cx)),
             cx.subscribe_in(&weather_search, window, |this, _, event, window, cx| {
-                if matches!(event, InputEvent::PressEnter { .. }) {
-                    this.submit_weather_search(window, cx);
+                match event {
+                    InputEvent::PressEnter { .. } => this.submit_weather_search(window, cx),
+                    // The Go button's enabled state depends on the text.
+                    InputEvent::Change => cx.notify(),
+                    _ => {}
                 }
             }),
             cx.subscribe_in(&finance_add, window, |this, _, event, window, cx| {
-                if matches!(event, InputEvent::PressEnter { .. }) {
-                    this.submit_finance_add(window, cx);
+                match event {
+                    InputEvent::PressEnter { .. } => this.submit_finance_add(window, cx),
+                    // The Add button's enabled state depends on the text.
+                    InputEvent::Change => cx.notify(),
+                    _ => {}
                 }
             }),
         ];
@@ -245,6 +253,7 @@ impl DashboardView {
             pollen_error: None,
             quotes: Vec::new(),
             failed_symbols: Vec::new(),
+            active: true,
             finance_error: None,
             finance_refresh: RefreshState::new(interval_for(
                 &intervals,
@@ -354,6 +363,11 @@ impl DashboardView {
 
     /// Once a second: fire due auto-refreshes and repaint countdowns/uptime.
     fn tick(&mut self, cx: &mut Context<Self>) {
+        // Like the Electron router unmounting WelcomePanel: nothing to refresh
+        // or repaint while another section is shown; due work runs on return.
+        if !self.active {
+            return;
+        }
         if self.weather_refresh.is_due() && self.card_visible(CardId::Weather, cx) {
             self.refresh_weather(cx);
         }
@@ -803,16 +817,30 @@ impl DashboardView {
         &self.finance_add
     }
 
+    /// Whether the dashboard is the shown section. Becoming active runs any
+    /// refresh that fell due meanwhile.
+    pub fn set_active(&mut self, active: bool, cx: &mut Context<Self>) {
+        if self.active == active {
+            return;
+        }
+        self.active = active;
+        if active {
+            self.tick(cx);
+            cx.notify();
+        }
+    }
+
     /// The configured watchlist, normalized like the quotes (`AAPL` for
-    /// ` aapl `), in display order.
+    /// ` aapl `) and deduplicated, in display order (`sanitizeWatchlist`).
     pub fn watchlist(&self, cx: &App) -> Vec<String> {
-        Settings::global(cx)
-            .config
-            .finance
-            .watchlist
-            .iter()
-            .map(|symbol| finance::normalize_symbol(symbol))
-            .collect()
+        let mut symbols: Vec<String> = Vec::new();
+        for symbol in &Settings::global(cx).config.finance.watchlist {
+            let symbol = finance::normalize_symbol(symbol);
+            if !symbols.contains(&symbol) {
+                symbols.push(symbol);
+            }
+        }
+        symbols
     }
 
     /// Symbols whose last completed request failed.
@@ -968,7 +996,7 @@ impl DashboardView {
         }
         // Persisting the watchlist fires the Settings observer, which reloads
         // all quotes; a separate one-off request would only race with it.
-        Settings::update(cx, |config| config.finance.watchlist.push(symbol));
+        Settings::update(cx, |config| config.finance.watchlist.push(symbol.clone()));
         cx.notify();
     }
 

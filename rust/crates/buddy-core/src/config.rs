@@ -293,7 +293,10 @@ pub enum ConfigError {
 /// first existing electron-store location, then the packaged default.
 pub fn config_path() -> Result<PathBuf, ConfigError> {
     if let Some(path) = std::env::var_os(CONFIG_PATH_ENV) {
-        return Ok(PathBuf::from(path));
+        // Absolute, so a bare `config.json` keeps working after the process
+        // changes directory and has a real parent to create.
+        let path = PathBuf::from(path);
+        return Ok(std::path::absolute(&path).unwrap_or(path));
     }
     let root = platform_config_root().ok_or(ConfigError::NoConfigDir)?;
     let candidates = APP_DIR_CANDIDATES
@@ -305,6 +308,25 @@ pub fn config_path() -> Result<PathBuf, ConfigError> {
         .find(|path| path.is_file())
         .cloned()
         .unwrap_or_else(|| candidates[0].clone()))
+}
+
+/// The identity of the config file at one moment: its size and
+/// modification time. Equal stamps mean nobody wrote in between.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileStamp {
+    len: u64,
+    modified: Option<std::time::SystemTime>,
+}
+
+impl FileStamp {
+    /// `None` when the file does not exist (or cannot be inspected).
+    fn of(path: &std::path::Path) -> Option<Self> {
+        let meta = std::fs::metadata(path).ok()?;
+        Some(Self {
+            len: meta.len(),
+            modified: meta.modified().ok(),
+        })
+    }
 }
 
 /// Create `path` holding `body`, readable only by its owner on Unix.
@@ -352,13 +374,24 @@ impl AppConfig {
 
     /// Load from the resolved path; a missing file yields defaults.
     pub fn load() -> Result<Self, ConfigError> {
+        Self::load_with_stamp().map(|(config, _)| config)
+    }
+
+    /// Load together with the file's identity at that moment, for
+    /// [`save_if_unchanged`](Self::save_if_unchanged).
+    pub fn load_with_stamp() -> Result<(Self, Option<FileStamp>), ConfigError> {
         let path = config_path()?;
+        let stamp = FileStamp::of(&path);
         match std::fs::read_to_string(&path) {
-            Ok(body) => Self::from_json(&body).map_err(|source| ConfigError::Parse {
-                path: path.clone(),
-                source,
-            }),
-            Err(source) if source.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Ok(body) => Self::from_json(&body)
+                .map(|config| (config, stamp))
+                .map_err(|source| ConfigError::Parse {
+                    path: path.clone(),
+                    source,
+                }),
+            Err(source) if source.kind() == std::io::ErrorKind::NotFound => {
+                Ok((Self::default(), None))
+            }
             Err(source) => Err(ConfigError::Read { path, source }),
         }
     }
@@ -366,6 +399,18 @@ impl AppConfig {
     /// Write the whole file atomically (temp file + rename) so electron-store's
     /// watcher never observes a partial document.
     pub fn save(&mut self) -> Result<(), ConfigError> {
+        self.save_checked(None).map(|_| ())
+    }
+
+    /// Save only if the file is still the one loaded with `stamp` (`None`
+    /// meaning it did not exist). Returns `Ok(false)` when another writer
+    /// got there first, so the caller can reload and apply its edit again
+    /// instead of overwriting that writer's change with a stale snapshot.
+    pub fn save_if_unchanged(&mut self, stamp: &Option<FileStamp>) -> Result<bool, ConfigError> {
+        self.save_checked(Some(stamp))
+    }
+
+    fn save_checked(&mut self, expected: Option<&Option<FileStamp>>) -> Result<bool, ConfigError> {
         self.migrate_legacy_weather_location();
         let path = config_path()?;
         let body = serde_json::to_string_pretty(self).expect("AppConfig is always serializable");
@@ -373,7 +418,7 @@ impl AppConfig {
             path: path.clone(),
             source,
         };
-        if let Some(parent) = path.parent() {
+        if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
             std::fs::create_dir_all(parent).map_err(write)?;
         }
         // Per-process name: two instances saving at once must not share (or
@@ -397,19 +442,34 @@ impl AppConfig {
             let _ = std::fs::remove_file(&tmp);
             return Err(write(err));
         }
-        // `rename` replaces an existing destination on every supported platform
-        // (Windows uses MOVEFILE_REPLACE_EXISTING). If a reader holds the file
-        // open without share-delete, fall back to an in-place write so the
-        // change is never silently lost.
-        if let Err(rename_err) = std::fs::rename(&tmp, &path) {
-            log::warn!(
-                "atomic replace of {} failed ({rename_err}); writing in place",
-                path.display()
-            );
+        // Last look before the swap: a file that changed since it was loaded
+        // belongs to another writer whose edit this snapshot does not carry.
+        if let Some(expected) = expected
+            && FileStamp::of(&path) != *expected
+        {
             let _ = std::fs::remove_file(&tmp);
-            std::fs::write(&path, body).map_err(write)?;
+            return Ok(false);
         }
-        Ok(())
+        // `rename` replaces an existing destination on every supported platform
+        // (Windows uses MOVEFILE_REPLACE_EXISTING). A reader holding the file
+        // open without share-delete makes it fail on Windows, usually briefly,
+        // so retry; if it keeps failing the save is reported as failed rather
+        // than rewritten in place, which would expose a partial document to
+        // Electron's watcher.
+        let mut attempts = 0;
+        loop {
+            match std::fs::rename(&tmp, &path) {
+                Ok(()) => return Ok(true),
+                Err(_) if attempts < 10 => {
+                    attempts += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(25));
+                }
+                Err(err) => {
+                    let _ = std::fs::remove_file(&tmp);
+                    return Err(write(err));
+                }
+            }
+        }
     }
 
     /// Older Electron builds stored the weather location in plaintext under
@@ -611,6 +671,36 @@ mod tests {
         unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
         let _ = std::fs::remove_dir_all(&dir);
         assert_eq!(mode, 0o600);
+    }
+
+    #[test]
+    fn save_if_unchanged_yields_to_a_concurrent_writer() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        let dir = std::env::temp_dir().join(format!("buddy-stamp-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, "{}").unwrap();
+        // SAFETY: serialized by ENV_LOCK.
+        unsafe { std::env::set_var(CONFIG_PATH_ENV, &path) };
+        let (mut config, stamp) = AppConfig::load_with_stamp().unwrap();
+        config.set_dashboard_card_visible("weather", false);
+        // Another writer (Electron, say) lands in between.
+        std::fs::write(&path, "{\"ui\":{\"theme\":\"light\"},\"x\":1}").unwrap();
+        let saved = config.save_if_unchanged(&stamp).unwrap();
+        let body = std::fs::read_to_string(&path).unwrap();
+        // Unchanged file: the edit applies.
+        let (mut again, stamp) = AppConfig::load_with_stamp().unwrap();
+        again.set_dashboard_card_visible("weather", false);
+        let saved_again = again.save_if_unchanged(&stamp).unwrap();
+        let body_again = std::fs::read_to_string(&path).unwrap();
+        unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(!saved);
+        assert!(body.contains("\"x\": 1") || body.contains("\"x\":1"));
+        assert!(saved_again);
+        assert!(body_again.contains("\"weather\": false"));
+        assert!(body_again.contains("\"light\""));
     }
 
     #[cfg(unix)]

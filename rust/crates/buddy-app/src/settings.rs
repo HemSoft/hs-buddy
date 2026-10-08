@@ -22,25 +22,42 @@ impl Settings {
     ///
     /// Returns `true` once the edit is on disk, so callers that must not
     /// forget a pending change can keep it pending.
-    pub fn update(cx: &mut App, edit: impl FnOnce(&mut AppConfig)) -> bool {
-        let mut fresh = match AppConfig::load() {
-            Ok(config) => config,
-            Err(err) => {
-                log::warn!("not saving: configuration could not be reloaded ({err})");
-                return false;
+    ///
+    /// The file is shared with Electron, which may write between the reload
+    /// and the save; the save is refused when the file changed meanwhile and
+    /// the edit is applied again to the newer content (a few attempts).
+    pub fn update(cx: &mut App, edit: impl Fn(&mut AppConfig)) -> bool {
+        const ATTEMPTS: usize = 3;
+        for attempt in 1..=ATTEMPTS {
+            let (mut fresh, stamp) = match AppConfig::load_with_stamp() {
+                Ok(loaded) => loaded,
+                Err(err) => {
+                    log::warn!("not saving: configuration could not be reloaded ({err})");
+                    return false;
+                }
+            };
+            edit(&mut fresh);
+            match fresh.save_if_unchanged(&stamp) {
+                Ok(true) => {
+                    cx.global_mut::<Self>().config = fresh;
+                    return true;
+                }
+                Ok(false) if attempt < ATTEMPTS => {
+                    log::info!("configuration changed on disk while editing; applying again");
+                }
+                Ok(false) => {
+                    log::warn!("configuration kept changing on disk; edit not saved");
+                    cx.global_mut::<Self>().config = fresh;
+                    return false;
+                }
+                Err(err) => {
+                    log::warn!("could not save configuration: {err}");
+                    cx.global_mut::<Self>().config = fresh;
+                    return false;
+                }
             }
-        };
-        let settings = cx.global_mut::<Self>();
-        edit(&mut fresh);
-        let saved = match fresh.save() {
-            Ok(()) => true,
-            Err(err) => {
-                log::warn!("could not save configuration: {err}");
-                false
-            }
-        };
-        settings.config = fresh;
-        saved
+        }
+        false
     }
 
     /// Replace the in-memory configuration (used by Reload).

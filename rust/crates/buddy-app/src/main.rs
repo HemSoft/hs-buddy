@@ -24,8 +24,25 @@ use gpui_kit::component::WindowExt as _;
 /// Reuse the geometry Electron saved in `window-state.json` when it still
 /// lands on a connected display; otherwise center a default-sized window.
 fn initial_window_bounds(cx: &App) -> WindowBounds {
-    let fallback =
-        || WindowBounds::Windowed(Bounds::centered(None, size(px(1280.0), px(820.0)), cx));
+    let area = |display: &std::rc::Rc<dyn gpui_kit::PlatformDisplay>| DisplayArea {
+        bounds: display.bounds(),
+        work_area: display.visible_bounds(),
+    };
+    let displays: Vec<DisplayArea> = cx.displays().iter().map(area).collect();
+    let primary = cx.primary_display().map(|display| area(&display));
+    let default_size = size(px(1280.0), px(820.0));
+    // First launch (or an unusable saved state): the default size fitted to
+    // and centred on the primary work area, so a 1366×768 screen gets a
+    // window that fits rather than one hanging past the taskbar.
+    let fallback = || {
+        let default = Bounds {
+            origin: point(px(0.0), px(0.0)),
+            size: default_size,
+        };
+        let placed = resolve_window_bounds(default, &[], primary.as_ref())
+            .unwrap_or_else(|| Bounds::centered(None, default_size, cx));
+        WindowBounds::Windowed(placed)
+    };
     let Some(state) = WindowState::load() else {
         return fallback();
     };
@@ -35,12 +52,6 @@ fn initial_window_bounds(cx: &App) -> WindowBounds {
     };
     // Displays may have moved or shrunk since the state was written: fit the
     // window to the matching display's work area (`resolveWindowBounds`).
-    let area = |display: &std::rc::Rc<dyn gpui_kit::PlatformDisplay>| DisplayArea {
-        bounds: display.bounds(),
-        work_area: display.visible_bounds(),
-    };
-    let displays: Vec<DisplayArea> = cx.displays().iter().map(area).collect();
-    let primary = cx.primary_display().map(|display| area(&display));
     let Some(bounds) = resolve_window_bounds(saved, &displays, primary.as_ref()) else {
         return fallback();
     };

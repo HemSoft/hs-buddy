@@ -252,11 +252,14 @@ fn add_row(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
         .gap(px(6.0))
         .child(
             div().flex_1().child(
-                Input::new(view.finance_add_input()).small().prefix(
-                    Icon::new(IconName::DollarSign)
-                        .size(px(14.0))
-                        .text_color(palette.text_muted),
-                ),
+                Input::new(view.finance_add_input())
+                    .aria_label("Add ticker symbol")
+                    .small()
+                    .prefix(
+                        Icon::new(IconName::DollarSign)
+                            .size(px(14.0))
+                            .text_color(palette.text_muted),
+                    ),
             ),
         )
         .child(

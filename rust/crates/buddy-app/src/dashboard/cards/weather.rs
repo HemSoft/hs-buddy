@@ -437,11 +437,14 @@ fn search_bar(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
         .gap(px(6.0))
         .child(
             div().flex_1().child(
-                Input::new(view.weather_search_input()).small().prefix(
-                    Icon::new(IconName::Search)
-                        .size(px(14.0))
-                        .text_color(palette.text_muted),
-                ),
+                Input::new(view.weather_search_input())
+                    .aria_label("Search location")
+                    .small()
+                    .prefix(
+                        Icon::new(IconName::Search)
+                            .size(px(14.0))
+                            .text_color(palette.text_muted),
+                    ),
             ),
         )
         .child(

@@ -206,26 +206,37 @@ pub async fn fetch_quote(client: &reqwest::Client, symbol: &str) -> Result<Quote
     parse_chart_response(&body, &symbol, chrono::Utc::now().timestamp())
 }
 
-/// Fetch every symbol concurrently; symbols that fail are dropped unless all
-/// fail, in which case the first error is returned (`fetchQuotes`).
+/// The outcome of fetching a watchlist: the quotes that arrived and the
+/// symbols whose request failed, each with its error, in watchlist order.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct QuoteBatch {
+    pub quotes: Vec<QuoteData>,
+    pub failed: Vec<(String, String)>,
+}
+
+/// Fetch every symbol concurrently and report each outcome.
+pub async fn fetch_quote_batch(client: &reqwest::Client, symbols: &[String]) -> QuoteBatch {
+    let results = futures::future::join_all(symbols.iter().map(|s| fetch_quote(client, s))).await;
+    let mut batch = QuoteBatch::default();
+    for (symbol, result) in symbols.iter().zip(results) {
+        match result {
+            Ok(quote) => batch.quotes.push(quote),
+            Err(err) => batch.failed.push((symbol.clone(), err)),
+        }
+    }
+    batch
+}
+
+/// `fetchQuotes`: symbols that fail are dropped unless all fail, in which
+/// case the first error is returned.
 pub async fn fetch_quotes(
     client: &reqwest::Client,
     symbols: &[String],
 ) -> Result<Vec<QuoteData>, String> {
-    let results = futures::future::join_all(symbols.iter().map(|s| fetch_quote(client, s))).await;
-    let mut quotes = Vec::new();
-    let mut first_error = None;
-    for result in results {
-        match result {
-            Ok(quote) => quotes.push(quote),
-            Err(err) => {
-                first_error.get_or_insert(err);
-            }
-        }
-    }
-    match (quotes.is_empty(), first_error) {
-        (true, Some(err)) => Err(err),
-        _ => Ok(quotes),
+    let batch = fetch_quote_batch(client, symbols).await;
+    match (batch.quotes.is_empty(), batch.failed.into_iter().next()) {
+        (true, Some((_, err))) => Err(err),
+        _ => Ok(batch.quotes),
     }
 }
 

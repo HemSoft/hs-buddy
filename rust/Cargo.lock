@@ -772,6 +772,7 @@ dependencies = [
  "gpui-kit",
  "log",
  "reqwest",
+ "serde_json",
  "tokio",
 ]
 

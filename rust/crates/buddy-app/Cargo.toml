@@ -10,6 +10,9 @@ description = "Buddy desktop application (GPUI)"
 name = "buddy"
 path = "src/main.rs"
 
+[build-dependencies]
+serde_json.workspace = true
+
 [dependencies]
 buddy-core = { path = "../buddy-core" }
 gpui-kit.workspace = true

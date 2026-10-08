@@ -319,16 +319,17 @@ pub fn render(
         });
     }
 
-    // Symbols the fetch dropped stay listed (after the first result, so the
-    // initial load does not flash them) so they can be removed.
-    let missing: Vec<String> = if quotes.is_empty() && view.finance_error().is_none() {
-        Vec::new()
-    } else {
-        view.watchlist(cx)
-            .into_iter()
-            .filter(|symbol| !quotes.iter().any(|quote| &quote.symbol == symbol))
-            .collect()
-    };
+    // Symbols whose last completed request failed (a rejected ticker, say)
+    // stay listed so they can be removed; pending ones are not shown.
+    let watchlist = view.watchlist(cx);
+    let missing: Vec<String> = view
+        .failed_symbols()
+        .iter()
+        .filter(|symbol| {
+            watchlist.contains(symbol) && !quotes.iter().any(|quote| &quote.symbol == *symbol)
+        })
+        .cloned()
+        .collect();
     if !quotes.is_empty() || !missing.is_empty() {
         card = card.child(
             v_flex()

@@ -102,7 +102,7 @@ fn main() {
                             window.open_alert_dialog(cx, |alert, _, _| {
                                 alert.title("About Buddy").description(format!(
                                     "Buddy {} (native GPUI build)\nYour Universal Productivity Companion\nMade with love by HemSoft Developments",
-                                    env!("CARGO_PKG_VERSION")
+                                    env!("BUDDY_VERSION")
                                 ))
                             })
                         })

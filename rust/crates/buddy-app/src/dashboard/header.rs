@@ -15,7 +15,8 @@ use super::DashboardView;
 use crate::settings::Settings;
 use crate::theme::BuddyPalette;
 
-pub const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
+/// The product version from `package.json` (see `build.rs`).
+pub const APP_VERSION: &str = env!("BUDDY_VERSION");
 
 fn badge(
     text: String,

@@ -164,6 +164,8 @@ pub struct DashboardView {
     pollen: Option<PollenData>,
     pollen_error: Option<String>,
     quotes: Vec<QuoteData>,
+    /// Watchlist symbols whose last completed request failed.
+    failed_symbols: Vec<String>,
     finance_error: Option<String>,
     finance_refresh: RefreshState,
     /// Inputs the last loads used, so a Settings change (Reload or an
@@ -236,6 +238,7 @@ impl DashboardView {
             pollen: None,
             pollen_error: None,
             quotes: Vec::new(),
+            failed_symbols: Vec::new(),
             finance_error: None,
             finance_refresh: RefreshState::new(interval_for(
                 &intervals,
@@ -296,6 +299,17 @@ impl DashboardView {
     /// save picked up): re-run only the loads whose inputs differ.
     fn settings_changed(&mut self, cx: &mut Context<Self>) {
         let config = Settings::global(cx).config.clone();
+        // `native.autoRefresh` may have changed on disk (Reload Configuration).
+        self.weather_refresh.interval_minutes = interval_for(
+            &config.native.auto_refresh,
+            CardId::Weather,
+            WEATHER_DEFAULT_INTERVAL_MINUTES,
+        );
+        self.finance_refresh.interval_minutes = interval_for(
+            &config.native.auto_refresh,
+            CardId::Finance,
+            FINANCE_DEFAULT_INTERVAL_MINUTES,
+        );
         let weather_visible = config.is_dashboard_card_visible(CardId::Weather.key());
         let finance_visible = config.is_dashboard_card_visible(CardId::Finance.key());
         if finance_visible
@@ -564,6 +578,7 @@ impl DashboardView {
             // surface on an empty card, and drop the previous list's error.
             self.finance_generation += 1;
             self.quotes.clear();
+            self.failed_symbols.clear();
             self.finance_error = None;
             self.finance_refresh.mark_refreshed();
             return;
@@ -574,27 +589,39 @@ impl DashboardView {
         let generation = self.finance_generation;
         self.run(
             cx,
-            async move { finance::fetch_quotes(&http, &watchlist).await },
-            move |this, result, cx| {
+            async move { finance::fetch_quote_batch(&http, &watchlist).await },
+            move |this, batch, cx| {
                 if generation != this.finance_generation {
                     return;
                 }
-                match result {
-                    Ok(mut quotes) => {
-                        // Reconcile against the live watchlist: a symbol removed
-                        // while this request was in flight must not come back.
-                        let current = Settings::global(cx).config.finance.watchlist.clone();
-                        quotes.retain(|q| current.contains(&q.symbol));
-                        this.quotes = quotes;
-                        this.finance_error = None;
-                    }
-                    Err(err) => {
-                        this.finance_error = Some(err);
-                        this.finance_refresh.mark_failed();
-                        return;
-                    }
+                let all_failed = batch.quotes.is_empty() && !batch.failed.is_empty();
+                let first_error = batch.failed.first().map(|(_, err)| err.clone());
+                if all_failed && !this.quotes.is_empty() {
+                    // An outage is not a verdict on any symbol: keep the last
+                    // quotes (and the symbols already known to fail) on screen.
+                    this.finance_error = first_error;
+                    this.finance_refresh.mark_failed();
+                    return;
                 }
-                this.finance_refresh.mark_refreshed();
+                // Reconcile against the live watchlist: a symbol removed while
+                // this request was in flight must not come back.
+                let current = Settings::global(cx).config.finance.watchlist.clone();
+                let mut quotes = batch.quotes;
+                quotes.retain(|q| current.contains(&q.symbol));
+                this.quotes = quotes;
+                this.failed_symbols = batch
+                    .failed
+                    .into_iter()
+                    .map(|(symbol, _)| symbol)
+                    .filter(|symbol| current.contains(symbol))
+                    .collect();
+                if all_failed {
+                    this.finance_error = first_error;
+                    this.finance_refresh.mark_failed();
+                } else {
+                    this.finance_error = None;
+                    this.finance_refresh.mark_refreshed();
+                }
             },
         );
     }
@@ -759,6 +786,11 @@ impl DashboardView {
         Settings::global(cx).config.finance.watchlist.clone()
     }
 
+    /// Symbols whose last completed request failed.
+    pub fn failed_symbols(&self) -> &[String] {
+        &self.failed_symbols
+    }
+
     pub fn watchlist_len(&self, cx: &App) -> usize {
         Settings::global(cx).config.finance.watchlist.len()
     }
@@ -832,8 +864,14 @@ impl DashboardView {
         self.location_chosen_by_user = false;
         self.lookup_in_flight = false;
         self.weather_refresh.loading = false;
-        if let Some(location) = self.restored_location.take() {
+        let restored = self.restored_location.take();
+        if let Some(location) = restored.clone() {
             self.weather_location = location;
+        }
+        // Also restart when the lookup invalidated the current location's
+        // own request and nothing is on screen yet (the saved city's first
+        // forecast, for instance).
+        if restored.is_some() || self.weather.is_none() {
             self.start_weather_if_visible(cx);
         }
         self.weather_error = Some(err);
@@ -911,6 +949,7 @@ impl DashboardView {
 
     pub fn remove_symbol(&mut self, symbol: &str, cx: &mut Context<Self>) {
         self.quotes.retain(|q| q.symbol != symbol);
+        self.failed_symbols.retain(|s| s != symbol);
         let symbol = symbol.to_string();
         Settings::update(cx, |config| {
             config.finance.watchlist.retain(|s| *s != symbol)

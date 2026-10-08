@@ -1,6 +1,6 @@
 # SFL organization review
 
-This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.28` release at source `104648b0a9f2709c15d2cfb6c9b7d9dc49e171b3`. Existing model policy and repository-scoped App credentials remain in place.
+This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.29` release at source `f07ab8ca3d58a7a5a6bbf88ff1bc8e3a359b6e53`. Existing model policy and repository-scoped App credentials remain in place.
 
 ## Update and inspect
 
@@ -31,12 +31,18 @@ The Auditor and Dispatcher have no schedules. A migration smoke run first checks
 
 A third request cannot bypass an unresolved second request on the same head. Wait for the immediate predecessor to finish before requesting another review. If requests overlap, publish a new head and register one fresh request instead of adding more comments to the ambiguous head.
 
-This change verifies the rc28 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
+This change verifies the rc29 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
 
-The rc28 observer authenticates exact current requests and trusted review context before admitting registry-free marker runs. It retains verified active-run request identity across later edits, deletion or access loss; ordinary marker quotations cannot block another valid result. Publication repair preserves the primary API failure while restoring a blocking gate. Installed and live validation remain separate.
+The rc29 observer authenticates exact current requests and trusted review context before admitting registry-free marker runs. It retains verified active-run request identity across later edits, deletion or access loss; ordinary marker quotations cannot block another valid result. Publication repair preserves the primary API failure while restoring a blocking gate. Installed and live validation remain separate.
 
 ## Review request verification after the organization move
 
 Use `gh sfl review --repo hemsoft-dev/hs-buddy --pr <number>` to register one review for the current head and base. The installed observer verifies the unchanged request, its author access, and the Actions context before admitting it. Wait for that request to finish before requesting another review on the same head.
 
-The signed 2.1.0-rc.28 observer is installed on main. This documentation change checks its real Actions execution separately from the installed workflow failure scenarios. The manual Auditor and Dispatcher remain consumer owned.
+The signed 2.1.0-rc.29 observer is installed on main. This documentation change checks its real Actions execution separately from the installed workflow failure scenarios. The manual Auditor and Dispatcher remain consumer owned.
+
+## Chained retarget and provider recovery
+
+The rc29 invalidator keeps default-branch departures in a separate concurrency group from unsupported nondefault-to-nondefault retargets. A later unsupported retarget cannot cancel that invalidation. Admission still requires a trusted default-branch context.
+
+A native provider error does not establish a reviewed head or a clean gate. Keep the failed request and result as evidence. If the signed CLI refuses a same-head retry, make a substantive branch correction before registering one request on its new head. Editing or deleting a registered request invalidates its evidence and must not be used to manufacture retry eligibility.

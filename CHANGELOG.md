@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1309] - 2026-10-08
+
+### Changed
+
+- Verify signed rc29 full-tier consumer preservation
+
 ## [0.1.1308] - 2026-10-08
 
 ### Changed

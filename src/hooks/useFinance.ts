@@ -67,6 +67,11 @@ function writeWatchlist(symbols: string[]) {
 
 function sanitizeWatchlist(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null
+  // An explicitly empty list is a deliberate state: the user removed the last
+  // symbol here or in the native app, and `setFinanceWatchlist` only ever
+  // stores arrays. Honour it instead of resurrecting defaults or the
+  // localStorage cache (#766).
+  if (raw.length === 0) return []
   const cleaned = raw.flatMap(s => {
     if (typeof s !== 'string') return []
     const symbol = s.toUpperCase().trim()
@@ -74,9 +79,8 @@ function sanitizeWatchlist(raw: unknown): string[] | null {
   })
   // Dedupe while preserving order
   const deduped = Array.from(new Set(cleaned))
-  // Treat an empty result as invalid — a corrupt/zeroed config should never
-  // silently wipe the user's watchlist. The IPC load path will keep whatever
-  // is currently in state (defaults or localStorage cache).
+  // A non-empty list with no usable entry is corrupt, not emptied: keep
+  // whatever is currently in state (defaults or localStorage cache).
   return deduped.length > 0 ? deduped : null
 }
 

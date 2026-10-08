@@ -320,69 +320,6 @@ describe('useFinance', () => {
     )
   })
 
-  it('hydrates watchlist from IPC on mount when localStorage is empty', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'config:get-finance-watchlist') {
-        return Promise.resolve(['NVDA', 'MSFT'])
-      }
-      return Promise.resolve({ success: true })
-    })
-    const { result } = renderHook(() => useFinance())
-    await waitFor(() => expect(result.current.watchlist).toEqual(['NVDA', 'MSFT']))
-    // localStorage should now be primed with the IPC values
-    expect(JSON.parse(localStorage.getItem('finance:watchlist') ?? '[]')).toEqual(['NVDA', 'MSFT'])
-  })
-
-  it('sanitizes non-string and empty entries from IPC watchlist', async () => {
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'config:get-finance-watchlist') {
-        return Promise.resolve(['nvda', 123, '', '   ', 'MSFT'])
-      }
-      return Promise.resolve({ success: true })
-    })
-    const { result } = renderHook(() => useFinance())
-    await waitFor(() => expect(result.current.watchlist).toEqual(['NVDA', 'MSFT']))
-  })
-
-  it('does not override local mutation when IPC load resolves later', async () => {
-    let resolveIpc: ((v: unknown) => void) | null = null
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'config:get-finance-watchlist') {
-        return new Promise(resolve => {
-          resolveIpc = resolve
-        })
-      }
-      return Promise.resolve({ success: true })
-    })
-    const { result } = renderHook(() => useFinance())
-    // User adds a symbol BEFORE IPC load resolves
-    act(() => {
-      result.current.addSymbol('TSLA')
-    })
-    expect(result.current.watchlist).toContain('TSLA')
-
-    // Now IPC resolves with stale data — must not clobber the user's add
-    await act(async () => {
-      resolveIpc?.(['NVDA'])
-      await Promise.resolve()
-    })
-    expect(result.current.watchlist).toContain('TSLA')
-  })
-
-  it('does not clear watchlist when IPC returns empty array', async () => {
-    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
-    mockInvoke.mockImplementation((channel: string) => {
-      if (channel === 'config:get-finance-watchlist') {
-        return Promise.resolve([])
-      }
-      return Promise.resolve({ success: true })
-    })
-    const { result } = renderHook(() => useFinance())
-    await waitFor(() => expect(result.current.loading).toBe(false))
-    // Defensive: empty IPC response must not wipe the user's persisted list
-    expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
-  })
-
   it('logs warning when IPC persist rejects', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockInvoke.mockImplementation((channel: string) => {

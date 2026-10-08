@@ -461,12 +461,20 @@ impl AppConfig {
             let _ = std::fs::remove_file(&tmp);
             // The keychain write above belongs to this snapshot; undo it so
             // the retry (which reloads the newer file) migrates that one. If
-            // the undo fails the retry would treat this stale entry as the
-            // newer value, so the save fails outright instead.
+            // the undo fails, the entry is re-pointed at the plaintext the
+            // other writer left (so a later migration prefers nothing stale);
+            // when that is impossible the save fails outright.
             if let Some(location) = migrated {
                 self.ui.weather_location = Some(location);
                 if let Err(err) = crate::secrets::clear_weather_location() {
-                    return Err(ConfigError::Keychain(err));
+                    match Self::load()
+                        .ok()
+                        .and_then(|current| current.ui.weather_location)
+                    {
+                        Some(newer) => crate::secrets::save_weather_location(&newer)
+                            .map_err(ConfigError::Keychain)?,
+                        None => return Err(ConfigError::Keychain(err)),
+                    }
                 }
             }
             return Ok(false);

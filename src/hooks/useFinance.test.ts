@@ -369,7 +369,9 @@ describe('useFinance', () => {
     expect(result.current.watchlist).toContain('TSLA')
   })
 
-  it('does not clear watchlist when IPC returns empty array', async () => {
+  it('clears the watchlist when the config holds an explicitly empty array', async () => {
+    // The last symbol was removed (here or in the native app) and [] was
+    // persisted; hydration must honour that instead of resurrecting the cache.
     localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
     mockInvoke.mockImplementation((channel: string) => {
       if (channel === 'config:get-finance-watchlist') {
@@ -378,8 +380,23 @@ describe('useFinance', () => {
       return Promise.resolve({ success: true })
     })
     const { result } = renderHook(() => useFinance())
+    await waitFor(() => expect(result.current.watchlist).toEqual([]))
+    expect(result.current.loading).toBe(false)
+    expect(result.current.quotes).toEqual([])
+    expect(JSON.parse(localStorage.getItem('finance:watchlist') ?? 'null')).toEqual([])
+  })
+
+  it('does not clear watchlist when the config list has no usable entry', async () => {
+    localStorage.setItem('finance:watchlist', JSON.stringify(['^GSPC', 'AAPL']))
+    mockInvoke.mockImplementation((channel: string) => {
+      if (channel === 'config:get-finance-watchlist') {
+        return Promise.resolve([123, '', '   '])
+      }
+      return Promise.resolve({ success: true })
+    })
+    const { result } = renderHook(() => useFinance())
     await waitFor(() => expect(result.current.loading).toBe(false))
-    // Defensive: empty IPC response must not wipe the user's persisted list
+    // Corrupt, not emptied: the persisted list stays
     expect(result.current.watchlist).toEqual(['^GSPC', 'AAPL'])
   })
 

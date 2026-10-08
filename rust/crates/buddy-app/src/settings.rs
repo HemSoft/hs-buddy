@@ -1,6 +1,7 @@
 //! The loaded configuration as a GPUI global, shared by the shell and views.
 
-use buddy_core::config::{AppConfig, UiConfig};
+use buddy_core::config::{AppConfig, UiConfig, config_path};
+use buddy_core::config_lock::{ConfigLock, DEFAULT_TIMEOUT};
 use gpui_kit::{App, Global};
 
 pub struct Settings {
@@ -28,6 +29,24 @@ impl Settings {
     /// the edit is applied again to the newer content (a few attempts).
     pub fn update(cx: &mut App, edit: impl Fn(&mut AppConfig)) -> bool {
         const ATTEMPTS: usize = 3;
+        // Serialize the whole read-modify-write against Electron, which takes
+        // the same `config.json.lock`; the stamp check below stays as the
+        // guard for a writer that does not (see electron/configLock.ts).
+        let _lock = match config_path().map(|path| ConfigLock::acquire(&path, DEFAULT_TIMEOUT)) {
+            Ok(Ok(Some(lock))) => Some(lock),
+            Ok(Ok(None)) => {
+                log::warn!("config lock busy for {DEFAULT_TIMEOUT:?}; saving unlocked");
+                None
+            }
+            Ok(Err(err)) => {
+                log::warn!("config lock unavailable ({err}); saving unlocked");
+                None
+            }
+            Err(err) => {
+                log::warn!("not saving: configuration path unknown ({err})");
+                return false;
+            }
+        };
         for attempt in 1..=ATTEMPTS {
             let (mut fresh, stamp) = match AppConfig::load_with_stamp() {
                 Ok(loaded) => loaded,

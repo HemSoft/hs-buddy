@@ -4,6 +4,7 @@
 //! and shared by any front end.
 
 pub mod config;
+pub mod config_lock;
 pub mod convex_data;
 pub mod copilot_usage;
 pub mod dashboard;

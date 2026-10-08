@@ -1,4 +1,6 @@
 import Store from 'electron-store'
+
+import { withConfigLock } from './configLock'
 import { ProtectedWeatherLocation } from './services/protectedWeatherLocation'
 import {
   configSchema,
@@ -134,12 +136,12 @@ class ConfigManager {
 
     const legacyLocation = this.store.get('ui', defaultConfig.ui).weatherLocation ?? null
     // Remove plaintext before any further config writes, including before app ready.
-    if (legacyLocation !== null) this.store.set('ui.weatherLocation', null)
+    if (legacyLocation !== null) this.write('ui.weatherLocation', null)
     this.weatherLocation = new ProtectedWeatherLocation(
       {
         read: () => this.store.get('weatherLocationCiphertext', ''),
         write: ciphertext => {
-          this.store.set('weatherLocationCiphertext', ciphertext)
+          this.write('weatherLocationCiphertext', ciphertext)
         },
       },
       legacyLocation
@@ -151,6 +153,18 @@ class ConfigManager {
     this.reconcileUsageProviderOverrides()
 
     console.log('[ConfigManager] Store location:', this.store.path)
+  }
+
+  /**
+   * Every write goes through the shared `config.json.lock` so the native app
+   * (which holds the same lock across its read-modify-write) and this
+   * process cannot overwrite each other's changes. `conf` re-reads the file
+   * inside `set`, so the lock covers the whole read-modify-write.
+   */
+  private write<K extends string>(key: K, value: unknown): void {
+    withConfigLock(this.store.path, () => this.store.set(key, value as never), {
+      warn: message => console.warn(message),
+    })
   }
 
   private reconcileUsageProviderOverrides(): UsageProviderOverrides {
@@ -180,7 +194,7 @@ class ConfigManager {
     defaultOverrides: UsageProviderOverrides
   ): void {
     const github = this.store.get('github', defaultConfig.github)
-    this.store.set('github', {
+    this.write('github', {
       ...github,
       usageProviderOverrides: overrides,
       usageProviderDefaultOverrides: defaultOverrides,
@@ -205,13 +219,13 @@ class ConfigManager {
       throw new Error(`GitHub account ${account.username}@${account.org} already exists`)
     }
     accounts.push(account)
-    this.store.set('github.accounts', accounts)
+    this.write('github.accounts', accounts)
   }
 
   removeGitHubAccount(username: string, org: string): void {
     const accounts = this.getGitHubAccounts()
     const filtered = accounts.filter(a => !(a.username === username && a.org === org))
-    this.store.set('github.accounts', filtered)
+    this.write('github.accounts', filtered)
     this.setUsageProviderOverride(username, org, null)
   }
 
@@ -223,7 +237,7 @@ class ConfigManager {
     }
     const previousKey = getUsageProviderOverrideKey(accounts[index])
     accounts[index] = { ...accounts[index], ...updates }
-    this.store.set('github.accounts', accounts)
+    this.write('github.accounts', accounts)
     if (getUsageProviderOverrideKey(accounts[index]) !== previousKey) {
       this.setUsageProviderOverride(username, org, null)
     }
@@ -239,7 +253,7 @@ class ConfigManager {
       accountKeys.add(key)
     }
 
-    this.store.set('github.accounts', accounts)
+    this.write('github.accounts', accounts)
     const overrides = Object.fromEntries(
       Object.entries(this.getUsageProviderOverrides()).filter(([key]) => accountKeys.has(key))
     )
@@ -293,7 +307,7 @@ class ConfigManager {
       this.weatherLocation.set(value as AppConfig['ui']['weatherLocation'])
       return
     }
-    this.store.set(`ui.${key}`, value)
+    this.write(`ui.${key}`, value)
   }
 
   // Copilot Settings (PR Review Prompt Template — still used via IPC)
@@ -302,7 +316,7 @@ class ConfigManager {
   }
 
   setCopilotPRReviewPromptTemplate(template: string): void {
-    this.store.set('copilot.prReviewPromptTemplate', template)
+    this.write('copilot.prReviewPromptTemplate', template)
   }
 
   // Automation Settings
@@ -311,7 +325,7 @@ class ConfigManager {
   }
 
   setScheduleForecastDays(days: number): void {
-    this.store.set('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)))
+    this.write('automation.scheduleForecastDays', Math.max(1, Math.min(30, days)))
   }
 
   // Notification Settings
@@ -320,7 +334,7 @@ class ConfigManager {
   }
 
   setNotificationSoundEnabled(enabled: boolean): void {
-    this.store.set('notifications.playSoundOnReviewComplete', enabled)
+    this.write('notifications.playSoundOnReviewComplete', enabled)
   }
 
   getNotificationSoundPath(): string {
@@ -328,7 +342,7 @@ class ConfigManager {
   }
 
   setNotificationSoundPath(filePath: string): void {
-    this.store.set('notifications.reviewCompleteSoundPath', filePath)
+    this.write('notifications.reviewCompleteSoundPath', filePath)
   }
 
   // Finance Settings
@@ -347,7 +361,7 @@ class ConfigManager {
         })
       )
     )
-    this.store.set('finance.watchlist', cleaned)
+    this.write('finance.watchlist', cleaned)
   }
 
   // Full config access

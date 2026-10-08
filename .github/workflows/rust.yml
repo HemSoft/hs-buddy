@@ -72,7 +72,8 @@ jobs:
       # upload-artifact drops file modes; a tar archive keeps the executable bit.
       - name: Package binary (Unix)
         if: runner.os != 'Windows'
-        run: tar -C rust/target/release -czf "buddy-${{ matrix.os }}.tar.gz" buddy
+        # Runs in `rust/`; the archive goes to the workspace root for upload.
+        run: tar -czf "$GITHUB_WORKSPACE/buddy-${{ matrix.os }}.tar.gz" -C target/release buddy
       - name: Upload binary
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

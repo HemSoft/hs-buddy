@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import * as electron from 'electron'
 import Store from 'electron-store'
 import { join } from 'node:path'
 
@@ -125,10 +125,11 @@ function seedInitialOverrides(
  */
 /** Where electron-store will put `config.json`, or null outside Electron (tests). */
 function expectedConfigPath(): string | null {
-  // The electron mock used by unit tests exports no `app`.
-  const electronApp = app as typeof app | undefined
-  if (!electronApp || typeof electronApp.getPath !== 'function') return null
+  // Unit tests mock `electron` without `app`; reading a missing export from
+  // such a mock throws, so the lookup is guarded as a whole.
   try {
+    const electronApp = (electron as { app?: typeof electron.app }).app
+    if (!electronApp || typeof electronApp.getPath !== 'function') return null
     return join(electronApp.getPath('userData'), 'config.json')
   } catch (_: unknown) {
     return null

@@ -8,12 +8,15 @@
  * sides follow the same protocol:
  *
  * - acquire: `mkdir`; on `EEXIST`, wait and retry;
- * - stale: a lock older than `STALE_AFTER_MS` belongs to a crashed holder. A
- *   waiter claims it by renaming it to a unique name (atomic, so of several
- *   waiters exactly one wins and the rest find the path free or freshly
- *   re-acquired), then deletes the renamed directory. The live lock path is
- *   never removed by a waiter;
- * - release: remove the directory;
+ * - stale: a lock whose mtime is older than `STALE_AFTER_MS` belongs to a
+ *   crashed holder. A waiter takes it over *in place*: it creates the marker
+ *   `claim` inside the directory (atomic, so exactly one waiter wins), then
+ *   checks that the directory is still the instance it observed (same inode
+ *   and birth time). A mismatch means the stale lock was released and a
+ *   fresh one created meanwhile, so the waiter withdraws its marker and goes
+ *   back to waiting. Nothing is ever renamed or removed by a waiter, so a
+ *   live lock cannot be stolen;
+ * - release: the holder removes its marker (if any) and the directory;
  * - bounded: a writer that cannot acquire within the timeout proceeds anyway
  *   (logged), because a wedged lock must never freeze either app.
  *
@@ -22,67 +25,95 @@
  * app's `Settings::update`, which holds the same lock across its own.
  *
  * The wait is synchronous because `conf` writes synchronously on the main
- * process. The native holder's critical section is a few milliseconds, so
- * the Electron wait is short (`DEFAULT_TIMEOUT_MS`) and polls quickly.
+ * process. It only happens under actual contention (a native write at the
+ * same instant), and the timeout covers the native holder's worst case: a
+ * load-edit-save with the Windows rename retries (250 ms) and, once, the
+ * legacy keychain migration.
  */
-import { mkdirSync, renameSync, rmSync, rmdirSync, statSync } from 'node:fs'
+import { mkdirSync, rmdirSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 
 /** A holder that has not touched its lock for this long is presumed dead. */
 export const STALE_AFTER_MS = 10_000
 /** How long a writer waits for the lock before proceeding unlocked. */
-const DEFAULT_TIMEOUT_MS = 250
+const DEFAULT_TIMEOUT_MS = 1_000
 const POLL_MS = 10
+const CLAIM = 'claim'
 
 export function lockDirFor(configPath: string): string {
   return `${configPath}.lock`
 }
 
-function isStale(dir: string, now: number): boolean {
+interface Identity {
+  ino: number
+  birthtimeMs: number
+}
+
+interface Observation {
+  identity: Identity
+  stale: boolean
+}
+
+function observe(dir: string, now: number): Observation | null {
   try {
-    return now - statSync(dir).mtimeMs > STALE_AFTER_MS
+    const stat = statSync(dir)
+    return {
+      identity: { ino: stat.ino, birthtimeMs: stat.birthtimeMs },
+      stale: now - stat.mtimeMs > STALE_AFTER_MS,
+    }
   } catch (_: unknown) {
     // Vanished between EEXIST and stat: the holder released it.
-    return false
+    return null
   }
 }
 
-/**
- * Take a stale lock out of the way without ever touching a live one: the
- * rename is atomic, so of several waiters exactly one moves it; the rest get
- * ENOENT and simply retry `mkdir`.
- */
-function claimStale(dir: string): void {
-  const claimed = `${dir}.stale-${process.pid}-${process.hrtime.bigint()}`
-  try {
-    renameSync(dir, claimed)
-  } catch (_: unknown) {
-    return
-  }
-  rmSync(claimed, { recursive: true, force: true })
+function sameInstance(a: Identity, b: Identity): boolean {
+  return a.ino === b.ino && a.birthtimeMs === b.birthtimeMs
 }
 
 function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 }
 
-type CreateOutcome = 'acquired' | 'exists' | { failed: string }
+type CreateOutcome = 'created' | 'exists' | { failed: string }
 
-function tryCreate(dir: string): CreateOutcome {
+function tryCreate(path: string): CreateOutcome {
   try {
-    mkdirSync(dir)
-    return 'acquired'
+    mkdirSync(path)
+    return 'created'
   } catch (error: unknown) {
     const code = (error as NodeJS.ErrnoException).code
     return code === 'EEXIST' ? 'exists' : { failed: code ?? 'unknown' }
   }
 }
 
-function releaseQuietly(dir: string): void {
+function removeQuietly(path: string): void {
   try {
-    rmdirSync(dir)
+    rmdirSync(path)
   } catch (_: unknown) {
-    /* already released, or claimed as stale by a waiter after a long pause */
+    /* already gone */
   }
+}
+
+/**
+ * Take over a stale lock in place. Returns a release function when this
+ * waiter now owns the directory, otherwise `null` (another waiter won, or
+ * the directory is not the stale instance that was observed).
+ */
+function claimStale(dir: string, observed: Identity, now: () => number): (() => void) | null {
+  const marker = join(dir, CLAIM)
+  if (tryCreate(marker) !== 'created') return null
+  const current = observe(dir, now())
+  if (current !== null && sameInstance(current.identity, observed)) {
+    // Creating the marker also refreshed the directory's mtime, so other
+    // waiters now see a fresh lock.
+    return () => {
+      removeQuietly(marker)
+      removeQuietly(dir)
+    }
+  }
+  removeQuietly(marker)
+  return null
 }
 
 export interface LockOptions {
@@ -123,15 +154,17 @@ export function acquireConfigLock(
   const deadline = now() + timeoutMs
   for (;;) {
     const outcome = tryCreate(dir)
-    if (outcome === 'acquired') return () => releaseQuietly(dir)
+    if (outcome === 'created') return () => removeQuietly(dir)
     if (outcome !== 'exists') {
       // No lock directory can exist here (unwritable parent, say): there is
       // nothing to coordinate on, so proceed unlocked.
       warn(`[configLock] cannot create ${dir} (${outcome.failed}); proceeding unlocked`)
       return null
     }
-    if (isStale(dir, now())) {
-      claimStale(dir)
+    const seen = observe(dir, now())
+    if (seen?.stale) {
+      const release = claimStale(dir, seen.identity, now)
+      if (release) return release
       continue
     }
     if (now() >= deadline) {

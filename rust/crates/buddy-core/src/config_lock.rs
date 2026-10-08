@@ -7,27 +7,35 @@
 //! implements the same protocol:
 //!
 //! - acquire: `mkdir`; on `AlreadyExists`, wait and retry;
-//! - stale: a lock older than [`STALE_AFTER`] belongs to a crashed holder.
-//!   A waiter claims it by renaming it to a unique name (atomic, so only
-//!   one waiter wins; the others see it gone and simply retry `mkdir`), then
-//!   deletes the renamed directory; it never removes the live lock path;
-//! - release: remove the directory;
+//! - stale: a lock whose mtime is older than [`STALE_AFTER`] belongs to a
+//!   crashed holder. A waiter takes it over *in place*: it creates the
+//!   marker `claim` inside the directory (atomic, so exactly one waiter
+//!   wins), then checks that the directory is still the instance it observed
+//!   (same identity). A mismatch means the stale lock was released and a
+//!   fresh one created meanwhile, so the waiter withdraws its marker and goes
+//!   back to waiting. Nothing is ever renamed or removed by a waiter, so a
+//!   live lock cannot be stolen;
+//! - release: the holder removes its marker (if any) and the directory;
 //! - bounded: a writer that cannot acquire within the timeout proceeds
 //!   anyway (logged), because a wedged lock must never freeze either app.
+//!   Electron's critical section is one synchronous file write, so the wait
+//!   here is short; it runs on the GPUI thread only under actual contention.
 
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 
 /// A holder that has not touched its lock for this long is presumed dead.
 pub const STALE_AFTER: Duration = Duration::from_secs(10);
 /// How long a writer waits for the lock before proceeding unlocked.
-pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(2);
-const POLL: Duration = Duration::from_millis(25);
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_millis(500);
+const POLL: Duration = Duration::from_millis(10);
+const CLAIM: &str = "claim";
 
 /// Holds the lock; dropping it releases.
 #[derive(Debug)]
 pub struct ConfigLock {
     dir: PathBuf,
+    claimed: bool,
 }
 
 /// The lock directory for a config file: `config.json.lock`.
@@ -38,6 +46,37 @@ pub fn lock_dir(config_path: &Path) -> PathBuf {
         .unwrap_or_default();
     name.push(".lock");
     config_path.with_file_name(name)
+}
+
+/// What identifies one directory instance across a release and re-create:
+/// the inode where there is one, else the creation time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Identity {
+    #[cfg(unix)]
+    ino: u64,
+    created: Option<SystemTime>,
+}
+
+struct Observation {
+    identity: Identity,
+    stale: bool,
+}
+
+fn observe(dir: &Path) -> Option<Observation> {
+    let meta = std::fs::metadata(dir).ok()?;
+    let stale = meta
+        .modified()
+        .ok()
+        .and_then(|m| m.elapsed().ok())
+        .is_some_and(|age| age > STALE_AFTER);
+    Some(Observation {
+        identity: Identity {
+            #[cfg(unix)]
+            ino: std::os::unix::fs::MetadataExt::ino(&meta),
+            created: meta.created().ok(),
+        },
+        stale,
+    })
 }
 
 impl ConfigLock {
@@ -51,10 +90,19 @@ impl ConfigLock {
         let deadline = Instant::now() + timeout;
         loop {
             match std::fs::create_dir(&dir) {
-                Ok(()) => return Ok(Some(Self { dir })),
+                Ok(()) => {
+                    return Ok(Some(Self {
+                        dir,
+                        claimed: false,
+                    }));
+                }
                 Err(err) if err.kind() == std::io::ErrorKind::AlreadyExists => {
-                    if is_stale(&dir) {
-                        claim_stale(&dir);
+                    if let Some(seen) = observe(&dir)
+                        && seen.stale
+                    {
+                        if let Some(lock) = claim_stale(&dir, &seen.identity) {
+                            return Ok(Some(lock));
+                        }
                         continue;
                     }
                     if Instant::now() >= deadline {
@@ -68,36 +116,34 @@ impl ConfigLock {
     }
 }
 
-impl Drop for ConfigLock {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_dir(&self.dir);
+/// Take over a stale lock in place: become the owner of the existing
+/// directory, never removing or renaming it from under a live holder.
+fn claim_stale(dir: &Path, observed: &Identity) -> Option<ConfigLock> {
+    let marker = dir.join(CLAIM);
+    if std::fs::create_dir(&marker).is_err() {
+        // Another waiter claimed it first, or it vanished: back to waiting.
+        return None;
+    }
+    // Creating the marker refreshed the directory's mtime, so other waiters
+    // now see a fresh lock; make sure it is still the stale instance seen.
+    match observe(dir) {
+        Some(current) if current.identity == *observed => Some(ConfigLock {
+            dir: dir.to_path_buf(),
+            claimed: true,
+        }),
+        _ => {
+            let _ = std::fs::remove_dir(&marker);
+            None
+        }
     }
 }
 
-fn is_stale(dir: &Path) -> bool {
-    std::fs::metadata(dir)
-        .and_then(|meta| meta.modified())
-        .ok()
-        .and_then(|modified| modified.elapsed().ok())
-        .is_some_and(|age| age > STALE_AFTER)
-}
-
-/// Take a stale lock out of the way without ever touching a live one: the
-/// rename is atomic, so of several waiters exactly one moves it and the
-/// rest find the path free (or freshly re-acquired by someone else).
-fn claim_stale(dir: &Path) {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or_default();
-    let mut name = dir
-        .file_name()
-        .map(|n| n.to_os_string())
-        .unwrap_or_default();
-    name.push(format!(".stale-{}-{nanos}", std::process::id()));
-    let claimed = dir.with_file_name(name);
-    if std::fs::rename(dir, &claimed).is_ok() {
-        let _ = std::fs::remove_dir_all(&claimed);
+impl Drop for ConfigLock {
+    fn drop(&mut self) {
+        if self.claimed {
+            let _ = std::fs::remove_dir(self.dir.join(CLAIM));
+        }
+        let _ = std::fs::remove_dir(&self.dir);
     }
 }
 
@@ -165,43 +211,66 @@ mod tests {
     }
 
     #[test]
-    fn a_stale_lock_is_taken_over() {
+    fn a_stale_lock_is_taken_over_in_place_and_released_fully() {
         let config = temp_config("stale");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
         age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
         let guard = ConfigLock::acquire(&config, Duration::from_millis(200)).unwrap();
         assert!(guard.is_some(), "a stale lock must not block a writer");
-        // The claimed copy is gone too.
-        let leftovers = std::fs::read_dir(config.parent().unwrap())
-            .unwrap()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_name().to_string_lossy().contains(".stale-"))
-            .count();
-        assert_eq!(leftovers, 0);
+        assert!(
+            dir.join(CLAIM).is_dir(),
+            "taken over in place with the marker"
+        );
+        drop(guard);
+        assert!(!dir.exists());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 
     #[test]
-    fn a_lock_re_acquired_after_takeover_is_not_removed_by_a_late_waiter() {
-        // Waiter A has already claimed the stale lock and acquired a fresh
-        // one; waiter B, still holding the stale verdict, must not delete it.
-        let config = temp_config("late");
+    fn a_taken_over_lock_looks_fresh_to_the_next_waiter() {
+        let config = temp_config("fresh");
         let dir = lock_dir(&config);
         std::fs::create_dir(&dir).unwrap();
         age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
-        let a = ConfigLock::acquire(&config, Duration::from_millis(200))
+        let owner = ConfigLock::acquire(&config, Duration::from_millis(200))
             .unwrap()
             .unwrap();
-        // B's claim attempt on the (now fresh) directory: not stale, so
-        // `claim_stale` is never reached; and even a direct call must leave
-        // a fresh lock alone because the rename target is only moved when
-        // the stale directory still exists under that name.
-        assert!(!is_stale(&dir));
-        let b = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
-        assert!(b.is_none());
-        assert!(dir.is_dir(), "A's fresh lock survives B's attempt");
-        drop(a);
+        let late = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(late.is_none());
+        assert!(dir.is_dir(), "the owner's lock survives the late waiter");
+        drop(owner);
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn only_one_claimer_wins_a_stale_lock() {
+        let config = temp_config("claimed");
+        let dir = lock_dir(&config);
+        std::fs::create_dir(&dir).unwrap();
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        // Another waiter already holds the marker.
+        std::fs::create_dir(dir.join(CLAIM)).unwrap();
+        let guard = ConfigLock::acquire(&config, Duration::from_millis(100)).unwrap();
+        assert!(guard.is_none());
+        assert!(dir.join(CLAIM).is_dir());
+        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+    }
+
+    #[test]
+    fn a_claim_on_a_replaced_directory_is_withdrawn() {
+        let config = temp_config("replaced");
+        let dir = lock_dir(&config);
+        std::fs::create_dir(&dir).unwrap();
+        age_dir(&dir, STALE_AFTER + Duration::from_secs(5));
+        let stale = observe(&dir).unwrap().identity;
+        // The stale holder releases and a fresh writer re-creates the lock.
+        std::fs::remove_dir(&dir).unwrap();
+        std::fs::create_dir(&dir).unwrap();
+        let claim = claim_stale(&dir, &stale);
+        assert!(claim.is_none(), "the fresh lock belongs to someone else");
+        assert!(!dir.join(CLAIM).exists(), "the marker is withdrawn");
+        assert!(dir.is_dir());
         let _ = std::fs::remove_dir_all(config.parent().unwrap());
     }
 

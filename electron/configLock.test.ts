@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, utimesSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, utimesSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -13,10 +13,12 @@ function ageDir(dir: string): void {
 describe('configLock', () => {
   let dir: string
   let configPath: string
+  let lockDir: string
 
   beforeEach(() => {
     dir = mkdtempSync(join(tmpdir(), 'buddy-config-lock-'))
     configPath = join(dir, 'config.json')
+    lockDir = lockDirFor(configPath)
   })
 
   afterEach(() => {
@@ -30,9 +32,9 @@ describe('configLock', () => {
   it('acquires and releases', () => {
     const release = acquireConfigLock(configPath)
     expect(release).not.toBeNull()
-    expect(existsSync(lockDirFor(configPath))).toBe(true)
+    expect(existsSync(lockDir)).toBe(true)
     release?.()
-    expect(existsSync(lockDirFor(configPath))).toBe(false)
+    expect(existsSync(lockDir)).toBe(false)
   })
 
   it('waits for a held lock, then proceeds unlocked after the timeout', () => {
@@ -48,7 +50,7 @@ describe('configLock', () => {
     expect(sleep).toHaveBeenCalled()
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('busy for 100ms'))
     // The holder's lock is untouched by the loser.
-    expect(existsSync(lockDirFor(configPath))).toBe(true)
+    expect(existsSync(lockDir)).toBe(true)
     held?.()
   })
 
@@ -63,44 +65,77 @@ describe('configLock', () => {
     held?.()
   })
 
-  it('takes over a stale lock left by a crashed holder and leaves no remains', () => {
-    const lockDir = lockDirFor(configPath)
+  it('takes over a stale lock in place and releases it fully', () => {
     mkdirSync(lockDir)
     ageDir(lockDir)
     const sleep = vi.fn()
     const release = acquireConfigLock(configPath, { timeoutMs: 200, sleep })
     expect(release).not.toBeNull()
     expect(sleep).not.toHaveBeenCalled()
-    expect(readdirSync(dir).filter(name => name.includes('.stale-'))).toEqual([])
+    // Taken over in place: the same directory, now carrying the marker.
+    expect(existsSync(join(lockDir, 'claim'))).toBe(true)
     release?.()
     expect(existsSync(lockDir)).toBe(false)
   })
 
-  it('never removes a lock that another waiter re-acquired after a takeover', () => {
-    const lockDir = lockDirFor(configPath)
+  it('a taken-over lock looks fresh to the next waiter', () => {
     mkdirSync(lockDir)
     ageDir(lockDir)
-    // Waiter A claims the stale lock and holds a fresh one.
-    const a = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn() })
-    expect(a).not.toBeNull()
-    // Waiter B arrives late: the lock is fresh, so it waits and gives up
-    // without touching A's directory.
-    const b = acquireConfigLock(configPath, { timeoutMs: 30, sleep: vi.fn(), now: Date.now })
-    expect(b).toBeNull()
+    const owner = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn() })
+    expect(owner).not.toBeNull()
+    const late = acquireConfigLock(configPath, { timeoutMs: 30, sleep: vi.fn() })
+    expect(late).toBeNull()
     expect(existsSync(lockDir)).toBe(true)
-    a?.()
+    owner?.()
   })
 
-  it('retries when a stale lock vanishes before it can be claimed', () => {
-    const lockDir = lockDirFor(configPath)
+  it('withdraws a claim when the directory is not the stale instance it observed', () => {
     mkdirSync(lockDir)
     ageDir(lockDir)
-    let calls = 0
-    // The first stale verdict is followed by the holder releasing the lock
-    // (simulated by removing it on the first clock read after the check).
+    let reads = 0
+    // On the second clock read (the identity re-check after claiming), the
+    // stale directory is replaced by a fresh one, as if its holder released
+    // it and another writer acquired anew.
     const now = () => {
-      calls += 1
-      if (calls === 3) rmSync(lockDir, { recursive: true, force: true })
+      reads += 1
+      if (reads === 2) {
+        rmSync(lockDir, { recursive: true, force: true })
+        mkdirSync(lockDir)
+      }
+      return Date.now()
+    }
+    let clock = Date.now()
+    const release = acquireConfigLock(configPath, {
+      timeoutMs: 30,
+      now: () => {
+        const t = now()
+        clock += 20
+        return Math.max(t, clock)
+      },
+      sleep: vi.fn(),
+    })
+    // The fresh lock belongs to someone else: no takeover, timed out.
+    expect(release).toBeNull()
+    expect(existsSync(join(lockDir, 'claim'))).toBe(false)
+    expect(existsSync(lockDir)).toBe(true)
+  })
+
+  it('only one of two claimers wins a stale lock', () => {
+    mkdirSync(lockDir)
+    ageDir(lockDir)
+    mkdirSync(join(lockDir, 'claim')) // another waiter already claimed it
+    const release = acquireConfigLock(configPath, { timeoutMs: 30, sleep: vi.fn() })
+    expect(release).toBeNull()
+    expect(existsSync(join(lockDir, 'claim'))).toBe(true)
+  })
+
+  it('retries when a stale lock vanishes before it can be observed', () => {
+    mkdirSync(lockDir)
+    ageDir(lockDir)
+    let reads = 0
+    const now = () => {
+      reads += 1
+      if (reads === 2) rmSync(lockDir, { recursive: true, force: true })
       return Date.now()
     }
     const release = acquireConfigLock(configPath, { timeoutMs: 200, sleep: vi.fn(), now })
@@ -112,17 +147,17 @@ describe('configLock', () => {
     const release = acquireConfigLock(configPath)
     release?.()
     expect(() => release?.()).not.toThrow()
-    expect(existsSync(lockDirFor(configPath))).toBe(false)
+    expect(existsSync(lockDir)).toBe(false)
   })
 
   it('runs the callback under the lock and releases even when it throws', () => {
     expect(() =>
       withConfigLock(configPath, () => {
-        expect(existsSync(lockDirFor(configPath))).toBe(true)
+        expect(existsSync(lockDir)).toBe(true)
         throw new Error('boom')
       })
     ).toThrow('boom')
-    expect(existsSync(lockDirFor(configPath))).toBe(false)
+    expect(existsSync(lockDir)).toBe(false)
   })
 
   it('proceeds unlocked when the lock directory cannot be created', () => {

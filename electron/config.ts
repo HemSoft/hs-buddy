@@ -182,6 +182,12 @@ class ConfigManager {
   }
 
   private reconcileUsageProviderOverrides(): UsageProviderOverrides {
+    // Read, normalise and persist under one lock so another process's
+    // provider selection cannot land between the read and the write.
+    return this.locked(() => this.reconcileUsageProviderOverridesLocked())
+  }
+
+  private reconcileUsageProviderOverridesLocked(): UsageProviderOverrides {
     const accounts = this.getGitHubAccounts()
     const accountByKey = new Map(
       accounts.map(account => [getUsageProviderOverrideKey(account), account])

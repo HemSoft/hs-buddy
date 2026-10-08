@@ -2,13 +2,13 @@
 
 use buddy_core::dashboard::DASHBOARD_CARDS;
 use gpui_kit::assets::IconName;
-use gpui_kit::component::button::Button;
+use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
 use gpui_kit::component::popover::Popover;
 use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
-    BoxShadow, Context, FontWeight, InteractiveElement, IntoElement, ParentElement,
-    StatefulInteractiveElement, Styled, div, linear_color_stop, linear_gradient, point, px,
+    BoxShadow, Context, FontWeight, IntoElement, ParentElement, Styled, div, linear_color_stop,
+    linear_gradient, point, px,
 };
 
 use super::DashboardView;
@@ -62,6 +62,13 @@ fn customize(cx: &mut Context<DashboardView>) -> impl IntoElement + use<> {
             let palette = *BuddyPalette::global(cx);
             let primary = cx.theme().primary;
             let foreground = cx.theme().foreground;
+            // Rows are real buttons: focusable, in the tab order, keyboard-toggled.
+            let row = ButtonCustomVariant::new(cx)
+                .color(cx.theme().transparent)
+                .foreground(foreground)
+                .hover(palette.bg_hover)
+                .active(palette.bg_hover)
+                .shadow(false);
             let visibility: Vec<bool> = DASHBOARD_CARDS
                 .iter()
                 .map(|card| {
@@ -89,29 +96,35 @@ fn customize(cx: &mut Context<DashboardView>) -> impl IntoElement + use<> {
                         .zip(visibility)
                         .map(|(card, visible)| {
                             let weak = weak.clone();
-                            h_flex()
-                                .id(card.key())
+                            let action = if visible { "Hide" } else { "Show" };
+                            Button::new(card.key())
+                                .custom(row)
+                                .toggled(visible)
+                                .accessibility_label(format!("{action} {}", card.title()))
                                 .w_full()
-                                .items_center()
-                                .gap(px(8.0))
                                 .p(px(8.0))
                                 .rounded(px(6.0))
-                                .text_size(px(12.0))
                                 .font_weight(FontWeight::MEDIUM)
-                                .text_color(foreground)
-                                .cursor_pointer()
-                                .hover(move |style| style.bg(palette.bg_hover))
+                                .child(
+                                    h_flex()
+                                        .w_full()
+                                        .items_center()
+                                        .gap(px(8.0))
+                                        .text_size(px(12.0))
+                                        .child(if visible {
+                                            Icon::new(IconName::Eye)
+                                                .size(px(14.0))
+                                                .text_color(primary)
+                                        } else {
+                                            Icon::new(IconName::EyeOff)
+                                                .size(px(14.0))
+                                                .text_color(palette.text_muted.opacity(0.6))
+                                        })
+                                        .child(card.title()),
+                                )
                                 .on_click(move |_, _, cx| {
                                     weak.update(cx, |this, cx| this.toggle_card(card, cx)).ok();
                                 })
-                                .child(if visible {
-                                    Icon::new(IconName::Eye).size(px(14.0)).text_color(primary)
-                                } else {
-                                    Icon::new(IconName::EyeOff)
-                                        .size(px(14.0))
-                                        .text_color(palette.text_muted.opacity(0.6))
-                                })
-                                .child(card.title())
                         }),
                 )
         })

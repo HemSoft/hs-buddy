@@ -1,6 +1,6 @@
 # SFL organization review
 
-This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.22` release at source `ef807fc3ac3cb734efa70435a6a3970223680476`. Existing model policy and repository-scoped App credentials remain in place.
+This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.28` release at source `104648b0a9f2709c15d2cfb6c9b7d9dc49e171b3`. Existing model policy and repository-scoped App credentials remain in place.
 
 ## Update and inspect
 
@@ -31,4 +31,6 @@ The Auditor and Dispatcher have no schedules. A migration smoke run first checks
 
 A third request cannot bypass an unresolved second request on the same head. Wait for the immediate predecessor to finish before requesting another review. If requests overlap, publish a new head and register one fresh request instead of adding more comments to the ambiguous head.
 
-This change verifies the rc22 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
+This change verifies the rc28 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
+
+The rc28 observer authenticates exact current requests and trusted review context before admitting registry-free marker runs. It retains verified active-run request identity across later edits, deletion or access loss; ordinary marker quotations cannot block another valid result. Publication repair preserves the primary API failure while restoring a blocking gate. Installed and live validation remain separate.

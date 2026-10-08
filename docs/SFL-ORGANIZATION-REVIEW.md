@@ -26,3 +26,9 @@ A changed base, reopened PR or overlapping same-head registered requests require
 ## Manual wider automation
 
 The Auditor and Dispatcher have no schedules. A migration smoke run first checks that there are no eligible agent issues, draft agent PRs or approved promoter candidates. After that check, execute the existing manual workflows at the current default revision and inspect their actual outputs. The smoke proof requires all Auditor summary counts to be zero and all Dispatcher model and promoter steps to be skipped; a configured workflow or old successful run does not prove the current deployment.
+
+## Immediate predecessor recovery
+
+A third request cannot bypass an unresolved second request on the same head. Wait for the immediate predecessor to finish before requesting another review. If requests overlap, publish a new head and register one fresh request instead of adding more comments to the ambiguous head.
+
+This change verifies the rc22 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.

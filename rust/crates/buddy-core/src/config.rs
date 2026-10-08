@@ -623,6 +623,13 @@ mod tests {
     /// Serializes the tests that set `BUDDY_CONFIG_PATH`.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+    /// One failing test must not poison the lock for the others.
+    fn env_lock() -> std::sync::MutexGuard<'static, ()> {
+        ENV_LOCK
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     #[test]
     fn native_section_round_trips_and_is_omitted_when_empty() {
         let mut config = AppConfig::default();
@@ -647,19 +654,25 @@ mod tests {
 
     #[test]
     fn env_override_wins_for_config_path() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
+        let expected = std::env::temp_dir().join("buddy-test-config.json");
         // SAFETY: serialized by ENV_LOCK; no other thread reads this variable concurrently.
-        unsafe { std::env::set_var(CONFIG_PATH_ENV, "/tmp/buddy-test-config.json") };
+        unsafe { std::env::set_var(CONFIG_PATH_ENV, &expected) };
         let path = config_path().unwrap();
+        // A relative override is made absolute against the current directory.
+        unsafe { std::env::set_var(CONFIG_PATH_ENV, "relative-config.json") };
+        let relative = config_path().unwrap();
         unsafe { std::env::remove_var(CONFIG_PATH_ENV) };
-        assert_eq!(path, PathBuf::from("/tmp/buddy-test-config.json"));
+        assert_eq!(path, expected);
+        assert!(relative.is_absolute());
+        assert!(relative.ends_with("relative-config.json"));
     }
 
     #[cfg(unix)]
     #[test]
     fn save_preserves_restrictive_file_mode() {
         use std::os::unix::fs::PermissionsExt;
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         let dir = std::env::temp_dir().join(format!("buddy-mode-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.json");
@@ -678,7 +691,7 @@ mod tests {
 
     #[test]
     fn save_if_unchanged_yields_to_a_concurrent_writer() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         let dir = std::env::temp_dir().join(format!("buddy-stamp-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
@@ -710,7 +723,7 @@ mod tests {
     #[test]
     fn save_creates_a_private_file() {
         use std::os::unix::fs::PermissionsExt;
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         let dir = std::env::temp_dir().join(format!("buddy-new-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         let path = dir.join("config.json");
@@ -729,7 +742,7 @@ mod tests {
     /// an existing config.json replaces it.
     #[test]
     fn save_replaces_an_existing_file() {
-        let _guard = ENV_LOCK.lock().unwrap();
+        let _guard = env_lock();
         let dir = std::env::temp_dir().join(format!("buddy-save-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("config.json");

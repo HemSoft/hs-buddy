@@ -23,7 +23,9 @@ updates:
       - "@stryker-mutator/core"
       - "@stryker-mutator/vitest-runner"
   open-pull-requests-limit: 5
-  package-ecosystem: npm
+  # The root project is managed by Bun (bun.lock, no package-lock.json);
+  # Dependabot's npm_and_yarn updater refuses it and asks for this ecosystem.
+  package-ecosystem: bun
   schedule:
     day: monday
     interval: weekly

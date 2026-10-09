@@ -63,6 +63,14 @@ it('qualifies completion audio tests at the advertised Node floor', () => {
   )
 })
 
+it('bounds the optional package-smoke dependency cache restore', () => {
+  const packageJob = workflow.split('  package-smoke:')[1]?.split(/\n {2}[\w-]+:/, 1)[0]
+
+  expect(packageJob).toMatch(
+    /- name: Cache Bun dependencies\n\s+timeout-minutes: 5\n\s+continue-on-error: true\n\s+uses: actions\/cache@/
+  )
+})
+
 describe('desktop package qualification workflow', () => {
   it.each(qualifiedTargets)('builds and starts $name packages on a native runner', target => {
     const matrixEntry = workflow.split(`- name: ${target.name}`)[1]?.split(/\n\s+- name: /, 1)[0]

@@ -19,6 +19,7 @@ const observers = new Map()
 let tunnels = 0
 let requests = 0
 let retryRequests = 0
+let resetRequests = 0
 const payload = Buffer.from('verified proxied Electron artifact')
 const handler = (request, response) => {
   requests++
@@ -29,6 +30,10 @@ const handler = (request, response) => {
       response.once('close', observer.onClosed)
       observer.onStarted()
     }
+    return
+  }
+  if (request.url === '/reset' && resetRequests++ === 0) {
+    request.socket.destroy()
     return
   }
   if (request.url === '/retry' && retryRequests++ === 0) {
@@ -167,6 +172,11 @@ try {
   assert.deepEqual(await readFile(retried), payload)
   assert.equal(retryRequests, 2, 'Fetch HTTP 503 must retry with a fresh deadline')
   assert.equal(requests, 7)
+
+  const reset = await downloadElectronArtifactZip(options('/reset'))
+  assert.deepEqual(await readFile(reset), payload)
+  assert.equal(resetRequests, 2, 'A dropped connection (Fetch "fetch failed") must retry')
+  assert.equal(requests, 9)
   console.log('BUDDY_DOWNLOADER_PROBE_PASS')
 } catch (error) {
   console.error(error.cause)

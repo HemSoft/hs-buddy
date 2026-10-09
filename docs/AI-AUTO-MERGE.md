@@ -144,6 +144,6 @@ authorizes it, after reporting the actual cleanup result.
 
 ## Organization transfer
 
-The trusted controller supports repository ID1229335234 at `HemSoft/hs-buddy` and `hemsoft-dev/hs-buddy`. The workflow checks both the immutable ID and approved full name, then mints an App token scoped to the actual repository owner. The script rejects unrelated owners and repository names. This preparation preserves the existing `AI_AUTOMERGE_ENABLED` value and permission ceiling; it does not enable auto-merge or transfer the App. Complete the App installation and credential gates in [SFL migration issue138](https://github.com/HemSoft/set-it-free-loop/issues/138) before repository transfer.
+The trusted controller supports repository ID1229335234 at `HemSoft/hs-buddy` and `hemsoft-dev/hs-buddy`. The workflow checks both the immutable ID and approved full name, then mints an App token scoped to the actual repository owner. The script rejects unrelated owners and repository names. This preparation preserves the existing `AI_AUTOMERGE_ENABLED` value and permission ceiling; it does not enable auto-merge or transfer the App. Complete the App installation and credential gates in [SFL migration issue138](https://github.com/hemsoft-dev/set-it-free-loop/issues/138) before repository transfer.
 
 The enforced security audit also requires sharp 0.35.5 for [GHSA-wq5f-xc86-pv6w](https://github.com/advisories/GHSA-wq5f-xc86-pv6w). The compatible patch updates its locked platform packages and librsvg dependency without regenerating product icons.

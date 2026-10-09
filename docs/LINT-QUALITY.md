@@ -2,7 +2,7 @@
 
 ## Measured first tranche
 
-[Issue #657](https://github.com/HemSoft/hs-buddy/issues/657) starts from commit
+[Issue #657](https://github.com/hemsoft-dev/hs-buddy/issues/657) starts from commit
 `743b931fcaaba52e1607bc45ed04c015857044ec`. Measurements on September 5, 2026:
 
 | Step                               | Warnings | File/rule buckets |

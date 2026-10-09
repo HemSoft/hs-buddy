@@ -56,7 +56,7 @@ comparison, and upload. Benchmark CLI calls use `--run` to disable watch mode.
 Timeouts fail the required gate. The Vitest 5 migration retains Tinybench 6's
 full 1,000 ms measurement window. Three interleaved pairs require six separate
 full benchmark invocations. Representative qualification run
-[37280369901](https://github.com/HemSoft/hs-buddy/actions/runs/37280369901)
+[37280369901](https://github.com/hemsoft-dev/hs-buddy/actions/runs/37280369901)
 completed the benchmark job in 29m09s, above the previously documented 25-minute
 budget. The 35-minute budget covers this measured cost and setup, comparison,
 and upload while preserving all three pairs, the measurement window, regression
@@ -64,7 +64,7 @@ threshold, and uncertainty qualification.
 
 Benchmark qualification is separate from fast lint, typecheck, and review
 feedback. Migration CI run
-[34451422759](https://github.com/HemSoft/hs-buddy/actions/runs/34451422759)
+[34451422759](https://github.com/hemsoft-dev/hs-buddy/actions/runs/34451422759)
 proved that the former 15-minute limit expired during the fifth sample.
 Record the hosted job duration when changing
 sample count or benchmark definitions; do not silently increase the budget.
@@ -96,9 +96,9 @@ scripts/benchmarks-workflow.test.ts scripts/ci-memory-workflow.test.ts` to check
 
 ## Initial hosted failure proof
 
-[PR #669](https://github.com/HemSoft/hs-buddy/pull/669), implementing
-[issue #655](https://github.com/HemSoft/hs-buddy/issues/655), measured the controlled
-slowdown in [CI run 34000524452](https://github.com/HemSoft/hs-buddy/actions/runs/34000524452).
+[PR #669](https://github.com/hemsoft-dev/hs-buddy/pull/669), implementing
+[issue #655](https://github.com/hemsoft-dev/hs-buddy/issues/655), measured the controlled
+slowdown in [CI run 34000524452](https://github.com/hemsoft-dev/hs-buddy/actions/runs/34000524452).
 Its benchmark job completed in 14m 4s, within the 15-minute budget. All four
 projection benchmarks regressed by 99.9%; no other benchmark failed. The
 199,119-byte artifact retained all six samples, policy, medians, and summary.

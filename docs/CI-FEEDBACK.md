@@ -71,8 +71,8 @@ unrelated tags and drafts are never moved, published, or deleted. Failed,
 canceled, non-push, duplicate, and already superseded runs cannot publish a
 release.
 
-Releases [`v0.1.1159`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1159)
-and [`v0.1.1191`](https://github.com/HemSoft/hs-buddy/releases/tag/v0.1.1191)
+Releases [`v0.1.1159`](https://github.com/hemsoft-dev/hs-buddy/releases/tag/v0.1.1159)
+and [`v0.1.1191`](https://github.com/hemsoft-dev/hs-buddy/releases/tag/v0.1.1191)
 predate this gate and remain available as historical unqualified releases. Their
 release notes warn that exact-SHA CI failed or was canceled. Do not use either as
 evidence of a qualified build. HemSoft owns investigation of failed default-branch

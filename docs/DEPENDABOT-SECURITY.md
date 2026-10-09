@@ -53,7 +53,7 @@ low alerts are reviewed during the weekly dependency-maintenance pass.
 
 ## Electron downloader compatibility patch
 
-[Issue #746](https://github.com/HemSoft/hs-buddy/issues/746) tracks the vulnerable
+[Issue #746](https://github.com/hemsoft-dev/hs-buddy/issues/746) tracks the vulnerable
 Electron download chain. The `@electron/get` override removes Got and its
 vulnerable cache dependency. Its Fetch API requires Node.js 22.12+.
 
@@ -103,9 +103,9 @@ head.
 
 The high-severity `fast-uri` advisory
 [GHSA-5jgf-p345-68v8](https://github.com/advisories/GHSA-5jgf-p345-68v8)
-is the repository's no-risk tabletop case. [Issue #633](https://github.com/HemSoft/hs-buddy/issues/633)
+is the repository's no-risk tabletop case. [Issue #633](https://github.com/hemsoft-dev/hs-buddy/issues/633)
 recorded the advisory, affected dependency range, owner-visible risk, and
-verification plan. [Pull request #638](https://github.com/HemSoft/hs-buddy/pull/638)
+verification plan. [Pull request #638](https://github.com/hemsoft-dev/hs-buddy/pull/638)
 updated the dependency graph and passed the security gate before merge.
 
 Dependabot alerts were disabled when that advisory was published, so this is a

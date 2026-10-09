@@ -1,3 +1,5 @@
+> SFL feedback status, October 9, 2026: the per-repository SFL pipeline is retired. Its feedback protocol below is historical. Do not dispatch or reinstall those workflows; native Codex and ordinary CI continue. See [current deployment status](SFL-ORGANIZATION-REVIEW.md).
+
 # CI feedback and memory qualification
 
 CI exposes two aggregate checks. Use `ci-feedback` while implementing changes and

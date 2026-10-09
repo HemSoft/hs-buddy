@@ -1,117 +1,23 @@
 ---
 name: sfl
-description: >
-  Commands: create-issue, status, explain, labels. Explicitly invoked SFL workflow for
-  creating SFL issues, checking pipeline status, and explaining the Set it Free Loop.
+description: Retired repository SFL commands; explain the central App replacement without running the legacy pipeline.
 disable-model-invocation: true
 ---
 
-# SFL — Set it Free Loop Skill
+# Retired repository SFL skill
 
-## What is SFL?
+Franz retired this repository's SFL deployment on October 9, 2026. The old
+create-issue, status, explain and labels commands no longer operate a workflow
+pipeline. Their scripts stop before any GitHub command. Do not dispatch, enable,
+repair or reinstall the retired auditor, dispatcher, analyzers, fixer or promoter.
+Do not read deleted manifest/policy paths or claim that labels start automation.
 
-The Set it Free Loop is a continuous quality improvement system that:
+When explicitly invoked, explain the retirement and link to
+[current deployment status](../../../docs/SFL-ORGANIZATION-REVIEW.md) and
+[the central App runbook](https://github.com/hemsoft-dev/set-it-free-loop/blob/main/central-reviewer/README.md).
+Native Codex and ordinary CI continue. Only hs-buddy qualification on mini is
+authorized; this skill does not authorize enabling the central service.
 
-1. Detects problems via scheduled audits (repo-audit, simplisticate-audit)
-2. Converts findings into GitHub Issues with the `agent:fixable` label
-3. Generates fixes via AI-assisted Draft PRs
-4. Reviews PRs with 3 independent AI analyzers
-5. Routes passing PRs to human review
-6. Merges, closes the issue, and the loop repeats
-
-## Commands
-
-### `sfl create issue`
-
-Guide the user through creating a well-formed SFL issue.
-
-**Required information:**
-
-1. **What needs to change** — clear description of the problem
-2. **Risk level** — low, medium, or high
-
-**Issue format:**
-
-- Title: `[agent-fix] <description>`
-- Labels: `agent:fixable`, `risk:<level>`
-- Body: Problem description + acceptance criteria as checkboxes
-
-**Example output:**
-
-```text
-Title: [agent-fix] Remove unused CSS imports in dashboard component
-Labels: agent:fixable, risk:low
-Body:
-## Problem
-The dashboard component imports three CSS modules that are never referenced.
-
-## Acceptance Criteria
-- [ ] Remove unused CSS imports
-- [ ] No visual changes to the dashboard
-- [ ] All existing tests pass
-```
-
-After composing the issue, ask the user to confirm before creating.
-
-### `sfl status`
-
-Check current SFL pipeline state by running:
-
-```bash
-# Open fixable issues (queue)
-gh issue list --repo {owner}/{repo} --label "agent:fixable" --state open
-
-# In-progress (being worked on)
-gh issue list --repo {owner}/{repo} --label "agent:in-progress" --state open
-
-# PRs awaiting review
-gh pr list --repo {owner}/{repo} --label "human:ready-for-review" --state open
-
-# PRs being analyzed
-gh pr list --repo {owner}/{repo} --label "agent:pr" --state open
-```
-
-Present results as a summary table.
-
-### `sfl explain`
-
-Explain any SFL concept the user asks about:
-
-- The overall loop and how it works
-- What any label means
-- What a specific workflow does
-- How fix cycles work
-- How to escalate or pause
-
-Reference `.sfl/policy.md` for governance details.
-
-### `sfl labels`
-
-List all SFL labels with descriptions. Read from `.sfl/labels.json`.
-
-## Label Quick Reference
-
-| Label | Meaning |
-|-------|---------|
-| `agent:fixable` | Agent can auto-fix — enters the loop |
-| `agent:in-progress` | Agent is actively working |
-| `agent:pr` | PR created by automation |
-| `agent:blocked` | Agent stopped — human intervention required |
-| `agent:queued` | Queued behind fan-out ceiling |
-| `analyzer:blocked` | Analyzer found blocking issues |
-| `human:ready-for-review` | All analyzers passed — ready for human |
-| `risk:low` | Low risk: formatting, deps, safe refactors |
-| `risk:medium` | Medium: logic changes, features |
-| `risk:high` | High: auth, payments, migrations |
-| `report` | Informational only — no automation |
-| `no-agent` | Opt out of SFL |
-
-## Key Files
-
-| File | Purpose |
-|------|---------|
-| `.sfl/sfl.json` | Deployment manifest |
-| `.sfl/sfl-config.yml` | User-editable configuration |
-| `.sfl/labels.json` | Label taxonomy snapshot |
-| `.sfl/policy.md` | Governance policy reference |
-| `.sfl/INTAKE.md` | How to create SFL issues |
+For an ordinary issue requested by the user, use the create-issue skill within
+that task's authorization and the repository's AGENTS.md requirements. Existing
+labels, intake, overrides and history remain records rather than an active queue.

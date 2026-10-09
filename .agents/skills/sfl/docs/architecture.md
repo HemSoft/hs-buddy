@@ -1,3 +1,5 @@
+> Historical SFL reference: the per-repository pipeline and its operational scripts are retired. Do not execute the commands below, restore deleted configuration, or infer active automation from historical labels. Use the [central App runbook](https://github.com/hemsoft-dev/set-it-free-loop/blob/main/central-reviewer/README.md).
+
 # SFL Architecture — Deep Dive
 
 ## Workflow Type Comparison

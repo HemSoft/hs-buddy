@@ -33,3 +33,23 @@ retired workflows or reinstall them with `gh sfl init`, `sync` or deployment scr
 qualification evidence and remaining work. This document describes the pilot
 contract; it does not assert a successful live test before its receipts exist.
 Broader repository activation requires a separate owner instruction.
+
+## Context recovery observed during qualification
+
+The initial live native review found missing links and inconsistent installation
+status in the documentation. The App check failed until substantive documentation
+fixes received fresh authenticated review. A later clean head qualified green.
+Retargeting that PR to the owned control base withdrew success. Restoring `main`
+left the unchanged head `action_required`, as the contract requires.
+
+For this recovery, push a substantive new commit and request fresh native Codex
+review of that head. Wait for its authenticated completion and the new App check;
+prior green checks and returning to the old base do not establish new proof.
+This commit records the observed invalidation and recovery procedure. Final
+new-head and redelivery evidence belongs to the linked qualification issue.
+
+Before finishing the qualification window, inspect the mini service health and
+pause it with `enabled=false`, confirming zero queued jobs and dead letters.
+Preserve failure receipts and head history during recovery. Do not edit state or
+checks to restore success. Leave organization `SFL_ENABLED=false` in place and
+keep the App check advisory until a separate owner activation decision.

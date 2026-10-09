@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { validateDocumentationMetadata } from './check-readme-metadata'
 
 const ciBadge =
-  '[![CI](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
+  '[![CI](https://github.com/hemsoft-dev/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hemsoft-dev/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
 
 const packageJson = JSON.stringify({
   engines: { node: '>=22.0.0' },

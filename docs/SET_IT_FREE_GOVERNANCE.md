@@ -1,8 +1,10 @@
+> Historical deployment policy: the autonomous SFL workflows are retired. The policy below records their prior behavior and does not authorize reinstalling or running them. Native Codex and ordinary repository protections continue. See [current deployment status](SFL-ORGANIZATION-REVIEW.md).
+
 # Set it Free — Governance Policy
 
 **Version**: 1.1  
 **Updated**: 2026-03-05  
-**Status**: Active  
+**Status**: Historical — deployment retired  
 
 ---
 

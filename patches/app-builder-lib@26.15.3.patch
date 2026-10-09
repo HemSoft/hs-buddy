@@ -67,8 +67,8 @@ index a941f9d2..04f3899a 100644
 +                        return status >= 500;
                      }
 -                    return typeof (e === null || e === void 0 ? void 0 : e.code) === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "ENOENT"].includes(e.code);
-+                    const code = e?.cause?.code ?? e?.code;
-+                    return typeof code === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EPIPE", "ENOENT"].includes(code);
++                    const codes = [e?.cause?.code, e?.code, ...(Array.isArray(e?.cause?.errors) ? e.cause.errors.map(error => error?.code) : [])];
++                    return codes.some(code => typeof code === "string" && ["ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "ECONNREFUSED", "EAI_AGAIN", "ENETUNREACH", "EHOSTUNREACH", "EPIPE", "ENOENT", "UND_ERR_SOCKET", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT", "UND_ERR_CLOSED"].includes(code));
                  },
              });
          }

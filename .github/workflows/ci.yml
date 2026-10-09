@@ -638,7 +638,11 @@ jobs:
       - name: Setup Bun
         uses: ./.github/actions/setup-bun
 
+      # A stalled cache restore once consumed the whole job timeout on macOS.
+      # The cache only saves time, so fall back to a cold install instead.
       - name: Cache Bun dependencies
+        timeout-minutes: 5
+        continue-on-error: true
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v4
         with:
           path: ~/.bun/install/cache

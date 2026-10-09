@@ -1,5 +1,3 @@
-> SFL feedback status, October 9, 2026: the per-repository SFL pipeline is retired. Its feedback protocol below is historical. Do not dispatch or reinstall those workflows; native Codex and ordinary CI continue. See [current deployment status](SFL-ORGANIZATION-REVIEW.md).
-
 # CI feedback and memory qualification
 
 CI exposes two aggregate checks. Use `ci-feedback` while implementing changes and
@@ -17,11 +15,9 @@ full qualification. Every subsequent push to a ready PR requalifies its new
 revision. Returning a PR to draft cancels obsolete work and defers qualification.
 A draft result never establishes permission to merge the same SHA after promotion.
 
-The existing SFL promoter advances drafts based on analyzer verdicts, so it does
-not depend on a passing memory gate before marking ready. Other PR automation
-must use `ci-feedback` during review and wait for the required checks on the final
-candidate before declaring it merge-ready. Do not interpret the draft deferral as
-a defect to fix or bypass.
+The repository SFL promoter is retired. Contributors and ordinary PR automation
+use `ci-feedback` during review and wait for required checks on the final candidate
+before declaring it ready to merge. Draft deferral is not a defect to bypass.
 
 ## Change selection
 

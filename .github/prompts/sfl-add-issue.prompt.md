@@ -16,7 +16,7 @@ not established by this preparation change.
 
 Gather the concrete problem, affected files, expected behavior, measurable
 acceptance criteria and reproducible validation. Record risk and the Risk
-Acknowledgment required by AGENTS.md. Use the create-issue skill when creating an
-issue within an authorized user task. Do not claim that creating an issue starts
+Acknowledgment required by AGENTS.md. For an authorized issue, write its body to a temporary file and run
+`gh issue create --repo hemsoft-dev/hs-buddy --title "..." --body-file <file>`. Do not claim that creating an issue starts
 an autonomous workflow, add pipeline lifecycle labels to dispatch work, or infer
 merge authority from a risk label.

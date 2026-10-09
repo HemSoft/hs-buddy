@@ -292,31 +292,17 @@ The left-side activity bar provides access to 10 sections:
 | **Copilot**    | Prompt box, results, usage, session explorer                   |
 | **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced         |
 
-## Set it Free Loop
+## SFL deployment status
 
-This repository is governed by the **Set it Free Loop™** — a recursive automation system that detects quality findings, implements fixes on a draft PR, reviews them with multiple AI models, and hands clean pull requests to humans for the final merge decision.
+The repository's autonomous SFL pipeline and reviewer workflows are retired.
+Native Codex and ordinary CI continue. Only this repository is authorized for the
+central organization App qualification on mini; the check is advisory and its
+live evidence is tracked in [SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139).
 
-<p align="center">
-  <img src="assets/set-it-free-loop/sfl-architecture-flow.png" alt="Set it Free Loop Architecture" width="800" />
-</p>
-
-The loop runs continuously via GitHub Actions workflows:
-
-| Stage                  | Workflow            | What it does                                                                       |
-| ---------------------- | ------------------- | ---------------------------------------------------------------------------------- |
-| **Detect**             | Repo Audit          | Scans for documentation drift, stale artifacts, config hygiene                     |
-| **Detect**             | Simplisticate Audit | Identifies unnecessary complexity and dead code                                    |
-| **Claim**              | Issue Processor     | Claims `agent:fixable` issues and opens draft PRs                                  |
-| **Review**             | PR Analyzers A/B/C  | Three independent AI models perform full-spectrum code review                      |
-| **Implement / Revise** | Issue Processor     | Creates the first draft PR and applies follow-up analyzer feedback on later cycles |
-| **Route**              | PR Label Actions    | Route blocked PRs back to the implementer and flip clean PRs to ready-for-review   |
-| **Guard**              | SFL Auditor         | Repairs issue/PR label discrepancies and enforces one-issue-one-PR harmony         |
-
-Human involvement is required for the final merge decision on every SFL PR. Low-risk fixes can still be prepared autonomously, but merging is human-owned.
-
-> **Note**: The Discussion Processor is an event-driven workflow triggered when a GitHub Discussion is labeled. It is not a scheduled pipeline stage — audit workflows create `agent:fixable` issues directly.
-
-See [SET_IT_FREE_GOVERNANCE.md](docs/SET_IT_FREE_GOVERNANCE.md) for the full policy including label taxonomy, retry limits, merge authority matrix, and escalation paths.
+See [current deployment status](docs/SFL-ORGANIZATION-REVIEW.md) and the
+[central service runbook](https://github.com/hemsoft-dev/set-it-free-loop/blob/main/central-reviewer/README.md).
+Retained governance, intake and consumer overrides are historical records; their
+old pipeline instructions do not start automation or authorize reinstalling it.
 
 ## Pi completion audio
 

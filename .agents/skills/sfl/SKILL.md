@@ -18,6 +18,6 @@ When explicitly invoked, explain the retirement and link to
 Native Codex and ordinary CI continue. Only hs-buddy qualification on mini is
 authorized; this skill does not authorize enabling the central service.
 
-For an ordinary issue requested by the user, use the create-issue skill within
+For an ordinary issue requested by the user, use `gh issue create --repo hemsoft-dev/hs-buddy` within
 that task's authorization and the repository's AGENTS.md requirements. Existing
 labels, intake, overrides and history remain records rather than an active queue.

@@ -167,7 +167,7 @@ Analyzes failing rules and recommends the single highest-impact improvement.
    ```
 
 6. Ask the user if they want to:
-   - Create an ordinary issue for the recommended fix (use the `create-issue` skill within the user's authorization)
+   - Create an ordinary issue for the recommended fix (use `gh issue create` within the user's authorization)
    - Implement the fix directly in the current session
 
 ## JSON Data Structure Reference

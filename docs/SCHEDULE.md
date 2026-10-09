@@ -1,3 +1,5 @@
+> SFL deployment status, October 9, 2026: the per-repository autonomous workflow schedule below is historical and retired. Native Codex and ordinary CI continue. Do not enable or reinstall the listed SFL workflows. See [current deployment status](SFL-ORGANIZATION-REVIEW.md).
+
 # SFL Workflow Schedule
 
 Scheduled GitHub Actions workflows are currently paused in this repository. The

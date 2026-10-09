@@ -22,7 +22,7 @@
   The workflow run ID to debug. If omitted, shows recent runs to pick from.
 
 .PARAMETER Workflow
-    Workflow file name filter (e.g., "ci"). Shows recent runs for that workflow.
+    Workflow file name filter (e.g., "ci.yml"). Shows recent runs for that workflow.
 
 .PARAMETER Repo
   Repository (default: relias-engineering/hs-buddy).
@@ -32,8 +32,8 @@
 
 .EXAMPLE
   .\debug-workflow-run.ps1 -RunId 22528612554
-    .\debug-workflow-run.ps1 -Workflow ci
-  .\debug-workflow-run.ps1 -Workflow benchmarks -Full
+    .\debug-workflow-run.ps1 -Workflow ci.yml
+  .\debug-workflow-run.ps1 -Workflow benchmarks.yml -Full
 #>
 param(
     [string]$RunId,

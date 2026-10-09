@@ -1,4 +1,4 @@
-> SFL deployment status, October 9, 2026: the repository workflows are retired. The SFL pipeline instructions below describe the historical deployment. Native Codex and ordinary CI remain. The organization App replacement is limited to an hs-buddy pilot after setup, tracked in [SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139). Do not reinstall or run the historical SFL workflows.
+> SFL deployment status, October 9, 2026: the repository workflows are retired. The SFL pipeline instructions below describe the historical deployment. Native Codex and ordinary CI remain. The central organization App service is installed on mini, limited to this repository. Read the [pilot contract](CENTRAL-SFL-PILOT.md); qualification evidence and pause state are tracked in [SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139). Do not reinstall or run the historical SFL workflows.
 
 # Goal and Guiding Principles for hs-buddy
 

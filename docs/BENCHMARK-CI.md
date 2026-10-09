@@ -46,9 +46,15 @@ The job collects three interleaved pairs, in this order:
 builds per-benchmark medians using `bench-median.ts`. The established CI threshold
 remains a throughput drop **greater than 20%**. Qualification additionally
 requires nonoverlapping reported uncertainty bounds: duration-relative RME is
-converted to reciprocal throughput bounds before comparison. These bounds do
-not account for every source of runner variance; interleaving and medians reduce
-order effects and single-sample noise. The local performance skill's five-run,
+converted to reciprocal throughput bounds before comparison. The candidate
+median's upper bound is compared with the lower bound of the **slowest** baseline
+sample, not the baseline median. RME only describes noise within one process,
+and some benchmarks settle at different speeds in different processes. For
+example, `JSON.stringify (cache write) > 1000 entries` has measured about 540 or
+about 720 ops/s per process on identical code. A median that happens to land on
+the faster mode must not fail a change that touches no runtime code. A uniform
+slowdown still falls below every baseline sample and fails. Interleaving and
+medians reduce order effects and single-sample noise. The local performance skill's five-run,
 5% baseline checks remain a separate, stricter investigation procedure.
 
 The job has a **35-minute timeout**, including setup, six benchmark invocations,

@@ -40,9 +40,17 @@ export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: Be
   const candidate = buildMedianBenchmarkOutput(candidateRuns)
   const result = compareBenchmarks(baseline, candidate, CI_REGRESSION_THRESHOLD)
   // Reject only drops beyond the maintained floor and both reported uncertainty bounds.
-  const base = parseBenchOutput(baseline)
+  // RME covers sampling noise within one process. Some benchmarks also settle into
+  // different speeds per process, so the candidate median must fall below the slowest
+  // baseline sample, not only below the baseline median.
+  const baseSamples = baseRuns.map(run => parseBenchOutput(run))
   for (const entry of result.entries) {
-    const baselineLower = entry.baselineHz / (1 + base.get(entry.key)!.rme / 100)
+    const baselineLower = Math.min(
+      ...baseSamples.map(sample => {
+        const { hz, rme } = sample.get(entry.key)!
+        return hz / (1 + rme / 100)
+      })
+    )
     const candidateUpper = entry.currentHz / (1 - entry.rme / 100)
     entry.passed ||= candidateUpper >= baselineLower
   }
@@ -84,7 +92,7 @@ if (import.meta.main) {
     const comparison = result.entries.length
       ? formatResults(result)
       : `## Benchmark comparison unavailable\n\nNo matching benchmark identities; ${result.newBenchmarks.length} new and ${result.removedBenchmarks.length} removed. Both measured revisions are retained for this advisory run.`
-    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and nonoverlapping reported uncertainty bounds.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
+    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and a candidate median whose uncertainty bound stays below the slowest baseline sample.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
     console.log(summary)
     writeFileSync('bench-summary.md', summary)
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary)

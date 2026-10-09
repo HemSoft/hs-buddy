@@ -46,14 +46,17 @@ The job collects three interleaved pairs, in this order:
 builds per-benchmark medians using `bench-median.ts`. The established CI threshold
 remains a throughput drop **greater than 20%**. Qualification additionally
 requires nonoverlapping reported uncertainty bounds: duration-relative RME is
-converted to reciprocal throughput bounds before comparison. The drop must also
-exceed the threshold between the geometric means of the three samples. Some
-benchmarks settle at different speeds in different processes; for example,
+converted to reciprocal throughput bounds before comparison. Some benchmarks
+settle at different speeds in different processes; for example,
 `JSON.stringify (cache write) > 1000 entries` has measured about 540 or about
 720 ops/s per process on identical code. A three-run median reports whichever
-speed two runs hit, while the geometric mean averages that noise out. A real
-slowdown shifts every sample, so it still fails both comparisons, and the median
-keeps a single extreme sample from failing the gate. These bounds do not account
+speed two runs hit. When every sample of both revisions stays within a **1.5x**
+spread, the drop must therefore also exceed the threshold between the geometric
+means, which average that noise out while every sample of a real slowdown
+shifts. A wider spread indicates an outlier rather than a process speed, so the
+median alone decides, and one extreme sample on either revision can neither
+fail the gate nor hide a slowdown. Speed noise within that spread cannot move
+the median by more than a factor of 1.5, so a larger median drop always fails. These bounds do not account
 for every source of runner variance; interleaving and medians reduce order
 effects and single-sample noise. The local performance skill's five-run,
 5% baseline checks remain a separate, stricter investigation procedure.

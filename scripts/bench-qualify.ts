@@ -33,9 +33,18 @@ function validateSamples(runs: BenchmarkOutput[]) {
   }
 }
 
-function geometricMeanHz(samples: ReturnType<typeof parseBenchOutput>[], key: string): number {
-  const logSum = samples.reduce((sum, sample) => sum + Math.log(sample.get(key)!.hz), 0)
-  return Math.exp(logSum / samples.length)
+// Widest spread between process speeds still treated as noise. CI has measured
+// one benchmark at about 540 and about 720 ops/s per process on identical code.
+export const PROCESS_SPEED_SPREAD = 1.5
+
+type SampleSet = ReturnType<typeof parseBenchOutput>[]
+
+// Geometric mean of samples that stay within the process-speed spread. A wider
+// spread means an outlier, so the median alone decides.
+function processSpeedMean(samples: SampleSet, key: string): number | undefined {
+  const rates = samples.map(sample => sample.get(key)!.hz)
+  if (Math.max(...rates) > Math.min(...rates) * PROCESS_SPEED_SPREAD) return undefined
+  return Math.exp(rates.reduce((sum, rate) => sum + Math.log(rate), 0) / rates.length)
 }
 
 export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: BenchmarkOutput[]) {
@@ -47,17 +56,23 @@ export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: Be
   // Reject only drops beyond the maintained floor and both reported uncertainty bounds.
   const base = parseBenchOutput(baseline)
   // Some benchmarks settle at different speeds per process. A three-run median then
-  // reports whichever speed two runs hit, so the drop must also show in the geometric
-  // mean, which averages that noise out while every sample of a real slowdown shifts.
+  // reports whichever speed two runs hit, so when both revisions stay within that
+  // spread the drop must also show in the geometric mean, which averages the noise
+  // out while every sample of a real slowdown shifts.
   const baseSamples = baseRuns.map(run => parseBenchOutput(run))
   const candidateSamples = candidateRuns.map(run => parseBenchOutput(run))
   for (const entry of result.entries) {
     const baselineLower = entry.baselineHz / (1 + base.get(entry.key)!.rme / 100)
     const candidateUpper = entry.currentHz / (1 - entry.rme / 100)
-    const meanChange =
-      (geometricMeanHz(candidateSamples, entry.key) / geometricMeanHz(baseSamples, entry.key) - 1) *
-      100
-    entry.passed ||= candidateUpper >= baselineLower || meanChange >= -CI_REGRESSION_THRESHOLD
+    const baseMean = processSpeedMean(baseSamples, entry.key)
+    const candidateMean = processSpeedMean(candidateSamples, entry.key)
+    // Speed noise alone cannot move the median further than the spread allows.
+    const withinProcessNoise =
+      entry.currentHz * PROCESS_SPEED_SPREAD >= entry.baselineHz &&
+      baseMean !== undefined &&
+      candidateMean !== undefined &&
+      (candidateMean / baseMean - 1) * 100 >= -CI_REGRESSION_THRESHOLD
+    entry.passed ||= candidateUpper >= baselineLower || withinProcessNoise
   }
   result.passed = result.entries.every(entry => entry.passed)
   return { baseline, candidate, result }
@@ -97,7 +112,7 @@ if (import.meta.main) {
     const comparison = result.entries.length
       ? formatResults(result)
       : `## Benchmark comparison unavailable\n\nNo matching benchmark identities; ${result.newBenchmarks.length} new and ${result.removedBenchmarks.length} removed. Both measured revisions are retained for this advisory run.`
-    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop in both the medians and the geometric means, and nonoverlapping reported uncertainty bounds.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
+    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, nonoverlapping reported uncertainty bounds, and the same drop in the geometric means when every sample stays within a ${PROCESS_SPEED_SPREAD}x process-speed spread.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
     console.log(summary)
     writeFileSync('bench-summary.md', summary)
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary)

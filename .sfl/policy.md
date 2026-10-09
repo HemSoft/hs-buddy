@@ -1,3 +1,5 @@
+> Historical record, October 9, 2026. Repository SFL automation is retired; the original text below is retained for audit and does not authorize execution or reinstallation. Native Codex and ordinary CI continue. See [current deployment status](../docs/SFL-ORGANIZATION-REVIEW.md).
+
 # Set it Free — Governance Policy
 
 **Version**: 3.0  

@@ -1,3 +1,5 @@
+> Historical record, October 9, 2026. Repository SFL automation is retired; the original text below is retained for audit and does not authorize execution or reinstallation. Native Codex and ordinary CI continue. See [current deployment status](../docs/SFL-ORGANIZATION-REVIEW.md).
+
 # SFL Intake Guide
 
 > How to create issues that the Set it Free Loop will pick up and process.

@@ -1,3 +1,5 @@
+> SFL deployment status, October 9, 2026: the repository workflows are retired. The SFL pipeline instructions below describe the historical deployment. Native Codex and ordinary CI remain. The organization App replacement is limited to an hs-buddy pilot after setup, tracked in [SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139). Do not reinstall or run the historical SFL workflows.
+
 # SFL Onboarding - Token Setup
 
 How to configure GitHub Actions credentials for the Set it Free Loop in this repo.

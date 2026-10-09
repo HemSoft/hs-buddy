@@ -1,3 +1,7 @@
+# Historical SFL autonomy record. Repository SFL is retired; values below do
+# not authorize execution or reinstallation. Native Codex and ordinary CI continue.
+# See docs/SFL-ORGANIZATION-REVIEW.md. Original human-owned settings are retained.
+
 # SFL Autonomy Configuration
 # Controls how much the Set it Free Loop can do without human intervention.
 # This file is HUMAN-ONLY — SFL workflows must never modify it.

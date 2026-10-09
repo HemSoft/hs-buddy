@@ -1,42 +1,14 @@
-# SFL organization review
+# SFL deployment retired
 
-This repository retains its full SFL tier and manual-only Auditor and Dispatcher. The reviewer comes from the signed `v2.1.0-rc.28` release at source `104648b0a9f2709c15d2cfb6c9b7d9dc49e171b3`. Existing model policy and repository-scoped App credentials remain in place.
+The repository SFL workflows and installed manifest are being removed under Franz's October 9, 2026 organization App decision. This repository is the sole central reviewer pilot after setup. No installed central service or successful pilot is claimed by this preparation PR. Native Codex reviews and ordinary repository CI continue.
 
-## Update and inspect
+Do not use `gh sfl init`, `sync`, `review`, or `gate` to reinstall the retired observer. The replacement requires no consumer SFL workflow or SFL model/App secret. Existing credential values and unrelated integrations are preserved. The paused organization rollout is tracked in [SFL issue #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139). Broader activation waits for a separate owner instruction.
 
-Use the [organization onboarding guide](https://github.com/hemsoft-dev/set-it-free-loop/blob/main/docs/ORGANIZATION-ONBOARDING.md) and inspect the installed package before requesting review:
+## Protection decision
 
-```sh
-gh sfl status --repo hemsoft-dev/hs-buddy
-gh sfl sync --repo hemsoft-dev/hs-buddy --pr
-```
-
-The versioned `.sfl/sync-policy.json` preserves the manual Auditor and Dispatcher and the removed issue processor. Review the generated PR before merging an update. Repeating sync at the same signed source must create no new PR or default-branch change; updating existing SFL labels remains an expected API write.
-
-## Register a review
-
-```sh
-gh sfl review --repo hemsoft-dev/hs-buddy --pr NUMBER
-```
-
-The CLI registers the authorized owner request for the immutable PR head and base. The installed observer verifies the Codex App identity and review result, then publishes the Actions-authored `SFL Reviewer Gate Runner` result. A clean native comment alone does not establish a registered SFL gate.
-
-A changed base, reopened PR or overlapping same-head registered requests requires a new head before requesting a fresh review. Findings or malformed results keep the gate blocked. Preserve the repository's existing CI and CodeQL requirements alongside the strict reviewer gate.
-
-## Manual wider automation
-
-The Auditor and Dispatcher have no schedules. A migration smoke run first checks that there are no eligible agent issues, draft agent PRs or approved promoter candidates. After that check, execute the existing manual workflows at the current default revision and inspect their actual outputs. The smoke proof requires all Auditor summary counts to be zero and all Dispatcher model and promoter steps to be skipped; a configured workflow or old successful run does not prove the current deployment.
-
-## Immediate predecessor recovery
-
-A third request cannot bypass an unresolved second request on the same head. Wait for the immediate predecessor to finish before requesting another review. If requests overlap, publish a new head and register one fresh request instead of adding more comments to the ambiguous head.
-
-This change verifies the rc28 observer installed on the current main branch through a registered review and the required Actions gate. The installed production fixtures test negative cases separately from that live execution.
-
-The rc28 observer authenticates exact current requests and trusted review context before admitting registry-free marker runs. It retains verified active-run request identity across later edits, deletion or access loss; ordinary marker quotations cannot block another valid result. Publication repair preserves the primary API failure while restoring a blocking gate. Installed and live validation remain separate.
-
-## Review request verification after the organization move
-
-Use `gh sfl review --repo hemsoft-dev/hs-buddy --pr <number>` to register one review for the current head and base. The installed observer verifies the unchanged request, its author access, and the Actions context before admitting it. Wait for that request to finish before requesting another review on the same head.
-
-The signed 2.1.0-rc.28 observer is installed on main. This documentation change checks its real Actions execution separately from the installed workflow failure scenarios. The manual Auditor and Dispatcher remain consumer owned.
+Franz authorized retirement of the old SFL-only gate before workflow removal.
+Ruleset 24718485, `Require SFL Reviewer Gate Runner`, is deleted. The effective
+main-branch checks are `ci-complete` and `npm audit`; CodeQL high-or-higher and
+review-thread resolution remain. The central App check is advisory during
+qualification. No SFL publisher is required to merge a PR in this transition.
+Unrelated ruleset details were verified unchanged before and after gate removal.

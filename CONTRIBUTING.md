@@ -112,7 +112,7 @@ scope, alert ownership, dismissal rules, and verification commands are in
 Repository administrators can inspect the enforced policy with:
 
 ```bash
-gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
+gh api repos/hemsoft-dev/hs-buddy/rulesets/15947577 \
   --jq '{
     enforcement,
     conditions,

@@ -11,8 +11,10 @@ The repository SFL auditor, dispatcher, analyzers and autonomous loop are retire
 Do not reinstall, dispatch, repair or diagnose their absence as a failure. Their
 labels and historical records remain for reference. Native Codex and ordinary CI
 continue. The central App pilot is tracked in
-[SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139); a successful pilot is
-not established by this preparation change.
+[SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139), which records
+qualification evidence and the current pause state. The central service is
+installed on mini with hs-buddy as its sole qualification target. Read the
+[pilot contract](../../docs/CENTRAL-SFL-PILOT.md).
 
 Fetch open issues and PRs, each PR's current head/base, current-head CI, native
 Codex artifacts and unresolved threads. Fetch recent runs only for ordinary

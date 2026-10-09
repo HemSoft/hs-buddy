@@ -63,7 +63,7 @@ workflows when there is work to process.
 Labels are configured by running once:
 
 ```powershell
-.\deployment\governance\setup-labels.ps1 -Owner HemSoft -Repo hs-buddy
+.\deployment\governance\setup-labels.ps1 -Owner hemsoft-dev -Repo hs-buddy
 ```
 
 See the [full label taxonomy and governance policy](https://github.com/relias-engineering/set-it-free-loop/blob/main/deployment/governance/policy.md).

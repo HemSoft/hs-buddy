@@ -191,8 +191,8 @@ finish() {
 
 TOTAL_STAGES=3
 
-REPO="HemSoft/hs-buddy"
-INSTALLATION_ID="150383874"
+REPO="hemsoft-dev/hs-buddy"
+INSTALLATION_ID="169090497"
 
 banner "SFL App permissions — fix AI review auto-merge"
 
@@ -205,7 +205,7 @@ say "  checks:write, pull-requests:write and issues:read."
 say ""
 step "Open the app registration's 'Permissions & events' page first —"
 step "the installation page cannot grant a permission the app does not request:"
-open_url "https://github.com/organizations/HemSoft/settings/apps/sfl-app/permissions"
+open_url "https://github.com/organizations/hemsoft-dev/settings/apps/sfl-app/permissions"
 pause "If that page 404s, the app is user-owned: open https://github.com/settings/apps/sfl-app/permissions instead. Enter = continue"
 say ""
 say "Under 'Permissions & events', set 'Contents' to: Read and write"
@@ -217,7 +217,7 @@ step "Click 'Save' on the registration page."
 pause "Press Enter once you've saved the permission changes"
 say ""
 step "Now open the installation's Configure page to approve the pending change:"
-open_url "https://github.com/organizations/HemSoft/settings/installations/${INSTALLATION_ID}"
+open_url "https://github.com/organizations/hemsoft-dev/settings/installations/${INSTALLATION_ID}"
 pause "Did that page open and show the sfl-app Configure screen? [Enter = yes; if 404, press Enter anyway]"
 say ""
 if ! confirm "Is the sfl-app configuration page open?"; then
@@ -238,7 +238,7 @@ stage "Approve pending permission change (only if the app is user-owned)"
 say "If the SFL app is owned by a user (not the org), GitHub may queue the"
 say "new permissions for org approval instead of applying them instantly."
 say ""
-open_url "https://github.com/organizations/HemSoft/settings/installations"
+open_url "https://github.com/organizations/hemsoft-dev/settings/installations"
 step "Look for 'sfl-app' with a 'Pending review' / 'Permissions requested' notice."
 step "If present, open it and click 'Review request' → 'Grant access'."
 say ""

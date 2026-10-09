@@ -2,8 +2,8 @@
 
 ## Live work
 
-Use the [open issue queue](https://github.com/HemSoft/hs-buddy/issues?q=is%3Aissue%20is%3Aopen)
-and [open pull requests](https://github.com/HemSoft/hs-buddy/pulls?q=is%3Apr%20is%3Aopen)
+Use the [open issue queue](https://github.com/hemsoft-dev/hs-buddy/issues?q=is%3Aissue%20is%3Aopen)
+and [open pull requests](https://github.com/hemsoft-dev/hs-buddy/pulls?q=is%3Apr%20is%3Aopen)
 to choose work and find its current assignee. This file does not claim live GitHub
 status or copy the open-work queue. Confirm scope and ownership on the linked
 tracker before starting work.
@@ -139,6 +139,6 @@ new work must first be selected from the live issue queue.
 | React Doctor          | [Tool version, full-scan policy, and CI contract](docs/react-doctor.md). Run `bun run react-doctor`; inspect the generated report.                                                                                                                     | [#653](https://github.com/HemSoft/hs-buddy/issues/653), [#651](https://github.com/HemSoft/hs-buddy/issues/651)              |
 | Lighthouse            | [Maintained budgets and report commands](docs/lighthouse-baseline.md).                                                                                                                                                                                 | [#654](https://github.com/HemSoft/hs-buddy/issues/654)                                                                      |
 | Accessibility         | [Accessibility helper](src/test/axe-helper.ts) and the `test:a11y` command in [package.json](package.json). Run `bun run test:a11y`; inspect the executed tests for their actual component scope.                                                      | [Closed tracker #91](https://github.com/HemSoft/hs-buddy/issues/91); select any expansion from the live issue queue.        |
-| Dependencies          | [e18e triage policy](docs/E18E-DEPENDENCY-TRIAGE.md). Run `bun run e18e`; consult [live Dependabot PRs](https://github.com/HemSoft/hs-buddy/pulls?q=is%3Apr%20is%3Aopen%20author%3Aapp%2Fdependabot) for update work.                                  | [#647](https://github.com/HemSoft/hs-buddy/issues/647), [closed tracker #93](https://github.com/HemSoft/hs-buddy/issues/93) |
+| Dependencies          | [e18e triage policy](docs/E18E-DEPENDENCY-TRIAGE.md). Run `bun run e18e`; consult [live Dependabot PRs](https://github.com/hemsoft-dev/hs-buddy/pulls?q=is%3Apr%20is%3Aopen%20author%3Aapp%2Fdependabot) for update work.                                  | [#647](https://github.com/HemSoft/hs-buddy/issues/647), [closed tracker #93](https://github.com/HemSoft/hs-buddy/issues/93) |
 | Electron security     | Run `bun run security:electron`, defined in [package.json](package.json), for current findings.                                                                                                                                                        | [Closed tracker #90](https://github.com/HemSoft/hs-buddy/issues/90)                                                         |
 | Markdown              | Run `bun run lint:md`, defined in [package.json](package.json).                                                                                                                                                                                        | [Closed tracker #92](https://github.com/HemSoft/hs-buddy/issues/92)                                                         |

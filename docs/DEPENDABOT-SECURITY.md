@@ -14,7 +14,7 @@ the repository alert API:
 ```bash
 gh auth status # Confirm that HemSoft is the active account before continuing.
 gh api --paginate --slurp --method GET \
-  repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
+  repos/hemsoft-dev/hs-buddy/dependabot/alerts -f state=open
 ```
 
 On first review, assign the alert to `HemSoft`. Every high or critical alert
@@ -53,7 +53,7 @@ low alerts are reviewed during the weekly dependency-maintenance pass.
 
 ## Electron downloader compatibility patch
 
-[Issue #746](https://github.com/HemSoft/hs-buddy/issues/746) tracks the vulnerable
+[Issue #746](https://github.com/hemsoft-dev/hs-buddy/issues/746) tracks the vulnerable
 Electron download chain. The `@electron/get` override removes Got and its
 vulnerable cache dependency. Its Fetch API requires Node.js 22.12+.
 
@@ -103,9 +103,9 @@ head.
 
 The high-severity `fast-uri` advisory
 [GHSA-5jgf-p345-68v8](https://github.com/advisories/GHSA-5jgf-p345-68v8)
-is the repository's no-risk tabletop case. [Issue #633](https://github.com/HemSoft/hs-buddy/issues/633)
+is the repository's no-risk tabletop case. [Issue #633](https://github.com/hemsoft-dev/hs-buddy/issues/633)
 recorded the advisory, affected dependency range, owner-visible risk, and
-verification plan. [Pull request #638](https://github.com/HemSoft/hs-buddy/pull/638)
+verification plan. [Pull request #638](https://github.com/hemsoft-dev/hs-buddy/pull/638)
 updated the dependency graph and passed the security gate before merge.
 
 Dependabot alerts were disabled when that advisory was published, so this is a
@@ -118,17 +118,17 @@ review, and closure without adding a vulnerable dependency to `main`.
 ```bash
 # Expect HTTP 204.
 gh auth status # Confirm that HemSoft is the active account before continuing.
-gh api -i --method GET repos/HemSoft/hs-buddy/vulnerability-alerts
+gh api -i --method GET repos/hemsoft-dev/hs-buddy/vulnerability-alerts
 
 # Expect {"enabled":true,"paused":false}.
 gh auth status # Confirm that HemSoft is the active account before continuing.
-gh api --method GET repos/HemSoft/hs-buddy/automated-security-fixes
+gh api --method GET repos/hemsoft-dev/hs-buddy/automated-security-fixes
 
 # Expect one array containing every page, including an empty page when no
 # alerts are open.
 gh auth status # Confirm that HemSoft is the active account before continuing.
 gh api --paginate --slurp --method GET \
-  repos/HemSoft/hs-buddy/dependabot/alerts -f state=open
+  repos/hemsoft-dev/hs-buddy/dependabot/alerts -f state=open
 
 # Expect no high-severity advisories and exit code 0.
 bun audit --audit-level=high

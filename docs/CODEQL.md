@@ -62,13 +62,13 @@ constraint. Never dismiss an alert because a fix is inconvenient, and never
 use a path exclusion or query change as a substitute for triage.
 
 The 15 findings from the first analysis are tracked in
-[issue #661](https://github.com/HemSoft/hs-buddy/issues/661). Merge protection
+[issue #661](https://github.com/hemsoft-dev/hs-buddy/issues/661). Merge protection
 was enabled only after that issue recorded every baseline alert.
 
 ## Enforcement proof
 
 Pull request
-[#662](https://github.com/HemSoft/hs-buddy/pull/662) tested the rule with a
+[#662](https://github.com/hemsoft-dev/hs-buddy/pull/662) tested the rule with a
 disposable command-injection fixture on its initial head, `73db8108`. CodeQL
 analysis `1728778633` reported critical alert `#16`
 (`js/command-line-injection`), the ruleset emitted a failing required `CodeQL`
@@ -81,18 +81,18 @@ Before every GitHub CLI operation, confirm that `HemSoft` is the active account.
 
 ```bash
 gh auth status
-gh api repos/HemSoft/hs-buddy/code-scanning/default-setup
+gh api repos/hemsoft-dev/hs-buddy/code-scanning/default-setup
 
 gh auth status
-gh api --method GET repos/HemSoft/hs-buddy/code-scanning/analyses \
+gh api --method GET repos/hemsoft-dev/hs-buddy/code-scanning/analyses \
   --jq '.[0] | {ref,commit_sha,tool,error}'
 
 gh auth status
 gh api --paginate --slurp --method GET \
-  repos/HemSoft/hs-buddy/code-scanning/alerts -f state=open
+  repos/hemsoft-dev/hs-buddy/code-scanning/alerts -f state=open
 
 gh auth status
-gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
+gh api repos/hemsoft-dev/hs-buddy/rulesets/15947577 \
   --jq '.rules[] | select(.type == "code_scanning")'
 ```
 

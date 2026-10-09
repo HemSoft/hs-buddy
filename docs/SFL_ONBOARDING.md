@@ -4,7 +4,7 @@ How to configure GitHub Actions credentials for the Set it Free Loop in this rep
 
 ## Current hs-buddy Configuration
 
-`HemSoft/hs-buddy` runs the SFL gh-aw workflows on the Codex engine.
+`hemsoft-dev/hs-buddy` runs the SFL gh-aw workflows on the Codex engine.
 
 Required Actions secret:
 
@@ -25,11 +25,11 @@ to `github.token`.
 ## Setting Secrets
 
 ```powershell
-# Codex engine secret. Already present for HemSoft/hs-buddy.
-gh secret set OPENAI_API_KEY --repo HemSoft/hs-buddy
+# Codex engine secret. Already present for hemsoft-dev/hs-buddy.
+gh secret set OPENAI_API_KEY --repo hemsoft-dev/hs-buddy
 
 # Optional GitHub API override, only if GITHUB_TOKEN is insufficient.
-gh secret set GH_AW_GITHUB_TOKEN --repo HemSoft/hs-buddy
+gh secret set GH_AW_GITHUB_TOKEN --repo hemsoft-dev/hs-buddy
 ```
 
 Use interactive paste for secret values to avoid shell escaping issues.
@@ -38,18 +38,18 @@ Use interactive paste for secret values to avoid shell escaping issues.
 
 ```powershell
 # Confirm Actions secrets.
-gh secret list --repo HemSoft/hs-buddy --app actions
+gh secret list --repo hemsoft-dev/hs-buddy --app actions
 
 # Confirm gh-aw sees the compiled workflows.
-gh aw status --repo HemSoft/hs-buddy
+gh aw status --repo hemsoft-dev/hs-buddy
 
 # Confirm SFL metadata and labels.
-gh sfl status --repo HemSoft/hs-buddy
+gh sfl status --repo hemsoft-dev/hs-buddy
 
 # Check recent scheduled SFL runs.
-gh run list --repo HemSoft/hs-buddy --workflow daily-repo-status.lock.yml --limit 5
-gh run list --repo HemSoft/hs-buddy --workflow repo-audit.lock.yml --limit 5
-gh run list --repo HemSoft/hs-buddy --workflow simplisticate.lock.yml --limit 5
+gh run list --repo hemsoft-dev/hs-buddy --workflow daily-repo-status.lock.yml --limit 5
+gh run list --repo hemsoft-dev/hs-buddy --workflow repo-audit.lock.yml --limit 5
+gh run list --repo hemsoft-dev/hs-buddy --workflow simplisticate.lock.yml --limit 5
 ```
 
 A successful Codex-backed gh-aw run proves the AI engine secret works. A

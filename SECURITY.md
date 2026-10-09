@@ -3,7 +3,7 @@
 ## Supported Versions
 
 Security fixes are provided for the latest version published on the
-[GitHub Releases page](https://github.com/HemSoft/hs-buddy/releases/latest).
+[GitHub Releases page](https://github.com/hemsoft-dev/hs-buddy/releases/latest).
 Older releases and unreleased source revisions are not supported. Before
 reporting a vulnerability, confirm it still affects the latest release when it
 is safe to do so.
@@ -12,7 +12,7 @@ is safe to do so.
 
 Do not disclose suspected vulnerabilities in a public issue, discussion, pull
 request, or other public channel. Submit a private report through
-[GitHub private vulnerability reporting](https://github.com/HemSoft/hs-buddy/security/advisories/new).
+[GitHub private vulnerability reporting](https://github.com/hemsoft-dev/hs-buddy/security/advisories/new).
 This repository does not require reporters to publish private contact details.
 
 Include enough evidence for the maintainers to reproduce and assess the report:

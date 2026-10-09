@@ -23,7 +23,7 @@ Vitest default. All tests, isolation, deadlines, and coverage floors remain acti
 
 ```bash
 # Clone and install
-git clone https://github.com/HemSoft/hs-buddy.git
+git clone https://github.com/hemsoft-dev/hs-buddy.git
 cd hs-buddy
 bun run setup
 
@@ -71,7 +71,7 @@ VITE_CONVEX_URL=<your-convex-deployment-url>
 
 ### Required Merge Checks
 
-The active [default-branch ruleset](https://github.com/HemSoft/hs-buddy/rules/15947577)
+The active [default-branch ruleset](https://github.com/hemsoft-dev/hs-buddy/rules/15947577)
 requires these GitHub Actions checks before a pull request can merge into `main`:
 
 | Check context | Workflow            | Purpose                                                                         |
@@ -112,7 +112,7 @@ scope, alert ownership, dismissal rules, and verification commands are in
 Repository administrators can inspect the enforced policy with:
 
 ```bash
-gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
+gh api repos/hemsoft-dev/hs-buddy/rulesets/15947577 \
   --jq '{
     enforcement,
     conditions,

@@ -11,7 +11,7 @@
 
 ### 1. HemSoft Identity Requirement
 
-All repository work against **`HemSoft/hs-buddy`** belongs to the **`HemSoft`**
+All repository work against **`hemsoft-dev/hs-buddy`** belongs to the **`HemSoft`**
 identity. Use `HemSoft` exclusively for commits, authenticated Git operations
 such as fetch or push, and GitHub CLI operations that access repository
 resources. Before those operations, run `gh auth status` and verify that

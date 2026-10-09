@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import ts from 'typescript'
 
 const CI_BADGE =
-  '[![CI](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/HemSoft/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
+  '[![CI](https://github.com/hemsoft-dev/hs-buddy/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hemsoft-dev/hs-buddy/actions/workflows/ci.yml?query=branch%3Amain)'
 
 interface DocumentationSources {
   readme: string

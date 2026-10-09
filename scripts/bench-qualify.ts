@@ -33,6 +33,20 @@ function validateSamples(runs: BenchmarkOutput[]) {
   }
 }
 
+// Widest spread between process speeds still treated as noise. CI has measured
+// one benchmark at about 540 and about 720 ops/s per process on identical code.
+export const PROCESS_SPEED_SPREAD = 1.5
+
+type SampleSet = ReturnType<typeof parseBenchOutput>[]
+
+// Geometric mean of samples that stay within the process-speed spread. A wider
+// spread means an outlier, so the median alone decides.
+function processSpeedMean(samples: SampleSet, key: string): number | undefined {
+  const rates = samples.map(sample => sample.get(key)!.hz)
+  if (Math.max(...rates) > Math.min(...rates) * PROCESS_SPEED_SPREAD) return undefined
+  return Math.exp(rates.reduce((sum, rate) => sum + Math.log(rate), 0) / rates.length)
+}
+
 export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: BenchmarkOutput[]) {
   validateSamples(baseRuns)
   validateSamples(candidateRuns)
@@ -41,10 +55,31 @@ export function qualifyBenchmarks(baseRuns: BenchmarkOutput[], candidateRuns: Be
   const result = compareBenchmarks(baseline, candidate, CI_REGRESSION_THRESHOLD)
   // Reject only drops beyond the maintained floor and both reported uncertainty bounds.
   const base = parseBenchOutput(baseline)
+  // Some benchmarks settle at different speeds per process, and a three-run median
+  // then reports whichever speed two runs hit. A drop is treated as that noise only
+  // when the baseline itself produced the candidate's median speed, both revisions
+  // stay within the process-speed spread, and the geometric means, which average
+  // the noise out while every sample of a real slowdown shifts, stay within the
+  // threshold.
+  const baseSamples = baseRuns.map(run => parseBenchOutput(run))
+  const candidateSamples = candidateRuns.map(run => parseBenchOutput(run))
   for (const entry of result.entries) {
     const baselineLower = entry.baselineHz / (1 + base.get(entry.key)!.rme / 100)
     const candidateUpper = entry.currentHz / (1 - entry.rme / 100)
-    entry.passed ||= candidateUpper >= baselineLower
+    const slowestBaselineLower = Math.min(
+      ...baseSamples.map(sample => {
+        const { hz, rme } = sample.get(entry.key)!
+        return hz / (1 + rme / 100)
+      })
+    )
+    const baseMean = processSpeedMean(baseSamples, entry.key)
+    const candidateMean = processSpeedMean(candidateSamples, entry.key)
+    const processSpeedNoise =
+      candidateUpper >= slowestBaselineLower &&
+      baseMean !== undefined &&
+      candidateMean !== undefined &&
+      (candidateMean / baseMean - 1) * 100 >= -CI_REGRESSION_THRESHOLD
+    entry.passed ||= candidateUpper >= baselineLower || processSpeedNoise
   }
   result.passed = result.entries.every(entry => entry.passed)
   return { baseline, candidate, result }
@@ -84,7 +119,7 @@ if (import.meta.main) {
     const comparison = result.entries.length
       ? formatResults(result)
       : `## Benchmark comparison unavailable\n\nNo matching benchmark identities; ${result.newBenchmarks.length} new and ${result.removedBenchmarks.length} removed. Both measured revisions are retained for this advisory run.`
-    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and nonoverlapping reported uncertainty bounds.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
+    const summary = `${comparison}\n\nDecision uses ${CI_SAMPLE_COUNT}-run medians, a >${CI_REGRESSION_THRESHOLD}% throughput drop, and nonoverlapping reported uncertainty bounds. A drop counts as process-speed noise only when the baseline produced the candidate's median speed, every sample stays within a ${PROCESS_SPEED_SPREAD}x spread, and the geometric means stay within the threshold.\n\nGate: ${policy.mode}. ${policy.reasons.join('; ')}\n`
     console.log(summary)
     writeFileSync('bench-summary.md', summary)
     if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, summary)

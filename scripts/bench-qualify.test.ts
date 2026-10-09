@@ -3,7 +3,12 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CI_REGRESSION_THRESHOLD, CI_SAMPLE_COUNT, qualifyBenchmarks } from './bench-qualify'
+import {
+  CI_REGRESSION_THRESHOLD,
+  CI_SAMPLE_COUNT,
+  PROCESS_SPEED_SPREAD,
+  qualifyBenchmarks,
+} from './bench-qualify'
 import type { BenchmarkOutput, BenchmarkResult } from './bench-compare'
 
 function samples(rates: number[], rme = 1): BenchmarkOutput[] {
@@ -82,6 +87,7 @@ describe('benchmark sample decisions', () => {
   it('keeps three-run medians and the maintained 20 percent threshold', () => {
     expect(CI_SAMPLE_COUNT).toBe(3)
     expect(CI_REGRESSION_THRESHOLD).toBe(20)
+    expect(PROCESS_SPEED_SPREAD).toBe(1.5)
     const { result } = qualifyBenchmarks(samples([100, 100, 1000]), samples([99, 99, 1]))
     expect(result.passed).toBe(true)
     expect(result.entries[0].changePercent).toBe(-1)
@@ -130,5 +136,47 @@ describe('benchmark sample decisions', () => {
     expect(() =>
       qualifyBenchmarks(samples([100, 100, 100]), samples([100, 100, 100], NaN))
     ).toThrow('invalid')
+  })
+})
+
+describe('process-speed noise', () => {
+  it('tolerates processes that settle at different speeds', () => {
+    // Observed in CI run 37923876615 on identical code: the baseline median
+    // landed on the faster speed and reported a -20.7% change.
+    const { result } = qualifyBenchmarks(
+      samples([711, 544, 758], 1.7),
+      samples([555, 565, 564], 1.7)
+    )
+    expect(result.entries[0].changePercent).toBeLessThan(-20)
+    expect(result.passed).toBe(true)
+  })
+  it.each([
+    ['uniformly', [561.69, 429.76, 598.82]],
+    ['across process speeds', [430, 569, 430]],
+  ])('rejects slowdowns that shift every sample %s', (_, rates) => {
+    expect(
+      qualifyBenchmarks(samples([711, 544, 758], 1.7), samples(rates, 1.7)).result.passed
+    ).toBe(false)
+  })
+  it.each([
+    ['fast candidate', [100, 100, 100], [50, 50, 100]],
+    ['extreme fast candidate', [100, 100, 100], [50, 50, 1000]],
+    ['extreme slow baseline', [100, 100, 1], [50, 50, 50]],
+    ['fast candidate and slow baseline', [100, 100, 66.7], [62, 62, 93]],
+    ['bounded fast candidate', [100, 100, 100], [70, 70, 105]],
+  ])('does not let one %s sample hide a slowdown', (_, baseRates, candidateRates) => {
+    expect(qualifyBenchmarks(samples(baseRates), samples(candidateRates)).result.passed).toBe(false)
+  })
+  it('never passes a majority of candidate samples beyond the slowest baseline sample', () => {
+    const rates = [40, 55, 70, 80, 90, 100, 110]
+    const masked: string[] = []
+    for (const base of rates.flatMap(a => rates.flatMap(b => rates.map(c => [a, b, c]))))
+      for (const candidate of rates.flatMap(a => rates.flatMap(b => rates.map(c => [a, b, c])))) {
+        const floor = 0.8 * Math.min(...base)
+        if (candidate.filter(rate => rate < floor).length < 2) continue
+        if (qualifyBenchmarks(samples(base), samples(candidate)).result.passed)
+          masked.push(`${base} -> ${candidate}`)
+      }
+    expect(masked).toEqual([])
   })
 })

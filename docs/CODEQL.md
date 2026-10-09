@@ -81,18 +81,18 @@ Before every GitHub CLI operation, confirm that `HemSoft` is the active account.
 
 ```bash
 gh auth status
-gh api repos/HemSoft/hs-buddy/code-scanning/default-setup
+gh api repos/hemsoft-dev/hs-buddy/code-scanning/default-setup
 
 gh auth status
-gh api --method GET repos/HemSoft/hs-buddy/code-scanning/analyses \
+gh api --method GET repos/hemsoft-dev/hs-buddy/code-scanning/analyses \
   --jq '.[0] | {ref,commit_sha,tool,error}'
 
 gh auth status
 gh api --paginate --slurp --method GET \
-  repos/HemSoft/hs-buddy/code-scanning/alerts -f state=open
+  repos/hemsoft-dev/hs-buddy/code-scanning/alerts -f state=open
 
 gh auth status
-gh api repos/HemSoft/hs-buddy/rulesets/15947577 \
+gh api repos/hemsoft-dev/hs-buddy/rulesets/15947577 \
   --jq '.rules[] | select(.type == "code_scanning")'
 ```
 

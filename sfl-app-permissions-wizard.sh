@@ -191,7 +191,7 @@ finish() {
 
 TOTAL_STAGES=3
 
-REPO="HemSoft/hs-buddy"
+REPO="hemsoft-dev/hs-buddy"
 INSTALLATION_ID="150383874"
 
 banner "SFL App permissions — fix AI review auto-merge"

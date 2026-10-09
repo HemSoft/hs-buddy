@@ -51,7 +51,7 @@ workflows when there is work to process.
 2. Run from the SFL repo:
 
    ```powershell
-   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "HemSoft/hs-buddy"
+   .\deployment\scripts\deploy-workflow.ps1 -Workflow <name> -Repos "hemsoft-dev/hs-buddy"
    ```
 
 3. Review and merge the resulting PR

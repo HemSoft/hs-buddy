@@ -102,17 +102,25 @@ describe('benchmark sample decisions', () => {
       qualifyBenchmarks(samples([100, 100, 100], 30), samples([79, 79, 79], 30)).result.passed
     ).toBe(true)
   })
-  it('tolerates baseline processes that settle at different speeds', () => {
+  it('tolerates processes that settle at different speeds', () => {
     // Observed in CI run 37923876615 on identical code: the baseline median
-    // landed on the faster mode and reported a -20.7% change.
-    expect(
-      qualifyBenchmarks(samples([711, 544, 758], 1.7), samples([555, 565, 564], 1.7)).result.passed
-    ).toBe(true)
+    // landed on the faster speed and reported a -20.7% change.
+    const { result } = qualifyBenchmarks(
+      samples([711, 544, 758], 1.7),
+      samples([555, 565, 564], 1.7)
+    )
+    expect(result.entries[0].changePercent).toBeLessThan(-20)
+    expect(result.passed).toBe(true)
   })
-  it('still rejects slowdowns below the slowest baseline sample', () => {
+  it.each([
+    ['uniformly', [561.69, 429.76, 598.82]],
+    ['across process speeds', [430, 569, 430]],
+  ])('rejects slowdowns that shift every sample %s', (_, rates) => {
     expect(
-      qualifyBenchmarks(samples([711, 544, 758], 1.7), samples([400, 410, 420], 1.7)).result.passed
+      qualifyBenchmarks(samples([711, 544, 758], 1.7), samples(rates, 1.7)).result.passed
     ).toBe(false)
+  })
+  it('does not let one fast candidate sample hide a slowdown', () => {
     expect(qualifyBenchmarks(samples([100, 100, 100]), samples([50, 50, 100])).result.passed).toBe(
       false
     )

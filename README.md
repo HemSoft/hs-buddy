@@ -292,7 +292,6 @@ The left-side activity bar provides access to 10 sections:
 | **Copilot**    | Prompt box, results, usage, session explorer                   |
 | **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced         |
 
-
 ## Pi completion audio
 
 The repository-local [Pi extension](.pi/extensions/done-sound.ts)

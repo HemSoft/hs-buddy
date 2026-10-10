@@ -530,7 +530,7 @@ describe('terminalHandlers', () => {
       const spawnHandler = freshHandlers.get('terminal:spawn')!
       const result = await spawnHandler(
         { sender: { isDestroyed: vi.fn(() => false), send: vi.fn() } },
-        { cwd: 'C:\\repos\\SFL', cols: 80, rows: 24 }
+        { cwd: 'C:\\repos\\project', cols: 80, rows: 24 }
       )
 
       expect(result).toEqual({

@@ -1,5 +1,4 @@
 import type { PullRequest, PRConfig } from '../../types/pullRequest'
-import type { SFLRepoStatus } from '../../types/sflStatus'
 import { DEFAULT_RECENTLY_MERGED_DAYS } from '../../constants'
 import type { ProgressCallback, PRCommentReactionContent, PRReviewComment } from './shared'
 import { getActiveCliAccount, getRateLimit } from './shared'
@@ -69,8 +68,6 @@ import {
 
 import type { UserActivitySummary } from './users'
 import { fetchUserActivity as _fetchUserActivity } from './users'
-
-import { fetchSFLStatus as _fetchSFLStatus } from './sfl'
 
 export class GitHubClient {
   private config: PRConfig['github']
@@ -288,12 +285,6 @@ export class GitHubClient {
 
   async fetchUserActivity(org: string, username: string): Promise<UserActivitySummary> {
     return _fetchUserActivity(this.config, org, username)
-  }
-
-  // ── SFL ───────────────────────────────────────────────────────────────
-
-  async fetchSFLStatus(owner: string, repo: string): Promise<SFLRepoStatus> {
-    return _fetchSFLStatus(this.config, owner, repo)
   }
 
   // ── Rate limit ────────────────────────────────────────────────────────

@@ -370,9 +370,6 @@ export function useGitHubSidebarData() {
         parseOwnerRepoKey,
         p => repoActions.fetchRepoCommitsForRepo(p.owner, p.repo, true)
       )
-      forEachStaleEntry(repoActions.fetchedSFLRef, 'sfl-status', intervalMs, parseOwnerRepoKey, p =>
-        repoActions.fetchSFLStatusForRepo(p.owner, p.repo, true)
-      )
       forEachStaleEntry(
         repoActions.fetchedRepoIssuesRef,
         'repo-issues',

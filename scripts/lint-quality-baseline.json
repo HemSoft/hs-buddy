@@ -109,7 +109,6 @@
     "src/api/github/prs.ts::unicorn/no-negated-condition": 2,
     "src/api/github/repos.ts::@typescript-eslint/no-unnecessary-condition": 1,
     "src/api/github/repos.ts::max-lines": 1,
-    "src/api/github/sfl.test.ts::max-lines-per-function": 1,
     "src/api/github/shared.ts::@typescript-eslint/no-unnecessary-condition": 1,
     "src/api/github/userHelpers.ts::@typescript-eslint/no-unnecessary-condition": 1,
     "src/api/github/userHelpers.ts::unicorn/no-negated-condition": 1,

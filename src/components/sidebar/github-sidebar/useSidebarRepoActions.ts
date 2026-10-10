@@ -13,7 +13,6 @@ import { dataCache } from '../../../services/dataCache'
 import { parseOwnerRepoKey } from '../../../utils/githubUrl'
 import { throwIfAborted } from '../../../utils/errorUtils'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus } from '../../../types/sflStatus'
 import { mapRepoPRToPullRequest } from './githubSidebarUtils'
 import {
   GITHUB_PR_SERIALIZATION_KEY,
@@ -217,7 +216,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
   const repoPRGroups = useToggleSet()
   const repoPRStateGroups = useToggleSet()
   const repoCommitGroups = useToggleSet()
-  const sflGroups = useToggleSet()
   const ralphGroups = useToggleSet()
 
   const [repoCounts, setRepoCounts] = useState<Record<string, RepoCounts>>({})
@@ -233,10 +231,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
   const [loadingRepoCommits, setLoadingRepoCommits] = useState<Set<string>>(new Set())
   const [loadingRepoPRs, setLoadingRepoPRs] = useState<Set<string>>(new Set())
   const [loadingRepoIssues, setLoadingRepoIssues] = useState<Set<string>>(new Set())
-
-  const [sflStatusData, setSflStatusData] = useState<Record<string, SFLRepoStatus>>({})
-  const [loadingSFLStatus, setLoadingSFLStatus] = useState<Set<string>>(new Set())
-  const fetchedSFLRef = useRef<Set<string>>(new Set())
 
   const fetchRepoCountsForRepo = useCallback(
     async (org: string, repoName: string, forceRefresh = false) => {
@@ -258,40 +252,17 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     [accounts, enqueueRef, refreshInterval]
   )
 
-  const fetchSFLStatusForRepo = useCallback(
-    async (org: string, repoName: string, isRefresh = false) => {
-      const key = `${org}/${repoName}`
-      await fetchCachedRepoData<SFLRepoStatus>({
-        key,
-        cacheKey: `sfl-status:${key}`,
-        loadingSetter: setLoadingSFLStatus,
-        enqueue: enqueueRef.current as EnqueueFn,
-        taskName: `sfl-status-${key}`,
-        logLabel: 'SFLStatus',
-        apiFn: () => new GitHubClient({ accounts }, 7).fetchSFLStatus(org, repoName),
-        onData: result => setSflStatusData(prev => ({ ...prev, [key]: result })),
-        forceRefresh: isRefresh,
-      })
-    },
-    [accounts, enqueueRef]
-  )
-
   const toggleRepo = useCallback(
     (org: string, repoName: string) => {
       const key = `${org}/${repoName}`
       const shouldFetchCounts = !fetchedCountsRef.current.has(key)
-      const shouldFetchSFL = !fetchedSFLRef.current.has(key)
       repos.toggle(key)
       if (shouldFetchCounts) {
         fetchedCountsRef.current.add(key)
         fetchRepoCountsForRepo(org, repoName)
       }
-      if (shouldFetchSFL) {
-        fetchedSFLRef.current.add(key)
-        fetchSFLStatusForRepo(org, repoName)
-      }
     },
-    [repos, fetchRepoCountsForRepo, fetchSFLStatusForRepo]
+    [repos, fetchRepoCountsForRepo]
   )
 
   const fetchRepoPRsForRepo = useCallback(
@@ -399,19 +370,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     [repoCommitGroups, fetchRepoCommitsForRepo]
   )
 
-  const toggleSFLGroup = useCallback(
-    (org: string, repoName: string) => {
-      const key = `${org}/${repoName}`
-      const shouldFetch = !fetchedSFLRef.current.has(key)
-      sflGroups.toggle(key)
-      if (shouldFetch) {
-        fetchedSFLRef.current.add(key)
-        fetchSFLStatusForRepo(org, repoName)
-      }
-    },
-    [sflGroups, fetchSFLStatusForRepo]
-  )
-
   const toggleRalphGroup = useCallback(
     (org: string, repoName: string) => {
       ralphGroups.toggle(`${org}/${repoName}`)
@@ -485,14 +443,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
           setRepoIssueTreeData(prev => ({ ...prev, [repoKey]: updated.data }))
         }
       },
-      'sfl-status:': repoKey => {
-        const updated = dataCache.get<SFLRepoStatus>(`sfl-status:${repoKey}`)
-        /* v8 ignore start */
-        if (updated?.data) {
-          /* v8 ignore stop */
-          setSflStatusData(prev => ({ ...prev, [repoKey]: updated.data }))
-        }
-      },
     })
   }, [])
 
@@ -506,8 +456,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     loadingRepoCommits,
     loadingRepoPRs,
     loadingRepoIssues,
-    sflStatusData,
-    loadingSFLStatus,
     // Toggle sets
     expandedRepos: repos.set,
     expandedRepoIssueGroups: repoIssueGroups.set,
@@ -515,7 +463,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     expandedRepoPRGroups: repoPRGroups.set,
     expandedRepoPRStateGroups: repoPRStateGroups.set,
     expandedRepoCommitGroups: repoCommitGroups.set,
-    expandedSFLGroups: sflGroups.set,
     expandedRalphGroups: ralphGroups.set,
     // Actions
     toggleRepo,
@@ -524,7 +471,6 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     toggleRepoPRGroup: (org: string, repo: string) => repoPRGroups.toggle(`${org}/${repo}`),
     toggleRepoPRStateGroup,
     toggleRepoCommitGroup,
-    toggleSFLGroup,
     toggleRalphGroup,
     handleBookmarkToggle,
     toggleBookmarkRepoByValues,
@@ -533,13 +479,11 @@ export function useSidebarRepoActions(opts: UseSidebarRepoActionsOptions) {
     fetchedRepoPRsRef,
     fetchedRepoCommitsRef,
     fetchedRepoIssuesRef,
-    fetchedSFLRef,
     // Fetch functions for refresh
     fetchRepoCountsForRepo,
     fetchRepoPRsForRepo,
     fetchRepoCommitsForRepo,
     fetchRepoIssuesForRepo,
-    fetchSFLStatusForRepo,
     // Cache handler
     handleRepoCacheUpdate,
   }

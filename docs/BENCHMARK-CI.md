@@ -14,8 +14,6 @@ changes before dependency installation or measurements:
   changes, dependency changes, and CI wiring changes run a blocking comparison.
 - Documentation and ordinary test-only changes succeed with an explicit skip
   reason. A package version bump does not change dependency or harness policy.
-  Main pushes containing only SFL deployment metadata retain their exclusion
-  through the same successful skip result.
 - Benchmark definitions, benchmark scripts/configuration, setup fixtures, and
   toolchain changes run an advisory comparison. The summary and `bench-policy.json`
   list the exact paths or package fields responsible. Changing an ordinary

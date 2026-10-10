@@ -18,15 +18,6 @@ const fixtureEnv = Object.fromEntries(
   Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))
 )
 
-describe('benchmark impact policy', () => {
-  it('preserves the deployment-only main push exclusion as a successful skip', () => {
-    expect(benchmarkPolicy(['.sfl/sfl.json', 'sfl.json'], pkg, pkg, 'push').mode).toBe('skip')
-    expect(
-      benchmarkPolicy(['.sfl/sfl.json', 'src/utils/dateUtils.ts'], pkg, pkg, 'push').mode
-    ).toBe('enforce')
-  })
-})
-
 describe('benchmark policy CLI', () => {
   it.each(['documentation', 'initial history'])(
     'handles %s through the real Git/event CLI',

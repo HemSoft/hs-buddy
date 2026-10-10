@@ -1,4 +1,4 @@
-# Enable one existing ordinary workflow; retired SFL and numeric IDs are excluded.
+# Enable one existing ordinary workflow; numeric IDs are excluded.
 param(
     [Parameter(Mandatory, Position = 0)]
     [ValidateSet('CI', 'ci.yml', 'Security Scanning', 'security.yml',

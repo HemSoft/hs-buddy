@@ -1,21 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  SFL_STATUS_LABELS,
-  handleItemKeyDown,
-  sidebarItemClass,
-  refreshStateClass,
-} from './repoNodeUtils'
-
-describe('SFL_STATUS_LABELS', () => {
-  it('maps all known statuses', () => {
-    expect(SFL_STATUS_LABELS.healthy).toBe('Healthy')
-    expect(SFL_STATUS_LABELS['active-work']).toBe('Active work')
-    expect(SFL_STATUS_LABELS.blocked).toBe('Blocked')
-    expect(SFL_STATUS_LABELS['ready-for-review']).toBe('Ready for review')
-    expect(SFL_STATUS_LABELS['recent-failure']).toBe('Recent failure')
-    expect(SFL_STATUS_LABELS.unknown).toBe('Unknown')
-  })
-})
+import { handleItemKeyDown, sidebarItemClass, refreshStateClass } from './repoNodeUtils'
 
 describe('handleItemKeyDown', () => {
   function createKeyEvent(key: string) {

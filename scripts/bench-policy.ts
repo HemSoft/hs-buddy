@@ -60,13 +60,6 @@ export function benchmarkPolicy(
   after: Package,
   event: string
 ): BenchmarkPolicy {
-  if (
-    event === 'push' &&
-    files.length &&
-    files.every(file => ['.sfl/sfl.json', 'sfl.json'].includes(file))
-  ) {
-    return { mode: 'skip', reasons: ['Only SFL deployment metadata changed'] }
-  }
   const reasons = advisoryReasons(files, before, after)
   if (reasons.length) return { mode: 'advisory', reasons }
   const dependenciesChanged = dependencyFields.some(

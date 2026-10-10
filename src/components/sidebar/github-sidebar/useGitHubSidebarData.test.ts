@@ -77,7 +77,6 @@ const mockFetchRepoCounts = vi.fn().mockResolvedValue({ issues: 0, prs: 0 })
 const mockFetchRepoPRs = vi.fn().mockResolvedValue([])
 const mockFetchRepoCommits = vi.fn().mockResolvedValue([])
 const mockFetchRepoIssues = vi.fn().mockResolvedValue([])
-const mockFetchSFLStatus = vi.fn().mockResolvedValue({ isSFLEnabled: false, workflows: [] })
 const mockFetchOrgOverview = vi.fn().mockResolvedValue({ metrics: { topContributorsToday: [] } })
 const mockFetchOrgMembers = vi.fn().mockResolvedValue({ members: [] })
 const mockApprovePullRequest = vi.fn().mockResolvedValue(undefined)
@@ -94,7 +93,6 @@ vi.mock('../../../api/github', () => ({
       fetchRepoPRs: (...args: unknown[]) => mockFetchRepoPRs(...args),
       fetchRepoCommits: (...args: unknown[]) => mockFetchRepoCommits(...args),
       fetchRepoIssues: (...args: unknown[]) => mockFetchRepoIssues(...args),
-      fetchSFLStatus: (...args: unknown[]) => mockFetchSFLStatus(...args),
       approvePullRequest: (...args: unknown[]) => mockApprovePullRequest(...args),
     }
   }),
@@ -181,7 +179,6 @@ beforeEach(() => {
   mockFetchRepoPRs.mockResolvedValue([])
   mockFetchRepoCommits.mockResolvedValue([])
   mockFetchRepoIssues.mockResolvedValue([])
-  mockFetchSFLStatus.mockResolvedValue({ isSFLEnabled: false, workflows: [] })
   mockFetchOrgOverview.mockResolvedValue({ metrics: { topContributorsToday: [] } })
   mockFetchOrgMembers.mockResolvedValue({ members: [] })
   mockApprovePullRequest.mockResolvedValue(undefined)
@@ -459,14 +456,6 @@ describe('useGitHubSidebarData', () => {
       priority: -1,
       serializationKey: 'repository-commits:acme/my-repo',
     })
-  })
-
-  it('toggleSFLGroup toggles', async () => {
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    expect(result.current.expandedSFLGroups.has('acme/my-repo')).toBe(true)
   })
 
   it('toggleRepoPRStateGroup toggles and fetches', async () => {
@@ -842,25 +831,6 @@ describe('useGitHubSidebarData', () => {
     ])
   })
 
-  it('dataCache subscription routes sfl-status updates', () => {
-    const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = getMainSubscribeCb()
-    expect(subscribeCb).toBeDefined()
-
-    mockGet.mockImplementation((key: string) => {
-      if (key === 'sfl-status:acme/my-repo')
-        return { data: { enabled: true, lastRun: '2024-01-01' } }
-      return null
-    })
-
-    act(() => subscribeCb('sfl-status:acme/my-repo'))
-
-    expect(result.current.sflStatusData['acme/my-repo']).toEqual({
-      enabled: true,
-      lastRun: '2024-01-01',
-    })
-  })
-
   it('copyToClipboard falls back to textarea when clipboard API unavailable', async () => {
     Object.defineProperty(navigator, 'clipboard', {
       value: { writeText: undefined },
@@ -1027,18 +997,6 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
     expect(result.current.expandedRepoCommitGroups.has('acme/my-repo')).toBe(false)
-  })
-
-  it('toggleSFLGroup toggles and triggers fetch', async () => {
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    expect(result.current.expandedSFLGroups.has('acme/my-repo')).toBe(true)
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    expect(result.current.expandedSFLGroups.has('acme/my-repo')).toBe(false)
   })
 
   it('openPRReview dispatches pr-review:open event', () => {
@@ -1241,24 +1199,6 @@ describe('useGitHubSidebarData', () => {
     ])
   })
 
-  it('dataCache subscription routes sfl-status updates', () => {
-    const { result } = renderHook(() => useGitHubSidebarData())
-    const subscribeCb = getMainSubscribeCb()
-
-    mockGet.mockImplementation((key: string) => {
-      if (key === 'sfl-status:acme/my-repo') {
-        return { data: { overallStatus: 'healthy', workflows: [] } }
-      }
-      return null
-    })
-
-    act(() => subscribeCb('sfl-status:acme/my-repo'))
-    expect(result.current.sflStatusData['acme/my-repo']).toEqual({
-      overallStatus: 'healthy',
-      workflows: [],
-    })
-  })
-
   it('dataCache subscription for PR tree data (top-level)', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
     const prSubscribeCb = getPRTreeSubscribeCb()
@@ -1389,21 +1329,6 @@ describe('useGitHubSidebarData', () => {
     expect(mockFetchRepoCounts).toHaveBeenCalledWith('acme', 'my-repo')
     expect(result.current.repoCounts['acme/my-repo']).toEqual({ issues: 1, prs: 2 })
     expect(mockSet).toHaveBeenCalledWith('repo-counts:acme/my-repo', { issues: 1, prs: 2 })
-  })
-
-  it('fetchSFLStatusForRepo uses cached data without network fetch', async () => {
-    const sflData = { isSFLEnabled: true, workflows: [{ name: 'test', state: 'active' }] }
-    mockGet.mockImplementation((key: string) => {
-      if (key === 'sfl-status:acme/my-repo') return { data: sflData }
-      return null
-    })
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleRepo('acme', 'my-repo')
-    })
-    expect(result.current.sflStatusData['acme/my-repo']).toEqual(sflData)
-    expect(mockGetOrLoad).toHaveBeenCalledWith('sfl-status:acme/my-repo')
-    expect(mockFetchSFLStatus).not.toHaveBeenCalled()
   })
 
   it('fetchRepoPRsForRepo uses cached data and skips fetch when fresh', async () => {
@@ -1579,17 +1504,6 @@ describe('useGitHubSidebarData', () => {
     consoleSpy.mockRestore()
   })
 
-  it('fetchSFLStatusForRepo handles fetch error gracefully', async () => {
-    mockFetchSFLStatus.mockRejectedValue(new Error('SFL error'))
-    const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    expect(consoleSpy).toHaveBeenCalledWith('[SFLStatus] acme/my-repo failed:', expect.any(Error))
-    consoleSpy.mockRestore()
-  })
-
   it('fetchOrgOverview handles fetch error gracefully', async () => {
     mockFetchOrgOverview.mockRejectedValue(new Error('Overview error'))
     const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -1760,21 +1674,6 @@ describe('useGitHubSidebarData', () => {
       result.current.toggleRepoCommitGroup('acme', 'my-repo')
     })
     expect(mockFetchRepoCommits.mock.calls.length).toBe(firstCallCount)
-  })
-
-  it('toggleSFLGroup does not re-fetch on second toggle', async () => {
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    const firstCallCount = mockFetchSFLStatus.mock.calls.length
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
-    })
-    expect(mockFetchSFLStatus.mock.calls.length).toBe(firstCallCount)
   })
 
   // ── applyApproveToTree via handleApprovePR ──
@@ -2014,18 +1913,6 @@ describe('useGitHubSidebarData', () => {
     const { result } = renderHook(() => useGitHubSidebarData())
     await act(async () => {
       result.current.toggleRepoIssueStateGroup('acme', 'my-repo', 'open')
-    })
-    const intervalCalls = spy.mock.calls.filter(([, ms]) => ms === 5 * 60_000)
-    expect(intervalCalls.length).toBeGreaterThan(0)
-    spy.mockRestore()
-  })
-
-  it('SFL refresh interval is set up when refreshInterval > 0', async () => {
-    const spy = vi.spyOn(globalThis, 'setInterval')
-    mockRefreshInterval = 5
-    const { result } = renderHook(() => useGitHubSidebarData())
-    await act(async () => {
-      result.current.toggleSFLGroup('acme', 'my-repo')
     })
     const intervalCalls = spy.mock.calls.filter(([, ms]) => ms === 5 * 60_000)
     expect(intervalCalls.length).toBeGreaterThan(0)

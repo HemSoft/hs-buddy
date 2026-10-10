@@ -1,6 +1,6 @@
 ---
 name: timeline-debugging
-description: "V1.0 - Commands: Create, Update, Normalize. Build and maintain debugging timelines for hs-buddy incidents with timestamp-first navigation, one-line summaries, and linked detail sections. Use when tracking SFL failures, workflow investigations, or any multi-step recovery path in markdown."
+description: "V1.0 - Commands: Create, Update, Normalize. Build and maintain debugging timelines for hs-buddy incidents with timestamp-first navigation, one-line summaries, and linked detail sections. Use when tracking workflow investigations, or any multi-step recovery path in markdown."
 ---
 
 # Timeline Debugging

@@ -1,4 +1,4 @@
-// Used by SFL workflows via Convex HTTP API, not by the Electron renderer.
+// Feature intake API for external clients.
 import { v } from 'convex/values'
 import { mutation, query } from './_generated/server'
 import type { MutationCtx } from './_generated/server'

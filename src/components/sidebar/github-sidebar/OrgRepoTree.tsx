@@ -20,7 +20,6 @@ import type {
   RepoIssue,
 } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus } from '../../../types/sflStatus'
 import type { RalphRunInfo } from '../../../types/ralph'
 import type { RefreshIndicators } from '../../../hooks/useRefreshIndicators'
 import { RepoNode } from './RepoNode'
@@ -66,9 +65,6 @@ interface OrgRepoTreeProps {
   loadingRepoCommits: ReadonlySet<string>
   loadingRepoPRs: ReadonlySet<string>
   loadingRepoIssues: ReadonlySet<string>
-  sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: ReadonlySet<string>
-  expandedSFLGroups: ReadonlySet<string>
   ralphRuns: RalphRunInfo[]
   expandedRalphGroups: ReadonlySet<string>
   bookmarkedRepoKeys: ReadonlySet<string>
@@ -85,7 +81,6 @@ interface OrgRepoTreeProps {
   onToggleRepoPRGroup: (org: string, repoName: string) => void
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
-  onToggleSFLGroup: (org: string, repoName: string) => void
   onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
@@ -709,9 +704,6 @@ interface OrgExpandedBodyProps {
   loadingRepoCommits: ReadonlySet<string>
   loadingRepoPRs: ReadonlySet<string>
   loadingRepoIssues: ReadonlySet<string>
-  sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: ReadonlySet<string>
-  expandedSFLGroups: ReadonlySet<string>
   ralphRuns: RalphRunInfo[]
   expandedRalphGroups: ReadonlySet<string>
   selectedItem: string | null
@@ -725,7 +717,6 @@ interface OrgExpandedBodyProps {
   onToggleRepoPRGroup: (org: string, repoName: string) => void
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
-  onToggleSFLGroup: (org: string, repoName: string) => void
   onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
@@ -767,9 +758,6 @@ function OrgExpandedBody(props: OrgExpandedBodyProps) {
     loadingRepoCommits,
     loadingRepoPRs,
     loadingRepoIssues,
-    sflStatusData,
-    loadingSFLStatus,
-    expandedSFLGroups,
     ralphRuns,
     expandedRalphGroups,
     selectedItem,
@@ -783,7 +771,6 @@ function OrgExpandedBody(props: OrgExpandedBodyProps) {
     onToggleRepoPRGroup,
     onToggleRepoPRStateGroup,
     onToggleRepoCommitGroup,
-    onToggleSFLGroup,
     onToggleRalphGroup,
     onTogglePRNode,
     onItemSelect,
@@ -858,9 +845,6 @@ function OrgExpandedBody(props: OrgExpandedBodyProps) {
             loadingRepoCommits={loadingRepoCommits}
             loadingRepoPRs={loadingRepoPRs}
             loadingRepoIssues={loadingRepoIssues}
-            sflStatusData={sflStatusData}
-            loadingSFLStatus={loadingSFLStatus}
-            expandedSFLGroups={expandedSFLGroups}
             ralphRuns={ralphRuns}
             expandedRalphGroups={expandedRalphGroups}
             selectedItem={selectedItem}
@@ -871,7 +855,6 @@ function OrgExpandedBody(props: OrgExpandedBodyProps) {
             onToggleRepoPRGroup={onToggleRepoPRGroup}
             onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
             onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-            onToggleSFLGroup={onToggleSFLGroup}
             onToggleRalphGroup={onToggleRalphGroup}
             onTogglePRNode={onTogglePRNode}
             onItemSelect={onItemSelect}
@@ -959,9 +942,6 @@ function OrgTreeNode({
   loadingRepoCommits,
   loadingRepoPRs,
   loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
   ralphRuns,
   expandedRalphGroups,
   bookmarkedRepoKeys,
@@ -978,7 +958,6 @@ function OrgTreeNode({
   onToggleRepoPRGroup,
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
-  onToggleSFLGroup,
   onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
@@ -1051,9 +1030,6 @@ function OrgTreeNode({
           loadingRepoCommits={loadingRepoCommits}
           loadingRepoPRs={loadingRepoPRs}
           loadingRepoIssues={loadingRepoIssues}
-          sflStatusData={sflStatusData}
-          loadingSFLStatus={loadingSFLStatus}
-          expandedSFLGroups={expandedSFLGroups}
           ralphRuns={ralphRuns}
           expandedRalphGroups={expandedRalphGroups}
           selectedItem={selectedItem}
@@ -1067,7 +1043,6 @@ function OrgTreeNode({
           onToggleRepoPRGroup={onToggleRepoPRGroup}
           onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
           onToggleRepoCommitGroup={onToggleRepoCommitGroup}
-          onToggleSFLGroup={onToggleSFLGroup}
           onToggleRalphGroup={onToggleRalphGroup}
           onTogglePRNode={onTogglePRNode}
           onItemSelect={onItemSelect}

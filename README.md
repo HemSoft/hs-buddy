@@ -245,7 +245,7 @@ hs-buddy/
 │   ├── App.tsx            # Main application component
 │   └── main.tsx           # React entry point
 ├── convex/                # Serverless backend (17 schema tables, crons, lib/)
-├── scripts/               # Helper scripts (bump, coverage, SFL debug, etc.)
+├── scripts/               # Helper scripts (bump, coverage, etc.)
 ├── assets/                # Images and design assets
 ├── public/                # Static assets
 ├── dist/                  # Vite build output (renderer)
@@ -291,18 +291,6 @@ The left-side activity bar provides access to 10 sections:
 | **Bookmarks**  | Categorized URLs with in-app browser tabs                      |
 | **Copilot**    | Prompt box, results, usage, session explorer                   |
 | **Settings**   | Accounts, appearance, PR config, Copilot SDK, advanced         |
-
-## SFL deployment status
-
-The repository's autonomous SFL pipeline and reviewer workflows are retired.
-Native Codex and ordinary CI continue. Only this repository is authorized for the
-central organization App qualification on mini; the check is advisory and its
-live evidence is tracked in [SFL #139](https://github.com/hemsoft-dev/set-it-free-loop/issues/139).
-
-See [current deployment status](docs/SFL-ORGANIZATION-REVIEW.md) and the
-[central service runbook](https://github.com/hemsoft-dev/set-it-free-loop/blob/main/central-reviewer/README.md).
-Retained governance, intake and consumer overrides are historical records; their
-old pipeline instructions do not start automation or authorize reinstalling it.
 
 ## Pi completion audio
 

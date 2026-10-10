@@ -1,5 +1,3 @@
-> SFL deployment status, October 9, 2026: the per-repository autonomous workflow schedule below is historical and retired. Native Codex and ordinary CI continue. Do not enable or reinstall the listed SFL workflows. See [current deployment status](SFL-ORGANIZATION-REVIEW.md).
-
 # Buddy Vision
 
 **Version**: 3.0
@@ -12,9 +10,6 @@ Buddy is a cross-platform Electron desktop app that unifies developer
 productivity into a single workspace — pull requests, Copilot AI,
 bookmarks, time tracking, task planning, automation, and repository
 insights — backed by Convex for real-time sync and offline resilience.
-
-It is the first (and reference) consumer of the **Set it Free Loop™**,
-a continuous-quality operating model for software repositories.
 
 ---
 
@@ -168,41 +163,6 @@ structured logs) flowing to the Aspire dashboard when
 
 ---
 
-## Set it Free Loop™
-
-Buddy is the reference consumer of the **Set it Free Loop™** — a
-continuous quality improvement operating model.
-
-> One Intake. One Loop. Compounding Quality.
-
-The operating model, workflow library, and governance live at:
-**[relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop)**
-
-### Pipeline (happy path)
-
-| #   | Workflow                       | What it does                                                 |
-| --- | ------------------------------ | ------------------------------------------------------------ |
-| 0   | `repo-audit` / `simplisticate` | Audit findings → categorized GitHub Issues                   |
-| 1   | `sfl-dispatcher`               | Dispatches SFL workflows only when useful queued work exists |
-| 2   | `issue-processor`              | Issue → draft PR with implementation                         |
-| 3   | `pr-analyzer-a`                | First full-spectrum PR review pass (marker + verdict)        |
-| 4   | `pr-analyzer-b`                | Second full-spectrum PR review pass (marker + verdict)       |
-| 5   | `pr-analyzer-c`                | Final full-spectrum PR review pass (marker + verdict)        |
-| 6   | `pr-fixer`                     | Applies analyzer feedback and advances the review cycle      |
-| 7   | `pr-promoter`                  | Promotes clean draft PRs and merges approved ready PRs       |
-
-### Supporting Workflows
-
-| Workflow            | Cadence         | Purpose                                                    |
-| ------------------- | --------------- | ---------------------------------------------------------- |
-| `sfl-auditor`       | Manual dispatch | Detects/repairs state discrepancies                        |
-| `sfl-dispatcher`    | Manual dispatch | Finds queued work and dispatches the relevant SFL workflow |
-| `daily-repo-status` | Manual dispatch | Repository health report                                   |
-| `repo-audit`        | Manual dispatch | Comprehensive documentation/config audit                   |
-| `simplisticate`     | Manual dispatch | Complexity reduction audit                                 |
-
----
-
 ## Quality Tooling
 
 ### CI Pipeline (`.github/workflows/ci.yml`)
@@ -284,8 +244,6 @@ The Crew, Tempo, Bookmarks, Copilot, Settings.
 | 4   | Real-time experience                   | ✅ Convex subscriptions power live UI                               |
 | 5   | Skill integration (110+ Claude skills) | ✅ skill-worker type operational                                    |
 | 6   | Unified delivery intake                | ✅ featureIntakes table + discussion-processor                      |
-| 7   | Recursive quality automation (SFL)     | ✅ Full loop operational                                            |
-| 8   | Portfolio scalability                  | 🚧 Running on hs-buddy + 2 SFL repos                                |
 | 9   | Maintain ratcheted coverage gates      | ✅ Renderer, Electron, and Convex suites enforce independent floors |
 | 10  | Mobile companion app                   | 📋 Future — React Native + Expo                                     |
 
@@ -293,7 +251,6 @@ The Crew, Tempo, Bookmarks, Copilot, Settings.
 
 ## References
 
-- [relias-engineering/set-it-free-loop](https://github.com/relias-engineering/set-it-free-loop) — SFL operating model
 - [Convex Documentation](https://docs.convex.dev) — Backend platform
 - [GOAL-AND-GUIDING-PRINCIPLES.md](GOAL-AND-GUIDING-PRINCIPLES.md) — Guiding principles
 - [AGENTS.md](AGENTS.md) — Agentic loop standing orders

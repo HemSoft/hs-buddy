@@ -19,7 +19,12 @@ vi.mock('../src/utils/shortcutMatching', () => ({
 
 import { Menu } from 'electron'
 import { saveZoomLevel } from './zoom'
-import { applicationMenuTemplate, bindWindowBehavior, registerKeyboardShortcuts } from './menu'
+import {
+  applicationMenuTemplate,
+  applyZoom,
+  bindWindowBehavior,
+  registerKeyboardShortcuts,
+} from './menu'
 
 type ShortcutDefinition = { key: string; ctrlOrCmd?: boolean; shift?: boolean }
 type ShortcutInput = { key: string; control?: boolean; meta?: boolean; shift?: boolean }
@@ -321,5 +326,87 @@ describe('menu zoom clamping via keyboard shortcuts', () => {
     const event = { preventDefault: vi.fn() }
     handler(event, { type: 'keyDown', key: '-', control: true, meta: false, shift: false })
     expect(clampWin.webContents.setZoomFactor).toHaveBeenCalledWith(0.5)
+  })
+})
+
+describe('menu wheel zoom and zoom actions', () => {
+  function zoomWindow(factor: number) {
+    return {
+      webContents: {
+        getZoomFactor: vi.fn(() => factor),
+        setZoomFactor: vi.fn(),
+        on: vi.fn(),
+        send: vi.fn(),
+      },
+    } as unknown as Electron.BrowserWindow
+  }
+
+  function zoomChangedHandler(win: Electron.BrowserWindow) {
+    bindWindowBehavior(win)
+    const calls = vi.mocked(win.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    return calls.find(c => c[0] === 'zoom-changed')![1]
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockMatchesShortcut.mockImplementation((...args: unknown[]) =>
+      matchesShortcutInput(args[0] as ShortcutDefinition, args[1] as ShortcutInput)
+    )
+  })
+
+  it.each([
+    ['Ctrl+=', { control: true, meta: false }],
+    ['Cmd+=', { control: false, meta: true }],
+  ])('%s (unshifted zoom-in key) zooms in', (_, modifiers) => {
+    const win = zoomWindow(1.0)
+    bindWindowBehavior(win)
+    const calls = vi.mocked(win.webContents.on).mock.calls as [
+      string,
+      (...args: unknown[]) => unknown,
+    ][]
+    const handler = calls.find(c => c[0] === 'before-input-event')![1]
+    const event = { preventDefault: vi.fn() }
+    handler(event, { type: 'keyDown', key: '=', shift: false, ...modifiers })
+    expect(win.webContents.setZoomFactor).toHaveBeenCalledWith(1.1)
+    expect(saveZoomLevel).toHaveBeenCalledWith(1.1)
+    expect(event.preventDefault).toHaveBeenCalled()
+  })
+
+  it.each([
+    ['in', 1.1],
+    ['out', 0.9],
+  ])('Ctrl+wheel %s request zooms one step', (direction, expected) => {
+    const win = zoomWindow(1.0)
+    zoomChangedHandler(win)({}, direction)
+    expect(win.webContents.setZoomFactor).toHaveBeenCalledWith(expected)
+    expect(saveZoomLevel).toHaveBeenCalledWith(expected)
+  })
+
+  it.each([
+    ['in', 3.0],
+    ['out', 0.5],
+  ])('Ctrl+wheel %s stops at the zoom limit', (direction, limit) => {
+    const win = zoomWindow(limit)
+    zoomChangedHandler(win)({}, direction)
+    expect(win.webContents.setZoomFactor).toHaveBeenCalledWith(limit)
+  })
+
+  it('keeps repeated steps on whole percentages', () => {
+    const win = zoomWindow(1.1)
+    applyZoom(win, 'in')
+    expect(win.webContents.setZoomFactor).toHaveBeenCalledWith(1.2)
+    vi.mocked(win.webContents.getZoomFactor).mockReturnValue(0.7)
+    applyZoom(win, 'out')
+    expect(win.webContents.setZoomFactor).toHaveBeenLastCalledWith(0.6)
+  })
+
+  it('resets to 100%', () => {
+    const win = zoomWindow(2.4)
+    applyZoom(win, 'reset')
+    expect(win.webContents.setZoomFactor).toHaveBeenCalledWith(1)
+    expect(saveZoomLevel).toHaveBeenCalledWith(1)
   })
 })

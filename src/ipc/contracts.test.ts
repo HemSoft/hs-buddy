@@ -129,7 +129,7 @@ describe('IPC Contract Registry', () => {
     })
 
     it('has the expected number of send channels', () => {
-      expect(ALL_SEND_CHANNELS.length).toBe(6)
+      expect(ALL_SEND_CHANNELS.length).toBe(9)
     })
 
     it('has the expected number of push channels', () => {

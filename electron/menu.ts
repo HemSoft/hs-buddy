@@ -8,23 +8,25 @@ const MAX_ZOOM = 3.0
 const MIN_ZOOM = 0.5
 const DEFAULT_ZOOM = 1.0
 
-function zoomIn(win: BrowserWindow): void {
-  const currentZoom = win.webContents.getZoomFactor()
-  const newZoom = Math.min(currentZoom + ZOOM_STEP, MAX_ZOOM)
-  win.webContents.setZoomFactor(newZoom)
-  saveZoomLevel(newZoom)
+export type ZoomAction = 'in' | 'out' | 'reset'
+
+// Round to whole percent so repeated steps do not drift (1.1 + 0.1 = 1.2000000000000002).
+function roundZoom(factor: number): number {
+  return Math.round(factor * 100) / 100
 }
 
-function zoomOut(win: BrowserWindow): void {
-  const currentZoom = win.webContents.getZoomFactor()
-  const newZoom = Math.max(currentZoom - ZOOM_STEP, MIN_ZOOM)
-  win.webContents.setZoomFactor(newZoom)
-  saveZoomLevel(newZoom)
-}
-
-function resetZoom(win: BrowserWindow): void {
-  win.webContents.setZoomFactor(DEFAULT_ZOOM)
-  saveZoomLevel(DEFAULT_ZOOM)
+/** Apply one zoom step to the window and persist the result. */
+export function applyZoom(win: BrowserWindow, action: ZoomAction): void {
+  const current = win.webContents.getZoomFactor()
+  const target =
+    action === 'reset'
+      ? DEFAULT_ZOOM
+      : action === 'in'
+        ? Math.min(current + ZOOM_STEP, MAX_ZOOM)
+        : Math.max(current - ZOOM_STEP, MIN_ZOOM)
+  const zoom = roundZoom(target)
+  win.webContents.setZoomFactor(zoom)
+  saveZoomLevel(zoom)
 }
 
 type ShortcutEntry = {
@@ -35,9 +37,35 @@ type ShortcutEntry = {
 }
 
 const SHORTCUTS: ShortcutEntry[] = [
-  { key: '+', ctrlOrCmd: true, action: win => zoomIn(win) },
-  { key: '-', ctrlOrCmd: true, action: win => zoomOut(win) },
-  { key: '0', ctrlOrCmd: true, action: win => resetZoom(win) },
+  // Ctrl+= is the unshifted zoom-in key on most layouts; Ctrl++ and numpad + report '+'.
+  {
+    key: '=',
+    ctrlOrCmd: true,
+    action: win => {
+      applyZoom(win, 'in')
+    },
+  },
+  {
+    key: '+',
+    ctrlOrCmd: true,
+    action: win => {
+      applyZoom(win, 'in')
+    },
+  },
+  {
+    key: '-',
+    ctrlOrCmd: true,
+    action: win => {
+      applyZoom(win, 'out')
+    },
+  },
+  {
+    key: '0',
+    ctrlOrCmd: true,
+    action: win => {
+      applyZoom(win, 'reset')
+    },
+  },
   {
     key: 'A',
     ctrlOrCmd: true,
@@ -77,6 +105,14 @@ export function applicationMenuTemplate(platform: NodeJS.Platform): MenuItemCons
   return platform === 'darwin' ? [{ role: 'appMenu' }, { role: 'editMenu' }] : []
 }
 
+/** Ctrl/Cmd + mouse wheel (and trackpad pinch) arrive as zoom-changed requests. */
+function registerWheelZoom(win: BrowserWindow): void {
+  win.webContents.on('zoom-changed', (_event, direction) => {
+    applyZoom(win, direction)
+  })
+}
+
 export function bindWindowBehavior(win: BrowserWindow): void {
   registerKeyboardShortcuts(win)
+  registerWheelZoom(win)
 }

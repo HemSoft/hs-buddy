@@ -7,7 +7,10 @@ vi.mock('electron', () => ({
   },
 }))
 
+vi.mock('../menu', () => ({ applyZoom: vi.fn() }))
+
 import { BrowserWindow, ipcMain } from 'electron'
+import { applyZoom } from '../menu'
 import { registerWindowHandlers } from './windowHandlers'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,6 +56,24 @@ describe('window handlers', () => {
     expect(handlers.has('window-maximize')).toBe(true)
     expect(handlers.has('window-close')).toBe(true)
     expect(handlers.has('toggle-devtools')).toBe(true)
+    expect(handlers.has('zoom-in')).toBe(true)
+    expect(handlers.has('zoom-out')).toBe(true)
+    expect(handlers.has('zoom-reset')).toBe(true)
+  })
+
+  it.each([
+    ['zoom-in', 'in'],
+    ['zoom-out', 'out'],
+    ['zoom-reset', 'reset'],
+  ])('%s applies the %s zoom step to the sender window', (channel, action) => {
+    send(channel)
+    expect(applyZoom).toHaveBeenCalledWith(mockWin, action)
+  })
+
+  it('ignores zoom requests from a sender without a window', () => {
+    vi.mocked(BrowserWindow.fromWebContents).mockReturnValue(null)
+    send('zoom-in')
+    expect(applyZoom).not.toHaveBeenCalled()
   })
 
   describe('window-minimize', () => {

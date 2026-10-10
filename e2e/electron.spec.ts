@@ -3,7 +3,7 @@
 
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import type { Page } from '@playwright/test'
+import type { ElectronApplication, Page } from '@playwright/test'
 import { test, expect, FIXTURE_FILE_CONTENT, FIXTURE_FILE_NAME } from './electron-fixtures'
 
 function terminalProbe(): { command: string; expectedSize: string; marker: string } {
@@ -47,6 +47,43 @@ async function killAndVerifyTerminal(page: Page, sessionId: string): Promise<voi
     success: false,
     error: 'Session not found',
   })
+}
+
+type ZoomInput = Electron.KeyboardInputEvent | Electron.MouseWheelInputEvent
+
+const zoomModifier = process.platform === 'darwin' ? 'meta' : 'control'
+
+function zoomFactor(app: ElectronApplication): Promise<number> {
+  return app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].webContents.getZoomFactor()
+  )
+}
+
+// sendInputEvent takes the same input path as real devices, unlike page-level
+// synthesized events, so it reaches before-input-event and zoom-changed.
+async function sendZoomInput(app: ElectronApplication, input: ZoomInput): Promise<void> {
+  await app.evaluate(({ BrowserWindow }, event) => {
+    BrowserWindow.getAllWindows()[0].webContents.sendInputEvent(event)
+  }, input)
+}
+
+async function resetZoom(app: ElectronApplication, page: Page): Promise<void> {
+  await page.evaluate(() => {
+    window.ipcRenderer.send('zoom-reset')
+  })
+  await expect.poll(() => zoomFactor(app)).toBe(1)
+}
+
+function ctrlWheel(deltaY: number): Electron.MouseWheelInputEvent {
+  return {
+    type: 'mouseWheel',
+    x: 200,
+    y: 200,
+    deltaY,
+    wheelTicksY: Math.sign(deltaY),
+    canScroll: true,
+    modifiers: [zoomModifier],
+  }
 }
 
 test.describe('real Electron renderer-to-main journeys', () => {
@@ -126,6 +163,33 @@ test.describe('real Electron renderer-to-main journeys', () => {
       await killAndVerifyTerminal(page, sessionId)
     } finally {
       await page.evaluate(id => window.terminal.kill(id), sessionId)
+    }
+  })
+
+  test('zooms the window from Ctrl+=, Ctrl+mouse wheel and the menu channels', async ({
+    electronHarness,
+  }) => {
+    const { app, page } = electronHarness
+    try {
+      await resetZoom(app, page)
+      await sendZoomInput(app, { type: 'keyDown', keyCode: '=', modifiers: [zoomModifier] })
+      await expect.poll(() => zoomFactor(app)).toBe(1.1)
+
+      await resetZoom(app, page)
+      await sendZoomInput(app, ctrlWheel(120))
+      await expect.poll(() => zoomFactor(app)).toBeGreaterThan(1)
+
+      await resetZoom(app, page)
+      await sendZoomInput(app, ctrlWheel(-120))
+      await expect.poll(() => zoomFactor(app)).toBeLessThan(1)
+
+      await resetZoom(app, page)
+      await page.evaluate(() => {
+        window.ipcRenderer.send('zoom-in')
+      })
+      await expect.poll(() => zoomFactor(app)).toBe(1.1)
+    } finally {
+      await resetZoom(app, page)
     }
   })
 })

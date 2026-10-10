@@ -19,6 +19,33 @@ interface Menu {
   items: MenuItem[]
 }
 
+// View menu zoom items; the main process owns the zoom factor and its limits.
+function zoomMenuItems(): MenuItem[] {
+  return [
+    {
+      label: 'Zoom In',
+      accelerator: `${modLabel}+=`,
+      action: () => {
+        window.ipcRenderer.send(IPC_SEND.ZOOM_IN)
+      },
+    },
+    {
+      label: 'Zoom Out',
+      accelerator: `${modLabel}+-`,
+      action: () => {
+        window.ipcRenderer.send(IPC_SEND.ZOOM_OUT)
+      },
+    },
+    {
+      label: 'Reset Zoom',
+      accelerator: `${modLabel}+0`,
+      action: () => {
+        window.ipcRenderer.send(IPC_SEND.ZOOM_RESET)
+      },
+    },
+  ]
+}
+
 function getSeparatorKey(items: MenuItem[], index: number): string {
   /* v8 ignore next -- fallback for menu separator key */
   const nextLabel = items.slice(index + 1).find(i => i.label)?.label ?? 'end'
@@ -95,9 +122,7 @@ function buildMenus(setShowAbout: (v: boolean) => void): Menu[] {
     {
       label: 'View',
       items: [
-        { label: 'Zoom In', accelerator: `${modLabel}+Num+` },
-        { label: 'Zoom Out', accelerator: `${modLabel}+Num-` },
-        { label: 'Reset Zoom', accelerator: `${modLabel}+Num0` },
+        ...zoomMenuItems(),
         { type: 'separator' },
         {
           label: 'Reload',

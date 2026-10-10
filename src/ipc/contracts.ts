@@ -227,6 +227,9 @@ export const IPC_SEND = {
   WINDOW_MAXIMIZE: 'window-maximize',
   WINDOW_CLOSE: 'window-close',
   TOGGLE_DEVTOOLS: 'toggle-devtools',
+  ZOOM_IN: 'zoom-in',
+  ZOOM_OUT: 'zoom-out',
+  ZOOM_RESET: 'zoom-reset',
   TERMINAL_WRITE: 'terminal:write',
   TERMINAL_RESIZE: 'terminal:resize',
 } as const

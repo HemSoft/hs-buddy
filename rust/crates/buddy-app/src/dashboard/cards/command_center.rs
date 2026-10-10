@@ -6,13 +6,14 @@ use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, FontWeight, IntoElement, ParentElement, Styled, div, linear_color_stop,
-    linear_gradient, px,
+    linear_gradient,
 };
 
 use crate::app::Section;
 use crate::dashboard::DashboardView;
-use crate::dashboard::primitives::{Pill, StatCard, icon_box, section, section_heading, stat_card};
+use crate::dashboard::primitives::{Pill, StatCard, icon_box, section, section_heading, stat_grid};
 use crate::theme::{BuddyPalette, hex};
+use crate::zoom::zpx;
 
 pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyElement {
     let summary = view.command_center().clone();
@@ -54,24 +55,30 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
         Section::Settings
     };
 
-    section(Some(accent), cx)
+    let narrow = view.narrow();
+    // `.welcome-usage-strip-header`: accounts beside the actions, or stacked
+    // above full-width actions when narrow.
+    let strip = if narrow {
+        v_flex().items_start()
+    } else {
+        h_flex().items_center().justify_between().flex_wrap()
+    };
+    section(Some(accent), narrow, cx)
         .child(section_heading(
             "Copilot usage",
             "Command Center",
             "Live spend, projection, and account health at a glance",
+            narrow,
             cx,
         ))
         .child(
-            h_flex()
+            strip
                 .w_full()
-                .items_center()
-                .justify_between()
-                .gap(px(16.0))
-                .flex_wrap()
+                .gap(zpx(16.0))
                 .child(
                     h_flex()
                         .items_center()
-                        .gap(px(10.0))
+                        .gap(zpx(10.0))
                         .child(icon_box(
                             32.0,
                             7.0,
@@ -82,17 +89,17 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
                         ))
                         .child(
                             v_flex()
-                                .gap(px(2.0))
+                                .gap(zpx(2.0))
                                 .child(
                                     div()
-                                        .text_size(px(12.0))
+                                        .text_size(zpx(12.0))
                                         .font_weight(FontWeight::BOLD)
                                         .text_color(palette.text_heading)
                                         .child("CONNECTED ACCOUNTS"),
                                 )
                                 .child(
                                     div()
-                                        .text_size(px(11.0))
+                                        .text_size(zpx(11.0))
                                         .text_color(palette.text_secondary)
                                         .child(if summary.loading {
                                             "Refreshing usage…".to_string()
@@ -103,7 +110,7 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
                                 .when_some(copilot_error, |this, error| {
                                     this.child(
                                         div()
-                                            .text_size(px(10.0))
+                                            .text_size(zpx(10.0))
                                             .text_color(palette.accent_error)
                                             .child(error),
                                     )
@@ -113,7 +120,8 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
                 .child(
                     h_flex()
                         .items_center()
-                        .gap(px(8.0))
+                        .gap(zpx(8.0))
+                        .when(narrow, |this| this.w_full().justify_between())
                         .child(
                             Pill::new("cc-refresh", "Refresh")
                                 .icon(IconName::RefreshCw)
@@ -136,35 +144,24 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
                         ),
                 ),
         )
-        .child(
-            h_flex()
-                .w_full()
-                .gap(px(10.0))
-                .child(stat_card(
-                    StatCard::new(IconName::Zap, thousands(summary.total_used), "Total Used")
-                        .icon_colors(copilot_soft, copilot_soft_bg),
-                    cx,
-                ))
-                .child(stat_card(
-                    StatCard::new(
-                        IconName::Sparkles,
-                        currency(summary.total_overage_cost),
-                        "Total Overage",
-                    )
+        .child(stat_grid(
+            vec![
+                StatCard::new(IconName::Zap, thousands(summary.total_used), "Total Used")
                     .icon_colors(copilot_soft, copilot_soft_bg),
-                    cx,
-                ))
-                .child(stat_card(
-                    StatCard::new(IconName::Activity, projected, "Projected")
-                        .icon_colors(copilot_soft, copilot_soft_bg),
-                    cx,
-                ))
-                .child(stat_card(
-                    StatCard::new(IconName::ArrowRight, projected_overage, "Est. Overage")
-                        .icon_colors(overage, overage_bg)
-                        .card_style(overage_card_bg, overage_card_border),
-                    cx,
-                )),
-        )
+                StatCard::new(
+                    IconName::Sparkles,
+                    currency(summary.total_overage_cost),
+                    "Total Overage",
+                )
+                .icon_colors(copilot_soft, copilot_soft_bg),
+                StatCard::new(IconName::Activity, projected, "Projected")
+                    .icon_colors(copilot_soft, copilot_soft_bg),
+                StatCard::new(IconName::ArrowRight, projected_overage, "Est. Overage")
+                    .icon_colors(overage, overage_bg)
+                    .card_style(overage_card_bg, overage_card_border),
+            ],
+            if narrow { 2 } else { 4 },
+            cx,
+        ))
         .into_any_element()
 }

@@ -12,7 +12,7 @@ use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, Styled, Window, div, px,
+    ParentElement, Styled, Window, div,
 };
 
 use crate::dashboard::DashboardView;
@@ -21,6 +21,7 @@ use crate::dashboard::primitives::{
     kicker, section, section_heading, stat_card, status_message,
 };
 use crate::theme::{BuddyPalette, hex};
+use crate::zoom::zpx;
 
 fn weather_icon(code: u16) -> IconName {
     match code_glyph(code) {
@@ -53,12 +54,12 @@ fn collapsed_summary(data: &WeatherData, sun: Hsla, cx: &App) -> Div {
         .w_full()
         .items_center()
         .justify_between()
-        .gap(px(12.0))
-        .py(px(4.0))
+        .gap(zpx(12.0))
+        .py(zpx(4.0))
         .child(
             h_flex()
                 .items_center()
-                .gap(px(8.0))
+                .gap(zpx(8.0))
                 .child(icon_box(
                     28.0,
                     6.0,
@@ -69,21 +70,21 @@ fn collapsed_summary(data: &WeatherData, sun: Hsla, cx: &App) -> Div {
                 ))
                 .child(
                     div()
-                        .text_size(px(18.0))
+                        .text_size(zpx(18.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(palette.text_heading)
                         .child(format!("{}{}", data.temperature, data.temperature_unit)),
                 )
                 .child(
                     div()
-                        .text_size(px(12.0))
+                        .text_size(zpx(12.0))
                         .text_color(palette.text_secondary)
                         .child(data.description.clone()),
                 ),
         )
         .child(
             div()
-                .text_size(px(12.0))
+                .text_size(zpx(12.0))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(palette.text_secondary)
                 .whitespace_nowrap()
@@ -97,43 +98,43 @@ fn forecast_row(day: &ForecastDay, sun: Hsla, cx: &App) -> Div {
     h_flex()
         .w_full()
         .items_center()
-        .gap(px(10.0))
-        .px(px(10.0))
-        .py(px(8.0))
-        .rounded(px(6.0))
+        .gap(zpx(10.0))
+        .px(zpx(10.0))
+        .py(zpx(8.0))
+        .rounded(zpx(6.0))
         .bg(theme.secondary)
         .border_1()
         .border_color(theme.border)
         .hover(move |style| style.border_color(palette.border_secondary))
         .child(
             div()
-                .w(px(42.0))
-                .text_size(px(12.0))
+                .w(zpx(42.0))
+                .text_size(zpx(12.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(palette.text_heading)
                 .child(day.day_name.clone()),
         )
         .child(
             div()
-                .w(px(22.0))
+                .w(zpx(22.0))
                 .flex()
                 .justify_center()
                 .text_color(sun)
-                .child(Icon::new(weather_icon(day.weather_code)).size(px(14.0))),
+                .child(Icon::new(weather_icon(day.weather_code)).size(zpx(14.0))),
         )
         .child(
             div()
                 .flex_1()
                 .min_w_0()
-                .text_size(px(11.0))
+                .text_size(zpx(11.0))
                 .text_color(palette.text_secondary)
                 .truncate()
                 .child(day.description.clone()),
         )
         .child(
             h_flex()
-                .gap(px(8.0))
-                .text_size(px(12.0))
+                .gap(zpx(8.0))
+                .text_size(zpx(12.0))
                 .font_weight(FontWeight::SEMIBOLD)
                 .whitespace_nowrap()
                 .child(
@@ -156,12 +157,12 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
         v_flex()
             .w_full()
             .items_center()
-            .gap(px(4.0))
-            .py(px(8.0))
+            .gap(zpx(4.0))
+            .py(zpx(8.0))
             .child(
                 h_flex()
                     .items_center()
-                    .gap(px(10.0))
+                    .gap(zpx(10.0))
                     .child(icon_box(
                         40.0,
                         10.0,
@@ -172,8 +173,8 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
                     ))
                     .child(
                         div()
-                            .text_size(px(36.0))
-                            .line_height(px(36.0))
+                            .text_size(zpx(36.0))
+                            .line_height(zpx(36.0))
                             .font_weight(FontWeight::EXTRA_BOLD)
                             .text_color(palette.text_heading)
                             .child(format!("{}{}", data.temperature, data.temperature_unit)),
@@ -181,16 +182,18 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
             )
             .child(
                 div()
-                    .text_size(px(13.0))
+                    .text_size(zpx(13.0))
                     .font_weight(FontWeight::SEMIBOLD)
                     .text_color(palette.text_secondary)
                     .child(data.description.clone()),
             )
             .into_any_element(),
+        // Wraps rather than squeezing the tiles when zoomed in or narrow.
         h_flex()
             .w_full()
-            .gap(px(10.0))
-            .child(stat_card(
+            .flex_wrap()
+            .gap(zpx(10.0))
+            .child(wrapping_tile(stat_card(
                 StatCard::new(
                     IconName::Thermometer,
                     format!("{}° / {}°", data.high, data.low),
@@ -198,8 +201,8 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
                 )
                 .icon_colors(sun, sun_bg),
                 cx,
-            ))
-            .child(stat_card(
+            )))
+            .child(wrapping_tile(stat_card(
                 StatCard::new(
                     IconName::Droplets,
                     format!("{}%", data.humidity),
@@ -207,24 +210,24 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
                 )
                 .icon_colors(sun, sun_bg),
                 cx,
-            ))
-            .child(stat_card(
+            )))
+            .child(wrapping_tile(stat_card(
                 StatCard::new(IconName::Wind, format!("{} mph", data.wind_speed), "Wind")
                     .icon_colors(sun, sun_bg),
                 cx,
-            ))
+            )))
             .into_any_element(),
     ];
     if !data.forecast.is_empty() {
         out.push(
             v_flex()
                 .w_full()
-                .gap(px(6.0))
+                .gap(zpx(6.0))
                 .child(kicker("3-Day Forecast", 10.0, cx))
                 .child(
                     v_flex()
                         .w_full()
-                        .gap(px(2.0))
+                        .gap(zpx(2.0))
                         .children(data.forecast.iter().map(|day| forecast_row(day, sun, cx))),
                 )
                 .into_any_element(),
@@ -233,29 +236,39 @@ fn current_section(data: &WeatherData, sun: Hsla, cx: &App) -> Vec<AnyElement> {
     out
 }
 
+/// A stat tile that keeps a usable width and wraps to the next line instead
+/// of shrinking below it.
+fn wrapping_tile(tile: Div) -> Div {
+    div()
+        .flex_grow_1()
+        .flex_basis(zpx(150.0))
+        .min_w(zpx(150.0))
+        .child(tile)
+}
+
 fn pollen_badge(kind: PollenType, index: u8, cx: &App) -> Div {
     let theme = cx.theme();
     let palette = BuddyPalette::global(cx);
     v_flex()
         .flex_1()
         .items_center()
-        .gap(px(2.0))
-        .px(px(6.0))
-        .py(px(8.0))
-        .rounded(px(6.0))
+        .gap(zpx(2.0))
+        .px(zpx(6.0))
+        .py(zpx(8.0))
+        .rounded(zpx(6.0))
         .bg(theme.secondary)
         .border_1()
         .border_color(theme.border)
         .child(
             div()
-                .text_size(px(10.0))
+                .text_size(zpx(10.0))
                 .font_weight(FontWeight::SEMIBOLD)
                 .text_color(palette.text_muted)
                 .child(kind.badge_label().to_uppercase()),
         )
         .child(
             div()
-                .text_size(px(11.0))
+                .text_size(zpx(11.0))
                 .font_weight(FontWeight::BOLD)
                 .text_color(level_color(index, palette))
                 .child(level_label(index)),
@@ -275,45 +288,45 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
             "Show species detail"
         })
         .toggled(open)
-        .py(px(4.0))
+        .py(zpx(4.0))
         .font_weight(FontWeight::SEMIBOLD)
         .text_color(palette.text_muted)
-        .child(div().text_size(px(10.0)).child("SPECIES DETAIL"))
+        .child(div().text_size(zpx(10.0)).child("SPECIES DETAIL"))
         .child(
             Icon::new(if open {
                 IconName::ChevronUp
             } else {
                 IconName::ChevronDown
             })
-            .size(px(12.0)),
+            .size(zpx(12.0)),
         )
         .on_click(cx.listener(|this, _, _, cx| this.toggle_pollen_detail(cx)));
 
     let content = open.then(|| {
         v_flex()
             .w_full()
-            .gap(px(8.0))
-            .pt(px(4.0))
+            .gap(zpx(8.0))
+            .pt(zpx(4.0))
             .children(pollen.species_by_type().into_iter().map(|(kind, items)| {
                 v_flex()
                     .w_full()
-                    .gap(px(2.0))
+                    .gap(zpx(2.0))
                     .child(
                         h_flex()
                             .items_center()
-                            .gap(px(5.0))
+                            .gap(zpx(5.0))
                             .text_color(palette.text_muted)
-                            .child(Icon::new(pollen_type_icon(kind)).size(px(11.0)))
+                            .child(Icon::new(pollen_type_icon(kind)).size(zpx(11.0)))
                             .child(kicker(kind.group_label(), 10.0, cx)),
                     )
                     .children(items.into_iter().map(|species| {
                         h_flex()
                             .w_full()
                             .items_center()
-                            .gap(px(8.0))
-                            .px(px(8.0))
-                            .py(px(3.0))
-                            .text_size(px(11.0))
+                            .gap(zpx(8.0))
+                            .px(zpx(8.0))
+                            .py(zpx(3.0))
+                            .text_size(zpx(11.0))
                             .child(
                                 div()
                                     .flex_1()
@@ -329,7 +342,7 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
                             .when(!species.in_season, |this| {
                                 this.child(
                                     div()
-                                        .text_size(px(9.0))
+                                        .text_size(zpx(9.0))
                                         .text_color(palette.text_muted)
                                         .child("off-season"),
                                 )
@@ -340,12 +353,12 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
                 this.child(
                     v_flex()
                         .w_full()
-                        .gap(px(4.0))
+                        .gap(zpx(4.0))
                         .child(kicker("Health Tips", 10.0, cx))
                         .children(pollen.health_recommendations.iter().map(|tip| {
                             div()
-                                .text_size(px(11.0))
-                                .line_height(px(15.0))
+                                .text_size(zpx(11.0))
+                                .line_height(zpx(15.0))
                                 .text_color(palette.text_secondary)
                                 .child(format!("• {tip}"))
                         })),
@@ -365,7 +378,7 @@ fn pollen_detail(pollen: &PollenData, open: bool, cx: &mut Context<DashboardView
 fn stale_notice(error: &str, cx: &App) -> Div {
     div()
         .w_full()
-        .text_size(px(11.0))
+        .text_size(zpx(11.0))
         .text_color(BuddyPalette::global(cx).accent_error)
         .child(format!("Showing the last successful forecast. {error}"))
 }
@@ -375,10 +388,10 @@ fn pollen_area(view: &DashboardView, cx: &mut Context<DashboardView>) -> Option<
     let header = |cx: &App| {
         h_flex()
             .items_center()
-            .gap(px(6.0))
+            .gap(zpx(6.0))
             .child(
                 Icon::new(IconName::Flower2)
-                    .size(px(12.0))
+                    .size(zpx(12.0))
                     .text_color(hex("#a8d08d")),
             )
             .child(kicker("Pollen Index", 10.0, cx))
@@ -391,17 +404,17 @@ fn pollen_area(view: &DashboardView, cx: &mut Context<DashboardView>) -> Option<
         return Some(
             v_flex()
                 .w_full()
-                .gap(px(8.0))
+                .gap(zpx(8.0))
                 .child(header(cx))
                 .when_some(stale, |this, error| {
                     this.child(
                         div()
-                            .text_size(px(11.0))
+                            .text_size(zpx(11.0))
                             .text_color(palette.accent_error)
                             .child(format!("Showing the last successful pollen data. {error}")),
                     )
                 })
-                .child(h_flex().w_full().gap(px(10.0)).children(
+                .child(h_flex().w_full().gap(zpx(10.0)).children(
                     PollenType::ALL.map(|kind| pollen_badge(kind, pollen.index_for(kind), cx)),
                 ))
                 .when_some(detail, |this, detail| this.child(detail)),
@@ -411,12 +424,12 @@ fn pollen_area(view: &DashboardView, cx: &mut Context<DashboardView>) -> Option<
     view.pollen_error().map(|error| {
         v_flex()
             .w_full()
-            .gap(px(8.0))
+            .gap(zpx(8.0))
             .opacity(0.7)
             .child(header(cx))
             .child(
                 div()
-                    .text_size(px(11.0))
+                    .text_size(zpx(11.0))
                     .text_color(palette.text_muted)
                     .child(error.to_string()),
             )
@@ -434,7 +447,7 @@ fn search_bar(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
     h_flex()
         .w_full()
         .items_center()
-        .gap(px(6.0))
+        .gap(zpx(6.0))
         .child(
             div().flex_1().child(
                 Input::new(view.weather_search_input())
@@ -442,7 +455,7 @@ fn search_bar(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
                     .small()
                     .prefix(
                         Icon::new(IconName::Search)
-                            .size(px(14.0))
+                            .size(zpx(14.0))
                             .text_color(palette.text_muted),
                     ),
             ),
@@ -469,7 +482,7 @@ pub fn render(
     let refresh = view.weather_refresh().clone();
     let caption = view.weather_caption();
 
-    let heading = section_heading("Local weather", "Weather", caption, cx);
+    let heading = section_heading("Local weather", "Weather", caption, view.narrow(), cx);
     let toggle = collapse_button(
         "weather-collapse",
         expanded,
@@ -477,7 +490,7 @@ pub fn render(
         cx,
     );
 
-    let mut card = section(Some(sun), cx).child(card_header(heading, toggle));
+    let mut card = section(Some(sun), view.narrow(), cx).child(card_header(heading, toggle));
 
     if !expanded {
         if let Some(data) = &data {

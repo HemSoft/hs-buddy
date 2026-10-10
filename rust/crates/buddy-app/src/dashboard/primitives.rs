@@ -10,19 +10,20 @@ use gpui_kit::component::{ActiveTheme, Disableable as _, Icon, Sizable as _, h_f
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Background, BoxShadow, ClickEvent, Div, FontWeight, Hsla, IntoElement,
-    ParentElement, SharedString, Styled, Window, div, point, px,
+    ParentElement, SharedString, Styled, Window, div, point,
 };
 
 use crate::theme::BuddyPalette;
+use crate::zoom::{scaled, zpx};
 
 /// `.welcome-section`: the rounded card container with an optional accent ring.
-pub fn section(accent: Option<Hsla>, cx: &App) -> Div {
+pub fn section(accent: Option<Hsla>, narrow: bool, cx: &App) -> Div {
     let theme = cx.theme();
     v_flex()
         .w_full()
-        .gap(px(14.0))
-        .p(px(16.0))
-        .rounded(px(16.0))
+        .gap(zpx(14.0))
+        .p(zpx(if narrow { 14.0 } else { 16.0 }))
+        .rounded(zpx(16.0))
         .border_1()
         .border_color(theme.border)
         .bg(theme.secondary)
@@ -30,9 +31,9 @@ pub fn section(accent: Option<Hsla>, cx: &App) -> Div {
             this.border_color(accent.opacity(0.45))
                 .shadow(vec![BoxShadow {
                     color: accent.opacity(0.12),
-                    offset: point(px(0.0), px(0.0)),
-                    blur_radius: px(0.0),
-                    spread_radius: px(1.0),
+                    offset: point(scaled(cx, 0.0), scaled(cx, 0.0)),
+                    blur_radius: scaled(cx, 0.0),
+                    spread_radius: scaled(cx, 1.0),
                     inset: false,
                 }])
         })
@@ -42,33 +43,36 @@ pub fn section(accent: Option<Hsla>, cx: &App) -> Div {
 pub fn kicker(text: &str, size: f32, cx: &App) -> Div {
     let palette = BuddyPalette::global(cx);
     div()
-        .text_size(px(size))
+        .text_size(zpx(size))
         .font_weight(FontWeight::BOLD)
         .text_color(palette.text_muted)
         .child(text.to_uppercase())
 }
 
-/// `SectionHeading`: kicker + title on the left, caption on the right.
+/// `SectionHeading`: kicker + title on the left, caption on the right; when
+/// narrow, the caption goes below the title, left-aligned.
 pub fn section_heading(
     kicker_text: &str,
     title: &str,
     caption: impl Into<SharedString>,
+    narrow: bool,
     cx: &App,
 ) -> Div {
     let palette = BuddyPalette::global(cx);
-    h_flex()
-        .w_full()
-        .items_end()
-        .justify_between()
-        .gap(px(16.0))
+    let row = if narrow {
+        v_flex().items_start().gap(zpx(6.0))
+    } else {
+        h_flex().items_end().justify_between().gap(zpx(16.0))
+    };
+    row.w_full()
         .child(
             v_flex()
-                .gap(px(2.0))
+                .gap(zpx(2.0))
                 .child(kicker(kicker_text, 11.0, cx))
                 .child(
                     div()
-                        .text_size(px(22.0))
-                        .line_height(px(24.0))
+                        .text_size(zpx(22.0))
+                        .line_height(zpx(24.0))
                         .font_weight(FontWeight::EXTRA_BOLD)
                         .text_color(palette.text_heading)
                         .child(title.to_string()),
@@ -76,13 +80,37 @@ pub fn section_heading(
         )
         .child(
             div()
-                .max_w(px(320.0))
-                .text_size(px(11.0))
-                .line_height(px(15.0))
+                .when(!narrow, |this| this.max_w(zpx(320.0)).text_right())
+                .text_size(zpx(11.0))
+                .line_height(zpx(15.0))
                 .text_color(palette.text_secondary)
-                .text_right()
                 .child(caption.into()),
         )
+}
+
+/// `.welcome-stats-grid` / `.welcome-usage-stats`: equal-width stat tiles,
+/// `columns` per row; a short last row keeps the column width.
+pub fn stat_grid(cards: Vec<StatCard>, columns: usize, cx: &App) -> Div {
+    let mut rows: Vec<Vec<StatCard>> = Vec::new();
+    for card in cards {
+        match rows.last_mut() {
+            Some(row) if row.len() < columns => row.push(card),
+            _ => rows.push(vec![card]),
+        }
+    }
+    v_flex()
+        .w_full()
+        .gap(zpx(10.0))
+        .children(rows.into_iter().map(|row| {
+            let missing = columns - row.len();
+            h_flex()
+                .w_full()
+                .gap(zpx(10.0))
+                .children(row.into_iter().map(|card| stat_card(card, cx)))
+                .when(missing > 0, |this| {
+                    this.children((0..missing).map(|_| div().flex_1()))
+                })
+        }))
 }
 
 /// A square icon tile (`.welcome-stat-icon`, `.weather-icon-*`).
@@ -95,15 +123,15 @@ pub fn icon_box(
     bg: Hsla,
 ) -> Div {
     div()
-        .size(px(size))
+        .size(zpx(size))
         .flex_shrink_0()
-        .rounded(px(radius))
+        .rounded(zpx(radius))
         .flex()
         .items_center()
         .justify_center()
         .text_color(color)
         .bg(bg)
-        .child(Icon::new(icon).size(px(icon_size)))
+        .child(Icon::new(icon).size(zpx(icon_size)))
 }
 
 pub struct StatCard {
@@ -160,9 +188,9 @@ pub fn stat_card(card: StatCard, cx: &App) -> Div {
         .flex_1()
         .min_w_0()
         .items_center()
-        .gap(px(10.0))
-        .p(px(12.0))
-        .rounded(px(8.0))
+        .gap(zpx(10.0))
+        .p(zpx(12.0))
+        .rounded(zpx(8.0))
         .border_1()
         .border_color(card.card_border.unwrap_or(theme.border))
         .bg(bg)
@@ -170,11 +198,11 @@ pub fn stat_card(card: StatCard, cx: &App) -> Div {
         .child(
             v_flex()
                 .min_w_0()
-                .gap(px(1.0))
+                .gap(zpx(1.0))
                 .child(
                     div()
-                        .text_size(px(18.0))
-                        .line_height(px(22.0))
+                        .text_size(zpx(18.0))
+                        .line_height(zpx(22.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(palette.text_heading)
                         .whitespace_nowrap()
@@ -182,7 +210,7 @@ pub fn stat_card(card: StatCard, cx: &App) -> Div {
                 )
                 .child(
                     div()
-                        .text_size(px(10.0))
+                        .text_size(zpx(10.0))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(palette.text_muted)
                         .child(card.label.to_uppercase()),
@@ -190,7 +218,7 @@ pub fn stat_card(card: StatCard, cx: &App) -> Div {
                 .when_some(card.subtitle, |this, subtitle| {
                     this.child(
                         div()
-                            .text_size(px(10.0))
+                            .text_size(zpx(10.0))
                             .text_color(palette.text_secondary)
                             .child(subtitle),
                     )
@@ -266,16 +294,16 @@ impl Pill {
             .accessibility_label(self.label.clone())
             .border_1()
             .border_color(theme.border)
-            .px(px(12.0))
-            .py(px(8.0))
-            .rounded(px(8.0))
+            .px(zpx(12.0))
+            .py(zpx(8.0))
+            .rounded(scaled(cx, 8.0))
             .font_weight(FontWeight::SEMIBOLD)
             .when_some(self.icon, |this, icon| {
-                this.child(Icon::new(icon).size(px(14.0)).text_color(icon_color))
+                this.child(Icon::new(icon).size(zpx(14.0)).text_color(icon_color))
             })
-            .child(div().text_size(px(12.0)).child(self.label))
+            .child(div().text_size(zpx(12.0)).child(self.label))
             .when_some(self.trailing, |this, icon| {
-                this.child(Icon::new(icon).size(px(14.0)))
+                this.child(Icon::new(icon).size(zpx(14.0)))
             })
             .when_some(self.tooltip, |this, tooltip| this.tooltip(tooltip))
             .disabled(self.disabled)
@@ -314,13 +342,13 @@ pub fn collapse_button(
         .custom(pill_variant(cx))
         .accessibility_label(title)
         .tooltip(title)
-        .size(px(28.0))
-        .p(px(0.0))
-        .rounded(px(6.0))
+        .size(zpx(28.0))
+        .p(zpx(0.0))
+        .rounded(scaled(cx, 6.0))
         .border_1()
         .border_color(theme.border)
         .text_color(palette.text_secondary)
-        .child(Icon::new(icon).size(px(16.0)))
+        .child(Icon::new(icon).size(zpx(16.0)))
         .on_click(on_toggle)
 }
 
@@ -329,7 +357,7 @@ pub fn card_header(heading: impl IntoElement, toggle: impl IntoElement) -> Div {
     h_flex()
         .w_full()
         .items_start()
-        .gap(px(8.0))
+        .gap(zpx(8.0))
         .child(div().flex_1().min_w_0().child(heading))
         .child(toggle)
 }
@@ -374,12 +402,12 @@ pub fn action_bar(
 
     v_flex()
         .w_full()
-        .gap(px(4.0))
+        .gap(zpx(4.0))
         .child(
             h_flex()
                 .w_full()
                 .items_center()
-                .gap(px(8.0))
+                .gap(zpx(8.0))
                 .child(
                     Pill::new(bar.refresh_id, "Refresh")
                         .icon(IconName::RefreshCw)
@@ -413,7 +441,7 @@ pub fn action_bar(
             this.child(
                 div()
                     .w_full()
-                    .text_size(px(10.0))
+                    .text_size(zpx(10.0))
                     .text_color(palette.text_muted)
                     .text_right()
                     .child(status),
@@ -428,9 +456,9 @@ pub fn status_message(text: impl Into<SharedString>, error: bool, cx: &App) -> D
         .w_full()
         .items_center()
         .justify_center()
-        .gap(px(8.0))
-        .p(px(24.0))
-        .text_size(px(13.0))
+        .gap(zpx(8.0))
+        .p(zpx(24.0))
+        .text_size(zpx(13.0))
         .text_color(if error {
             palette.accent_error
         } else {

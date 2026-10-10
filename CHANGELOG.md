@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1309] - 2026-10-10
+
+### Fixed
+
+- Add zoom and stop startup and exit log errors (#796)
+
 ## [0.1.1308] - 2026-10-08
 
 ### Changed

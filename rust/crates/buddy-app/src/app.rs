@@ -5,14 +5,25 @@ use std::time::Duration;
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
-    px,
 };
 
 use crate::dashboard::{DashboardEvent, DashboardView};
 use crate::runtime::Runtime;
 use crate::shell::{activity_bar, status_bar, tab_bar, title_bar};
+use crate::zoom::{self, zpx};
 
-gpui_kit::actions!(buddy, [Quit, About, Reload, ToggleFullScreen]);
+gpui_kit::actions!(
+    buddy,
+    [
+        Quit,
+        About,
+        Reload,
+        ToggleFullScreen,
+        ZoomIn,
+        ZoomOut,
+        ResetZoom
+    ]
+);
 
 /// Activity-bar sections, mirroring the ids in `ActivityBar.tsx`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -159,7 +170,7 @@ impl Render for BuddyApp {
         v_flex()
             .size_full()
             .font_family(font_family)
-            .text_size(px(13.0))
+            .text_size(zpx(13.0))
             .bg(background)
             .text_color(foreground)
             .child(title_bar::render(self, window, cx))
@@ -179,5 +190,6 @@ impl Render for BuddyApp {
                     ),
             )
             .child(status_bar::render(self, cx))
+            .child(zoom::wheel_listener())
     }
 }

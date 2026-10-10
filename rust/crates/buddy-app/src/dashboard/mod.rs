@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use std::collections::BTreeMap;
 
 use buddy_core::config::{GitHubConfig, WeatherLocation};
-use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate};
+use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate, OutageLog};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
 use buddy_core::dashboard::{CardId, DASHBOARD_CARDS, INTERVAL_OPTIONS};
 use buddy_core::finance::{self, QuoteData};
@@ -28,13 +28,14 @@ use gpui_kit::component::{ActiveTheme, Icon, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Subscription, Window, div, px,
+    IntoElement, ParentElement, Render, Styled, Subscription, Window, div,
 };
 
 use crate::app::Section;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
 use crate::theme::BuddyPalette;
+use crate::zoom::{scaled, zpx};
 
 /// Below this window width the grid collapses to one column (`@media (max-width: 860px)`).
 const SINGLE_COLUMN_MAX_WIDTH: f32 = 860.0;
@@ -125,6 +126,8 @@ impl RefreshState {
 }
 
 pub struct DashboardView {
+    /// The `max-width: 680px` layout of `WelcomePanel.css`, set each render.
+    narrow: bool,
     http: reqwest::Client,
     weather_search: Entity<InputState>,
     finance_add: Entity<InputState>,
@@ -215,6 +218,7 @@ impl DashboardView {
 
         let intervals = Settings::global(cx).config.native.auto_refresh.clone();
         let mut this = Self {
+            narrow: false,
             http: http::client(),
             weather_search,
             finance_add,
@@ -393,7 +397,11 @@ impl DashboardView {
             tx,
         ));
         cx.spawn(async move |this, cx| {
+            let mut outages = OutageLog::default();
             while let Some(update) = rx.next().await {
+                for source in outages.recovered(update.recovered_sources()) {
+                    log::info!("convex ({source:?}): connected again");
+                }
                 let applied = this.update(cx, |this, cx| {
                     match update {
                         ConvexUpdate::Stats(stats) => {
@@ -407,7 +415,7 @@ impl DashboardView {
                             this.convex_bookmarks_error = None;
                         }
                         ConvexUpdate::Error { source, message } => {
-                            log::warn!("convex ({source:?}): {message}");
+                            log::log!(outages.failed(source), "convex ({source:?}): {message}");
                             let slot = match source {
                                 ConvexSource::Connection => &mut this.convex_connection_error,
                                 ConvexSource::Stats => &mut this.convex_stats_error,
@@ -747,6 +755,11 @@ impl DashboardView {
         self.copilot_errors
             .first()
             .map(|(username, error)| format!("{username}: {error}"))
+    }
+
+    /// Whether the dashboard uses its narrow (`max-width: 680px`) layout.
+    pub fn narrow(&self) -> bool {
+        self.narrow
     }
 
     pub fn pulse(&self) -> WorkspacePulse {
@@ -1093,19 +1106,19 @@ impl DashboardView {
     }
 
     fn render_grid(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let two_columns = window.viewport_size().width > px(SINGLE_COLUMN_MAX_WIDTH);
+        let two_columns = window.viewport_size().width > scaled(cx, SINGLE_COLUMN_MAX_WIDTH);
         let cards = self.visible_cards(cx);
         let rows = Self::grid_rows(&cards, two_columns);
 
         v_flex()
             .w_full()
-            .gap(px(16.0))
+            .gap(zpx(16.0))
             .children(rows.into_iter().map(|row| {
                 let needs_spacer = two_columns && row.len() == 1 && row[0].span() == 1;
                 h_flex()
                     .w_full()
                     .items_start()
-                    .gap(px(16.0))
+                    .gap(zpx(16.0))
                     .children(row.into_iter().map(|card| {
                         div()
                             .flex_1()
@@ -1127,7 +1140,7 @@ impl DashboardView {
                 )
         };
         h_flex()
-            .gap(px(8.0))
+            .gap(zpx(8.0))
             .flex_wrap()
             .justify_center()
             .child(action(
@@ -1160,13 +1173,13 @@ impl DashboardView {
         let palette = BuddyPalette::global(cx);
         h_flex()
             .items_center()
-            .gap(px(5.0))
-            .text_size(px(11.0))
+            .gap(zpx(5.0))
+            .text_size(zpx(11.0))
             .text_color(palette.text_muted)
             .child("Made with")
             .child(
                 Icon::new(IconName::Heart)
-                    .size(px(12.0))
+                    .size(zpx(12.0))
                     .text_color(crate::theme::hex("#e25555")),
             )
             .child("by HemSoft Developments")
@@ -1176,7 +1189,8 @@ impl DashboardView {
 impl Render for DashboardView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let background = cx.theme().background;
-        let narrow = window.viewport_size().width <= px(680.0);
+        let narrow = window.viewport_size().width <= scaled(cx, 680.0);
+        self.narrow = narrow;
         let (pad_y, pad_x) = if narrow { (12.0, 16.0) } else { (20.0, 24.0) };
 
         div()
@@ -1189,14 +1203,14 @@ impl Render for DashboardView {
                     .w_full()
                     .flex()
                     .justify_center()
-                    .px(px(pad_x))
-                    .py(px(pad_y))
+                    .px(zpx(pad_x))
+                    .py(zpx(pad_y))
                     .child(
                         v_flex()
                             .w_full()
-                            .max_w(px(MAX_CONTENT_WIDTH))
+                            .max_w(zpx(MAX_CONTENT_WIDTH))
                             .items_center()
-                            .gap(px(20.0))
+                            .gap(zpx(20.0))
                             .child(header::render(self, cx))
                             .child(self.render_grid(window, cx))
                             .child(self.render_quick_actions(cx))

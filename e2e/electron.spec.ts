@@ -165,7 +165,9 @@ test.describe('real Electron renderer-to-main journeys', () => {
       await page.evaluate(id => window.terminal.kill(id), sessionId)
     }
   })
+})
 
+test.describe('real Electron window zoom', () => {
   test('zooms the window from Ctrl+=, Ctrl+mouse wheel and the menu channels', async ({
     electronHarness,
   }) => {

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalWarnings": 1114,
+  "totalWarnings": 1112,
   "entries": {
     "convex/__tests__/bookmarks.test.ts::max-lines-per-function": 1,
     "convex/__tests__/buddyStats.test.ts::max-lines-per-function": 1,

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1312] - 2026-10-10
+
+### Fixed
+
+- Wrap card captions beside long titles (#796)
+
 ## [0.1.1311] - 2026-10-10
 
 ### Fixed

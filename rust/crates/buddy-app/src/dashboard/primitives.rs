@@ -67,6 +67,7 @@ pub fn section_heading(
     row.w_full()
         .child(
             v_flex()
+                .flex_shrink_0()
                 .gap(zpx(2.0))
                 .child(kicker(kicker_text, 11.0, cx))
                 .child(
@@ -80,6 +81,9 @@ pub fn section_heading(
         )
         .child(
             div()
+                // Shrinks and wraps beside a long title instead of running
+                // past the card edge.
+                .min_w_0()
                 .when(!narrow, |this| this.max_w(zpx(320.0)).text_right())
                 .text_size(zpx(11.0))
                 .line_height(zpx(15.0))

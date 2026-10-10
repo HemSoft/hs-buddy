@@ -34,6 +34,7 @@ use gpui_kit::{
 use crate::app::Section;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
+use crate::shell::activity_bar::ACTIVITY_BAR_WIDTH;
 use crate::theme::BuddyPalette;
 use crate::zoom::{scaled, zpx};
 
@@ -126,8 +127,8 @@ impl RefreshState {
 }
 
 pub struct DashboardView {
-    /// The `max-width: 680px` layout of `WelcomePanel.css`, set each render.
-    narrow: bool,
+    /// The breakpoints for the current window width and zoom, set each render.
+    layout: GridLayout,
     http: reqwest::Client,
     weather_search: Entity<InputState>,
     finance_add: Entity<InputState>,
@@ -218,7 +219,7 @@ impl DashboardView {
 
         let intervals = Settings::global(cx).config.native.auto_refresh.clone();
         let mut this = Self {
-            narrow: false,
+            layout: GridLayout::for_viewport(1280.0),
             http: http::client(),
             weather_search,
             finance_add,
@@ -759,7 +760,12 @@ impl DashboardView {
 
     /// Whether the dashboard uses its narrow (`max-width: 680px`) layout.
     pub fn narrow(&self) -> bool {
-        self.narrow
+        self.layout.narrow
+    }
+
+    /// See [`GridLayout::stat_columns`].
+    pub fn stat_columns(&self, card: CardId, min_tile: f32) -> usize {
+        self.layout.stat_columns(card, min_tile)
     }
 
     pub fn pulse(&self) -> WorkspacePulse {
@@ -1106,7 +1112,7 @@ impl DashboardView {
     }
 
     fn render_grid(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let two_columns = window.viewport_size().width > scaled(cx, SINGLE_COLUMN_MAX_WIDTH);
+        let two_columns = self.layout.two_columns;
         let cards = self.visible_cards(cx);
         let rows = Self::grid_rows(&cards, two_columns);
 
@@ -1189,9 +1195,10 @@ impl DashboardView {
 impl Render for DashboardView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let background = cx.theme().background;
-        let narrow = window.viewport_size().width <= scaled(cx, 680.0);
-        self.narrow = narrow;
-        let (pad_y, pad_x) = if narrow { (12.0, 16.0) } else { (20.0, 24.0) };
+        // Lay out in pixels at 100% zoom, as the CSS breakpoints are.
+        let viewport = f32::from(window.viewport_size().width) / f32::from(scaled(cx, 1.0));
+        self.layout = GridLayout::for_viewport(viewport);
+        let (pad_y, pad_x) = self.layout.padding();
 
         div()
             .id("dashboard-scroll")
@@ -1217,5 +1224,95 @@ impl Render for DashboardView {
                             .child(self.render_footer(cx)),
                     ),
             )
+    }
+}
+
+/// The dashboard's breakpoints for one window width, in pixels at 100% zoom
+/// (zooming in shrinks that width, as browser zoom shrinks the CSS viewport).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct GridLayout {
+    /// `WelcomePanel.css` `max-width: 680px`.
+    narrow: bool,
+    /// Two cards to a row above `max-width: 860px`.
+    two_columns: bool,
+    /// The card grid's width.
+    grid_width: f32,
+}
+
+impl GridLayout {
+    fn for_viewport(viewport: f32) -> Self {
+        let narrow = viewport <= 680.0;
+        let mut layout = Self {
+            narrow,
+            two_columns: viewport > SINGLE_COLUMN_MAX_WIDTH,
+            grid_width: 0.0,
+        };
+        let (_, pad_x) = layout.padding();
+        layout.grid_width = (viewport - ACTIVITY_BAR_WIDTH - 2.0 * pad_x).min(MAX_CONTENT_WIDTH);
+        layout
+    }
+
+    /// The page's vertical and horizontal padding.
+    fn padding(&self) -> (f32, f32) {
+        if self.narrow {
+            (12.0, 16.0)
+        } else {
+            (20.0, 24.0)
+        }
+    }
+
+    /// How many stat tiles of at least `min_tile` pixels fit in a row of
+    /// `card`: 4 or 2 (the grids' column counts in `WelcomePanel.css`), or
+    /// 1. A tile squeezed below its label's width breaks words mid-letter.
+    fn stat_columns(&self, card: CardId, min_tile: f32) -> usize {
+        const GRID_GAP: f32 = 16.0;
+        const TILE_GAP: f32 = 10.0;
+        let card_width = if self.two_columns && card.span() == 1 {
+            (self.grid_width - GRID_GAP) / 2.0
+        } else {
+            self.grid_width
+        };
+        // `section` padding on both sides plus its 1px border.
+        let padding = if self.narrow { 14.0 } else { 16.0 };
+        let content = card_width - 2.0 * (padding + 1.0);
+        let fits = |columns: f32| content >= columns * min_tile + (columns - 1.0) * TILE_GAP;
+        if fits(4.0) {
+            4
+        } else if fits(2.0) {
+            2
+        } else {
+            1
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The default 1280px window at `percent` zoom.
+    fn at(percent: f32) -> GridLayout {
+        GridLayout::for_viewport(1280.0 * 100.0 / percent)
+    }
+
+    #[test]
+    fn breakpoints_follow_the_zoomed_width() {
+        assert_eq!((at(100.0).narrow, at(100.0).two_columns), (false, true));
+        assert_eq!((at(150.0).narrow, at(150.0).two_columns), (false, false));
+        assert_eq!((at(200.0).narrow, at(200.0).two_columns), (true, false));
+    }
+
+    #[test]
+    fn stat_tiles_drop_columns_before_labels_break() {
+        let pulse = |percent| at(percent).stat_columns(CardId::WorkspacePulse, 128.0);
+        assert_eq!(pulse(100.0), 4);
+        // Still two cards to a row, so four tiles would be ~110px wide.
+        assert_eq!(pulse(120.0), 2);
+        assert_eq!(pulse(150.0), 4);
+        assert_eq!(pulse(300.0), 2);
+        let usage = |percent| at(percent).stat_columns(CardId::CommandCenter, 180.0);
+        assert_eq!(usage(100.0), 4);
+        assert_eq!(usage(150.0), 2);
+        assert_eq!(usage(300.0), 1);
     }
 }

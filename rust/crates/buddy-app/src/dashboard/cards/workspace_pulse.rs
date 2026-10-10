@@ -1,5 +1,6 @@
 //! `WorkspacePulseCard`: lifetime activity counters.
 
+use buddy_core::dashboard::CardId;
 use buddy_core::format::{month_year, thousands};
 use gpui_kit::assets::IconName;
 use gpui_kit::prelude::FluentBuilder as _;
@@ -9,8 +10,6 @@ use crate::dashboard::DashboardView;
 use crate::dashboard::primitives::{StatCard, section, section_heading, stat_grid};
 use crate::theme::{BuddyPalette, hex};
 use crate::zoom::zpx;
-
-const COLUMNS: usize = 4;
 
 fn member_since(first_launch_ms: u64) -> String {
     if first_launch_ms == 0 {
@@ -67,7 +66,8 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
         );
     }
 
-    let columns = if view.narrow() { 2 } else { COLUMNS };
+    // Wide enough for the longest label ("REVIEWED") beside the icon.
+    let columns = view.stat_columns(CardId::WorkspacePulse, 128.0);
 
     section(Some(hex("#50aaff")), view.narrow(), cx)
         .child(section_heading(

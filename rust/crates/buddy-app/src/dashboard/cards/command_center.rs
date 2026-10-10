@@ -1,5 +1,6 @@
 //! `CommandCenterCard`: Copilot usage summary (span 2).
 
+use buddy_core::dashboard::CardId;
 use buddy_core::format::{currency, thousands};
 use gpui_kit::assets::IconName;
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
@@ -160,7 +161,8 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
                     .icon_colors(overage, overage_bg)
                     .card_style(overage_card_bg, overage_card_border),
             ],
-            if narrow { 2 } else { 4 },
+            // Wide enough for an amount such as "$17,457.30" beside the icon.
+            view.stat_columns(CardId::CommandCenter, 180.0),
             cx,
         ))
         .into_any_element()

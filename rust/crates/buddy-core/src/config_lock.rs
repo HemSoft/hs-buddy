@@ -185,6 +185,8 @@ impl ConfigLock {
                     if Instant::now() >= deadline {
                         return Ok(None);
                     }
+                    #[cfg(test)]
+                    tests::note_wait(&dir);
                     std::thread::sleep(POLL);
                 }
                 Err(err) => return Err(err),
@@ -371,6 +373,22 @@ fn remove_level(level: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    static WAITS: std::sync::Mutex<Vec<PathBuf>> = std::sync::Mutex::new(Vec::new());
+
+    /// Records that `acquire` is about to sleep on a held lock at `dir`.
+    pub(super) fn note_wait(dir: &Path) {
+        WAITS.lock().unwrap().push(dir.to_path_buf());
+    }
+
+    fn waits_on(dir: &Path) -> usize {
+        WAITS
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|seen| *seen == dir)
+            .count()
+    }
 
     fn temp_config(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("buddy-lock-{tag}-{}", std::process::id()));
@@ -737,16 +755,38 @@ mod tests {
     #[test]
     fn release_lets_the_next_writer_in() {
         let config = temp_config("handoff");
-        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT).unwrap();
+        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT)
+            .unwrap()
+            .unwrap();
+        assert!(first.is_held());
         let path = config.clone();
+        // Exercise handoff, not the application's 500ms latency budget.
+        // The bounded timeout test separately verifies deadline behavior.
         let waiter = std::thread::spawn(move || {
-            ConfigLock::acquire(&path, DEFAULT_TIMEOUT)
+            ConfigLock::acquire(&path, Duration::from_secs(5))
                 .unwrap()
-                .is_some()
+                .is_some_and(|guard| guard.is_held())
         });
-        std::thread::sleep(Duration::from_millis(100));
+        // Release only once the waiter is blocked inside its acquisition, so
+        // the test covers a waiting writer noticing the release rather than
+        // an uncontended fast path.
+        let dir = lock_dir(&config);
+        let started = Instant::now();
+        while waits_on(&dir) == 0 {
+            assert!(
+                started.elapsed() < Duration::from_secs(5),
+                "the waiter never blocked on the held lock"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
         drop(first);
-        assert!(waiter.join().unwrap());
-        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+        assert!(
+            waiter.join().unwrap(),
+            "handoff failed: lock remains={}, owner token remains={}",
+            dir.exists(),
+            dir.join(OWNER).exists(),
+        );
+        assert!(!dir.exists(), "the new writer released its lock");
+        std::fs::remove_dir_all(config.parent().unwrap()).unwrap();
     }
 }

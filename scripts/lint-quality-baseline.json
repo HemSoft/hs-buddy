@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "totalWarnings": 1114,
+  "totalWarnings": 1112,
   "entries": {
     "convex/__tests__/bookmarks.test.ts::max-lines-per-function": 1,
     "convex/__tests__/buddyStats.test.ts::max-lines-per-function": 1,
@@ -588,7 +588,6 @@
     "src/services/dataCache.test.ts::max-lines-per-function": 1,
     "src/services/dataCache.ts::@typescript-eslint/no-unnecessary-condition": 2,
     "src/services/taskQueue.test.ts::max-lines-per-function": 2,
-    "src/types/sflStatus.test.ts::max-lines-per-function": 1,
     "src/utils/billingParsers.test.ts::max-lines-per-function": 2,
     "src/utils/budgetUtils.test.ts::max-lines-per-function": 1,
     "src/utils/budgetUtils.ts::@typescript-eslint/no-unnecessary-condition": 2,

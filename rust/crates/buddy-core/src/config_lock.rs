@@ -737,16 +737,37 @@ mod tests {
     #[test]
     fn release_lets_the_next_writer_in() {
         let config = temp_config("handoff");
-        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT).unwrap();
+        let first = ConfigLock::acquire(&config, DEFAULT_TIMEOUT)
+            .unwrap()
+            .unwrap();
+        assert!(first.is_held());
         let path = config.clone();
+        let (blocked, observed) = std::sync::mpsc::sync_channel(0);
         let waiter = std::thread::spawn(move || {
-            ConfigLock::acquire(&path, DEFAULT_TIMEOUT)
+            assert!(
+                ConfigLock::acquire(&path, Duration::ZERO)
+                    .unwrap()
+                    .is_none()
+            );
+            blocked.send(()).unwrap();
+            // Exercise handoff, not the application's 500ms latency budget.
+            // The bounded timeout test separately verifies deadline behavior.
+            ConfigLock::acquire(&path, Duration::from_secs(5))
                 .unwrap()
-                .is_some()
+                .is_some_and(|guard| guard.is_held())
         });
-        std::thread::sleep(Duration::from_millis(100));
+        observed.recv_timeout(Duration::from_secs(5)).unwrap();
         drop(first);
-        assert!(waiter.join().unwrap());
-        let _ = std::fs::remove_dir_all(config.parent().unwrap());
+        assert!(
+            waiter.join().unwrap(),
+            "handoff failed: lock remains={}, owner token remains={}",
+            lock_dir(&config).exists(),
+            lock_dir(&config).join(OWNER).exists(),
+        );
+        assert!(
+            !lock_dir(&config).exists(),
+            "the new writer released its lock"
+        );
+        std::fs::remove_dir_all(config.parent().unwrap()).unwrap();
     }
 }

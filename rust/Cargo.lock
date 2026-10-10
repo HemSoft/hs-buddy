@@ -782,6 +782,7 @@ version = "0.1.0"
 dependencies = [
  "buddy-core",
  "chrono",
+ "embed-resource",
  "env_logger",
  "futures",
  "gpui-kit",
@@ -789,6 +790,7 @@ dependencies = [
  "reqwest",
  "serde_json",
  "tokio",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

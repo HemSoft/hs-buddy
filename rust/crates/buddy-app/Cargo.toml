@@ -13,6 +13,10 @@ path = "src/main.rs"
 [build-dependencies]
 serde_json.workspace = true
 
+# Embeds the app icon into buddy.exe (`build.rs`).
+[target.'cfg(windows)'.build-dependencies]
+embed-resource = "3.0"
+
 [dependencies]
 buddy-core = { path = "../buddy-core" }
 gpui-kit.workspace = true
@@ -26,3 +30,7 @@ futures.workspace = true
 [dev-dependencies]
 # Headless UI tests (`#[gpui_kit::test]`).
 gpui-kit = { workspace = true, features = ["test-support"] }
+
+# Reads the built binary's resources (`tests/windows_icon.rs`).
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_System_LibraryLoader"] }

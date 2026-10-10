@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1312] - 2026-10-10
+
+### Fixed
+
+- Wrap card captions beside long titles (#796)
+
+## [0.1.1311] - 2026-10-10
+
+### Fixed
+
+- Choose stat-tile columns from the zoomed card width (#796)
+
+## [0.1.1310] - 2026-10-10
+
+### Fixed
+
+- Keep zoomed mono size stable and pace touchpad zoom (#796)
+
+## [0.1.1309] - 2026-10-10
+
+### Fixed
+
+- Add zoom and stop startup and exit log errors (#796)
+
 ## [0.1.1308] - 2026-10-08
 
 ### Changed

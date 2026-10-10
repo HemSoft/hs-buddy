@@ -122,6 +122,46 @@ pub enum ConvexSource {
     Bookmarks,
 }
 
+impl ConvexUpdate {
+    /// The sources a successful update proves healthy.
+    pub fn recovered_sources(&self) -> &'static [ConvexSource] {
+        match self {
+            ConvexUpdate::Stats(_) => &[ConvexSource::Connection, ConvexSource::Stats],
+            ConvexUpdate::RepoBookmarkCount(_) => {
+                &[ConvexSource::Connection, ConvexSource::Bookmarks]
+            }
+            ConvexUpdate::Error { .. } => &[],
+        }
+    }
+}
+
+/// Decides how loudly a Convex update is logged: a source's first failure at
+/// WARN, repeats while it stays down at DEBUG, and its recovery once at INFO.
+/// The subscriptions retry for as long as the app runs, so without this an
+/// app left open without a backend logs a warning on every retry.
+#[derive(Debug, Default)]
+pub struct OutageLog {
+    down: Vec<ConvexSource>,
+}
+
+impl OutageLog {
+    pub fn failed(&mut self, source: ConvexSource) -> log::Level {
+        if self.down.contains(&source) {
+            log::Level::Debug
+        } else {
+            self.down.push(source);
+            log::Level::Warn
+        }
+    }
+
+    /// The sources among `sources` that were down until now.
+    pub fn recovered(&mut self, sources: &[ConvexSource]) -> Vec<ConvexSource> {
+        let (back, still_down) = self.down.iter().partition(|s| sources.contains(s));
+        self.down = still_down;
+        back
+    }
+}
+
 fn result_json(result: FunctionResult) -> Result<serde_json::Value, String> {
     match result {
         FunctionResult::Value(value) => Ok(value.export()),
@@ -231,6 +271,39 @@ async fn subscribe_once(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_outage_warns_once_and_logs_its_recovery_once() {
+        let mut log = OutageLog::default();
+        let stats = ConvexUpdate::Stats(BuddyStats::from_json(&serde_json::json!({})));
+        // Nothing was down, so a first success reports no recovery.
+        assert!(log.recovered(stats.recovered_sources()).is_empty());
+        let retries: Vec<_> = (0..5)
+            .map(|_| log.failed(ConvexSource::Connection))
+            .collect();
+        assert_eq!(retries[0], log::Level::Warn);
+        assert!(retries[1..].iter().all(|level| *level == log::Level::Debug));
+        assert_eq!(
+            log.recovered(stats.recovered_sources()),
+            vec![ConvexSource::Connection]
+        );
+        assert!(log.recovered(stats.recovered_sources()).is_empty());
+        // The next outage warns again.
+        assert_eq!(log.failed(ConvexSource::Connection), log::Level::Warn);
+    }
+
+    #[test]
+    fn one_subscription_recovering_leaves_the_other_down() {
+        let mut log = OutageLog::default();
+        log.failed(ConvexSource::Stats);
+        log.failed(ConvexSource::Bookmarks);
+        let bookmarks = ConvexUpdate::RepoBookmarkCount(2);
+        assert_eq!(
+            log.recovered(bookmarks.recovered_sources()),
+            vec![ConvexSource::Bookmarks]
+        );
+        assert_eq!(log.failed(ConvexSource::Stats), log::Level::Debug);
+    }
 
     #[test]
     fn reads_vite_convex_url_from_dotenv_text() {

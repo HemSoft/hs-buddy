@@ -6,11 +6,12 @@ use gpui_kit::component::{ActiveTheme, Icon, Selectable as _, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, Context, InteractiveElement as _, IntoElement, ParentElement,
-    StatefulInteractiveElement as _, Styled, Window, div, px,
+    StatefulInteractiveElement as _, Styled, Window, div,
 };
 
 use crate::app::{BuddyApp, Section};
 use crate::theme::BuddyPalette;
+use crate::zoom::zpx;
 
 pub const ACTIVITY_BAR_WIDTH: f32 = 48.0;
 
@@ -93,7 +94,7 @@ fn item(
     // A real button: focusable, keyboard-operable, and announced by its label.
     div()
         .w_full()
-        .h(px(48.0))
+        .h(zpx(48.0))
         .flex()
         .items_center()
         .justify_center()
@@ -108,14 +109,14 @@ fn item(
             Button::new(id)
                 .ghost()
                 .compact()
-                .w(px(44.0))
-                .h(px(44.0))
+                .w(zpx(44.0))
+                .h(zpx(44.0))
                 .text_color(if active {
                     palette.activity_bar_fg_active
                 } else {
                     palette.activity_bar_fg
                 })
-                .icon(Icon::new(icon).size(px(24.0)))
+                .icon(Icon::new(icon).size(zpx(24.0)))
                 .tooltip(label)
                 .accessibility_label(label)
                 .selected(active)
@@ -135,7 +136,7 @@ pub fn render(app: &BuddyApp, cx: &mut Context<BuddyApp>) -> impl IntoElement + 
     // (Dashboard plus eleven sections) need.
     v_flex()
         .id("activity-bar")
-        .w(px(ACTIVITY_BAR_WIDTH))
+        .w(zpx(ACTIVITY_BAR_WIDTH))
         .flex_shrink_0()
         .h_full()
         .overflow_y_scroll()
@@ -150,9 +151,9 @@ pub fn render(app: &BuddyApp, cx: &mut Context<BuddyApp>) -> impl IntoElement + 
         ))
         .child(
             div()
-                .mx(px(8.0))
-                .my(px(4.0))
-                .h(px(1.0))
+                .mx(zpx(8.0))
+                .my(zpx(4.0))
+                .h(zpx(1.0))
                 .bg(palette.border_secondary),
         )
         .children(sections().into_iter().map(|entry| {

@@ -5,11 +5,13 @@
 mod app;
 mod assets;
 mod dashboard;
+mod logging;
 mod runtime;
 mod settings;
 mod shell;
 mod theme;
 mod window_geometry;
+mod zoom;
 
 use buddy_core::config::{AppConfig, WindowState};
 use gpui_kit::component::TitleBar;
@@ -69,7 +71,7 @@ fn initial_window_bounds(cx: &App) -> WindowBounds {
 }
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
+    logging::init();
 
     let config = match AppConfig::load() {
         Ok(config) => config,
@@ -88,6 +90,7 @@ fn main() {
                 config: config.clone(),
             });
             cx.set_global(Runtime::start());
+            zoom::init(cx);
 
             cx.bind_keys([
                 KeyBinding::new("ctrl-q", Quit, None),
@@ -144,6 +147,16 @@ fn main() {
             };
 
             gpui_kit::open_window(options, cx, |window, cx| {
+                // Closing the only window quits the app, so quit while the
+                // window still exists instead of letting the OS destroy it
+                // first: GPUI's Windows teardown (`WindowsWindow::drop`) then
+                // runs on a live HWND rather than logging invalid-handle
+                // errors for an already destroyed one, and the title-bar
+                // close button takes the same path as File → Exit.
+                window.on_window_should_close(cx, |_, cx| {
+                    cx.quit();
+                    false
+                });
                 cx.new(|cx| BuddyApp::new(window, cx))
             })
             .expect("failed to open the Buddy window");

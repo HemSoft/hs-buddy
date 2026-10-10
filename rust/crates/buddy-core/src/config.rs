@@ -259,7 +259,7 @@ impl WindowState {
     pub fn load() -> Option<Self> {
         let path = config_path().ok()?.with_file_name("window-state.json");
         let body = std::fs::read_to_string(path).ok()?;
-        let state: Self = serde_json::from_str(&body).ok()?;
+        let state: Self = serde_json::from_str(strip_bom(&body)).ok()?;
         (state.width >= 200.0
             && state.height >= 200.0
             && state.x.is_finite()
@@ -371,10 +371,16 @@ fn platform_config_root() -> Option<PathBuf> {
     Some(home.join(".config"))
 }
 
+/// Drop a leading UTF-8 byte-order mark, which `serde_json` rejects. Some
+/// editors and Windows PowerShell 5.1 write one into otherwise valid JSON.
+pub fn strip_bom(body: &str) -> &str {
+    body.strip_prefix('\u{feff}').unwrap_or(body)
+}
+
 impl AppConfig {
     /// Parse a config file body. Missing keys take TypeScript defaults.
     pub fn from_json(json: &str) -> Result<Self, serde_json::Error> {
-        serde_json::from_str(json)
+        serde_json::from_str(strip_bom(json))
     }
 
     /// Load from the resolved path; a missing file yields defaults.
@@ -587,6 +593,33 @@ impl AppConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_leading_byte_order_mark_is_ignored() {
+        let config = AppConfig::from_json("\u{feff}{\"ui\":{\"theme\":\"light\"}}").unwrap();
+        assert_eq!(config.ui.theme, ThemeName::Light);
+    }
+
+    #[test]
+    fn a_config_file_with_a_byte_order_mark_loads_and_saves() {
+        let _guard = env_lock();
+        let dir = std::env::temp_dir().join(format!("buddy-bom-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path, "\u{feff}{\"ui\":{\"theme\":\"light\"},\"x\":1}").unwrap();
+        let (mut config, stamp) = AppConfig::load_with_stamp_from(&path).unwrap();
+        config.set_dashboard_card_visible("weather", false);
+        let saved = config.save_if_unchanged_at(&path, &stamp).unwrap();
+        let reloaded = AppConfig::load_from(&path).unwrap();
+        let body = std::fs::read_to_string(&path).unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert!(saved);
+        assert_eq!(reloaded.ui.theme, ThemeName::Light);
+        assert!(!reloaded.is_dashboard_card_visible("weather"));
+        assert_eq!(reloaded.extra.get("x"), Some(&serde_json::json!(1)));
+        assert!(serde_json::from_str::<serde_json::Value>(&body).is_ok());
+    }
 
     #[test]
     fn empty_object_yields_typescript_defaults() {

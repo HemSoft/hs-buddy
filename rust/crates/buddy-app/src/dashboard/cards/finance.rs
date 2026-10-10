@@ -12,7 +12,7 @@ use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, Context, Div, FontWeight, Hsla, InteractiveElement, IntoElement,
-    ParentElement, Styled, Window, div, px,
+    ParentElement, Styled, Window, div,
 };
 
 use crate::dashboard::DashboardView;
@@ -21,6 +21,7 @@ use crate::dashboard::primitives::{
     section_heading, status_message,
 };
 use crate::theme::{BuddyPalette, hex};
+use crate::zoom::{scaled, zpx};
 
 const UP: &str = "#4ece8a";
 const DOWN: &str = "#e25555";
@@ -40,12 +41,12 @@ fn market_pill(open: bool) -> Div {
         (hex("#3a2a0a"), hex("#e6a032").opacity(0.85), "CLOSED")
     };
     div()
-        .px(px(5.0))
-        .rounded(px(6.0))
+        .px(zpx(5.0))
+        .rounded(zpx(6.0))
         .bg(bg)
         .text_color(fg)
-        .text_size(px(9.0))
-        .line_height(px(13.0))
+        .text_size(zpx(9.0))
+        .line_height(zpx(13.0))
         .font_weight(FontWeight::BOLD)
         .child(label)
 }
@@ -61,17 +62,17 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
     // `.finance-quote-row`: a 3px trend-colored left edge around the bordered row.
     div()
         .w_full()
-        .rounded(px(4.0))
-        .border_l(px(3.0))
+        .rounded(zpx(4.0))
+        .border_l(zpx(3.0))
         .border_color(trend)
         .child(
             h_flex()
                 .w_full()
                 .items_center()
-                .gap(px(8.0))
-                .px(px(10.0))
-                .py(px(5.0))
-                .rounded_r(px(4.0))
+                .gap(zpx(8.0))
+                .px(zpx(10.0))
+                .py(zpx(5.0))
+                .rounded_r(zpx(4.0))
                 .bg(secondary)
                 .border_t_1()
                 .border_r_1()
@@ -83,17 +84,17 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
                         .flex_1()
                         .min_w_0()
                         .items_center()
-                        .gap(px(6.0))
+                        .gap(zpx(6.0))
                         .child(
                             div()
-                                .text_size(px(9.0))
+                                .text_size(zpx(9.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(trend)
                                 .child(arrow(quote)),
                         )
                         .child(
                             div()
-                                .text_size(px(12.0))
+                                .text_size(zpx(12.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(palette.text_heading)
                                 .truncate()
@@ -107,14 +108,14 @@ fn quote_row(index: usize, quote: &QuoteData, cx: &mut Context<DashboardView>) -
                         .flex_shrink_0()
                         .child(
                             div()
-                                .text_size(px(13.0))
+                                .text_size(zpx(13.0))
                                 .font_weight(FontWeight::BOLD)
                                 .text_color(palette.text_heading)
                                 .child(price(quote.price)),
                         )
                         .child(
                             div()
-                                .text_size(px(11.0))
+                                .text_size(zpx(11.0))
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(trend)
                                 .child(format!("{} {}", arrow(quote), quote.change_text())),
@@ -133,23 +134,23 @@ fn collapsed_summary(quotes: &[QuoteData], cx: &App) -> Option<Div> {
         h_flex()
             .w_full()
             .items_center()
-            .gap(px(16.0))
-            .py(px(4.0))
+            .gap(zpx(16.0))
+            .py(zpx(4.0))
             .flex_wrap()
             .children(quotes.iter().take(3).map(|quote| {
                 h_flex()
                     .items_center()
-                    .gap(px(6.0))
+                    .gap(zpx(6.0))
                     .child(
                         div()
-                            .text_size(px(12.0))
+                            .text_size(zpx(12.0))
                             .font_weight(FontWeight::SEMIBOLD)
                             .text_color(palette.text_heading)
                             .child(quote.name.clone()),
                     )
                     .child(
                         div()
-                            .text_size(px(12.0))
+                            .text_size(zpx(12.0))
                             .font_weight(FontWeight::BOLD)
                             .text_color(trend_color(quote))
                             .child(format!(
@@ -179,10 +180,10 @@ fn remove_button(
         .custom(colors)
         .accessibility_label(format!("Remove {symbol}"))
         .tooltip(format!("Remove {symbol}"))
-        .size(px(18.0))
-        .p(px(0.0))
-        .rounded(px(3.0))
-        .child(Icon::new(IconName::X).size(px(12.0)))
+        .size(zpx(18.0))
+        .p(zpx(0.0))
+        .rounded(scaled(cx, 3.0))
+        .child(Icon::new(IconName::X).size(zpx(12.0)))
         .on_click(cx.listener(move |this, _, _, cx| this.remove_symbol(&symbol, cx)))
 }
 
@@ -195,17 +196,17 @@ fn missing_row(index: usize, symbol: &str, cx: &mut Context<DashboardView>) -> D
     let palette = *BuddyPalette::global(cx);
     div()
         .w_full()
-        .rounded(px(4.0))
-        .border_l(px(3.0))
+        .rounded(zpx(4.0))
+        .border_l(zpx(3.0))
         .border_color(palette.text_muted)
         .child(
             h_flex()
                 .w_full()
                 .items_center()
-                .gap(px(8.0))
-                .px(px(10.0))
-                .py(px(5.0))
-                .rounded_r(px(4.0))
+                .gap(zpx(8.0))
+                .px(zpx(10.0))
+                .py(zpx(5.0))
+                .rounded_r(zpx(4.0))
                 .bg(secondary)
                 .border_t_1()
                 .border_r_1()
@@ -215,7 +216,7 @@ fn missing_row(index: usize, symbol: &str, cx: &mut Context<DashboardView>) -> D
                     div()
                         .flex_1()
                         .min_w_0()
-                        .text_size(px(12.0))
+                        .text_size(zpx(12.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(palette.text_heading)
                         .truncate()
@@ -223,7 +224,7 @@ fn missing_row(index: usize, symbol: &str, cx: &mut Context<DashboardView>) -> D
                 )
                 .child(
                     div()
-                        .text_size(px(11.0))
+                        .text_size(zpx(11.0))
                         .text_color(palette.text_muted)
                         .child("No quote available"),
                 )
@@ -238,7 +239,7 @@ fn missing_row(index: usize, symbol: &str, cx: &mut Context<DashboardView>) -> D
 fn stale_notice(error: &str, cx: &App) -> Div {
     div()
         .w_full()
-        .text_size(px(11.0))
+        .text_size(zpx(11.0))
         .text_color(BuddyPalette::global(cx).accent_error)
         .child(format!("Showing the last successful quotes. {error}"))
 }
@@ -249,7 +250,7 @@ fn add_row(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
     h_flex()
         .w_full()
         .items_center()
-        .gap(px(6.0))
+        .gap(zpx(6.0))
         .child(
             div().flex_1().child(
                 Input::new(view.finance_add_input())
@@ -257,7 +258,7 @@ fn add_row(view: &DashboardView, cx: &mut Context<DashboardView>) -> Div {
                     .small()
                     .prefix(
                         Icon::new(IconName::DollarSign)
-                            .size(px(14.0))
+                            .size(zpx(14.0))
                             .text_color(palette.text_muted),
                     ),
             ),
@@ -289,14 +290,14 @@ pub fn render(
         if tracked == 1 { "" } else { "s" }
     );
 
-    let heading = section_heading("Markets", "Finance", caption, cx);
+    let heading = section_heading("Markets", "Finance", caption, view.narrow(), cx);
     let toggle = collapse_button(
         "finance-collapse",
         expanded,
         cx.listener(|this, _, _, cx| this.toggle_expanded(CardId::Finance, cx)),
         cx,
     );
-    let mut card = section(Some(accent), cx).child(card_header(heading, toggle));
+    let mut card = section(Some(accent), view.narrow(), cx).child(card_header(heading, toggle));
 
     if !expanded {
         // A failed refresh keeps the last quotes; say so in this view too.
@@ -337,7 +338,7 @@ pub fn render(
         card = card.child(
             v_flex()
                 .w_full()
-                .gap(px(1.0))
+                .gap(zpx(1.0))
                 .children(
                     quotes
                         .iter()

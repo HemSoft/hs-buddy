@@ -8,12 +8,13 @@ use gpui_kit::component::{ActiveTheme, Icon, Sizable as _, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     BoxShadow, Context, FontWeight, IntoElement, ParentElement, Styled, div, linear_color_stop,
-    linear_gradient, point, px,
+    linear_gradient, point,
 };
 
 use super::DashboardView;
 use crate::settings::Settings;
 use crate::theme::BuddyPalette;
+use crate::zoom::{scaled, zpx};
 
 /// The product version from `package.json` (see `build.rs`).
 pub const APP_VERSION: &str = env!("BUDDY_VERSION");
@@ -28,10 +29,10 @@ fn badge(
     let palette = BuddyPalette::global(cx);
     h_flex()
         .items_center()
-        .gap(px(5.0))
-        .px(px(10.0))
-        .py(px(3.0))
-        .rounded(px(20.0))
+        .gap(zpx(5.0))
+        .px(zpx(10.0))
+        .py(zpx(3.0))
+        .rounded(zpx(20.0))
         .border_1()
         .border_color(theme.border)
         .bg(if elevated {
@@ -39,23 +40,24 @@ fn badge(
         } else {
             theme.secondary
         })
-        .text_size(px(11.0))
+        .text_size(zpx(11.0))
         .font_weight(FontWeight::MEDIUM)
         .text_color(palette.text_secondary)
         .when_some(icon, |this, icon| {
-            this.child(Icon::new(icon).size(px(12.0)).text_color(theme.primary))
+            this.child(Icon::new(icon).size(zpx(12.0)).text_color(theme.primary))
         })
         .child(text)
 }
 
 fn customize(cx: &mut Context<DashboardView>) -> impl IntoElement + use<> {
     let weak = cx.entity().downgrade();
+    let row_radius = scaled(cx, 6.0);
     Popover::new("dashboard-config")
         .trigger(
             Button::new("dashboard-config-trigger")
                 .outline()
                 .xsmall()
-                .icon(Icon::new(IconName::Settings).size(px(14.0)))
+                .icon(Icon::new(IconName::Settings).size(zpx(14.0)))
                 .label("Customize")
                 .tooltip("Configure dashboard cards"),
         )
@@ -80,13 +82,13 @@ fn customize(cx: &mut Context<DashboardView>) -> impl IntoElement + use<> {
                 .collect();
 
             v_flex()
-                .min_w(px(200.0))
+                .min_w(zpx(200.0))
                 .child(
                     div()
-                        .px(px(8.0))
-                        .pt(px(6.0))
-                        .pb(px(8.0))
-                        .text_size(px(10.0))
+                        .px(zpx(8.0))
+                        .pt(zpx(6.0))
+                        .pb(zpx(8.0))
+                        .text_size(zpx(10.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(palette.text_muted)
                         .child("DASHBOARD CARDS"),
@@ -103,22 +105,22 @@ fn customize(cx: &mut Context<DashboardView>) -> impl IntoElement + use<> {
                                 .toggled(visible)
                                 .accessibility_label(format!("{action} {}", card.title()))
                                 .w_full()
-                                .p(px(8.0))
-                                .rounded(px(6.0))
+                                .p(zpx(8.0))
+                                .rounded(row_radius)
                                 .font_weight(FontWeight::MEDIUM)
                                 .child(
                                     h_flex()
                                         .w_full()
                                         .items_center()
-                                        .gap(px(8.0))
-                                        .text_size(px(12.0))
+                                        .gap(zpx(8.0))
+                                        .text_size(zpx(12.0))
                                         .child(if visible {
                                             Icon::new(IconName::Eye)
-                                                .size(px(14.0))
+                                                .size(zpx(14.0))
                                                 .text_color(primary)
                                         } else {
                                             Icon::new(IconName::EyeOff)
-                                                .size(px(14.0))
+                                                .size(zpx(14.0))
                                                 .text_color(palette.text_muted.opacity(0.6))
                                         })
                                         .child(card.title()),
@@ -135,16 +137,30 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> impl Int
     let palette = *BuddyPalette::global(cx);
     let background = cx.theme().background;
     let uptime_ms = view.live_uptime_ms();
+    let narrow = view.narrow();
+    // `max-width: 680px`: the row wraps, the meta column becomes a row and
+    // its top row (version, Customize) a right-aligned column.
+    let meta = if narrow {
+        h_flex().items_center().gap(zpx(6.0))
+    } else {
+        v_flex().items_end().gap(zpx(6.0))
+    };
+    let meta_top = if narrow {
+        v_flex().items_end().gap(zpx(4.0))
+    } else {
+        h_flex().items_center().gap(zpx(8.0))
+    };
 
     h_flex()
         .w_full()
         .items_center()
-        .gap(px(16.0))
+        .gap(zpx(16.0))
+        .when(narrow, |this| this.flex_wrap())
         .child(
             div()
-                .size(px(52.0))
+                .size(zpx(52.0))
                 .flex_shrink_0()
-                .rounded(px(12.0))
+                .rounded(zpx(12.0))
                 .flex()
                 .items_center()
                 .justify_center()
@@ -156,55 +172,57 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> impl Int
                 .shadow(vec![
                     BoxShadow {
                         color: palette.gold.opacity(0.25),
-                        offset: point(px(0.0), px(4.0)),
-                        blur_radius: px(16.0),
-                        spread_radius: px(0.0),
+                        offset: point(scaled(cx, 0.0), scaled(cx, 4.0)),
+                        blur_radius: scaled(cx, 16.0),
+                        spread_radius: scaled(cx, 0.0),
                         inset: false,
                     },
                     BoxShadow {
                         color: gpui_kit::black().opacity(0.25),
-                        offset: point(px(0.0), px(2.0)),
-                        blur_radius: px(8.0),
-                        spread_radius: px(0.0),
+                        offset: point(scaled(cx, 0.0), scaled(cx, 2.0)),
+                        blur_radius: scaled(cx, 8.0),
+                        spread_radius: scaled(cx, 0.0),
                         inset: false,
                     },
                 ])
                 .text_color(background)
-                .child(Icon::new(IconName::Users).size(px(32.0))),
+                .child(Icon::new(IconName::Users).size(zpx(32.0))),
         )
         .child(
             v_flex()
                 .flex_1()
                 .min_w_0()
-                .gap(px(2.0))
+                // Narrow: keep room for the subtitle and wrap the meta below.
+                .when(narrow, |this| this.flex_basis(zpx(200.0)))
+                .gap(zpx(2.0))
                 .child(
                     div()
-                        .text_size(px(24.0))
-                        .line_height(px(29.0))
+                        .text_size(zpx(24.0))
+                        .line_height(zpx(29.0))
                         .font_weight(FontWeight::BOLD)
                         .text_color(palette.text_heading)
                         .child("Buddy"),
                 )
                 .child(
                     h_flex()
+                        .min_w_0()
                         .items_center()
-                        .gap(px(6.0))
-                        .text_size(px(13.0))
+                        .gap(zpx(6.0))
+                        .text_size(zpx(13.0))
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(palette.gold)
-                        .child(Icon::new(IconName::Handshake).size(px(15.0)))
-                        .child("Your Universal Productivity Companion"),
+                        .child(Icon::new(IconName::Handshake).size(zpx(15.0)))
+                        .child(
+                            div()
+                                .min_w_0()
+                                .child("Your Universal Productivity Companion"),
+                        ),
                 ),
         )
         .child(
-            v_flex()
-                .items_end()
-                .gap(px(6.0))
-                .flex_shrink_0()
+            meta.flex_shrink_0()
                 .child(
-                    h_flex()
-                        .items_center()
-                        .gap(px(8.0))
+                    meta_top
                         .child(badge(format!("Version {APP_VERSION}"), None, true, cx))
                         .child(customize(cx)),
                 )

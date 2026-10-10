@@ -1,16 +1,15 @@
 //! `WorkspacePulseCard`: lifetime activity counters.
 
+use buddy_core::dashboard::CardId;
 use buddy_core::format::{month_year, thousands};
 use gpui_kit::assets::IconName;
-use gpui_kit::component::{h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
-use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div, px};
+use gpui_kit::{AnyElement, Context, IntoElement, ParentElement, Styled, div};
 
 use crate::dashboard::DashboardView;
-use crate::dashboard::primitives::{StatCard, section, section_heading, stat_card};
+use crate::dashboard::primitives::{StatCard, section, section_heading, stat_grid};
 use crate::theme::{BuddyPalette, hex};
-
-const COLUMNS: usize = 4;
+use crate::zoom::zpx;
 
 fn member_since(first_launch_ms: u64) -> String {
     if first_launch_ms == 0 {
@@ -67,43 +66,25 @@ pub fn render(view: &DashboardView, cx: &mut Context<DashboardView>) -> AnyEleme
         );
     }
 
-    let mut rows: Vec<Vec<StatCard>> = Vec::new();
-    for card in cards {
-        match rows.last_mut() {
-            Some(row) if row.len() < COLUMNS => row.push(card),
-            _ => rows.push(vec![card]),
-        }
-    }
+    // Wide enough for the longest label ("REVIEWED") beside the icon.
+    let columns = view.stat_columns(CardId::WorkspacePulse, 128.0);
 
-    section(Some(hex("#50aaff")), cx)
+    section(Some(hex("#50aaff")), view.narrow(), cx)
         .child(section_heading(
             "Buddy activity",
             "Workspace Pulse",
             "Pull requests, runs, bookmarks, and session history in one panel",
+            view.narrow(),
             cx,
         ))
         .when_some(status, |this, status| {
             this.child(
                 div()
-                    .text_size(px(11.0))
+                    .text_size(zpx(11.0))
                     .text_color(palette.text_muted)
                     .child(status),
             )
         })
-        .child(
-            v_flex()
-                .w_full()
-                .gap(px(10.0))
-                .children(rows.into_iter().map(|row| {
-                    let missing = COLUMNS - row.len();
-                    h_flex()
-                        .w_full()
-                        .gap(px(10.0))
-                        .children(row.into_iter().map(|card| stat_card(card, cx)))
-                        .when(missing > 0, |this| {
-                            this.children((0..missing).map(|_| div().flex_1()))
-                        })
-                })),
-        )
+        .child(stat_grid(cards, columns, cx))
         .into_any_element()
 }

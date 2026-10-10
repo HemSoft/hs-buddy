@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 use std::collections::BTreeMap;
 
 use buddy_core::config::{GitHubConfig, WeatherLocation};
-use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate};
+use buddy_core::convex_data::{self, ConvexSource, ConvexUpdate, OutageLog};
 use buddy_core::copilot_usage::{self, CommandCenterSummary};
 use buddy_core::dashboard::{CardId, DASHBOARD_CARDS, INTERVAL_OPTIONS};
 use buddy_core::finance::{self, QuoteData};
@@ -28,13 +28,15 @@ use gpui_kit::component::{ActiveTheme, Icon, h_flex, v_flex};
 use gpui_kit::prelude::FluentBuilder as _;
 use gpui_kit::{
     AnyElement, App, AppContext as _, Context, Entity, EventEmitter, InteractiveElement,
-    IntoElement, ParentElement, Render, Styled, Subscription, Window, div, px,
+    IntoElement, ParentElement, Render, Styled, Subscription, Window, div,
 };
 
 use crate::app::Section;
 use crate::runtime::Runtime;
 use crate::settings::Settings;
+use crate::shell::activity_bar::ACTIVITY_BAR_WIDTH;
 use crate::theme::BuddyPalette;
+use crate::zoom::{scaled, zpx};
 
 /// Below this window width the grid collapses to one column (`@media (max-width: 860px)`).
 const SINGLE_COLUMN_MAX_WIDTH: f32 = 860.0;
@@ -125,6 +127,8 @@ impl RefreshState {
 }
 
 pub struct DashboardView {
+    /// The breakpoints for the current window width and zoom, set each render.
+    layout: GridLayout,
     http: reqwest::Client,
     weather_search: Entity<InputState>,
     finance_add: Entity<InputState>,
@@ -215,6 +219,7 @@ impl DashboardView {
 
         let intervals = Settings::global(cx).config.native.auto_refresh.clone();
         let mut this = Self {
+            layout: GridLayout::for_viewport(1280.0),
             http: http::client(),
             weather_search,
             finance_add,
@@ -393,7 +398,11 @@ impl DashboardView {
             tx,
         ));
         cx.spawn(async move |this, cx| {
+            let mut outages = OutageLog::default();
             while let Some(update) = rx.next().await {
+                for source in outages.recovered(update.recovered_sources()) {
+                    log::info!("convex ({source:?}): connected again");
+                }
                 let applied = this.update(cx, |this, cx| {
                     match update {
                         ConvexUpdate::Stats(stats) => {
@@ -407,7 +416,7 @@ impl DashboardView {
                             this.convex_bookmarks_error = None;
                         }
                         ConvexUpdate::Error { source, message } => {
-                            log::warn!("convex ({source:?}): {message}");
+                            log::log!(outages.failed(source), "convex ({source:?}): {message}");
                             let slot = match source {
                                 ConvexSource::Connection => &mut this.convex_connection_error,
                                 ConvexSource::Stats => &mut this.convex_stats_error,
@@ -747,6 +756,16 @@ impl DashboardView {
         self.copilot_errors
             .first()
             .map(|(username, error)| format!("{username}: {error}"))
+    }
+
+    /// Whether the dashboard uses its narrow (`max-width: 680px`) layout.
+    pub fn narrow(&self) -> bool {
+        self.layout.narrow
+    }
+
+    /// See [`GridLayout::stat_columns`].
+    pub fn stat_columns(&self, card: CardId, min_tile: f32) -> usize {
+        self.layout.stat_columns(card, min_tile)
     }
 
     pub fn pulse(&self) -> WorkspacePulse {
@@ -1093,19 +1112,19 @@ impl DashboardView {
     }
 
     fn render_grid(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement + use<> {
-        let two_columns = window.viewport_size().width > px(SINGLE_COLUMN_MAX_WIDTH);
+        let two_columns = self.layout.two_columns;
         let cards = self.visible_cards(cx);
         let rows = Self::grid_rows(&cards, two_columns);
 
         v_flex()
             .w_full()
-            .gap(px(16.0))
+            .gap(zpx(16.0))
             .children(rows.into_iter().map(|row| {
                 let needs_spacer = two_columns && row.len() == 1 && row[0].span() == 1;
                 h_flex()
                     .w_full()
                     .items_start()
-                    .gap(px(16.0))
+                    .gap(zpx(16.0))
                     .children(row.into_iter().map(|card| {
                         div()
                             .flex_1()
@@ -1127,7 +1146,7 @@ impl DashboardView {
                 )
         };
         h_flex()
-            .gap(px(8.0))
+            .gap(zpx(8.0))
             .flex_wrap()
             .justify_center()
             .child(action(
@@ -1160,13 +1179,13 @@ impl DashboardView {
         let palette = BuddyPalette::global(cx);
         h_flex()
             .items_center()
-            .gap(px(5.0))
-            .text_size(px(11.0))
+            .gap(zpx(5.0))
+            .text_size(zpx(11.0))
             .text_color(palette.text_muted)
             .child("Made with")
             .child(
                 Icon::new(IconName::Heart)
-                    .size(px(12.0))
+                    .size(zpx(12.0))
                     .text_color(crate::theme::hex("#e25555")),
             )
             .child("by HemSoft Developments")
@@ -1176,8 +1195,10 @@ impl DashboardView {
 impl Render for DashboardView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let background = cx.theme().background;
-        let narrow = window.viewport_size().width <= px(680.0);
-        let (pad_y, pad_x) = if narrow { (12.0, 16.0) } else { (20.0, 24.0) };
+        // Lay out in pixels at 100% zoom, as the CSS breakpoints are.
+        let viewport = f32::from(window.viewport_size().width) / f32::from(scaled(cx, 1.0));
+        self.layout = GridLayout::for_viewport(viewport);
+        let (pad_y, pad_x) = self.layout.padding();
 
         div()
             .id("dashboard-scroll")
@@ -1189,19 +1210,109 @@ impl Render for DashboardView {
                     .w_full()
                     .flex()
                     .justify_center()
-                    .px(px(pad_x))
-                    .py(px(pad_y))
+                    .px(zpx(pad_x))
+                    .py(zpx(pad_y))
                     .child(
                         v_flex()
                             .w_full()
-                            .max_w(px(MAX_CONTENT_WIDTH))
+                            .max_w(zpx(MAX_CONTENT_WIDTH))
                             .items_center()
-                            .gap(px(20.0))
+                            .gap(zpx(20.0))
                             .child(header::render(self, cx))
                             .child(self.render_grid(window, cx))
                             .child(self.render_quick_actions(cx))
                             .child(self.render_footer(cx)),
                     ),
             )
+    }
+}
+
+/// The dashboard's breakpoints for one window width, in pixels at 100% zoom
+/// (zooming in shrinks that width, as browser zoom shrinks the CSS viewport).
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct GridLayout {
+    /// `WelcomePanel.css` `max-width: 680px`.
+    narrow: bool,
+    /// Two cards to a row above `max-width: 860px`.
+    two_columns: bool,
+    /// The card grid's width.
+    grid_width: f32,
+}
+
+impl GridLayout {
+    fn for_viewport(viewport: f32) -> Self {
+        let narrow = viewport <= 680.0;
+        let mut layout = Self {
+            narrow,
+            two_columns: viewport > SINGLE_COLUMN_MAX_WIDTH,
+            grid_width: 0.0,
+        };
+        let (_, pad_x) = layout.padding();
+        layout.grid_width = (viewport - ACTIVITY_BAR_WIDTH - 2.0 * pad_x).min(MAX_CONTENT_WIDTH);
+        layout
+    }
+
+    /// The page's vertical and horizontal padding.
+    fn padding(&self) -> (f32, f32) {
+        if self.narrow {
+            (12.0, 16.0)
+        } else {
+            (20.0, 24.0)
+        }
+    }
+
+    /// How many stat tiles of at least `min_tile` pixels fit in a row of
+    /// `card`: 4 or 2 (the grids' column counts in `WelcomePanel.css`), or
+    /// 1. A tile squeezed below its label's width breaks words mid-letter.
+    fn stat_columns(&self, card: CardId, min_tile: f32) -> usize {
+        const GRID_GAP: f32 = 16.0;
+        const TILE_GAP: f32 = 10.0;
+        let card_width = if self.two_columns && card.span() == 1 {
+            (self.grid_width - GRID_GAP) / 2.0
+        } else {
+            self.grid_width
+        };
+        // `section` padding on both sides plus its 1px border.
+        let padding = if self.narrow { 14.0 } else { 16.0 };
+        let content = card_width - 2.0 * (padding + 1.0);
+        let fits = |columns: f32| content >= columns * min_tile + (columns - 1.0) * TILE_GAP;
+        if fits(4.0) {
+            4
+        } else if fits(2.0) {
+            2
+        } else {
+            1
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The default 1280px window at `percent` zoom.
+    fn at(percent: f32) -> GridLayout {
+        GridLayout::for_viewport(1280.0 * 100.0 / percent)
+    }
+
+    #[test]
+    fn breakpoints_follow_the_zoomed_width() {
+        assert_eq!((at(100.0).narrow, at(100.0).two_columns), (false, true));
+        assert_eq!((at(150.0).narrow, at(150.0).two_columns), (false, false));
+        assert_eq!((at(200.0).narrow, at(200.0).two_columns), (true, false));
+    }
+
+    #[test]
+    fn stat_tiles_drop_columns_before_labels_break() {
+        let pulse = |percent| at(percent).stat_columns(CardId::WorkspacePulse, 128.0);
+        assert_eq!(pulse(100.0), 4);
+        // Still two cards to a row, so four tiles would be ~110px wide.
+        assert_eq!(pulse(120.0), 2);
+        assert_eq!(pulse(150.0), 4);
+        assert_eq!(pulse(300.0), 2);
+        let usage = |percent| at(percent).stat_columns(CardId::CommandCenter, 180.0);
+        assert_eq!(usage(100.0), 4);
+        assert_eq!(usage(150.0), 2);
+        assert_eq!(usage(300.0), 1);
     }
 }

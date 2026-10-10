@@ -1,4 +1,5 @@
-//! Exposes the product version to the binary as `BUDDY_VERSION`.
+//! Exposes the product version to the binary as `BUDDY_VERSION`, and on
+//! Windows embeds the app icon.
 //!
 //! The release workflow advances only the repository's `package.json`, so
 //! the native build reads its version from there and falls back to the
@@ -9,6 +10,7 @@ use std::path::Path;
 
 fn main() {
     let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
+    embed_windows_icon(Path::new(&manifest_dir));
     let package_json = Path::new(&manifest_dir).join("../../../package.json");
     println!("cargo:rerun-if-changed={}", package_json.display());
     let version = std::fs::read_to_string(&package_json)
@@ -24,4 +26,43 @@ fn package_version(body: &str) -> Option<String> {
     let parsed: serde_json::Value = serde_json::from_str(body).ok()?;
     let version = parsed.get("version")?.as_str()?.trim();
     (!version.is_empty()).then(|| version.to_string())
+}
+
+/// GPUI's Windows backend takes the window-class icon (taskbar, Alt+Tab,
+/// title bar) from icon resource 1 of the running executable, and Explorer
+/// shows the first icon group. Embed Electron's `public/icon.ico` as that
+/// resource, so the two apps share one icon file.
+fn embed_windows_icon(manifest_dir: &Path) {
+    if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
+        return;
+    }
+    let icon = manifest_dir.join("../../../public/icon.ico");
+    println!("cargo:rerun-if-changed={}", icon.display());
+    let Ok(icon) = icon.canonicalize() else {
+        println!(
+            "cargo:warning=public/icon.ico not found; buddy.exe gets the default Windows icon"
+        );
+        return;
+    };
+    compile_icon_resource(&icon);
+}
+
+#[cfg(windows)]
+fn compile_icon_resource(icon: &Path) {
+    let out_dir = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
+    let rc = Path::new(&out_dir).join("buddy-icon.rc");
+    // rc.exe takes forward slashes; `canonicalize` adds a `\\?\` prefix it rejects.
+    let path = icon.display().to_string();
+    let path = path.trim_start_matches(r"\\?\").replace('\\', "/");
+    std::fs::write(&rc, format!("1 ICON \"{path}\"\n")).expect("write buddy-icon.rc");
+    embed_resource::compile_for(&rc, ["buddy"], embed_resource::NONE)
+        .manifest_required()
+        .expect("compile the buddy.exe icon resource (needs rc.exe from the Windows SDK)");
+}
+
+// Cross-compiling to Windows from another host: embed-resource is a
+// Windows-host build dependency, so the icon is skipped.
+#[cfg(not(windows))]
+fn compile_icon_resource(_icon: &Path) {
+    println!("cargo:warning=building for Windows on a non-Windows host; buddy.exe has no icon");
 }

@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1310] - 2026-10-10
+
+### Fixed
+
+- Keep zoomed mono size stable and pace touchpad zoom (#796)
+
 ## [0.1.1309] - 2026-10-10
 
 ### Fixed

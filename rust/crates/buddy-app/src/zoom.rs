@@ -26,6 +26,10 @@ pub const BASE_REM: f32 = 16.0;
 /// A wheel's pixel deltas (trackpads) count one line per this many pixels.
 const PIXELS_PER_LINE: f32 = 20.0;
 
+/// Lines per mouse notch at Windows' default `wheel_scroll_lines` (GPUI
+/// reports a notch as that many lines).
+const LINES_PER_NOTCH: f32 = 3.0;
+
 /// `value` pixels at 100% zoom, as a length that follows the zoom.
 pub fn zpx(value: f32) -> Rems {
     rems(value / BASE_REM)
@@ -47,7 +51,9 @@ struct ZoomState {
     /// `zoom-level.json`, resolved once so the level is read from and saved
     /// to the same file; `None` when no config directory is known.
     path: Option<PathBuf>,
-    /// The theme's mono font size at 100%, captured after each theme install.
+    /// The theme's mono font size at 100%, captured once before any zoom is
+    /// applied. A theme install keeps the current (zoomed) value when the
+    /// theme file sets no mono size, so it cannot be re-read afterwards.
     base_mono_font_size: Pixels,
     /// Wheel travel not yet turned into a step, in lines.
     pending_wheel_lines: f32,
@@ -94,14 +100,12 @@ fn init_at(path: Option<PathBuf>, cx: &mut App) {
     apply(cx);
 }
 
-/// `theme::install` resets the theme's font sizes to 100%; scale them again.
+/// `theme::install` (Reload, appearance changes) re-applies the theme file,
+/// which may reset the font sizes; set them for the current zoom again.
 pub fn theme_installed(cx: &mut App) {
-    if !cx.has_global::<ZoomState>() {
-        return;
+    if cx.has_global::<ZoomState>() {
+        apply(cx);
     }
-    let mono = Theme::global(cx).mono_font_size;
-    cx.global_mut::<ZoomState>().base_mono_font_size = mono;
-    apply(cx);
 }
 
 /// Apply one zoom step and save the result for the next launch.
@@ -220,8 +224,11 @@ impl Element for WithRemSize {
     }
 }
 
-/// Turn wheel travel into at most one step: a full line in one direction
-/// steps once, and reversing direction discards the leftover travel.
+/// Turn wheel travel into at most one step per event. A mouse notch (a
+/// whole line or more, whatever the system's lines-per-notch setting) steps
+/// at once; fractional touchpad deltas first add up to one default notch, so
+/// a pinch or two-finger swipe zooms at Chromium's pace (one step per
+/// `WHEEL_DELTA`). Reversing direction discards the leftover travel.
 fn accumulate_wheel(pending: &mut f32, lines: f32) -> Option<ZoomStep> {
     if lines == 0.0 {
         return None;
@@ -230,12 +237,13 @@ fn accumulate_wheel(pending: &mut f32, lines: f32) -> Option<ZoomStep> {
         *pending = 0.0;
     }
     *pending += lines;
-    let step = if *pending >= 1.0 {
-        ZoomStep::In
-    } else if *pending <= -1.0 {
-        ZoomStep::Out
-    } else {
+    if lines.abs() < 1.0 && pending.abs() < LINES_PER_NOTCH {
         return None;
+    }
+    let step = if *pending > 0.0 {
+        ZoomStep::In
+    } else {
+        ZoomStep::Out
     };
     *pending = 0.0;
     Some(step)
@@ -256,7 +264,18 @@ pub fn wheel_listener() -> impl IntoElement {
         |_, _, _| {},
         |_, _, window, _| {
             window.on_mouse_event(|event: &ScrollWheelEvent, phase, _, cx| {
-                if phase != DispatchPhase::Capture || !event.modifiers.secondary() {
+                if phase != DispatchPhase::Capture {
+                    return;
+                }
+                if !event.modifiers.secondary() {
+                    // Travel from before Ctrl was released must not count
+                    // toward the next Ctrl + wheel.
+                    if cx
+                        .try_global::<ZoomState>()
+                        .is_some_and(|state| state.pending_wheel_lines != 0.0)
+                    {
+                        cx.global_mut::<ZoomState>().pending_wheel_lines = 0.0;
+                    }
                     return;
                 }
                 cx.stop_propagation();
@@ -291,15 +310,27 @@ mod tests {
     }
 
     #[test]
-    fn small_trackpad_deltas_add_up_to_a_step() {
+    fn a_notch_steps_once_whatever_the_lines_per_notch_setting() {
         let mut pending = 0.0;
-        assert_eq!(accumulate_wheel(&mut pending, 0.4), None);
-        assert_eq!(accumulate_wheel(&mut pending, 0.4), None);
-        assert_eq!(accumulate_wheel(&mut pending, 0.4), Some(ZoomStep::In));
+        assert_eq!(accumulate_wheel(&mut pending, 1.0), Some(ZoomStep::In));
+        assert_eq!(accumulate_wheel(&mut pending, -9.0), Some(ZoomStep::Out));
+    }
+
+    #[test]
+    fn small_trackpad_deltas_add_up_to_one_notch() {
+        let mut pending = 0.0;
+        let steps: Vec<_> = (0..8)
+            .map(|_| accumulate_wheel(&mut pending, 0.4))
+            .collect();
+        assert!(steps[..7].iter().all(Option::is_none));
+        assert_eq!(steps[7], Some(ZoomStep::In));
         // Reversing discards travel in the old direction.
-        assert_eq!(accumulate_wheel(&mut pending, 0.6), None);
-        assert_eq!(accumulate_wheel(&mut pending, -0.6), None);
-        assert_eq!(accumulate_wheel(&mut pending, -0.6), Some(ZoomStep::Out));
+        assert_eq!(accumulate_wheel(&mut pending, 0.75), None);
+        let back: Vec<_> = (0..4)
+            .map(|_| accumulate_wheel(&mut pending, -0.75))
+            .collect();
+        assert!(back[..3].iter().all(Option::is_none));
+        assert_eq!(back[3], Some(ZoomStep::Out));
         assert_eq!(accumulate_wheel(&mut pending, 0.0), None);
     }
 
@@ -458,6 +489,26 @@ mod ui_tests {
         let _ = std::fs::remove_dir_all(path.parent().unwrap());
         assert_eq!(widths, vec![290.0, 300.0]);
         assert_eq!(saved, "{\"zoomFactor\":3.0}");
+    }
+
+    #[gpui_kit::test]
+    fn reinstalling_the_theme_keeps_font_sizes_at_the_current_zoom(cx: &mut TestAppContext) {
+        let path = temp_zoom_file("reload");
+        Zoom::from_factor(1.5).save_to(&path).unwrap();
+        let _handle = open(cx, path.clone());
+        let sizes = cx.update(|cx| {
+            let config = buddy_core::config::AppConfig::default();
+            let mut sizes = Vec::new();
+            for _ in 0..3 {
+                let theme = Theme::global(cx);
+                sizes.push((f32::from(theme.font_size), f32::from(theme.mono_font_size)));
+                // What Reload Configuration and appearance changes run.
+                crate::theme::install(&config, cx);
+            }
+            sizes
+        });
+        let _ = std::fs::remove_dir_all(path.parent().unwrap());
+        assert_eq!(sizes, vec![(24.0, 19.5); 3]);
     }
 
     #[gpui_kit::test]

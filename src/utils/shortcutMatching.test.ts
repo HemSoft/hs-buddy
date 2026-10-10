@@ -14,6 +14,12 @@ describe('matchesShortcut', () => {
     expect(matchesShortcut({ key: 'P', ctrlOrCmd: true }, { key: 'P' })).toBe(false)
   })
 
+  it('matches Ctrl+Shift+= against the + zoom shortcut, as Electron reports it', () => {
+    expect(
+      matchesShortcut({ key: '+', ctrlOrCmd: true }, { key: '+', control: true, shift: true })
+    ).toBe(true)
+  })
+
   it('matches Ctrl+Shift+key', () => {
     expect(
       matchesShortcut(

@@ -145,6 +145,25 @@ describe('TitleBar', () => {
     expect(window.ipcRenderer.send).toHaveBeenCalledWith('toggle-devtools')
   })
 
+  it.each([
+    ['Zoom In', 'zoom-in'],
+    ['Zoom Out', 'zoom-out'],
+    ['Reset Zoom', 'zoom-reset'],
+  ])('sends %s to the main process when clicked', (label, channel) => {
+    render(<TitleBar />)
+    fireEvent.click(screen.getByText('View'))
+    fireEvent.click(screen.getByText(label))
+    expect(window.ipcRenderer.send).toHaveBeenCalledWith(channel)
+  })
+
+  it('shows the zoom shortcuts that work', () => {
+    render(<TitleBar />)
+    fireEvent.click(screen.getByText('View'))
+    expect(screen.getByText('Ctrl+=')).toBeTruthy()
+    expect(screen.getByText('Ctrl+-')).toBeTruthy()
+    expect(screen.getByText('Ctrl+0')).toBeTruthy()
+  })
+
   it('closes menu after clicking a menu item', () => {
     render(<TitleBar />)
     fireEvent.click(screen.getByText('View'))

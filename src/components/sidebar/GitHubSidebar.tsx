@@ -301,9 +301,6 @@ function OrganizationsSection({
           loadingRepoCommits={sd.loadingRepoCommits}
           loadingRepoPRs={sd.loadingRepoPRs}
           loadingRepoIssues={sd.loadingRepoIssues}
-          sflStatusData={sd.sflStatusData}
-          loadingSFLStatus={sd.loadingSFLStatus}
-          expandedSFLGroups={sd.expandedSFLGroups}
           ralphRuns={ralphRuns}
           expandedRalphGroups={sd.expandedRalphGroups}
           bookmarkedRepoKeys={sd.bookmarkedRepoKeys}
@@ -320,7 +317,6 @@ function OrganizationsSection({
           onToggleRepoPRGroup={sd.toggleRepoPRGroup}
           onToggleRepoPRStateGroup={sd.toggleRepoPRStateGroup}
           onToggleRepoCommitGroup={sd.toggleRepoCommitGroup}
-          onToggleSFLGroup={sd.toggleSFLGroup}
           onToggleRalphGroup={sd.toggleRalphGroup}
           onTogglePRNode={sd.togglePRNode}
           onItemSelect={onItemSelect}

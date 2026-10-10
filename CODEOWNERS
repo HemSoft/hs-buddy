@@ -3,8 +3,6 @@
 
 * @HemSoft
 
-# Automation and SFL-managed files
+# Automation
 /.github/ @HemSoft
 /.github/workflows/ @HemSoft
-/.sfl/ @HemSoft
-/.sfl/** @HemSoft

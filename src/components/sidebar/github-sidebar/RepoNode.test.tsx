@@ -1,119 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import type { SFLOverallStatus, SFLRepoStatus } from '../../../types/sflStatus'
 import type { RalphRunInfo } from '../../../types/ralph'
-import {
-  SFL_STATUS_LABELS,
-  sflOverallStatusIcon,
-  sflWorkflowStateIcon,
-  handleItemKeyDown,
-} from './repoNodeUtils'
+import { handleItemKeyDown } from './repoNodeUtils'
 import { RepoNode } from './RepoNode'
 import type { OrgRepo, RepoCounts, RepoCommit, RepoIssue } from '../../../api/github'
 import type { PullRequest } from '../../../types/pullRequest'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { dataCache } from '../../../services/dataCache'
-
-describe('SFL_STATUS_LABELS', () => {
-  it('maps all SFL statuses to labels', () => {
-    const statuses: SFLOverallStatus[] = [
-      'healthy',
-      'active-work',
-      'blocked',
-      'ready-for-review',
-      'recent-failure',
-      'unknown',
-    ]
-
-    for (const status of statuses) {
-      expect(SFL_STATUS_LABELS[status]).toBeTypeOf('string')
-      expect(SFL_STATUS_LABELS[status].length).toBeGreaterThan(0)
-    }
-  })
-
-  it('has correct label values', () => {
-    expect(SFL_STATUS_LABELS.healthy).toBe('Healthy')
-    expect(SFL_STATUS_LABELS['active-work']).toBe('Active work')
-    expect(SFL_STATUS_LABELS.blocked).toBe('Blocked')
-    expect(SFL_STATUS_LABELS['ready-for-review']).toBe('Ready for review')
-    expect(SFL_STATUS_LABELS['recent-failure']).toBe('Recent failure')
-    expect(SFL_STATUS_LABELS.unknown).toBe('Unknown')
-  })
-})
-
-describe('sflOverallStatusIcon', () => {
-  it('renders success icon for healthy status', () => {
-    const { container } = render(sflOverallStatusIcon('healthy'))
-    expect(container.querySelector('.sfl-status-success')).not.toBeNull()
-  })
-
-  it('renders info icon for active-work status', () => {
-    const { container } = render(sflOverallStatusIcon('active-work'))
-    expect(container.querySelector('.sfl-status-info')).not.toBeNull()
-  })
-
-  it('renders warning icon for blocked status', () => {
-    const { container } = render(sflOverallStatusIcon('blocked'))
-    expect(container.querySelector('.sfl-status-warning')).not.toBeNull()
-  })
-
-  it('renders info icon for ready-for-review status', () => {
-    const { container } = render(sflOverallStatusIcon('ready-for-review'))
-    expect(container.querySelector('.sfl-status-info')).not.toBeNull()
-  })
-
-  it('renders error icon for recent-failure status', () => {
-    const { container } = render(sflOverallStatusIcon('recent-failure'))
-    expect(container.querySelector('.sfl-status-error')).not.toBeNull()
-  })
-
-  it('renders muted icon for unknown status', () => {
-    const { container } = render(sflOverallStatusIcon('unknown'))
-    expect(container.querySelector('.sfl-status-muted')).not.toBeNull()
-  })
-
-  it('renders muted icon for unrecognized status', () => {
-    const { container } = render(sflOverallStatusIcon('garbage' as SFLOverallStatus))
-    expect(container.querySelector('.sfl-status-muted')).not.toBeNull()
-  })
-})
-
-describe('sflWorkflowStateIcon', () => {
-  it('renders muted icon for inactive state', () => {
-    const { container } = render(sflWorkflowStateIcon('disabled', null))
-    expect(container.querySelector('.sfl-status-muted')).not.toBeNull()
-  })
-
-  it('renders muted icon for active state with no conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', null))
-    expect(container.querySelector('.sfl-status-muted')).not.toBeNull()
-  })
-
-  it('renders success icon for active state with success conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', 'success'))
-    expect(container.querySelector('.sfl-status-success')).not.toBeNull()
-  })
-
-  it('renders error icon for active state with failure conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', 'failure'))
-    expect(container.querySelector('.sfl-status-error')).not.toBeNull()
-  })
-
-  it('renders error icon for active state with timed_out conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', 'timed_out'))
-    expect(container.querySelector('.sfl-status-error')).not.toBeNull()
-  })
-
-  it('renders muted icon for active state with skipped conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', 'skipped'))
-    expect(container.querySelector('.sfl-status-muted')).not.toBeNull()
-  })
-
-  it('renders info icon for active state with unknown conclusion', () => {
-    const { container } = render(sflWorkflowStateIcon('active', 'in_progress'))
-    expect(container.querySelector('.sfl-status-info')).not.toBeNull()
-  })
-})
 
 describe('handleItemKeyDown', () => {
   it('calls action on Enter key', () => {
@@ -224,9 +117,6 @@ const baseProps = {
   loadingRepoCommits: new Set<string>(),
   loadingRepoPRs: new Set<string>(),
   loadingRepoIssues: new Set<string>(),
-  sflStatusData: {} as Record<string, SFLRepoStatus>,
-  loadingSFLStatus: new Set<string>(),
-  expandedSFLGroups: new Set<string>(),
   ralphRuns: [] as RalphRunInfo[],
   expandedRalphGroups: new Set<string>(),
   selectedItem: null as string | null,
@@ -241,7 +131,6 @@ const baseProps = {
   onToggleRepoPRGroup: noop,
   onToggleRepoPRStateGroup: noop as (org: string, repo: string, state: 'open' | 'closed') => void,
   onToggleRepoCommitGroup: noop,
-  onToggleSFLGroup: noop,
   onToggleRalphGroup: noop,
   onTogglePRNode: noop,
   onItemSelect: noop,
@@ -447,103 +336,6 @@ describe('RepoNode component', () => {
     )
     const selected = container.querySelector('.sidebar-repo-child.selected')
     expect(selected).not.toBeNull()
-  })
-
-  it('renders SFL section with status data', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [
-          {
-            id: 1,
-            name: 'SFL: Auditor',
-            state: 'active',
-            latestRun: {
-              status: 'completed',
-              conclusion: 'success',
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-          {
-            id: 2,
-            name: 'SFL: Dispatcher',
-            state: 'active',
-            latestRun: {
-              status: 'completed',
-              conclusion: 'success',
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-        ],
-      },
-    }
-    render(<RepoNode {...baseProps} expandedRepos={expanded} sflStatusData={sflData} />)
-    expect(screen.getByText('SFL Loop')).toBeDefined()
-  })
-
-  it('renders SFL section hidden when not enabled', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: false,
-        overallStatus: 'unknown',
-        workflows: [],
-      },
-    }
-    render(<RepoNode {...baseProps} expandedRepos={expanded} sflStatusData={sflData} />)
-    // SFL Loop label should not appear since it's not enabled
-    expect(screen.queryByText('SFL Loop')).toBeNull()
-  })
-
-  it('renders SFL loading state', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const loading = new Set(['org/hs-buddy'])
-    const { container } = render(
-      <RepoNode {...baseProps} expandedRepos={expanded} loadingSFLStatus={loading} />
-    )
-    // SFL section should show "SFL Loop" label with loading spinner
-    expect(screen.getByText('SFL Loop')).toBeDefined()
-    expect(container.querySelectorAll('.spin').length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('renders expanded SFL section with workflow details', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const expandedSFL = new Set(['org/hs-buddy'])
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [
-          {
-            id: 1,
-            name: 'SFL: Auditor',
-            state: 'active',
-            latestRun: {
-              status: 'completed',
-              conclusion: 'success',
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-          { id: 2, name: 'SFL: Dispatcher', state: 'disabled', latestRun: null },
-        ],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        expandedSFLGroups={expandedSFL}
-        sflStatusData={sflData}
-      />
-    )
-    expect(screen.getByText('Auditor')).toBeDefined()
-    expect(screen.getByText('Dispatcher')).toBeDefined()
-    expect(screen.getByText('off')).toBeDefined()
   })
 
   it('renders PR section with expanded open PRs', () => {
@@ -893,28 +685,6 @@ describe('RepoNode component', () => {
     mockCache.get.mockReturnValue(null)
   })
 
-  it('calls onToggleSFLGroup when clicking SFL section', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const onToggleSFLGroup = vi.fn()
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        sflStatusData={sflData}
-        onToggleSFLGroup={onToggleSFLGroup}
-      />
-    )
-    fireEvent.click(screen.getByText('SFL Loop'))
-    expect(onToggleSFLGroup).toHaveBeenCalledWith('org', 'hs-buddy')
-  })
-
   it('handles keyboard Enter on PR section chevron with stopPropagation', () => {
     const expanded = new Set(['org/hs-buddy'])
     const onToggleRepoPRGroup = vi.fn()
@@ -1144,32 +914,6 @@ describe('RepoNode component', () => {
     )
     fireEvent.click(screen.getByText('Conversation'))
     expect(onItemSelect).toHaveBeenCalledWith(expect.stringContaining('conversation'))
-  })
-
-  it('handles keyboard Enter on SFL section chevron with stopPropagation', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const onToggleSFLGroup = vi.fn()
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        sflStatusData={sflData}
-        onToggleSFLGroup={onToggleSFLGroup}
-      />
-    )
-    // Find the SFL section and its chevron
-    const sflLabel = screen.getByText('SFL Loop')
-    const sflRow = sflLabel.closest('.sidebar-item-disclosure')!
-    const chevron = sflRow.querySelector('.sidebar-item-chevron')!
-    fireEvent.keyDown(chevron, { key: 'Enter' })
-    expect(onToggleSFLGroup).toHaveBeenCalledWith('org', 'hs-buddy')
   })
 
   it('calls onTogglePRNode when clicking PR chevron', () => {
@@ -1515,87 +1259,6 @@ describe('RepoNode component', () => {
     )
     expect(screen.getByText(/#10 Open PR/)).toBeDefined()
     expect(screen.getByText(/#20 Merged PR/)).toBeDefined()
-  })
-
-  it('renders expanded SFL section with overall status label and workflow count', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const expandedSFL = new Set(['org/hs-buddy'])
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'recent-failure',
-        workflows: [
-          {
-            id: 1,
-            name: 'SFL: Issue Processor',
-            state: 'active',
-            latestRun: {
-              status: 'completed',
-              conclusion: 'failure',
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-          {
-            id: 2,
-            name: 'SFL: PR Router',
-            state: 'active',
-            latestRun: {
-              status: 'completed',
-              conclusion: 'success',
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-        ],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        expandedSFLGroups={expandedSFL}
-        sflStatusData={sflData}
-      />
-    )
-    expect(screen.getByText('Recent failure')).toBeDefined()
-    expect(screen.getByText('2')).toBeDefined()
-    expect(screen.getByText('Issue Processor')).toBeDefined()
-    expect(screen.getByText('PR Router')).toBeDefined()
-  })
-
-  it('shows workflow status in title when conclusion is null', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const expandedSFL = new Set(['org/hs-buddy'])
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [
-          {
-            id: 1,
-            name: 'SFL: Auditor',
-            state: 'active',
-            latestRun: {
-              status: 'in_progress',
-              conclusion: null,
-              createdAt: '2026-04-10',
-              url: 'https://example.com',
-            },
-          },
-        ],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        expandedSFLGroups={expandedSFL}
-        sflStatusData={sflData}
-      />
-    )
-    expect(screen.getByText('Auditor')).toBeDefined()
-    expect(screen.getByTitle(/in_progress/i)).toBeDefined()
   })
 
   it('shows spinner on Closed issues label row when closed issues are loading', () => {
@@ -2037,53 +1700,6 @@ describe('RepoNode component', () => {
     const chevron = closedRow.querySelector('.sidebar-item-chevron')!
     fireEvent.keyDown(chevron, { key: 'Enter' })
     expect(onToggleRepoPRStateGroup).toHaveBeenCalledWith('org', 'hs-buddy', 'closed')
-  })
-
-  it('handles keyboard Enter on SFL section row', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const onToggleSFLGroup = vi.fn()
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        sflStatusData={sflData}
-        onToggleSFLGroup={onToggleSFLGroup}
-      />
-    )
-    const sflRow = screen.getByText('SFL Loop').closest('button')!
-    fireEvent.keyDown(sflRow, { key: 'Enter' })
-    expect(onToggleSFLGroup).toHaveBeenCalledWith('org', 'hs-buddy')
-  })
-
-  it('handles click on SFL section chevron', () => {
-    const expanded = new Set(['org/hs-buddy'])
-    const onToggleSFLGroup = vi.fn()
-    const sflData: Record<string, SFLRepoStatus> = {
-      'org/hs-buddy': {
-        isSFLEnabled: true,
-        overallStatus: 'healthy',
-        workflows: [],
-      },
-    }
-    render(
-      <RepoNode
-        {...baseProps}
-        expandedRepos={expanded}
-        sflStatusData={sflData}
-        onToggleSFLGroup={onToggleSFLGroup}
-      />
-    )
-    const sflRow = screen.getByText('SFL Loop').closest('.sidebar-item-disclosure')!
-    const chevron = sflRow.querySelector('.sidebar-item-chevron')!
-    fireEvent.click(chevron)
-    expect(onToggleSFLGroup).toHaveBeenCalledWith('org', 'hs-buddy')
   })
 
   it('handles click on PR item to select it', () => {

@@ -49,7 +49,7 @@ describe('CRAP source freshness', () => {
     'perf/cross-suite.ts',
     'src/features/pr-mapper.feature',
     'fixtures/test-data.json',
-    '.github/workflows/sfl-auditor.yml',
+    '.github/workflows/example.yml',
     'fixtures/test-data.bin',
   ])('invalidates every suite when cross-suite input %s is added or changed', file => {
     const suites = ['renderer', 'electron', 'convex'] as const

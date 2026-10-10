@@ -15,7 +15,7 @@ full qualification. Every subsequent push to a ready PR requalifies its new
 revision. Returning a PR to draft cancels obsolete work and defers qualification.
 A draft result never establishes permission to merge the same SHA after promotion.
 
-The repository SFL promoter is retired. Contributors and ordinary PR automation
+Contributors and ordinary PR automation
 use `ci-feedback` during review and wait for required checks on the final candidate
 before declaring it ready to merge. Draft deferral is not a defect to bypass.
 

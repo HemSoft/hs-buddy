@@ -1632,43 +1632,6 @@ describe('GitHubClient', () => {
     })
   })
 
-  describe('fetchSFLStatus', () => {
-    it('returns isSFLEnabled false when no SFL workflows found', async () => {
-      mockOctokit.actions.listRepoWorkflows = vi.fn().mockResolvedValue({
-        data: { workflows: [{ name: 'CI Build', id: 1, state: 'active' }] },
-      })
-      const result = await client.fetchSFLStatus('myorg', 'my-repo')
-      expect(result.isSFLEnabled).toBe(false)
-      expect(result.workflows).toHaveLength(0)
-    })
-
-    it('returns isSFLEnabled true when SFL workflows exist', async () => {
-      mockOctokit.actions.listRepoWorkflows = vi.fn().mockResolvedValue({
-        data: {
-          workflows: [
-            { name: 'SFL Issue Processor', id: 10, state: 'active' },
-            { name: 'SFL PR Router', id: 11, state: 'active' },
-          ],
-        },
-      })
-      mockOctokit.actions.listWorkflowRuns = vi.fn().mockResolvedValue({
-        data: {
-          workflow_runs: [
-            {
-              status: 'completed',
-              conclusion: 'success',
-              created_at: '2026-01-01T00:00:00Z',
-              html_url: 'https://github.com/myorg/repo/actions/runs/1',
-            },
-          ],
-        },
-      })
-      const result = await client.fetchSFLStatus('myorg', 'my-repo')
-      expect(result.isSFLEnabled).toBe(true)
-      expect(result.workflows.length).toBeGreaterThan(0)
-    })
-  })
-
   describe('fetchUserActivity', () => {
     it('returns user activity summary', async () => {
       const mockSearchResult = (items: unknown[], total_count = 1) => ({
@@ -3797,29 +3760,6 @@ describe('GitHubClient', () => {
         await fetchBatchThreadStats(TEST_CONFIG, prsWithMeta as any)
         // PRs should still have their existing properties
         expect(prsWithMeta[0].number).toBe(1)
-      })
-    })
-
-    describe('fetchSFLStatus catch block (workflow mapping)', () => {
-      it('returns null latestRun when workflow run fetch fails', async () => {
-        mockOctokit.actions.listRepoWorkflows.mockResolvedValue({
-          data: {
-            workflows: [
-              {
-                id: 1,
-                name: 'SFL: Issue Processor',
-                state: 'active',
-              },
-            ],
-          },
-        })
-
-        // Simulate error when fetching latest run
-        mockOctokit.actions.listWorkflowRuns.mockRejectedValue(new Error('403 Forbidden'))
-
-        const result = await client.fetchSFLStatus('myorg', 'repo')
-        expect(result.isSFLEnabled).toBe(true)
-        expect(result.workflows[0].latestRun).toBeNull()
       })
     })
 

@@ -1,10 +1,9 @@
 ﻿<#
 .SYNOPSIS
-    Creates the Set it Free label taxonomy in a GitHub repository.
+    Creates the repository label taxonomy in a GitHub repository.
 
 .DESCRIPTION
-    Sets up all agent lifecycle, risk-class, and intake-source labels required
-    by the Set it Free governance policy (docs/SET_IT_FREE_GOVERNANCE.md).
+    Sets up repository lifecycle, risk-class, and intake-source labels.
 
     Idempotent: updates existing labels rather than failing on duplicates.
 
@@ -64,10 +63,10 @@ $Labels = @(
 
     # -- Classification labels -------------------------------------------------
     @{ name = "report";          color = "8b949e"; description = "Informational output only -- automation must not act on this" }
-    @{ name = "feature-request"; color = "a2eeef"; description = "Feature request -- created via sfl-add-issue prompt" }
+    @{ name = "feature-request"; color = "a2eeef"; description = "Feature request" }
 
     # -- Opt-out label ---------------------------------------------------------
-    @{ name = "no-agent"; color = "ffffff"; description = "Opt this issue out of all Set it Free automation" }
+    @{ name = "no-agent"; color = "ffffff"; description = "Opt this issue out of automated processing" }
 )
 
 # --- Helpers ------------------------------------------------------------------
@@ -116,7 +115,7 @@ function Get-ExistingLabelList {
 
 # --- Main ---------------------------------------------------------------------
 
-Write-Status "🏷️" "Set it Free -- GitHub Label Setup" White
+Write-Status "🏷️" "GitHub Label Setup" White
 Write-Status "📦" "Target: $Owner/$Repo"
 
 if ($DryRun) {

@@ -1,5 +1,4 @@
 import {
-  Activity,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
@@ -20,18 +19,11 @@ import {
 import type { OrgRepo, RepoCommit, RepoCounts, RepoIssue } from '../../../api/github'
 import { dataCache } from '../../../services/dataCache'
 import type { PullRequest } from '../../../types/pullRequest'
-import type { SFLRepoStatus, SFLOverallStatus, SFLWorkflowInfo } from '../../../types/sflStatus'
 import type { RalphRunInfo, RalphRunStatus } from '../../../types/ralph'
 import { createPRDetailViewId } from '../../../utils/prDetailView'
 import { formatUpdatedAge } from './orgRepoTreeUtils'
 import { prSubNodes, sectionIcons } from './prConstants'
-import {
-  SFL_STATUS_LABELS,
-  sflOverallStatusIcon,
-  sflWorkflowStateIcon,
-  handleItemKeyDown,
-  sidebarItemClass,
-} from './repoNodeUtils'
+import { handleItemKeyDown, sidebarItemClass } from './repoNodeUtils'
 
 interface RepoNodeProps {
   org: string
@@ -52,9 +44,6 @@ interface RepoNodeProps {
   loadingRepoCommits: ReadonlySet<string>
   loadingRepoPRs: ReadonlySet<string>
   loadingRepoIssues: ReadonlySet<string>
-  sflStatusData: Record<string, SFLRepoStatus>
-  loadingSFLStatus: ReadonlySet<string>
-  expandedSFLGroups: ReadonlySet<string>
   ralphRuns: RalphRunInfo[]
   expandedRalphGroups: ReadonlySet<string>
   selectedItem: string | null
@@ -65,7 +54,6 @@ interface RepoNodeProps {
   onToggleRepoPRGroup: (org: string, repoName: string) => void
   onToggleRepoPRStateGroup: (org: string, repoName: string, state: 'open' | 'closed') => void
   onToggleRepoCommitGroup: (org: string, repoName: string) => void
-  onToggleSFLGroup: (org: string, repoName: string) => void
   onToggleRalphGroup: (org: string, repoName: string) => void
   onTogglePRNode: (prViewId: string) => void
   onItemSelect: (itemId: string) => void
@@ -1050,139 +1038,6 @@ function RepoPullRequestsSection({
   )
 }
 
-interface RepoSFLSectionProps {
-  org: string
-  repoName: string
-  sflStatus?: SFLRepoStatus
-  isLoading: boolean
-  isExpanded: boolean
-  onToggleSFLGroup: (org: string, repoName: string) => void
-}
-
-function SFLStatusBadge({
-  isLoading,
-  overallStatus,
-}: {
-  isLoading: boolean
-  overallStatus: SFLOverallStatus
-}) {
-  /* v8 ignore next -- loading state guard */
-  if (isLoading) return <Loader2 size={10} className="spin" />
-  return (
-    <span className="sidebar-sfl-status-badge" title={SFL_STATUS_LABELS[overallStatus]}>
-      {sflOverallStatusIcon(overallStatus)}
-    </span>
-  )
-}
-
-function sflWorkflowTitle(
-  name: string,
-  state: string,
-  latestRun: SFLWorkflowInfo['latestRun']
-): string {
-  const stateLabel = state === 'active' ? 'enabled' : 'disabled'
-  /* v8 ignore start -- defensive guard for missing latestRun */
-  if (!latestRun) return `${name} — ${stateLabel}`
-  const runLabel = latestRun.conclusion || latestRun.status
-  /* v8 ignore stop */
-  return `${name} — ${stateLabel}, last: ${runLabel}`
-}
-
-function SFLWorkflowItem({ wf }: { wf: SFLWorkflowInfo }) {
-  const conclusion = wf.latestRun?.conclusion ?? null
-  return (
-    <div
-      key={wf.id}
-      className="sidebar-item sidebar-job-item sidebar-sfl-workflow"
-      /* v8 ignore start */
-      title={sflWorkflowTitle(wf.name, wf.state, wf.latestRun)}
-      /* v8 ignore stop */
-    >
-      {sflWorkflowStateIcon(wf.state, conclusion)}
-      <span className="sidebar-item-label">{wf.name.replace(/^SFL:\s*/i, '')}</span>
-      {wf.state !== 'active' && <span className="sidebar-sfl-disabled-badge">off</span>}
-    </div>
-  )
-}
-
-function RepoSFLSection({
-  org,
-  repoName,
-  sflStatus,
-  isLoading,
-  isExpanded,
-  onToggleSFLGroup,
-}: RepoSFLSectionProps) {
-  const handleToggle = () => {
-    onToggleSFLGroup(org, repoName)
-  }
-  if (!sflStatus?.isSFLEnabled) {
-    return isLoading ? (
-      <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
-        <span className="sidebar-item-chevron">
-          <Loader2 size={12} className="spin" />
-        </span>
-        <span className="sidebar-item-icon">
-          <Activity size={12} />
-        </span>
-        <span className="sidebar-item-label">SFL Loop</span>
-      </div>
-    ) : null
-  }
-
-  return (
-    <>
-      <div className="sidebar-item sidebar-item-disclosure sidebar-repo-child">
-        <button
-          type="button"
-          className="sidebar-item-chevron"
-          onClick={event => {
-            event.stopPropagation()
-            onToggleSFLGroup(org, repoName)
-          }}
-          onKeyDown={event => {
-            handleItemKeyDown(event, handleToggle, true)
-          }}
-        >
-          <DisclosureChevron expanded={isExpanded} />
-        </button>
-        <button
-          type="button"
-          className="sidebar-item-main"
-          onClick={handleToggle}
-          onKeyDown={event => {
-            handleItemKeyDown(event, handleToggle)
-          }}
-        >
-          <span className="sidebar-item-icon">
-            <Activity size={12} />
-          </span>
-          <span className="sidebar-item-label">SFL Loop</span>
-          {/* v8 ignore start */}
-          <SFLStatusBadge isLoading={isLoading} overallStatus={sflStatus.overallStatus} />
-          {/* v8 ignore stop */}
-        </button>
-      </div>
-      {isExpanded && (
-        <div className="sidebar-job-tree sidebar-sfl-tree">
-          <div className="sidebar-job-items">
-            <div className="sidebar-item sidebar-job-item sidebar-sfl-summary">
-              {sflOverallStatusIcon(sflStatus.overallStatus)}
-              <span className="sidebar-item-label">
-                {SFL_STATUS_LABELS[sflStatus.overallStatus]}
-              </span>
-              <span className="sidebar-item-count">{sflStatus.workflows.length}</span>
-            </div>
-            {sflStatus.workflows.map(wf => (
-              <SFLWorkflowItem key={wf.id} wf={wf} />
-            ))}
-          </div>
-        </div>
-      )}
-    </>
-  )
-}
-
 const RALPH_STATUS_ICON: Record<RalphRunStatus, typeof Clock> = {
   pending: Clock,
   running: Loader2,
@@ -1477,9 +1332,6 @@ export function RepoNode({
   loadingRepoCommits,
   loadingRepoPRs,
   loadingRepoIssues,
-  sflStatusData,
-  loadingSFLStatus,
-  expandedSFLGroups,
   ralphRuns,
   expandedRalphGroups,
   selectedItem,
@@ -1490,7 +1342,6 @@ export function RepoNode({
   onToggleRepoPRGroup,
   onToggleRepoPRStateGroup,
   onToggleRepoCommitGroup,
-  onToggleSFLGroup,
   onToggleRalphGroup,
   onTogglePRNode,
   onItemSelect,
@@ -1570,14 +1421,6 @@ export function RepoNode({
             onToggleRepoPRStateGroup={onToggleRepoPRStateGroup}
             onTogglePRNode={onTogglePRNode}
             onContextMenu={onContextMenu}
-          />
-          <RepoSFLSection
-            org={org}
-            repoName={repo.name}
-            sflStatus={sflStatusData[repoKey]}
-            isLoading={loadingSFLStatus.has(repoKey)}
-            isExpanded={expandedSFLGroups.has(repoKey)}
-            onToggleSFLGroup={onToggleSFLGroup}
           />
           <RepoRalphSection
             org={org}

@@ -170,9 +170,6 @@ function createMockSidebarData() {
     loadingRepoCommits: new Set<string>(),
     loadingRepoPRs: new Set<string>(),
     loadingRepoIssues: new Set<string>(),
-    sflStatusData: {},
-    loadingSFLStatus: new Set<string>(),
-    expandedSFLGroups: new Set<string>(),
     expandedRalphGroups: new Set<string>(),
     showBookmarkedOnly: false,
     setShowBookmarkedOnly: vi.fn((updater: boolean | ((prev: boolean) => boolean)) => {
@@ -191,7 +188,6 @@ function createMockSidebarData() {
     toggleRepoPRGroup: vi.fn(),
     toggleRepoPRStateGroup: vi.fn(),
     toggleRepoCommitGroup: vi.fn(),
-    toggleSFLGroup: vi.fn(),
     toggleRalphGroup: vi.fn(),
     togglePRGroup: vi.fn(),
     togglePRNode: vi.fn(),

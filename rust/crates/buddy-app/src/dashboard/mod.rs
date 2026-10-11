@@ -49,6 +49,15 @@ pub enum DashboardEvent {
     Navigate(Section),
 }
 
+/// Card expansion saved by an earlier run (`native.expandedCards`); cards
+/// without an entry start expanded.
+fn initial_expansion(saved: &BTreeMap<String, bool>) -> HashMap<CardId, bool> {
+    DASHBOARD_CARDS
+        .into_iter()
+        .filter_map(|card| saved.get(card.key()).map(|&expanded| (card, expanded)))
+        .collect()
+}
+
 /// Persisted per-card interval when it is one of the offered options,
 /// else the card's default (an unsupported value would be scheduled but
 /// labelled "Off").
@@ -217,13 +226,15 @@ impl DashboardView {
             }),
         ];
 
-        let intervals = Settings::global(cx).config.native.auto_refresh.clone();
+        let config = &Settings::global(cx).config;
+        let intervals = config.native.auto_refresh.clone();
+        let expanded = initial_expansion(&config.native.expanded_cards);
         let mut this = Self {
             layout: GridLayout::for_viewport(1280.0),
             http: http::client(),
             weather_search,
             finance_add,
-            expanded: HashMap::new(),
+            expanded,
             pollen_detail_open: false,
             session_start: Instant::now(),
             stats: None,
@@ -728,9 +739,14 @@ impl DashboardView {
         self.expanded.get(&card).copied().unwrap_or(true)
     }
 
+    /// Flip a card open or closed and remember it for the next launch. A
+    /// failed save (logged) still flips the card for this session.
     pub fn toggle_expanded(&mut self, card: CardId, cx: &mut Context<Self>) {
         let next = !self.is_expanded(card);
         self.expanded.insert(card, next);
+        Settings::update(cx, |config| {
+            config.set_dashboard_card_expanded(card.key(), next)
+        });
         cx.notify();
     }
 
@@ -1293,6 +1309,20 @@ mod tests {
     /// The default 1280px window at `percent` zoom.
     fn at(percent: f32) -> GridLayout {
         GridLayout::for_viewport(1280.0 * 100.0 / percent)
+    }
+
+    #[test]
+    fn saved_card_expansion_is_restored() {
+        let saved = BTreeMap::from([
+            ("weather".to_string(), false),
+            ("finance".to_string(), true),
+            ("retired-card".to_string(), false),
+        ]);
+        let expanded = initial_expansion(&saved);
+        assert_eq!(expanded.get(&CardId::Weather), Some(&false));
+        assert_eq!(expanded.get(&CardId::Finance), Some(&true));
+        assert_eq!(expanded.get(&CardId::CommandCenter), None);
+        assert_eq!(expanded.len(), 2);
     }
 
     #[test]

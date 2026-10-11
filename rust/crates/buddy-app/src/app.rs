@@ -9,7 +9,9 @@ use gpui_kit::{
 
 use crate::dashboard::{DashboardEvent, DashboardView};
 use crate::runtime::Runtime;
+use crate::settings::Settings;
 use crate::shell::{activity_bar, status_bar, tab_bar, title_bar};
+use crate::window_persistence::{Placement, SAVE_DELAY, WindowPersistence};
 use crate::zoom::{self, zpx};
 
 gpui_kit::actions!(
@@ -42,6 +44,25 @@ pub enum Section {
 }
 
 impl Section {
+    pub const ALL: [Section; 11] = [
+        Section::GitHub,
+        Section::Terminal,
+        Section::Tasks,
+        Section::Insights,
+        Section::Automation,
+        Section::Ralph,
+        Section::Crew,
+        Section::Tempo,
+        Section::Bookmarks,
+        Section::Copilot,
+        Section::Settings,
+    ];
+
+    /// The section with this `id`, if it is still one of ours.
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|section| section.id() == id)
+    }
+
     pub fn id(self) -> &'static str {
         match self {
             Section::GitHub => "github",
@@ -81,12 +102,22 @@ pub struct BuddyApp {
     /// The account the `gh` CLI is currently using, once resolved.
     pub active_account: Option<String>,
     dashboard: Entity<DashboardView>,
+    window_state: WindowPersistence,
 }
 
 impl BuddyApp {
-    /// Show a section (`None` is the dashboard); the dashboard pauses its
-    /// refreshes while hidden.
+    /// Show a section (`None` is the dashboard) and remember it for the next
+    /// launch; the dashboard pauses its refreshes while hidden.
     pub fn set_section(&mut self, section: Option<Section>, cx: &mut Context<Self>) {
+        if self.active_section != section {
+            Settings::update(cx, |config| {
+                config.native.active_section = section.map(|section| section.id().to_string())
+            });
+        }
+        self.show_section(section, cx);
+    }
+
+    fn show_section(&mut self, section: Option<Section>, cx: &mut Context<Self>) {
         self.active_section = section;
         self.dashboard.update(cx, |dashboard, cx| {
             dashboard.set_active(section.is_none(), cx)
@@ -94,11 +125,56 @@ impl BuddyApp {
         cx.notify();
     }
 
+    /// The window's placement, or `None` while it is minimized: Windows then
+    /// reports the restore rectangle as windowed, which would forget that
+    /// the window was maximized.
+    fn window_placement(window: &Window, cx: &App) -> Option<Placement> {
+        window.is_visible().then(|| Placement {
+            bounds: window.window_bounds(),
+            is_maximized: window.is_maximized(),
+            display: window.display(cx).map(|display| display.bounds()),
+        })
+    }
+
+    /// Save a move or resize once the window has stayed put for
+    /// [`SAVE_DELAY`], so the placement survives the process being killed.
+    fn window_bounds_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(generation) = Self::window_placement(window, cx)
+            .and_then(|placement| self.window_state.record(placement))
+        else {
+            return;
+        };
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SAVE_DELAY).await;
+            this.update(cx, |this, _| this.window_state.save_if_current(generation))
+                .ok();
+        })
+        .detach();
+    }
+
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let dashboard = cx.new(|cx| DashboardView::new(window, cx));
         cx.subscribe(&dashboard, |this, _, event, cx| {
             let DashboardEvent::Navigate(section) = event;
             this.set_section(Some(*section), cx);
+        })
+        .detach();
+
+        cx.observe_window_bounds(window, |this, window, cx| {
+            this.window_bounds_changed(window, cx)
+        })
+        .detach();
+        // Quitting (title-bar close, File → Exit, Ctrl+Q) writes the final
+        // placement at once; quit handlers run while the window still exists.
+        let handle = window.window_handle();
+        cx.on_app_quit(move |this, cx| {
+            if let Ok(Some(placement)) =
+                handle.update(cx, |_, window, cx| Self::window_placement(window, cx))
+            {
+                this.window_state.record(placement);
+            }
+            this.window_state.flush();
+            std::future::ready(())
         })
         .detach();
 
@@ -138,11 +214,18 @@ impl BuddyApp {
         })
         .detach();
 
-        Self {
+        let mut this = Self {
             active_section: None,
             active_account: None,
             dashboard,
+            window_state: WindowPersistence::new(),
+        };
+        let saved = Settings::global(cx).config.native.active_section.clone();
+        let section = saved.as_deref().and_then(Section::from_id);
+        if section.is_some() {
+            this.show_section(section, cx);
         }
+        this
     }
 
     fn render_content(&self, cx: &App) -> impl IntoElement + use<> {
@@ -191,5 +274,19 @@ impl Render for BuddyApp {
             )
             .child(status_bar::render(self, cx))
             .child(zoom::wheel_listener())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_section_id_maps_back_to_its_section() {
+        for section in Section::ALL {
+            assert_eq!(Section::from_id(section.id()), Some(section));
+        }
+        assert_eq!(Section::from_id("dashboard"), None);
+        assert_eq!(Section::from_id("retired-section"), None);
     }
 }

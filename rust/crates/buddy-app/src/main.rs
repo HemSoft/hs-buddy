@@ -11,6 +11,7 @@ mod settings;
 mod shell;
 mod theme;
 mod window_geometry;
+mod window_persistence;
 mod zoom;
 
 use buddy_core::config::{AppConfig, WindowState};
@@ -27,8 +28,9 @@ use crate::settings::Settings;
 use crate::window_geometry::{DisplayArea, resolve_window_bounds};
 use gpui_kit::component::WindowExt as _;
 
-/// Reuse the geometry Electron saved in `window-state.json` when it still
-/// lands on a connected display; otherwise center a default-sized window.
+/// Reuse the geometry saved in `window-state.json` (by this app or Electron)
+/// when it still lands on a connected display; otherwise center a
+/// default-sized window.
 fn initial_window_bounds(cx: &App) -> WindowBounds {
     let area = |display: &std::rc::Rc<dyn gpui_kit::PlatformDisplay>| DisplayArea {
         bounds: display.bounds(),

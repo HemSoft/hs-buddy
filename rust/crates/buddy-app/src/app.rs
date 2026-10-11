@@ -2,7 +2,6 @@
 
 use std::time::Duration;
 
-use buddy_core::config::WindowState;
 use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::{
     App, AppContext as _, Context, Entity, IntoElement, ParentElement, Render, Styled, Window, div,
@@ -12,7 +11,7 @@ use crate::dashboard::{DashboardEvent, DashboardView};
 use crate::runtime::Runtime;
 use crate::settings::Settings;
 use crate::shell::{activity_bar, status_bar, tab_bar, title_bar};
-use crate::window_persistence::{self, SAVE_DELAY, WindowPersistence};
+use crate::window_persistence::{Placement, SAVE_DELAY, WindowPersistence};
 use crate::zoom::{self, zpx};
 
 gpui_kit::actions!(
@@ -129,20 +128,19 @@ impl BuddyApp {
     /// The window's placement, or `None` while it is minimized: Windows then
     /// reports the restore rectangle as windowed, which would forget that
     /// the window was maximized.
-    fn window_placement(window: &Window, cx: &App) -> Option<WindowState> {
-        window.is_visible().then(|| {
-            window_persistence::capture(
-                window.window_bounds(),
-                window.display(cx).map(|display| display.bounds()),
-            )
+    fn window_placement(window: &Window, cx: &App) -> Option<Placement> {
+        window.is_visible().then(|| Placement {
+            bounds: window.window_bounds(),
+            is_maximized: window.is_maximized(),
+            display: window.display(cx).map(|display| display.bounds()),
         })
     }
 
     /// Save a move or resize once the window has stayed put for
     /// [`SAVE_DELAY`], so the placement survives the process being killed.
     fn window_bounds_changed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(generation) =
-            Self::window_placement(window, cx).and_then(|state| self.window_state.record(state))
+        let Some(generation) = Self::window_placement(window, cx)
+            .and_then(|placement| self.window_state.record(placement))
         else {
             return;
         };
@@ -170,10 +168,10 @@ impl BuddyApp {
         // placement at once; quit handlers run while the window still exists.
         let handle = window.window_handle();
         cx.on_app_quit(move |this, cx| {
-            if let Ok(Some(state)) =
+            if let Ok(Some(placement)) =
                 handle.update(cx, |_, window, cx| Self::window_placement(window, cx))
             {
-                this.window_state.record(state);
+                this.window_state.record(placement);
             }
             this.window_state.flush();
             std::future::ready(())
